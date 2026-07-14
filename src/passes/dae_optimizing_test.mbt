@@ -15869,6 +15869,7 @@ test "dae-optimizing keeps a forwarding-component parameter with one semantic us
   let source =
     #|(module
     #|  (import "env" "effect" (func $effect (result i32)))
+    #|  (import "env" "use_i32" (func $use_i32 (param i32)))
     #|  (func $a (param i32 i32)
     #|    local.get 0
     #|    call $b)
@@ -15878,7 +15879,7 @@ test "dae-optimizing keeps a forwarding-component parameter with one semantic us
     #|    call $a)
     #|  (func $bridge (param i32)
     #|    local.get 0
-    #|    drop
+    #|    call $use_i32
     #|    local.get 0
     #|    i32.const 9
     #|    call $a)
@@ -15994,10 +15995,13 @@ test "dae-optimizing rejects a non-exact forwarding-only operand slice" {
 test "dae-optimizing removes a constant-anchored forwarded-parameter cycle transactionally" {
   let source =
     #|(module
+    #|  (import "env" "use_i32" (func $use_i32 (param i32)))
     #|  (func $entry (export "run") (result i32)
     #|    i32.const 7
     #|    call $a)
     #|  (func $a (param i32) (result i32)
+    #|    local.get 0
+    #|    call $use_i32
     #|    local.get 0
     #|    i32.const 9
     #|    call $b)
@@ -16066,7 +16070,7 @@ test "dae-optimizing rejects a written forwarded-parameter cycle transaction" {
 }
 
 ///|
-test "dae-optimizing precomputes only exact unanchored forwarding-cycle members" {
+test "dae-optimizing removes an exact unanchored forwarding-only cycle" {
   let source =
     #|(module
     #|  (func $a (param i32) (result i32)
@@ -16079,8 +16083,8 @@ test "dae-optimizing precomputes only exact unanchored forwarding-cycle members"
     #|  (func (export "run") (result i32)
     #|    i32.const 3))
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
-  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
   assert_true(
     trace.any(fn(line) {
       line.contains(
@@ -16089,9 +16093,11 @@ test "dae-optimizing precomputes only exact unanchored forwarding-cycle members"
     }),
     msg=trace.to_string(),
   )
-  assert_false(
+  assert_true(
     trace.any(fn(line) {
-      line.contains("pass[dae-optimizing]:forwarded-param-scc-transaction")
+      line.contains(
+        "pass[dae-optimizing]:forwarded-param-component-transaction defs=[0, 1] params=2",
+      )
     }),
     msg=trace.to_string(),
   )

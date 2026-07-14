@@ -61972,6 +61972,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       }
       None => ()
     }
+    match
+      dae_run_forwarded_param_component_transaction(
+        core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
+      ) {
+      Some(application) => {
+        core_mod = application.mod_out
+        core_touched = application.touched
+        forwarded_scc_seeds = application.touched.copy()
+        (options.trace)(
+          "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
+        )
+      }
+      None => ()
+    }
   }
   match dae_run_forwarded_param_scc_transaction(core_mod, forwarded_scc_seeds) {
     Some(application) => {

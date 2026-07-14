@@ -2433,7 +2433,10 @@ fn dae_instr_stack_effect(
     | @lib.I64Load16S(_)
     | @lib.I64Load16U(_)
     | @lib.I64Load32S(_)
-    | @lib.I64Load32U(_) => Some((1, 1))
+    | @lib.I64Load32U(_)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _) => Some((1, 1))
     @lib.I32Eq
     | @lib.I32Ne
     | @lib.I32LtS
@@ -2509,7 +2512,10 @@ fn dae_instr_stack_effect(
     | @lib.F64Div
     | @lib.F64Min
     | @lib.F64Max
-    | @lib.F64Copysign => Some((2, 1))
+    | @lib.F64Copysign
+    | @lib.ArrayGet(_)
+    | @lib.ArrayGetS(_)
+    | @lib.ArrayGetU(_) => Some((2, 1))
     @lib.Call(func_idx) | @lib.ReturnCall(func_idx) => {
       let slot = dae_func_idx_slot(func_idx)
       match dae_resolve_func_type(mod_, func_type_indices, slot) {
@@ -28951,6 +28957,780 @@ fn dae_collect_forwarded_param_cycle_defs(
     seed_def += 1
   }
   []
+}
+
+///|
+fn dae_forwarded_param_direct_call_target_after_get(
+  instrs : Array[@lib.Instruction],
+  get_idx : Int,
+  current : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+) -> DaeForwardedParamNode? {
+  if get_idx < 0 || get_idx >= instrs.length() {
+    return None
+  }
+  let mut values_above = 0
+  let mut idx = get_idx + 1
+  let limit = if get_idx + 129 < instrs.length() {
+    get_idx + 129
+  } else {
+    instrs.length()
+  }
+  while idx < limit {
+    match instrs[idx] {
+      @lib.Call(func_idx) => {
+        let callee_abs = dae_func_idx_slot(func_idx)
+        let params = match
+          dae_resolve_func_type(current, type_indices, callee_abs) {
+          Some(@lib.FuncType(params, _)) => params
+          None => return None
+        }
+        if values_above < params.length() {
+          return Some({
+            callee_abs,
+            param_idx: params.length() - 1 - values_above,
+          })
+        }
+      }
+      @lib.ReturnCall(_) => return None
+      _ => ()
+    }
+    match dae_instr_stack_effect(instrs[idx], current, type_indices) {
+      Some((pop_count, push_count)) => {
+        if pop_count > values_above {
+          return None
+        }
+        values_above = values_above - pop_count + push_count
+      }
+      None => return None
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn dae_collect_forwarded_param_component_uses_instrs(
+  instrs : Array[@lib.Instruction],
+  entry_stack_values : Int,
+  current : @lib.Module,
+  caller_param_count : Int,
+  source_param_idx : Int,
+  type_indices : Array[@lib.TypeIdx],
+  targets : Array[DaeForwardedParamNode],
+  covered_gets : Array[Int],
+) -> Bool {
+  let source_local = @lib.LocalIdx::new(source_param_idx.reinterpret_as_uint())
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) if dae_local_idx_equal(local_idx, source_local) =>
+        match
+          dae_forwarded_param_direct_call_target_after_get(
+            instrs, idx, current, type_indices,
+          ) {
+          Some(target) => {
+            covered_gets[0] += 1
+            targets.push(target)
+          }
+          None => ()
+        }
+      @lib.Block(_, @lib.Expr(_))
+      | @lib.Loop(_, @lib.Expr(_))
+      | @lib.TryTable(_, _, @lib.Expr(_))
+      | @lib.If(_, _, _) => {
+        let children = match
+          dae_nested_control_children_evidence(instrs[idx], current) {
+          Some(children) => children
+          None => return false
+        }
+        if !dae_collect_forwarded_param_component_uses_instrs(
+            children.primary_body,
+            children.entry_stack_values,
+            current,
+            caller_param_count,
+            source_param_idx,
+            type_indices,
+            targets,
+            covered_gets,
+          ) {
+          return false
+        }
+        match children.secondary_body {
+          Some(body) =>
+            if !dae_collect_forwarded_param_component_uses_instrs(
+                body,
+                children.entry_stack_values,
+                current,
+                caller_param_count,
+                source_param_idx,
+                type_indices,
+                targets,
+                covered_gets,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  entry_stack_values >= 0 && caller_param_count >= 0
+}
+
+///|
+fn dae_collect_forwarded_param_component_node(
+  current : @lib.Module,
+  callee_abs : Int,
+  param_idx : Int,
+  type_indices : Array[@lib.TypeIdx],
+  boundary_facts : DaeCallBoundaryFacts,
+  nodes : Array[DaeForwardedParamNode],
+  states : Array[Int],
+  flags : Array[Bool],
+) -> Bool {
+  let existing_idx = dae_forwarded_param_node_index(
+    nodes, callee_abs, param_idx,
+  )
+  if existing_idx >= 0 {
+    if states[existing_idx] == 1 {
+      flags[0] = true
+    }
+    return states[existing_idx] != 0
+  }
+  if nodes.length() >= 64 {
+    return false
+  }
+  let imported = dae_imported_func_count(current)
+  let def_idx = callee_abs - imported
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if def_idx < 0 ||
+    def_idx >= funcs.length() ||
+    !dae_call_boundary_allows_forwarding(boundary_facts, callee_abs) ||
+    callee_abs >= boundary_facts.direct_calls.length() ||
+    boundary_facts.direct_calls[callee_abs] <= 0 {
+    return false
+  }
+  let params = match dae_resolve_func_type(current, type_indices, callee_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return false
+  }
+  if param_idx < 0 || param_idx >= params.length() {
+    return false
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if !dae_local_indices_fit_instrs(body, params.length() + locals.length()) {
+    return false
+  }
+  let target_local = @lib.LocalIdx::new(param_idx.reinterpret_as_uint())
+  let usage = dae_local_usage_evidence(body, target_local)
+  if usage.write_count != 0 {
+    return false
+  }
+  let node_idx = nodes.length()
+  nodes.push({ callee_abs, param_idx })
+  states.push(1)
+  if usage.get_count == 0 {
+    if flags.length() > 1 {
+      flags[1] = true
+    }
+    states[node_idx] = 2
+    return true
+  }
+  let targets : Array[DaeForwardedParamNode] = []
+  let covered_gets = [0]
+  let scanned = dae_collect_forwarded_param_component_uses_instrs(
+    body,
+    0,
+    current,
+    params.length(),
+    param_idx,
+    type_indices,
+    targets,
+    covered_gets,
+  )
+  if !scanned || covered_gets[0] != usage.get_count || targets.length() == 0 {
+    states[node_idx] = 0
+    return false
+  }
+  for target in targets {
+    if !dae_collect_forwarded_param_component_node(
+        current,
+        target.callee_abs,
+        target.param_idx,
+        type_indices,
+        boundary_facts,
+        nodes,
+        states,
+        flags,
+      ) {
+      states[node_idx] = 0
+      return false
+    }
+  }
+  states[node_idx] = 2
+  true
+}
+
+///|
+fn dae_collect_forwarded_param_component_sources_instrs(
+  instrs : Array[@lib.Instruction],
+  entry_stack_values : Int,
+  current : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+  param_idx : Int,
+  caller_abs : Int,
+  caller_param_count : Int,
+  type_indices : Array[@lib.TypeIdx],
+  sources : Array[DaeForwardedParamNode],
+  seen_calls : Array[Int],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match
+      dae_target_callsite_evidence(
+        instrs[idx],
+        callee_abs,
+        DaeTargetDirectCallOnly,
+      ) {
+      Some(_) => {
+        let actual = match
+          dae_callsite_value_slice_evidence(
+            instrs, idx, param_count, entry_stack_values, current, type_indices,
+          ) {
+          Some(evidence) =>
+            match
+              dae_callsite_single_instruction_actual(
+                evidence, param_idx, instrs,
+              ) {
+              Some(actual) => Some(actual.instr)
+              None => None
+            }
+          None => None
+        }
+        let actual = match actual {
+          Some(actual) => actual
+          None =>
+            match
+              dae_forwarded_param_suffix_single_instruction_actual(
+                instrs, idx, param_count, param_idx, current, type_indices,
+              ) {
+              Some(actual) => actual
+              None => return false
+            }
+        }
+        seen_calls[0] += 1
+        match actual {
+          @lib.LocalGet(local_idx) => {
+            let local_slot = dae_local_idx_slot(local_idx)
+            if local_slot >= 0 && local_slot < caller_param_count {
+              sources.push({ callee_abs: caller_abs, param_idx: local_slot })
+            }
+          }
+          _ => ()
+        }
+      }
+      None =>
+        match instrs[idx] {
+          @lib.Block(_, @lib.Expr(_))
+          | @lib.Loop(_, @lib.Expr(_))
+          | @lib.TryTable(_, _, @lib.Expr(_))
+          | @lib.If(_, _, _) => {
+            let children = match
+              dae_nested_control_children_evidence(instrs[idx], current) {
+              Some(children) => children
+              None => return false
+            }
+            if !dae_collect_forwarded_param_component_sources_instrs(
+                children.primary_body,
+                children.entry_stack_values,
+                current,
+                callee_abs,
+                param_count,
+                param_idx,
+                caller_abs,
+                caller_param_count,
+                type_indices,
+                sources,
+                seen_calls,
+              ) {
+              return false
+            }
+            match children.secondary_body {
+              Some(body) =>
+                if !dae_collect_forwarded_param_component_sources_instrs(
+                    body,
+                    children.entry_stack_values,
+                    current,
+                    callee_abs,
+                    param_count,
+                    param_idx,
+                    caller_abs,
+                    caller_param_count,
+                    type_indices,
+                    sources,
+                    seen_calls,
+                  ) {
+                  return false
+                }
+              None => ()
+            }
+          }
+          _ => ()
+        }
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_collect_forwarded_param_component_sources(
+  current : @lib.Module,
+  node : DaeForwardedParamNode,
+  type_indices : Array[@lib.TypeIdx],
+  boundary_facts : DaeCallBoundaryFacts,
+) -> Array[DaeForwardedParamNode] {
+  let sources : Array[DaeForwardedParamNode] = []
+  let imported = dae_imported_func_count(current)
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return sources
+  }
+  let params = match
+    dae_resolve_func_type(current, type_indices, node.callee_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return sources
+  }
+  let seen_calls = [0]
+  for
+    caller_def in dae_call_boundary_direct_callers(
+      boundary_facts,
+      node.callee_abs,
+    ) {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      return []
+    }
+    let caller_abs = imported + caller_def
+    let caller_params = match
+      dae_resolve_func_type(current, type_indices, caller_abs) {
+      Some(@lib.FuncType(caller_params, _)) => caller_params
+      None => return []
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    if !dae_collect_forwarded_param_component_sources_instrs(
+        body,
+        0,
+        current,
+        node.callee_abs,
+        params.length(),
+        node.param_idx,
+        caller_abs,
+        caller_params.length(),
+        type_indices,
+        sources,
+        seen_calls,
+      ) {
+      return []
+    }
+  }
+  if node.callee_abs >= boundary_facts.direct_calls.length() ||
+    seen_calls[0] != boundary_facts.direct_calls[node.callee_abs] {
+    return []
+  }
+  sources
+}
+
+///|
+fn dae_forwarded_param_node_calls_rewritable(
+  current : @lib.Module,
+  node : DaeForwardedParamNode,
+  type_indices : Array[@lib.TypeIdx],
+  boundary_facts : DaeCallBoundaryFacts,
+) -> Bool {
+  let imported = dae_imported_func_count(current)
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  let def_idx = node.callee_abs - imported
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return false
+  }
+  let params = match
+    dae_resolve_func_type(current, type_indices, node.callee_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return false
+  }
+  if node.param_idx < 0 || node.param_idx >= params.length() {
+    return false
+  }
+  let remove = Array::make(params.length(), false)
+  remove[node.param_idx] = true
+  let localized = Array::make(params.length(), false)
+  let mut rewritten_calls = 0
+  for
+    caller_def in dae_call_boundary_direct_callers(
+      boundary_facts,
+      node.callee_abs,
+    ) {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      return false
+    }
+    let caller_abs = imported + caller_def
+    let caller_params = match
+      dae_resolve_func_type(current, type_indices, caller_abs) {
+      Some(@lib.FuncType(caller_params, _)) => caller_params
+      None => return false
+    }
+    let @lib.Func(caller_locals, @lib.Expr(caller_body)) = funcs[caller_def]
+    let localization = {
+      first_scratch_local: dae_next_free_local_idx(
+        caller_body,
+        caller_params.length() + caller_locals.length(),
+      ),
+      param_types: params,
+      scratch_local_types: [],
+      localized_params: localized,
+    }
+    let rewrite = dae_rewrite_calls_instrs(
+      caller_body,
+      node.callee_abs,
+      remove,
+      0,
+      current,
+      type_indices,
+      localization=Some(localization),
+    )
+    if !rewrite.ok {
+      return false
+    }
+    rewritten_calls += rewrite.calls_rewritten
+  }
+  node.callee_abs < boundary_facts.direct_calls.length() &&
+  rewritten_calls == boundary_facts.direct_calls[node.callee_abs]
+}
+
+///|
+fn dae_collect_forwarded_param_component(
+  current : @lib.Module,
+  cycle_defs : Array[Int],
+  type_indices : Array[@lib.TypeIdx],
+  boundary_facts : DaeCallBoundaryFacts,
+) -> Array[DaeForwardedParamNode] {
+  let imported = dae_imported_func_count(current)
+  let defined = dae_defined_func_count(current)
+  let mut seed_slot = 0
+  while seed_slot < cycle_defs.length() {
+    let seed_def = cycle_defs[seed_slot]
+    if seed_def < 0 || seed_def >= defined {
+      seed_slot += 1
+      continue
+    }
+    let seed_abs = imported + seed_def
+    let params = match dae_resolve_func_type(current, type_indices, seed_abs) {
+      Some(@lib.FuncType(params, _)) => params
+      None => {
+        seed_slot += 1
+        continue
+      }
+    }
+    let mut seed_param = 0
+    while seed_param < params.length() {
+      let nodes : Array[DaeForwardedParamNode] = []
+      let states : Array[Int] = []
+      let flags = [false, false]
+      let collected = dae_collect_forwarded_param_component_node(
+        current, seed_abs, seed_param, type_indices, boundary_facts, nodes, states,
+        flags,
+      )
+      let component_defs : Array[Int] = []
+      if collected && (flags[0] || flags[1]) {
+        for node in nodes {
+          let def_idx = node.callee_abs - imported
+          if def_idx >= 0 &&
+            def_idx < defined &&
+            !component_defs.contains(def_idx) {
+            component_defs.push(def_idx)
+          }
+        }
+      }
+      let mut cycle_member_defs = 0
+      for def_idx in cycle_defs {
+        if component_defs.contains(def_idx) {
+          cycle_member_defs += 1
+        }
+      }
+      if collected && (flags[0] || flags[1]) && cycle_member_defs >= 2 {
+        let mut round = 0
+        let mut changed = true
+        while changed && round < 8 && nodes.length() < 64 {
+          changed = false
+          let frontier = nodes.copy()
+          for target in frontier {
+            let sources = dae_collect_forwarded_param_component_sources(
+              current, target, type_indices, boundary_facts,
+            )
+            for source in sources {
+              if dae_forwarded_param_node_index(
+                  nodes,
+                  source.callee_abs,
+                  source.param_idx,
+                ) >=
+                0 ||
+                !dae_forwarded_param_node_calls_rewritable(
+                  current, source, type_indices, boundary_facts,
+                ) {
+                continue
+              }
+              let trial_nodes = nodes.copy()
+              let trial_states = Array::make(trial_nodes.length(), 2)
+              let trial_flags = [true, true]
+              if dae_collect_forwarded_param_component_node(
+                  current,
+                  source.callee_abs,
+                  source.param_idx,
+                  type_indices,
+                  boundary_facts,
+                  trial_nodes,
+                  trial_states,
+                  trial_flags,
+                ) {
+                nodes.clear()
+                nodes.append(trial_nodes)
+                states.clear()
+                states.append(trial_states)
+                changed = true
+              }
+            }
+          }
+          round += 1
+        }
+        return nodes
+      }
+      seed_param += 1
+    }
+    seed_slot += 1
+  }
+  []
+}
+
+///|
+fn dae_apply_forwarded_param_component_transaction(
+  current : @lib.Module,
+  touched : Array[Bool],
+  nodes : Array[DaeForwardedParamNode],
+  boundary_facts : DaeCallBoundaryFacts,
+) -> DaeForwardedParamSccApplication? {
+  if nodes.length() < 2 {
+    return None
+  }
+  let imported = dae_imported_func_count(current)
+  let (original_type_idxs, funcs, original_type_sec) = match
+    (current.func_sec, current.code_sec, current.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
+      (type_idxs, funcs, type_sec)
+    _ => return None
+  }
+  let type_indices = dae_collect_func_type_indices(current)
+  let defs : Array[Int] = []
+  let removes : Array[Array[Bool]] = []
+  let localized_by_def : Array[Array[Bool]] = []
+  for node in nodes {
+    let def_idx = node.callee_abs - imported
+    if def_idx < 0 || def_idx >= funcs.length() {
+      return None
+    }
+    let mut def_slot = -1
+    let mut existing_slot = 0
+    while existing_slot < defs.length() {
+      if defs[existing_slot] == def_idx {
+        def_slot = existing_slot
+        break
+      }
+      existing_slot += 1
+    }
+    if def_slot < 0 {
+      let params = match
+        dae_resolve_func_type(current, type_indices, node.callee_abs) {
+        Some(@lib.FuncType(params, _)) => params
+        None => return None
+      }
+      def_slot = defs.length()
+      defs.push(def_idx)
+      removes.push(Array::make(params.length(), false))
+      localized_by_def.push(Array::make(params.length(), false))
+    }
+    if node.param_idx < 0 || node.param_idx >= removes[def_slot].length() {
+      return None
+    }
+    removes[def_slot][node.param_idx] = true
+  }
+  let rewritten_funcs = funcs.copy()
+  let touched_out = if touched.length() == funcs.length() {
+    touched.copy()
+  } else {
+    Array::make(funcs.length(), false)
+  }
+  let mut def_slot = 0
+  while def_slot < defs.length() {
+    let def_idx = defs[def_slot]
+    let callee_abs = imported + def_idx
+    let remove = removes[def_slot]
+    let params = match
+      dae_resolve_func_type(current, type_indices, callee_abs) {
+      Some(@lib.FuncType(params, _)) => params
+      None => return None
+    }
+    let mut rewritten_calls = 0
+    for
+      caller_def in dae_call_boundary_direct_callers(boundary_facts, callee_abs) {
+      if caller_def < 0 || caller_def >= rewritten_funcs.length() {
+        return None
+      }
+      let caller_abs = imported + caller_def
+      let caller_params = match
+        dae_resolve_func_type(current, type_indices, caller_abs) {
+        Some(@lib.FuncType(caller_params, _)) => caller_params
+        None => return None
+      }
+      let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
+      let localization = {
+        first_scratch_local: dae_next_free_local_idx(
+          caller_body,
+          caller_params.length() + caller_locals.length(),
+        ),
+        param_types: params,
+        scratch_local_types: [],
+        localized_params: localized_by_def[def_slot],
+      }
+      let rewrite = dae_rewrite_calls_instrs(
+        caller_body,
+        callee_abs,
+        remove,
+        0,
+        current,
+        type_indices,
+        localization=Some(localization),
+      )
+      if !rewrite.ok {
+        return None
+      }
+      rewritten_calls += rewrite.calls_rewritten
+      if rewrite.calls_rewritten > 0 {
+        let next_locals = caller_locals.copy()
+        next_locals.append_types(localization.scratch_local_types)
+        rewritten_funcs[caller_def] = @lib.Func::new(
+          next_locals,
+          @lib.Expr::new(rewrite.instrs),
+        )
+        touched_out[caller_def] = true
+      }
+    }
+    if callee_abs >= boundary_facts.direct_calls.length() ||
+      rewritten_calls != boundary_facts.direct_calls[callee_abs] {
+      return None
+    }
+    def_slot += 1
+  }
+  let type_idxs = original_type_idxs.copy()
+  let mut type_sec = original_type_sec
+  def_slot = 0
+  while def_slot < defs.length() {
+    let def_idx = defs[def_slot]
+    let callee_abs = imported + def_idx
+    let (params, results) = match
+      dae_resolve_func_type(current, type_indices, callee_abs) {
+      Some(@lib.FuncType(params, results)) => (params, results)
+      None => return None
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[def_idx]
+    let remove = removes[def_slot]
+    let mut param_idx = 0
+    while param_idx < remove.length() {
+      if remove[param_idx] {
+        let usage = dae_local_usage_evidence(
+          body,
+          @lib.LocalIdx::new(param_idx.reinterpret_as_uint()),
+        )
+        if usage.get_count != 0 || usage.write_count != 0 {
+          return None
+        }
+      }
+      param_idx += 1
+    }
+    let local_use = dae_local_use_for_callee(
+      rewritten_funcs[def_idx],
+      params.length() + locals.length(),
+      callee_abs,
+      params.length(),
+    )
+    let rewrite = match
+      dae_removed_param_callee_rewrite_evidence(
+        rewritten_funcs[def_idx],
+        params,
+        remove,
+        Array::make(params.length(), None),
+        local_use,
+        Array::make(params.length(), false),
+      ) {
+      Some(rewrite) => rewrite
+      None => return None
+    }
+    rewritten_funcs[def_idx] = @lib.Func::new(
+      rewrite.locals,
+      @lib.Expr::new(rewrite.body),
+    )
+    let (next_type_sec, next_type_idx) = dae_update_defined_func_type(
+      current,
+      type_sec,
+      type_idxs,
+      def_idx,
+      rewrite.kept_params,
+      results,
+    )
+    type_sec = next_type_sec
+    type_idxs[def_idx] = next_type_idx
+    touched_out[def_idx] = true
+    def_slot += 1
+  }
+  Some({
+    mod_out: current
+    .with_type_sec(type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+    .without_name_sec(),
+    touched: touched_out,
+    defs,
+    param_count: nodes.length(),
+  })
+}
+
+///|
+fn dae_run_forwarded_param_component_transaction(
+  current : @lib.Module,
+  touched : Array[Bool],
+  cycle_defs : Array[Int],
+) -> DaeForwardedParamSccApplication? {
+  if cycle_defs.length() < 2 {
+    return None
+  }
+  let total = dae_imported_func_count(current) + dae_defined_func_count(current)
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let type_indices = dae_collect_func_type_indices(current)
+  let nodes = dae_collect_forwarded_param_component(
+    current, cycle_defs, type_indices, boundary_facts,
+  )
+  dae_apply_forwarded_param_component_transaction(
+    current, touched, nodes, boundary_facts,
+  )
 }
 
 ///|
