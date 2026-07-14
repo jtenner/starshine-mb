@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md

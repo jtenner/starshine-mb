@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md

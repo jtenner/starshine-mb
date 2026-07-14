@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
@@ -28,7 +27,7 @@ For the compact owner/test map, use [`./implementation-structure-and-tests.md`](
 ## Upstream source rule
 
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-- A focused 2026-05-05 current-`main` source bridge is captured in [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md).
+- The retained 2026-05-05 current-`main` recheck is recorded in [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md).
 - The retained 2026-04-26 port-readiness digest is [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it reuses the same upstream source families to derive the local implementation slice order rather than changing the algorithm contract.
 - Those rechecks found no teaching-relevant drift in `Directize.cpp`, `pass.cpp`, `passes.h`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, or the three dedicated `directize*` lit files.
 - Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-05-05 current-main bridge as a no-drift freshness check.
@@ -438,7 +437,6 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
