@@ -812,6 +812,14 @@ priv struct DaeForwardedParamSccApplication {
 }
 
 ///|
+priv struct DaeForwardedParamDeadCalleeApplication {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  sink_defs : Array[Int]
+  cycle_defs : Array[Int]
+}
+
+///|
 priv struct DaeOriginalCallSummary {
   call_counts : Array[Int]
   prior_call_counts : Array[Int]
@@ -28943,6 +28951,285 @@ fn dae_collect_forwarded_param_cycle_defs(
     seed_def += 1
   }
   []
+}
+
+///|
+fn dae_collect_forwarded_param_dead_callee_candidates_instrs(
+  instrs : Array[@lib.Instruction],
+  entry_stack_values : Int,
+  current : @lib.Module,
+  caller_param_count : Int,
+  cycle_selected : Array[Bool],
+  type_indices : Array[@lib.TypeIdx],
+  candidates : Array[Array[Bool]?],
+) -> Unit {
+  let imported = dae_imported_func_count(current)
+  let defined = dae_defined_func_count(current)
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) => {
+        let callee_abs = dae_func_idx_slot(func_idx)
+        let callee_def = callee_abs - imported
+        if callee_def >= 0 &&
+          callee_def < defined &&
+          callee_def < candidates.length() &&
+          (callee_def >= cycle_selected.length() || !cycle_selected[callee_def]) {
+          let params = match
+            dae_resolve_func_type(current, type_indices, callee_abs) {
+            Some(@lib.FuncType(params, _)) => params
+            None => []
+          }
+          if params.length() > 0 {
+            match
+              dae_callsite_value_slice_evidence(
+                instrs,
+                idx,
+                params.length(),
+                entry_stack_values,
+                current,
+                type_indices,
+              ) {
+              Some(evidence) => {
+                let mut param_idx = 0
+                while param_idx < params.length() {
+                  match
+                    dae_callsite_single_instruction_actual(
+                      evidence, param_idx, instrs,
+                    ) {
+                    Some(actual) =>
+                      match actual.instr {
+                        @lib.LocalGet(local_idx) => {
+                          let local_slot = dae_local_idx_slot(local_idx)
+                          if local_slot >= 0 && local_slot < caller_param_count {
+                            let mask = match candidates[callee_def] {
+                              Some(mask) => mask
+                              None => Array::make(params.length(), false)
+                            }
+                            if param_idx < mask.length() {
+                              mask[param_idx] = true
+                              candidates[callee_def] = Some(mask)
+                            }
+                          }
+                        }
+                        _ => ()
+                      }
+                    None => ()
+                  }
+                  param_idx += 1
+                }
+              }
+              None => ()
+            }
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(_))
+      | @lib.Loop(_, @lib.Expr(_))
+      | @lib.TryTable(_, _, @lib.Expr(_))
+      | @lib.If(_, _, _) =>
+        match dae_nested_control_children_evidence(instrs[idx], current) {
+          Some(children) => {
+            dae_collect_forwarded_param_dead_callee_candidates_instrs(
+              children.primary_body,
+              children.entry_stack_values,
+              current,
+              caller_param_count,
+              cycle_selected,
+              type_indices,
+              candidates,
+            )
+            match children.secondary_body {
+              Some(body) =>
+                dae_collect_forwarded_param_dead_callee_candidates_instrs(
+                  body,
+                  children.entry_stack_values,
+                  current,
+                  caller_param_count,
+                  cycle_selected,
+                  type_indices,
+                  candidates,
+                )
+              None => ()
+            }
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_collect_forwarded_param_dead_callee_defs(
+  current : @lib.Module,
+  cycle_defs : Array[Int],
+) -> Array[Int] {
+  let defined = dae_defined_func_count(current)
+  if defined == 0 || cycle_defs.length() == 0 {
+    return []
+  }
+  let imported = dae_imported_func_count(current)
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let type_indices = dae_collect_func_type_indices(current)
+  let cycle_selected = Array::make(defined, false)
+  for def_idx in cycle_defs {
+    if def_idx >= 0 && def_idx < defined {
+      cycle_selected[def_idx] = true
+    }
+  }
+  let candidates : Array[Array[Bool]?] = Array::make(defined, None)
+  for caller_def in cycle_defs {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      continue
+    }
+    let caller_abs = imported + caller_def
+    let caller_params = match
+      dae_resolve_func_type(current, type_indices, caller_abs) {
+      Some(@lib.FuncType(params, _)) => params
+      None => continue
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    dae_collect_forwarded_param_dead_callee_candidates_instrs(
+      body,
+      0,
+      current,
+      caller_params.length(),
+      cycle_selected,
+      type_indices,
+      candidates,
+    )
+  }
+  let sink_defs : Array[Int] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    match candidates[def_idx] {
+      Some(mask) => {
+        let callee_abs = imported + def_idx
+        let params = match
+          dae_resolve_func_type(current, type_indices, callee_abs) {
+          Some(@lib.FuncType(params, _)) => params
+          None => []
+        }
+        let @lib.Func(locals, _) = funcs[def_idx]
+        let local_use = dae_local_use_for_callee(
+          funcs[def_idx],
+          params.length() + locals.length(),
+          callee_abs,
+          params.length(),
+        )
+        let mut param_idx = 0
+        let mut has_dead_sink = false
+        while param_idx < mask.length() && param_idx < local_use.gets.length() {
+          if mask[param_idx] && !local_use.gets[param_idx] {
+            has_dead_sink = true
+          }
+          param_idx += 1
+        }
+        if has_dead_sink {
+          sink_defs.push(def_idx)
+        }
+      }
+      None => ()
+    }
+    def_idx += 1
+  }
+  sink_defs
+}
+
+///|
+fn dae_run_forwarded_param_dead_callee_convergence(
+  current : @lib.Module,
+  touched : Array[Bool],
+  cycle_defs : Array[Int],
+) -> DaeForwardedParamDeadCalleeApplication? {
+  let defined = dae_defined_func_count(current)
+  if defined == 0 || cycle_defs.length() < 2 {
+    return None
+  }
+  let total = dae_imported_func_count(current) + defined
+  let mut mod_out = current
+  let mut touched_out = if touched.length() == defined {
+    touched.copy()
+  } else {
+    Array::make(defined, false)
+  }
+  let sink_defs : Array[Int] = []
+  let mut sink_round = 0
+  while sink_round < 8 {
+    let sink_candidates = dae_collect_forwarded_param_dead_callee_defs(
+      mod_out, cycle_defs,
+    )
+    if sink_candidates.length() == 0 {
+      break
+    }
+    let sink_selected = Array::make(defined, false)
+    for def_idx in sink_candidates {
+      if def_idx >= 0 && def_idx < defined {
+        sink_selected[def_idx] = true
+      }
+    }
+    let mut iteration = 0
+    let mut round_changed = false
+    while iteration < 16 {
+      let call_facts = dae_collect_current_call_facts(mod_out, total)
+      let result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+        mod_out, sink_selected, call_facts,
+      )
+      if !result.changed {
+        break
+      }
+      mod_out = result.mod_out
+      touched_out = dae_merge_touched(touched_out, result.touched)
+      if result.primary_def >= 0 && !sink_defs.contains(result.primary_def) {
+        sink_defs.push(result.primary_def)
+      }
+      round_changed = true
+      iteration += 1
+    }
+    if !round_changed {
+      break
+    }
+    sink_round += 1
+  }
+  if sink_defs.length() == 0 {
+    return None
+  }
+  let cycle_selected = Array::make(defined, false)
+  for def_idx in cycle_defs {
+    if def_idx >= 0 && def_idx < defined {
+      cycle_selected[def_idx] = true
+    }
+  }
+  let productive_cycle_defs : Array[Int] = []
+  let mut iteration = 0
+  let cycle_limit = cycle_defs.length() * 4
+  while iteration < cycle_limit {
+    let call_facts = dae_collect_current_call_facts(mod_out, total)
+    let result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+      mod_out, cycle_selected, call_facts,
+    )
+    if !result.changed {
+      break
+    }
+    mod_out = result.mod_out
+    touched_out = dae_merge_touched(touched_out, result.touched)
+    if result.primary_def >= 0 &&
+      !productive_cycle_defs.contains(result.primary_def) {
+      productive_cycle_defs.push(result.primary_def)
+    }
+    iteration += 1
+  }
+  Some({
+    mod_out,
+    touched: touched_out,
+    sink_defs,
+    cycle_defs: productive_cycle_defs,
+  })
 }
 
 ///|

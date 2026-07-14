@@ -15766,9 +15766,7 @@ fn dae_test_broad_computed_carrier_cycle_module() -> String {
     ignore(local_idx)
     out.write_string(" i32")
   }
-  out.write_string(
-    ")\n    local.get 0\n    local.get 1\n    call $a)\n",
-  )
+  out.write_string(")\n    local.get 0\n    local.get 1\n    call $a)\n")
   out.write_string(
     (
       #|  (func $c (param i32 i32)

@@ -61928,7 +61928,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
-  let forwarded_scc_seeds = core_touched.copy()
+  let mut forwarded_scc_seeds = core_touched.copy()
   match broad_adjacent.candidate {
     Some(candidate) => {
       forwarded_scc_seeds[candidate.first_def] = true
@@ -61958,6 +61958,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     (options.trace)(
       "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=\{forwarded_cycle_defs.to_string()}",
     )
+    match
+      dae_run_forwarded_param_dead_callee_convergence(
+        core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
+      ) {
+      Some(application) => {
+        core_mod = application.mod_out
+        core_touched = application.touched
+        forwarded_scc_seeds = application.touched.copy()
+        (options.trace)(
+          "pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=\{application.sink_defs.to_string()} cycle_defs=\{application.cycle_defs.to_string()}",
+        )
+      }
+      None => ()
+    }
   }
   match dae_run_forwarded_param_scc_transaction(core_mod, forwarded_scc_seeds) {
     Some(application) => {

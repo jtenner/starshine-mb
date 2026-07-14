@@ -52,6 +52,26 @@ A generated broad-module fixture in `src/passes/dae_optimizing_test.mbt` places 
 
 Binaryen v130 `--dae-optimizing` reduces `$helper`, `$a`, `$b`, and `$c` from two parameters to one. Current Starshine leaves all four at two parameters, so the new regression is intentionally red before implementation.
 
-## Implementation direction
+## Retained first implementation slice
 
-Use the already selected exact forwarded-cycle neighborhood, find outside callees receiving an exact cycle-member parameter in an unread position, remove those sink parameters through the existing transactional callsite/callee rewrite, then rescan unread parameters across the selected cycle members to convergence. Do not replace computed locals with constants, assume recursive values equal an external anchor, or widen to unrelated reachable definitions.
+The first bounded implementation follows the already selected exact forwarded-cycle neighborhood, finds outside callees receiving exact caller-parameter `local.get` operands in unread positions, and removes those sink parameters through the existing owned/private/count-checked transactional callsite/callee rewrite. Candidate facts and current call facts are refreshed in bounded rounds; the same unread rewrite is then retried on the cycle definitions.
+
+On the reduced fixture this closes the whole helper-then-cycle family. On the current artifact it safely removes the unread middle parameters from defined Funcs `7014` and `7033`, preserves valid output, and improves the prior endpoint:
+
+| dimension | note 1604 | dead-callee sink slice | delta |
+|---|---:|---:|---:|
+| raw wasm | `3197404` | `3197391` | `-13` |
+| canonical wasm | `3274861` | `3274829` | `-32` |
+| DAEO pass-local | `13702.810ms` | `14299.444ms` | `+596.634ms` |
+
+Against the unchanged Binaryen v130 `8538.02ms` baseline, the retained pass-local ratio is `1.67x`, within the required `<=2x` bound. The retained output SHA-256 is `0e18885eaa3d8ca1d5f665911d76570805f772055c0996d37c9087ab812547ae`; a repeat invocation is byte-identical.
+
+The trace is:
+
+```text
+pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=[7014, 7033] cycle_defs=[]
+```
+
+The empty `cycle_defs` is significant. Defined Func `7024` still reads its `i32` parameter only to forward it into defined Func `7008`; Func `7007` forwards the corresponding parameter into Func `7024`, while the existing Func `7007` / `7008` / `7010` neighborhood contains the computed local injection. No individual remaining parameter is unread yet. The next slice therefore needs a transactional forwarding-only parameter-component proof, not another constant proof and not an assumption about the computed local value.
+
+Do not replace computed locals with constants, assume recursive values equal an external anchor, or widen to unrelated reachable definitions.
