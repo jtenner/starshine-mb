@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
 related:

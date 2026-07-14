@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-remove-unused-module-elements-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
   - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
@@ -32,7 +31,7 @@ related:
 
 ## Why this page exists
 
-Direct `version_129` source URLs in this page retain the tagged baseline. The 2026-05-05 current-main recheck and future local validation plan are [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Direct `version_129` source URLs in this page retain the tagged baseline. The retained 2026-05-05 current-main recheck summary and future local validation plan are [`../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 This pass is tiny at the registration level, which makes it easy to hand-wave.
 That is exactly why it needs a compact file map.
