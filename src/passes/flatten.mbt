@@ -469,6 +469,56 @@ fn flatten_multivalue_region_tail_tuple_make_values(
 }
 
 ///|
+fn flatten_multivalue_region_tail_tuple_make_has_supported_origins(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  result_types : Array[@lib.ValType],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if result_types.length() <= 1 || root_count == 0 {
+    return false
+  }
+  let tail_index = root_count - 1
+  let tuple_id = @ir.hot_region_get(func, region_ref, tail_index)
+  let tuple = @ir.hot_node_get(func, tuple_id)
+  match tuple.op {
+    @ir.HotOp::TupleMake => ()
+    _ => return false
+  }
+  if @ir.hot_type_results(func, tuple.ty) != result_types ||
+    @ir.hot_child_count(func, tuple_id) != result_types.length() {
+    return false
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
+  if sites.length() != 1 {
+    return false
+  }
+  let site = sites[0]
+  match site.kind {
+    @ir.HotUseSlotKind::RootUseSlot => ()
+    _ => return false
+  }
+  if site.user != region_ref.holder || site.slot != tail_index {
+    return false
+  }
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let value_id = @ir.hot_child_get(func, tuple_id, slot)
+    let value_types = @ir.hot_type_results(
+      func,
+      @ir.hot_node_get(func, value_id).ty,
+    )
+    if value_types.length() != 1 ||
+      value_types[0] != result_types[slot] ||
+      !flatten_value_type_is_defaultable(result_types[slot]) ||
+      !flatten_scalar_branch_payload_has_supported_origin(func, value_id) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn flatten_replace_multivalue_tuple_make_tail(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -821,19 +871,12 @@ fn flatten_try_route_payloadless_multivalue_loop(
   }
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
-  if body_count < result_types.length() {
+  let tuple_values = flatten_multivalue_region_tail_tuple_make_values(
+    func, body_ref, result_types,
+  )
+  if !flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) &&
+    tuple_values is None {
     return None
-  }
-  let tail_start = body_count - result_types.length()
-  for slot = 0; slot < result_types.length(); slot = slot + 1 {
-    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
-    let value_types = @ir.hot_type_results(
-      func,
-      @ir.hot_node_get(func, value_id).ty,
-    )
-    if value_types.length() != 1 || value_types[0] != result_types[slot] {
-      return None
-    }
   }
   let locals = if state.label_temps[label_id].length() > 0 {
     let result_locals : Array[Int] = []
@@ -847,13 +890,22 @@ fn flatten_try_route_payloadless_multivalue_loop(
       None => return None
     }
   }
-  for slot = 0; slot < result_types.length(); slot = slot + 1 {
-    let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
-    ignore(
-      pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
-        @ir.hot_build_local_set(func, locals[slot], value_id),
-      ]),
-    )
+  match tuple_values {
+    Some(values) =>
+      flatten_replace_multivalue_tuple_make_tail(
+        ctx, func, body_ref, values, locals,
+      )
+    None => {
+      let tail_start = body_count - result_types.length()
+      for slot = 0; slot < result_types.length(); slot = slot + 1 {
+        let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
+        ignore(
+          pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
+            @ir.hot_build_local_set(func, locals[slot], value_id),
+          ]),
+        )
+      }
+    }
   }
   @ir.hot_control_result_type_set(func, loop_id, @ir.hot_type_void(func))
   Some(locals)
@@ -1556,7 +1608,10 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
   result_types : Array[@lib.ValType],
 ) -> Bool {
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
-  if flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) {
+  if flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) ||
+    flatten_multivalue_region_tail_tuple_make_has_supported_origins(
+      func, body_ref, result_types,
+    ) {
     return true
   }
   let root_count = @ir.hot_region_root_count(func, body_ref)

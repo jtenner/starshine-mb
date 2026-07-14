@@ -4062,6 +4062,94 @@ test "flatten scalarizes tuple-made loop br_if binary flow" {
 }
 
 ///|
+test "flatten scalarizes one exclusive tuple-made inputful loop result tail" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result f32 f64))) (func (result f32 f64) call 1 call 2 loop $loop (type $carrier) drop drop call 3 call 4 call 5 br_if $loop drop drop call 6 call 7 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0) (func (result f32) f32.const 11) (func (result f64) f64.const 13))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let old_root_count = @ir.hot_region_root_count(func, body_ref)
+  let first_result = @ir.hot_region_get(func, body_ref, old_root_count - 2)
+  let second_result = @ir.hot_region_get(func, body_ref, old_root_count - 1)
+  let tuple_id = @ir.hot_build_tuple_make(
+    func,
+    [@lib.ValType::f32(), @lib.ValType::f64()],
+    [first_result, second_result],
+  )
+  let roots : Array[Int] = []
+  for root_idx = 0; root_idx < old_root_count - 2; root_idx = root_idx + 1 {
+    roots.push(@ir.hot_region_get(func, body_ref, root_idx))
+  }
+  roots.push(tuple_id)
+  @ir.hot_region_replace_body(func, body_ref, roots)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  let first_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).imm0
+  let second_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).imm0
+  let first_result_local = @ir.hot_node_get(
+      func,
+      @ir.hot_child_get(func, return_id, 0),
+    ).imm0
+  let second_result_local = @ir.hot_node_get(
+      func,
+      @ir.hot_child_get(func, return_id, 1),
+    ).imm0
+  assert_false(first_result_local == first_entry_local)
+  assert_false(second_result_local == second_entry_local)
+  @debug.assert_eq(
+    @ir.hot_local_type(func, first_result_local),
+    Some(@lib.ValType::f32()),
+  )
+  @debug.assert_eq(
+    @ir.hot_local_type(func, second_result_local),
+    Some(@lib.ValType::f64()),
+  )
+  let routed_root_count = @ir.hot_region_root_count(func, body_ref)
+  let first_result_set = @ir.hot_region_get(
+    func,
+    body_ref,
+    routed_root_count - 2,
+  )
+  let second_result_set = @ir.hot_region_get(
+    func,
+    body_ref,
+    routed_root_count - 1,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, first_result_set).imm0,
+    first_result_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_result_set).imm0,
+    second_result_local,
+  )
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_result), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_result), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-made inputful loop result routing to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten routes exact inputful multivalue loop br_if flow" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 3 call 4 call 5 br_if $loop drop drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0))",
