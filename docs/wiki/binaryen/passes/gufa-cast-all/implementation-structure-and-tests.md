@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
@@ -21,9 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the main source oracle for this page, anchored by the retained 2026-05-04 current-main bridge; the direct tagged URLs in the dossier preserve the earlier reviewed-source catalog after its manifest is consumed.
-
-- [`../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md)
+Use Binaryen `version_129` as the main source oracle for this page. Archived research records the consumed 2026-05-04 current-main no-drift recheck; the direct tagged URLs in this dossier preserve the reviewed-source catalog.
 
 
 ## File map

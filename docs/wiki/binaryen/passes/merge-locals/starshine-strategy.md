@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../../../src/passes/merge_locals.mbt

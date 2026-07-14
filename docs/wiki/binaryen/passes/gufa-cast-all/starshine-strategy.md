@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
