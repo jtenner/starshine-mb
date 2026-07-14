@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-06
 sources:
-  - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
@@ -733,8 +732,8 @@ What it actually is in `version_129`:
   - Family-based parity sweep workflow and runner usage for replacing the old one-behavior / one-doc loop with grouped compare-pass discovery.
 - [`./fuzzing.md`](./fuzzing.md)
   - Compare-pass smoke lane plus OI-specific GenValid profiles and first-layer metamorphic smoke transforms used by the parity matrix.
-- [`../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md)
-  - Immutable capture of the 2026-05-05 current-main spot check for the same contract surfaces.
+- [`../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md`](../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md)
+  - Retained research bridge for the 2026-05-05 current-main no-drift spot check.
 - [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md)
   - `[O4Z-AUDIT-OI-A]` `version_130` source/lit matrix mapping upstream visitor and lit families to current Starshine coverage, explicit boundaries, and follow-up slice owners.
 

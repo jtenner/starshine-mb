@@ -6,7 +6,6 @@ sources:
   - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
   - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
@@ -142,8 +141,8 @@ What it actually is in `version_129`:
   - Historical O4z release-gating audit under the older standard: direct `10000` requested compare, focused i64/imported-memory test refresh, saved slot `18` timing, and `[O4Z-AUDIT-PLS]` closure.
 - [`../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md)
   - Refreshed direct pass-fuzz signoff after the 2026-05-06 harness audit.
-- [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
-  - Current-main refresh manifest for this folder's freshness bridge.
+- [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
+  - Retained research bridge for this folder's 2026-05-05 no-drift finding.
 - Direct Binaryen `version_129` source/test URLs below preserve the original tagged-source route; the retained 2026-05-05 bridge records the reviewed current-main comparison.
 
 ## Freshness note
@@ -179,7 +178,6 @@ Keep that difference explicit instead of silently smoothing it away.
 
 - [`../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`](../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md)
 - [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
-- [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
 - [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
 - [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
 - [`../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md`](../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md)
