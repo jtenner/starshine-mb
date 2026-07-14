@@ -61928,7 +61928,38 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
-  match dae_run_forwarded_param_scc_transaction(core_mod, core_touched) {
+  let forwarded_scc_seeds = core_touched.copy()
+  match broad_adjacent.candidate {
+    Some(candidate) => {
+      forwarded_scc_seeds[candidate.first_def] = true
+      forwarded_scc_seeds[candidate.second_def] = true
+    }
+    None => ()
+  }
+  let forwarded_cycle_defs = dae_collect_forwarded_param_cycle_defs(
+    core_mod, forwarded_scc_seeds,
+  )
+  if forwarded_cycle_defs.length() > 1 {
+    let scc_cleanup_touched = Array::make(forwarded_scc_seeds.length(), false)
+    for def_idx in forwarded_cycle_defs {
+      forwarded_scc_seeds[def_idx] = true
+      scc_cleanup_touched[def_idx] = true
+    }
+    core_mod = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        core_mod,
+        precompute_propagate_prefix_descriptor(),
+        scc_cleanup_touched,
+        options,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err("DAE forwarded SCC precompute: \{err}")
+    }
+    (options.trace)(
+      "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=\{forwarded_cycle_defs.to_string()}",
+    )
+  }
+  match dae_run_forwarded_param_scc_transaction(core_mod, forwarded_scc_seeds) {
     Some(application) => {
       core_mod = application.mod_out
       core_touched = application.touched

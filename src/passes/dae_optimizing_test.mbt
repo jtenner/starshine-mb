@@ -15806,6 +15806,38 @@ test "dae-optimizing rejects a written forwarded-parameter cycle transaction" {
 }
 
 ///|
+test "dae-optimizing precomputes only exact unanchored forwarding-cycle members" {
+  let source =
+    #|(module
+    #|  (func $a (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $b)
+    #|  (func $b (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    call $a)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 3))
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=[0, 1]",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:forwarded-param-scc-transaction")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing rejects an escaped forwarded-parameter cycle transaction" {
   let source =
     #|(module
