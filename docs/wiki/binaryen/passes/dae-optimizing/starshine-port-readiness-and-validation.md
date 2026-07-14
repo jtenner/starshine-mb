@@ -3,6 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
+  - ../../../raw/research/1602-2026-07-14-daeo-payoff-local-order-final-matrix.md
+  - ../../../raw/research/1601-2026-07-14-daeo-payoff-local-order-single-scan.md
+  - ../../../raw/research/1600-2026-07-14-daeo-payoff-type-stable-local-order.md
   - ../../../raw/research/1599-2026-07-14-daeo-adjacent-local-order-final-matrix.md
   - ../../../raw/research/1598-2026-07-14-daeo-adjacent-local-order-prefilter.md
   - ../../../raw/research/1597-2026-07-14-daeo-adjacent-type-stable-local-order.md
@@ -119,7 +122,7 @@ Notes [`1591`](../../../raw/research/1591-2026-07-13-daeo-adjacent-constructor-c
 
 Notes [`1594`](../../../raw/research/1594-2026-07-13-daeo-broad-removed-param-local-compaction.md) through [`1596`](../../../raw/research/1596-2026-07-13-daeo-func41-local-compaction-final-matrix.md) close a generic optimizing-only removed-parameter local family. The broad selector checks only already-touched high-local definitions whose parameter count fell, ranks removable unreferenced locals, and rewrites one best candidate; a direct-reference prefilter avoids exact lowered cleanup when current facts suffice. Func `41` loses `168` locals without artifact-index hardcoding, advancing the valid artifact to raw `3197559` / canonical `3275027`, `+12571` canonical versus Binaryen, at `12763.150ms` versus `8083.49ms` (`1.58x`). Plain DAE remains unchanged.
 
-Notes [`1597`](../../../raw/research/1597-2026-07-14-daeo-adjacent-type-stable-local-order.md) through [`1599`](../../../raw/research/1599-2026-07-14-daeo-adjacent-local-order-final-matrix.md) add and sign off generic type-stable local ordering for the already selected broad adjacent pair. The helper drops unused locals and frequency-orders used locals only within existing contiguous type runs, then an exact-two-definition prefilter avoids whole-module parameter/remap work. The valid artifact advances to raw `3197484` / canonical `3274937`, `+12481` canonical versus Binaryen, at `12448.452ms` versus `8083.49ms` (`1.54x`). Fresh Binaryen-v130 explicit-native dedicated `10000`, regular `100000`, wasm-smith `10000`, and random-all `10000` lanes preserve the complete classified matrix; full tests `8809/8809`, pinned-seed CI-profile validation, exact-once optimize/shrink/O4z scheduling, and `.mbti` review are green. Plain DAE remains unchanged. Readiness remains open because Funcs `7008`, `8429`, `7007`, `9347`, and `41` are positive direct parity owners, and large optimize/shrink/O4z still stop before DAEO in vacuum or ssa-nomerge.
+Notes [`1597`](../../../raw/research/1597-2026-07-14-daeo-adjacent-type-stable-local-order.md) through [`1599`](../../../raw/research/1599-2026-07-14-daeo-adjacent-local-order-final-matrix.md) add and sign off generic type-stable local ordering for the already selected broad adjacent pair. Notes [`1600`](../../../raw/research/1600-2026-07-14-daeo-payoff-type-stable-local-order.md) through [`1602`](../../../raw/research/1602-2026-07-14-daeo-payoff-local-order-final-matrix.md) reuse that same rewrite only for the terminal callees already selected by the generic payoff-chain lane, then fold local-index validation into the existing count/first-use traversal. The final valid artifact is raw `3197420` / canonical `3274877`, `+12421` canonical versus Binaryen, at `13234.748ms` versus a fresh Binaryen debug `8538.02ms` (`1.55x`). Fresh Binaryen-v130 explicit-native dedicated `10000`, regular `100000`, wasm-smith `10000`, and random-all `10000` lanes preserve the complete classified matrix; full tests `8809/8809`, pinned-seed CI-profile validation, exact-once optimize/shrink/O4z scheduling, and `.mbti` review are green. Plain DAE remains unchanged. Two generic reachability-only Func `7007..7010` probes were rejected because they missed the cycle transaction and worsened size; readiness remains open on a transactional parameter-position SCC proof or re-attribution of the next owner. Funcs `7008`, `7007`, `8429`, `41`, and `9347` remain positive direct parity owners, and large optimize/shrink/O4z still stop before DAEO in vacuum or ssa-nomerge.
 
 ## Why this must be a module pass
 
@@ -218,7 +221,7 @@ Current reusable code surfaces:
 
 Missing code surfaces for a faithful port:
 
-- closure of the valid current artifact's remaining `+12481` canonical-byte size-losing gap after notes `1597`-`1599` narrowed the adjacent pair through type-stable local ordering; Func `7008 +1781`, Func `8429 +1478`, Func `7007 +1470`, Func `9347 +1310`, and Func `41 +1286` are the leading body gaps, so the next slice needs source-backed bounded cleanup or parity rather than blanket replay;
+- closure of the valid current artifact's remaining `+12421` canonical-byte size-losing gap after notes `1600`-`1602` narrowed the payoff callees through type-stable local ordering; Func `7008 +1781`, Func `7007 +1470`, Func `8429 +1448`, Func `41 +1286`, and Func `9347 +1281` are the leading body gaps. The next cycle slice must use a generic transactional parameter-position SCC proof for Funcs `7007..7010`, or re-attribute the next owner rather than retain reachability-only unrelated rewrites;
 - a real `precompute-propagate` sibling or equivalent nested prefix replay;
 - a safe, performant default-function-pipeline replay for touched functions that preserves the current large-function and nondefaultable-local hazard boundaries;
 - broader function-filtered adapters or safe batching for still-module-shaped cleanup passes that Binaryen reruns after productive DAE changes;
