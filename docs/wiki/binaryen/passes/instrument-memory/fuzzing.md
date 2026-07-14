@@ -6,7 +6,7 @@ sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentMemory.cpp
 ---
 
 # `instrument-memory` Fuzzing Status

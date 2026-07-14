@@ -10,7 +10,7 @@ sources:
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
-  - ../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
   - ../binaryen/passes/inlining/binaryen-strategy.md
   - ../../../src/wast/lexer.mbt
   - ../../../src/wast/parser.mbt

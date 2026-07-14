@@ -3,7 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
   - ../../../raw/research/1551-2026-07-05-inlining-optimizing-o4z-audit.md
   - ../../../raw/research/0725-2026-06-15-inlining-optimizing-cache-followup.md
   - ../../../raw/research/0724-2026-06-15-inlining-optimizing-wall-time-root-cause.md
