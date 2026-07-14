@@ -229,3 +229,69 @@ test "flatten rejects non-root try containment from direct target ancestry" {
     None,
   )
 }
+
+///|
+test "flatten admits exclusively tuple-made try-to-loop table preflight" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let result_types = [i32_type, i64_type]
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop i32.const 11 i64.const 12 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2))",
+  )
+  let mut loop_id = -1
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Loop => loop_id = node_id
+      _ => ()
+    }
+  }
+  assert_true(loop_id >= 0)
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(13)),
+      @ir.hot_build_const_i64(func, @lib.I64(14L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_results(func, result_types),
+  )
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i64(func, @lib.I64(9L)),
+  ])
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let loop_label = @ir.hot_control_node_label(func, loop_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [try_label, loop_label],
+    try_label,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[tuple_id, tuple_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+  ])
+  let loop_ref = @ir.hot_region_body_ref(func, loop_id)
+  let root_count = @ir.hot_region_root_count(func, loop_ref)
+  ignore(@ir.hot_region_set(func, loop_ref, root_count - 2, try_id))
+  ignore(@ir.hot_region_set(func, loop_ref, root_count - 1, try_id))
+  assert_true(flatten_multivalue_legacy_try_is_supported(func, try_id))
+  assert_true(flatten_inputful_loop_is_supported(func, loop_id))
+  assert_true(
+    flatten_tuple_mixed_try_table_is_supported(func, table_id, result_types, [
+      try_label, loop_label,
+    ]),
+  )
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    _ => fail("expected tuple try-to-loop table admission")
+  }
+}

@@ -1723,7 +1723,7 @@ fn flatten_loop_backedge_payloads_are_supported(
     return false
   }
   match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Br =>
+    @ir.HotOp::Br | @ir.HotOp::BrTable =>
       if flatten_multivalue_tuple_branch_payload_values(
           func, node_id, payload_count, param_types,
         )
@@ -3930,7 +3930,9 @@ fn flatten_tuple_mixed_try_table_is_supported(
         }
         try_label = target
       }
-      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
+      @ir.HotLabelKind::BlockLabel
+      | @ir.HotLabelKind::IfLabel
+      | @ir.HotLabelKind::LoopLabel =>
         enclosing_control_count = enclosing_control_count + 1
       _ => return false
     }
