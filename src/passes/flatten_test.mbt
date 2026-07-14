@@ -264,6 +264,160 @@ test "flatten routes an exact scalar br_if to its legacy try result channel" {
 }
 
 ///|
+test "flatten preserves unary and conversion false flow from scalar try br_if" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i32_type]))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let catch_tail = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([catch_tail]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let first_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_payload, @lib.Instruction::i32_add())
+  let first_condition = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    first_condition,
+    @lib.Instruction::i32_sub(),
+  )
+  let first_branch = @ir.hot_build_br_if(func, label_id, first_condition, values=[
+    first_payload,
+  ])
+  let unary = @ir.hot_build_unary(func, i32_type, first_payload)
+  @ir.hot_node_exact_instr_set(func, unary, @lib.Instruction::i32_clz())
+  let unary_drop = @ir.hot_build_drop(func, unary)
+  let second_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(6)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_payload,
+    @lib.Instruction::i32_mul(),
+  )
+  let second_condition = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i32(func, @lib.I32(8)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_condition,
+    @lib.Instruction::i32_add(),
+  )
+  let second_branch = @ir.hot_build_br_if(func, label_id, second_condition, values=[
+    second_payload,
+  ])
+  let conversion = @ir.hot_build_convert(func, i64_type, second_payload)
+  @ir.hot_node_exact_instr_set(
+    func,
+    conversion,
+    @lib.Instruction::i64_extend_i32s(),
+  )
+  let conversion_drop = @ir.hot_build_drop(func, conversion)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    first_branch, unary_drop, second_branch, conversion_drop, body_fallback,
+  ])
+  let result_drop = @ir.hot_build_drop(func, try_id)
+  @ir.hot_root_append(func, result_drop)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 11)
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 0)
+  let first_condition_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), first_branch)
+  let unary_set = @ir.hot_region_get(func, body_ref, 3)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 4), unary_drop)
+  let second_payload_set = @ir.hot_region_get(func, body_ref, 5)
+  let second_condition_set = @ir.hot_region_get(func, body_ref, 6)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), second_branch)
+  let conversion_set = @ir.hot_region_get(func, body_ref, 8)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 9), conversion_drop)
+  let fallback_set = @ir.hot_region_get(func, body_ref, 10)
+  let result_local = @ir.hot_node_get(func, first_payload_set).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_payload_set).imm0,
+    result_local,
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, fallback_set).imm0, result_local)
+  @debug.assert_eq(@ir.hot_child_get(func, first_payload_set, 0), first_payload)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, second_payload_set, 0),
+    second_payload,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, first_condition_set, 0),
+    first_condition,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, second_condition_set, 0),
+    second_condition,
+  )
+  @debug.assert_eq(@ir.hot_child_count(func, first_branch), 1)
+  @debug.assert_eq(@ir.hot_child_count(func, second_branch), 1)
+  @debug.assert_eq(@ir.hot_child_get(func, unary_set, 0), unary)
+  @debug.assert_eq(@ir.hot_child_get(func, conversion_set, 0), conversion)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, unary, 0)).imm0,
+    result_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, conversion, 0)).imm0,
+    result_local,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, 0)).imm0,
+    result_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, result_drop, 0)).imm0,
+    result_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_condition), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_condition), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected scalar try unary/conversion false flow to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten routes one repeated-target scalar br_table to a legacy try" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i32_type]))

@@ -27,6 +27,7 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-try-tail-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-try-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-try-conditional-break-refresh.md
+  - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-conditional-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-scalar-try-table-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-multivalue-try-table-refresh.md

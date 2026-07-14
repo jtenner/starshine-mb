@@ -2528,6 +2528,35 @@ fn flatten_try_route_scalar_control(
 }
 
 ///|
+fn flatten_scalar_try_br_if_consumer_matches_payload(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  consumer_id : Int,
+  value_id : Int,
+) -> Bool {
+  let consumer = @ir.hot_node_get(func, consumer_id)
+  match consumer.op {
+    @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 => ()
+    _ => return false
+  }
+  let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+  if consumed_id == value_id {
+    return true
+  }
+  let consumed = @ir.hot_node_get(func, consumed_id)
+  if @ir.node_use_count(use_def, consumed_id) != 1 ||
+    @ir.hot_child_count(func, consumed_id) != 1 ||
+    @ir.hot_child_get(func, consumed_id, 0) != value_id {
+    return false
+  }
+  match consumed.op {
+    @ir.HotOp::Unary | @ir.HotOp::Convert =>
+      @ir.hot_node_exact_instr(func, consumed_id) is Some(_)
+    _ => false
+  }
+}
+
+///|
 fn flatten_scalar_try_br_if_flow_is_exact(
   func : @ir.HotFunc,
   try_id : Int,
@@ -2556,12 +2585,9 @@ fn flatten_scalar_try_br_if_flow_is_exact(
         continue
       }
       let consumer_id = @ir.hot_region_get(func, region_ref, root_idx + 1)
-      let consumer = @ir.hot_node_get(func, consumer_id)
-      match consumer.op {
-        @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 &&
-          @ir.hot_child_get(func, consumer_id, 0) == value_id => return true
-        _ => return false
-      }
+      return flatten_scalar_try_br_if_consumer_matches_payload(
+        func, use_def, consumer_id, value_id,
+      )
     }
   }
   false
