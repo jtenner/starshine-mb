@@ -2014,7 +2014,12 @@ fn flatten_scalar_legacy_try_is_supported(
     return false
   }
   let label_id = @ir.hot_control_node_label(func, try_id)
-  if pass_label_is_used(label_id, pass_compute_label_used(func)) {
+  let label_is_used = pass_label_is_used(
+    label_id,
+    pass_compute_label_used(func),
+  )
+  if label_is_used &&
+    !flatten_target_can_route_scalar_branches(func, label_id, result_types[0]) {
     return false
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
@@ -2031,9 +2036,14 @@ fn flatten_scalar_legacy_try_is_supported(
       func,
       @ir.hot_node_get(func, tail_id).ty,
     )
-    if tail_types.length() != 1 || tail_types[0] != result_types[0] {
-      return false
+    if tail_types.length() == 1 && tail_types[0] == result_types[0] {
+      continue
     }
+    if label_is_used &&
+      flatten_terminal_branch_targets_label(func, tail_id, label_id, true) {
+      continue
+    }
+    return false
   }
   true
 }
@@ -2042,6 +2052,7 @@ fn flatten_scalar_legacy_try_is_supported(
 fn flatten_try_route_scalar_try(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  state : FlattenRewriteState,
   try_id : Int,
 ) -> Int? {
   if !flatten_scalar_legacy_try_is_supported(func, try_id) {
@@ -2051,12 +2062,32 @@ fn flatten_try_route_scalar_try(
       func,
       @ir.hot_node_get(func, try_id).ty,
     )[0]
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let label_is_used = pass_label_is_used(
+    label_id,
+    pass_compute_label_used(func),
+  )
+  let local_id = if label_is_used {
+    if label_id < 0 ||
+      label_id >= state.label_temps.length() ||
+      state.label_temps[label_id].length() != 1 ||
+      @ir.hot_local_type(func, state.label_temps[label_id][0]) !=
+      Some(result_type) {
+      return None
+    }
+    state.label_temps[label_id][0]
+  } else {
+    @ir.hot_append_body_local(func, result_type)
+  }
   let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
   let regions = [@ir.hot_region_body_ref(func, try_id), catch_ref]
-  let local_id = @ir.hot_append_body_local(func, result_type)
   for region_ref in regions {
     let tail_index = @ir.hot_region_root_count(func, region_ref) - 1
     let tail_id = @ir.hot_region_get(func, region_ref, tail_index)
+    if label_is_used &&
+      flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
+      continue
+    }
     ignore(
       pass_splice_region(ctx, func, region_ref, tail_index, 1, [
         @ir.hot_build_local_set(func, local_id, tail_id),
@@ -2159,7 +2190,7 @@ fn flatten_try_route_scalar_control(
       flatten_try_route_scalar_block(ctx, func, state, node_id)
     @ir.HotOp::Loop => flatten_try_route_scalar_loop(ctx, func, node_id)
     @ir.HotOp::If => flatten_try_route_scalar_if(ctx, func, state, node_id)
-    @ir.HotOp::Try => flatten_try_route_scalar_try(ctx, func, node_id)
+    @ir.HotOp::Try => flatten_try_route_scalar_try(ctx, func, state, node_id)
     _ => None
   }
 }
@@ -2177,6 +2208,11 @@ fn flatten_target_can_route_scalar_branches(
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, owner_id) {
         Some(else_ref) => [@ir.hot_region_then_ref(func, owner_id), else_ref]
+        None => return false
+      }
+    @ir.HotOp::Try =>
+      match @ir.hot_region_catch_ref(func, owner_id) {
+        Some(catch_ref) => [@ir.hot_region_body_ref(func, owner_id), catch_ref]
         None => return false
       }
     _ => return false
@@ -2219,6 +2255,10 @@ fn flatten_target_can_route_scalar_branches(
         }
       }
       @ir.HotOp::BrIf if branch.imm0 == label_id => {
+        match owner.op {
+          @ir.HotOp::Try => return false
+          _ => ()
+        }
         saw_target = true
         let child_count = @ir.hot_child_count(func, branch_id)
         if child_count == 1 {
@@ -2247,6 +2287,10 @@ fn flatten_target_can_route_scalar_branches(
           branch.imm0,
           label_id,
         ) => {
+        match owner.op {
+          @ir.HotOp::Try => return false
+          _ => ()
+        }
         saw_target = true
         let child_count = @ir.hot_child_count(func, branch_id)
         if child_count == 1 {
@@ -2860,7 +2904,9 @@ fn flatten_try_route_br(
       }
       return true
     }
-    @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel => ()
+    @ir.HotLabelKind::BlockLabel
+    | @ir.HotLabelKind::IfLabel
+    | @ir.HotLabelKind::TryLabel => ()
     _ => return false
   }
   let target_types = @ir.hot_type_results(

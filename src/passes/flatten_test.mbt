@@ -115,6 +115,70 @@ test "flatten routes branch-free scalar legacy try results inside do and catch" 
 }
 
 ///|
+test "flatten routes a carried scalar br to its legacy try result channel" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let catch_tail = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([catch_tail]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(func, payload, @lib.Instruction::i32_add())
+  let branch = @ir.hot_build_br(func, label_id, values=[payload])
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch])
+  @ir.hot_delete_node(func, body_fallback)
+  let drop_id = @ir.hot_build_drop(func, try_id)
+  @ir.hot_root_append(func, drop_id)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  let staging_set = @ir.hot_region_get(func, body_ref, 0)
+  let payload_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, staging_set, 0), payload)
+  let staged_get = @ir.hot_child_get(func, payload_set, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, staged_get).imm0,
+    @ir.hot_node_get(func, staging_set).imm0,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 1)
+  let catch_set = @ir.hot_region_get(func, catch_ref, 0)
+  let result_local = @ir.hot_node_get(func, payload_set).imm0
+  @debug.assert_eq(@ir.hot_node_get(func, catch_set).imm0, result_local)
+  @debug.assert_eq(@ir.hot_child_get(func, catch_set, 0), catch_tail)
+  @debug.assert_eq(@ir.hot_local_type(func, result_local), Some(i32_type))
+  let result_get = @ir.hot_child_get(func, drop_id, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, result_get).imm0, result_local)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected branch-targeted scalar legacy try to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes branch-free multivalue legacy try results through typed locals" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()
