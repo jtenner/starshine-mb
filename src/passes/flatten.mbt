@@ -3884,7 +3884,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
     return true
   }
   let mut try_label = -1
-  let mut block_count = 0
+  let mut enclosing_control_count = 0
   for target in targets {
     match @ir.hot_label_kind(func, target) {
       @ir.HotLabelKind::TryLabel => {
@@ -3893,12 +3893,13 @@ fn flatten_tuple_mixed_try_table_is_supported(
         }
         try_label = target
       }
-      @ir.HotLabelKind::BlockLabel => block_count = block_count + 1
+      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
+        enclosing_control_count = enclosing_control_count + 1
       _ => return false
     }
   }
   try_label >= 0 &&
-  block_count == targets.length() - 1 &&
+  enclosing_control_count == targets.length() - 1 &&
   flatten_try_terminal_br_table_targets_label(
     func,
     table_id,
