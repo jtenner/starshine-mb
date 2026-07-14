@@ -1076,21 +1076,35 @@ fn flatten_try_table_dead_suffix_nodes(
     if suffix_count > 1 {
       let mut all_unreachable = true
       let mut all_direct_drop_consts = true
+      let mut exact_drop_const_then_unreachable = suffix_count == 2
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
         let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
-        match @ir.hot_node_get(func, root_id).op {
-          @ir.HotOp::Unreachable => ()
-          _ => all_unreachable = false
+        let root_is_unreachable = match @ir.hot_node_get(func, root_id).op {
+          @ir.HotOp::Unreachable => true
+          _ => false
         }
-        if !flatten_try_table_dead_suffix_root_is_direct_drop_const(
-            func, root_id,
-          ) {
+        if !root_is_unreachable {
+          all_unreachable = false
+        }
+        let root_is_direct_drop_const = flatten_try_table_dead_suffix_root_is_direct_drop_const(
+          func, root_id,
+        )
+        if !root_is_direct_drop_const {
           all_direct_drop_consts = false
         }
+        if suffix_idx == root_idx + 1 {
+          if !root_is_direct_drop_const {
+            exact_drop_const_then_unreachable = false
+          }
+        } else if !root_is_unreachable {
+          exact_drop_const_then_unreachable = false
+        }
       }
-      if !all_unreachable && !all_direct_drop_consts {
+      if !all_unreachable &&
+        !all_direct_drop_consts &&
+        !exact_drop_const_then_unreachable {
         return None
       }
     }
