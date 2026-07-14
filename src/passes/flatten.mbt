@@ -868,15 +868,26 @@ fn flatten_try_table_dead_suffix_root_nodes(
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Unreachable => Some([root_id])
     @ir.HotOp::Call => {
-      if @ir.hot_child_count(func, root_id) != 0 ||
-        @ir.hot_node_result_arity(func, root_id) != 0 {
+      let child_count = @ir.hot_child_count(func, root_id)
+      if child_count > 1 || @ir.hot_node_result_arity(func, root_id) != 0 {
         return None
       }
       let use_def = @ir.use_def_build_node_uses(func)
       if @ir.node_use_count(use_def, root_id) != 1 {
         return None
       }
-      Some([root_id])
+      if child_count == 0 {
+        return Some([root_id])
+      }
+      let argument_id = @ir.hot_child_get(func, root_id, 0)
+      if @ir.hot_node_result_arity(func, argument_id) != 1 ||
+        @ir.node_use_count(use_def, argument_id) != 1 {
+        return None
+      }
+      match @ir.hot_node_get(func, argument_id).op {
+        @ir.HotOp::Const => Some([root_id, argument_id])
+        _ => None
+      }
     }
     @ir.HotOp::Drop => {
       if @ir.hot_child_count(func, root_id) != 1 {
