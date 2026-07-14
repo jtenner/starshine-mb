@@ -60108,29 +60108,60 @@ fn run_hot_pipeline_apply_local_subtyping_to_touched(
 }
 
 ///|
-fn run_hot_pipeline_apply_type_stable_reorder_locals_to_touched(
+fn run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
   mod_ : @lib.Module,
-  touched : Array[Bool],
+  defs : Array[Int],
 ) -> Result[@lib.Module, String] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Ok(mod_)
   }
-  let params = rl_defined_func_param_cache(mod_)
-  let func_remaps : Array[Array[Int]?] = Array::make(funcs.length(), None)
+  let type_idxs = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs
+    None => return Err("missing function section for selected local ordering")
+  }
+  let type_sec = match mod_.type_sec {
+    Some(type_sec) => type_sec
+    None => return Err("missing type section for selected local ordering")
+  }
+  let mut cached_type_idx : @lib.TypeIdx? = None
+  let mut cached_params : Array[@lib.ValType] = []
+  let mut func_remaps : Array[Array[Int]?]? = None
   let mut rewritten : Array[@lib.Func]? = None
-  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-    if code_idx >= touched.length() || !touched[code_idx] {
-      continue
+  for code_idx in defs {
+    if code_idx < 0 ||
+      code_idx >= funcs.length() ||
+      code_idx >= type_idxs.length() {
+      return Err("selected local-order definition out of range: \{code_idx}")
     }
-    let func_params = match params.get(code_idx) {
-      Some(params) => params
-      None =>
-        return Err("missing defined function params for code index \{code_idx}")
+    let type_idx = type_idxs[code_idx]
+    let func_params = match cached_type_idx {
+      Some(cached) if cached == type_idx => cached_params
+      _ =>
+        match dae_type_sec_func_type(type_sec, type_idx) {
+          Some(@lib.FuncType(params, _)) => {
+            cached_type_idx = Some(type_idx)
+            cached_params = params
+            params
+          }
+          None =>
+            return Err(
+              "missing selected function type for code index \{code_idx}",
+            )
+        }
     }
     let rewrite = rl_rewrite_func_type_stable(funcs[code_idx], func_params)
     if rewrite.changed {
-      func_remaps[code_idx] = Some(rewrite.old_to_new)
+      if mod_.name_sec is Some(_) {
+        match func_remaps {
+          Some(remaps) => remaps[code_idx] = Some(rewrite.old_to_new)
+          None => {
+            let remaps : Array[Array[Int]?] = Array::make(funcs.length(), None)
+            remaps[code_idx] = Some(rewrite.old_to_new)
+            func_remaps = Some(remaps)
+          }
+        }
+      }
       match rewritten {
         Some(copy) => copy[code_idx] = rewrite.func
         None => {
@@ -60144,13 +60175,17 @@ fn run_hot_pipeline_apply_type_stable_reorder_locals_to_touched(
   match rewritten {
     Some(copy) => {
       let next = mod_.with_code_sec(@lib.CodeSec::new(copy))
-      match
-        rl_rewrite_name_sec(
-          mod_.name_sec,
-          rl_imported_func_count(mod_),
-          func_remaps,
-        ) {
-        Some(name_sec) => Ok(next.with_name_sec(name_sec))
+      match func_remaps {
+        Some(remaps) =>
+          match
+            rl_rewrite_name_sec(
+              mod_.name_sec,
+              rl_imported_func_count(mod_),
+              remaps,
+            ) {
+            Some(name_sec) => Ok(next.with_name_sec(name_sec))
+            None => Ok(next.without_name_sec())
+          }
         None => Ok(next.without_name_sec())
       }
     }
@@ -61877,9 +61912,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         }
       }
       core_mod = match
-        run_hot_pipeline_apply_type_stable_reorder_locals_to_touched(
-          core_mod, cleanup_touched,
-        ) {
+        run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(core_mod, [
+          candidate.first_def,
+          candidate.second_def,
+        ]) {
         Ok(next) => next
         Err(err) =>
           return Err(
@@ -61887,7 +61923,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
           )
       }
       (options.trace)(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff} local_order=type-stable",
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff} local_order=type-stable ordered_defs=2",
       )
     }
     None => ()

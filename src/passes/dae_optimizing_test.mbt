@@ -15589,7 +15589,7 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005] payoff=142 local_order=type-stable",
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005] payoff=142 local_order=type-stable ordered_defs=2",
       )
     }),
     msg=trace.to_string(),
