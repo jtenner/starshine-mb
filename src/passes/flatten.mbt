@@ -1075,7 +1075,7 @@ fn flatten_try_table_dead_suffix_nodes(
     let suffix_count = root_count - root_idx - 1
     if suffix_count > 1 {
       let mut all_unreachable = true
-      let mut exactly_two_drop_consts = suffix_count == 2
+      let mut all_direct_drop_consts = true
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1087,10 +1087,10 @@ fn flatten_try_table_dead_suffix_nodes(
         if !flatten_try_table_dead_suffix_root_is_direct_drop_const(
             func, root_id,
           ) {
-          exactly_two_drop_consts = false
+          all_direct_drop_consts = false
         }
       }
-      if !all_unreachable && !exactly_two_drop_consts {
+      if !all_unreachable && !all_direct_drop_consts {
         return None
       }
     }

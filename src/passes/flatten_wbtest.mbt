@@ -477,7 +477,7 @@ test "flatten keeps a repeated drop-const suffix root gated" {
 }
 
 ///|
-test "flatten keeps three direct drop-const try-table suffix roots gated" {
+test "flatten recognizes three exclusively owned direct drop-const try-table suffix roots" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -494,19 +494,24 @@ test "flatten keeps three direct drop-const try-table suffix roots gated" {
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  let drops = [
-    @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(9))),
-    @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(10))),
-    @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(11))),
-  ]
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
-    table_id,
-    drops[0],
-    drops[1],
-    drops[2],
+  let first_value = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let first_drop = @ir.hot_build_drop(func, first_value)
+  let second_value = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let second_drop = @ir.hot_build_drop(func, second_value)
+  let third_value = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let third_drop = @ir.hot_build_drop(func, third_value)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id, first_drop, second_drop, third_drop,
   ])
   @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
-  assert_false(
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      first_drop, first_value, second_drop, second_value, third_drop, third_value,
+    ]),
+  )
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
