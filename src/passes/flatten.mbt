@@ -3811,6 +3811,50 @@ fn flatten_unique_br_table_targets(
 }
 
 ///|
+fn flatten_tuple_mixed_try_table_is_supported(
+  func : @ir.HotFunc,
+  table_id : Int,
+  payload_types : Array[@lib.ValType],
+  targets : Array[Int],
+) -> Bool {
+  let tuple_values = flatten_multivalue_tuple_branch_payload_values(
+    func,
+    table_id,
+    payload_types.length(),
+    payload_types,
+  )
+  if tuple_values is None || targets.length() <= 1 {
+    return true
+  }
+  if targets.length() != 2 {
+    return false
+  }
+  let mut try_label = -1
+  let mut block_count = 0
+  for target in targets {
+    match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::TryLabel => {
+        if try_label >= 0 {
+          return false
+        }
+        try_label = target
+      }
+      @ir.HotLabelKind::BlockLabel => block_count = block_count + 1
+      _ => return false
+    }
+  }
+  try_label >= 0 &&
+  block_count == 1 &&
+  flatten_try_terminal_br_table_targets_label(
+    func,
+    table_id,
+    try_label,
+    payload_types.length(),
+    true,
+  )
+}
+
+///|
 fn flatten_try_route_br_table(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3835,6 +3879,11 @@ fn flatten_try_route_br_table(
   )
   let targets = flatten_unique_br_table_targets(func, branch.imm0)
   if targets.length() == 0 {
+    return false
+  }
+  if !flatten_tuple_mixed_try_table_is_supported(
+      func, node_id, payload_types, targets,
+    ) {
     return false
   }
   for target in targets {
@@ -4622,11 +4671,19 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
           continue
         }
         let payload_count = child_count - 1
-        if flatten_br_table_payload_types(func, node_id, payload_count) is None {
+        let payload_types = match
+          flatten_br_table_payload_types(func, node_id, payload_count) {
+          Some(payload_types) => payload_types
+          None => return true
+        }
+        let targets = flatten_unique_br_table_targets(func, node.imm0)
+        if !flatten_tuple_mixed_try_table_is_supported(
+            func, node_id, payload_types, targets,
+          ) {
           return true
         }
         if payload_count > 1 {
-          for target in flatten_unique_br_table_targets(func, node.imm0) {
+          for target in targets {
             if target < 0 || target >= func.labels.length() {
               return true
             }
