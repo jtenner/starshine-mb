@@ -3,7 +3,6 @@ kind: concept
 status: working
 last_reviewed: 2026-05-09
 sources:
-  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/optimize.mbt

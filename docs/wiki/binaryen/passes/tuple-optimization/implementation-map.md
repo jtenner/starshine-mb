@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
-  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
   - ../../../../../src/passes/tuple_optimization.mbt

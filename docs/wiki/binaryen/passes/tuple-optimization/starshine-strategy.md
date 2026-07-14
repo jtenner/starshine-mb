@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md

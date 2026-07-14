@@ -35,7 +35,6 @@ sources:
   - ../../../raw/research/1364-2026-06-29-tuple-optimization-performance-attribution.md
   - ../../../raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md

@@ -61,7 +61,6 @@ sources:
   - ../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
-  - ../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
   - ../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../raw/binaryen/2026-07-11-asyncify-current-main-host-runtime-refresh.md
   - ../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
@@ -146,7 +145,6 @@ sources:
   - ../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - ../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
-  - ../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - ../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
@@ -205,7 +203,6 @@ sources:
   - ../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../raw/binaryen/2026-07-11-avoid-reinterprets-current-main-recheck.md
   - ../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md

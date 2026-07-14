@@ -5,7 +5,6 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0546-2026-05-06-tuple-optimization-gen-valid-rerun.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt

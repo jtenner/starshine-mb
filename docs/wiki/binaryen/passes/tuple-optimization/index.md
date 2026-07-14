@@ -31,7 +31,6 @@ sources:
   - ../../../raw/research/1362-2026-06-29-tuple-optimization-residual-scalar-spelling.md
   - ../../../raw/research/1358-2026-06-29-tuple-optimization-genvalid-profile.md
   - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
