@@ -182,3 +182,37 @@ test "flatten keeps reverse if-inside-block ancestry as an explicit policy bound
   @debug.assert_eq(chain, Some([if_id, block_id]))
   assert_false(flatten_target_chain_has_blocks_before_ifs(func, chain.unwrap()))
 }
+
+///|
+test "flatten rejects loop controls from direct try target ancestry" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let loop_id = @ir.hot_build_loop(func, @lib.BlockType::void_(), [try_id])
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(func, try_id, [loop_id]),
+    None,
+  )
+}
+
+///|
+test "flatten rejects non-root try containment from direct target ancestry" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let drop_id = @ir.hot_build_drop(func, try_id)
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [drop_id])
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(func, try_id, [block_id]),
+    None,
+  )
+}
