@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
   - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
-  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md

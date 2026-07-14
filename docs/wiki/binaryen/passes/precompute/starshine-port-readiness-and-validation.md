@@ -14,7 +14,6 @@ sources:
   - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
   - ../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md
   - ../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md
-  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md

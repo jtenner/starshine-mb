@@ -15,7 +15,6 @@ sources:
   - ../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md
   - ../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md
   - ../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md
-  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
@@ -203,7 +202,7 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
 - Treat [`../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md`](../../../raw/binaryen/2026-07-11-precompute-v130-current-main-reconciliation.md) as the retained release/source/test provenance bridge; its direct `version_130` and current-main URLs supersede the consumed duplicate `version_129` manifest as the active routing surface.
-- Treat the 2026-05-05 recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) as the retained current-main / local-code-location bridge; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
+- Treat the retained 2026-05-05 research mirror, [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
 - Use Binaryen `version_130` as the current public release baseline for new conclusions. Keep the detailed `version_129` source reading as historical provenance until a behavior-specific v130 reread replaces that exact claim.
@@ -226,7 +225,6 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 - [`../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md`](../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md)
 - [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md)
 - [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md)
-- [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md)
 - [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md)
 - [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
 - [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
