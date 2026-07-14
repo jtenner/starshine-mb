@@ -1043,6 +1043,24 @@ fn flatten_try_table_dead_suffix_root_nodes(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_root_is_direct_drop_const(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op {
+    @ir.HotOp::Const => true
+    _ => false
+  }
+}
+
+///|
 fn flatten_try_table_dead_suffix_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1054,14 +1072,32 @@ fn flatten_try_table_dead_suffix_nodes(
     if @ir.hot_region_get(func, region_ref, root_idx) != table_id {
       continue
     }
+    let suffix_count = root_count - root_idx - 1
+    if suffix_count > 1 {
+      let mut all_unreachable = true
+      let mut exactly_two_drop_consts = suffix_count == 2
+      for suffix_idx = root_idx + 1
+          suffix_idx < root_count
+          suffix_idx = suffix_idx + 1 {
+        let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
+        match @ir.hot_node_get(func, root_id).op {
+          @ir.HotOp::Unreachable => ()
+          _ => all_unreachable = false
+        }
+        if !flatten_try_table_dead_suffix_root_is_direct_drop_const(
+            func, root_id,
+          ) {
+          exactly_two_drop_consts = false
+        }
+      }
+      if !all_unreachable && !exactly_two_drop_consts {
+        return None
+      }
+    }
     for suffix_idx = root_idx + 1
         suffix_idx < root_count
         suffix_idx = suffix_idx + 1 {
       let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
-      match @ir.hot_node_get(func, root_id).op {
-        @ir.HotOp::Unreachable => ()
-        _ => if root_count - root_idx - 1 != 1 { return None }
-      }
       let root_nodes = match
         flatten_try_table_dead_suffix_root_nodes(func, root_id) {
         Some(root_nodes) => root_nodes
