@@ -199,7 +199,6 @@ sources:
   - ../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - ../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
   - ../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
-  - ../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
@@ -250,10 +249,8 @@ Use these files in this order:
   - compact pass-roster page that carries the same release-horizon handoff into the late-pipeline context
 - `docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`
   - source of truth for the release-horizon fact behind that baseline
-- `docs/wiki/raw/binaryen/2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`
-  - source of truth for the current docs.rs / Debian / README package-surface caveats behind the late-pipeline dispatch note
 - `docs/wiki/raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`
-  - distilled summary of the package-surface recheck used to refresh the living late-pipeline page
+  - retained source for the current docs.rs / Debian / README package-surface caveats behind the late-pipeline dispatch note
 - `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`
   - source of truth for which unimplemented passes were actually observed as skipped in the saved generated-artifact `-O4z` replay
 - `docs/wiki/binaryen/passes/`
@@ -665,7 +662,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
 - [`../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
-- [`../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)

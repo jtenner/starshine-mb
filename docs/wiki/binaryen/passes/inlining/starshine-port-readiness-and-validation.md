@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-02
 sources:
-  - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
   - ./index.md

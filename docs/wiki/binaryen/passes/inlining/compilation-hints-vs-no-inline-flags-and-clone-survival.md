@@ -6,7 +6,6 @@ sources:
   - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
   - ../../../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
-  - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/NoInline.cpp
