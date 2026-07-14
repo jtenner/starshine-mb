@@ -922,17 +922,20 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
           region_ref,
           root_idx + 1 + offset,
         )
-        let consumer = @ir.hot_node_get(func, consumer_id)
         let expected_payload = if tuple_id >= 0 {
           tuple_id
         } else {
           @ir.hot_child_get(func, branch_id, payload_count - 1 - offset)
         }
         if tuple_id >= 0 {
-          match consumer.op {
-            @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 &&
-              @ir.hot_child_get(func, consumer_id, 0) == expected_payload => ()
-            _ => return None
+          if !flatten_multivalue_tuple_loop_br_if_consumer_matches_lane(
+              func,
+              use_def,
+              consumer_id,
+              tuple_id,
+              result_types[payload_count - 1 - offset],
+            ) {
+            return None
           }
         } else if !flatten_multivalue_loop_br_if_consumer_matches_payload(
             func, use_def, consumer_id, expected_payload,
@@ -3514,23 +3517,19 @@ fn flatten_try_route_multivalue_br_if(
           region_ref,
           flow[2] + 1 + offset,
         )
-        if tuple_id >= 0 {
-          @ir.hot_child_set(
+        let payload_id = if tuple_id >= 0 {
+          tuple_id
+        } else {
+          @ir.hot_child_get(func, node_id, payload_count - 1 - offset)
+        }
+        ignore(
+          flatten_replace_multivalue_loop_br_if_consumer_payload(
             func,
             consumer_id,
-            0,
-            @ir.hot_build_local_get(func, locals[payload_count - 1 - offset]),
-          )
-        } else {
-          ignore(
-            flatten_replace_multivalue_loop_br_if_consumer_payload(
-              func,
-              consumer_id,
-              @ir.hot_child_get(func, node_id, payload_count - 1 - offset),
-              locals[payload_count - 1 - offset],
-            ),
-          )
-        }
+            payload_id,
+            locals[payload_count - 1 - offset],
+          ),
+        )
       }
       let condition_id = @ir.hot_child_get(func, node_id, payload_count)
       ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))
