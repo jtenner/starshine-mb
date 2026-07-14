@@ -8,7 +8,6 @@ sources:
   - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
   - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
   - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
@@ -102,13 +101,12 @@ That is narrower than “merge any locals that look unused.”
 - Treat this folder as the canonical home for future `coalesce-locals` research, direct-pass validation, and ordered-pipeline follow-up.
 - Keep the Starshine pages aligned with the active implementation in `src/passes/coalesce_locals.mbt` and record any future divergence from Binaryen as explicit parity debt.
 - The tagged `version_129` release/source/test URLs are retained directly in this page's Sources section; the focused 2026-05-05 recheck preserves the later current-`main` provenance.
-- Treat [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge added on 2026-05-05.
+- The retained 2026-05-05 research recheck is the narrow historical current-`main` freshness bridge; direct `version_129` and current-main source URLs below remain the durable upstream evidence.
 - Broad `random-all-profiles` is closed for the current direct CL surface: the first full 10k run timed out, the first 1k diagnostic exposed `ssa-nomerge-smoke=125` and `heap2local-struct=38`, concrete-ref direct-`struct.get` packing plus preferred-first GC-ref ordering closed the sampled `heap2local-struct` subfamily, and later immediate tee/drop, nested block-escape, label-aware branch-liveness, tail-param-reuse, and structured-scalar slot-order fixes normalized the sampled `ssa-nomerge-smoke` family. Replay `.tmp/pass-fuzz-coalesce-locals-random-all-replay-all-structured-scalar-order-final-20260704` normalized the previous `125/125` failures, and the required `.tmp/pass-fuzz-coalesce-locals-random-all-profiles-10000-structured-scalar-order-final-20260704` lane compared/normalized `10000/10000` with zero failures.
 - New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, the Starshine strategy page, and the port-readiness matrix together so the algorithm explanation, example catalog, source map, local status story, and future validation ladder stay aligned.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)

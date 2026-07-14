@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
@@ -23,7 +22,7 @@ This page is the beginner-friendly shape catalog for Binaryen's `coalesce-locals
 ## Provenance note
 
 The [`coalesce-locals` landing page](./index.md) retains the tagged Binaryen release/source/test URLs for these shape families.
-Use [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge.
+The retained 2026-05-05 research recheck is the narrow historical current-`main` freshness bridge.
 A focused 2026-05-05 spot check did not surface teaching-relevant drift beyond the `version_129` shape families summarized here. For the upstream lit-test region map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model

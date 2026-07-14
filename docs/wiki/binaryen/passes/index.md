@@ -24,7 +24,6 @@ sources:
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
   - ../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
-  - ../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
@@ -32,7 +31,6 @@ sources:
   - ../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
   - ../../raw/research/0114-2026-04-20-rse-binaryen-research.md
-  - ../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
   - ../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
@@ -41,7 +39,6 @@ sources:
   - ../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
-  - ../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
