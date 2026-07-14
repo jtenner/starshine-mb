@@ -1425,6 +1425,212 @@ test "flatten routes one tuple-made multivalue br_table to legacy try and enclos
 }
 
 ///|
+test "flatten routes one tuple-made multivalue br_table to legacy try and two enclosing block vectors" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let result_types = [i32_type, i64_type]
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i64_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, result_types),
+  )
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_const_i32(func, @lib.I32(9)),
+      @ir.hot_build_const_i64(func, @lib.I64(10L)),
+    ],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      result_types,
+    ),
+  )
+  let inner_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    try_id, try_id,
+  ])
+  @ir.hot_control_result_type_set(
+    func,
+    inner_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [],
+      result_types,
+    ),
+  )
+  let outer_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    inner_id, inner_id,
+  ])
+  @ir.hot_control_result_type_set(
+    func,
+    outer_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(2U)),
+      [],
+      result_types,
+    ),
+  )
+  let first_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_payload, @lib.Instruction::i32_add())
+  let second_payload = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i64(func, @lib.I64(4L)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_payload,
+    @lib.Instruction::i64_sub(),
+  )
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [
+    first_payload, second_payload,
+  ])
+  let selector = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(6)),
+  )
+  @ir.hot_node_exact_instr_set(func, selector, @lib.Instruction::i32_sub())
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let inner_label = @ir.hot_control_node_label(func, inner_id)
+  let outer_label = @ir.hot_control_node_label(func, outer_id)
+  let branch = @ir.hot_build_br_table(
+    func,
+    [try_label, inner_label, outer_label],
+    try_label,
+    selector,
+    values=[tuple_id, tuple_id],
+  )
+  let try_body = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, try_body, [branch])
+  let return_id = @ir.hot_build_return(func, [outer_id, outer_id])
+  @ir.hot_root_append(func, return_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, inner_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, try_label), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, inner_label), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, outer_label), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, try_body), 12)
+  let first_value_set = @ir.hot_region_get(func, try_body, 0)
+  let second_value_set = @ir.hot_region_get(func, try_body, 1)
+  let first_stage_set = @ir.hot_region_get(func, try_body, 2)
+  let second_stage_set = @ir.hot_region_get(func, try_body, 3)
+  let first_try_set = @ir.hot_region_get(func, try_body, 4)
+  let second_try_set = @ir.hot_region_get(func, try_body, 5)
+  let first_inner_set = @ir.hot_region_get(func, try_body, 6)
+  let second_inner_set = @ir.hot_region_get(func, try_body, 7)
+  let first_outer_set = @ir.hot_region_get(func, try_body, 8)
+  let second_outer_set = @ir.hot_region_get(func, try_body, 9)
+  let selector_set = @ir.hot_region_get(func, try_body, 10)
+  @debug.assert_eq(@ir.hot_region_get(func, try_body, 11), branch)
+  @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  let first_try_local = @ir.hot_node_get(func, first_try_set).imm0
+  let second_try_local = @ir.hot_node_get(func, second_try_set).imm0
+  let first_inner_local = @ir.hot_node_get(func, first_inner_set).imm0
+  let second_inner_local = @ir.hot_node_get(func, second_inner_set).imm0
+  let first_outer_local = @ir.hot_node_get(func, first_outer_set).imm0
+  let second_outer_local = @ir.hot_node_get(func, second_outer_set).imm0
+  assert_false(first_try_local == first_inner_local)
+  assert_false(first_try_local == first_outer_local)
+  assert_false(first_inner_local == first_outer_local)
+  assert_false(second_try_local == second_inner_local)
+  assert_false(second_try_local == second_outer_local)
+  assert_false(second_inner_local == second_outer_local)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_try_set, 0)).imm0,
+    @ir.hot_node_get(func, first_stage_set).imm0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_try_set, 0)).imm0,
+    @ir.hot_node_get(func, second_stage_set).imm0,
+  )
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, 0)).imm0,
+    first_try_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, 1)).imm0,
+    second_try_local,
+  )
+  let inner_body = @ir.hot_region_body_ref(func, inner_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, inner_body, 0), try_id)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, inner_body, 1)).imm0,
+    first_inner_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, inner_body, 2)).imm0,
+    second_inner_local,
+  )
+  let outer_body = @ir.hot_region_body_ref(func, outer_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, outer_body), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, outer_body, 0), inner_id)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, outer_body, 1)).imm0,
+    first_outer_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, outer_body, 2)).imm0,
+    second_outer_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_outer_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_outer_local,
+  )
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tuple-made three-target try table to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes a tuple-made multivalue br to its legacy try result vector" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

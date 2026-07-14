@@ -883,19 +883,6 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
   if targets.length() > 3 {
     return false
   }
-  if targets.length() == 3 &&
-    @ir.hot_child_count(func, node_id) == payload_count + 1 {
-    let target_types = @ir.hot_type_results(
-      func,
-      @ir.hot_label_result_type(func, label_id),
-    )
-    if flatten_multivalue_tuple_branch_payload_values(
-        func, node_id, payload_count, target_types,
-      )
-      is Some(_) {
-      return false
-    }
-  }
   flatten_try_terminal_br_table_targets_label(
     func, node_id, label_id, payload_count, allow_mixed_targets,
   )
@@ -3874,7 +3861,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
   if tuple_values is None || targets.length() <= 1 {
     return true
   }
-  if targets.length() != 2 {
+  if targets.length() > 3 {
     return false
   }
   let mut try_label = -1
@@ -3892,7 +3879,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
     }
   }
   try_label >= 0 &&
-  block_count == 1 &&
+  block_count == targets.length() - 1 &&
   flatten_try_terminal_br_table_targets_label(
     func,
     table_id,
