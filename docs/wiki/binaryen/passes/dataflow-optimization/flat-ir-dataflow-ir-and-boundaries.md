@@ -5,7 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-dataflow-optimization-v130-current-main-reconciliation.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
@@ -201,7 +200,6 @@ If several of those answers are no, the right prediction is usually:
 ## Sources
 
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
-- [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp>

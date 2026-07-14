@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
@@ -24,9 +23,9 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for `dae2`.
+- Use Binaryen `version_129` as the reviewed tagged source oracle for `dae2`; the 2026-05-05 source review is a historical freshness check, not a claim about the current public release baseline.
 - The reviewed `version_129` source map is retained through the 2026-05-05 current-main recheck and direct tagged Binaryen URLs below.
-- The 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md); it still found no teaching-relevant drift, and the same capture now includes a GitHub web spotcheck of the upstream `main` source pages. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the current implementation-readiness guidance.
+- The absorbed 2026-05-05 current-main recheck found no teaching-relevant drift and recorded an official GitHub spotcheck of the upstream `main` source pages. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the current implementation-readiness guidance.
 - The 2026-05-05 source-anchor refresh note is [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md).
 - The core implementation is `src/passes/DeadArgumentElimination2.cpp`.
 - Public registration lives in `src/passes/pass.cpp`.

@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
@@ -32,7 +31,7 @@ related:
 
 Starshine does **not** currently implement Binaryen's `dae2` pass.
 
-This matters because the pass is not just a spelling variant of the existing local `dead-argument-elimination` boundary-only name. Upstream `dae2` is a separate experimental engine with backward forwarding-graph analysis and optional referenced function-type-tree rewriting. See the source-backed upstream summary in [`./binaryen-strategy.md`](./binaryen-strategy.md) and the 2026-05-05 current-main freshness layer plus GitHub web spotcheck in [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md).
+This matters because the pass is not just a spelling variant of the existing local `dead-argument-elimination` boundary-only name. Upstream `dae2` is a separate experimental engine with backward forwarding-graph analysis and optional referenced function-type-tree rewriting. See the source-backed upstream summary in [`./binaryen-strategy.md`](./binaryen-strategy.md); its absorbed 2026-05-05 current-main spotcheck found no teaching-relevant drift.
 
 For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 

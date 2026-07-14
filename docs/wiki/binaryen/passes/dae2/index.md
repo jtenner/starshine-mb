@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
@@ -36,7 +35,7 @@ related:
   - not in the saved generated-artifact `-O4z` skipped-slot queue,
   - and not named in the local Starshine pass registry.
 - Upstream describes it as an **experimental reimplementation of DAE**.
-- As of the 2026-05-05 current-main recheck and GitHub web spotcheck, this folder is anchored to the retained freshness layer: [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md).
+- The absorbed 2026-05-05 current-main recheck and GitHub web spotcheck found no teaching-relevant drift; this folder retains that freshness finding through the living dossier and cited official sources.
 - The current local implementation answer is split into a status/code-map page and a concrete first-slice validation bridge: [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Why this folder exists

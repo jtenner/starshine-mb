@@ -85,7 +85,6 @@ sources:
   - ../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - ../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
@@ -702,7 +701,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md`](../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md)
 - [`../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
-- [`../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md`](../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
@@ -719,7 +717,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
 - [`../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
-- [`../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md)
 - [`../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
 - [`../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)

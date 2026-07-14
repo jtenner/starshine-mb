@@ -6,7 +6,7 @@ _Status:_ immutable current-main source bridge for the `docs/wiki/binaryen/passe
 ## Scope
 
 This note records the exact official Binaryen `main` source locations checked during the 2026-05-06 wiki-health pass.
-It supplements the earlier 2026-05-05 current-main bridge in `docs/wiki/raw/binaryen/2026-05-05-de-nan-current-main-recheck.md` and does not change the teachable contract.
+It records exact source locations for the same current-main reading and does not change the teachable contract.
 
 ## Official sources consulted
 
