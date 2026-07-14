@@ -179,6 +179,91 @@ test "flatten routes a carried scalar br to its legacy try result channel" {
 }
 
 ///|
+test "flatten routes an exact scalar br_if to its legacy try result channel" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let catch_tail = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([catch_tail]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(func, payload, @lib.Instruction::i32_add())
+  let condition = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(6)),
+  )
+  @ir.hot_node_exact_instr_set(func, condition, @lib.Instruction::i32_sub())
+  let branch = @ir.hot_build_br_if(func, label_id, condition, values=[payload])
+  let false_drop = @ir.hot_build_drop(func, payload)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch, false_drop, body_fallback,
+  ])
+  let result_drop = @ir.hot_build_drop(func, try_id)
+  @ir.hot_root_append(func, result_drop)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
+  let payload_set = @ir.hot_region_get(func, body_ref, 0)
+  let condition_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, payload_set, 0), payload)
+  @debug.assert_eq(@ir.hot_child_get(func, condition_set, 0), condition)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let result_local = @ir.hot_node_get(func, payload_set).imm0
+  let flattened_condition = @ir.hot_child_get(func, branch, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, flattened_condition).imm0,
+    @ir.hot_node_get(func, condition_set).imm0,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 3), false_drop)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, false_drop, 0)).imm0,
+    result_local,
+  )
+  let fallback_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_node_get(func, fallback_set).imm0, result_local)
+  @debug.assert_eq(@ir.hot_child_get(func, fallback_set, 0), body_fallback)
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 1)
+  let catch_set = @ir.hot_region_get(func, catch_ref, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, catch_set).imm0, result_local)
+  @debug.assert_eq(@ir.hot_child_get(func, catch_set, 0), catch_tail)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, result_drop, 0)).imm0,
+    result_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, condition), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected scalar try br_if routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes a tuple-made multivalue br to its legacy try result vector" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

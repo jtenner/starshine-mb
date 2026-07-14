@@ -2309,6 +2309,46 @@ fn flatten_try_route_scalar_control(
 }
 
 ///|
+fn flatten_scalar_try_br_if_flow_is_exact(
+  func : @ir.HotFunc,
+  try_id : Int,
+  branch_id : Int,
+  value_id : Int,
+) -> Bool {
+  let branch = @ir.hot_node_get(func, branch_id)
+  match branch.op {
+    @ir.HotOp::BrIf if branch.imm0 == @ir.hot_control_node_label(func, try_id) &&
+      @ir.hot_child_count(func, branch_id) == 2 &&
+      @ir.hot_child_get(func, branch_id, 0) == value_id => ()
+    _ => return false
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  if @ir.node_use_count(use_def, value_id) != 2 {
+    return false
+  }
+  let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
+    let root_count = @ir.hot_region_root_count(func, region_ref)
+    for root_idx = 0; root_idx + 1 < root_count; root_idx = root_idx + 1 {
+      if @ir.hot_region_get(func, region_ref, root_idx) != branch_id {
+        continue
+      }
+      let consumer_id = @ir.hot_region_get(func, region_ref, root_idx + 1)
+      let consumer = @ir.hot_node_get(func, consumer_id)
+      match consumer.op {
+        @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 &&
+          @ir.hot_child_get(func, consumer_id, 0) == value_id => return true
+        _ => return false
+      }
+    }
+  }
+  false
+}
+
+///|
 fn flatten_target_can_route_scalar_branches(
   func : @ir.HotFunc,
   label_id : Int,
@@ -2368,10 +2408,6 @@ fn flatten_target_can_route_scalar_branches(
         }
       }
       @ir.HotOp::BrIf if branch.imm0 == label_id => {
-        match owner.op {
-          @ir.HotOp::Try => return false
-          _ => ()
-        }
         saw_target = true
         let child_count = @ir.hot_child_count(func, branch_id)
         if child_count == 1 {
@@ -2388,6 +2424,19 @@ fn flatten_target_can_route_scalar_branches(
         if value_types.length() != 1 ||
           !flatten_value_type_is_defaultable(value_types[0]) {
           return false
+        }
+        match owner.op {
+          @ir.HotOp::Try =>
+            if value_types[0] != target_type ||
+              !flatten_scalar_branch_payload_has_supported_origin(
+                func, value_id,
+              ) ||
+              !flatten_scalar_try_br_if_flow_is_exact(
+                func, owner_id, branch_id, value_id,
+              ) {
+              return false
+            }
+          _ => ()
         }
       }
       @ir.HotOp::BrOnNull
@@ -3303,10 +3352,9 @@ fn flatten_try_route_scalar_br_if(
       ignore(@ir.hot_replace_child_span(func, node_id, [condition_id]))
       return true
     }
-    @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
-      if payload_count != 1 {
-        return false
-      }
+    @ir.HotLabelKind::BlockLabel
+    | @ir.HotLabelKind::IfLabel
+    | @ir.HotLabelKind::TryLabel => if payload_count != 1 { return false }
     _ => return false
   }
   if @ir.hot_label_branch_arity(func, label_id) != 1 {
