@@ -61928,6 +61928,16 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
+  match dae_run_forwarded_param_scc_transaction(core_mod, core_touched) {
+    Some(application) => {
+      core_mod = application.mod_out
+      core_touched = application.touched
+      (options.trace)(
+        "pass[dae-optimizing]:forwarded-param-scc-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
+      )
+    }
+    None => ()
+  }
   let payoff_chain = dae_run_broad_dropped_result_payoff_chain(
     core_mod,
     core_touched,

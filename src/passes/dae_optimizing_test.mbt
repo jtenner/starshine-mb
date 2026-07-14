@@ -15729,3 +15729,99 @@ test "dae-optimizing closes two ranked broad dropped-result chains in one bounde
     msg=payoff_traces.to_string(),
   )
 }
+
+///|
+test "dae-optimizing removes a constant-anchored forwarded-parameter cycle transactionally" {
+  let source =
+    #|(module
+    #|  (func $entry (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $a)
+    #|  (func $a (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $b)
+    #|  (func $b (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    call $a))
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:forwarded-param-scc-transaction defs=[1, 2] params=2",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing rejects a conflicting forwarded-parameter cycle transaction" {
+  let source =
+    #|(module
+    #|  (func (export "run7") (result i32)
+    #|    i32.const 7
+    #|    call $a)
+    #|  (func (export "run8") (result i32)
+    #|    i32.const 8
+    #|    i32.const 9
+    #|    call $b)
+    #|  (func $a (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $b)
+    #|  (func $b (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects a written forwarded-parameter cycle transaction" {
+  let source =
+    #|(module
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $a)
+    #|  (func $a (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $b)
+    #|  (func $b (param i32 i32) (result i32)
+    #|    i32.const 4
+    #|    local.set 0
+    #|    local.get 0
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+}
+
+///|
+test "dae-optimizing rejects an escaped forwarded-parameter cycle transaction" {
+  let source =
+    #|(module
+    #|  (func $entry (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $a)
+    #|  (func $a (export "escaped") (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $b)
+    #|  (func $b (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 0
+    #|    call $a))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+}
