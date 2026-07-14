@@ -579,6 +579,114 @@ test "flatten keeps a pure binary try-table suffix gated when one operand is sha
 }
 
 ///|
+test "flatten recognizes one exclusively owned unary drop try-table suffix" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let input = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let clz = @ir.hot_build_unary(func, i32_type, input)
+  @ir.hot_node_exact_instr_set(func, clz, @lib.Instruction::i32_clz())
+  let dead_drop = @ir.hot_build_drop(func, clz)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, dead_drop])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([dead_drop, clz, input]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a unary try-table suffix gated when its input is shared" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let shared_input = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let clz = @ir.hot_build_unary(func, i32_type, shared_input)
+  @ir.hot_node_exact_instr_set(func, clz, @lib.Instruction::i32_clz())
+  let dead_drop = @ir.hot_build_drop(func, clz)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id, dead_drop,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, shared_input))
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a conversion drop try-table suffix gated" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let input = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let conversion = @ir.hot_build_convert(func, i64_type, input)
+  @ir.hot_node_exact_instr_set(
+    func,
+    conversion,
+    @lib.Instruction::i64_extend_i32s(),
+  )
+  let dead_drop = @ir.hot_build_drop(func, conversion)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id, dead_drop,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
 test "flatten keeps a trapping try-table suffix gated when its binary is shared" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
