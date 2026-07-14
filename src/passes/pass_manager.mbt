@@ -61961,9 +61961,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
           )
       }
     }
+    let payoff_defs : Array[Int] = []
+    for candidate in payoff_cleanup_candidates {
+      payoff_defs.push(candidate.callee_def)
+    }
+    core_mod = match
+      run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
+        core_mod, payoff_defs,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err("DAE payoff type-stable reorder-locals: \{err}")
+    }
     for candidate in payoff_cleanup_candidates {
       (options.trace)(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=\{candidate.wrapper_def} callee_def=\{candidate.callee_def} payoff=\{candidate.payoff}",
+        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=\{candidate.wrapper_def} callee_def=\{candidate.callee_def} payoff=\{candidate.payoff} local_order=type-stable",
       )
     }
   }

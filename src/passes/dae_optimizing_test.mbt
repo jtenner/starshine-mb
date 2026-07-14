@@ -15604,7 +15604,9 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
 ///|
 fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
   let out = StringBuilder::new()
-  out.write_string("(module\n")
+  out.write_string(
+    "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
+  )
   out.write_string("  (func $target (result i32)\n")
   out.write_string("    (local")
   for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
@@ -15620,7 +15622,9 @@ fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
     out.write_string(local_id.to_string())
     out.write_string("\n      drop\n    end\n")
   }
-  out.write_string("    local.get 31)\n")
+  out.write_string(
+    "    i32.const 77\n    local.set 127\n    local.get 127\n    call $use_i32\n    local.get 31)\n",
+  )
   out.write_string("  (func $wrapper (result i32) call $target)\n")
   out.write_string("  (func (export \"run\") call $wrapper drop)\n")
   for dummy_idx = 3; dummy_idx < 8193; dummy_idx = dummy_idx + 1 {
@@ -15632,17 +15636,22 @@ fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
 
 ///|
 test "dae-optimizing closes a broad dropped-result wrapper chain with bounded selected cleanup" {
-  let (optimized, trace) = dae_test_run_with_perf_trace(
-    dae_test_broad_dropped_result_payoff_chain_module(),
-  )
+  let source = dae_test_broad_dropped_result_payoff_chain_module()
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
   @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
   @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+  let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, 0)
+  let @lib.Func(optimized_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(plain_locals.length(), 128)
+  @debug.assert_eq(optimized_locals.length(), 1)
   let target = optimized.pretty_print_defined_func(0U)
-  assert_false(target.contains("local.set"), msg=target)
+  assert_true(target.contains("I32(77)"), msg=target)
+  assert_true(target.contains("call (Func 0)"), msg=target)
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0",
+        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0 payoff=166 local_order=type-stable",
       )
     }),
     msg=trace.to_string(),
