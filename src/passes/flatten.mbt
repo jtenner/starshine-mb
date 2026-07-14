@@ -3912,7 +3912,11 @@ fn flatten_tuple_mixed_try_table_is_supported(
     }
   }
   try_label >= 0 &&
-  (if_count == 0 || if_count == 1) &&
+  (
+    if_count == 0 ||
+    if_count == 1 ||
+    (if_count == 2 && enclosing_control_count == 2)
+  ) &&
   enclosing_control_count == targets.length() - 1 &&
   flatten_try_terminal_br_table_targets_label(
     func,
