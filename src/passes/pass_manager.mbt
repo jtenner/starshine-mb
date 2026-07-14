@@ -60108,6 +60108,57 @@ fn run_hot_pipeline_apply_local_subtyping_to_touched(
 }
 
 ///|
+fn run_hot_pipeline_apply_type_stable_reorder_locals_to_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Result[@lib.Module, String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let params = rl_defined_func_param_cache(mod_)
+  let func_remaps : Array[Array[Int]?] = Array::make(funcs.length(), None)
+  let mut rewritten : Array[@lib.Func]? = None
+  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
+    if code_idx >= touched.length() || !touched[code_idx] {
+      continue
+    }
+    let func_params = match params.get(code_idx) {
+      Some(params) => params
+      None =>
+        return Err("missing defined function params for code index \{code_idx}")
+    }
+    let rewrite = rl_rewrite_func_type_stable(funcs[code_idx], func_params)
+    if rewrite.changed {
+      func_remaps[code_idx] = Some(rewrite.old_to_new)
+      match rewritten {
+        Some(copy) => copy[code_idx] = rewrite.func
+        None => {
+          let copy = funcs.copy()
+          copy[code_idx] = rewrite.func
+          rewritten = Some(copy)
+        }
+      }
+    }
+  }
+  match rewritten {
+    Some(copy) => {
+      let next = mod_.with_code_sec(@lib.CodeSec::new(copy))
+      match
+        rl_rewrite_name_sec(
+          mod_.name_sec,
+          rl_imported_func_count(mod_),
+          func_remaps,
+        ) {
+        Some(name_sec) => Ok(next.with_name_sec(name_sec))
+        None => Ok(next.without_name_sec())
+      }
+    }
+    None => Ok(mod_)
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_reorder_locals_to_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -61825,8 +61876,18 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
             )
         }
       }
+      core_mod = match
+        run_hot_pipeline_apply_type_stable_reorder_locals_to_touched(
+          core_mod, cleanup_touched,
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE broad exact-param adjacent type-stable reorder-locals: \{err}",
+          )
+      }
       (options.trace)(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff}",
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff} local_order=type-stable",
       )
     }
     None => ()

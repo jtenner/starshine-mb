@@ -364,6 +364,78 @@ fn rl_used_body_locals_are_original_prefix(
 }
 
 ///|
+fn rl_rewrite_func_type_stable(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> RLFuncRewrite {
+  let @lib.Func(body_locals, body) = func
+  let body_local_count = body_locals.length()
+  if body_local_count == 0 {
+    return { func, old_to_new: [], changed: false }
+  }
+
+  let total_locals = params.length() + body_local_count
+  if !rl_expr_local_accesses_in_range(body, total_locals) {
+    return { func, old_to_new: [], changed: false }
+  }
+  let scan = RLScanState::new(total_locals, params.length())
+  rl_scan_expr(body, scan)
+  let body_local_types = rl_flatten_locals(body_locals, body_local_count)
+  let old_to_new = Array::make(total_locals, -1)
+  for idx = 0; idx < params.length(); idx = idx + 1 {
+    old_to_new[idx] = idx
+  }
+
+  let reordered_body_runs : Array[@lib.LocalRun] = []
+  let mut old_body_start = 0
+  let mut next_body_idx = 0
+  let mut remapped = false
+  while old_body_start < body_local_count {
+    let ty = body_local_types[old_body_start]
+    let mut old_body_end = old_body_start + 1
+    while old_body_end < body_local_count &&
+          body_local_types[old_body_end] == ty {
+      old_body_end += 1
+    }
+    let used_in_run : Array[Int] = []
+    for old_body_idx = old_body_start
+        old_body_idx < old_body_end
+        old_body_idx = old_body_idx + 1 {
+      let old_idx = params.length() + old_body_idx
+      if scan.counts[old_idx] > 0 {
+        used_in_run.push(old_idx)
+      }
+    }
+    ignore(rl_sort_used_body_locals(used_in_run, scan.counts, scan.first_uses))
+    for old_idx in used_in_run {
+      let new_idx = params.length() + next_body_idx
+      old_to_new[old_idx] = new_idx
+      if old_idx != new_idx {
+        remapped = true
+      }
+      rl_push_local_run(reordered_body_runs, ty)
+      next_body_idx += 1
+    }
+    old_body_start = old_body_end
+  }
+
+  if next_body_idx == body_local_count && !remapped {
+    return { func, old_to_new: [], changed: false }
+  }
+  let rewritten_locals = @lib.Locals::new(reordered_body_runs)
+  let rewritten_body = if remapped {
+    rl_rewrite_expr(body, old_to_new)
+  } else {
+    body
+  }
+  {
+    func: @lib.Func::new(rewritten_locals, rewritten_body),
+    old_to_new,
+    changed: true,
+  }
+}
+
+///|
 fn rl_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],

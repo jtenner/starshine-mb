@@ -15520,6 +15520,9 @@ fn dae_test_broad_exact_param_adjacent_cleanup_module() -> String {
         "    i32.const \{local_idx}\n    local.set \{local_idx + 1}\n    block\n      local.get \{local_idx + 1}\n      drop\n    end\n",
       )
     }
+    out.write_string(
+      "    i32.const 77\n    local.set 128\n    local.get 0\n    call $use_i32\n    local.get 128\n    call $use_i32\n",
+    )
     if pair_idx == 0 {
       out.write_string("    local.get 0\n    call $use_i32)\n")
     } else {
@@ -15560,11 +15563,22 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
   @debug.assert_eq(dae_test_func_params(plain, 7000).length(), 1)
   @debug.assert_eq(dae_test_func_params(optimized, 7000).length(), 0)
-  for def_idx in [7004U, 7005U] {
-    let plain_func = plain.pretty_print_defined_func(def_idx)
-    let optimized_func = optimized.pretty_print_defined_func(def_idx)
+  for def_idx in [7004, 7005] {
+    let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, def_idx)
+    let @lib.Func(optimized_locals, _) = dae_test_defined_func(
+      optimized, def_idx,
+    )
+    @debug.assert_eq(plain_locals.length(), 128)
+    @debug.assert_eq(optimized_locals.length(), 1)
+    let plain_func = plain.pretty_print_defined_func(
+      def_idx.reinterpret_as_uint(),
+    )
+    let optimized_func = optimized.pretty_print_defined_func(
+      def_idx.reinterpret_as_uint(),
+    )
     assert_true(plain_func.contains("local.set"), msg=plain_func)
-    assert_false(optimized_func.contains("local.set"), msg=optimized_func)
+    assert_true(optimized_func.contains("local.set"), msg=optimized_func)
+    assert_true(optimized_func.contains("I32(77)"), msg=optimized_func)
   }
   assert_true(
     trace.contains(
@@ -15575,7 +15589,7 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005]",
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005] payoff=142 local_order=type-stable",
       )
     }),
     msg=trace.to_string(),
