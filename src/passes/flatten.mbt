@@ -1051,7 +1051,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
             node_id,
             label_id,
             result_types.length(),
-            false,
+            true,
           ) {
           return false
         }
@@ -1103,7 +1103,10 @@ fn flatten_multivalue_legacy_try_is_supported(
   let result_types = @ir.hot_type_results(func, try_node.ty)
   if result_types.length() <= 1 ||
     flatten_legacy_try_has_deferred_eh_repair(func) ||
-    !flatten_multivalue_control_has_exclusive_consumer_span(func, try_id) {
+    (
+      !flatten_multivalue_control_has_exclusive_consumer_span(func, try_id) &&
+      !flatten_multivalue_control_has_exclusive_region_tail_span(func, try_id)
+    ) {
     return false
   }
   for result_type in result_types {
@@ -1146,7 +1149,7 @@ fn flatten_multivalue_legacy_try_is_supported(
           tail_id,
           label_id,
           result_types.length(),
-          false,
+          true,
         )
       ) {
       continue
@@ -1204,7 +1207,7 @@ fn flatten_try_route_multivalue_try(
         tail_id,
         label_id,
         result_types.length(),
-        false,
+        true,
       ) {
       continue
     }
@@ -3147,6 +3150,15 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
               flatten_inputful_loop_is_supported(func, nested_id) ||
               @ir.hot_label_branch_arity(func, nested_label) == 0
             )
+          }
+          @ir.HotOp::Try => {
+            let nested_label = @ir.hot_control_node_label(func, nested_id)
+            flatten_br_table_targets_label(
+              func,
+              @ir.hot_node_get(func, admitted_table_id).imm0,
+              nested_label,
+            ) &&
+            flatten_multivalue_legacy_try_is_supported(func, nested_id)
           }
           _ => false
         }
