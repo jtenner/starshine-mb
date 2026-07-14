@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md

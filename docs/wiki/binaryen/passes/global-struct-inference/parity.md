@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
-  - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md
   - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md

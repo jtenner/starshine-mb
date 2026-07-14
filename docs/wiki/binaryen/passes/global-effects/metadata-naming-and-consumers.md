@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
@@ -132,7 +131,6 @@ Skipping any one of those will drift away from Binaryen's real contract. The fut
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)

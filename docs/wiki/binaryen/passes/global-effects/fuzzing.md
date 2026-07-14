@@ -7,7 +7,6 @@ sources:
   - ./metadata-naming-and-consumers.md
   - ./starshine-port-readiness-and-validation.md
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
 related:
