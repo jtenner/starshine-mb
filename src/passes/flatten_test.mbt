@@ -1224,7 +1224,7 @@ test "flatten routes one multivalue br_table through a legacy try enclosing bloc
 }
 
 ///|
-test "flatten intentionally rejects tuple-made try block if tables pending separate audit" {
+test "flatten routes one tuple-made multivalue br_table through a legacy try enclosing block and if" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()
   let result_types = [i32_type, i64_type]
@@ -1324,7 +1324,8 @@ test "flatten intentionally rejects tuple-made try block if tables pending separ
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     branch,
   ])
-  @ir.hot_root_append(func, @ir.hot_build_return(func, [if_id, if_id]))
+  let return_id = @ir.hot_build_return(func, [if_id, if_id])
+  @ir.hot_root_append(func, return_id)
   let ctx = HotPassContext::new(
     flatten_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -1332,12 +1333,109 @@ test "flatten intentionally rejects tuple-made try block if tables pending separ
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
-  @debug.assert_eq(@ir.hot_child_count(func, branch), 3)
-  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 2)
-  @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 2)
-  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 2)
-  assert_true(@ir.hot_node_is_live(func, tuple_id))
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  for control_id in [try_id, block_id, if_id] {
+    @debug.assert_eq(@ir.hot_node_result_arity(func, control_id), 0)
+  }
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  for label_id in [try_label, block_label, if_label] {
+    @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  }
+  let try_body = @ir.hot_region_body_ref(func, try_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, try_body), 12)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 0), 0),
+    first_payload,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 1), 0),
+    second_payload,
+  )
+  let target_locals : Array[Array[Int]] = []
+  for target_index = 0; target_index < 3; target_index = target_index + 1 {
+    target_locals.push([
+      @ir.hot_node_get(
+        func,
+        @ir.hot_region_get(func, try_body, 4 + target_index * 2),
+      ).imm0,
+      @ir.hot_node_get(
+        func,
+        @ir.hot_region_get(func, try_body, 5 + target_index * 2),
+      ).imm0,
+    ])
+  }
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    assert_false(target_locals[0][slot] == target_locals[1][slot])
+    assert_false(target_locals[0][slot] == target_locals[2][slot])
+    assert_false(target_locals[1][slot] == target_locals[2][slot])
+  }
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_body, 10), 0),
+    selector,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, try_body, 11), branch)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, slot)).imm0,
+      target_locals[0][slot],
+    )
+  }
+  let block_body = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, block_body), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, block_body, 0), try_id)
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let block_set = @ir.hot_region_get(func, block_body, slot + 1)
+    @debug.assert_eq(
+      @ir.hot_node_get(func, block_set).imm0,
+      target_locals[1][slot],
+    )
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, block_set, 0)).imm0,
+      target_locals[0][slot],
+    )
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 0), block_id)
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    let if_set = @ir.hot_region_get(func, then_ref, slot + 1)
+    @debug.assert_eq(
+      @ir.hot_node_get(func, if_set).imm0,
+      target_locals[2][slot],
+    )
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, if_set, 0)).imm0,
+      target_locals[1][slot],
+    )
+  }
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  for slot = 0; slot < result_types.length(); slot = slot + 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_region_get(func, else_ref, slot)).imm0,
+      target_locals[2][slot],
+    )
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, slot)).imm0,
+      target_locals[2][slot],
+    )
+  }
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-made multivalue try-block-if table routing to verify, got \{err}",
+      )
+  }
 }
 
 ///|
