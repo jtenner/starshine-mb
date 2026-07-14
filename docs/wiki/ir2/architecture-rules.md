@@ -1,10 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
-  - ../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md
-  - ../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md
   - ./test-matrix.md
   - ./local-ssa-policy.md
   - https://doi.org/10.1145/115372.115320
@@ -45,7 +43,7 @@ raw @lib.Module / @lib.Expr
   -> validate the resulting module
 ```
 
-The current source bridge is [`../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md`](../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md). It rechecked the current official WebAssembly Core 3.0 boundary pages plus local `src/ir` and `src/passes` files. The official WebAssembly sources support the boundary split between modules/instructions/expressions/binary/validation and Starshine's optimizer-local HOT form; the local repository files are authoritative for HOT ownership, revisioning, side tables, descriptors, and cache behavior.
+The local `src/ir` and `src/passes` files and their tests are authoritative for HOT ownership, revisioning, side tables, descriptors, and cache behavior. Official WebAssembly material supplies only the boundary-language context: it does not prescribe Starshine's optimizer-local representation.
 
 ## The Three Layers
 
@@ -168,12 +166,11 @@ That example is deliberately ordinary: most IR2 bugs come from skipping one bori
 
 ## Sources
 
-- Current source bridge: [`../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md`](../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md)
 - Current test matrix: [`./test-matrix.md`](./test-matrix.md)
-- Local SSA cache/pass-use refresh: [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md)
+- Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
+- Cache/pass-use evidence: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt), [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt), [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt), and [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Local SSA policy and lineage: [`./local-ssa-policy.md`](./local-ssa-policy.md) and <https://doi.org/10.1145/115372.115320>
 - Archived original architecture note: [`../raw/research/0059-2026-03-24-ir2-architecture-rules.md`](../raw/research/0059-2026-03-24-ir2-architecture-rules.md)
-- Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
 - Revision and descriptor layer: [`../../../src/ir/architecture.mbt`](../../../src/ir/architecture.mbt), [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt)
 - HOT storage: [`../../../src/ir/hot_core.mbt`](../../../src/ir/hot_core.mbt)
 - Analysis cache: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt)

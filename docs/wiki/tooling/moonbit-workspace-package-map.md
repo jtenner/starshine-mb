@@ -8,7 +8,6 @@ sources:
   - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
-  - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
   - ../../../moon.mod
   - ../../../src/*/moon.pkg
   - ../../../src/spec_runner/imports.mbt
@@ -159,6 +158,5 @@ When adding or reshaping a package:
 - Earlier source manifest: [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
 - Moon CLI command-source refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
 - Formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
-- Proof command/trust refresh: [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md)
 - Module config: [`../../../moon.mod`](../../../moon.mod)
 - Package configs: [`../../../src/binary/moon.pkg`](../../../src/binary/moon.pkg), [`../../../src/cli/moon.pkg`](../../../src/cli/moon.pkg), [`../../../src/cmd/moon.pkg`](../../../src/cmd/moon.pkg), [`../../../src/fuzz/moon.pkg`](../../../src/fuzz/moon.pkg), [`../../../src/ir/moon.pkg`](../../../src/ir/moon.pkg), [`../../../src/lib/moon.pkg`](../../../src/lib/moon.pkg), [`../../../src/passes/moon.pkg`](../../../src/passes/moon.pkg), [`../../../src/validate/moon.pkg`](../../../src/validate/moon.pkg), [`../../../src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg), [`../../../src/validate_trace/moon.pkg`](../../../src/validate_trace/moon.pkg), [`../../../src/wast/moon.pkg`](../../../src/wast/moon.pkg); current exception package files: [`../../../src/spec_runner/imports.mbt`](../../../src/spec_runner/imports.mbt), [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt), [`../../../src/spec_runner/pkg.generated.mbti`](../../../src/spec_runner/pkg.generated.mbti)
