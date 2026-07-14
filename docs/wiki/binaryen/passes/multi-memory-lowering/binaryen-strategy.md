@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
@@ -74,7 +74,7 @@ Current `main` requires all input memories to share `pageSizeLog2` and uses that
 
 Do **not** collapse those observations into “the pass preserves custom page size.” The result may be accounted for by constructor behavior not established by this source review, but the official owner and fixture routes available for this capture did not prove that behavior. Until upstream adds an assignment or regression evidence, treat non-default page-size lowering as an unresolved transform boundary. This is distinct from the checked sibling's effective-address-overflow caveat.
 
-See [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md) and [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md).
+See [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp) and [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md).
 
 ## Instruction rewrites
 

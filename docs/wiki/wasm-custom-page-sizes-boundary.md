@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
@@ -96,11 +96,11 @@ A credible Starshine custom-page-size slice would need to update and test all of
 - Shared linear memory and atomics: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md)
 - Binary resource sections and memory flags: [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md)
 - WAST memory declarations: [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md)
-- Upstream Binaryen multi-memory page-size caveat: [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md), with current owner-source uncertainty in [`raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md)
+- Upstream Binaryen multi-memory page-size caveat: [`binaryen/passes/multi-memory-lowering/index.md`](binaryen/passes/multi-memory-lowering/index.md), with the current owner-source uncertainty documented against [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp)
 
 ## Sources
 
-- Current Binaryen bridge: [`raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md)
+- Current Binaryen owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp>; current fixtures: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering.wast> and <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering-with-bounds-checks.wast>.
 - Current source bridge: [`raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md)
 - Active proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Core/resource implementation: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
@@ -32,7 +32,7 @@ In Binaryen `version_130` and current `main`, `pass.cpp` registers two discovera
 - `memory64-lowering` - described in terms of memory indexes;
 - `table64-lowering` - described in terms of table indexes.
 
-Those descriptions do **not** select distinct transforms. Both registrations instantiate the same parameterless `Memory64Lowering` constructor, whose one module walk covers both resource families. The canonical fixture runs both spellings against the same expected output; see [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md).
+Those descriptions do **not** select distinct transforms. Both registrations instantiate the same parameterless `Memory64Lowering` constructor, whose one module walk covers both resource families. The canonical fixture runs both spellings against the same expected output; see Binaryen's current [`Memory64Lowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp) and [`memory64-lowering.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast).
 
 ## Core rewrite model
 
@@ -102,10 +102,9 @@ The 2026-07-11 `version_130` / current-main recheck corrects the old separate-si
 
 ## Sources
 
-- Current alias/current-main recheck: [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
+- Current Binaryen owner/registration/fixture: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>, <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>, and <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast>.
 - Port-readiness research note: [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - Correction note: [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
-- Superseding alias/current-main recheck: [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
 - Follow-up note: [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - Research note: [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>

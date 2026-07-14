@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -209,7 +209,7 @@ Current Starshine has tests for the `if` condition, `drop`, `i32.store`, and `th
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
 - Binaryen current-main [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp)
 - Binaryen current-main [`merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

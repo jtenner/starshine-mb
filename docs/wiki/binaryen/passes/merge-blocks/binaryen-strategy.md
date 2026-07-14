@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -114,7 +114,7 @@ This is useful correspondence, not blanket parity evidence. Starshine's single H
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
 - Binaryen current-main [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp)
 - Binaryen current-main [`merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast)
 - Binaryen `version_130` [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MergeBlocks.cpp)

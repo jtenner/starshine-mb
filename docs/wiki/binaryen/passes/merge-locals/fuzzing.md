@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---

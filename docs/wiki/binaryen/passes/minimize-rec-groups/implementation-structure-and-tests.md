@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
 related:
@@ -18,7 +18,7 @@ related:
 
 This page exists because `MinimizeRecGroups.cpp` is not a self-contained “just run SCCs” file.
 If you read only the top-level pass name, you will miss why Binaryen needs shape comparison, permutation search, and synthetic brand types.
-The retained 2026-04-24 follow-up research catalogs the tagged source URLs. The current-main correction is captured in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md): the algorithm and lit roster remain, but `WorldMode` now connects visibility collection with global rewriting. Local status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+The retained 2026-04-24 follow-up research catalogs the tagged source URLs. The current-main correction is captured in [`MinimizeRecGroups.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp): the algorithm and lit roster remain, but `WorldMode` now connects visibility collection with global rewriting. Local status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## File map
 
@@ -263,7 +263,7 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp>
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - Binaryen `version_129`:

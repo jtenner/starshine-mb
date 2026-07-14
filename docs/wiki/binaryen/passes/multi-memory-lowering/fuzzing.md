@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -74,4 +74,4 @@ Do not publish either command as runnable until its name is admitted by both the
 
 ## Signoff requirements
 
-Before claiming parity, preserve and replay reduced cases for declaration/data/body rewriting, both `memory.copy` indexes, virtual size/grow helpers, non-last grow byte movement, import/export/property rejection, feature cleanup, and checked-sibling traps. If custom page sizes become representable locally, add a non-default page-size lane only after upstream output behavior is resolved; Binaryen's current owner checks and uses equal input page sizes but does not visibly assign the output `pageSizeLog2` in the reviewed combined-memory construction. That uncertainty is documented in [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md).
+Before claiming parity, preserve and replay reduced cases for declaration/data/body rewriting, both `memory.copy` indexes, virtual size/grow helpers, non-last grow byte movement, import/export/property rejection, feature cleanup, and checked-sibling traps. If custom page sizes become representable locally, add a non-default page-size lane only after upstream output behavior is resolved; Binaryen's current owner checks and uses equal input page sizes but does not visibly assign the output `pageSizeLog2` in the reviewed combined-memory construction. That uncertainty is documented in [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp).

@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../../../src/passes/merge_blocks.mbt
@@ -48,7 +48,7 @@ The source-backed current contract is:
 - unnamed/multi-item/result-tail shape and `EffectAnalyzer::orderedBefore(...)` constrain the move;
 - Starshine has a guarded HOT counterpart with live-label, type, loop, branch-prefix, and effect gates.
 
-The immutable [`2026-07-11 source capture`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md) supersedes the prior *current-source interpretation*. Older raw captures stay as historical provenance.
+The July 11, 2026 source review supersedes the prior *current-source interpretation*; its durable facts are retained here and grounded in Binaryen's current [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast). Older retained research stays as historical provenance.
 
 ## Beginner summary
 
@@ -97,7 +97,7 @@ The historical 2026-05-06 direct revalidation found `9975/10000` comparable norm
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast>
 - [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
 - [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)

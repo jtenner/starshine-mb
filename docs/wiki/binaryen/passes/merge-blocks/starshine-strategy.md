@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../../../src/passes/merge_blocks.mbt
@@ -103,7 +103,7 @@ This is historical validation, not a substitute for a new pass signoff after beh
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
 - [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

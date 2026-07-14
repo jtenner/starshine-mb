@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../../../src/passes/pass_common.mbt
@@ -123,7 +123,7 @@ Do not use a stale `target/native/...` artifact as current signoff evidence; see
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
 - [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -79,7 +79,7 @@ The output has:
 - **Size/grow illusion:** callers of `memory.size` and `memory.grow` must still see per-original-memory sizes and growth behavior even though only one real memory remains.
 - **Non-last grow movement:** growing an earlier original memory must preserve the bytes of later original memories by copying them upward and updating offset globals.
 - **Module-shape restrictions:** imported/exported memory restrictions, address-type equality, sharedness equality, and equal input page size are part of Binaryen's contract rather than accidental implementation detail. Current Starshine can represent address type and sharedness, but not custom page size.
-- **Custom-page-size output caveat:** equal input page sizes do **not** by themselves prove output preservation. Current `addCombinedMemory()` visibly copies sharedness, address type, initial/max pages, and import data, but does not visibly assign the combined memory's `pageSizeLog2`; the effective constructor behavior and a non-default-page regression case remain unresolved. See [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md).
+- **Custom-page-size output caveat:** equal input page sizes do **not** by themselves prove output preservation. Current `addCombinedMemory()` visibly copies sharedness, address type, initial/max pages, and import data, but does not visibly assign the combined memory's `pageSizeLog2`; the effective constructor behavior and a non-default-page regression case remain unresolved. This is a source-observed uncertainty in current [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp), not proof of an emitted-module bug.
 - **Bounds-check variant caveat:** the checked sibling adds explicit traps, but Binaryen's source comments still record an imprecision around spec-style offset overflow in one shifted-address family.
 
 ## Notable edge cases
@@ -131,7 +131,7 @@ The 2026-04-26 port-readiness bridge keeps that test order explicit for Starshin
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixtures: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering.wast> and <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering-with-bounds-checks.wast>.
 - [Binaryen `version_129` `MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp)
 - [`../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md`](../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md)
 - [`../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md`](../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md)

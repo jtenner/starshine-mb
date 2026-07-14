@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
 related:
@@ -20,7 +20,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass, using the direct tagged URLs below and the retained 2026-04-24 follow-up research.
-The historical 2026-04-24 follow-up recorded a narrow current-`main` no-drift claim. That claim is superseded by the 2026-07-11 recheck in [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md): current `main` preserves the algorithm and test roster, but threads one `getPassOptions().worldMode` policy through heap-type visibility collection and final global type rewriting.
+The historical 2026-04-24 follow-up recorded a narrow current-`main` no-drift claim. That claim is superseded by the 2026-07-11 recheck in [`MinimizeRecGroups.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp): current `main` preserves the algorithm and test roster, but threads one `getPassOptions().worldMode` policy through heap-type visibility collection and final global type rewriting.
 
 Primary files:
 
@@ -382,7 +382,7 @@ The public one-line summary in `pass.cpp` hides almost all of that story.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp>
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - Binaryen `version_129`:

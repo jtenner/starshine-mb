@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
@@ -118,7 +118,7 @@ Recommended phases:
    - Leave `memory.size`, `memory.grow`, SIMD, atomics, and checked traps out until declaration/data/body repair is green.
 4. **Module legality analysis**
    - Match Binaryen's accepted input family: same address type, same sharedness, same page size, and only first-memory import/export preservation.
-   - Because local `MemType` has no page-size field, reject or keep out of scope any future custom-page-size input until the core representation exists. Even upstream's equal-input check is not enough to claim output propagation: current `addCombinedMemory()` does not visibly set the combined `pageSizeLog2`; see [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md).
+   - Because local `MemType` has no page-size field, reject or keep out of scope any future custom-page-size input until the core representation exists. Even upstream's equal-input check is not enough to claim output propagation: current `addCombinedMemory()` does not visibly set the combined `pageSizeLog2`; see [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp).
    - Decide local diagnostics for unsupported shapes.
 5. **Combined-memory rewrite**
    - Replace multiple memories with one combined memory.

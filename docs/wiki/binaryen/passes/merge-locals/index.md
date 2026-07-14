@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
   - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
   - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
@@ -123,7 +123,7 @@ Remaining implementation debt is the broader LocalGraph-equivalent retargeting e
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md`](../../../raw/binaryen/2026-07-11-merge-locals-current-main-and-local-boundary-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-locals.wast>
 - [`../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md`](../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md)
 - [`../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md)
 - [`../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md)

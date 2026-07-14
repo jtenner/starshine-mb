@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp
   - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -151,7 +151,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-minimize-rec-groups-current-main-world-mode-recheck.md)
+- Binaryen current owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/MinimizeRecGroups.cpp>; registration: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>; current lit roster: `minimize-rec-groups{,-brands,-desc,-exact,-ignore-exact}.wast` under <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/>.
 - [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

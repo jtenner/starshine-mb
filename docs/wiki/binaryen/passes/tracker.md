@@ -13,7 +13,7 @@ sources:
   - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../../src/passes/optimize.mbt
-  - ../../raw/binaryen/2026-07-11-merge-blocks-expression-child-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
   - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../no-dwarf-default-optimize-path.md

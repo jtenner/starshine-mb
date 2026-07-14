@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -24,7 +24,7 @@ Do **not** run or advertise a Starshine `compare-pass` smoke lane today.
 - Neither `--memory64-lowering` nor `--table64-lowering` is in `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts), so the harness rejects either name before generation or oracle execution.
 - A rejected command, zero compared cases, or a Binaryen-only run is **not** Starshine parity evidence.
 
-Binaryen publishes two names for one combined transform: either alias lowers applicable memory64 **and** table64 surfaces. The official mixed fixture runs both spellings against the same expected output; see [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md). A future local harness must preserve that alias contract instead of treating one command as memory-only and the other as table-only.
+Binaryen publishes two names for one combined transform: either alias lowers applicable memory64 **and** table64 surfaces. The official mixed fixture runs both spellings against the same expected output; see Binaryen's current [`Memory64Lowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp) and [`memory64-lowering.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast). A future local harness must preserve that alias contract instead of treating one command as memory-only and the other as table-only.
 
 ## Required admission before a runnable lane
 

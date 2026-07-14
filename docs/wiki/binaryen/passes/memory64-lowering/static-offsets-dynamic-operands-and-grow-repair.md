@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
@@ -26,7 +26,7 @@ related:
 
 This page is the corrected guide to the easiest part of Binaryen's one `Memory64Lowering` transform to overgeneralize. The public spellings `memory64-lowering` and `table64-lowering` are aliases, while the memory/table examples below remain distinct operand families.
 
-Read this with the retained correction research note [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md) and the later alias/current-main recheck [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md). Future Starshine implementation checkpoints for these shapes are now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). For WAST fixture authoring, pair this page with [`../../../wast/memory-argument-authoring.md`](../../../wast/memory-argument-authoring.md) so text-byte `align=`, static `offset=`, dynamic stack addresses, and the current WAST nonzero-memory-index gap stay explicit.
+Read this with the retained correction research note [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md) and the current Binaryen [`Memory64Lowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp). Future Starshine implementation checkpoints for these shapes are now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). For WAST fixture authoring, pair this page with [`../../../wast/memory-argument-authoring.md`](../../../wast/memory-argument-authoring.md) so text-byte `align=`, static `offset=`, dynamic stack addresses, and the current WAST nonzero-memory-index gap stay explicit.
 
 ## The corrected distinction
 
@@ -133,7 +133,7 @@ A future Starshine port should add at least these tests before calling the out-o
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-memory64-lowering-alias-current-main-recheck.md)
+- Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>
 - [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)

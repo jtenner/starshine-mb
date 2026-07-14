@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
@@ -163,7 +163,7 @@ Use this sequence for a future implementation:
 9. Last-memory `memory.grow` helper returns the old virtual size or `-1`.
 10. Non-last `memory.grow` moves later bytes and updates later offset globals.
 11. Unsupported imported/exported/mismatched-memory-property shapes fail deliberately.
-12. If custom page sizes become representable, a non-default equal-page-size case proves input validation, combined-memory declaration propagation, byte offsets, virtual `memory.size`, and virtual `memory.grow` together; otherwise reject that family deliberately. The upstream output policy is currently unresolved; see [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md).
+12. If custom page sizes become representable, a non-default equal-page-size case proves input validation, combined-memory declaration propagation, byte offsets, virtual `memory.size`, and virtual `memory.grow` together; otherwise reject that family deliberately. The upstream output policy is currently unresolved; see [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp).
 13. Checked sibling traps when an access exceeds the virtual memory range.
 14. MultiMemory feature/custom-section cleanup is asserted.
 15. Binaryen oracle comparison runs against `wasm-opt --multi-memory-lowering` and then `--multi-memory-lowering-with-bounds-checks`.

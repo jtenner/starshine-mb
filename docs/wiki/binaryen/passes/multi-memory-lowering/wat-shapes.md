@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -179,7 +179,7 @@ The reviewed source preserves import/export identity only through the combined f
 
 ## Bailout family 3: mixed memory properties
 
-All memories must share address type, sharedness, and input page size. `multi-memory-lowering` is not the pass that reconciles memory32 with memory64, shared with unshared memory, or different custom page sizes. Separately, equal non-default input page size is not yet a positive output shape: current `addCombinedMemory()` does not visibly assign `pageSizeLog2` to the combined memory, so preservation is unproven pending upstream constructor or fixture evidence. For Starshine specifically, page size is only a Binaryen/future-port caveat today because current `MemType` has no page-size field; see [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md) and [`../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md`](../../../raw/binaryen/2026-07-11-multi-memory-lowering-custom-page-size-recheck.md).
+All memories must share address type, sharedness, and input page size. `multi-memory-lowering` is not the pass that reconciles memory32 with memory64, shared with unshared memory, or different custom page sizes. Separately, equal non-default input page size is not yet a positive output shape: current `addCombinedMemory()` does not visibly assign `pageSizeLog2` to the combined memory, so preservation is unproven pending upstream constructor or fixture evidence. For Starshine specifically, page size is only a Binaryen/future-port caveat today because current `MemType` has no page-size field; see [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md) and [`MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp).
 
 ## Bailout family 4: non-constant active data offset
 
