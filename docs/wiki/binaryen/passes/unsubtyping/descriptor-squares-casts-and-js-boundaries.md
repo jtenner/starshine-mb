@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -26,7 +26,7 @@ It is the interaction between:
 - JS exposure through `any` and `extern.convert_any`
 - allocation fixups that preserve traps when descriptor edges disappear
 
-The relation/cast/descriptor provenance remains in the 2026-05-05 capture; [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md) adds the current mode-aware public-boundary correction. The Starshine-specific port boundary is summarized in [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The relation/cast/descriptor provenance remains in the 2026-05-05 capture; the current Binaryen owner and focused open-world fixture add the mode-aware public-boundary correction. The Starshine-specific port boundary is summarized in [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 If you understand this page, you understand the real pass much better.
 

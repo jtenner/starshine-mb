@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md
+  - https://datatracker.ietf.org/doc/html/rfc9923
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt
 related:
@@ -23,7 +23,7 @@ Use this page when a fuzz failure, reduced artifact, promoted corpus case, or re
 
 For beginners: a fuzz run may produce many modules that fail for the same reason. Some are byte-identical, some reduce to the same tiny repro, some have the same WebAssembly feature mix, and some only look the same after normalization. The interestingness schema keeps those questions separate so corpus tooling can group related cases without deleting the original evidence.
 
-The current source bridge is [`../raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md`](../raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md). It rechecked the current Starshine helpers/tests and RFC 9923 for the local FNV-1a digest vocabulary. The executable contract lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt); focused coverage lives in [`src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt).
+The local helpers/tests and [RFC 9923](https://datatracker.ietf.org/doc/html/rfc9923) are the durable evidence for the FNV-1a digest vocabulary. The executable contract lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt); focused coverage lives in [`src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt).
 
 ## Digest Contract
 
@@ -136,7 +136,7 @@ Docs-only refreshes need source/link review and `git diff`; executable schema ch
 
 ## Sources
 
-- Current source bridge: [`../raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md`](../raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md)
+- FNV reference: [RFC 9923](https://datatracker.ietf.org/doc/html/rfc9923)
 - Runtime schema/helpers: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt)
 - Whitebox tests: [`../../../src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt)
 - Corpus policy: [`../tooling/fuzz-corpus-policy.md`](../tooling/fuzz-corpus-policy.md)

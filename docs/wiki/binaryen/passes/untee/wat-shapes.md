@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
@@ -17,7 +17,7 @@ related:
 
 # `untee` WAT shapes
 
-Use this page with the tagged `version_129` source URLs listed below and the 2026-07-11 current-main reread in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md). The recheck confirms these focused source shapes without claiming a full upstream audit.
+Use this page with the tagged `version_129` source URLs listed below and the 2026-07-11 current-main dedicated-lit reread. The recheck confirms these focused source shapes without claiming a full upstream audit.
 
 This page is the beginner-friendly shape catalog for Binaryen `untee`.
 
@@ -219,7 +219,7 @@ Those may still appear around a rewritten tee, but they are not candidate kinds 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
+- Current Binaryen focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast>
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>

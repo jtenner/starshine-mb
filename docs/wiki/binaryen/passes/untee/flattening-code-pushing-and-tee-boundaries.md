@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
@@ -22,7 +23,7 @@ related:
 
 # `untee`: flattening, `code-pushing`, and tee boundaries
 
-Use this page with the tagged `version_129` source URLs listed below and the 2026-07-11 current-main reread in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md). The latter supersedes the older freshness claim but is intentionally a narrow source review.
+Use this page with the tagged `version_129` source URLs listed below and the 2026-07-11 current-main owner and focused lit reread. The latter supersedes the older freshness claim but is intentionally a narrow source review.
 
 This page covers the easiest part of `untee` to misread:
 
@@ -144,7 +145,7 @@ That answer is much safer than:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
+- Current Binaryen owner and focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp> and <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast>
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>

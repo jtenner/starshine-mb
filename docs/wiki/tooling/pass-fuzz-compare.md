@@ -8,7 +8,7 @@ sources:
   - https://github.com/bytecodealliance/wasm-tools
   - https://webassembly.github.io/spec/core/valid/
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
-  - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
+  - ../fuzzing/reduction-backends.md
   - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts

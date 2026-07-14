@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
-  - ../raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt
   - ../../../scripts/lib/fuzz-task.ts
@@ -28,7 +27,7 @@ related:
 
 Fuzz recipes are Starshine's small checked-in `key=value` schema for **repeatable fuzz-run defaults**. A recipe names a suite, profile, seed, sweep size, shard count, and output mode so developers can say “run the standard CI fuzz shape” or “start from the pass-signoff shape” without copying a long command from a chat log.
 
-The current schema id is `starshine.fuzz.recipe.v1`. The executable source of truth lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) as `FuzzRecipe`, `fuzz_recipe_schema_version()`, `parse_fuzz_recipe_text(...)`, `fuzz_standard_recipe_text_by_name(...)`, `fuzz_standard_recipe_names()`, `fuzz_standard_recipe_by_name(...)`, `parse_fuzz_cli_args(...)`, and `parse_fuzz_cli_args_with_recipe(...)`. The 2026-06-04 source bridge is [`../raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md`](../raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md).
+The current schema id is `starshine.fuzz.recipe.v1`. The executable source of truth lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) as `FuzzRecipe`, `fuzz_recipe_schema_version()`, `parse_fuzz_recipe_text(...)`, `fuzz_standard_recipe_text_by_name(...)`, `fuzz_standard_recipe_names()`, `fuzz_standard_recipe_by_name(...)`, `parse_fuzz_cli_args(...)`, and `parse_fuzz_cli_args_with_recipe(...)`. The checked-in runner, whitebox tests, and Bun wrapper listed below are the durable source evidence for this local schema.
 
 A recipe is **not** a new runner or a replacement for suite-specific profile parsing. It is a named default bundle. The normal MoonBit fuzz runner and Bun wrapper still own command execution, output files, replay manifests, external validators, and pass-comparison lanes; route those details through [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md), and [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md).
 
@@ -170,7 +169,6 @@ Docs-only recipe-page updates need link/source review and `git diff`; no Moon co
 
 ## Sources
 
-- Current source bridge: [`../raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md`](../raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md)
 - MoonBit runner and tests: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt)
 - Bun wrapper and tests: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), [`../../../scripts/lib/fuzz-task.test.ts`](../../../scripts/lib/fuzz-task.test.ts), [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
 - Related workflow pages: [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), [`../tooling/validation-gates.md`](../tooling/validation-gates.md), [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md), [`golden-seed-catalog.md`](golden-seed-catalog.md), [`reduction-backends.md`](reduction-backends.md), [`../tooling/fuzz-corpus-policy.md`](../tooling/fuzz-corpus-policy.md)

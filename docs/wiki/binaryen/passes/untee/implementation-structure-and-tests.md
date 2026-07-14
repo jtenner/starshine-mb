@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
@@ -22,7 +21,7 @@ related:
 
 # `untee` implementation structure and tests
 
-Use this page with the tagged `version_129` source URLs listed below and the current-main reread in [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
+Use this page with the tagged `version_129` source URLs listed below and the current-main owner and dedicated lit sources already listed above.
 The tagged source URLs below preserve the release/source/test provenance. The newer narrowly scoped reread found no behavior-bearing drift in the owner, registration/default-scheduler, constructor, or dedicated lit surface and explicitly supersedes the older 2026-04-25 freshness claim.
 
 This page is the file-by-file map for Binaryen `untee`.
@@ -150,7 +149,7 @@ A narrow 2026-07-11 current-main reread compared:
 - `src/passes/SimplifyLocals.cpp`
 - `test/lit/passes/untee.wast`
 
-against current `main`; see [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md).
+against current `main`; the owner and focused lit URLs above are the source record.
 
 Result:
 
@@ -200,7 +199,6 @@ When this pass is eventually ported, these are the source-backed obligations to 
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md)
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>

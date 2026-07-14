@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -51,7 +52,7 @@ The shipped lit surface is also part of the contract:
 - `test/lit/passes/unsubtyping-jsinterop.wast`
 - `test/lit/passes/unsubtyping-stack-switching.wast`
 
-The 2026-07-11 current-main recheck found material drift after `version_130`: explicit `unsubtyping` no longer fails in open world. Current `main` uses the requested `WorldMode` to find the frozen public heap-type surface; the fixed-point rewrite remains a GC/type relation-pruning pass, not a generic type optimizer. See [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md).
+The 2026-07-11 current-main recheck found material drift after `version_130`: explicit `unsubtyping` no longer fails in open world. Current `main` uses the requested `WorldMode` to find the frozen public heap-type surface; the fixed-point rewrite remains a GC/type relation-pruning pass, not a generic type optimizer. The current owner and focused `unsubtyping-open-world.wast` fixture are the primary evidence for this post-`version_130` boundary.
 
 ## High-level intent
 

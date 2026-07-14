@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -182,6 +183,6 @@ Until then, keep the boundary-only status described in [`./starshine-strategy.md
 - Descriptor and JS boundaries: [`./descriptor-squares-casts-and-js-boundaries.md`](./descriptor-squares-casts-and-js-boundaries.md)
 - Shape catalog: [`./wat-shapes.md`](./wat-shapes.md)
 - Current Starshine status: [`./starshine-strategy.md`](./starshine-strategy.md)
-- Current open-world source manifest: [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md)
+- Current open-world primary sources: [Binaryen `Unsubtyping.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp) and [`unsubtyping-open-world.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast)
 - Earlier research follow-up: [`../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md)
 - Legacy research follow-up: [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)

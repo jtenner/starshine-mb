@@ -3,7 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -68,7 +69,7 @@ It is **world-policy-aware subtype/descriptor graph minimization**: current Bina
 
 ## Most important durable takeaways
 
-- The 2026-07-11 recheck added [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md): after `version_130`, explicit upstream `unsubtyping` became open-world-admitted. It now freezes the mode-selected public heap-type surface rather than failing every open-world request. The older May capture remains historical provenance.
+- The 2026-07-11 recheck of Binaryen's current owner and `unsubtyping-open-world.wast` fixture established that, after `version_130`, explicit upstream `unsubtyping` became open-world-admitted. It now freezes the mode-selected public heap-type surface rather than failing every open-world request. The older May capture remains historical provenance.
 - `unsubtyping` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler still places it in the **closed-world GC/type cluster** after `gsi` and optional `abstract-type-refining`; that scheduler policy is separate from explicit pass admission.
 - Current `main` checks GC features, then derives frozen public types with the requested `WorldMode`. The `version_130` open-world fatal gate is historical, not current behavior.
@@ -146,7 +147,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md`](../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md)
+- <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp>
+- <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast>
 - [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

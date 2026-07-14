@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-unsubtyping-current-main-open-world-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt

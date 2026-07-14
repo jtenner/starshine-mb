@@ -3,7 +3,9 @@ kind: tooling-note
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
+  - https://www.st.cs.uni-saarland.de/papers/tse2002/
+  - https://github.com/csmith-project/creduce
+  - https://github.com/WebAssembly/binaryen
   - ../../../scripts/lib/fuzz-reducers.ts
   - ../../../scripts/test/fuzz-reducers.ts
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -28,7 +30,7 @@ related:
 
 Reduction is the step that turns a large failing fuzz artifact into a smaller artifact that still reproduces the same interesting condition. In Starshine, the reducer is intentionally boring: it repeatedly deletes chunks and asks a caller-supplied predicate whether the candidate still reproduces. If the predicate says yes, the smaller candidate becomes the new baseline; if no deletion keeps the predicate, the original artifact is preserved.
 
-That split is the core invariant. Reducers do **not** validate wasm, decide whether a mismatch is semantic, classify diagnostics, or choose pass-oracle policy. The caller owns those checks. The 2026-06-04 source refresh in [`../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md`](../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md) ties this contract to delta debugging, C-Reduce-style interestingness tests, Binaryen `wasm-reduce` orientation, and the current Starshine implementation.
+That split is the core invariant. Reducers do **not** validate wasm, decide whether a mismatch is semantic, classify diagnostics, or choose pass-oracle policy. The caller owns those checks. This contract follows the delta-debugging and C-Reduce predicate-preservation model, while the current Starshine implementation defines the concrete artifact schema; Binaryen `wasm-reduce` is orientation rather than a parity claim.
 
 Use this page when reading or changing:
 
@@ -144,7 +146,7 @@ When adding a reducer or wiring a new failure path:
 
 ## Sources
 
-- Source refresh: [`../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md`](../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md)
+- Background: Zeller and Hildebrandt's delta-debugging paper, C-Reduce's predicate model, and Binaryen's `wasm-reduce` documentation; the local sources above define Starshine behavior.
 - Script reducers and tests: [`../../../scripts/lib/fuzz-reducers.ts`](../../../scripts/lib/fuzz-reducers.ts), [`../../../scripts/test/fuzz-reducers.ts`](../../../scripts/test/fuzz-reducers.ts)
 - Compare-pass reducer integration: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts), [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md)
 - Moon reducers and invalid-fuzz repros: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt), [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt)

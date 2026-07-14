@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-untee-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md
