@@ -790,6 +790,7 @@ fn flatten_try_terminal_br_table_targets_label(
   node_id : Int,
   label_id : Int,
   payload_count : Int,
+  allow_mixed_targets : Bool,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -797,13 +798,41 @@ fn flatten_try_terminal_br_table_targets_label(
     _ => return false
   }
   let targets = flatten_unique_br_table_targets(func, node.imm0)
-  if targets.length() != 1 || targets[0] != label_id {
+  if !targets.contains(label_id) ||
+    (!allow_mixed_targets && targets.length() != 1) {
     return false
   }
   let try_id = @ir.hot_label_owner(func, label_id)
   match @ir.hot_node_get(func, try_id).op {
     @ir.HotOp::Try => ()
     _ => return false
+  }
+  if targets.length() > 1 {
+    if targets.length() != 2 {
+      return false
+    }
+    let other_target = if targets[0] == label_id {
+      targets[1]
+    } else {
+      targets[0]
+    }
+    match @ir.hot_label_kind(func, other_target) {
+      @ir.HotLabelKind::BlockLabel => ()
+      _ => return false
+    }
+    let block_id = @ir.hot_label_owner(func, other_target)
+    let block_body = @ir.hot_region_body_ref(func, block_id)
+    let mut directly_encloses_try = false
+    for root_idx = 0
+        root_idx < @ir.hot_region_root_count(func, block_body)
+        root_idx = root_idx + 1 {
+      if @ir.hot_region_get(func, block_body, root_idx) == try_id {
+        directly_encloses_try = true
+      }
+    }
+    if !directly_encloses_try {
+      return false
+    }
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
@@ -1022,6 +1051,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
             node_id,
             label_id,
             result_types.length(),
+            false,
           ) {
           return false
         }
@@ -1116,6 +1146,7 @@ fn flatten_multivalue_legacy_try_is_supported(
           tail_id,
           label_id,
           result_types.length(),
+          false,
         )
       ) {
       continue
@@ -1173,6 +1204,7 @@ fn flatten_try_route_multivalue_try(
         tail_id,
         label_id,
         result_types.length(),
+        false,
       ) {
       continue
     }
@@ -2747,7 +2779,7 @@ fn flatten_target_can_route_scalar_branches(
         match owner.op {
           @ir.HotOp::Try =>
             if !flatten_try_terminal_br_table_targets_label(
-                func, branch_id, label_id, 1,
+                func, branch_id, label_id, 1, true,
               ) {
               return false
             }
@@ -3850,9 +3882,8 @@ fn flatten_try_route_br_table(
         }
         let try_id = @ir.hot_label_owner(func, target)
         if payload_count == 1 {
-          if targets.length() != 1 ||
-            !flatten_try_terminal_br_table_targets_label(
-              func, node_id, target, 1,
+          if !flatten_try_terminal_br_table_targets_label(
+              func, node_id, target, 1, true,
             ) ||
             !flatten_scalar_legacy_try_is_supported(func, try_id) {
             return false
