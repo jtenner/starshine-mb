@@ -807,9 +807,6 @@ fn flatten_try_terminal_br_table_targets_label(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  if targets.length() > 3 {
-    return false
-  }
   let remaining_blocks : Array[Int] = []
   for target in targets {
     if target == label_id {
