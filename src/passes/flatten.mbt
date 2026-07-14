@@ -1008,6 +1008,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
                 @lib.I32Add => ()
                 @lib.I32Sub => ()
                 @lib.I32Mul => ()
+                @lib.I32And => ()
                 _ => return None
               }
             None => return None
