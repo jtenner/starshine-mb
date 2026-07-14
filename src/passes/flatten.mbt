@@ -902,9 +902,16 @@ fn flatten_try_table_dead_suffix_root_nodes(
       match @ir.hot_node_get(func, value_id).op {
         @ir.HotOp::Const => Some([root_id, value_id])
         @ir.HotOp::Binary => {
-          if @ir.hot_node_exact_instr(func, value_id) !=
-            Some(@lib.Instruction::i32_div_s()) ||
-            @ir.hot_child_count(func, value_id) != 2 {
+          match @ir.hot_node_exact_instr(func, value_id) {
+            Some(instr) =>
+              match instr {
+                @lib.I32DivS => ()
+                @lib.I32Add => ()
+                _ => return None
+              }
+            None => return None
+          }
+          if @ir.hot_child_count(func, value_id) != 2 {
             return None
           }
           let left_id = @ir.hot_child_get(func, value_id, 0)
