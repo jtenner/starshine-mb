@@ -785,31 +785,95 @@ fn flatten_multivalue_try_terminal_plain_br_targets_label(
 }
 
 ///|
-fn flatten_control_directly_encloses_node(
+fn flatten_direct_target_control_regions(
   func : @ir.HotFunc,
   owner_id : Int,
-  child_id : Int,
-) -> Bool {
-  let regions : Array[@ir.HotRegionRef] = match
-    @ir.hot_node_get(func, owner_id).op {
-    @ir.HotOp::Block => [@ir.hot_region_body_ref(func, owner_id)]
+) -> Array[@ir.HotRegionRef]? {
+  match @ir.hot_node_get(func, owner_id).op {
+    @ir.HotOp::Block => Some([@ir.hot_region_body_ref(func, owner_id)])
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, owner_id) {
-        Some(else_ref) => [@ir.hot_region_then_ref(func, owner_id), else_ref]
-        None => return false
+        Some(else_ref) =>
+          Some([@ir.hot_region_then_ref(func, owner_id), else_ref])
+        None => None
       }
-    _ => return false
+    _ => None
   }
-  for region_ref in regions {
-    for root_idx = 0
-        root_idx < @ir.hot_region_root_count(func, region_ref)
-        root_idx = root_idx + 1 {
-      if @ir.hot_region_get(func, region_ref, root_idx) == child_id {
-        return true
+}
+
+///| Build direct structural parent links once, then walk from the legacy try.
+
+///|
+/// This is linear in the inspected target-region roots plus target count.
+fn flatten_direct_enclosing_target_controls(
+  func : @ir.HotFunc,
+  inner_id : Int,
+  target_controls : Array[Int],
+) -> Array[Int]? {
+  if inner_id < 0 || inner_id >= @ir.hot_node_count(func) {
+    return None
+  }
+  let node_count = @ir.hot_node_count(func)
+  let direct_parent = Array::make(node_count, -1)
+  let target_seen = Array::make(node_count, false)
+  for owner_id in target_controls {
+    if owner_id < 0 ||
+      owner_id >= node_count ||
+      !@ir.hot_node_is_live(func, owner_id) ||
+      target_seen[owner_id] {
+      return None
+    }
+    target_seen[owner_id] = true
+    let regions = match flatten_direct_target_control_regions(func, owner_id) {
+      Some(regions) => regions
+      None => return None
+    }
+    for region_ref in regions {
+      for root_idx = 0
+          root_idx < @ir.hot_region_root_count(func, region_ref)
+          root_idx = root_idx + 1 {
+        let child_id = @ir.hot_region_get(func, region_ref, root_idx)
+        if child_id < 0 || child_id >= direct_parent.length() {
+          continue
+        }
+        if direct_parent[child_id] < 0 || direct_parent[child_id] == owner_id {
+          direct_parent[child_id] = owner_id
+        } else {
+          direct_parent[child_id] = -2
+        }
       }
     }
   }
-  false
+  let chain : Array[Int] = []
+  let chain_seen = Array::make(node_count, false)
+  let mut current = inner_id
+  while chain.length() < target_controls.length() {
+    let parent = direct_parent[current]
+    if parent < 0 || chain_seen[parent] {
+      return None
+    }
+    chain_seen[parent] = true
+    chain.push(parent)
+    current = parent
+  }
+  Some(chain)
+}
+
+///|
+fn flatten_target_chain_has_blocks_before_ifs(
+  func : @ir.HotFunc,
+  chain : Array[Int],
+) -> Bool {
+  let mut reached_if = false
+  for owner_id in chain {
+    match @ir.hot_node_get(func, owner_id).op {
+      @ir.HotOp::Block if reached_if => return false
+      @ir.HotOp::Block => ()
+      @ir.HotOp::If => reached_if = true
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|
@@ -835,50 +899,23 @@ fn flatten_try_terminal_br_table_targets_label(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  let remaining_controls : Array[Int] = []
-  let mut if_count = 0
+  let target_controls : Array[Int] = []
   for target in targets {
     if target == label_id {
       continue
     }
     match @ir.hot_label_kind(func, target) {
-      @ir.HotLabelKind::BlockLabel =>
-        remaining_controls.push(@ir.hot_label_owner(func, target))
-      @ir.HotLabelKind::IfLabel => {
-        if_count += 1
-        remaining_controls.push(@ir.hot_label_owner(func, target))
-      }
+      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
+        target_controls.push(@ir.hot_label_owner(func, target))
       _ => return false
     }
   }
-  let mut directly_enclosed = try_id
-  let mut reached_if = false
-  while remaining_controls.length() > 0 {
-    let mut enclosing_index = -1
-    for candidate_index = 0
-        candidate_index < remaining_controls.length()
-        candidate_index = candidate_index + 1 {
-      if flatten_control_directly_encloses_node(
-          func,
-          remaining_controls[candidate_index],
-          directly_enclosed,
-        ) {
-        enclosing_index = candidate_index
-      }
-    }
-    if enclosing_index < 0 {
-      return false
-    }
-    directly_enclosed = remaining_controls[enclosing_index]
-    match @ir.hot_node_get(func, directly_enclosed).op {
-      @ir.HotOp::Block if reached_if => return false
-      @ir.HotOp::Block => ()
-      @ir.HotOp::If => reached_if = true
-      _ => return false
-    }
-    ignore(remaining_controls.remove(enclosing_index))
+  let target_chain = match
+    flatten_direct_enclosing_target_controls(func, try_id, target_controls) {
+    Some(target_chain) => target_chain
+    None => return false
   }
-  if if_count > 0 && !reached_if {
+  if !flatten_target_chain_has_blocks_before_ifs(func, target_chain) {
     return false
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {

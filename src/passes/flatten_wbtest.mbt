@@ -107,3 +107,78 @@ test "flatten classifies missing legacy EH repair prerequisites before mutation"
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
 }
+
+///|
+test "flatten extracts direct try target ancestry in structural order" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [try_id])
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [block_id],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(func, try_id, [if_id, block_id]),
+    Some([block_id, if_id]),
+  )
+  assert_true(
+    flatten_target_chain_has_blocks_before_ifs(func, [block_id, if_id]),
+  )
+}
+
+///|
+test "flatten rejects skipped direct try target ancestry" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let skipped_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    try_id,
+  ])
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [skipped_block],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(func, try_id, [outer_if]),
+    None,
+  )
+}
+
+///|
+test "flatten keeps reverse if-inside-block ancestry as an explicit policy boundary" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [try_id],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [if_id])
+  let chain = flatten_direct_enclosing_target_controls(func, try_id, [
+    block_id, if_id,
+  ])
+  @debug.assert_eq(chain, Some([if_id, block_id]))
+  assert_false(flatten_target_chain_has_blocks_before_ifs(func, chain.unwrap()))
+}
