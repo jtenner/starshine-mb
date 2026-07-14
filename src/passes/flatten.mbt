@@ -790,7 +790,8 @@ fn flatten_direct_target_control_regions(
   owner_id : Int,
 ) -> Array[@ir.HotRegionRef]? {
   match @ir.hot_node_get(func, owner_id).op {
-    @ir.HotOp::Block => Some([@ir.hot_region_body_ref(func, owner_id)])
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      Some([@ir.hot_region_body_ref(func, owner_id)])
     @ir.HotOp::If =>
       match @ir.hot_region_else_ref(func, owner_id) {
         Some(else_ref) =>
@@ -888,7 +889,9 @@ fn flatten_try_terminal_br_table_targets_label(
       continue
     }
     match @ir.hot_label_kind(func, target) {
-      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
+      @ir.HotLabelKind::BlockLabel
+      | @ir.HotLabelKind::IfLabel
+      | @ir.HotLabelKind::LoopLabel =>
         target_controls.push(@ir.hot_label_owner(func, target))
       _ => return false
     }
@@ -2101,8 +2104,9 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
       return false
     }
   }
-  match @ir.hot_node_get(func, nested_id).op {
-    @ir.HotOp::Block | @ir.HotOp::If => ()
+  let nested_op = @ir.hot_node_get(func, nested_id).op
+  match nested_op {
+    @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Try => ()
     _ => return false
   }
   if @ir.hot_type_results(func, @ir.hot_node_get(func, nested_id).ty) !=
@@ -2129,11 +2133,19 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
       admitted_table = table_id
     }
   }
-  admitted_table >= 0 &&
-  @ir.hot_child_count(func, admitted_table) == result_types.length() + 1 &&
-  flatten_multivalue_branch_target_is_supported_with_table(
-    func, nested_label, result_types, admitted_table,
-  )
+  if admitted_table < 0 ||
+    @ir.hot_child_count(func, admitted_table) != result_types.length() + 1 {
+    return false
+  }
+  match nested_op {
+    @ir.HotOp::Block | @ir.HotOp::If =>
+      flatten_multivalue_branch_target_is_supported_with_table(
+        func, nested_label, result_types, admitted_table,
+      )
+    @ir.HotOp::Try =>
+      flatten_multivalue_legacy_try_is_supported(func, nested_id)
+    _ => false
+  }
 }
 
 ///|
@@ -3918,9 +3930,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
         }
         try_label = target
       }
-      @ir.HotLabelKind::BlockLabel =>
-        enclosing_control_count = enclosing_control_count + 1
-      @ir.HotLabelKind::IfLabel =>
+      @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
         enclosing_control_count = enclosing_control_count + 1
       _ => return false
     }

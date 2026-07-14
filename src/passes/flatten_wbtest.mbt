@@ -180,7 +180,7 @@ test "flatten extracts reverse if-inside-block target ancestry in structural ord
 }
 
 ///|
-test "flatten rejects loop controls from direct try target ancestry" {
+test "flatten extracts a direct enclosing loop from try target ancestry" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
     func,
@@ -191,6 +191,23 @@ test "flatten rejects loop controls from direct try target ancestry" {
   let loop_id = @ir.hot_build_loop(func, @lib.BlockType::void_(), [try_id])
   @debug.assert_eq(
     flatten_direct_enclosing_target_controls(func, try_id, [loop_id]),
+    Some([loop_id]),
+  )
+}
+
+///|
+test "flatten rejects a skipped enclosing loop from try target ancestry" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let loop_id = @ir.hot_build_loop(func, @lib.BlockType::void_(), [try_id])
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [loop_id])
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(func, try_id, [block_id]),
     None,
   )
 }

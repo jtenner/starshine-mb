@@ -13237,3 +13237,272 @@ test "flatten routes one exclusively tuple-made multivalue br_table through a le
       fail("expected tuple try-if-block table routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten routes a scalar legacy try table into an inputful enclosing loop entry channel" {
+  let i32_type = @lib.ValType::i32()
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func (result i32) call 1 loop $loop (type $carrier) drop i32.const 11 end return) (func (result i32) i32.const 1))",
+  )
+  let mut loop_id = -1
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Loop => loop_id = node_id
+      _ => ()
+    }
+  }
+  assert_true(loop_id >= 0)
+  let entry_id = @ir.hot_child_get(func, loop_id, 0)
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_const_i32(func, @lib.I32(11))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(12))]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_value(func, i32_type),
+  )
+  let payload_id = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, payload_id, @lib.Instruction::i32_add())
+  let selector_id = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(func, selector_id, @lib.Instruction::i32_sub())
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let loop_label = @ir.hot_control_node_label(func, loop_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [try_label, loop_label],
+    try_label,
+    selector_id,
+    values=[payload_id],
+  )
+  let try_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, try_ref, [branch_id])
+  let loop_ref = @ir.hot_region_body_ref(func, loop_id)
+  let loop_tail = @ir.hot_region_root_count(func, loop_ref) - 1
+  ignore(@ir.hot_region_set(func, loop_ref, loop_tail, try_id))
+  @debug.assert_eq(@ir.hot_region_get(func, loop_ref, loop_tail), try_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, try_id)),
+    0,
+  )
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, loop_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, loop_id), 0)
+  let entry_set = @ir.hot_root_get(func, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, entry_set, 0), entry_id)
+  let loop_entry_local = @ir.hot_node_get(func, entry_set).imm0
+  @debug.assert_eq(@ir.hot_region_root_count(func, try_ref), 5)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_ref, 0), 0),
+    payload_id,
+  )
+  let payload_stage_local = @ir.hot_node_get(
+      func,
+      @ir.hot_region_get(func, try_ref, 0),
+    ).imm0
+  let try_copy = @ir.hot_region_get(func, try_ref, 1)
+  let loop_copy = @ir.hot_region_get(func, try_ref, 2)
+  assert_false(@ir.hot_node_get(func, try_copy).imm0 == loop_entry_local)
+  @debug.assert_eq(@ir.hot_node_get(func, loop_copy).imm0, loop_entry_local)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, try_copy, 0)).imm0,
+    payload_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, loop_copy, 0)).imm0,
+    payload_stage_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_ref, 3), 0),
+    selector_id,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, try_ref, 4), branch_id)
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, entry_id), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, payload_id), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected scalar try-loop table routing to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten routes independently scalar legacy try table lanes into inputful enclosing loop entry channels" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let result_types = [i32_type, i64_type]
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop i32.const 11 i64.const 12 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2))",
+  )
+  let mut loop_id = -1
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Loop => loop_id = node_id
+      _ => ()
+    }
+  }
+  assert_true(loop_id >= 0)
+  let first_entry = @ir.hot_child_get(func, loop_id, 0)
+  let second_entry = @ir.hot_child_get(func, loop_id, 1)
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(13)),
+      @ir.hot_build_const_i64(func, @lib.I64(14L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_results(func, result_types),
+  )
+  let first_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_payload, @lib.Instruction::i32_add())
+  let second_payload = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_const_i64(func, @lib.I64(9L)),
+    @ir.hot_build_const_i64(func, @lib.I64(4L)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_payload,
+    @lib.Instruction::i64_sub(),
+  )
+  let selector_id = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(func, selector_id, @lib.Instruction::i32_sub())
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let loop_label = @ir.hot_control_node_label(func, loop_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [try_label, loop_label],
+    try_label,
+    selector_id,
+    values=[first_payload, second_payload],
+  )
+  let try_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, try_ref, [branch_id])
+  let loop_ref = @ir.hot_region_body_ref(func, loop_id)
+  let loop_root_count = @ir.hot_region_root_count(func, loop_ref)
+  ignore(@ir.hot_region_set(func, loop_ref, loop_root_count - 2, try_id))
+  ignore(@ir.hot_region_set(func, loop_ref, loop_root_count - 1, try_id))
+  @debug.assert_eq(
+    [
+      @ir.hot_region_get(func, loop_ref, loop_root_count - 2),
+      @ir.hot_region_get(func, loop_ref, loop_root_count - 1),
+    ],
+    [try_id, try_id],
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  for control_id in [try_id, loop_id] {
+    @debug.assert_eq(@ir.hot_node_result_arity(func, control_id), 0)
+    @debug.assert_eq(
+      @ir.hot_label_branch_arity(
+        func,
+        @ir.hot_control_node_label(func, control_id),
+      ),
+      0,
+    )
+  }
+  let first_entry_set = @ir.hot_root_get(func, 0)
+  let second_entry_set = @ir.hot_root_get(func, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_entry_set, 0), first_entry)
+  @debug.assert_eq(@ir.hot_child_get(func, second_entry_set, 0), second_entry)
+  let entry_locals = [
+    @ir.hot_node_get(func, first_entry_set).imm0,
+    @ir.hot_node_get(func, second_entry_set).imm0,
+  ]
+  @debug.assert_eq(@ir.hot_region_root_count(func, try_ref), 8)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_ref, 0), 0),
+    first_payload,
+  )
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_ref, 1), 0),
+    second_payload,
+  )
+  let stage_locals = [
+    @ir.hot_node_get(func, @ir.hot_region_get(func, try_ref, 0)).imm0,
+    @ir.hot_node_get(func, @ir.hot_region_get(func, try_ref, 1)).imm0,
+  ]
+  for slot = 0; slot < 2; slot = slot + 1 {
+    let try_copy = @ir.hot_region_get(func, try_ref, 2 + slot)
+    let loop_copy = @ir.hot_region_get(func, try_ref, 4 + slot)
+    let try_local = @ir.hot_node_get(func, try_copy).imm0
+    assert_false(try_local == entry_locals[slot])
+    @debug.assert_eq(@ir.hot_node_get(func, loop_copy).imm0, entry_locals[slot])
+    for copy_id in [try_copy, loop_copy] {
+      @debug.assert_eq(
+        @ir.hot_node_get(func, @ir.hot_child_get(func, copy_id, 0)).imm0,
+        stage_locals[slot],
+      )
+    }
+  }
+  @debug.assert_eq(
+    @ir.hot_child_get(func, @ir.hot_region_get(func, try_ref, 6), 0),
+    selector_id,
+  )
+  @debug.assert_eq(@ir.hot_region_get(func, try_ref, 7), branch_id)
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_entry), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected multivalue try-loop table routing to verify, got \{err}")
+  }
+}
