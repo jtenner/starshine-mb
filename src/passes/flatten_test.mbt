@@ -782,6 +782,121 @@ test "flatten routes one scalar br_table to legacy try and enclosing block chann
 }
 
 ///|
+test "flatten routes one scalar br_table to legacy try and two enclosing block channels" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i32_type]))
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type]),
+  )
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(11))]),
+  )
+  let inner_id = @ir.hot_build_block(func, @lib.BlockType::val_type(i32_type), [
+    try_id,
+  ])
+  let outer_id = @ir.hot_build_block(func, @lib.BlockType::val_type(i32_type), [
+    inner_id,
+  ])
+  let payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, payload, @lib.Instruction::i32_add())
+  let selector = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(6)),
+  )
+  @ir.hot_node_exact_instr_set(func, selector, @lib.Instruction::i32_sub())
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let inner_label = @ir.hot_control_node_label(func, inner_id)
+  let outer_label = @ir.hot_control_node_label(func, outer_id)
+  let branch = @ir.hot_build_br_table(
+    func,
+    [try_label, inner_label, outer_label],
+    try_label,
+    selector,
+    values=[payload],
+  )
+  let try_body = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, try_body, [branch])
+  @ir.hot_delete_node(func, body_fallback)
+  let return_id = @ir.hot_build_return(func, [outer_id])
+  @ir.hot_root_append(func, return_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, inner_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, outer_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, try_label), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, inner_label), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, outer_label), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, try_body), 6)
+  let stage_set = @ir.hot_region_get(func, try_body, 0)
+  let try_set = @ir.hot_region_get(func, try_body, 1)
+  let inner_set = @ir.hot_region_get(func, try_body, 2)
+  let outer_set = @ir.hot_region_get(func, try_body, 3)
+  let selector_set = @ir.hot_region_get(func, try_body, 4)
+  @debug.assert_eq(@ir.hot_region_get(func, try_body, 5), branch)
+  @debug.assert_eq(@ir.hot_child_get(func, stage_set, 0), payload)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
+  let try_local = @ir.hot_node_get(func, try_set).imm0
+  let inner_local = @ir.hot_node_get(func, inner_set).imm0
+  let outer_local = @ir.hot_node_get(func, outer_set).imm0
+  assert_false(try_local == inner_local)
+  assert_false(try_local == outer_local)
+  assert_false(inner_local == outer_local)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 1)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, 0)).imm0,
+    try_local,
+  )
+  let inner_body = @ir.hot_region_body_ref(func, inner_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body), 2)
+  @debug.assert_eq(@ir.hot_region_get(func, inner_body, 0), try_id)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, inner_body, 1)).imm0,
+    inner_local,
+  )
+  let outer_body = @ir.hot_region_body_ref(func, outer_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, outer_body), 2)
+  @debug.assert_eq(@ir.hot_region_get(func, outer_body, 0), inner_id)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, outer_body, 1)).imm0,
+    outer_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    outer_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected three-target scalar try table to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes one multivalue br_table to legacy try and enclosing block vectors" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

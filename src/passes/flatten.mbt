@@ -807,32 +807,43 @@ fn flatten_try_terminal_br_table_targets_label(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  if targets.length() > 1 {
-    if targets.length() != 2 {
-      return false
+  if targets.length() > 3 {
+    return false
+  }
+  let remaining_blocks : Array[Int] = []
+  for target in targets {
+    if target == label_id {
+      continue
     }
-    let other_target = if targets[0] == label_id {
-      targets[1]
-    } else {
-      targets[0]
-    }
-    match @ir.hot_label_kind(func, other_target) {
-      @ir.HotLabelKind::BlockLabel => ()
+    match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::BlockLabel =>
+        remaining_blocks.push(@ir.hot_label_owner(func, target))
       _ => return false
     }
-    let block_id = @ir.hot_label_owner(func, other_target)
-    let block_body = @ir.hot_region_body_ref(func, block_id)
-    let mut directly_encloses_try = false
-    for root_idx = 0
-        root_idx < @ir.hot_region_root_count(func, block_body)
-        root_idx = root_idx + 1 {
-      if @ir.hot_region_get(func, block_body, root_idx) == try_id {
-        directly_encloses_try = true
+  }
+  let mut directly_enclosed = try_id
+  while remaining_blocks.length() > 0 {
+    let mut enclosing_index = -1
+    for candidate_index = 0
+        candidate_index < remaining_blocks.length()
+        candidate_index = candidate_index + 1 {
+      let block_body = @ir.hot_region_body_ref(
+        func,
+        remaining_blocks[candidate_index],
+      )
+      for root_idx = 0
+          root_idx < @ir.hot_region_root_count(func, block_body)
+          root_idx = root_idx + 1 {
+        if @ir.hot_region_get(func, block_body, root_idx) == directly_enclosed {
+          enclosing_index = candidate_index
+        }
       }
     }
-    if !directly_encloses_try {
+    if enclosing_index < 0 {
       return false
     }
+    directly_enclosed = remaining_blocks[enclosing_index]
+    ignore(remaining_blocks.remove(enclosing_index))
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
