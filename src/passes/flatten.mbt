@@ -1014,50 +1014,51 @@ fn flatten_try_table_dead_suffix_root_nodes(
             return None
           }
           match instr {
-            @lib.I32Add =>
-              match
+            @lib.I32Add => {
+              let multiply_id = match
                 (
                   @ir.hot_node_get(func, left_id).op,
                   @ir.hot_node_get(func, right_id).op,
                 ) {
-                (@ir.HotOp::Const, @ir.HotOp::Binary) =>
-                  if @ir.hot_node_exact_instr(func, right_id) ==
-                    Some(@lib.Instruction::i32_mul()) &&
-                    @ir.hot_child_count(func, right_id) == 2 {
-                    let multiply_left = @ir.hot_child_get(func, right_id, 0)
-                    let multiply_right = @ir.hot_child_get(func, right_id, 1)
-                    let nested_nodes = [
-                      root_id, value_id, left_id, right_id, multiply_left, multiply_right,
-                    ]
-                    for outer = 0
-                        outer < nested_nodes.length()
-                        outer = outer + 1 {
-                      for inner = outer + 1
-                          inner < nested_nodes.length()
-                          inner = inner + 1 {
-                        if nested_nodes[outer] == nested_nodes[inner] {
-                          return None
-                        }
-                      }
-                    }
-                    match
-                      (
-                        @ir.hot_node_get(func, multiply_left).op,
-                        @ir.hot_node_get(func, multiply_right).op,
-                      ) {
-                      (@ir.HotOp::Const, @ir.HotOp::Const) => ()
-                      _ => return None
-                    }
-                    if @ir.node_use_count(use_def, left_id) != 1 ||
-                      @ir.node_use_count(use_def, right_id) != 1 ||
-                      @ir.node_use_count(use_def, multiply_left) != 1 ||
-                      @ir.node_use_count(use_def, multiply_right) != 1 {
+                (@ir.HotOp::Const, @ir.HotOp::Binary) => right_id
+                (@ir.HotOp::Binary, @ir.HotOp::Const) => left_id
+                _ => -1
+              }
+              if multiply_id >= 0 &&
+                @ir.hot_node_exact_instr(func, multiply_id) ==
+                Some(@lib.Instruction::i32_mul()) &&
+                @ir.hot_child_count(func, multiply_id) == 2 {
+                let multiply_left = @ir.hot_child_get(func, multiply_id, 0)
+                let multiply_right = @ir.hot_child_get(func, multiply_id, 1)
+                let nested_nodes = [
+                  root_id, value_id, left_id, right_id, multiply_left, multiply_right,
+                ]
+                for outer = 0; outer < nested_nodes.length(); outer = outer + 1 {
+                  for inner = outer + 1
+                      inner < nested_nodes.length()
+                      inner = inner + 1 {
+                    if nested_nodes[outer] == nested_nodes[inner] {
                       return None
                     }
-                    return Some(nested_nodes)
                   }
-                _ => ()
+                }
+                match
+                  (
+                    @ir.hot_node_get(func, multiply_left).op,
+                    @ir.hot_node_get(func, multiply_right).op,
+                  ) {
+                  (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+                  _ => return None
+                }
+                if @ir.node_use_count(use_def, left_id) != 1 ||
+                  @ir.node_use_count(use_def, right_id) != 1 ||
+                  @ir.node_use_count(use_def, multiply_left) != 1 ||
+                  @ir.node_use_count(use_def, multiply_right) != 1 {
+                  return None
+                }
+                return Some(nested_nodes)
               }
+            }
             _ => ()
           }
           match instr {

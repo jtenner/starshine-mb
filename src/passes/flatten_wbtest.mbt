@@ -1116,7 +1116,7 @@ test "flatten keeps repeated nested add-multiply descendants unsupported" {
 }
 
 ///|
-test "flatten keeps reverse multiply-add nesting unsupported after a try table" {
+test "flatten recognizes one exclusively owned nested multiply-add drop try-table suffix" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -1133,12 +1133,96 @@ test "flatten keeps reverse multiply-add nesting unsupported after a try table" 
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
+  let multiply_left = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let multiply_right = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let multiply = @ir.hot_build_binary(
+    func, i32_type, multiply_left, multiply_right,
+  )
+  @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
+  let add_right = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let add = @ir.hot_build_binary(func, i32_type, multiply, add_right)
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  let dead_drop = @ir.hot_build_drop(func, add)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, dead_drop])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([dead_drop, add, multiply, add_right, multiply_left, multiply_right]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a nested multiply-add try-table suffix unsupported when a descendant is shared" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(9))
   let multiply = @ir.hot_build_binary(
     func,
     i32_type,
-    @ir.hot_build_const_i32(func, @lib.I32(9)),
+    shared,
     @ir.hot_build_const_i32(func, @lib.I32(10)),
   )
+  @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
+  let add = @ir.hot_build_binary(
+    func,
+    i32_type,
+    multiply,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  )
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, add),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, shared))
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps repeated nested multiply-add descendants unsupported" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let repeated = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let multiply = @ir.hot_build_binary(func, i32_type, repeated, repeated)
   @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
   let add = @ir.hot_build_binary(
     func,
