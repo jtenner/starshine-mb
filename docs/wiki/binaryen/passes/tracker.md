@@ -211,7 +211,7 @@ sources:
   - ../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
-  - ../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
   - ../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
   - ../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
@@ -652,7 +652,7 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
 - [`../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
-- [`../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp>
 - [`../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
 - [`../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)

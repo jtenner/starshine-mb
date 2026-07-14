@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -28,7 +28,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` / `version_130` as the released source oracle for this pass. The committed raw source manifests preserve the tagged contract. The 2026-07-11 recheck reread current `main`'s owner, registration, and direct lit surface: the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence; see [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md).
+Use Binaryen `version_129` / `version_130` as the released source oracle for this pass. The committed research manifests preserve the tagged contract. A 2026-07-11 reread of current-main [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) confirms that the shared `SSAify(bool allowMerges)` algorithm and scheduler split remain as described below. It is a dated source reading, not a claim of byte-for-byte trunk equivalence.
 
 Primary files:
 

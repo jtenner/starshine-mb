@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
-  - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp
   - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
@@ -44,7 +44,7 @@ Primary files:
 - `src/cfg/liveness-traversal.h`
 - `test/lit/passes/signature-pruning.wast`
 
-The later 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md) supersedes the older current-main freshness claim.
+A 2026-07-11 review of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignaturePruning.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp) sources supersedes the older current-main freshness claim.
 Durable result:
 
 - the reviewed `version_130` and current-main pass contract still matches the `version_129` teaching algorithm on the important gates, phase split, and helper policy
@@ -437,7 +437,7 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md)
+- Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignaturePruning.cpp>
 - [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

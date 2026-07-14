@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
@@ -76,7 +76,7 @@ It is **heap-type-level subtype-tightening for nominal function signatures**.
 - Parameter refinement comes from **call operand LUBs**.
 - Result refinement comes from **returned-value LUBs**.
 - `call.without.effects` is part of the real contract, not a side note.
-- The dossier is anchored to direct `version_129` source URLs, the retained 2026-04-24 research inventory, the superseded 2026-05-05 freshness bridge, and the current [`2026-07-11 version_130/current-main correction`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The dossier is anchored to direct `version_129` source URLs, the retained 2026-04-24 research inventory, the superseded 2026-05-05 freshness bridge, and the 2026-07-11 official [`version_130/current-main review`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp), plus the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 - The 2026-07-11 owner reread found two behavior-bearing current-version corrections: continuation-used signatures now freeze the whole type rather than only params, and `worldMode` now reaches both public-type discovery and the global signature rewriter.
 - The older 2026-05-05 no-drift conclusion is retained as historical provenance but is superseded for current-contract claims.
 
@@ -147,7 +147,7 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
 - [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)

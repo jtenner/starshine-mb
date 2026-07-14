@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp
   - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -129,13 +129,13 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 ## Freshness and admission note
 
-The 2026-07-11 current-main recheck reread `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared full-SSA/no-merge algorithm and the default-pipeline split remain as documented: full `ssa` owns merge-local materialization, while only `ssa-nomerge` occupies the early default function slot. This is a dated source reading, not a byte-for-byte current-main versus `version_130` comparison; [`2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md) records its precise scope.
+The 2026-07-11 current-main recheck reread `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared full-SSA/no-merge algorithm and the default-pipeline split remain as documented: full `ssa` owns merge-local materialization, while only `ssa-nomerge` occupies the early default function slot. This is a dated source reading, not a byte-for-byte current-main versus `version_130` comparison; the official [`SSAify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp), and [`ssa.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast) define its reviewed scope.
 
 The same recheck corrects the local status: Starshine exposes `ssa` as an **active partial** direct pass for non-merge families plus the first simple explicit-write merge-local slice, but the compare-pass harness does not admit `--ssa`. Thus a rejected `compare-pass --pass ssa` request proves only harness admission, not pass parity. Keep `version_129` / `version_130` as the released upstream oracle provenance, and use the living Starshine pages for the active-subset boundary.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md`](../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp>
 - [`../../../raw/research/0402-2026-04-26-ssa-port-readiness.md`](../../../raw/research/0402-2026-04-26-ssa-port-readiness.md)
 - [`../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md`](../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md`](../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md) (historical; superseded for raw-source provenance and local Starshine status)

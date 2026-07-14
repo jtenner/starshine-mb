@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
@@ -41,7 +41,7 @@ Primary files:
 
 This dossier also has a dedicated Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
-The 2026-05-05 current-`main` recheck is now historical only. The focused `version_130` / current-main reread in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md) found two current-contract corrections:
+The 2026-05-05 current-`main` recheck is now historical only. A focused 2026-07-11 reread of the official [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SignatureRefining.cpp) and [`current-main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp) sources found two current-contract corrections:
 
 - a continuation-used signature now gets `canModify = false`, so neither params nor results may refine; `version_129` only froze params;
 - `worldMode` now reaches both `getPublicHeapTypes(...)` and `GlobalTypeRewriter::updateSignatures(...)`.
@@ -249,7 +249,7 @@ This is one of the most important differences between what the pass sounds like 
 
 - `canModify = false`
 
-So neither params nor results refine for a continuation-used function signature. The source comment still gives the reason: continuation users such as `cont.bind` and `resume` are not updated with new types. This is a behavior-bearing upstream correction, not a wording cleanup; see [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md).
+So neither params nor results refine for a continuation-used function signature. The source comment still gives the reason: continuation users such as `cont.bind` and `resume` are not updated with new types. This is a behavior-bearing upstream correction, not a wording cleanup; see the official current-main [`SignatureRefining.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp).
 
 ## 4. Tag-used signatures freeze the whole type
 
@@ -440,7 +440,7 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
+- Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

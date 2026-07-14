@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
-  - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
@@ -120,7 +120,7 @@ That is much more accurate than saying either:
 
 - [`../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
 - [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
-- [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
+- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
 - [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
