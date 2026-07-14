@@ -15467,7 +15467,7 @@ test "dae-optimizing cleans one ranked broad removed-param local family" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-removed-param-local-cleanup def=0 removed_locals=96",
+        "pass[dae-optimizing]:broad-removed-param-local-cleanup def=0 removed_locals=96 mode=direct",
       )
     }),
     msg=trace.to_string(),

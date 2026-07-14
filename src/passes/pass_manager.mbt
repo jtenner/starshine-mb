@@ -61581,19 +61581,20 @@ fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
   original : @lib.Module,
   current : @lib.Module,
   touched : Array[Bool],
-) -> (@lib.Module, Int, Int) {
+) -> (@lib.Module, Int, Int, Bool) {
   if dae_defined_func_count(current) <= 4096 {
-    return (current, -1, 0)
+    return (current, -1, 0, false)
   }
   let original_type_idxs = dae_collect_func_type_indices(original)
   let current_type_idxs = dae_collect_func_type_indices(current)
   let imported = dae_imported_func_count(current)
   let funcs = match current.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return (current, -1, 0)
+    None => return (current, -1, 0, false)
   }
   let mut best_def = -1
   let mut best_removed_locals = 0
+  let mut best_used_fallback = false
   let mut best_func : @lib.Func? = None
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
     if def_idx >= touched.length() || !touched[def_idx] {
@@ -61618,15 +61619,32 @@ fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
     if original_params.length() <= current_params.length() {
       continue
     }
-    let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)
-    let (compacted, locals_changed) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
-      cleaned, current_params, 0,
+    let (direct_compacted, direct_changed) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+      func, current_params, 0,
     )
-    if !locals_changed {
-      continue
+    let @lib.Func(direct_locals, _) = direct_compacted
+    let direct_removed = if direct_changed {
+      locals.length() - direct_locals.length()
+    } else {
+      0
     }
-    let @lib.Func(compacted_locals, _) = compacted
-    let removed_locals = locals.length() - compacted_locals.length()
+    let (compacted, removed_locals, used_fallback) = if direct_removed >= 16 {
+      (direct_compacted, direct_removed, false)
+    } else {
+      let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        func,
+      )
+      let (fallback_compacted, fallback_changed) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+        cleaned, current_params, 0,
+      )
+      let @lib.Func(fallback_locals, _) = fallback_compacted
+      let fallback_removed = if fallback_changed {
+        locals.length() - fallback_locals.length()
+      } else {
+        0
+      }
+      (fallback_compacted, fallback_removed, true)
+    }
     if removed_locals < 16 {
       continue
     }
@@ -61637,6 +61655,7 @@ fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
       ) {
       best_def = def_idx
       best_removed_locals = removed_locals
+      best_used_fallback = used_fallback
       best_func = Some(compacted)
     }
   }
@@ -61648,9 +61667,10 @@ fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
         current.with_code_sec(@lib.CodeSec::new(rewritten)).without_name_sec(),
         best_def,
         best_removed_locals,
+        best_used_fallback,
       )
     }
-    None => (current, -1, 0)
+    None => (current, -1, 0, false)
   }
 }
 
@@ -61761,13 +61781,18 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
-  let (removed_param_local_cleaned, removed_param_local_def, removed_locals) = run_hot_pipeline_dae_broad_removed_param_local_cleanup(
+  let (
+    removed_param_local_cleaned,
+    removed_param_local_def,
+    removed_locals,
+    removed_param_local_used_fallback,
+  ) = run_hot_pipeline_dae_broad_removed_param_local_cleanup(
     mod_, core_mod, core_touched,
   )
   core_mod = removed_param_local_cleaned
   if removed_param_local_def >= 0 {
     (options.trace)(
-      "pass[dae-optimizing]:broad-removed-param-local-cleanup def=\{removed_param_local_def} removed_locals=\{removed_locals}",
+      "pass[dae-optimizing]:broad-removed-param-local-cleanup def=\{removed_param_local_def} removed_locals=\{removed_locals} mode=\{if removed_param_local_used_fallback { "fallback" } else { "direct" }}",
     )
   }
   let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
