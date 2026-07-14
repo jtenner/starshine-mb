@@ -886,6 +886,33 @@ fn flatten_try_table_dead_suffix_root_nodes(
       }
       match @ir.hot_node_get(func, argument_id).op {
         @ir.HotOp::Const => Some([root_id, argument_id])
+        @ir.HotOp::Binary => {
+          match @ir.hot_node_exact_instr(func, argument_id) {
+            Some(@lib.I32Add) => ()
+            _ => return None
+          }
+          if @ir.hot_child_count(func, argument_id) != 2 {
+            return None
+          }
+          let left_id = @ir.hot_child_get(func, argument_id, 0)
+          let right_id = @ir.hot_child_get(func, argument_id, 1)
+          if left_id == right_id {
+            return None
+          }
+          match
+            (
+              @ir.hot_node_get(func, left_id).op,
+              @ir.hot_node_get(func, right_id).op,
+            ) {
+            (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+            _ => return None
+          }
+          if @ir.node_use_count(use_def, left_id) != 1 ||
+            @ir.node_use_count(use_def, right_id) != 1 {
+            return None
+          }
+          Some([root_id, argument_id, left_id, right_id])
+        }
         _ => None
       }
     }
