@@ -685,7 +685,7 @@ test "flatten recognizes one exclusively owned subtract drop try-table suffix" {
 }
 
 ///|
-test "flatten keeps unaudited pure binary opcodes gated after a try table" {
+test "flatten recognizes one exclusively owned multiply drop try-table suffix" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -707,6 +707,43 @@ test "flatten keeps unaudited pure binary opcodes gated after a try table" {
   let multiply = @ir.hot_build_binary(func, i32_type, left, right)
   @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
   let dead_drop = @ir.hot_build_drop(func, multiply)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, dead_drop])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([dead_drop, multiply, left, right]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps unaudited bitwise binary opcodes gated after a try table" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let left = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let right = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let bitwise_and = @ir.hot_build_binary(func, i32_type, left, right)
+  @ir.hot_node_exact_instr_set(func, bitwise_and, @lib.Instruction::i32_and())
+  let dead_drop = @ir.hot_build_drop(func, bitwise_and)
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id, dead_drop,
   ])
