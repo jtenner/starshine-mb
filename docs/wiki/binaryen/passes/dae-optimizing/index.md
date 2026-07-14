@@ -1,8 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-14
 sources:
+  - ../../../raw/research/1599-2026-07-14-daeo-adjacent-local-order-final-matrix.md
+  - ../../../raw/research/1598-2026-07-14-daeo-adjacent-local-order-prefilter.md
+  - ../../../raw/research/1597-2026-07-14-daeo-adjacent-type-stable-local-order.md
   - ../../../raw/research/1596-2026-07-13-daeo-func41-local-compaction-final-matrix.md
   - ../../../raw/research/1595-2026-07-13-daeo-removed-param-direct-prefilter.md
   - ../../../raw/research/1594-2026-07-13-daeo-broad-removed-param-local-compaction.md
@@ -107,7 +110,7 @@ related:
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
 - It is currently **partially implemented** in Starshine as an active module pass. The focused `[DAE]003` and `[DAE]004` breadth slices are closed by research notes `0661` and `0687`, and the recovered current preset tables schedule `dae-optimizing` once in both public `optimize` and `shrink`, immediately after `heap-store-optimization` and before `inlining-optimizing`.
-- Current closeout evidence is research note [`1596`](../../../raw/research/1596-2026-07-13-daeo-func41-local-compaction-final-matrix.md): the four required explicit-native Binaryen-v130 compare lanes are complete and classified, public optimize/shrink/O4z execute DAEO exactly once, and the retained direct artifact is valid at `1.58x` Binaryen pass-local time. Generic optimizing-only removed-parameter local compaction closes `751` raw / `674` canonical bytes in Func `41`; the audit remains active on a `+12571` canonical-byte parity gap now led by the partially closed Funcs `7008`/`7007`. Those positive bytes are not accepted Starshine wins.
+- Current closeout evidence is research note [`1599`](../../../raw/research/1599-2026-07-14-daeo-adjacent-local-order-final-matrix.md): the four required explicit-native Binaryen-v130 compare lanes are complete and classified, public optimize/shrink/O4z execute DAEO exactly once, and the retained direct artifact is valid at `1.54x` Binaryen pass-local time. Generic optimizing-only type-stable local ordering over the already selected adjacent pair closes another `75` raw / `90` canonical bytes in Funcs `7007`/`7008`; the audit remains active on a `+12481` canonical-byte parity gap led by Funcs `7008`, `8429`, `7007`, `9347`, and `41`. Those positive bytes are not accepted Starshine wins.
 - The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, backlog language, and now the local active registry.
 - The descriptive local name `dead-argument-elimination-optimizing` remains as an active compatibility alias for the same optimizing module pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the current scope and remaining parity caveats.
 - Binaryen also exposes the related plain pass name `dae`, tracked locally and in the neighboring dossier as `dead-argument-elimination`; both plain spellings are now wired as active Starshine module-pass entries with focused Moon validation green, but direct DAE compare closeout remains open.
