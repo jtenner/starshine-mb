@@ -912,15 +912,6 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
     @ir.HotOp::BrTable => ()
     _ => return false
   }
-  let targets = flatten_unique_br_table_targets(func, node.imm0)
-  if targets.length() > 3 {
-    for target in targets {
-      match @ir.hot_label_kind(func, target) {
-        @ir.HotLabelKind::IfLabel => return false
-        _ => ()
-      }
-    }
-  }
   flatten_try_terminal_br_table_targets_label(
     func, node_id, label_id, payload_count, allow_mixed_targets,
   )
