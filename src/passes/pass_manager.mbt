@@ -61687,6 +61687,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     core_mod,
     core_touched,
     result.changed,
+    options.trace,
   )
   core_mod = broad_adjacent.mod_out
   core_touched = broad_adjacent.touched

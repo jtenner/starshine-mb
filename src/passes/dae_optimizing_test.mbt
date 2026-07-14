@@ -15493,6 +15493,12 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
     assert_false(optimized_func.contains("local.set"), msg=optimized_func)
   }
   assert_true(
+    trace.contains(
+      "pass[dae-optimizing]:broad-exact-param-adjacent-candidates roots=1 pairs=1",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
     trace.any(fn(line) {
       line.contains(
         "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005]",

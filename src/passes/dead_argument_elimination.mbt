@@ -28352,21 +28352,20 @@ fn dae_func_directly_calls_def(
 }
 
 ///|
-fn dae_collect_broad_exact_param_adjacent_cleanup_candidate(
+fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
   mod_ : @lib.Module,
-  root_def : Int,
-) -> DaeBroadExactParamAdjacentCleanupCandidate? {
+) -> Array[DaeBroadExactParamAdjacentCleanupCandidate] {
+  let candidates : Array[DaeBroadExactParamAdjacentCleanupCandidate] = []
   let imported = dae_imported_func_count(mod_)
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return None
+    None => return candidates
   }
   let defined = funcs.length()
   let type_indices = dae_collect_func_type_indices(mod_)
-  let limit = if root_def + 9 < defined { root_def + 9 } else { defined }
-  let mut best : DaeBroadExactParamAdjacentCleanupCandidate? = None
-  let mut first_def = root_def + 1
-  while first_def + 1 < limit {
+  let first_limit = if defined < 8200 { defined - 1 } else { 8199 }
+  let mut first_def = 4097
+  while first_def < first_limit {
     let second_def = first_def + 1
     let @lib.Func(first_locals, @lib.Expr(first_body)) = funcs[first_def]
     let @lib.Func(second_locals, @lib.Expr(second_body)) = funcs[second_def]
@@ -28380,21 +28379,18 @@ fn dae_collect_broad_exact_param_adjacent_cleanup_candidate(
         imported,
         defined,
       ) {
-      let candidate = {
-        root_def,
-        first_def,
-        second_def,
-        payoff: dae_dropped_result_payoff_instrs(first_body) +
-        dae_dropped_result_payoff_instrs(second_body),
-      }
-      match best {
-        Some(current) if current.payoff >= candidate.payoff => ()
-        _ => best = Some(candidate)
+      let payoff = dae_dropped_result_payoff_instrs(first_body) +
+        dae_dropped_result_payoff_instrs(second_body)
+      let root_start = if first_def - 8 > 4096 { first_def - 8 } else { 4096 }
+      let mut root_def = root_start
+      while root_def < first_def && root_def < 8192 {
+        candidates.push({ root_def, first_def, second_def, payoff })
+        root_def += 1
       }
     }
     first_def += 1
   }
-  best
+  candidates
 }
 
 ///|
@@ -28402,6 +28398,7 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
+  trace : (String) -> Unit,
 ) -> DaeBroadExactParamAdjacentCleanupApplication {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
@@ -28410,36 +28407,49 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
   }
   let total = imported + defined
   let call_facts = dae_collect_current_call_facts(current, total)
-  let candidates = dae_collect_exact_literal_candidate_defs_with_facts(
-    current, call_facts, 8192,
+  let neighborhood_candidates = dae_collect_broad_exact_param_adjacent_cleanup_candidates(
+    current,
   )
+  let successful_roots = Array::make(defined, false)
+  let successful_pairs = Array::make(defined, false)
+  let mut root_count = 0
+  let mut pair_count = 0
   let mut best_root = -1
   let mut best_aggregates = -1
   let mut best_payoff = -1
   let mut best_candidate : DaeBroadExactParamAdjacentCleanupCandidate? = None
-  for root_def in candidates {
-    if root_def < 4096 {
+  for candidate in neighborhood_candidates {
+    let root_result = dae_try_rewrite_exact_literal_def_with_facts_once(
+      current,
+      candidate.root_def,
+      call_facts,
+    )
+    if !root_result.changed {
       continue
     }
-    match
-      dae_collect_broad_exact_param_adjacent_cleanup_candidate(
-        current, root_def,
-      ) {
-      Some(candidate) => {
-        let aggregates = dae_exact_param_aggregate_constructor_count(
-          current, root_def,
-        )
-        if aggregates > best_aggregates ||
-          (aggregates == best_aggregates && candidate.payoff > best_payoff) {
-          best_root = root_def
-          best_aggregates = aggregates
-          best_payoff = candidate.payoff
-          best_candidate = Some(candidate)
-        }
-      }
-      None => ()
+    if !successful_roots[candidate.root_def] {
+      successful_roots[candidate.root_def] = true
+      root_count += 1
+    }
+    if !successful_pairs[candidate.first_def] {
+      successful_pairs[candidate.first_def] = true
+      pair_count += 1
+    }
+    let aggregates = dae_exact_param_aggregate_constructor_count(
+      current,
+      candidate.root_def,
+    )
+    if aggregates > best_aggregates ||
+      (aggregates == best_aggregates && candidate.payoff > best_payoff) {
+      best_root = candidate.root_def
+      best_aggregates = aggregates
+      best_payoff = candidate.payoff
+      best_candidate = Some(candidate)
     }
   }
+  trace(
+    "pass[dae-optimizing]:broad-exact-param-adjacent-candidates roots=\{root_count} pairs=\{pair_count}",
+  )
   if best_root < 0 {
     return { mod_out: current, touched, candidate: None }
   }
