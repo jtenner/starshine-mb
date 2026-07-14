@@ -3,7 +3,9 @@ kind: decision
 status: supported
 last_reviewed: 2026-06-08
 sources:
-  - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
+  - https://webassembly.github.io/spec/core/syntax/instructions.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
+  - https://webassembly.github.io/spec/core/exec/instructions.html
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
@@ -93,7 +95,7 @@ Terminator edge policy in the concrete builder is:
 - `delegate` produces an `ExceptionalEdge` to the delegated label target.
 - `unreachable` produces an `UnreachableExitEdge` to the synthetic normal exit.
 
-The 2026-06-04 recheck in [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) is the current source bridge for this rule. WebAssembly Core 3.0 syntax includes `return_call`, `return_call_indirect`, and `return_call_ref`; validation treats them as stack-polymorphic tail-call forms whose callee result must match the enclosing function result; execution routes them through a tail-call path that unwinds the current function's frame/labels/handlers before entering the callee. Starshine's HOT flags agree with the no-fallthrough semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators. WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md); the typed-function-reference boundary owns the `return_call_ref` / ordinary `call_ref` target-shape split at [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md); and the older tail-call source manifest remains provenance at [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The WebAssembly Core 3.0 syntax, validation, and execution pages plus the local HOT/CFG sources listed below are the current source evidence for this rule. WebAssembly Core 3.0 syntax includes `return_call`, `return_call_indirect`, and `return_call_ref`; validation treats them as stack-polymorphic tail-call forms whose callee result must match the enclosing function result; execution routes them through a tail-call path that unwinds the current function's frame/labels/handlers before entering the callee. Starshine's HOT flags agree with the no-fallthrough semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators. WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md); the typed-function-reference boundary owns the `return_call_ref` / ordinary `call_ref` target-shape split at [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md); and the older tail-call source manifest remains provenance at [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Exceptional-Flow Policy
 
@@ -178,7 +180,7 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 ## Sources
 
 - Archived original CFG contract note: [`../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
-- Current CFG tail-call recheck: [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md)
+- Core tail-call semantics: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, and <https://webassembly.github.io/spec/core/exec/instructions.html>
 - Tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - Policy layer: [`../../../src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt)
 - Concrete builder: [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)

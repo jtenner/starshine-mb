@@ -4,7 +4,9 @@ status: planned
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeMerging.cpp
-  - ../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md
+  - ../../../tooling/pass-fuzz-compare.md
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -23,7 +25,7 @@ Do **not** run or advertise `bun fuzz compare-pass --pass type-merging ...` as a
 
 - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not admit `type-merging` in `SUPPORTED_PASS_FLAGS`, so parsing stops before an input is generated or either optimizer runs.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) retains the name as **boundary-only**. If the harness admitted it, current Starshine would still reject the request instead of executing a transform.
-- The current Binaryen pass is real, but upstream registration is not Starshine/harness admission; see the local audit in [`../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md`](../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md).
+- The current Binaryen pass is real, but upstream registration is not Starshine/harness admission; see the local pass-eligibility preflight and harness/registry sources cited above.
 - A parser rejection, boundary-only error, or zero compared cases is status evidence only—not parity evidence.
 
 Use this command only to inspect the harness roster:

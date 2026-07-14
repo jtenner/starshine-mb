@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
+  - text-differential-adapters.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt
   - ../../../scripts/lib/fuzz-task.ts

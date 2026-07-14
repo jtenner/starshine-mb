@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
+  - ../fuzzing/text-differential-adapters.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
   - https://github.com/WebAssembly/binaryen

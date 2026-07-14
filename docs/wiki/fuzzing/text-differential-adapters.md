@@ -3,7 +3,8 @@ kind: workflow
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
+  - https://github.com/bytecodealliance/wasm-tools#tools-included
+  - https://github.com/WebAssembly/wabt#readme
   - ../../../scripts/lib/fuzz-text-adapters.ts
   - ../../../scripts/lib/fuzz-text-adapters.test.ts
   - ../../../src/cmd/fuzz_harness.mbt
@@ -33,7 +34,7 @@ Starshine has two related text-differential layers:
 
 Keep those layers separate. A green `text-differential` smoke run proves Starshine's current local parse/print/reparse/lower path is stable for the generated cases. It does **not** prove WABT, `wasm-tools`, Binaryen, or every WAST proposal syntax agrees with Starshine.
 
-The current source bridge is [`../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md`](../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md). It rechecked the official `wasm-tools parse` and WABT `wat2wasm` command roles plus the local MoonBit and TypeScript implementation evidence.
+The official `wasm-tools parse` and WABT `wat2wasm` documentation, together with the local MoonBit and TypeScript sources listed below, define the command-role and implementation evidence.
 
 ## Beginner Model
 
@@ -157,7 +158,7 @@ When widening text differential coverage:
 
 ## Source Map
 
-- Source bridge: [`../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md`](../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md)
+- External command references: [wasm-tools](https://github.com/bytecodealliance/wasm-tools#tools-included) and [WABT](https://github.com/WebAssembly/wabt#readme)
 - TypeScript optional adapters: [`../../../scripts/lib/fuzz-text-adapters.ts`](../../../scripts/lib/fuzz-text-adapters.ts), [`../../../scripts/lib/fuzz-text-adapters.test.ts`](../../../scripts/lib/fuzz-text-adapters.test.ts)
 - MoonBit local matrix and aggregate helpers: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt), [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt)
 - Runnable fuzz suite and recipe tests: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt)

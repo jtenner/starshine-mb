@@ -5,7 +5,7 @@ last_reviewed: 2026-06-13
 sources:
   - ../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
   - ../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md
-  - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
+  - https://doi.org/10.1145/115372.115320
   - ../raw/research/0061-2026-03-24-local-ssa-policy.md
   - ../../../src/ir/ssa_policy.mbt
   - ../../../src/ir/ssa_local.mbt
@@ -39,7 +39,7 @@ related:
 
 Starshine's local SSA is **not** a second optimizer IR. It is a locals-only analysis overlay built over a normal [`HotFunc`](../../../src/ir/hot_core.mbt) body, keyed to that function's revision. The body remains ordinary HOT IR before and after SSA-assisted work: local reads are still `LocalGet`, writes are still `LocalSet` / `LocalTee`, and phis are metadata that never become persistent HOT nodes.
 
-Use this page when adding or reviewing an SSA-assisted pass, debugging local-def/use facts, or deciding whether a new optimization really needs the current local overlay versus a different IR2 analysis. The classic external lineage is Cytron-style SSA placement, but Starshine intentionally narrows it: [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt) uses dominance frontiers plus liveness filtering for locals, [`ssa_local.mbt`](../../../src/ir/ssa_local.mbt) performs dominator-tree renaming over local ops, and [`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt) lowers overlay phis back to predecessor copies so the owned body never stops being HOT IR. [`local_graph.mbt`](../../../src/ir/local_graph.mbt) is a separate Binaryen-facing reaching-source graph: it records entry/default sources and explicit local writes that can reach each `LocalGet`, plus the gets influenced by each set/tee, without rewriting the function. The current cache/pass-use source bridge is [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md); the original bibliographic and implementation bridge remains [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md), and the first local policy note is archived at [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md).
+Use this page when adding or reviewing an SSA-assisted pass, debugging local-def/use facts, or deciding whether a new optimization really needs the current local overlay versus a different IR2 analysis. The classic external lineage is Cytron-style SSA placement, but Starshine intentionally narrows it: [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt) uses dominance frontiers plus liveness filtering for locals, [`ssa_local.mbt`](../../../src/ir/ssa_local.mbt) performs dominator-tree renaming over local ops, and [`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt) lowers overlay phis back to predecessor copies so the owned body never stops being HOT IR. [`local_graph.mbt`](../../../src/ir/local_graph.mbt) is a separate Binaryen-facing reaching-source graph: it records entry/default sources and explicit local writes that can reach each `LocalGet`, plus the gets influenced by each set/tee, without rewriting the function. The current cache/pass-use source bridge is [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md). The classic SSA lineage is Cytron et al.'s [1991 paper](https://doi.org/10.1145/115372.115320), while the first local policy note is archived at [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md).
 
 ## Data Shape
 
@@ -198,7 +198,7 @@ If future work needs any of those, update the IR2 architecture contract first, a
 
 - 2026-06-09 exceptional-edge audit: [`../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
 - Current cache/pass-use refresh: [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md)
-- SSA lineage and source bridge: [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md)
+- SSA lineage: Cytron et al., [“Efficiently Computing Static Single Assignment Form and the Control Dependence Graph”](https://doi.org/10.1145/115372.115320)
 - Archived original policy note: [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md)
 - Policy/query layer: [`../../../src/ir/ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt)
 - Builder: [`../../../src/ir/ssa_local.mbt`](../../../src/ir/ssa_local.mbt)

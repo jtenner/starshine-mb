@@ -3,9 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
-  - ../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md
-  - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
+  - https://webassembly.github.io/spec/core/syntax/instructions.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
+  - https://webassembly.github.io/spec/core/exec/instructions.html
+  - https://doi.org/10.1145/115372.115320
   - ../raw/research/0064-2026-03-24-ir2-test-matrix.md
   - ../../../src/ir/test_helpers.mbt
   - ../../../src/ir/test_helpers_test.mbt
@@ -68,7 +69,7 @@ The matrix has four layers:
 3. **Shared fixture/golden helpers**: stable WAT-to-HOT fixtures and deterministic text dumps used across analyses.
 4. **Pass-facing helpers**: public optimizer execution and trace capture for pass tests.
 
-The 2026-05-20 repository refresh in [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md) is the current broad audit of in-tree evidence. The 2026-06-04 CFG tail-call recheck in [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) is the fresher focused bridge for the `return_call*` helper/test gap because it combines current WebAssembly Core 3.0 tail-call semantics with current `src/ir` CFG and HOT evidence. Existing algorithmic lineage for local SSA remains in [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md).
+The listed `src/ir` tests are the current broad audit of in-tree evidence. WebAssembly Core 3.0 syntax, validation, and execution pages plus current `src/ir` CFG/HOT sources establish the `return_call*` helper/test gap; Cytron et al. provide the external SSA lineage.
 
 ## Core Invariants
 
@@ -172,12 +173,12 @@ For behavior or public API changes, use the repo validation floor from [`../../R
 - Shared dumps currently cover CFG, dominance, liveness, and local SSA. Post-dominance, loop info, use-def, effects, and cache behavior have focused tests but no shared text-dump helper yet. Add a dump helper only when multiple tests need durable cross-analysis goldens.
 - The matrix is not a replacement for pass-specific semantic tests or Binaryen oracle comparison.
 - The old numbered doc remains the historical handoff source, but this living page plus the 2026-05-20 repository refresh are the fresher navigation surface for current in-tree test locations.
-- The known `cfg_contract.mbt` tail-call helper omission remains tracked in [`./cfg-contract.md`](./cfg-contract.md) and [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md); do not cite this matrix as proof that helper gap is fixed.
+- The known historical `cfg_contract.mbt` tail-call helper omission is tracked in [`./cfg-contract.md`](./cfg-contract.md); do not cite this matrix as proof that a helper gap is fixed.
 
 ## Sources
 
-- Current CFG tail-call helper/test bridge: [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md)
-- Current repository-evidence bridge: [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md)
+- Tail-call semantics: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, and <https://webassembly.github.io/spec/core/exec/instructions.html>
+- Current repository evidence: the `src/ir` test files listed throughout this page.
 - Numbered handoff doc: [`../raw/research/0064-2026-03-24-ir2-test-matrix.md`](../raw/research/0064-2026-03-24-ir2-test-matrix.md)
 - Shared IR helpers: [`../../../src/ir/test_helpers.mbt`](../../../src/ir/test_helpers.mbt), [`../../../src/ir/test_helpers_test.mbt`](../../../src/ir/test_helpers_test.mbt)
 - HOT mechanics: [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt), [`../../../src/ir/hot_builders_test.mbt`](../../../src/ir/hot_builders_test.mbt), [`../../../src/ir/hot_module_context_test.mbt`](../../../src/ir/hot_module_context_test.mbt), [`../../../src/ir/hot_mutate_test.mbt`](../../../src/ir/hot_mutate_test.mbt), [`../../../src/ir/hot_region_edit_test.mbt`](../../../src/ir/hot_region_edit_test.mbt), [`../../../src/ir/hot_walk_test.mbt`](../../../src/ir/hot_walk_test.mbt), [`../../../src/ir/hot_query_test.mbt`](../../../src/ir/hot_query_test.mbt)

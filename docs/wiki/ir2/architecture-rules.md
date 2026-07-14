@@ -5,8 +5,9 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md
   - ../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md
-  - ../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md
-  - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
+  - ./test-matrix.md
+  - ./local-ssa-policy.md
+  - https://doi.org/10.1145/115372.115320
   - ../raw/research/0059-2026-03-24-ir2-architecture-rules.md
   - ../../../src/ir/README.md
   - ../../../src/ir/architecture.mbt
@@ -168,9 +169,9 @@ That example is deliberately ordinary: most IR2 bugs come from skipping one bori
 ## Sources
 
 - Current source bridge: [`../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md`](../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md)
-- Current test matrix bridge: [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md)
+- Current test matrix: [`./test-matrix.md`](./test-matrix.md)
 - Local SSA cache/pass-use refresh: [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md)
-- Local SSA source bridge: [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md)
+- Local SSA policy and lineage: [`./local-ssa-policy.md`](./local-ssa-policy.md) and <https://doi.org/10.1145/115372.115320>
 - Archived original architecture note: [`../raw/research/0059-2026-03-24-ir2-architecture-rules.md`](../raw/research/0059-2026-03-24-ir2-architecture-rules.md)
 - Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
 - Revision and descriptor layer: [`../../../src/ir/architecture.mbt`](../../../src/ir/architecture.mbt), [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt)

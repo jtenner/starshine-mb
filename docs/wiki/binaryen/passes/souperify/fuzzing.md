@@ -3,7 +3,9 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md
+  - ../../../tooling/pass-fuzz-compare.md
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -23,7 +25,7 @@ Do **not** run or advertise `bun fuzz compare-pass --pass souperify ...` as a cu
 - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not admit `souperify` or `souperify-single-use` in `SUPPORTED_PASS_FLAGS`; parsing stops before input generation or either optimizer runs.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) does not even track the names as boundary-only: current Starshine requests are unknown-pass failures.
 - Binaryen's public pass emits bounded Souper text from flat/DataFlow analysis rather than primarily rewriting a wasm module. The normal compare-pass oracle compares normalized wasm outputs, so merely adding an allowlist entry would not establish the correct product oracle.
-- Parser rejection, unknown-pass output, and zero comparisons are status checks only; see [`../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md`](../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md).
+- Parser rejection, unknown-pass output, and zero comparisons are status checks only; see the local pass-eligibility preflight and harness/registry sources cited above.
 
 Use `bun fuzz compare-pass --list-passes` only to inspect the current ordinary wasm-transform roster.
 

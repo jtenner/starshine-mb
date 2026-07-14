@@ -3,7 +3,9 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/fuzzing/2026-07-11-pass-fuzz-admission-boundary-audit.md
+  - ../../../tooling/pass-fuzz-compare.md
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../../../src/passes/optimize.mbt
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
