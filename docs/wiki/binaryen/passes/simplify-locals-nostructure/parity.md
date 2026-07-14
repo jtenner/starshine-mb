@@ -4,7 +4,6 @@ status: working
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_nostructure_test.mbt
 related:

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-30
 sources:
   - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md

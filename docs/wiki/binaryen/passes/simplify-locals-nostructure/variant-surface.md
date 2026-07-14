@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-01
 sources:
   - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
@@ -281,7 +280,7 @@ So the early and late simplify-locals passes are meant to be different tools, no
 
 ## Local Starshine planning consequence
 
-Current Starshine still does **not** implement this variant, but the local planning story is already precise enough to matter:
+Current Starshine implements this variant as an active direct hot pass; the local planning story remains relevant for preserving its no-structure boundary:
 
 - `src/passes/optimize.mbt` registers upstream spelling `simplify-locals-nostructure` as active and keeps local spelling `simplify-locals-no-structure` as an alias
 - the same file now lets `tuple_optimization_exact_slot_prereqs_ready()` see the no-structure neighbor as active while keeping public presets conservative

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
@@ -21,7 +20,7 @@ related:
 
 # `string-gathering`: implementation structure and tests
 
-Use this page together with the tagged `version_129` source URLs listed below and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
+Use this page together with the tagged `version_129` source URLs listed below and the archived 2026-05-04 current-main recheck in [`../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md).
 This page is the compact source-confirmed map for how Binaryen `version_129` actually implements `string-gathering` and where the shipped tests pin that behavior down.
 
 ## Why this page exists

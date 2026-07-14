@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
@@ -42,7 +41,7 @@ related:
 
 Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed, what public preset scheduling covers, and the regenerated debug-artifact replay evidence.
 
-The 2026-05-04 primary-source recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps the tagged `version_129` source URLs below as the oracle and uses the new bridge only for freshness and local code-map anchors.
+The archived 2026-05-04 primary-source recheck in [`../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps the tagged `version_129` source URLs below as the oracle and uses the new bridge only for freshness and local code-map anchors.
 
 ## Current readiness summary
 
@@ -321,7 +320,6 @@ For advanced Starshine follow-up work, the real checklist is sharper:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md)
 - [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
 - [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

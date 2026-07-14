@@ -12,7 +12,6 @@ sources:
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../../src/passes/optimize.mbt
@@ -35,7 +34,6 @@ sources:
   - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
   - ../../raw/binaryen/2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
@@ -652,7 +650,6 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - [`../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md`](../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md)
 - [`../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
-- [`../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)

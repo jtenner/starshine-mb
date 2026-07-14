@@ -39,7 +39,6 @@ sources:
   - ../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
   - ../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
   - ../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
@@ -59,7 +58,6 @@ sources:
   - ../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
-  - ../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
   - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
