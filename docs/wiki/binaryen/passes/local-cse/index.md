@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-07
 sources:
-  - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
@@ -81,7 +80,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**; the living dossier retains direct tagged source/test URLs and the kept current-main bridges that cross-check them.
 - A focused 2026-05-05 current-`main` recheck at [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md) refreshed `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast`; it found no teaching-relevant drift and kept the upstream/test plus Starshine code map current.
-- A 2026-05-06 line-anchor refresh at [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) pinned the exact current local code anchors now used in the Starshine pages and confirmed the same source-backed contract.
+- A 2026-05-06 line-anchor refresh retained in [`../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md) pinned the exact current local code anchors now used in the Starshine pages and confirmed the same source-backed contract.
 - A repo-authored 2026-05-05 correction note at [`../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md`](../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md) records that older Starshine-status wording in the raw upstream bridge is stale now that the direct Starshine pass has landed.
 - A 2026-05-06 direct revalidation at [`../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md`](../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md) reran the refreshed harness with `--count 10000 --seed 0x5eed --pass local-cse`, reached 6759 compared cases, and found 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
 - A 2026-06-04 `version_130` / current-main refresh at [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md) found no teaching-relevant Binaryen drift from the 2026-05-06 source bridge.
@@ -128,7 +127,6 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 ## Sources
 
 - [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md)
-- [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md)
 - [`../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md`](../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md)
 - [`../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md`](../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md`](../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md)

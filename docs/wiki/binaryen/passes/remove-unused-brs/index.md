@@ -5,7 +5,6 @@ last_reviewed: 2026-06-29
 sources:
   - ../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md
   - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
-  - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
@@ -51,7 +50,7 @@ related:
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
-- The folder retains the 2026-05-06 current-main bridge and the 2026-06-18 `version_130` source refresh at [`../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md) and [`../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md), together with direct `version_130` URLs below, so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
+- The folder retains the 2026-05-06 research bridge and the 2026-06-18 `version_130` source refresh at [`../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md) and [`../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-18-remove-unused-brs-version-130-source-refresh.md), together with direct `version_130` URLs below, so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
 - In the current local upstream oracle, Binaryen `version_130`, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
 - That description is true, but incomplete.
@@ -203,7 +202,6 @@ For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled b
 - [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)
 - Binaryen `version_130` sources:
