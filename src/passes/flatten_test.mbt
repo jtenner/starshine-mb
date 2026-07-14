@@ -1393,6 +1393,158 @@ test "flatten preserves unary and conversion false flow from tuple-made multival
 }
 
 ///|
+test "flatten preserves exact binary false flow from tuple-made multivalue try lanes" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i32_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i32_type]),
+  )
+  let body_first_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let body_second_fallback = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_first_fallback, body_second_fallback],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i32(func, @lib.I32(12)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i32_type],
+    ),
+  )
+  let first_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_payload, @lib.Instruction::i32_add())
+  let second_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_payload,
+    @lib.Instruction::i32_sub(),
+  )
+  let tuple_id = @ir.hot_build_tuple_make(func, [i32_type, i32_type], [
+    first_payload, second_payload,
+  ])
+  let condition = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(6)),
+  )
+  @ir.hot_node_exact_instr_set(func, condition, @lib.Instruction::i32_sub())
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch = @ir.hot_build_br_if(func, label_id, condition, values=[
+    tuple_id, tuple_id,
+  ])
+  let second_binary = @ir.hot_build_binary(
+    func,
+    i32_type,
+    tuple_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_binary,
+    @lib.Instruction::i32_div_s(),
+  )
+  let first_binary = @ir.hot_build_binary(
+    func,
+    i32_type,
+    tuple_id,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_binary, @lib.Instruction::i32_add())
+  let second_drop = @ir.hot_build_drop(func, second_binary)
+  let first_drop = @ir.hot_build_drop(func, first_binary)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch, second_drop, first_drop, body_first_fallback, body_second_fallback,
+  ])
+  let return_id = @ir.hot_build_return(func, [try_id, try_id])
+  @ir.hot_root_append(func, return_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 12)
+  let first_result_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_result_set = @ir.hot_region_get(func, body_ref, 3)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
+  let second_binary_set = @ir.hot_region_get(func, body_ref, 6)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), second_drop)
+  let first_binary_set = @ir.hot_region_get(func, body_ref, 8)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 9), first_drop)
+  @debug.assert_eq(@ir.hot_child_get(func, second_binary_set, 0), second_binary)
+  @debug.assert_eq(@ir.hot_child_get(func, first_binary_set, 0), first_binary)
+  let first_local = @ir.hot_node_get(func, first_result_set).imm0
+  let second_local = @ir.hot_node_get(func, second_result_set).imm0
+  assert_false(first_local == second_local)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_binary, 0)).imm0,
+    second_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_binary, 0)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, second_binary),
+    Some(@lib.Instruction::i32_div_s()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, first_binary),
+    Some(@lib.Instruction::i32_add()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_local,
+  )
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, condition), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-made multivalue try binary flow to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten routes one repeated-target tuple-made br_table to a legacy try" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

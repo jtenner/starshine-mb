@@ -928,7 +928,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
           @ir.hot_child_get(func, branch_id, payload_count - 1 - offset)
         }
         if tuple_id >= 0 {
-          if !flatten_multivalue_tuple_loop_br_if_consumer_matches_lane(
+          if !flatten_multivalue_tuple_br_if_consumer_matches_lane(
               func,
               use_def,
               consumer_id,
@@ -1741,7 +1741,7 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
 }
 
 ///|
-fn flatten_multivalue_tuple_loop_br_if_consumer_matches_lane(
+fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   consumer_id : Int,
@@ -1856,7 +1856,7 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
       body_ref,
       branch_root + 1 + offset,
     )
-    if !flatten_multivalue_tuple_loop_br_if_consumer_matches_lane(
+    if !flatten_multivalue_tuple_br_if_consumer_matches_lane(
         func,
         use_def,
         consumer_id,
