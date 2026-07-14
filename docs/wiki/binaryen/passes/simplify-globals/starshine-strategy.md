@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -25,7 +24,7 @@ related:
 
 # Starshine Strategy For `simplify-globals`
 
-Use this page together with the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md).
+Use this page together with the 2026-05-05 current-main bridge in [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 The new port-readiness page, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), carries the first-slice validation ladder.
 

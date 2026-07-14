@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
-  - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
 related:
   - ./index.md

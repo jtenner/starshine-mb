@@ -6,7 +6,6 @@ sources:
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
   - ../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md
   - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyGlobals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -39,8 +38,8 @@ related:
 # Upstream implementation structure and test map for `simplify-globals`
 
 This page is the compact file/test map for the real Binaryen `version_129` plain `simplify-globals` contract.
-Use it together with the 2026-05-05 current-main owner/test bridge in [`../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md); direct tagged release, source, and test URLs remain listed below.
-The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md) keeps the same shared-owner split and lit roster fresh without changing the contract.
+Use it together with the retained 2026-05-05 current-main research recheck in [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md); direct tagged release, source, and test URLs remain listed below.
+The 2026-05-05 recheck keeps the same shared-owner split and lit roster fresh without changing the contract.
 
 ## Main implementation file
 
@@ -279,7 +278,7 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md)
+- [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md)
 - [`../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md`](../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md)
 - [`../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md`](../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md)
 - [`../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md)
