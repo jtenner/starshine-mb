@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -25,7 +25,7 @@ related:
 - Starshine intentionally keeps only `reorder-globals-always` boundary-only in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). Production `reorder-globals` is already a separate active module pass; do not mistake its status or fuzz evidence for this sibling's evidence.
 - `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not contain `--reorder-globals-always`, so the old generic command fails before either optimizer runs.
 
-The current-main/local-admission source bridge is [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md). A rejected command, zero comparisons, or a Binaryen-only test invocation is not Starshine parity evidence.
+Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp), its [`reorder-globals.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/reorder-globals.wast) fixture, and the cited local sources establish this admission boundary. A rejected command, zero comparisons, or a Binaryen-only test invocation is not Starshine parity evidence.
 
 ## Required future evidence
 

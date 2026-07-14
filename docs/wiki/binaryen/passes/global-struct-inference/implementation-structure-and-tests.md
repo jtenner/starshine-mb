@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
@@ -36,7 +36,7 @@ Read it as a follow-along guide:
 
 ## Binaryen owner-file map
 
-Primary released/current owner, registration, and fixture source bridge: [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md). Use `version_130` for the released oracle and current `main` only as a drift watch.
+Primary released/current owner, registration, and fixture sources are Binaryen [`version_130` owner](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp), [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp), [`version_130` registration](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/pass.cpp), and [`gsi.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/test/lit/passes/gsi.wast). Use `version_130` for the released oracle and current `main` only as a drift watch.
 
 ### `src/passes/GlobalStructInference.cpp`
 

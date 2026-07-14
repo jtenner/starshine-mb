@@ -3,7 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
@@ -61,7 +61,7 @@ related:
   - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` and `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` still place `flatten` at the front of the old removed-pass batch
   - `agent-todo.md` still has **no dedicated `flatten` slice today**, which is a real local planning gap rather than something to smooth over
 
-The 2026-07-11 current-main/local-status recheck found no teaching-relevant upstream transform drift. It does, however, make the two local non-implementation boundaries explicit: the aggressive-neighborhood readiness predicate is intentionally false until all three passes are active, and text matches on `flatten` helper names do not prove pass registration. See [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md).
+The 2026-07-11 current-main/local-status recheck found no teaching-relevant upstream transform drift. It does, however, make the two local non-implementation boundaries explicit: the aggressive-neighborhood readiness predicate is intentionally false until all three passes are active, and text matches on `flatten` helper names do not prove pass registration. See Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp) and local registry evidence in `src/passes/optimize.mbt`.
 
 ## Beginner summary
 
@@ -133,7 +133,7 @@ That is much closer to the real pass than “flatten removes nesting.”
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md)
+- Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp)
 - [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
 - [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)
 - [`../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md`](../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md)
@@ -145,4 +145,4 @@ That is much closer to the real pass than “flatten removes nesting.”
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- Official Binaryen current-main sources and local-status reconciliation are retained in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md).
+- Official Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp), [`flat.h`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/ir/flat.h), and the cited local registry sources support the current status.

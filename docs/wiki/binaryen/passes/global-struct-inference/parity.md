@@ -3,7 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md
   - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
@@ -1055,7 +1055,7 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 
 ## Sources
 
-- Released/current-main source recheck: [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md)
+- Released/current-main source set: Binaryen [`version_130` owner](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp) and [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp)
 - Current follow-up note: [`../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md)
 - Older follow-up note: [`../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
 - Behavior-gap closeout inventory: [`../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md`](../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md)

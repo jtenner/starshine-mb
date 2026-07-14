@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
@@ -30,7 +30,7 @@ The real pass is defined by two things together:
 - the exact Flat IR contract in `src/ir/flat.h`
 - the exact `preludes` movement algorithm in `src/passes/Flatten.cpp`
 
-The 2026-04-27 port-readiness check, plus the 2026-07-11 source recheck in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md), found no teaching-relevant drift in those two upstream surfaces from the tagged `version_129` dossier.
+The 2026-04-27 port-readiness check, plus the 2026-07-11 source recheck in Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp), found no teaching-relevant drift in those two upstream surfaces from the tagged `version_129` dossier.
 
 This page focuses on those two pieces. The local analyzer-first plan for proving this contract in Starshine is tracked separately in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

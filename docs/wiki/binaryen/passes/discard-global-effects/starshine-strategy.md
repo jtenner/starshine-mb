@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
@@ -99,4 +99,4 @@ Keep `discard-global-effects` as upstream-only wiki research until Starshine has
 
 ## Source refresh
 
-The focused current-main reconciliation is [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md). It rechecks the upstream owner, public registration, `addsEffects()` lifecycle, and exact local cache boundary; no executable behavior changed.
+Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp), registration in [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp), and the cited local cache sources support this ownership boundary; no executable behavior changed.

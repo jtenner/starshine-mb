@@ -4,7 +4,7 @@ status: working
 last_reviewed: 2026-07-11
 sources:
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/DeNaN.cpp
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -38,7 +38,7 @@ Use this harmless discovery command only to inspect the current admitted roster:
 bun fuzz compare-pass --list-passes
 ```
 
-`de-nan` should remain absent until Starshine deliberately implements and admits it. The July reconciliation and upstream source context are captured in [`../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md`](../../../raw/binaryen/2026-07-11-de-nan-current-main-fuzzing-reconciliation.md).
+`de-nan` should remain absent until Starshine deliberately implements and admits it. The upstream transform contract is recorded in Binaryen current-main [`DeNaN.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/DeNaN.cpp).
 
 ## Why an ordinary generic lane is not enough
 

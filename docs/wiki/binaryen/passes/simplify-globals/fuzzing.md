@@ -3,7 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -25,7 +25,7 @@ Do **not** run or advertise a Starshine-vs-Binaryen `compare-pass` lane for `sim
 - The harness allowlist in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) has no `--simplify-globals` entry. It rejects the request before generation, Starshine dispatch, or Binaryen execution.
 - A rejected command, zero compared modules, or a requested count of 10,000 is therefore **admission status**, not a Binaryen-parity result.
 
-The current-main and local-admission evidence is captured in [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md). Use only this harmless roster check while the pass remains unadmitted:
+Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp) plus the cited local registry and harness sources establish this admission boundary. Use only this harmless roster check while the pass remains unadmitted:
 
 ```text
 bun fuzz compare-pass --list-passes

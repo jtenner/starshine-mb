@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
@@ -21,7 +21,7 @@ related:
 
 # Binaryen `flatten` strategy
 
-Use this page together with the direct tagged `version_129` source URLs in the upstream source rule below, the retained port-readiness bridge, and the current-main/local-status recheck in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md). The July recheck found no teaching-relevant upstream transform drift; it preserves the existing Flat-IR/prelude explanation while distinguishing local helper names from a public pass implementation.
+Use this page together with the direct tagged `version_129` source URLs in the upstream source rule below, the retained port-readiness bridge, and Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp). The July source review found no teaching-relevant upstream transform drift; it preserves the existing Flat-IR/prelude explanation while distinguishing local helper names from a public pass implementation.
 
 ## Upstream source rule
 
@@ -44,7 +44,7 @@ Use this page together with the direct tagged `version_129` source URLs in the u
   - the formal Flat IR rule surface in `flat.h`
   - the dedicated `flatten`, `flatten_all-features`, and `flatten-eh-legacy` lit files
 - The retained April current-main source bridge found no teaching-relevant drift from the `version_129` contract described in this dossier. Its useful proof-surface detail is captured in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): `flatten.wast` is a tiny smoke file, `flatten_all-features.wast` is the broad behavior proof, and `flatten-eh-legacy.wast` is the EH nested-pop proof surface.
-- The retained 2026-07-11 current-main recheck in [`../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md`](../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md) found no teaching-relevant drift from the established contract. The new local guidance is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): begin with a no-rewrite Flat IR classifier, then add narrow value-spill/control-result rewrites before tees, branch payloads, EH repair, and unsupported-family policy.
+- The July current-main source review of [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp), [`flat.h`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/ir/flat.h), and the focused fixtures found no teaching-relevant drift from the established contract. The new local guidance is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): begin with a no-rewrite Flat IR classifier, then add narrow value-spill/control-result rewrites before tees, branch payloads, EH repair, and unsupported-family policy.
 
 Primary source URLs:
 

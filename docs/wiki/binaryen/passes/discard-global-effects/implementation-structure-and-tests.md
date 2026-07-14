@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md
@@ -42,7 +42,7 @@ Use the current-main raw-source capture rather than brittle line numbers:
 - `pass.cpp`: public registration retains `discard-global-effects`; `PassRunner::handleAfterEffects(...)` owns the `addsEffects()` invalidation path.
 - The default-pipeline TODO remains the scheduling boundary: producer/cleanup are not silently standard default-pipeline phases merely because the metadata exists.
 
-See [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md) for the rechecked source URLs and scope.
+See Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp) and [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp) for the source URLs and scope.
 
 ## `GlobalEffects.cpp`
 
@@ -133,6 +133,6 @@ A faithful local pass only becomes meaningful after a persistent interprocedural
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md)
+- Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp)
 - [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)

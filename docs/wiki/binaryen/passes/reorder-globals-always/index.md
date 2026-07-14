@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
   - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
   - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
@@ -107,7 +107,7 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-pass-fuzzing-admission-current-main-recheck.md)
+- Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp)
 - [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
 - [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)

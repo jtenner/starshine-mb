@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp
   - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
@@ -44,7 +44,7 @@ Current `main` is deliberately routed through stable owner symbols rather than b
 - `pass.cpp`, `PassRunner::handleAfterEffects(...)` - owns the automatic `addsEffects()` invalidation path.
 - `pass.cpp`, default-pipeline TODO - preserves the boundary that global-effect producer/cleanup work is not silently a standard default-pipeline phase.
 
-The direct source URLs and the scope of this recheck are recorded in [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md).
+The direct source URLs in Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp) and [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp) define this scope.
 
 ## Why the pass exists
 
@@ -114,7 +114,7 @@ See [`../global-effects/binaryen-strategy.md`](../global-effects/binaryen-strate
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-discard-global-effects-current-main-recheck.md)
+- Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp)
 - [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)

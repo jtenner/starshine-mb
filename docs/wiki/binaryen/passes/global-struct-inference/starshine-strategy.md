@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
   - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
@@ -160,7 +160,7 @@ If Starshine grows toward the full Binaryen contract, preserve the current subse
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-global-struct-inference-v130-current-main-recheck.md)
+- Binaryen [`version_130` `GlobalStructInference.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp)
 - [`../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md`](../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md)
 - [`../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md)
 - [`../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
