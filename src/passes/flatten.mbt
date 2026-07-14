@@ -851,8 +851,7 @@ fn flatten_try_terminal_br_table_targets_label(
       _ => return false
     }
   }
-  if if_count > 0 &&
-    (if_count != 1 || (targets.length() != 2 && targets.length() != 3)) {
+  if if_count > 0 && if_count != 1 {
     return false
   }
   let mut directly_enclosed = try_id
@@ -908,9 +907,19 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
   payload_count : Int,
   allow_mixed_targets : Bool,
 ) -> Bool {
-  match @ir.hot_node_get(func, node_id).op {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
     @ir.HotOp::BrTable => ()
     _ => return false
+  }
+  let targets = flatten_unique_br_table_targets(func, node.imm0)
+  if targets.length() > 3 {
+    for target in targets {
+      match @ir.hot_label_kind(func, target) {
+        @ir.HotLabelKind::IfLabel => return false
+        _ => ()
+      }
+    }
   }
   flatten_try_terminal_br_table_targets_label(
     func, node_id, label_id, payload_count, allow_mixed_targets,
