@@ -872,16 +872,40 @@ fn flatten_try_table_dead_suffix_root_nodes(
         return None
       }
       let value_id = @ir.hot_child_get(func, root_id, 0)
-      match @ir.hot_node_get(func, value_id).op {
-        @ir.HotOp::Const => ()
-        _ => return None
-      }
       let use_def = @ir.use_def_build_node_uses(func)
       if @ir.node_use_count(use_def, root_id) != 1 ||
         @ir.node_use_count(use_def, value_id) != 1 {
         return None
       }
-      Some([root_id, value_id])
+      match @ir.hot_node_get(func, value_id).op {
+        @ir.HotOp::Const => Some([root_id, value_id])
+        @ir.HotOp::Binary => {
+          if @ir.hot_node_exact_instr(func, value_id) !=
+            Some(@lib.Instruction::i32_div_s()) ||
+            @ir.hot_child_count(func, value_id) != 2 {
+            return None
+          }
+          let left_id = @ir.hot_child_get(func, value_id, 0)
+          let right_id = @ir.hot_child_get(func, value_id, 1)
+          if left_id == right_id {
+            return None
+          }
+          match
+            (
+              @ir.hot_node_get(func, left_id).op,
+              @ir.hot_node_get(func, right_id).op,
+            ) {
+            (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+            _ => return None
+          }
+          if @ir.node_use_count(use_def, left_id) != 1 ||
+            @ir.node_use_count(use_def, right_id) != 1 {
+            return None
+          }
+          Some([root_id, value_id, left_id, right_id])
+        }
+        _ => None
+      }
     }
     _ => None
   }
