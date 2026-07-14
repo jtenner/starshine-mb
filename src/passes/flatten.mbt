@@ -796,14 +796,24 @@ fn flatten_multivalue_legacy_try_is_supported(
     Some(catch_ref) => catch_ref
     None => return false
   }
-  for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
-    if !flatten_multivalue_region_tail_matches_types(
+  let regions = [@ir.hot_region_body_ref(func, try_id), catch_ref]
+  let mut tuple_region_count = 0
+  for region_ref in regions {
+    if flatten_multivalue_region_tail_matches_types(
         func, region_ref, result_types,
       ) {
-      return false
+      continue
     }
+    if flatten_multivalue_region_tail_tuple_make_values(
+        func, region_ref, result_types,
+      )
+      is Some(_) {
+      tuple_region_count += 1
+      continue
+    }
+    return false
   }
-  true
+  tuple_region_count == 0 || tuple_region_count == regions.length()
 }
 
 ///|
@@ -828,15 +838,26 @@ fn flatten_try_route_multivalue_try(
   }
   let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
   for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
-    let tail_start = @ir.hot_region_root_count(func, region_ref) -
-      result_types.length()
-    for slot = 0; slot < result_types.length(); slot = slot + 1 {
-      let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
-      ignore(
-        pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
-          @ir.hot_build_local_set(func, locals[slot], value_id),
-        ]),
-      )
+    match
+      flatten_multivalue_region_tail_tuple_make_values(
+        func, region_ref, result_types,
+      ) {
+      Some(values) =>
+        flatten_replace_multivalue_tuple_make_tail(
+          ctx, func, region_ref, values, locals,
+        )
+      None => {
+        let tail_start = @ir.hot_region_root_count(func, region_ref) -
+          result_types.length()
+        for slot = 0; slot < result_types.length(); slot = slot + 1 {
+          let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
+          ignore(
+            pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
+              @ir.hot_build_local_set(func, locals[slot], value_id),
+            ]),
+          )
+        }
+      }
     }
   }
   @ir.hot_control_result_type_set(func, try_id, @ir.hot_type_void(func))

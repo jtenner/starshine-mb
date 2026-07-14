@@ -228,6 +228,90 @@ test "flatten routes branch-free multivalue legacy try results through typed loc
 }
 
 ///|
+test "flatten scalarizes exclusive tuple-made multivalue legacy try tails" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i64_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i64_type]),
+  )
+  let body_tuple = @ir.hot_build_tuple_make(func, [i32_type, i64_type], [
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_local_get(func, 1),
+  ])
+  let catch_tuple = @ir.hot_build_tuple_make(func, [i32_type, i64_type], [
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+    @ir.hot_build_const_i64(func, @lib.I64(4L)),
+  ])
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_tuple],
+    catch_body=Some([catch_tuple]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let return_id = @ir.hot_build_return(func, [try_id, try_id])
+  @ir.hot_root_append(func, return_id)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(
+    @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, try_id)),
+    0,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 2)
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
+  let body_first_set = @ir.hot_region_get(func, body_ref, 0)
+  let body_second_set = @ir.hot_region_get(func, body_ref, 1)
+  let catch_first_set = @ir.hot_region_get(func, catch_ref, 0)
+  let catch_second_set = @ir.hot_region_get(func, catch_ref, 1)
+  let first_local = @ir.hot_node_get(func, body_first_set).imm0
+  let second_local = @ir.hot_node_get(func, body_second_set).imm0
+  @debug.assert_eq(@ir.hot_node_get(func, catch_first_set).imm0, first_local)
+  @debug.assert_eq(@ir.hot_node_get(func, catch_second_set).imm0, second_local)
+  @debug.assert_eq(@ir.hot_local_type(func, first_local), Some(i32_type))
+  @debug.assert_eq(@ir.hot_local_type(func, second_local), Some(i64_type))
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 1)).imm0,
+    second_local,
+  )
+  assert_false(@ir.hot_node_is_live(func, body_tuple))
+  assert_false(@ir.hot_node_is_live(func, catch_tuple))
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-made multivalue legacy try routing to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten lowers a root local tee before materializing the function result" {
   let func = pass_test_lift_first_func(
     "(module (func (result i32) (local i32) i32.const 7 local.tee 0))",
