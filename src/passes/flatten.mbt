@@ -865,6 +865,43 @@ fn flatten_try_terminal_br_table_targets_label(
 }
 
 ///|
+fn flatten_multivalue_try_terminal_br_table_targets_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_id : Int,
+  payload_count : Int,
+  allow_mixed_targets : Bool,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::BrTable => ()
+    _ => return false
+  }
+  let targets = flatten_unique_br_table_targets(
+    func,
+    @ir.hot_node_get(func, node_id).imm0,
+  )
+  if targets.length() > 3 {
+    return false
+  }
+  if targets.length() == 3 &&
+    @ir.hot_child_count(func, node_id) == payload_count + 1 {
+    let target_types = @ir.hot_type_results(
+      func,
+      @ir.hot_label_result_type(func, label_id),
+    )
+    if flatten_multivalue_tuple_branch_payload_values(
+        func, node_id, payload_count, target_types,
+      )
+      is Some(_) {
+      return false
+    }
+  }
+  flatten_try_terminal_br_table_targets_label(
+    func, node_id, label_id, payload_count, allow_mixed_targets,
+  )
+}
+
+///|
 fn flatten_multivalue_try_br_if_flow_is_exact(
   func : @ir.HotFunc,
   try_id : Int,
@@ -1057,7 +1094,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
           label_id,
         ) => {
         saw_target = true
-        if !flatten_try_terminal_br_table_targets_label(
+        if !flatten_multivalue_try_terminal_br_table_targets_label(
             func,
             node_id,
             label_id,
@@ -1155,7 +1192,7 @@ fn flatten_multivalue_legacy_try_is_supported(
           label_id,
           result_types.length(),
         ) ||
-        flatten_try_terminal_br_table_targets_label(
+        flatten_multivalue_try_terminal_br_table_targets_label(
           func,
           tail_id,
           label_id,
@@ -1213,7 +1250,7 @@ fn flatten_try_route_multivalue_try(
         label_id,
         result_types.length(),
       ) ||
-      flatten_try_terminal_br_table_targets_label(
+      flatten_multivalue_try_terminal_br_table_targets_label(
         func,
         tail_id,
         label_id,
