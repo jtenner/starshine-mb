@@ -1330,6 +1330,44 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
 }
 
 ///|
+fn flatten_multivalue_tuple_loop_br_if_consumer_matches_lane(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  consumer_id : Int,
+  tuple_id : Int,
+  lane_type : @lib.ValType,
+) -> Bool {
+  let consumer = @ir.hot_node_get(func, consumer_id)
+  match consumer.op {
+    @ir.HotOp::Drop if @ir.hot_child_count(func, consumer_id) == 1 => ()
+    _ => return false
+  }
+  let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+  if consumed_id == tuple_id {
+    return true
+  }
+  let consumed = @ir.hot_node_get(func, consumed_id)
+  if @ir.node_use_count(use_def, consumed_id) != 1 ||
+    @ir.hot_child_count(func, consumed_id) == 0 ||
+    @ir.hot_child_get(func, consumed_id, 0) != tuple_id {
+    return false
+  }
+  match consumed.op {
+    @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 =>
+      flatten_node_is_simple_operand(
+        func,
+        @ir.hot_child_get(func, consumed_id, 1),
+      ) &&
+      @ir.hot_node_exact_instr(func, consumed_id) is Some(_) &&
+      @ir.hot_type_results(func, consumed.ty) == [lane_type]
+    @ir.HotOp::Unary | @ir.HotOp::Convert =>
+      @ir.hot_child_count(func, consumed_id) == 1 &&
+      @ir.hot_node_exact_instr(func, consumed_id) is Some(_)
+    _ => false
+  }
+}
+
+///|
 fn flatten_replace_multivalue_loop_br_if_consumer_payload(
   func : @ir.HotFunc,
   consumer_id : Int,
@@ -1407,8 +1445,12 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
       body_ref,
       branch_root + 1 + offset,
     )
-    if !flatten_multivalue_loop_br_if_consumer_matches_payload(
-        func, use_def, consumer_id, tuple_id,
+    if !flatten_multivalue_tuple_loop_br_if_consumer_matches_lane(
+        func,
+        use_def,
+        consumer_id,
+        tuple_id,
+        param_types[payload_count - 1 - offset],
       ) {
       return None
     }
