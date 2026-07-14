@@ -15411,6 +15411,103 @@ test "dae-optimizing preserves case 000690 escaped self-call operand param" {
 }
 
 ///|
+fn dae_test_broad_exact_param_adjacent_cleanup_module() -> String {
+  let root_def = 7000
+  let pair_first_def = 7004
+  let total_defs = 8193
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
+  )
+  for candidate_idx = 0; candidate_idx < 8; candidate_idx = candidate_idx + 1 {
+    out.write_string(
+      "  (func $g\{candidate_idx} (param i32 i32) local.get 0 call $use_i32)\n",
+    )
+  }
+  for dummy_idx = 8; dummy_idx < root_def; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string("  (func $root (param i32) local.get 0 call $use_i32)\n")
+  for dummy_idx = root_def + 1
+      dummy_idx < pair_first_def
+      dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  for pair_idx = 0; pair_idx < 2; pair_idx = pair_idx + 1 {
+    out.write_string("  (func $")
+    out.write_string(if pair_idx == 0 { "target" } else { "wrapper" })
+    out.write_string(" (param i32) (local")
+    for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
+      out.write_string(" i32")
+    }
+    out.write_string(")\n")
+    for local_idx = 0; local_idx < 16; local_idx = local_idx + 1 {
+      out.write_string(
+        "    i32.const \{local_idx}\n    local.set \{local_idx + 1}\n    block\n      local.get \{local_idx + 1}\n      drop\n    end\n",
+      )
+    }
+    if pair_idx == 0 {
+      out.write_string("    local.get 0\n    call $use_i32)\n")
+    } else {
+      out.write_string("    local.get 0\n    call $target)\n")
+    }
+  }
+  out.write_string(
+    (
+      #|  (func (export "run") (param i32)
+    ),
+  )
+  for candidate_idx = 0; candidate_idx < 8; candidate_idx = candidate_idx + 1 {
+    out.write_string(
+      "    i32.const \{candidate_idx}\n    i32.const 99\n    call $g\{candidate_idx}\n",
+    )
+  }
+  out.write_string(
+    (
+      #|    i32.const 0
+      #|    call $root
+      #|    local.get 0
+      #|    call $wrapper)
+    ),
+  )
+  for dummy_idx = pair_first_def + 3
+      dummy_idx < total_defs
+      dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
+  let source = dae_test_broad_exact_param_adjacent_cleanup_module()
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(plain, 7000).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 7000).length(), 0)
+  for def_idx in [7004U, 7005U] {
+    let plain_func = plain.pretty_print_defined_func(def_idx)
+    let optimized_func = optimized.pretty_print_defined_func(def_idx)
+    assert_true(plain_func.contains("local.set"), msg=plain_func)
+    assert_false(optimized_func.contains("local.set"), msg=optimized_func)
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005]",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected broad adjacent cleanup output to validate: \{err}")
+  }
+}
+
+///|
 fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")

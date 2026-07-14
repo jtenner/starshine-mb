@@ -61683,6 +61683,41 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
+  let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
+    core_mod,
+    core_touched,
+    result.changed,
+  )
+  core_mod = broad_adjacent.mod_out
+  core_touched = broad_adjacent.touched
+  match broad_adjacent.candidate {
+    Some(candidate) => {
+      let cleanup_touched = Array::make(dae_defined_func_count(core_mod), false)
+      cleanup_touched[candidate.first_def] = true
+      cleanup_touched[candidate.second_def] = true
+      for cleanup_pass in ["simplify-locals", "vacuum"] {
+        let descriptor = match
+          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+          Ok(descriptor) => descriptor
+          Err(err) => return Err(err)
+        }
+        core_mod = match
+          run_hot_pipeline_apply_hot_pass_to_touched(
+            core_mod, descriptor, cleanup_touched, options,
+          ) {
+          Ok(next) => next
+          Err(err) =>
+            return Err(
+              "DAE broad exact-param adjacent \{cleanup_pass} cleanup: \{err}",
+            )
+        }
+      }
+      (options.trace)(
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff}",
+      )
+    }
+    None => ()
+  }
   let payoff_chain = dae_run_broad_dropped_result_payoff_chain(
     core_mod,
     core_touched,
