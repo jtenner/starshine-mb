@@ -15651,7 +15651,7 @@ test "dae-optimizing closes a broad dropped-result wrapper chain with bounded se
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0 payoff=166 local_order=type-stable",
+        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0 payoff=166 local_order=type-stable ordered_defs=1",
       )
     }),
     msg=trace.to_string(),

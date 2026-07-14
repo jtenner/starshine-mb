@@ -10,6 +10,7 @@ priv struct RLScanState {
   used_body_locals : Array[Int]
   param_count : Int
   mut next_rank : Int
+  mut valid : Bool
 }
 
 ///|
@@ -20,6 +21,7 @@ fn RLScanState::new(local_count : Int, param_count : Int) -> RLScanState {
     used_body_locals: Array::new(capacity=local_count - param_count),
     param_count,
     next_rank: 1,
+    valid: true,
   }
 }
 
@@ -88,7 +90,8 @@ fn rl_push_local_run(runs : Array[@lib.LocalRun], ty : @lib.ValType) -> Unit {
 fn rl_note_access(state : RLScanState, idx : @lib.LocalIdx) -> Unit {
   let raw = rl_local_idx_raw(idx)
   if raw < 0 || raw >= state.counts.length() {
-    abort("reorder-locals encountered out-of-range local index")
+    state.valid = false
+    return
   }
   state.counts[raw] += 1
   if raw >= state.param_count && state.first_uses[raw] == 0 {
@@ -131,57 +134,6 @@ fn rl_scan_instruction(instr : @lib.Instruction, state : RLScanState) -> Unit {
     @lib.LocalSet(idx) => rl_note_access(state, idx)
     @lib.LocalTee(idx) => rl_note_access(state, idx)
     _ => ()
-  }
-}
-
-///|
-fn rl_local_access_in_range(idx : @lib.LocalIdx, local_count : Int) -> Bool {
-  let raw = rl_local_idx_raw(idx)
-  raw >= 0 && raw < local_count
-}
-
-///|
-fn rl_expr_local_accesses_in_range(expr : @lib.Expr, local_count : Int) -> Bool {
-  let @lib.Expr(instrs) = expr
-  rl_instrs_local_accesses_in_range(instrs, local_count)
-}
-
-///|
-fn rl_instrs_local_accesses_in_range(
-  instrs : Array[@lib.Instruction],
-  local_count : Int,
-) -> Bool {
-  for instr in instrs {
-    if !rl_instruction_local_accesses_in_range(instr, local_count) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn rl_instruction_local_accesses_in_range(
-  instr : @lib.Instruction,
-  local_count : Int,
-) -> Bool {
-  match instr {
-    @lib.Block(_, body) => rl_expr_local_accesses_in_range(body, local_count)
-    @lib.Loop(_, body) => rl_expr_local_accesses_in_range(body, local_count)
-    @lib.If(_, then_body, else_body) => {
-      if !rl_instrs_local_accesses_in_range(then_body, local_count) {
-        return false
-      }
-      match else_body {
-        Some(body) => rl_instrs_local_accesses_in_range(body, local_count)
-        None => true
-      }
-    }
-    @lib.TryTable(_, _, body) =>
-      rl_expr_local_accesses_in_range(body, local_count)
-    @lib.LocalGet(idx) => rl_local_access_in_range(idx, local_count)
-    @lib.LocalSet(idx) => rl_local_access_in_range(idx, local_count)
-    @lib.LocalTee(idx) => rl_local_access_in_range(idx, local_count)
-    _ => true
   }
 }
 
@@ -375,11 +327,11 @@ fn rl_rewrite_func_type_stable(
   }
 
   let total_locals = params.length() + body_local_count
-  if !rl_expr_local_accesses_in_range(body, total_locals) {
-    return { func, old_to_new: [], changed: false }
-  }
   let scan = RLScanState::new(total_locals, params.length())
   rl_scan_expr(body, scan)
+  if !scan.valid {
+    return { func, old_to_new: [], changed: false }
+  }
   let body_local_types = rl_flatten_locals(body_locals, body_local_count)
   let old_to_new = Array::make(total_locals, -1)
   for idx = 0; idx < params.length(); idx = idx + 1 {
@@ -447,14 +399,14 @@ fn rl_rewrite_func(
   }
 
   let total_locals = params.length() + body_local_count
-  if !rl_expr_local_accesses_in_range(body, total_locals) {
+  let scan = RLScanState::new(total_locals, params.length())
+  rl_scan_expr(body, scan)
+  if !scan.valid {
     // Fail closed for invalid/stale intermediate modules. Optimizing nested
     // cleanup callers can then validate-or-fallback instead of crashing while
     // probing a cleanup candidate.
     return { func, old_to_new: [], changed: false }
   }
-  let scan = RLScanState::new(total_locals, params.length())
-  rl_scan_expr(body, scan)
 
   let used_body_locals = rl_sort_used_body_locals(
     scan.used_body_locals,

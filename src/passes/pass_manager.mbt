@@ -61974,7 +61974,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     for candidate in payoff_cleanup_candidates {
       (options.trace)(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=\{candidate.wrapper_def} callee_def=\{candidate.callee_def} payoff=\{candidate.payoff} local_order=type-stable",
+        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=\{candidate.wrapper_def} callee_def=\{candidate.callee_def} payoff=\{candidate.payoff} local_order=type-stable ordered_defs=\{payoff_defs.length()}",
       )
     }
   }
