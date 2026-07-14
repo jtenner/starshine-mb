@@ -3,6 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-13
 sources:
+  - ../../../raw/research/1596-2026-07-13-daeo-func41-local-compaction-final-matrix.md
+  - ../../../raw/research/1595-2026-07-13-daeo-removed-param-direct-prefilter.md
+  - ../../../raw/research/1594-2026-07-13-daeo-broad-removed-param-local-compaction.md
   - ../../../raw/research/1593-2026-07-13-daeo-adjacent-chain-final-matrix.md
   - ../../../raw/research/1592-2026-07-13-daeo-adjacent-candidate-prefilter.md
   - ../../../raw/research/1591-2026-07-13-daeo-adjacent-constructor-chain-cleanup.md
@@ -109,7 +112,9 @@ Research note [`1587`](../../../raw/research/1587-2026-07-13-daeo-post-payoff-ma
 
 Notes [`1588`](../../../raw/research/1588-2026-07-13-daeo-two-chain-bounded-closeout.md) and [`1589`](../../../raw/research/1589-2026-07-13-daeo-converged-chain-cleanup.md) supersede the single-payoff hold point. DAEO now completes the two currently attributed broad payoff chains in one bounded invocation and includes productive Func `41` in the exact-parameter selected cleanup set. Note [`1590`](../../../raw/research/1590-2026-07-13-daeo-two-chain-final-matrix.md) records that intermediate deterministic endpoint and complete matrix.
 
-Notes [`1591`](../../../raw/research/1591-2026-07-13-daeo-adjacent-constructor-chain-cleanup.md) through [`1593`](../../../raw/research/1593-2026-07-13-daeo-adjacent-chain-final-matrix.md) add and sign off a generic optimizing-only adjacent-constructor-chain family. A broad exact-literal aggregate root selects a nearby same-signature high-local caller/callee pair without artifact-index hardcoding; bounded `simplify-locals`/`vacuum` cleanup advances the retained valid artifact to raw `3198310` / canonical `3275701`, `+13245` canonical versus Binaryen, at `11088.465ms` versus `8083.49ms` (`1.37x`). A pair-first prefilter preserves output while reducing selector cost. Fresh explicit-native dedicated `10000`, regular `100000`, wasm-smith `10000`, and random-all `10000` lanes preserve the complete classified matrix; full tests `8808/8808`, the CI-profile validation gate, exact-once optimize/shrink/O4z scheduling, and `.mbti` review are green. Plain DAE remains unchanged. Readiness remains open because Func `41` and the partially closed Funcs `7007`/`7008` remain direct parity owners, and large optimize/shrink/O4z still stop before DAEO in vacuum or ssa-nomerge.
+Notes [`1591`](../../../raw/research/1591-2026-07-13-daeo-adjacent-constructor-chain-cleanup.md) through [`1593`](../../../raw/research/1593-2026-07-13-daeo-adjacent-chain-final-matrix.md) add and sign off a generic optimizing-only adjacent-constructor-chain family. A broad exact-literal aggregate root selects a nearby same-signature high-local caller/callee pair without artifact-index hardcoding; bounded `simplify-locals`/`vacuum` cleanup advances the retained valid artifact to raw `3198310` / canonical `3275701`, `+13245` canonical versus Binaryen, at `11088.465ms` versus `8083.49ms` (`1.37x`). A pair-first prefilter preserves output while reducing selector cost.
+
+Notes [`1594`](../../../raw/research/1594-2026-07-13-daeo-broad-removed-param-local-compaction.md) through [`1596`](../../../raw/research/1596-2026-07-13-daeo-func41-local-compaction-final-matrix.md) close a generic optimizing-only removed-parameter local family. The broad selector checks only already-touched high-local definitions whose parameter count fell, ranks removable unreferenced locals, and rewrites one best candidate; a direct-reference prefilter avoids exact lowered cleanup when current facts suffice. Func `41` loses `168` locals without artifact-index hardcoding, advancing the valid artifact to raw `3197559` / canonical `3275027`, `+12571` canonical versus Binaryen, at `12763.150ms` versus `8083.49ms` (`1.58x`). Fresh Binaryen-v130 explicit-native dedicated `10000`, regular `100000`, wasm-smith `10000`, and random-all `10000` lanes preserve the complete classified matrix; full tests `8809/8809`, pinned-seed CI-profile validation, exact-once optimize/shrink/O4z scheduling, and `.mbti` review are green. Plain DAE remains unchanged. Readiness remains open because Funcs `7008`/`7007` are now the leading direct parity owners, and large optimize/shrink/O4z still stop before DAEO in vacuum or ssa-nomerge.
 
 ## Why this must be a module pass
 
@@ -208,7 +213,7 @@ Current reusable code surfaces:
 
 Missing code surfaces for a faithful port:
 
-- closure of the valid current artifact's remaining `+13245` canonical-byte size-losing gap after notes `1591`-`1593` narrowed the adjacent Func-7007/7008 family; Func `41` is again the largest direct body owner, so the next slice needs a source-backed bounded cleanup or parity transform rather than blanket replay;
+- closure of the valid current artifact's remaining `+12571` canonical-byte size-losing gap after notes `1594`-`1596` narrowed Func `41`; Funcs `7008` and `7007` now lead the partially closed adjacent family at `+3341` aggregate canonical body bytes, so the next slice needs source-backed bounded cleanup or parity rather than blanket replay;
 - a real `precompute-propagate` sibling or equivalent nested prefix replay;
 - a safe, performant default-function-pipeline replay for touched functions that preserves the current large-function and nondefaultable-local hazard boundaries;
 - broader function-filtered adapters or safe batching for still-module-shaped cleanup passes that Binaryen reruns after productive DAE changes;
