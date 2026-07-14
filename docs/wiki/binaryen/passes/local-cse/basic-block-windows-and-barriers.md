@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
@@ -33,7 +32,7 @@ The real `version_129` rule is:
 - with a small cheap adjacent-block extension
 - plus several effect and determinism barriers
 
-The retained tagged `version_129` release/source/test URLs and the 2026-05-05 current-main recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) confirm the reviewed release page's **2026-04-01** publish date and no teaching-relevant drift on the checked owner/helper/test surfaces.
+The retained tagged `version_129` release/source/test URLs and the 2026-05-05 current-main recheck at [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md) confirm the reviewed release page's **2026-04-01** publish date and no teaching-relevant drift on the checked owner/helper/test surfaces.
 
 ## The shortest honest summary
 

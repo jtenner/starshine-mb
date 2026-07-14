@@ -5,7 +5,6 @@ last_reviewed: 2026-07-04
 sources:
   - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
-  - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
@@ -46,7 +45,7 @@ related:
 
 # Starshine strategy for `local-subtyping`
 
-Use this page together with the corrected Binaryen source manifest in [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md), the source-correction note in [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md), the upstream implementation/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the corrected Binaryen source manifest in [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md), the source-correction note in [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md), the upstream implementation/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The 2026-05-06 repo-source correction replaced an older stale reading: `local-subtyping` is already active in Starshine.
 

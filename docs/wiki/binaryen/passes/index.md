@@ -133,7 +133,7 @@ sources:
   - ../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
   - ../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
-  - ../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
+  - ../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md

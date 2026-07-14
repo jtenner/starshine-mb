@@ -6,7 +6,6 @@ sources:
   - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
   - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
-  - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
@@ -144,7 +143,6 @@ A Starshine parity expansion should preserve:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>

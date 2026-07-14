@@ -43,7 +43,6 @@ sources:
   - ../../../raw/research/0807-2026-06-20-heap-store-optimization-if-wrapped-memory-grow-swap.md
   - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
@@ -102,7 +101,7 @@ not:
 
 ## Exact local code map
 
-Use this page together with the current source bridge in [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the current source bridge in [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The fastest read-along path through the current MoonBit implementation is:
 
 - registry descriptor and one-line public summary

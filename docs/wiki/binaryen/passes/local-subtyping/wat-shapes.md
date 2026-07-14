@@ -7,7 +7,6 @@ sources:
   - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
   - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
   - ../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md
-  - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
@@ -1089,7 +1088,6 @@ Starshine currently covers the basic write-site narrowing shapes, but it does no
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>

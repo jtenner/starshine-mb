@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-07
 sources:
-  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
@@ -40,7 +39,7 @@ This page maps the Binaryen files and tests that define `local-cse`, then maps t
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle and [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) plus [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) as the latest freshness bridges. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
+Use Binaryen `version_129` as the tagged oracle and [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md) plus [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) as the latest freshness bridges. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
 
 Primary upstream sources:
 

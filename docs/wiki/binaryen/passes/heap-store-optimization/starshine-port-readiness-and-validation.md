@@ -5,7 +5,6 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
-  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../../../src/passes/heap_store_optimization.mbt

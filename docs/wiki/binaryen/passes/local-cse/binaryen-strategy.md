@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
-  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
@@ -26,7 +25,7 @@ related:
 
 - Use Binaryen `version_129` as the tagged source oracle for this pass.
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**; the retained tagged release/source/test URLs are listed below and cross-checked by the current-main source bridges.
-- A focused 2026-05-05 current-`main` recheck on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, helper files, and `local-cse.wast` found no teaching-relevant contract drift and is captured at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md).
+- A focused 2026-05-05 current-`main` recheck on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, helper files, and `local-cse.wast` found no teaching-relevant contract drift and is captured at [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md).
 - A 2026-05-06 line-anchor refresh at [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) pinned the exact current-main source locations used below and kept the Starshine code-map anchors honest.
 - The core implementation is `src/passes/LocalCSE.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.

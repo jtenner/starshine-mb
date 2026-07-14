@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
@@ -25,7 +24,7 @@ related:
 # `local-cse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
-It was rechecked against retained tagged `version_129` release/source/test URLs (the reviewed release-page date is **2026-04-01**), the 2026-05-05 current-main recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), and the 2026-06-04 `version_130` / current-main audit refresh at [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md). Those source checks found no teaching-relevant Binaryen drift, but the 2026-06-04 Starshine audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) found one local missed Binaryen-positive shape: before-`if` into `then` reuse.
+It was rechecked against retained tagged `version_129` release/source/test URLs (the reviewed release-page date is **2026-04-01**), the 2026-05-05 current-main recheck at [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md), and the 2026-06-04 `version_130` / current-main audit refresh at [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md). Those source checks found no teaching-relevant Binaryen drift, but the 2026-06-04 Starshine audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) found one local missed Binaryen-positive shape: before-`if` into `then` reuse.
 
 ## Read this page with one mental model
 

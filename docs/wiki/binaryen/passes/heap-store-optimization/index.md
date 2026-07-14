@@ -292,7 +292,6 @@ sources:
   - ../../../raw/research/0788-2026-06-20-heap-store-optimization-descriptor-loop-outer-branch.md
   - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
@@ -325,7 +324,7 @@ related:
   - ./starshine-hot-ir-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
-  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
+  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../optimize-instructions/index.md
@@ -629,7 +628,7 @@ What it actually is in `version_129`:
   - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization; the refreshed page now also points readers to the exact MoonBit registry / dispatcher / helper-cluster / reduced-test / CLI-replay code map.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Compact validation bridge for the active local implementation, with the exact unit, perf, CLI replay, source-spotcheck, and refreshed direct `pass-fuzz-compare` parity surfaces.
-- [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
+- [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
   - Focused current-main source bridge plus exact Starshine code-map refresh; its retained direct `version_129`/current source and lit URLs preserve the earlier manifest's useful provenance.
 
 ## Freshness and naming note
@@ -665,7 +664,6 @@ Current durable answer:
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md`](../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md)
 - [`../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md`](../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md)
