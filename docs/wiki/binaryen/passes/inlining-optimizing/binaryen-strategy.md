@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md
-  - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
