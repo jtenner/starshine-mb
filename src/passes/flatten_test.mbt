@@ -13667,3 +13667,137 @@ test "flatten scalarizes one exclusively tuple-made legacy try table into inputf
       fail("expected tuple-made try-loop table routing to verify, got \{err}")
   }
 }
+
+///|
+test "flatten removes an unreachable-only suffix after a tuple-made legacy try table" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let result_types = [i32_type, i64_type]
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i64_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, result_types),
+  )
+  let body_first_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let body_second_fallback = @ir.hot_build_const_i64(func, @lib.I64(10L))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_first_fallback, body_second_fallback],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_results(func, result_types),
+  )
+  let first_payload = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_local_get(func, 0),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_payload, @lib.Instruction::i32_add())
+  let second_payload = @ir.hot_build_binary(
+    func,
+    i64_type,
+    @ir.hot_build_local_get(func, 1),
+    @ir.hot_build_const_i64(func, @lib.I64(4L)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_payload,
+    @lib.Instruction::i64_sub(),
+  )
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [
+    first_payload, second_payload,
+  ])
+  let selector_id = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+  )
+  @ir.hot_node_exact_instr_set(func, selector_id, @lib.Instruction::i32_sub())
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id, label_id],
+    label_id,
+    selector_id,
+    values=[tuple_id, tuple_id],
+  )
+  let dead_unreachable = @ir.hot_build_unreachable(func)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch_id, dead_unreachable])
+  @ir.hot_delete_node(func, body_first_fallback)
+  @ir.hot_delete_node(func, body_second_fallback)
+  let return_id = @ir.hot_build_return(func, [try_id, try_id])
+  @ir.hot_root_append(func, return_id)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_false(@ir.hot_node_is_live(func, dead_unreachable))
+  assert_false(@ir.hot_node_is_live(func, tuple_id))
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 8)
+  let first_value_set = @ir.hot_region_get(func, body_ref, 0)
+  let second_value_set = @ir.hot_region_get(func, body_ref, 1)
+  let first_stage_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_stage_set = @ir.hot_region_get(func, body_ref, 3)
+  let first_result_set = @ir.hot_region_get(func, body_ref, 4)
+  let second_result_set = @ir.hot_region_get(func, body_ref, 5)
+  let selector_set = @ir.hot_region_get(func, body_ref, 6)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch_id)
+  @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_payload)
+  @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector_id)
+  let result_locals = [
+    @ir.hot_node_get(func, first_result_set).imm0,
+    @ir.hot_node_get(func, second_result_set).imm0,
+  ]
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_result_set, 0)).imm0,
+    @ir.hot_node_get(func, first_stage_set).imm0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_result_set, 0)).imm0,
+    @ir.hot_node_get(func, second_stage_set).imm0,
+  )
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
+  for slot = 0; slot < 2; slot = slot + 1 {
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, slot)).imm0,
+      result_locals[slot],
+    )
+    @debug.assert_eq(
+      @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, slot)).imm0,
+      result_locals[slot],
+    )
+  }
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, selector_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected unreachable-suffix try table routing to verify, got \{err}",
+      )
+  }
+}

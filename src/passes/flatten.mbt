@@ -908,9 +908,26 @@ fn flatten_try_terminal_br_table_targets_label(
   let mut is_terminal = false
   for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
     let root_count = @ir.hot_region_root_count(func, region_ref)
-    if root_count > 0 &&
-      @ir.hot_region_get(func, region_ref, root_count - 1) == node_id {
-      is_terminal = true
+    for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+      if @ir.hot_region_get(func, region_ref, root_idx) != node_id {
+        continue
+      }
+      let mut suffix_is_unreachable = true
+      for suffix_idx = root_idx + 1
+          suffix_idx < root_count
+          suffix_idx = suffix_idx + 1 {
+        match
+          @ir.hot_node_get(
+            func,
+            @ir.hot_region_get(func, region_ref, suffix_idx),
+          ).op {
+          @ir.HotOp::Unreachable => ()
+          _ => suffix_is_unreachable = false
+        }
+      }
+      if suffix_is_unreachable {
+        is_terminal = true
+      }
     }
   }
   if !is_terminal {
@@ -918,6 +935,28 @@ fn flatten_try_terminal_br_table_targets_label(
   }
   let child_count = @ir.hot_child_count(func, node_id)
   child_count == 1 || child_count == payload_count + 1
+}
+
+///|
+fn flatten_try_region_effective_terminal_id(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Int {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if root_count == 0 {
+    return -1
+  }
+  let last_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+  let mut root_idx = root_count - 1
+  while root_idx >= 0 {
+    let node_id = @ir.hot_region_get(func, region_ref, root_idx)
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Unreachable => root_idx = root_idx - 1
+      @ir.HotOp::BrTable => return node_id
+      _ => return last_id
+    }
+  }
+  last_id
 }
 
 ///|
@@ -1220,7 +1259,7 @@ fn flatten_multivalue_legacy_try_is_supported(
     if root_count == 0 {
       return false
     }
-    let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+    let tail_id = flatten_try_region_effective_terminal_id(func, region_ref)
     if label_is_used &&
       (
         flatten_multivalue_try_terminal_plain_br_targets_label(
@@ -2501,7 +2540,7 @@ fn flatten_scalar_legacy_try_is_supported(
     if root_count == 0 {
       return false
     }
-    let tail_id = @ir.hot_region_get(func, region_ref, root_count - 1)
+    let tail_id = flatten_try_region_effective_terminal_id(func, region_ref)
     let tail_types = @ir.hot_type_results(
       func,
       @ir.hot_node_get(func, tail_id).ty,
@@ -3953,6 +3992,7 @@ fn flatten_try_route_br_table(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   state : FlattenRewriteState,
+  owner_region : @ir.HotRegionRef,
   node_id : Int,
   preludes : Array[Int],
 ) -> Bool {
@@ -4060,6 +4100,52 @@ fn flatten_try_route_br_table(
     value_locals.push(value_local)
     preludes.push(@ir.hot_build_local_set(func, value_local, value_id))
     state.terminal_payloads.push(value_id)
+  }
+  let mut has_unreachable_suffix_try_target = false
+  for target in targets {
+    match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::TryLabel =>
+        if flatten_try_terminal_br_table_targets_label(
+            func, node_id, target, payload_count, true,
+          ) {
+          has_unreachable_suffix_try_target = true
+        }
+      _ => ()
+    }
+  }
+  if has_unreachable_suffix_try_target {
+    let root_count = @ir.hot_region_root_count(func, owner_region)
+    for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+      if @ir.hot_region_get(func, owner_region, root_idx) != node_id ||
+        root_idx + 1 >= root_count {
+        continue
+      }
+      let mut suffix_is_unreachable = true
+      for suffix_idx = root_idx + 1
+          suffix_idx < root_count
+          suffix_idx = suffix_idx + 1 {
+        match
+          @ir.hot_node_get(
+            func,
+            @ir.hot_region_get(func, owner_region, suffix_idx),
+          ).op {
+          @ir.HotOp::Unreachable => ()
+          _ => suffix_is_unreachable = false
+        }
+      }
+      if suffix_is_unreachable {
+        let removed = pass_splice_region(
+          ctx,
+          func,
+          owner_region,
+          root_idx + 1,
+          root_count - root_idx - 1,
+          [],
+        )
+        pass_delete_detached_nodes(ctx, func, removed)
+        break
+      }
+    }
   }
   for target in targets {
     for slot = 0; slot < payload_count; slot = slot + 1 {
@@ -4488,7 +4574,9 @@ fn flatten_rewrite_node_operands(
           changed = true
         }
       }
-      if flatten_try_route_br_table(ctx, func, state, node_id, preludes) {
+      if flatten_try_route_br_table(
+          ctx, func, state, owner_region, node_id, preludes,
+        ) {
         changed = true
       }
       if flatten_rewrite_operand_slot(
@@ -4512,7 +4600,9 @@ fn flatten_rewrite_node_operands(
   if flatten_try_route_scalar_br_if(ctx, func, state, node_id, preludes) {
     changed = true
   }
-  if flatten_try_route_br_table(ctx, func, state, node_id, preludes) {
+  if flatten_try_route_br_table(
+      ctx, func, state, owner_region, node_id, preludes,
+    ) {
     changed = true
   }
   changed

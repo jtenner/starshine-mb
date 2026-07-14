@@ -295,3 +295,43 @@ test "flatten admits exclusively tuple-made try-to-loop table preflight" {
     _ => fail("expected tuple try-to-loop table admission")
   }
 }
+
+///|
+test "flatten admits only unreachable roots after a legacy try table" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id,
+    @ir.hot_build_unreachable(func),
+    @ir.hot_build_unreachable(func),
+  ])
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
