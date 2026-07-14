@@ -15731,6 +15731,102 @@ test "dae-optimizing closes two ranked broad dropped-result chains in one bounde
 }
 
 ///|
+fn dae_test_broad_computed_carrier_cycle_module() -> String {
+  let root_def = 7000
+  let pair_first_def = 7004
+  let total_defs = 8193
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
+  )
+  for candidate_idx = 0; candidate_idx < 8; candidate_idx = candidate_idx + 1 {
+    out.write_string(
+      "  (func $g\{candidate_idx} (param i32 i32) local.get 0 call $use_i32)\n",
+    )
+  }
+  for dummy_idx = 8; dummy_idx < root_def; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string("  (func $root (param i32) local.get 0 call $use_i32)\n")
+  for dummy_idx = root_def + 1
+      dummy_idx < pair_first_def
+      dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string("  (func $a (param i32 i32) (local")
+  for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
+    ignore(local_idx)
+    out.write_string(" i32")
+  }
+  out.write_string(
+    ")\n    local.get 1\n    local.get 0\n    call $helper\n    local.set 2\n    local.get 0\n    local.get 2\n    call $c)\n",
+  )
+  out.write_string("  (func $b (param i32 i32) (local")
+  for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
+    ignore(local_idx)
+    out.write_string(" i32")
+  }
+  out.write_string(
+    ")\n    local.get 0\n    local.get 1\n    call $a)\n",
+  )
+  out.write_string(
+    (
+      #|  (func $c (param i32 i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $b)
+      #|  (func $helper (param i32 i32) (result i32)
+      #|    local.get 1)
+      #|  (func (export "run")
+    ),
+  )
+  for candidate_idx = 0; candidate_idx < 8; candidate_idx = candidate_idx + 1 {
+    out.write_string(
+      "    i32.const \{candidate_idx}\n    i32.const 99\n    call $g\{candidate_idx}\n",
+    )
+  }
+  out.write_string(
+    (
+      #|    i32.const 0
+      #|    call $root
+      #|    i32.const 7
+      #|    i32.const 0
+      #|    call $a
+      #|    i32.const 7
+      #|    i32.const 0
+      #|    call $c)
+    ),
+  )
+  for dummy_idx = pair_first_def + 5
+      dummy_idx < total_defs
+      dummy_idx = dummy_idx + 1 {
+    ignore(dummy_idx)
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing converges through an unread callee before a computed cycle carrier" {
+  let (optimized, trace) = dae_test_run_with_perf_trace(
+    dae_test_broad_computed_carrier_cycle_module(),
+  )
+  @debug.assert_eq(dae_test_func_params(optimized, 7007).length(), 1)
+  for def_idx in [7004, 7005, 7006] {
+    @debug.assert_eq(dae_test_func_params(optimized, def_idx).length(), 1)
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=[7007] cycle_defs=[7004, 7005, 7006]",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing removes a constant-anchored forwarded-parameter cycle transactionally" {
   let source =
     #|(module
