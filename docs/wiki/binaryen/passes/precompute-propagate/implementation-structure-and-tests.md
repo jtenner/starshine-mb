@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
@@ -21,7 +20,7 @@ related:
 
 # `precompute-propagate`: implementation structure and tests
 
-This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The retained 2026-04-24 follow-up research and direct tagged URLs preserve the reviewed official-source provenance; the retained 2026-04-25 code-map research records the original local navigation, and the 2026-05-04 current-main freshness recheck is [`../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md).
+This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The retained 2026-04-24 follow-up research and direct tagged URLs preserve the reviewed official-source provenance; the retained 2026-04-25 code-map research records the original local navigation, and the retained 2026-05-04 current-main freshness recheck is [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md).
 
 ## Core source files
 

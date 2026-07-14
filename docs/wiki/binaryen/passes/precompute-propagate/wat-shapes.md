@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
@@ -21,7 +20,7 @@ related:
 
 # `precompute-propagate` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `precompute-propagate` pass. The retained 2026-04-24 follow-up research and direct tagged URLs preserve the dedicated upstream-test provenance, with the 2026-05-04 current-main no-drift recheck retained in [`../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md).
+This page is the beginner-friendly shape catalog for Binaryen's `precompute-propagate` pass. The retained 2026-04-24 follow-up research and direct tagged URLs preserve the dedicated upstream-test provenance, with the 2026-05-04 current-main no-drift recheck retained in [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md).
 
 ## Read this page with one mental model
 
