@@ -184,7 +184,6 @@ sources:
   - ../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
   - ../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
-  - ../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
   - ../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
   - ../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
   - ../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
