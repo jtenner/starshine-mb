@@ -785,7 +785,7 @@ fn flatten_multivalue_try_terminal_plain_br_targets_label(
 }
 
 ///|
-fn flatten_multivalue_try_terminal_br_table_targets_label(
+fn flatten_try_terminal_br_table_targets_label(
   func : @ir.HotFunc,
   node_id : Int,
   label_id : Int,
@@ -1008,7 +1008,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
           label_id,
         ) => {
         saw_target = true
-        if !flatten_multivalue_try_terminal_br_table_targets_label(
+        if !flatten_try_terminal_br_table_targets_label(
             func,
             node_id,
             label_id,
@@ -1102,7 +1102,7 @@ fn flatten_multivalue_legacy_try_is_supported(
           label_id,
           result_types.length(),
         ) ||
-        flatten_multivalue_try_terminal_br_table_targets_label(
+        flatten_try_terminal_br_table_targets_label(
           func,
           tail_id,
           label_id,
@@ -1159,7 +1159,7 @@ fn flatten_try_route_multivalue_try(
         label_id,
         result_types.length(),
       ) ||
-      flatten_multivalue_try_terminal_br_table_targets_label(
+      flatten_try_terminal_br_table_targets_label(
         func,
         tail_id,
         label_id,
@@ -2668,10 +2668,6 @@ fn flatten_target_can_route_scalar_branches(
           branch.imm0,
           label_id,
         ) => {
-        match owner.op {
-          @ir.HotOp::Try => return false
-          _ => ()
-        }
         saw_target = true
         let child_count = @ir.hot_child_count(func, branch_id)
         if child_count == 1 {
@@ -2685,8 +2681,19 @@ fn flatten_target_can_route_scalar_branches(
           func,
           @ir.hot_node_get(func, value_id).ty,
         )
-        if value_types.length() != 1 || value_types[0] != target_type {
+        if value_types.length() != 1 ||
+          value_types[0] != target_type ||
+          !flatten_scalar_branch_payload_has_supported_origin(func, value_id) {
           return false
+        }
+        match owner.op {
+          @ir.HotOp::Try =>
+            if !flatten_try_terminal_br_table_targets_label(
+                func, branch_id, label_id, 1,
+              ) {
+              return false
+            }
+          _ => ()
         }
       }
       _ => ()
@@ -3772,13 +3779,20 @@ fn flatten_try_route_br_table(
           func,
           @ir.hot_label_result_type(func, target),
         )
-        if payload_count <= 1 ||
-          target_types != payload_types ||
-          @ir.hot_label_branch_arity(func, target) != payload_count ||
-          !flatten_multivalue_legacy_try_is_supported(
-            func,
-            @ir.hot_label_owner(func, target),
-          ) {
+        if target_types != payload_types ||
+          @ir.hot_label_branch_arity(func, target) != payload_count {
+          return false
+        }
+        let try_id = @ir.hot_label_owner(func, target)
+        if payload_count == 1 {
+          if targets.length() != 1 ||
+            !flatten_try_terminal_br_table_targets_label(
+              func, node_id, target, 1,
+            ) ||
+            !flatten_scalar_legacy_try_is_supported(func, try_id) {
+            return false
+          }
+        } else if !flatten_multivalue_legacy_try_is_supported(func, try_id) {
           return false
         }
       }
