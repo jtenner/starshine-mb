@@ -1301,6 +1301,19 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
   }
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Unreachable => return true
+    @ir.HotOp::Call => {
+      let child_count = @ir.hot_child_count(func, root_id)
+      if @ir.hot_node_result_arity(func, root_id) != 0 || child_count > 1 {
+        return false
+      }
+      if child_count == 0 {
+        return true
+      }
+      match @ir.hot_node_get(func, @ir.hot_child_get(func, root_id, 0)).op {
+        @ir.HotOp::Const => return true
+        _ => return false
+      }
+    }
     @ir.HotOp::Drop => ()
     _ => return false
   }

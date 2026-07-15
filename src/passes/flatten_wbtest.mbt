@@ -4079,3 +4079,113 @@ test "flatten recognizes an unreachable-add-divzero try-table suffix sequence" {
 test "flatten recognizes an extend-unreachable-and try-table suffix sequence" {
   flatten_wbtest_recognize_sequence_with_unreachable_root(false)
 }
+
+///|
+fn flatten_wbtest_recognize_sequence_with_direct_call(
+  call_has_argument : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let roots = if call_has_argument {
+    let argument = @ir.hot_build_const_i32(func, @lib.I32(10))
+    let call = @ir.hot_build_call(func, 99, [], [argument])
+    [
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        9,
+        @lib.ValType::i64(),
+        true,
+      ),
+      [call, argument],
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_and(),
+        11,
+        12,
+      ),
+    ]
+  } else {
+    let call = @ir.hot_build_call(func, 99, [], [])
+    [
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_add(),
+        9,
+        10,
+      ),
+      [call],
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i32_clz(),
+        11,
+        @lib.ValType::i32(),
+        false,
+      ),
+    ]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in roots {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-call0-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_direct_call(false)
+}
+
+///|
+test "flatten recognizes an extend-callarg-and try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_direct_call(true)
+}
+
+///|
+test "flatten keeps a sequence with an add-argument call unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let argument = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  let call = @ir.hot_build_call(func, 99, [], [argument[0]])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    add[0],
+    call,
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
