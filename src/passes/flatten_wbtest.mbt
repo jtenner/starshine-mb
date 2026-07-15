@@ -7002,6 +7002,67 @@ test "flatten conditional proof caches allocate only admitted entries" {
 }
 
 ///|
+test "flatten multivalue conditional proof cache keeps sparse entries sorted" {
+  let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
+  let func = @ir.HotFunc::new()
+  let branch_ids : Array[Int] = []
+  for candidate = 0; candidate < 3; candidate = candidate + 1 {
+    let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+    @ir.hot_control_result_type_set(
+      func,
+      block_id,
+      @ir.hot_type_intern_resolved_block_result(
+        func,
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        [],
+        result_types,
+      ),
+    )
+    let first = @ir.hot_build_const_i32(func, @lib.I32(candidate))
+    let second = @ir.hot_build_const_i64(func, @lib.I64(candidate.to_int64()))
+    let branch_id = @ir.hot_build_br_if(
+      func,
+      @ir.hot_control_node_label(func, block_id),
+      @ir.hot_build_const_i32(func, @lib.I32(0)),
+      values=[first, second],
+    )
+    branch_ids.push(branch_id)
+    @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+      branch_id, first, second,
+    ])
+    @ir.hot_root_append(func, block_id)
+  }
+  let state = FlattenRewriteState::new(func)
+  for index in [2, 0, 1] {
+    assert_true(
+      flatten_multivalue_br_if_flow_span(
+        func,
+        branch_ids[index],
+        result_types.length(),
+        state=Some(state),
+      )
+      is Some(_),
+    )
+  }
+  @debug.assert_eq(
+    state.multivalue_br_if_flow_entries.map(fn(entry) { entry.branch_id }),
+    branch_ids,
+  )
+  state.rewrites_started = true
+  for branch_id in branch_ids {
+    assert_true(
+      flatten_rewrite_multivalue_br_if_flow_span(
+        func,
+        state,
+        branch_id,
+        result_types.length(),
+      )
+      is Some(_),
+    )
+  }
+}
+
+///|
 test "flatten tuple conditional proof cache keeps sparse entries sorted" {
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
   let func = @ir.HotFunc::new()

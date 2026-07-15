@@ -403,19 +403,6 @@ fn FlattenScalarFlowReplacementEntry::new(
 }
 
 ///|
-fn flatten_br_if_flow_entry_linear_index(
-  entries : Array[FlattenBrIfFlowEntry],
-  branch_id : Int,
-) -> Int {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].branch_id == branch_id {
-      return index
-    }
-  }
-  -1
-}
-
-///|
 fn flatten_br_if_flow_entry_lower_bound(
   entries : Array[FlattenBrIfFlowEntry],
   branch_id : Int,
@@ -5246,7 +5233,7 @@ fn flatten_multivalue_br_if_flow_span(
   }
   let cached_flow = match state {
     Some(state) => {
-      let entry_index = flatten_br_if_flow_entry_linear_index(
+      let entry_index = flatten_br_if_flow_entry_index(
         state.multivalue_br_if_flow_entries,
         branch_id,
       )
@@ -5259,7 +5246,8 @@ fn flatten_multivalue_br_if_flow_span(
         let flow = flatten_locate_reachable_multivalue_br_if_flow_span(
           func, branch_id, payload_count,
         )
-        state.multivalue_br_if_flow_entries.push(
+        flatten_br_if_flow_entry_set(
+          state.multivalue_br_if_flow_entries,
           FlattenBrIfFlowEntry::new(branch_id, flow),
         )
         flow
@@ -5290,7 +5278,7 @@ fn flatten_rewrite_multivalue_br_if_flow_span(
   payload_count : Int,
 ) -> Array[Int]? {
   if !state.rewrites_started ||
-    flatten_br_if_flow_entry_linear_index(
+    flatten_br_if_flow_entry_index(
       state.multivalue_br_if_flow_entries,
       branch_id,
     ) <
