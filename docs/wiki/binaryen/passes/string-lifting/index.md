@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - ../../../wasm-js-string-builtins-boundary.md
   - ../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md
   - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
@@ -144,7 +144,6 @@ See the retained [`../../../raw/research/0697-2026-06-02-string-lifting-current-
 
 ## Sources
 
-- [`../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
 - [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
 - [`../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md)
 - [`../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md)

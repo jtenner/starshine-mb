@@ -5,7 +5,7 @@ last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-memory-control-boundary-refresh.md
+  - ../wasm-memory-control-boundary.md
   - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - ../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md

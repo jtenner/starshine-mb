@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
+  - ../validate/memory-table-address-widths.md
   - ../wasm-custom-page-sizes-boundary.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - https://webassembly.github.io/spec/core/valid/matching.html
@@ -52,7 +52,7 @@ Use this page when writing or debugging WAST module fields that **declare table,
 
 This page deliberately does **not** own runtime operations or segment payloads on those resources. Use [`table-instruction-authoring.md`](table-instruction-authoring.md) for `table.get` / `table.init` / `call_indirect`, [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for loads, stores, `memory.copy`, and `memory.init`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `offset=` / `align=`, [`data-segment-authoring.md`](data-segment-authoring.md) for `(data ...)` fields and the current inline memory-data abbreviation caveat, and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for `global.get` / `global.set`. The binary/core section guide remains [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
-The current focused refreshes reconcile official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface. The 2026-06-05 memory64/table64 bridge [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md) is the current status source for i64 memory/table limits as Core/finished address-width behavior; it does not widen the current WAST declaration syntax. The validator-side resource contract, including limits, shared-memory, initializer, and segment-offset rules, is maintained in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md). The Custom Page Sizes bridge [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md) records that current Starshine WAST memory declarations have no page-size syntax and lower only to the current `MemType(Limits, shared)` shape. The focused Threads/shared-memory router [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), backed by [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md), keeps current WAST declarations scoped: shared memory and memory64 are core/binary/generator evidence today, not text-declaration evidence.
+The current focused refreshes reconcile official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface. The living [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) page is the current status source for i64 memory/table limits as Core/finished address-width behavior; it does not widen the current WAST declaration syntax. The validator-side resource contract, including limits, shared-memory, initializer, and segment-offset rules, is maintained in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md). The Custom Page Sizes bridge [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md) records that current Starshine WAST memory declarations have no page-size syntax and lower only to the current `MemType(Limits, shared)` shape. The focused Threads/shared-memory router [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), backed by [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md), keeps current WAST declarations scoped: shared memory and memory64 are core/binary/generator evidence today, not text-declaration evidence.
 
 ## Beginner Mental Model
 
@@ -207,7 +207,7 @@ Useful related signoff pages:
 
 ## Sources
 
-- memory64/table64 Core/status bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
+- memory64/table64 Core/status and validator matrix: [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Constant-expression contract: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Validator resource-section contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Import/export matching contract: [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), <https://webassembly.github.io/spec/core/valid/matching.html>

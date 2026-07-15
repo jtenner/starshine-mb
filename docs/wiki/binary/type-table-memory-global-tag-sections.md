@@ -4,9 +4,9 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - ../wasm-js-string-builtins-boundary.md
   - ../wasm-custom-page-sizes-boundary.md
-  - ../raw/wasm/2026-06-05-memory-control-boundary-refresh.md
+  - ../wasm-memory-control-boundary.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - https://webassembly.github.io/spec/core/binary/modules.html
@@ -197,10 +197,10 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 ## Sources
 
 - Multi-memory Core boundary refresh: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
-- JS String Builtins boundary refresh: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
+- JS String Builtins boundary: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
 - Linear-memory Threads/shared-memory boundary: [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
 - Custom Page Sizes boundary: [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md) and its cited official proposal/Core sources.
-- Memory Control boundary refresh: [`../raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](../raw/wasm/2026-06-05-memory-control-boundary-refresh.md), [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md)
+- Memory Control boundary: [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md)
 - Constant-expression contract: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)

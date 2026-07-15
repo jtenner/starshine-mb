@@ -6,7 +6,7 @@ sources:
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - code-metadata-and-function-annotations.md
-  - ../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
+  - ../wasm-more-array-constructors-boundary.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
@@ -93,7 +93,7 @@ When closing one of these gaps:
 
 - Code-metadata / branch-hint status: [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) and the official Core/code-metadata sources cited there.
 - Numeric data-segment proposal routing: [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md)
-- More Array Constructors boundary: [`../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md), [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
+- More Array Constructors boundary: [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
 - WAST implementation: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)
 - Core/validator/generator evidence: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)
 - Navigation companions: [`index.md`](index.md), [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md), [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md), [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md)

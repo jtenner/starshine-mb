@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - ../wasm-js-string-builtins-boundary.md
   - ../raw/research/0052-2026-03-22-string-const-surface.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../binary/type-table-memory-global-tag-sections.md
@@ -49,7 +49,7 @@ related:
 ## Sources
 
 - Archived research doc: [`../raw/research/0052-2026-03-22-string-const-surface.md`](../raw/research/0052-2026-03-22-string-const-surface.md)
-- JS String Builtins boundary refresh: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
+- JS String Builtins boundary: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Core binary section boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../binary/module-section-map.md`](../binary/module-section-map.md)
 - WAST string instruction companion: [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md)

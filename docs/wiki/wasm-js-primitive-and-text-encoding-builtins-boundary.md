@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - wasm-js-string-builtins-boundary.md
   - wast/string-instruction-authoring.md
   - tooling/node-package-surface.md
@@ -121,7 +120,7 @@ If Starshine implements either proposal later:
 ## Sources
 
 - Official active-proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/js-primitive-builtins/blob/main/proposals/js-primitive-builtins/Overview.md>, <https://github.com/WebAssembly/js-text-encoding-builtins/blob/main/proposals/js-text-encoding-builtins/Overview.md>
-- JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md), [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
+- JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - Stringref/local instruction pages: [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md)
 - Node/package page: [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`../../node/internal/runtime.js`](../../node/internal/runtime.js)
 - Binaryen string pass dossiers: [`binaryen/passes/string-lowering/index.md`](binaryen/passes/string-lowering/index.md), [`binaryen/passes/string-lifting/index.md`](binaryen/passes/string-lifting/index.md)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - ../wasm-js-string-builtins-boundary.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../strings/string-const-surface.md
   - ../../../src/wast/keywords.mbt
@@ -174,7 +174,7 @@ When adding one of those families, the implementation needs at least a new core 
 
 ## Source Map
 
-- JS String Builtins host-boundary refresh: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
+- JS String Builtins host boundary: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
 - JS Primitive / JS Text Encoding Builtins host boundary: [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Literal-pool companion: [`../strings/string-const-surface.md`](../strings/string-const-surface.md)

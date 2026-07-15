@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-14
 sources:
   - raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
-  - raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md
+  - https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static
+  - https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants
   - https://webassembly.github.io/spec/core/binary/modules.html
   - strings/string-const-surface.md
   - wast/string-instruction-authoring.md
@@ -41,7 +43,7 @@ Use this page when a wiki claim mentions any of these similar-looking names:
 - `stringref`, `string.const`, or Starshine's `StringRefsSec`;
 - JS Primitive Builtins or JS Text Encoding Builtins names such as `wasm:js-number`, `wasm:js-bigint`, or `wasm:text-encoding`.
 
-They are related string features, but they do **not** all mean the same thing. The current Node-loader supplement is [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md); it rechecked the Phase-3 ESM status, the 2026-03-04 ESM Integration draft, Node v26.4.0 Wasm ESM documentation, and current Starshine runtime source. The earlier focused status/JS-API capture, [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), remains the source for the finished-proposal and `importedStringConstants` split.
+They are related string features, but they do **not** all mean the same thing. The current Node-loader supplement is [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md); it rechecked the Phase-3 ESM status, the 2026-03-04 ESM Integration draft, Node v26.4.0 Wasm ESM documentation, and current Starshine runtime source. The finished-proposal and `importedStringConstants` split is grounded directly in the [WebAssembly finished-proposals table](https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md) and MDN's [`WebAssembly.compile()`](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static) and [imported string constants](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants) references.
 
 The durable rule is:
 
@@ -149,7 +151,7 @@ When touching string-related docs or code:
 ## Sources
 
 - Current Node-loader / ESM builtin recheck: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md)
-- JS String Builtins boundary refresh: [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
+- JS API builtin and imported-constant references: [finished proposals](https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md), [`WebAssembly.compile()`](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static), and [imported string constants](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants)
 - JS Primitive / JS Text Encoding Builtins boundary: [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Core section-id boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html)

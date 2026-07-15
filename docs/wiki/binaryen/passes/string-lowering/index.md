@@ -3,7 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - ../../../wasm-js-string-builtins-boundary.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
@@ -118,7 +118,6 @@ That is much more accurate than saying either:
 
 ## Sources
 
-- [`../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
 - [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
 - [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)

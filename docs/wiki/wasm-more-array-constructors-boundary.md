@@ -4,7 +4,8 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
-  - raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/more-array-constructors/blob/main/proposals/more-array-constructors/Overview.md
   - raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
@@ -32,7 +33,7 @@ related:
 
 Use this page when a claim mentions the active **More Array Constructors** proposal, especially when it sounds similar to WebAssembly GC array instructions that Starshine already models.
 
-The current source bridge is [`raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md). It rechecked the official WebAssembly proposals tracker, the More Array Constructors proposal repository/overview, current Core 3.0 array-instruction pages, and Starshine's local WAST/core/binary/validator/generator evidence.
+The current source set is the [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals), the [More Array Constructors overview](https://github.com/WebAssembly/more-array-constructors/blob/main/proposals/more-array-constructors/Overview.md), current Core 3.0 array-instruction pages, and Starshine's local WAST/core/binary/validator/generator evidence.
 
 The key split is:
 
@@ -104,7 +105,7 @@ If Starshine implements More Array Constructors, start with a source recheck bec
 
 ## Sources
 
-- Current focused bridge: [`raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md)
+- Official proposal sources: [tracker](https://github.com/WebAssembly/proposals) and [overview](https://github.com/WebAssembly/more-array-constructors/blob/main/proposals/more-array-constructors/Overview.md)
 - GC Core boundary: [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md)
 - Aggregate instruction authoring: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
 - Constant-expression boundary: [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md)

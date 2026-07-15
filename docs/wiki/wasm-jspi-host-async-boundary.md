@@ -4,7 +4,8 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - https://nodejs.org/api/wasi.html
-  - raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/js-promise-integration/blob/main/proposals/js-promise-integration/Overview.md
   - tooling/node-package-surface.md
   - ../../node/internal/runtime.js
   - ../../node/internal/wasi-runner.js
@@ -30,7 +31,7 @@ Use this page when a Starshine or WebAssembly claim mentions **JavaScript Promis
 
 For beginners: ordinary WebAssembly functions run synchronously once the module has been instantiated. JavaScript Promises are asynchronous. JSPI is the proposal that lets a JavaScript embedding suspend a WebAssembly call while a Promise is pending and resume it later. That is a host/JavaScript API boundary, not a new Starshine WAST keyword, binary section, validator rule, or optimizer pass.
 
-The current source bridge is [`raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md). It rechecked the current WebAssembly proposals tracker, the JSPI proposal repository and overview, the WebAssembly JS API repository, and Starshine's current Node package runtime code.
+The current source set is the [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals), the [JSPI overview](https://github.com/WebAssembly/js-promise-integration/blob/main/proposals/js-promise-integration/Overview.md), the [JSPI repository](https://github.com/WebAssembly/js-promise-integration), and Starshine's current Node package runtime code.
 
 ## Current Status Rule
 
@@ -40,7 +41,7 @@ Treat JSPI as **active Phase 4 proposal evidence** and a **JavaScript embedding 
 - **not Starshine support** unless the Node package or another host adapter explicitly wraps imports with `WebAssembly.Suspending`, adapts exports with `WebAssembly.promising(...)`, and tests the behavior;
 - **not WAST/binary/validator/generator/pass evidence** by itself.
 
-The active proposal tracker can move. Use this focused 2026-06-05 bridge for current JSPI routing and preserve older raw captures as historical evidence rather than silently rewriting them.
+The active proposal tracker can move. Recheck the tracker and JSPI overview before changing status wording; historical ingest records remain in [`log.md`](log.md).
 
 ## What JSPI Means In Practice
 
@@ -106,7 +107,7 @@ Do **not** start by adding a Starshine WAST keyword, binary opcode, validation r
 
 ## Source Map
 
-- Current source bridge: [`raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md)
+- Official JSPI sources: [proposal tracker](https://github.com/WebAssembly/proposals), [repository](https://github.com/WebAssembly/js-promise-integration), and [overview](https://github.com/WebAssembly/js-promise-integration/blob/main/proposals/js-promise-integration/Overview.md)
 - Shared feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - Stack Switching boundary: [`wasm-stack-switching-boundary.md`](wasm-stack-switching-boundary.md)
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)

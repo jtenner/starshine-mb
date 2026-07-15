@@ -6,7 +6,7 @@ sources:
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../custom-descriptors/descriptor-instruction-surface.md
   - ../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
+  - ../wasm-more-array-constructors-boundary.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -222,7 +222,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 - Cross-layer GC boundary: [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
 - Constant-expression reconciliation: [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md), which supersedes the earlier local array-constructor admission claim; see also [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 - Shared-Everything Threads boundary refresh: [`../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md), [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md)
-- More Array Constructors boundary refresh: [`../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md), [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
+- More Array Constructors boundary: [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Custom-descriptor instruction boundary: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.

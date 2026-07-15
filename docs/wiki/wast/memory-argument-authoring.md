@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
+  - ../validate/memory-table-address-widths.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -43,7 +43,7 @@ A WebAssembly memory instruction has two different address components:
 
 It may also have an **alignment hint** and, in multi-memory contexts, a **selected memory index**. Starshine has all of those concepts in the core/binary/validator layers, but its current WAST text lowering only preserves `offset=` and `align=` for ordinary scalar/SIMD load/store memory arguments. Explicit nonzero memory indices in text memory instructions are a known fixture-readiness gap.
 
-The current source set combines the Core multi-memory boundary, memory64/table64 boundary, and address-width validation refreshes with the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. For current multi-memory status and selected-memory layer routing, use the 2026-06-05 Core boundary [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md) and [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md). For current memory64/table64 status, use the 2026-06-05 Core/status bridge [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md); for the detailed positional instruction-width split, use [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md). The living validator matrix is [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
+The current source set combines the Core multi-memory boundary, memory64/table64 boundary, and address-width validation refreshes with the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. For current multi-memory status and selected-memory layer routing, use the 2026-06-05 Core boundary [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md) and [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md). For current memory64/table64 status and the detailed positional instruction-width split, use the living validator matrix [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 ## Mental Model
 
@@ -179,7 +179,7 @@ When changing memory-argument text, binary, or validation behavior:
 ## Sources
 
 - Current multi-memory Core boundary: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
-- Current memory64/table64 Core/status bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
+- Current memory64/table64 Core/status and validator matrix: [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Detailed memory/table address-width validator refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/_download/WebAssembly.pdf>

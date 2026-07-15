@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-06-05-memory-control-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/memory-control
+  - https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/discard.md
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - wasm-custom-page-sizes-boundary.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
@@ -32,7 +34,7 @@ related:
 
 Use this page when a fixture, pass, binary codec change, generator, external-validator disagreement, or proposal-status claim mentions **Memory Control**, `memory.discard`, memory decommit/commit, memory protection, mappable memory, virtual memory mode, or BYOB host memory. These are not the same as Starshine's current memory instruction support.
 
-The current source bridge is [`raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](raw/wasm/2026-06-05-memory-control-boundary-refresh.md). It rechecked the official WebAssembly proposals tracker, the Memory Control proposal repository, the proposal overview, the focused `memory.discard` sub-proposal, and current Starshine memory instruction sources.
+The current source set is the [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals), the [Memory Control repository](https://github.com/WebAssembly/memory-control), its [overview](https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/Overview.md), the focused [`memory.discard` proposal](https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/discard.md), and current Starshine memory instruction sources.
 
 The durable rule is:
 
@@ -122,7 +124,7 @@ If Memory Control work becomes in scope, land it as a focused implementation sli
 
 ## Sources
 
-- Focused bridge: [`raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](raw/wasm/2026-06-05-memory-control-boundary-refresh.md)
+- Official proposal sources: [tracker](https://github.com/WebAssembly/proposals), [repository](https://github.com/WebAssembly/memory-control), [overview](https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/Overview.md), and [`memory.discard`](https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/discard.md)
 - Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Current memory instruction docs: [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md)
 - Related memory-type boundaries: [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)
