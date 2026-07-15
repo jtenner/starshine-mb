@@ -5294,7 +5294,7 @@ test "flatten recognizes an extend-callextendextend-unreachable try-table suffix
 }
 
 ///|
-test "flatten keeps three rich call arguments gated" {
+test "flatten keeps a three-rich call gated when one opcode is outside the roster" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -5308,7 +5308,7 @@ test "flatten keeps three rich call arguments gated" {
   )
   let unary_input = @ir.hot_build_const_i32(func, @lib.I32(11))
   let unary = @ir.hot_build_unary(func, @lib.ValType::i32(), unary_input)
-  @ir.hot_node_exact_instr_set(func, unary, @lib.Instruction::i32_clz())
+  @ir.hot_node_exact_instr_set(func, unary, @lib.Instruction::i32_ctz())
   let conversion_input = @ir.hot_build_const_i32(func, @lib.I32(12))
   let conversion = @ir.hot_build_convert(
     func,

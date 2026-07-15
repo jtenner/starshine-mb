@@ -1192,7 +1192,7 @@ fn flatten_try_table_dead_suffix_call_one_rich_argument_nodes(
 }
 
 ///|
-fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
+fn flatten_try_table_dead_suffix_call_rich_argument_vector_nodes(
   func : @ir.HotFunc,
   call_id : Int,
 ) -> Array[Int]? {
@@ -1222,34 +1222,8 @@ fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
     }
     nodes.push(argument_id)
   }
-  if rich_ids.length() != 2 {
+  if rich_ids.length() < 2 {
     return None
-  }
-  let first_id = rich_ids[0]
-  let second_id = rich_ids[1]
-  match
-    (@ir.hot_node_get(func, first_id).op, @ir.hot_node_get(func, second_id).op) {
-    (@ir.HotOp::Binary, @ir.HotOp::Unary)
-    | (@ir.HotOp::Unary, @ir.HotOp::Binary)
-    | (@ir.HotOp::Binary, @ir.HotOp::Convert)
-    | (@ir.HotOp::Convert, @ir.HotOp::Binary)
-    | (@ir.HotOp::Unary, @ir.HotOp::Unary)
-    | (@ir.HotOp::Unary, @ir.HotOp::Convert)
-    | (@ir.HotOp::Convert, @ir.HotOp::Unary)
-    | (@ir.HotOp::Convert, @ir.HotOp::Convert) => ()
-    (@ir.HotOp::Binary, @ir.HotOp::Binary) =>
-      match
-        (
-          @ir.hot_node_exact_instr(func, first_id),
-          @ir.hot_node_exact_instr(func, second_id),
-        ) {
-        (Some(@lib.I32Add), Some(@lib.I32Add))
-        | (Some(@lib.I32Add), Some(@lib.I32DivS))
-        | (Some(@lib.I32DivS), Some(@lib.I32Add))
-        | (Some(@lib.I32DivS), Some(@lib.I32DivS)) => ()
-        _ => return None
-      }
-    _ => return None
   }
   for argument_id in rich_ids {
     match @ir.hot_node_get(func, argument_id).op {
@@ -1353,7 +1327,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
         None => ()
       }
       match
-        flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
+        flatten_try_table_dead_suffix_call_rich_argument_vector_nodes(
           func, root_id,
         ) {
         Some(nodes) => return Some(nodes)
@@ -1897,7 +1871,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
         is Some(_) {
         return true
       }
-      if flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
+      if flatten_try_table_dead_suffix_call_rich_argument_vector_nodes(
           func, root_id,
         )
         is Some(_) {

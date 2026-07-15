@@ -18196,6 +18196,111 @@ test "flatten removes an add-callclzconstextendconst-divzero suffix sequence aft
 }
 
 ///|
+test "flatten removes an interleaved four-rich call suffix after a scalar legacy try table" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(27))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let division = flatten_test_build_owned_binary_drop_root(
+    func,
+    @lib.Instruction::i32_div_s(),
+    20,
+    0,
+  )
+  let add = flatten_test_build_owned_binary_drop_root(
+    func,
+    @lib.Instruction::i32_add(),
+    22,
+    23,
+  )
+  let clz = flatten_test_build_owned_unary_drop_root(
+    func,
+    @lib.Instruction::i32_clz(),
+    24,
+    i32_type,
+    false,
+  )
+  let conversion = flatten_test_build_owned_unary_drop_root(
+    func,
+    @lib.Instruction::i64_extend_i32s(),
+    25,
+    @lib.ValType::i64(),
+    true,
+  )
+  let arguments : Array[Int] = [
+    division[1],
+    @ir.hot_build_const_i64(func, @lib.I64(21L)),
+    add[1],
+    clz[1],
+    @ir.hot_build_const_i32(func, @lib.I32(26)),
+    conversion[1],
+  ]
+  let call = @ir.hot_build_call(func, 99, [], arguments)
+  let dead_unreachable = @ir.hot_build_unreachable(func)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch_id,
+    call,
+    dead_unreachable,
+  ])
+  @ir.hot_delete_node(func, body_fallback)
+  for rich in [division, add, clz, conversion] {
+    @ir.hot_delete_node(func, rich[0])
+  }
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let owned_nodes : Array[Int] = [call, dead_unreachable]
+  for argument in arguments {
+    owned_nodes.push(argument)
+  }
+  for rich in [division, add, clz, conversion] {
+    for node_idx = 2; node_idx < rich.length(); node_idx = node_idx + 1 {
+      owned_nodes.push(rich[node_idx])
+    }
+  }
+  for node_id in owned_nodes {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      body_ref,
+      @ir.hot_region_root_count(func, body_ref) - 1,
+    ),
+    branch_id,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected four-rich call suffix to verify, got \{err}")
+  }
+}
+
+///|
 fn flatten_test_remove_sequence_with_binary_and_constant_arguments(
   rich_first : Bool,
 ) -> Unit raise {
