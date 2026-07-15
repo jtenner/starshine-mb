@@ -2277,7 +2277,11 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
           return false
         }
         if flatten_multivalue_tuple_branch_payload_values(
-            func, node_id, child_count, result_types,
+            func,
+            node_id,
+            child_count,
+            result_types,
+            state~,
           )
           is Some(_) {
           continue
@@ -2344,6 +2348,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
             node_id,
             result_types.length(),
             result_types,
+            state~,
           )
           is Some(_) {
           continue
@@ -2947,7 +2952,11 @@ fn flatten_loop_backedge_payloads_are_supported(
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Br | @ir.HotOp::BrTable =>
       if flatten_multivalue_tuple_branch_payload_values(
-          func, node_id, payload_count, param_types,
+          func,
+          node_id,
+          payload_count,
+          param_types,
+          state~,
         )
         is Some(_) {
         return true
@@ -4499,6 +4508,7 @@ fn flatten_multivalue_tuple_branch_payload_values(
   branch_id : Int,
   payload_count : Int,
   target_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   if payload_count <= 1 || target_types.length() != payload_count {
     return None
@@ -4518,33 +4528,15 @@ fn flatten_multivalue_tuple_branch_payload_values(
     @ir.hot_child_count(func, tuple_id) != payload_count {
     return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
-  if sites.length() != payload_count {
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
+  }
+  if @ir.hot_node_use_count(use_counts, tuple_id) != payload_count {
     return None
-  }
-  let seen_slots : Array[Bool] = []
-  for slot = 0; slot < payload_count; slot = slot + 1 {
-    seen_slots.push(false)
-  }
-  for site in sites {
-    match site.kind {
-      @ir.HotUseSlotKind::ChildUseSlot => ()
-      _ => return None
-    }
-    if site.user != branch_id ||
-      site.slot < 0 ||
-      site.slot >= payload_count ||
-      seen_slots[site.slot] {
-      return None
-    }
-    seen_slots[site.slot] = true
   }
   let values : Array[Int] = []
   for slot = 0; slot < payload_count; slot = slot + 1 {
-    if !seen_slots[slot] {
-      return None
-    }
     let value_id = @ir.hot_child_get(func, tuple_id, slot)
     let value_types = @ir.hot_type_results(
       func,
@@ -4562,10 +4554,31 @@ fn flatten_multivalue_tuple_branch_payload_values(
 }
 
 ///|
+fn flatten_rewrite_multivalue_tuple_branch_payload_values(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  branch_id : Int,
+  payload_count : Int,
+  target_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if !state.rewrites_started {
+    return None
+  }
+  flatten_multivalue_tuple_branch_payload_values(
+    func,
+    branch_id,
+    payload_count,
+    target_types,
+    state=Some(state),
+  )
+}
+
+///|
 fn flatten_br_table_payload_types(
   func : @ir.HotFunc,
   table_id : Int,
   payload_count : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Array[@lib.ValType]? {
   if payload_count <= 0 {
     return None
@@ -4595,7 +4608,11 @@ fn flatten_br_table_payload_types(
   }
   if expected_types.length() == payload_count &&
     flatten_multivalue_tuple_branch_payload_values(
-      func, table_id, payload_count, expected_types,
+      func,
+      table_id,
+      payload_count,
+      expected_types,
+      state~,
     )
     is Some(_) {
     return Some(expected_types)
@@ -4751,6 +4768,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
             branch_id,
             target_types.length(),
             target_types,
+            state~,
           )
           is None {
           for slot = 0; slot < target_types.length(); slot = slot + 1 {
@@ -4843,6 +4861,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
             branch_id,
             target_types.length(),
             target_types,
+            state~,
           )
           is None {
           for slot = 0; slot < target_types.length(); slot = slot + 1 {
@@ -4937,8 +4956,8 @@ fn flatten_try_route_br(
           None => return false
         }
       }
-      let tuple_values = flatten_multivalue_tuple_branch_payload_values(
-        func, node_id, child_count, param_types,
+      let tuple_values = flatten_rewrite_multivalue_tuple_branch_payload_values(
+        func, state, node_id, child_count, param_types,
       )
       if tuple_values is None {
         for slot = 0; slot < child_count; slot = slot + 1 {
@@ -5002,8 +5021,8 @@ fn flatten_try_route_br(
       Some(locals) => locals
       None => return false
     }
-    let tuple_values = flatten_multivalue_tuple_branch_payload_values(
-      func, node_id, child_count, target_types,
+    let tuple_values = flatten_rewrite_multivalue_tuple_branch_payload_values(
+      func, state, node_id, child_count, target_types,
     )
     for slot = 0; slot < child_count; slot = slot + 1 {
       let payload_id = match tuple_values {
@@ -5460,6 +5479,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
     table_id,
     payload_types.length(),
     payload_types,
+    state~,
   )
   if tuple_values is None || targets.length() <= 1 {
     return true
@@ -5510,12 +5530,17 @@ fn flatten_try_route_br_table(
   }
   let payload_count = child_count - 1
   let payload_types = match
-    flatten_br_table_payload_types(func, node_id, payload_count) {
+    flatten_br_table_payload_types(
+      func,
+      node_id,
+      payload_count,
+      state=Some(state),
+    ) {
     Some(payload_types) => payload_types
     None => return false
   }
-  let tuple_values = flatten_multivalue_tuple_branch_payload_values(
-    func, node_id, payload_count, payload_types,
+  let tuple_values = flatten_rewrite_multivalue_tuple_branch_payload_values(
+    func, state, node_id, payload_count, payload_types,
   )
   let targets = flatten_unique_br_table_targets(func, branch.imm0)
   if targets.length() == 0 {
@@ -6291,7 +6316,11 @@ fn flatten_has_deferred_rich_branch_payload(
             )
         }
         if flatten_multivalue_tuple_branch_payload_values(
-            func, node_id, child_count, target_types,
+            func,
+            node_id,
+            child_count,
+            target_types,
+            state~,
           )
           is None {
           for slot = 0; slot < child_count; slot = slot + 1 {
@@ -6386,7 +6415,7 @@ fn flatten_has_deferred_rich_branch_payload(
         }
         let payload_count = child_count - 1
         let payload_types = match
-          flatten_br_table_payload_types(func, node_id, payload_count) {
+          flatten_br_table_payload_types(func, node_id, payload_count, state~) {
           Some(payload_types) => payload_types
           None => return true
         }

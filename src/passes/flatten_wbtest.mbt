@@ -6438,6 +6438,58 @@ test "flatten rewrite tuple loop entry proof uses pre-mutation ownership counts"
 }
 
 ///|
+test "flatten rewrite tuple branch payload proof uses pre-mutation ownership counts" {
+  let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i64(func, @lib.I64(9L)),
+  ])
+  let branch_id = @ir.hot_build_br(
+    func,
+    @ir.hot_control_node_label(func, block_id),
+    values=[tuple_id, tuple_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    branch_id,
+  ])
+  @ir.hot_root_append(func, block_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_tuple_branch_payload_values(
+      func,
+      branch_id,
+      result_types.length(),
+      result_types,
+      state=Some(state),
+    )
+    is Some(_),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, tuple_id))
+  assert_true(
+    flatten_multivalue_tuple_branch_payload_values(
+      func,
+      branch_id,
+      result_types.length(),
+      result_types,
+    )
+    is None,
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_multivalue_tuple_branch_payload_values(
+      func,
+      state,
+      branch_id,
+      result_types.length(),
+      result_types,
+    )
+    is Some(_),
+  )
+}
+
+///|
 test "flatten rewrite scalar try flow uses pre-mutation ownership counts" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
