@@ -19218,3 +19218,38 @@ test "DAEO post-component profitability proves a strict selected-function encodi
     Some(false),
   )
 }
+
+///|
+test "DAEO post-component vacuum rotates an outer branch-only if into br_if" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.set 3
+    #|    local.get 3
+    #|    drop
+    #|    nop
+    #|    block
+    #|      local.get 0
+    #|      if
+    #|        br 1
+    #|      else
+    #|        local.get 1
+    #|        drop
+    #|      end
+    #|    end
+    #|    i32.const 7))
+  let original = pass_test_module_from_wat(source)
+  let cleaned = run_hot_pipeline_apply_dae_post_component_cleanup(
+    original,
+    [0],
+    HotPipelineOptions::new(),
+  )
+  let pretty = cleaned.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("if (Void)"), msg=pretty)
+}

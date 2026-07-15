@@ -60641,6 +60641,120 @@ fn run_hot_pipeline_dae_clone_cleanup_defs(
 }
 
 ///|
+fn run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        rewrite_count = rewrite_count + nested_count
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+        rewrite_count = rewrite_count + nested_count
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+          body,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_count
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+          then_body,
+        )
+        rewrite_count = rewrite_count + then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+              body,
+            )
+            rewrite_count = rewrite_count + else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        match (block_type, next_then) {
+          (@lib.VoidBlockType, [@lib.Br(label)]) if run_hot_pipeline_raw_vacuum_label_depth(
+              label,
+            ) >
+            0 => {
+            rewritten.push(
+              @lib.Instruction::br_if(
+                run_hot_pipeline_raw_vacuum_rebase_outer_label(label, 0),
+              ),
+            )
+            match next_else {
+              Some(body) => {
+                let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
+                  body, 0,
+                )
+                for else_instr in rebased {
+                  rewritten.push(else_instr)
+                }
+              }
+              None => ()
+            }
+            rewrite_count = rewrite_count + 1
+          }
+          _ =>
+            rewritten.push(
+              @lib.Instruction::if_(block_type, next_then, next_else),
+            )
+        }
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_rotate_selected_branch_only_ifs(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> (@lib.Module, Int) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, 0)
+  }
+  let func = match funcs.get(def_idx) {
+    Some(func) => func
+    None => return (mod_, 0)
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (next_body, rewrite_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
+    body,
+  )
+  if rewrite_count == 0 {
+    return (mod_, 0)
+  }
+  let next_funcs = funcs.copy()
+  next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+  (mod_.with_code_sec(@lib.CodeSec::new(next_funcs)), rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_apply_dae_post_component_cleanup(
   mod_ : @lib.Module,
   defs : Array[Int],
@@ -60682,10 +60796,13 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
   let mut current = mod_
   let coalesce_only_defs : Array[Int] = []
   let vacuum_defs : Array[Int] = []
+  let branch_if_defs : Array[Int] = []
   let coalesce_rolled_back_defs : Array[Int] = []
   let vacuum_rolled_back_defs : Array[Int] = []
+  let branch_if_rolled_back_defs : Array[Int] = []
   let coalesce_non_improving_defs : Array[Int] = []
   let vacuum_non_improving_defs : Array[Int] = []
+  let branch_if_non_improving_defs : Array[Int] = []
   let small_local_defs : Array[Int] = []
   for def_idx in defs {
     let @lib.Func(locals, _) = funcs[def_idx]
@@ -60751,19 +60868,58 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
         current, retained_vacuumed, def_idx,
       ) {
-      Some(true) => {
-        current = retained_vacuumed
-        vacuum_defs.push(def_idx)
-      }
+      Some(true) => current = retained_vacuumed
       Some(false) => {
         coalesce_only_defs.push(def_idx)
         vacuum_non_improving_defs.push(def_idx)
+        continue
       }
       None => {
         coalesce_only_defs.push(def_idx)
         vacuum_rolled_back_defs.push(def_idx)
+        continue
       }
     }
+    let (rotated, rotated_count) = run_hot_pipeline_dae_rotate_selected_branch_only_ifs(
+      current, def_idx,
+    )
+    if rotated_count == 0 {
+      vacuum_defs.push(def_idx)
+      continue
+    }
+    let (retained_rotated, rotated_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      current, rotated, def_idx,
+    )
+    if !rotated_valid {
+      vacuum_defs.push(def_idx)
+      branch_if_rolled_back_defs.push(def_idx)
+      continue
+    }
+    match
+      run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+        current, retained_rotated, def_idx,
+      ) {
+      Some(true) => {
+        current = retained_rotated
+        branch_if_defs.push(def_idx)
+      }
+      Some(false) => {
+        vacuum_defs.push(def_idx)
+        branch_if_non_improving_defs.push(def_idx)
+      }
+      None => {
+        vacuum_defs.push(def_idx)
+        branch_if_rolled_back_defs.push(def_idx)
+      }
+    }
+  }
+  if branch_if_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{branch_if_defs.to_string()} passes=[coalesce-locals, vacuum, branch-only-if-to-br-if]",
+    )
   }
   if vacuum_defs.length() > 0 {
     pipeline_trace_hook(
@@ -60797,6 +60953,14 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       payload="reason=vacuum-validation-pass-or-encode defs=\{vacuum_rolled_back_defs.to_string()}",
     )
   }
+  if branch_if_rolled_back_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-rollback",
+      payload="reason=branch-only-if-validation-or-encode defs=\{branch_if_rolled_back_defs.to_string()}",
+    )
+  }
   if coalesce_non_improving_defs.length() > 0 {
     pipeline_trace_hook(
       options.trace,
@@ -60811,6 +60975,14 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       "dae-optimizing",
       "post-component-cleanup-skip",
       payload="reason=non-improving-vacuum-encoded-size defs=\{vacuum_non_improving_defs.to_string()}",
+    )
+  }
+  if branch_if_non_improving_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-skip",
+      payload="reason=non-improving-branch-only-if-encoded-size defs=\{branch_if_non_improving_defs.to_string()}",
     )
   }
   if small_local_defs.length() > 0 {
