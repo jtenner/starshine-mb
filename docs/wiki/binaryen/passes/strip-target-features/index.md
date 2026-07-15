@@ -4,7 +4,8 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
-  - ../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
+  - https://webassembly.github.io/spec/core/appendix/custom.html
+  - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
@@ -30,7 +31,7 @@ related:
 
 `strip-target-features` is a public Binaryen pass that removes the module-level target-features metadata from later output. It is **not** a code optimizer and **not** a feature-lowering pass.
 
-The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-07-11 current-main recheck again found no behavior-bearing drift in the reviewed owner, registration, or default-scheduler surface. The 2026-07-10 primary-source recheck in [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) adds the missing payload boundary: `target_features` is a WebAssembly linking-convention custom section whose prefixed feature names are linker compatibility metadata, while Core custom sections remain non-semantic. An opaque-section first Starshine slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression—not feature lowering, Core-validation repair, or a faithful first-class Binaryen representation.
+The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-07-11 current-main recheck again found no behavior-bearing drift in the reviewed owner, registration, or default-scheduler surface. The [WebAssembly linking convention](https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md) establishes the missing payload boundary: `target_features` is a custom section whose prefixed feature names are linker compatibility metadata, while [Core custom sections](https://webassembly.github.io/spec/core/appendix/custom.html) remain non-semantic. An opaque-section first Starshine slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression—not feature lowering, Core-validation repair, or a faithful first-class Binaryen representation.
 
 It is currently **upstream-only** in Starshine:
 
@@ -44,7 +45,7 @@ It is currently **upstream-only** in Starshine:
 A good beginner mental model is:
 
 - WebAssembly binaries may contain custom sections that do not execute as wasm instructions.
-- The WebAssembly linking convention uses the `target_features` custom-section payload to communicate `+` used, `-` disallowed, and `=` required feature names to link-time tooling; Core validation may still ignore that metadata.
+- The WebAssembly linking convention uses the `target_features` custom-section payload to communicate `+` used and `-` disallowed feature names to link-time tooling; Core validation may still ignore that metadata.
 - Binaryen can remember that a module should emit this `target_features` custom section.
 - `strip-target-features` clears Binaryen's module-level “has target-features section” flag.
 - It does **not** rewrite functions, instructions, types, imports, exports, memories, tables, globals, or data.
@@ -114,7 +115,8 @@ For a future Starshine port, add tests in this order:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp>
-- [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
+- Core custom-section appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
+- WebAssembly linking convention: <https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md>
 - [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md)
 - [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)
 - Binaryen `StripTargetFeatures.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StripTargetFeatures.cpp>

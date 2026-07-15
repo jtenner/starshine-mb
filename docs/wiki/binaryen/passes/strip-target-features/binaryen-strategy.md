@@ -4,7 +4,8 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
-  - ../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
+  - https://webassembly.github.io/spec/core/appendix/custom.html
+  - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
 related:
@@ -34,7 +35,7 @@ This corrects the older 2026-04-25 dossier, which incorrectly described the pass
 
 ## Why the pass is module metadata, not instruction rewriting
 
-The target-features section is output metadata. The current WebAssembly linking convention gives that named custom section a prefixed feature-name payload for link-time compatibility; Core WebAssembly itself treats custom-section bytes as non-semantic. Binaryen keeps a module-level flag for whether that metadata should be present. Clearing the flag is enough to make later binary output omit the `target_features` custom section; setting it is the sibling `emit-target-features` behavior. See the 2026-07-10 primary-source recheck in [`../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../../../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md).
+The target-features section is output metadata. The current [WebAssembly linking convention](https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md) gives that named custom section a prefixed feature-name payload for link-time compatibility; [Core WebAssembly](https://webassembly.github.io/spec/core/appendix/custom.html) itself treats custom-section bytes as non-semantic. Binaryen keeps a module-level flag for whether that metadata should be present. Clearing the flag is enough to make later binary output omit the `target_features` custom section; setting it is the sibling `emit-target-features` behavior.
 
 That explains the apparent tension in this pass:
 
@@ -78,4 +79,4 @@ Do not teach `strip-target-features` as any of these:
 
 ## Main caveat
 
-The corrected source-level contract is clear for `version_129` and the 2026-07-11 current-main reread. The 2026-07-10 recheck also records the current linking-convention payload boundary, but it does **not** make Starshine a parser or validator for that payload. Treat the 2026-07-10 note as the current Core/linking/Binaryen freshness layer, keep the 2026-04-26 module-state correction, and treat the 2026-04-25 `emitTargetFeatures` wording plus the too-literal 2026-04-26 “owner file returns true” wording as superseded.
+The corrected source-level contract is clear for `version_129` and the 2026-07-11 current-main reread. The current Core/linking sources establish the payload boundary, but they do **not** make Starshine a parser or validator for that payload. Keep the 2026-04-26 module-state correction, and treat the 2026-04-25 `emitTargetFeatures` wording plus the too-literal 2026-04-26 “owner file returns true” wording as superseded.

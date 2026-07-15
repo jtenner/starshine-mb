@@ -35,6 +35,6 @@ A table64 `return_call_indirect` likewise needs an `i64` table-element index und
 
 ## Supersession and limits
 
-- This capture supersedes the **incomplete result-matching and table64 wording** in [`2026-07-10-tail-call-core3-component-date-recheck.md`](2026-07-10-tail-call-core3-component-date-recheck.md). That earlier capture remains useful for its local WAST/core/binary/HOT inventory and component-date provenance.
+- This capture supersedes the **incomplete result-matching and table64 wording** in the removed `2026-07-10-tail-call-core3-component-date-recheck.md` capture. That earlier capture remains useful historical provenance for its local WAST/core/binary/HOT inventory and component-date review.
 - The current sources agree on the result/table rules, so this is not an upstream contradiction. The discrepancy was in the living wiki's lack of a validator-divergence ledger row and insufficiently explicit portable-versus-local wording.
 - This note does not implement the widening, establish high-level table64 WAST support, or prove any optimizer transform correct. A future behavior change needs focused validator, WAST/core/binary, generator, and pass-remap tests as applicable.

@@ -5,8 +5,6 @@ last_reviewed: 2026-06-05
 sources:
   - ../../README.md
   - ../../../AGENTS.md
-  - ../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md
-  - ../raw/wiki/2026-06-05-research-serial-and-health-check-routing.md
   - ../index.md
   - ../log.md
 related:
@@ -22,7 +20,7 @@ related:
 
 Use this playbook when doing broad Starshine wiki maintenance: source ingest, page refreshes, stale-reference cleanup, citation repair, schema alignment, and whole-wiki health checks.
 
-This page is deliberately an **operational checklist**, not a second schema. The normative schema remains [`../../README.md`](../../README.md), and the compact repo rules remain [`../../../AGENTS.md`](../../../AGENTS.md). The methodology bridge [`../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md) ties the local workflow back to the LLM Wiki / LLM Wiki v2 pattern and current Starshine policy; the focused serial/health-check bridge [`../raw/wiki/2026-06-05-research-serial-and-health-check-routing.md`](../raw/wiki/2026-06-05-research-serial-and-health-check-routing.md) records the current research-archive placement rule and why historical duplicate serials are provenance rather than cleanup targets.
+This page is deliberately an **operational checklist**, not a second schema. The normative schema remains [`../../README.md`](../../README.md), and the compact repo rules remain [`../../../AGENTS.md`](../../../AGENTS.md). Their wiki schema adopts the LLM Wiki / LLM Wiki v2 raw-source, living-page, and audit-loop model while making the local next-unused research-serial rule explicit: historical duplicate prefixes remain provenance, but new investigations must not reuse them.
 
 ## Mental Model
 

@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
+  - https://webassembly.github.io/spec/core/appendix/custom.html
+  - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
   - ../wasm-compilation-hints-boundary.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../../../src/lib/types.mbt
@@ -42,7 +44,7 @@ For the whole-module placement and ordering map that ties custom metadata to the
 
 The standardized name section is a special custom section named `name`, but the official-versus-local boundary matters. The current WebAssembly 3.0 appendix documents module, function, local, type, field, and tag name subsections. The focused [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md) sharpens the remaining ids: Starshine additionally accepts, validates, and can emit label, table, memory, global, element, and data name maps as proposal-facing/local richer metadata, not current Core 3.0 name-section evidence. Use [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md) for that active Phase-2 proposal boundary.
 
-Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The 2026-07-10 recheck in [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) reconfirms that current Core custom sections remain non-semantic while the separate WebAssembly linking convention gives `target_features` a purpose-specific linker-metadata payload. The retained 2026-07-10 metadata recheck is the current provenance bridge. `producers` is toolchain provenance and must not become an optimizer hint source; `target_features` communicates feature constraints to link-time tooling, but stripping it is not feature lowering or a Core-validation repair.
+Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The [Core custom-section appendix](https://webassembly.github.io/spec/core/appendix/custom.html) keeps custom sections non-semantic, while the separate [WebAssembly linking convention](https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md) gives `target_features` a purpose-specific linker-metadata payload. `producers` is toolchain provenance and must not become an optimizer hint source; `target_features` communicates feature constraints to link-time tooling, but stripping it is not feature lowering or a Core-validation repair.
 
 The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
 
@@ -71,7 +73,7 @@ The phrase **target features** can mislead readers because it sounds like a Core
 custom section name = "target_features"
 payload = vec(feature)
 feature = prefix + feature-name
-prefix = "+" used | "-" disallowed | "=" required
+prefix = "+" used | "-" disallowed
 ```
 
 The convention also distinguishes a compact executable representation from a richer standalone-object representation that can carry multiple feature vectors. Those are **tool/linker** forms, not extra Core module sections or instruction encodings. A Core validator can ignore the custom payload while a linker still uses it as compatibility input; passing one layer does not prove anything about the other.
@@ -85,7 +87,7 @@ This makes the Binaryen and Starshine mapping precise:
 | What stays unchanged? | Feature-using code and all executable semantics. | The same must hold for a narrow deletion pass. |
 | What is still unresolved? | Binaryen owns its feature-output policy. | Whether to preserve, parse, synthesize, validate, or only suppress the payload. |
 
-A future `emit-target-features` port needs more than preserving a decoded payload: it must choose how Starshine derives and serializes feature facts. Until that policy exists, the safe local choices are opaque preservation or explicitly named whole-section suppression. See [`../binaryen/passes/strip-target-features/index.md`](../binaryen/passes/strip-target-features/index.md) for the upstream pass and [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) for the current primary-source boundary.
+A future `emit-target-features` port needs more than preserving a decoded payload: it must choose how Starshine derives and serializes feature facts. Until that policy exists, the safe local choices are opaque preservation or explicitly named whole-section suppression. See [`../binaryen/passes/strip-target-features/index.md`](../binaryen/passes/strip-target-features/index.md) for the upstream pass.
 
 ## Binary Shapes
 
@@ -177,7 +179,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **WAST identifiers are a separate authoring layer.** Starshine currently promotes WAST function/import identifiers into `NameSec.func_names`, but local/type/table/memory/global/tag/element/data identifiers remain source-resolution aids unless a dedicated lowering path creates the corresponding structured name map.
 - **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 - **`producers` is provenance, not policy.** Preserve it by default, but do not read it as an optimizer, feature, or pass-scheduling input.
-- **`target_features` is linker metadata, not lowering.** Its convention payload distinguishes used (`+`), disallowed (`-`), and required (`=`) feature names, but Core validation may ignore the custom bytes. A future `strip-target-features` port may remove or suppress the named metadata section; the executable feature surface must still be lowered, validated, or rejected by the actual instruction/type/section owners, and a future `emit-target-features` port still needs a feature-fact derivation/output policy.
+- **`target_features` is linker metadata, not lowering.** Its convention payload distinguishes used (`+`) and disallowed (`-`) feature names, but Core validation may ignore the custom bytes. A future `strip-target-features` port may remove or suppress the named metadata section; the executable feature surface must still be lowered, validated, or rejected by the actual instruction/type/section owners, and a future `emit-target-features` port still needs a feature-fact derivation/output policy.
 - **`metadata.code.*` names need focused ownership.** Branch hints, Binaryen inline examples, and Compilation Hints proposal payloads share a naming family but have different status and local support. Preserve unknown payloads opaquely unless a named metadata policy owns them.
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
 - **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
@@ -186,7 +188,9 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 ## Sources
 
 - Extended Name Section boundary: [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md)
-- Current target-features / Core-custom metadata recheck: [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
+- Core custom-section appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
+- WebAssembly linking convention: <https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md>
+- Binaryen target-features owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp>
 - Tool-conventions `producers` convention: <https://github.com/WebAssembly/tool-conventions/blob/main/ProducersSection.md>
 - Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) and its cited official proposal sources.
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>

@@ -10,7 +10,7 @@ sources:
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
-  - ../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md
+  - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -203,7 +203,7 @@ This is the main GC-era “sounds pure, still not reusable” rule. Starshine no
 
 ### Relaxed SIMD is an explicit oracle case, not a generic purity rule
 
-Relaxed SIMD has ordinary `v128` stack shapes, but the feature permits host-dependent result sets for some operations while scoping them with a same-environment projection model. Typechecking alone therefore does not settle whether eliminating or merging evaluations preserves its execution semantics. Starshine's repeated relaxed-SIMD-root handling is retained because the local tests and direct Binaryen comparison evidence prove that specific `local-cse` behavior for all 20 locally modeled opcodes. Do **not** generalize that result into a blanket rule that every ordinary-looking relaxed SIMD transformation is safe; require transform-specific formal-semantics and Binaryen evidence. See [`../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md`](../../../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md) and [`../../../wast/simd-authoring.md`](../../../wast/simd-authoring.md).
+Relaxed SIMD has ordinary `v128` stack shapes, but the [proposal overview](https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md) permits host-dependent result sets for some operations while scoping them with a same-environment projection model. Typechecking alone therefore does not settle whether eliminating or merging evaluations preserves its execution semantics. Starshine's repeated relaxed-SIMD-root handling is retained because the local tests and direct Binaryen comparison evidence prove that specific `local-cse` behavior for all 20 locally modeled opcodes. Do **not** generalize that result into a blanket rule that every ordinary-looking relaxed SIMD transformation is safe; require transform-specific formal-semantics and Binaryen evidence. See [`../../../wast/simd-authoring.md`](../../../wast/simd-authoring.md).
 
 ## Barrier family 3: intervening invalidation
 
