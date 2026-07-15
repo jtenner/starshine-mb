@@ -1,13 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
-  - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
   - ../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md
   - ../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md
   - ../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md
@@ -120,6 +119,5 @@ When changing exact reference matching:
 - Current primary-source bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
 - Earlier exactness/source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Type-section/subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md), [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
-- GC/custom-descriptor source snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
 - Archived research docs: [`../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md`](../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md), [`../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md`](../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md), [`../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md`](../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md)
 - Current implementation and tests: [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/match_tests.mbt`](../../../src/validate/match_tests.mbt), [`../../../src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt)

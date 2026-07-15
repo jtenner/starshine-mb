@@ -14,7 +14,6 @@ sources:
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
-  - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt

@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
-  - ../raw/wasm/2026-05-13-module-section-order-sources.md
+  - https://webassembly.github.io/spec/core/binary/modules.html
+  - https://webassembly.github.io/spec/core/syntax/modules.html
+  - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
@@ -66,7 +68,7 @@ Starshine follows those rules in its core module representation and validation e
 | 13 | Code | `10` | `code_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md) | Body count must match defined-function declaration count, body ordinal maps to absolute `FuncIdx(imported_func_count + ordinal)`, and each body encodes only the non-parameter local-run suffix plus an expression terminated on the wire by `end`. |
 | 14 | Data | `11` | `data_sec` | [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) | Active/passive byte payloads for memory initialization and bulk-memory use. |
 
-This table is grounded in the primary-source snapshot [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md) and the local whole-module encode/decode paths in [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt).
+This table is grounded in the official [WebAssembly 3.0 binary-module](https://webassembly.github.io/spec/core/binary/modules.html), [abstract-module](https://webassembly.github.io/spec/core/syntax/modules.html), and [module-validation](https://webassembly.github.io/spec/core/valid/modules.html) pages and in the local whole-module encode/decode paths in [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt).
 
 ## Starshine Encode, Decode, And Validation Flow
 
@@ -140,7 +142,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 
 - Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Compact Import Section boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md), [`../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
-- Primary-source snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
+- Official WebAssembly 3.0 sources: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)

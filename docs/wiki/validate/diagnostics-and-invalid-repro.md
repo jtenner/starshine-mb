@@ -8,7 +8,6 @@ sources:
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
-  - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate/gen_invalid.mbt
@@ -183,7 +182,7 @@ When changing validator diagnostics or invalid repros:
 ## Sources
 
 - Source manifest: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)
-- Validator phase map: [`./module-validation-phases.md`](module-validation-phases.md)
+- Validator phase map and official model: [`./module-validation-phases.md`](module-validation-phases.md), [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Diagnostic implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
 - AST invalid generation: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
 - Binary/text/spec invalid and repro surfaces: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt), [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)

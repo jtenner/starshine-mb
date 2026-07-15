@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
@@ -14,8 +14,10 @@ sources:
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
-  - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
-  - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
+  - https://webassembly.github.io/spec/core/binary/instructions.html
+  - https://webassembly.github.io/spec/core/binary/modules.html
+  - https://webassembly.github.io/spec/core/binary/values.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
@@ -68,7 +70,7 @@ related:
 
 This page is the shared Starshine guide for the byte-level instruction and expression contract inside globals, tables, elements, function bodies, and data/element bulk-memory users. Section-level layout lives in [`module-section-map.md`](module-section-map.md); function/code-section pairing lives in [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md). This page answers the lower-level question: once an expression payload is reached, how do Starshine and the official WebAssembly binary format agree on opcodes, immediates, nesting, and validation responsibilities?
 
-The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md) anchors the external rules. The local Starshine source map in [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md) records the in-repo files that implement and test those rules.
+The official [WebAssembly 3.0 binary instruction](https://webassembly.github.io/spec/core/binary/instructions.html), [module](https://webassembly.github.io/spec/core/binary/modules.html), [value](https://webassembly.github.io/spec/core/binary/values.html), and [instruction-validation](https://webassembly.github.io/spec/core/valid/instructions.html) pages anchor the external rules. The in-repo files cited below implement and test those rules.
 
 The central invariant is a layer split:
 
@@ -236,8 +238,8 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Current SIMD lane-immediate validation refresh: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Original SIMD lane-immediate validation refresh: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
 - LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
-- Official source snapshot: [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md)
-- Local code source map: [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
+- Official WebAssembly 3.0 sources: [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html), [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [binary values](https://webassembly.github.io/spec/core/binary/values.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
+- Local implementation evidence: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), and [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
