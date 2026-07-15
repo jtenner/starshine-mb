@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-15
 sources:
-  - ../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md
-  - ../ir2/cfg-contract.md
+  - https://webassembly.github.io/spec/core/valid/instructions.html
+  - https://webassembly.github.io/spec/core/binary/instructions.html
   - https://webassembly.github.io/spec/core/exec/instructions.html
+  - ../ir2/cfg-contract.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -45,7 +46,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The current-source reconciliation is [`../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md`](../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md). The official WebAssembly 3.0 release and current editor's draft agree that tail-call **results match by subtyping**, not exact equality, and that `return_call_indirect` consumes the selected table's address type (`i32` or table64 `i64`). Starshine currently narrows both rules: `require_return_results(...)` compares result arrays exactly and `typecheck_return_call_indirect(...)` always pops `i32`. Treat those as explicit validator gaps, listed in [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md), rather than portable Wasm rules. The earlier component-date/local-inventory capture is superseded for result/table precision. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md).
+The official [Core validation](https://webassembly.github.io/spec/core/valid/instructions.html) and [binary instruction](https://webassembly.github.io/spec/core/binary/instructions.html) pages establish that tail-call **results match by subtyping**, not exact equality, and that `return_call_indirect` consumes the selected table's address type (`i32` or table64 `i64`). Starshine currently narrows both rules: `require_return_results(...)` compares result arrays exactly and `typecheck_return_call_indirect(...)` always pops `i32`. Treat those as explicit validator gaps, listed in [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md), rather than portable Wasm rules. The earlier component-date/local-inventory capture is superseded for result/table precision. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md).
 
 ## Layer Model
 
@@ -185,7 +186,7 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 
 ## Source Map
 
-- Current Core 3.0 release/editor's-draft result-matching and table64 reconciliation: [`../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md`](../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md)
+- Current Core tail-call validation and binary immediates: [validation instructions](https://webassembly.github.io/spec/core/valid/instructions.html), [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html), and [text instructions](https://webassembly.github.io/spec/core/text/instructions.html)
 - Focused typed-function-reference boundary: [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
 - Current CFG-only tail-call policy: [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
