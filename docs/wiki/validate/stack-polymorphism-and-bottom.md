@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
-  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../../../src/lib/types.mbt
@@ -183,6 +182,5 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 - Original source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
 - Relaxed Dead Code Validation proposal boundary: [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md)
 - Runtime trap source refresh for the execution/host boundary: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
-- Earlier control-flow source manifest: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>
 - Starshine implementation and tests: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

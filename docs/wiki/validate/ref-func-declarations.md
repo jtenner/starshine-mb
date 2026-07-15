@@ -7,7 +7,6 @@ sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
-  - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md

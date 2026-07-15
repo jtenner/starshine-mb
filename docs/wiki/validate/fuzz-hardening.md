@@ -10,7 +10,6 @@ sources:
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
-  - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
   - ../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
   - ../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md

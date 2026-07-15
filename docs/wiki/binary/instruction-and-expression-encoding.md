@@ -18,7 +18,6 @@ sources:
   - https://webassembly.github.io/spec/core/binary/modules.html
   - https://webassembly.github.io/spec/core/binary/values.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
-  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
@@ -26,7 +25,6 @@ sources:
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
   - https://webassembly.github.io/spec/core/valid/instructions.html
-  - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt

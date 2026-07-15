@@ -7,7 +7,6 @@ sources:
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-table-instruction-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
-  - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt

@@ -11,7 +11,6 @@ sources:
   - ../raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
-  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html

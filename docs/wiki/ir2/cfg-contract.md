@@ -8,7 +8,6 @@ sources:
   - https://webassembly.github.io/spec/core/exec/instructions.html
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
-  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/tail-call-authoring.md

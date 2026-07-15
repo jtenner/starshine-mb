@@ -45,6 +45,6 @@
 
 ## Caveats and supersession
 
-- This note supersedes only stale routing/overview wording in `wast/control-flow-authoring.md`; the older [`2026-05-19` control-flow manifest](2026-05-19-wast-control-flow-sources.md) remains the broad source map for the original WAST control-flow page.
+- This note supersedes stale routing and overview wording in `wast/control-flow-authoring.md`; the focused living page and its current source map are canonical.
 - The focused 2026-06-04 reference-call/cast, tail-call, runtime-trap, and static-harness notes remain the stronger sources for their own specialized families. Do not collapse those details back into this ordinary-control refresh.
 - No code or tests changed in this refresh.

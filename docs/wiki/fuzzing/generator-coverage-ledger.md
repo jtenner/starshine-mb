@@ -11,7 +11,6 @@ sources:
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/wast/arbitrary.mbt
-  - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
@@ -24,7 +23,6 @@ sources:
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
-  - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
