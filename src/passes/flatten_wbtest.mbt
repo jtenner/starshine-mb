@@ -5155,13 +5155,13 @@ test "flatten keeps a binary-rich call pair gated when one opcode is outside the
     9,
     10,
   )
-  let bit_or = flatten_test_build_direct_binary(
+  let bit_xor = flatten_test_build_direct_binary(
     func,
-    @lib.Instruction::i32_or(),
+    @lib.Instruction::i32_xor(),
     11,
     12,
   )
-  let call = @ir.hot_build_call(func, 99, [], [first_add[0], bit_or[0]])
+  let call = @ir.hot_build_call(func, 99, [], [first_add[0], bit_xor[0]])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     call,

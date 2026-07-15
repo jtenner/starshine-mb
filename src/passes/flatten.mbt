@@ -223,6 +223,7 @@ priv struct FlattenRewriteState {
   terminal_payloads : Array[Int]
   sequenced_root_holders : Array[Int]
   sequenced_root_nodes : Array[Int]
+  eh_repair_requirement : FlattenEhRepairRequirement
   use_def : @ir.HotUseDef
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
@@ -240,6 +241,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     terminal_payloads: [],
     sequenced_root_holders: [],
     sequenced_root_nodes: [],
+    eh_repair_requirement: flatten_eh_repair_requirement(func),
     use_def: @ir.use_def_build_node_uses(func),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
@@ -1169,6 +1171,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         | Some(@lib.I32Sub)
         | Some(@lib.I32Mul)
         | Some(@lib.I32And)
+        | Some(@lib.I32Or)
         | Some(@lib.I32DivS) => true
         _ => false
       }
@@ -2176,7 +2179,7 @@ fn flatten_multivalue_legacy_try_is_supported(
   }
   let result_types = @ir.hot_type_results(func, try_node.ty)
   if result_types.length() <= 1 ||
-    flatten_legacy_try_has_deferred_eh_repair(func) ||
+    flatten_legacy_try_has_deferred_eh_repair(func, state~) ||
     (
       !flatten_multivalue_control_has_exclusive_consumer_span(func, try_id) &&
       !flatten_multivalue_control_has_exclusive_region_tail_span(func, try_id)
@@ -3464,8 +3467,15 @@ fn flatten_try_route_scalar_loop(
 }
 
 ///|
-fn flatten_legacy_try_has_deferred_eh_repair(func : @ir.HotFunc) -> Bool {
-  !flatten_eh_repair_requirement(func).is_clear()
+fn flatten_legacy_try_has_deferred_eh_repair(
+  func : @ir.HotFunc,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  let requirement = match state {
+    Some(state) => state.eh_repair_requirement
+    None => flatten_eh_repair_requirement(func)
+  }
+  !requirement.is_clear()
 }
 
 ///|
@@ -3482,7 +3492,7 @@ fn flatten_scalar_legacy_try_is_supported(
   let result_types = @ir.hot_type_results(func, try_node.ty)
   if result_types.length() != 1 ||
     !flatten_value_type_is_defaultable(result_types[0]) ||
-    flatten_legacy_try_has_deferred_eh_repair(func) {
+    flatten_legacy_try_has_deferred_eh_repair(func, state~) {
     return false
   }
   let label_id = @ir.hot_control_node_label(func, try_id)
@@ -3795,7 +3805,7 @@ fn flatten_target_can_route_scalar_branches(
     }
     let tail_id = match owner.op {
       @ir.HotOp::Try =>
-        flatten_try_region_effective_terminal_id(func, target_region)
+        flatten_try_region_effective_terminal_id(func, target_region, state~)
       _ => @ir.hot_region_get(func, target_region, root_count - 1)
     }
     if @ir.hot_node_result_arity(func, tail_id) != 1 &&

@@ -90,9 +90,10 @@ The representative native release benchmark prebuilt 120 HOT functions, evenly s
 | --- | ---: | ---: | ---: |
 | prior current | 3,682.5 us | 3,529..3,765 us | 13.84x |
 | run-wide cached current | 2,345.5 us | 2,248..2,660 us | 8.82x |
+| cached EH/effective-terminal current | 1,641 us | 1,583..1,813 us | 6.17x |
 | Binaryen v130 | 266.05 us | 250.16..380.856 us | 1.00x |
 
-Run-wide caching improves the prior current median by 36.31%. It is still about 4.41 times slower than the maximum acceptable `2x Binaryen` threshold, so performance remains a public-exposure blocker.
+The follow-up profile attributed most measured time to repeated legacy-try support during rewrite. `FlattenRewriteState` now caches the immutable pre-admission EH prerequisite classification, and try-target terminal checks consume the existing cached suffix proof instead of rebuilding an uncached use-def snapshot. The representative median improves another 30.04% from `2,345.5 us` to `1,641 us`, but is still about 3.08 times slower than the maximum acceptable `2x Binaryen` threshold, so performance remains a public-exposure blocker.
 
 ## Validation
 
@@ -105,11 +106,13 @@ Run-wide caching improves the prior current median by 36.31%. It is still about 
 - Every regenerated matrix artifact validated with all features.
 - `git diff --check` and docs link/source review are required before commit.
 
+Follow-up proof-cache validation: direct `i32.or` behavior was red at `240/241` and green at `241/241`; private flatten passed `142/142`, the pass package passed `5,713/5,713`, and `moon info` passed with the existing warnings.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix caching reduces the representative median by 36.31%, but remains `8.82x` Binaryen and outside target.
-- **Behavior movement:** direct `i32.mul` and `i32.and` call roots now use the same recursive complete-ownership proof.
+- **Performance movement:** run-wide suffix caching plus cached EH/effective-terminal proofs reduce the representative median from `3,682.5 us` to `1,641 us`; current remains `6.17x` Binaryen and outside target.
+- **Behavior movement:** direct `i32.mul`, `i32.and`, and `i32.or` call roots now use the same recursive complete-ownership proof.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
 - **Still gated:** typed catches and payloads, nested-pop repair, `rethrow`, `delegate`, structured suffix control-plus-label deletion, broader branch/control families, result calls, indirect/reference calls, and public execution.
@@ -117,6 +120,6 @@ Run-wide caching improves the prior current median by 36.31%. It is still about 
 
 ## Next work
 
-1. profile the remaining admission and support scans now that suffix ownership is run-wide, then remove one source-backed repeated whole-function scan without weakening exact label/use proofs;
+1. profile and remove the next dominant repeated support/label-use scan without weakening exact label or ownership proof;
 2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
 3. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.
