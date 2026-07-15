@@ -4624,7 +4624,145 @@ test "flatten recognizes an extend-tworichsub-and try-table suffix sequence" {
 }
 
 ///|
-test "flatten keeps a sequence with a deeper two-rich-child root unsupported" {
+fn flatten_wbtest_build_deeper_two_multiply_children_drop(
+  func : @ir.HotFunc,
+  subtract_tree : Bool,
+  base : Int,
+) -> Array[Int] {
+  let rich = flatten_wbtest_build_two_multiply_children_drop(
+    func,
+    if subtract_tree {
+      @lib.Instruction::i32_sub()
+    } else {
+      @lib.Instruction::i32_add()
+    },
+    base,
+  )
+  let constant = @ir.hot_build_const_i32(func, @lib.I32(base + 4))
+  let outer = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    if subtract_tree {
+      constant
+    } else {
+      rich[1]
+    },
+    if subtract_tree {
+      rich[1]
+    } else {
+      constant
+    },
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    outer,
+    if subtract_tree {
+      @lib.Instruction::i32_sub()
+    } else {
+      @lib.Instruction::i32_add()
+    },
+  )
+  [
+    @ir.hot_build_drop(func, outer),
+    outer,
+    if subtract_tree {
+      constant
+    } else {
+      rich[1]
+    },
+    if subtract_tree {
+      rich[1]
+    } else {
+      constant
+    },
+    rich[2],
+    rich[3],
+    rich[4],
+    rich[5],
+    rich[6],
+    rich[7],
+  ]
+}
+
+///|
+fn flatten_wbtest_recognize_sequence_with_deeper_two_multiply_children_drop(
+  subtract_tree : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let roots = if subtract_tree {
+    [
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        9,
+        @lib.ValType::i64(),
+        true,
+      ),
+      flatten_wbtest_build_deeper_two_multiply_children_drop(func, true, 10),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_div_s(),
+        16,
+        0,
+      ),
+    ]
+  } else {
+    [
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_and(),
+        9,
+        10,
+      ),
+      flatten_wbtest_build_deeper_two_multiply_children_drop(func, false, 11),
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i32_clz(),
+        16,
+        @lib.ValType::i32(),
+        false,
+      ),
+    ]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in roots {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an and-deepadd-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_deeper_two_multiply_children_drop(
+    false,
+  )
+}
+
+///|
+test "flatten recognizes an extend-deepsub-divzero try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_deeper_two_multiply_children_drop(true)
+}
+
+///|
+test "flatten keeps a sequence with an alternate deeper two-rich-child root unsupported" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -4648,7 +4786,7 @@ test "flatten keeps a sequence with a deeper two-rich-child root unsupported" {
     rich[1],
     outer_const,
   )
-  @ir.hot_node_exact_instr_set(func, deeper, @lib.Instruction::i32_add())
+  @ir.hot_node_exact_instr_set(func, deeper, @lib.Instruction::i32_mul())
   @ir.hot_delete_node(func, rich[0])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,

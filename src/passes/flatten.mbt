@@ -972,6 +972,93 @@ fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
+  func : @ir.HotFunc,
+  root_id : Int,
+  value_id : Int,
+  left_id : Int,
+  right_id : Int,
+) -> Array[Int]? {
+  let instr = match @ir.hot_node_exact_instr(func, value_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  let rich_id = match instr {
+    @lib.I32Add =>
+      match
+        (
+          @ir.hot_node_get(func, left_id).op,
+          @ir.hot_node_get(func, right_id).op,
+        ) {
+        (@ir.HotOp::Binary, @ir.HotOp::Const) => left_id
+        _ => return None
+      }
+    @lib.I32Sub =>
+      match
+        (
+          @ir.hot_node_get(func, left_id).op,
+          @ir.hot_node_get(func, right_id).op,
+        ) {
+        (@ir.HotOp::Const, @ir.HotOp::Binary) => right_id
+        _ => return None
+      }
+    _ => return None
+  }
+  if @ir.hot_node_exact_instr(func, rich_id) != Some(instr) ||
+    @ir.hot_child_count(func, rich_id) != 2 {
+    return None
+  }
+  let rich_left = @ir.hot_child_get(func, rich_id, 0)
+  let rich_right = @ir.hot_child_get(func, rich_id, 1)
+  for multiply_id in [rich_left, rich_right] {
+    match @ir.hot_node_get(func, multiply_id).op {
+      @ir.HotOp::Binary => ()
+      _ => return None
+    }
+    if @ir.hot_node_exact_instr(func, multiply_id) !=
+      Some(@lib.Instruction::i32_mul()) ||
+      @ir.hot_child_count(func, multiply_id) != 2 {
+      return None
+    }
+  }
+  let left_multiply_left = @ir.hot_child_get(func, rich_left, 0)
+  let left_multiply_right = @ir.hot_child_get(func, rich_left, 1)
+  let right_multiply_left = @ir.hot_child_get(func, rich_right, 0)
+  let right_multiply_right = @ir.hot_child_get(func, rich_right, 1)
+  let nested_nodes = [
+    root_id, value_id, left_id, right_id, rich_left, rich_right, left_multiply_left,
+    left_multiply_right, right_multiply_left, right_multiply_right,
+  ]
+  for outer = 0; outer < nested_nodes.length(); outer = outer + 1 {
+    for inner = outer + 1; inner < nested_nodes.length(); inner = inner + 1 {
+      if nested_nodes[outer] == nested_nodes[inner] {
+        return None
+      }
+    }
+  }
+  for
+    leaf_id in [
+      left_multiply_left, left_multiply_right, right_multiply_left, right_multiply_right,
+    ] {
+    match @ir.hot_node_get(func, leaf_id).op {
+      @ir.HotOp::Const => ()
+      _ => return None
+    }
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  for
+    owned_id in [
+      left_id, right_id, rich_left, rich_right, left_multiply_left, left_multiply_right,
+      right_multiply_left, right_multiply_right,
+    ] {
+    if @ir.node_use_count(use_def, owned_id) != 1 {
+      return None
+    }
+  }
+  Some(nested_nodes)
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   root_id : Int,
@@ -1125,7 +1212,14 @@ fn flatten_try_table_dead_suffix_root_nodes(
             return None
           }
           match instr {
-            @lib.I32Add | @lib.I32Sub =>
+            @lib.I32Add | @lib.I32Sub => {
+              match
+                flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
+                  func, root_id, value_id, left_id, right_id,
+                ) {
+                Some(nodes) => return Some(nodes)
+                None => ()
+              }
               match
                 flatten_try_table_dead_suffix_two_multiply_children_nodes(
                   func, root_id, value_id, left_id, right_id,
@@ -1133,6 +1227,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
                 Some(nodes) => return Some(nodes)
                 None => ()
               }
+            }
             _ => ()
           }
           match instr {
@@ -1338,6 +1433,36 @@ fn flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Binary => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, value_id) != 2 {
+    return false
+  }
+  flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
+    func,
+    root_id,
+    value_id,
+    @ir.hot_child_get(func, value_id, 0),
+    @ir.hot_child_get(func, value_id, 1),
+  )
+  is Some(_)
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
   func : @ir.HotFunc,
   root_id : Int,
@@ -1457,6 +1582,9 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
     flatten_try_table_dead_suffix_root_direct_i32_binary_instr(func, root_id)
     is Some(_) ||
     flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(func, root_id) ||
+    flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
+      func, root_id,
+    ) ||
     flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
       func, root_id,
     ) {
