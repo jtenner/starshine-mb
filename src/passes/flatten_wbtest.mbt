@@ -323,9 +323,12 @@ test "flatten admits exclusively tuple-made try-to-loop table preflight" {
   assert_true(flatten_multivalue_legacy_try_is_supported(func, try_id))
   assert_true(flatten_inputful_loop_is_supported(func, loop_id))
   assert_true(
-    flatten_tuple_mixed_try_table_is_supported(func, table_id, result_types, [
-      try_label, loop_label,
-    ]),
+    flatten_tuple_mixed_try_table_is_supported(
+      func,
+      table_id,
+      result_types,
+      flatten_br_table_targets(func, @ir.hot_node_get(func, table_id).imm0).unwrap(),
+    ),
   )
   match flatten_run_admission(func, flatten_classify_hot(func)) {
     FlattenRunAdmission::Admitted => ()
@@ -6396,17 +6399,21 @@ test "flatten resolves each br_table target local vector once" {
   )
   let state = FlattenRewriteState::new(func)
   state.rewrites_started = true
+  let target_view = FlattenBrTableTargets::new(targets, 0, targets.length())
   let local_count = @ir.hot_local_count(func)
-  let first = flatten_rewrite_br_table_target_locals(
-    func, state, targets, target_types,
-  ).unwrap()
+  assert_true(
+    flatten_prepare_br_table_target_locals(
+      func, state, target_view, target_types,
+    ),
+  )
   @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
-  @debug.assert_eq(first[0], state.label_temps[targets[0]])
-  @debug.assert_eq(first[1], state.label_temps[targets[1]])
-  let second = flatten_rewrite_br_table_target_locals(
-    func, state, targets, target_types,
-  ).unwrap()
-  @debug.assert_eq(second, first)
+  @debug.assert_eq(state.label_temps[targets[0]].length(), 2)
+  @debug.assert_eq(state.label_temps[targets[1]].length(), 2)
+  assert_true(
+    flatten_prepare_br_table_target_locals(
+      func, state, target_view, target_types,
+    ),
+  )
   @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
 }
 
@@ -6432,23 +6439,30 @@ test "flatten single-target table stages in the exact target vector" {
   )
   let state = FlattenRewriteState::new(func)
   state.rewrites_started = true
-  let target_locals = flatten_rewrite_br_table_target_locals(
-    func, state, targets, target_types,
-  ).unwrap()
+  let target_view = FlattenBrTableTargets::new(targets, 0, targets.length())
+  assert_true(
+    flatten_prepare_br_table_target_locals(
+      func, state, target_view, target_types,
+    ),
+  )
+  let first_target_locals = state.label_temps[targets[0]]
+  let second_target_locals = state.label_temps[targets[1]]
   let local_count = @ir.hot_local_count(func)
+  let single_targets = [targets[0]]
   let single = flatten_br_table_staging_locals(
     func,
-    [target_locals[0]],
+    state,
+    FlattenBrTableTargets::new(single_targets, 0, 1),
     target_types,
   )
-  @debug.assert_eq(single, target_locals[0])
+  @debug.assert_eq(single, first_target_locals)
   @debug.assert_eq(@ir.hot_local_count(func), local_count)
   let multiple = flatten_br_table_staging_locals(
-    func, target_locals, target_types,
+    func, state, target_view, target_types,
   )
   @debug.assert_eq(@ir.hot_local_count(func), local_count + 2)
-  assert_true(multiple != target_locals[0])
-  assert_true(multiple != target_locals[1])
+  assert_true(multiple != first_target_locals)
+  assert_true(multiple != second_target_locals)
 }
 
 ///|
@@ -7386,4 +7400,205 @@ test "flatten terminal payload cache keeps sparse entries sorted" {
   assert_true(flatten_terminal_payload_contains(payloads, 12))
   assert_true(flatten_terminal_payload_contains(payloads, 19))
   assert_false(flatten_terminal_payload_contains(payloads, 7))
+}
+
+///|
+test "flatten freezes unique br_table targets in one sparse pre-mutation pool" {
+  let func = @ir.HotFunc::new()
+  let first = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    @ir.hot_build_nop(func),
+  ])
+  let second = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    @ir.hot_build_nop(func),
+  ])
+  let first_label = @ir.hot_control_node_label(func, first)
+  let second_label = @ir.hot_control_node_label(func, second)
+  let table = @ir.hot_build_br_table(
+    func,
+    [second_label, first_label, second_label],
+    first_label,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+  )
+  @ir.hot_root_append(func, table)
+  let table_side_id = @ir.hot_node_get(func, table).imm0
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(state.br_table_target_entries.length(), 1)
+  @debug.assert_eq(state.br_table_targets, [second_label, first_label])
+  let view = flatten_br_table_targets(func, table_side_id, state=Some(state)).unwrap()
+  @debug.assert_eq(view.start, 0)
+  @debug.assert_eq(view.count, 2)
+  @debug.assert_eq(view.targets[view.start], second_label)
+  @debug.assert_eq(view.targets[view.start + 1], first_label)
+
+  state.rewrites_started = true
+  let late_table = @ir.hot_build_br_table(
+    func,
+    [first_label],
+    first_label,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  assert_true(
+    flatten_br_table_targets(
+      func,
+      @ir.hot_node_get(func, late_table).imm0,
+      state=Some(state),
+    )
+    is None,
+  )
+}
+
+///|
+test "flatten reuses frozen structural parents and generation marks" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [try_id])
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [block_id],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  @ir.hot_root_append(func, if_id)
+  let state = FlattenRewriteState::new(func)
+  assert_false(state.direct_parent_built)
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(
+      func,
+      try_id,
+      [if_id, block_id],
+      state=Some(state),
+    ),
+    Some([block_id, if_id]),
+  )
+  assert_true(state.direct_parent_built)
+  @debug.assert_eq(state.direct_parent[try_id], block_id)
+  @debug.assert_eq(state.direct_parent[block_id], if_id)
+  let first_epoch = state.next_node_mark
+  @debug.assert_eq(
+    flatten_direct_enclosing_target_controls(
+      func,
+      try_id,
+      [block_id, if_id],
+      state=Some(state),
+    ),
+    Some([block_id, if_id]),
+  )
+  assert_true(state.next_node_mark > first_epoch)
+
+  let late_state = FlattenRewriteState::new(func)
+  late_state.rewrites_started = true
+  assert_true(
+    flatten_direct_enclosing_target_controls(
+      func,
+      try_id,
+      [block_id, if_id],
+      state=Some(late_state),
+    )
+    is None,
+  )
+  assert_false(late_state.direct_parent_built)
+}
+
+///|
+test "flatten reuses one prelude buffer per active region depth" {
+  let func = @ir.HotFunc::new()
+  let inner_roots : Array[Int] = []
+  for idx = 0; idx < 128; idx = idx + 1 {
+    inner_roots.push(@ir.hot_build_nop(func))
+  }
+  let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), inner_roots)
+  let outer_roots : Array[Int] = [inner]
+  for idx = 0; idx < 128; idx = idx + 1 {
+    outer_roots.push(@ir.hot_build_nop(func))
+  }
+  let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), outer_roots)
+  @ir.hot_root_append(func, outer)
+  let state = FlattenRewriteState::new(func)
+  state.rewrites_started = true
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  assert_false(
+    flatten_rewrite_region_operands(
+      ctx,
+      func,
+      state,
+      @ir.hot_region_body_ref(func, outer),
+    ),
+  )
+  @debug.assert_eq(state.prelude_buffers.length(), 2)
+  @debug.assert_eq(state.prelude_depth, 0)
+}
+
+///|
+test "flatten caches repeated type result queries once per type" {
+  let func = @ir.HotFunc::new()
+  let type_id = @ir.hot_type_intern_results(func, [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ])
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(state.type_result_cache.length(), 0)
+  @debug.assert_eq(flatten_type_results(func, type_id, state=Some(state)), [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ])
+  assert_true(state.type_result_cache.length() > type_id)
+  assert_true(state.type_result_cache[type_id] is Some(_))
+  let cache_length = state.type_result_cache.length()
+  @debug.assert_eq(flatten_type_results(func, type_id, state=Some(state)), [
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ])
+  @debug.assert_eq(state.type_result_cache.length(), cache_length)
+}
+
+///|
+test "flatten prepares table target locals without an outer resolved vector" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) (block (result i32 i64) (br_table 0 1 (i32.const 7) (i64.const 9) (i32.const 0)))) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let outer_id = @ir.hot_child_get(func, return_id, 0)
+  let inner_id = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, outer_id),
+    0,
+  )
+  let targets = [
+    @ir.hot_control_node_label(func, inner_id),
+    @ir.hot_control_node_label(func, outer_id),
+  ]
+  let target_types = @ir.hot_type_results(
+    func,
+    @ir.hot_label_result_type(func, targets[0]),
+  )
+  let state = FlattenRewriteState::new(func)
+  state.rewrites_started = true
+  let target_view = FlattenBrTableTargets::new(targets, 0, targets.length())
+  let local_count = @ir.hot_local_count(func)
+  assert_true(
+    flatten_prepare_br_table_target_locals(
+      func, state, target_view, target_types,
+    ),
+  )
+  @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
+  @debug.assert_eq(state.label_temps[targets[0]].length(), 2)
+  @debug.assert_eq(state.label_temps[targets[1]].length(), 2)
+  assert_true(
+    flatten_prepare_br_table_target_locals(
+      func, state, target_view, target_types,
+    ),
+  )
+  @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
 }
