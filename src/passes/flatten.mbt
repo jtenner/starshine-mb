@@ -1339,7 +1339,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_add_drop_then_multiply_drop = suffix_count == 2
       let mut exact_multiply_drop_then_add_drop = suffix_count == 2
       let mut all_direct_add_drops = true
-      let mut exact_two_direct_multiply_drops = suffix_count == 2
+      let mut all_direct_multiply_drops = true
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1365,7 +1365,7 @@ fn flatten_try_table_dead_suffix_nodes(
         if !flatten_try_table_dead_suffix_root_is_direct_drop_i32_mul_consts(
             func, root_id,
           ) {
-          exact_two_direct_multiply_drops = false
+          all_direct_multiply_drops = false
         }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
@@ -1416,7 +1416,7 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_add_drop_then_multiply_drop &&
         !exact_multiply_drop_then_add_drop &&
         !all_direct_add_drops &&
-        !exact_two_direct_multiply_drops {
+        !all_direct_multiply_drops {
         return None
       }
     }
