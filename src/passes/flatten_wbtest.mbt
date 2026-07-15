@@ -2727,3 +2727,216 @@ test "flatten keeps other trapping-binary-argument call opcodes gated" {
     ),
   )
 }
+
+///|
+fn flatten_test_build_scalar_try_table_suffix_fixture(
+  func : @ir.HotFunc,
+) -> Array[Int] {
+  let i32_type = @lib.ValType::i32()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  [try_id, label_id, table_id]
+}
+
+///|
+fn flatten_test_build_direct_binary_drop(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  left_value : Int,
+  right_value : Int,
+) -> Array[Int] {
+  let left = @ir.hot_build_const_i32(func, @lib.I32(left_value))
+  let right = @ir.hot_build_const_i32(func, @lib.I32(right_value))
+  let binary = @ir.hot_build_binary(func, @lib.ValType::i32(), left, right)
+  @ir.hot_node_exact_instr_set(func, binary, instr)
+  [@ir.hot_build_drop(func, binary), binary, left, right]
+}
+
+///|
+test "flatten recognizes one add-drop then multiply-drop try-table suffix" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    11,
+    12,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, add[0], multiply[0]])
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      add[0],
+      add[1],
+      add[2],
+      add[3],
+      multiply[0],
+      multiply[1],
+      multiply[2],
+      multiply[3],
+    ]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps reverse multiply-drop then add-drop try-table suffix unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    9,
+    10,
+  )
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    multiply[0],
+    add[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps add-drop then multiply-drop suffix unsupported when a descendant is shared" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let add = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+  )
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  let multiply = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  )
+  @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, add),
+    @ir.hot_build_drop(func, multiply),
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a repeated multiply root after an add-multiply suffix pair unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    11,
+    12,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    add[0],
+    multiply[0],
+    multiply[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a third distinct rich root after an add-multiply suffix pair unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    11,
+    12,
+  )
+  let third = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    13,
+    14,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    add[0],
+    multiply[0],
+    third[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
