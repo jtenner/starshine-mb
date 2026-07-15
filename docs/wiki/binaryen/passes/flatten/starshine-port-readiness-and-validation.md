@@ -172,6 +172,10 @@ The table-target/terminal-payload lookup iteration also leaves the hold point un
 
 Dense owner-specific reconstruction improves target extraction `437,000 -> 16,000 us` and terminal payload membership `110,000 -> 20,000 us` at 512 candidates. These results do not recover the original representative contract or change any readiness predicate. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` performance gate remain blocked.
 
+The immutable-index/reusable-scratch iteration also leaves the hold point unchanged. Unique table targets, lazily built structural parents, reusable node marks, depth-indexed prelude buffers, dense type-result caching, and direct per-label target-local retrieval remove repeated allocation and scanning without admitting a new shape. Every candidate still enters through frozen pre-mutation identities; missing table or parent facts after mutation begins reject, and family helpers still own type, label, EH, effect, trap, flow, ownership, and deletion proof.
+
+Private flatten is `182/182`, focused flatten `245/245`, passes `5,757/5,757`, the full suite `9,218/9,218`, and `moon info` is green with 11 existing warnings. The reconstructed representative is nonregressing (`1,001.5 -> 989.5 us`, overlapping), while owner microbenchmarks improve `9.68%` to `96.88%`. No readiness predicate changed: public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` gate remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

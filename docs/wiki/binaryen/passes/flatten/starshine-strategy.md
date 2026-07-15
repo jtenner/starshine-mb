@@ -354,6 +354,10 @@ The latest exact two-code iteration removes two measured lookup hot spots withou
 
 Validation reaches private `177/177`, focused `245/245`, passes `5,752/5,752`, full `9,213/9,213`, and green `moon info`. At 512 candidates, target extraction improves `437,000 -> 16,000 us` and payload membership improves `110,000 -> 20,000 us`. These are targeted owner wins rather than recovery of the original benchmark contract; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
 
+The latest allocation-focused iteration combines run-wide immutable indexes with reusable scratch rather than adding another generic sorted vector. Unique `br_table` targets are frozen once per side table into sparse `start/count` entries over one flat pool. Structural parents are built lazily on the first relevant pre-mutation query and reused with node-generation marks; missing parent or table facts after mutation starts reject. Region traversal reuses one prelude buffer per recursion depth, ownership and loop-entry visitation reuse node marks, exact use-count proofs remove only dominated duplicate scans, table target-local preflight no longer returns a nested array, and type results use a lazy dense cache plus allocation-free scalar inspection.
+
+Private flatten reaches `182/182`, focused flatten `245/245`, passes `5,757/5,757`, full `9,218/9,218`, and green `moon info`. Native-release micro medians improve ancestry `76.22%`, table targets `96.88%`, type results `73.33%`, target-local preflight `11.69%`, and prelude-heavy traversal `9.68%`; the reconstructed representative moves directionally `1,001.5 -> 989.5 us` with overlapping ranges. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes. The durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

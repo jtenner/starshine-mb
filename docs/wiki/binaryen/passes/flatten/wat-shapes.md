@@ -651,6 +651,12 @@ Commits `bdad9efaf` and `902848fca` leave every WAT shape above unchanged. Uniqu
 
 The red-first invariants lock target order, duplicate and invalid-label handling, sparse payload order, duplicate rejection, and exact present/absent membership. Dense targeted timing improves target extraction `437,000 -> 16,000 us` and payload membership `110,000 -> 20,000 us` at 512 candidates. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Latest immutable-index and reusable-scratch detail
+
+The allocation/index follow-up leaves every WAT shape above unchanged. Table targets retain first explicit-target order and unseen-default-last semantics but are frozen once per side table. Lazy structural-parent queries, node-generation marks, depth-indexed prelude buffers, direct target-local retrieval, and type-result caching alter only internal proof/query storage. Prelude buffers are safe to reuse because HOT splicing copies ids; target-local allocation remains all-target failure-atomic; post-boundary cache absence still rejects.
+
+Private flatten reaches `182/182`, and the owner microbenchmarks improve ancestry `76.22%`, table targets `96.88%`, type results `73.33%`, target-local preflight `11.69%`, and prelude-heavy traversal `9.68%`. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

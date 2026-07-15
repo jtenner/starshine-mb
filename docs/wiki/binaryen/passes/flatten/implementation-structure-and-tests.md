@@ -321,6 +321,10 @@ The next exact two-code iteration adds commits `bdad9efaf` and `902848fca`. The 
 
 Validation is focused flatten `245/245`, private flatten `177/177`, passes `5,752/5,752`, full suite `9,213/9,213`, and green `moon info` with 11 existing warnings. The exact 512-label extraction reconstruction improves `437,000 -> 16,000 us`; the 512-root membership reconstruction improves `110,000 -> 20,000 us`. No `.mbti`, semantic family, or public surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The allocation/index follow-up adds five private invariants and no new WAT family. `FlattenPreMutationNodeIndex` now freezes unique `br_table` targets into sparse entries plus one flat pool. `FlattenRewriteState` lazily builds structural parents before mutation, reuses generation-mark and depth-indexed prelude scratch, caches type results by dense type id, and preflights target locals without materializing an outer nested array. `pass_splice_region(...)` copies ids into region storage, so clearing a reused prelude buffer after the call cannot mutate the region. Exact one-use/two-use ownership checks replace only the duplicate scans they mathematically dominate; other `contains` checks remain where use counts do not prove uniqueness.
+
+The red-first file moves from `177/177` to `182/182`; focused flatten remains `245/245`. Targeted medians improve ancestry `76.22%`, table-target lookup `96.88%`, type-result lookup `73.33%`, target-local preflight `11.69%`, and root-heavy traversal `9.68%`. The reconstructed representative moves directionally `1,001.5 -> 989.5 us` with overlapping ranges. Passes are `5,757/5,757`, the full suite is `9,218/9,218`, `moon info` reports 11 existing warnings and no errors, the native release CLI builds, and no `.mbti` or public surface changes.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:
