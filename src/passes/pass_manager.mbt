@@ -60705,9 +60705,7 @@ fn run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
           }
           None => None
         }
-        rewritten.push(
-          @lib.Instruction::if_(block_type, next_then, next_else),
-        )
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
       }
       _ => rewritten.push(instr)
     }
@@ -60737,28 +60735,180 @@ fn run_hot_pipeline_dae_remove_never_read_local_tees(
 }
 
 ///|
-fn run_hot_pipeline_dae_remove_selected_never_read_local_tees(
+fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_remap : Array[Int],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        rewritten.push(
+          @lib.Instruction::local_get(
+            @lib.LocalIdx::new(local_remap[local_idx].reinterpret_as_uint()),
+          ),
+        )
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        rewritten.push(
+          @lib.Instruction::local_set(
+            @lib.LocalIdx::new(local_remap[local_idx].reinterpret_as_uint()),
+          ),
+        )
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        if local_gets[local_idx] > 0 {
+          rewritten.push(
+            @lib.Instruction::local_tee(
+              @lib.LocalIdx::new(local_remap[local_idx].reinterpret_as_uint()),
+            ),
+          )
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+                body, local_gets, local_remap,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+                body, local_gets, local_remap,
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+                body, local_gets, local_remap,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+              then_body, local_gets, local_remap,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+                    body, local_gets, local_remap,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instr)
+    }
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   mod_ : @lib.Module,
   def_idx : Int,
-) -> (@lib.Module, Int) {
+) -> (@lib.Module, Int, Bool) {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return (mod_, 0)
+    None => return (mod_, 0, false)
   }
   let func = match funcs.get(def_idx) {
     Some(func) => func
-    None => return (mod_, 0)
+    None => return (mod_, 0, false)
+  }
+  let func_idx = @lib.FuncIdx::new(
+    (dae_imported_func_count(mod_) + def_idx).reinterpret_as_uint(),
+  )
+  let params = match
+    run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx) {
+    Some(params) => params
+    None => return (mod_, 0, false)
   }
   let @lib.Func(locals, @lib.Expr(body)) = func
-  let (next_body, removed_count) = run_hot_pipeline_dae_remove_never_read_local_tees(
-    body,
-  )
-  if removed_count == 0 {
-    return (mod_, 0)
+  if locals.length() < 16 {
+    let (next_body, removed_tee_count) = run_hot_pipeline_dae_remove_never_read_local_tees(
+      body,
+    )
+    if removed_tee_count == 0 {
+      return (mod_, 0, false)
+    }
+    let next_funcs = funcs.copy()
+    next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+    return (
+      mod_.with_code_sec(@lib.CodeSec::new(next_funcs)),
+      removed_tee_count,
+      false,
+    )
   }
+  let total_local_count = params.length() + locals.length()
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    body, local_gets, local_sets, local_tees,
+  )
+  let mut removed_tee_count = 0
+  for local_idx = 0; local_idx < total_local_count; local_idx = local_idx + 1 {
+    if local_gets[local_idx] == 0 {
+      removed_tee_count = removed_tee_count + local_tees[local_idx]
+    }
+  }
+  if removed_tee_count == 0 {
+    return (mod_, 0, false)
+  }
+  let local_remap : Array[Int] = []
+  for local_idx = 0; local_idx < total_local_count; local_idx = local_idx + 1 {
+    local_remap.push(local_idx)
+  }
+  let compacted_local_types : Array[@lib.ValType] = []
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    let local_id = params.length() + local_idx
+    if local_gets[local_id] > 0 || local_sets[local_id] > 0 {
+      local_remap[local_id] = params.length() + compacted_local_types.length()
+      compacted_local_types.push(locals.get(local_idx))
+    } else {
+      local_remap[local_id] = -1
+    }
+  }
+  let next_func = @lib.Func::new(
+    @lib.Locals::from_types(compacted_local_types),
+    @lib.Expr::new(
+      run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+        body, local_gets, local_remap,
+      ),
+    ),
+  )
   let next_funcs = funcs.copy()
-  next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
-  (mod_.with_code_sec(@lib.CodeSec::new(next_funcs)), removed_count)
+  next_funcs[def_idx] = next_func
+  (
+    mod_.with_code_sec(@lib.CodeSec::new(next_funcs)),
+    removed_tee_count,
+    compacted_local_types.length() < locals.length(),
+  )
 }
 
 ///|
@@ -60920,6 +61070,8 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
   let branch_if_defs : Array[Int] = []
   let dead_tee_defs : Array[Int] = []
   let branch_if_dead_tee_defs : Array[Int] = []
+  let compacted_dead_tee_defs : Array[Int] = []
+  let branch_if_compacted_dead_tee_defs : Array[Int] = []
   let coalesce_rolled_back_defs : Array[Int] = []
   let vacuum_rolled_back_defs : Array[Int] = []
   let branch_if_rolled_back_defs : Array[Int] = []
@@ -61029,7 +61181,7 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
         }
       }
     }
-    let (without_dead_tees, removed_tee_count) = run_hot_pipeline_dae_remove_selected_never_read_local_tees(
+    let (dead_tee_candidate, removed_tee_count, compact_changed) = run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
       current, def_idx,
     )
     if removed_tee_count == 0 {
@@ -61041,7 +61193,7 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       continue
     }
     let (retained_without_dead_tees, dead_tee_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
-      current, without_dead_tees, def_idx,
+      current, dead_tee_candidate, def_idx,
     )
     if !dead_tee_valid {
       dead_tee_rolled_back_defs.push(def_idx)
@@ -61058,7 +61210,13 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       ) {
       Some(true) => {
         current = retained_without_dead_tees
-        if branch_if_accepted {
+        if compact_changed {
+          if branch_if_accepted {
+            branch_if_compacted_dead_tee_defs.push(def_idx)
+          } else {
+            compacted_dead_tee_defs.push(def_idx)
+          }
+        } else if branch_if_accepted {
           branch_if_dead_tee_defs.push(def_idx)
         } else {
           dead_tee_defs.push(def_idx)
@@ -61081,6 +61239,22 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
         }
       }
     }
+  }
+  if branch_if_compacted_dead_tee_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{branch_if_compacted_dead_tee_defs.to_string()} passes=[coalesce-locals, vacuum, branch-only-if-to-br-if, remove-never-read-local-tees, compact-unused-locals]",
+    )
+  }
+  if compacted_dead_tee_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{compacted_dead_tee_defs.to_string()} passes=[coalesce-locals, vacuum, remove-never-read-local-tees, compact-unused-locals]",
+    )
   }
   if branch_if_dead_tee_defs.length() > 0 {
     pipeline_trace_hook(

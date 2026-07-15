@@ -19266,12 +19266,26 @@ test "DAEO post-component cleanup removes a never-read local tee" {
     original,
   )
   @debug.assert_eq(removed, 1)
-  @debug.assert_eq(
-    cleaned,
-    [
-      @lib.Instruction::i32_const(@lib.I32(4)),
-      @lib.Instruction::i32_const(@lib.I32(1)),
-      @lib.Instruction::i32_add(),
-    ],
+  @debug.assert_eq(cleaned, [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+  ])
+}
+
+///|
+test "DAEO post-component cleanup compacts locals exposed by dead tee removal" {
+  let original = pass_test_module_from_wat(
+    "(module (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 4 local.tee 0))",
   )
+  let (compacted, removed, changed) = run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
+    original, 0,
+  )
+  @debug.assert_eq(removed, 1)
+  assert_true(changed)
+  let @lib.Func(locals, _) = match compacted.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[0]
+    None => fail("expected compacted code section")
+  }
+  @debug.assert_eq(locals, @lib.Locals::empty())
 }
