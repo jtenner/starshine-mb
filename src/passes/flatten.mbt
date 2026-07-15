@@ -1196,16 +1196,37 @@ fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
   func : @ir.HotFunc,
   call_id : Int,
 ) -> Array[Int]? {
-  if @ir.hot_child_count(func, call_id) != 2 {
+  let child_count = @ir.hot_child_count(func, call_id)
+  if child_count < 2 {
     return None
   }
-  let first_id = @ir.hot_child_get(func, call_id, 0)
-  let second_id = @ir.hot_child_get(func, call_id, 1)
-  if first_id == second_id ||
-    @ir.hot_node_result_arity(func, first_id) != 1 ||
-    @ir.hot_node_result_arity(func, second_id) != 1 {
+  let use_def = @ir.use_def_build_node_uses(func)
+  let nodes : Array[Int] = [call_id]
+  let rich_ids : Array[Int] = []
+  for child_idx = 0; child_idx < child_count; child_idx = child_idx + 1 {
+    let argument_id = @ir.hot_child_get(func, call_id, child_idx)
+    if @ir.hot_node_result_arity(func, argument_id) != 1 ||
+      @ir.node_use_count(use_def, argument_id) != 1 {
+      return None
+    }
+    for owned_id in nodes {
+      if argument_id == owned_id {
+        return None
+      }
+    }
+    match @ir.hot_node_get(func, argument_id).op {
+      @ir.HotOp::Const => ()
+      @ir.HotOp::Unary | @ir.HotOp::Convert | @ir.HotOp::Binary =>
+        rich_ids.push(argument_id)
+      _ => return None
+    }
+    nodes.push(argument_id)
+  }
+  if rich_ids.length() != 2 {
     return None
   }
+  let first_id = rich_ids[0]
+  let second_id = rich_ids[1]
   match
     (@ir.hot_node_get(func, first_id).op, @ir.hot_node_get(func, second_id).op) {
     (@ir.HotOp::Binary, @ir.HotOp::Unary)
@@ -1228,13 +1249,7 @@ fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
       }
     _ => return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  if @ir.node_use_count(use_def, first_id) != 1 ||
-    @ir.node_use_count(use_def, second_id) != 1 {
-    return None
-  }
-  let nodes : Array[Int] = [call_id, first_id, second_id]
-  for argument_id in [first_id, second_id] {
+  for argument_id in rich_ids {
     match @ir.hot_node_get(func, argument_id).op {
       @ir.HotOp::Unary | @ir.HotOp::Convert => {
         match
