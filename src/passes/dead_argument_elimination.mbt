@@ -1562,10 +1562,10 @@ fn dae_type_sec_flattened_length(type_sec : @lib.TypeSec) -> Int {
 }
 
 ///|
-fn dae_type_sec_single_rec_entry_slot(
+fn dae_type_sec_rec_entry_location(
   type_sec : @lib.TypeSec,
   type_idx : @lib.TypeIdx,
-) -> Int? {
+) -> (Int, Int)? {
   let target = match type_idx {
     @lib.TypeIdx(raw) => raw.reinterpret_as_int()
     @lib.RecIdx(_) => return None
@@ -1580,14 +1580,14 @@ fn dae_type_sec_single_rec_entry_slot(
     match rec_types[entry_idx] {
       @lib.SingleRecType(_) => {
         if flat_idx == target {
-          return Some(entry_idx)
+          return Some((entry_idx, 0))
         }
         flat_idx += 1
       }
       @lib.GroupRecType(group) => {
         let group_end = flat_idx + group.length()
         if target >= flat_idx && target < group_end {
-          return None
+          return Some((entry_idx, target - flat_idx))
         }
         flat_idx = group_end
       }
@@ -6299,22 +6299,301 @@ fn dae_type_idx_equal(lhs : @lib.TypeIdx, rhs : @lib.TypeIdx) -> Bool {
 }
 
 ///|
-fn dae_mark_non_funcsec_type_refs(
+fn dae_type_idx_references_slot(
+  type_idx : @lib.TypeIdx,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  match type_idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int() == target_slot
+    @lib.RecIdx(raw) =>
+      rec_group_base >= 0 &&
+      rec_group_base + raw.reinterpret_as_int() == target_slot
+  }
+}
+
+///|
+fn dae_heap_type_references_slot(
+  heap_type : @lib.HeapType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  match heap_type {
+    @lib.HeapType(type_idx) =>
+      dae_type_idx_references_slot(type_idx, target_slot, rec_group_base)
+    @lib.DefTypeHeapType(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_ref_type_references_slot(
+  ref_type : @lib.RefType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  match ref_type {
+    @lib.HeapTypeRefType(_, _, heap_type) =>
+      dae_heap_type_references_slot(heap_type, target_slot, rec_group_base)
+    _ => false
+  }
+}
+
+///|
+fn dae_val_type_references_slot(
+  val_type : @lib.ValType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  match val_type {
+    @lib.RefTypeValType(ref_type) =>
+      dae_ref_type_references_slot(ref_type, target_slot, rec_group_base)
+    _ => false
+  }
+}
+
+///|
+fn dae_storage_type_references_slot(
+  storage_type : @lib.StorageType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  match storage_type {
+    @lib.ValTypeStorageType(val_type) =>
+      dae_val_type_references_slot(val_type, target_slot, rec_group_base)
+    _ => false
+  }
+}
+
+///|
+fn dae_field_type_references_slot(
+  field_type : @lib.FieldType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  let @lib.FieldType(storage_type, _) = field_type
+  dae_storage_type_references_slot(storage_type, target_slot, rec_group_base)
+}
+
+///|
+fn dae_comp_type_references_slot(
+  comp_type : @lib.CompType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  match comp_type {
+    @lib.ArrayCompType(field_type) =>
+      dae_field_type_references_slot(field_type, target_slot, rec_group_base)
+    @lib.StructCompType(fields) =>
+      fields.any(fn(field_type) {
+        dae_field_type_references_slot(field_type, target_slot, rec_group_base)
+      })
+    @lib.FuncCompType(params, results) =>
+      params.any(fn(param) {
+        dae_val_type_references_slot(param, target_slot, rec_group_base)
+      }) ||
+      results.any(fn(result) {
+        dae_val_type_references_slot(result, target_slot, rec_group_base)
+      })
+  }
+}
+
+///|
+fn dae_subtype_references_slot(
+  subtype : @lib.SubType,
+  target_slot : Int,
+  rec_group_base : Int,
+) -> Bool {
+  let (supers, metadata, comp_type) = match subtype {
+    @lib.SubType(_, supers, metadata, comp_type) =>
+      (supers, metadata, comp_type)
+    @lib.CompTypeSubType(metadata, comp_type) => ([], metadata, comp_type)
+  }
+  for super_type in supers {
+    if dae_type_idx_references_slot(super_type, target_slot, rec_group_base) {
+      return true
+    }
+  }
+  let { describes, descriptor } = metadata
+  match describes {
+    Some(type_idx) =>
+      if dae_type_idx_references_slot(type_idx, target_slot, rec_group_base) {
+        return true
+      }
+    None => ()
+  }
+  match descriptor {
+    Some(type_idx) =>
+      if dae_type_idx_references_slot(type_idx, target_slot, rec_group_base) {
+        return true
+      }
+    None => ()
+  }
+  dae_comp_type_references_slot(comp_type, target_slot, rec_group_base)
+}
+
+///|
+fn dae_type_sec_references_slot(
+  type_sec : @lib.TypeSec,
+  target_slot : Int,
+) -> Bool {
+  let @lib.TypeSec(rec_types) = type_sec
+  let mut flat_idx = 0
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if dae_subtype_references_slot(subtype, target_slot, flat_idx) {
+          return true
+        }
+        flat_idx += 1
+      }
+      @lib.GroupRecType(group) => {
+        for subtype in group {
+          if dae_subtype_references_slot(subtype, target_slot, flat_idx) {
+            return true
+          }
+        }
+        flat_idx += group.length()
+      }
+    }
+  }
+  false
+}
+
+///|
+fn dae_instrs_reference_type_slot(
+  instrs : Array[@lib.Instruction],
+  target_slot : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        match block_type {
+          @lib.ValTypeBlockType(val_type) =>
+            if dae_val_type_references_slot(val_type, target_slot, -1) {
+              return true
+            }
+          @lib.TypeIdxBlockType(type_idx) =>
+            if dae_type_idx_references_slot(type_idx, target_slot, -1) {
+              return true
+            }
+          _ => ()
+        }
+        if dae_instrs_reference_type_slot(body, target_slot) {
+          return true
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        match block_type {
+          @lib.ValTypeBlockType(val_type) =>
+            if dae_val_type_references_slot(val_type, target_slot, -1) {
+              return true
+            }
+          @lib.TypeIdxBlockType(type_idx) =>
+            if dae_type_idx_references_slot(type_idx, target_slot, -1) {
+              return true
+            }
+          _ => ()
+        }
+        if dae_instrs_reference_type_slot(then_body, target_slot) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if dae_instrs_reference_type_slot(body, target_slot) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.CallIndirect(type_idx, _)
+      | @lib.ReturnCallIndirect(type_idx, _)
+      | @lib.CallRef(type_idx)
+      | @lib.ReturnCallRef(type_idx)
+      | @lib.StructNew(type_idx)
+      | @lib.StructNewDefault(type_idx)
+      | @lib.StructNewDesc(type_idx)
+      | @lib.StructNewDefaultDesc(type_idx)
+      | @lib.ArrayNew(type_idx)
+      | @lib.ArrayNewDefault(type_idx)
+      | @lib.ArrayNewFixed(type_idx, _)
+      | @lib.ArrayNewData(type_idx, _)
+      | @lib.ArrayNewElem(type_idx, _)
+      | @lib.ArrayGet(type_idx)
+      | @lib.ArrayGetS(type_idx)
+      | @lib.ArrayGetU(type_idx)
+      | @lib.ArraySet(type_idx)
+      | @lib.ArrayFill(type_idx)
+      | @lib.ArrayInitData(type_idx, _)
+      | @lib.ArrayInitElem(type_idx, _)
+      | @lib.RefGetDesc(type_idx)
+      | @lib.StructGet(type_idx, _)
+      | @lib.StructGetS(type_idx, _)
+      | @lib.StructGetU(type_idx, _)
+      | @lib.StructAtomicGet(_, type_idx, _)
+      | @lib.StructAtomicGetS(_, type_idx, _)
+      | @lib.StructAtomicGetU(_, type_idx, _)
+      | @lib.StructSet(type_idx, _) =>
+        if dae_type_idx_references_slot(type_idx, target_slot, -1) {
+          return true
+        }
+      @lib.ArrayCopy(source_type, target_type) =>
+        if dae_type_idx_references_slot(source_type, target_slot, -1) ||
+          dae_type_idx_references_slot(target_type, target_slot, -1) {
+          return true
+        }
+      @lib.Select(Some(types)) =>
+        if types.any(fn(val_type) {
+            dae_val_type_references_slot(val_type, target_slot, -1)
+          }) {
+          return true
+        }
+      @lib.RefNull(ref_type) =>
+        if dae_ref_type_references_slot(ref_type, target_slot, -1) {
+          return true
+        }
+      @lib.RefTest(_, _, heap_type)
+      | @lib.RefCast(_, _, heap_type)
+      | @lib.RefTestDesc(_, heap_type)
+      | @lib.RefCastDescEq(_, _, heap_type) =>
+        if dae_heap_type_references_slot(heap_type, target_slot, -1) {
+          return true
+        }
+      @lib.BrOnCast(_, _, source_type, target_type)
+      | @lib.BrOnCastFail(_, _, source_type, target_type) =>
+        if dae_heap_type_references_slot(source_type, target_slot, -1) ||
+          dae_heap_type_references_slot(target_type, target_slot, -1) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn dae_non_funcsec_references_type_slot(
   mod_ : @lib.Module,
-  used : Array[Bool],
-) -> Unit {
+  target_slot : Int,
+) -> Bool {
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
       for import_ in imports {
         match import_ {
-          @lib.Import(_, _, @lib.TableExternType(table_type)) =>
-            dae_mark_used_table_type(table_type, used)
-          @lib.Import(_, _, @lib.GlobalExternType(global_type)) =>
-            dae_mark_used_global_type(global_type, used)
-          @lib.Import(_, _, @lib.TagExternType(tag_type)) => {
-            let @lib.TagType(type_idx) = tag_type
-            dae_mark_used_type_idx(type_idx, used)
-          }
+          @lib.Import(_, _, @lib.TableExternType(@lib.TableType(ref_type, _))) =>
+            if dae_ref_type_references_slot(ref_type, target_slot, -1) {
+              return true
+            }
+          @lib.Import(_, _, @lib.GlobalExternType(@lib.GlobalType(val_type, _))) =>
+            if dae_val_type_references_slot(val_type, target_slot, -1) {
+              return true
+            }
+          @lib.Import(_, _, @lib.TagExternType(@lib.TagType(type_idx))) =>
+            if dae_type_idx_references_slot(type_idx, target_slot, -1) {
+              return true
+            }
           _ => ()
         }
       }
@@ -6324,24 +6603,37 @@ fn dae_mark_non_funcsec_type_refs(
     Some(@lib.TagSec(tags)) =>
       for tag in tags {
         let @lib.TagType(type_idx) = tag
-        dae_mark_used_type_idx(type_idx, used)
+        if dae_type_idx_references_slot(type_idx, target_slot, -1) {
+          return true
+        }
       }
     None => ()
   }
   match mod_.table_sec {
     Some(@lib.TableSec(tables)) =>
       for table in tables {
-        let @lib.Table(table_type, _) = table
-        dae_mark_used_table_type(table_type, used)
+        let @lib.Table(@lib.TableType(ref_type, _), init) = table
+        if dae_ref_type_references_slot(ref_type, target_slot, -1) {
+          return true
+        }
+        match init {
+          Some(@lib.Expr(body)) =>
+            if dae_instrs_reference_type_slot(body, target_slot) {
+              return true
+            }
+          None => ()
+        }
       }
     None => ()
   }
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) =>
       for global in globals {
-        let @lib.Global(global_type, @lib.Expr(body)) = global
-        dae_mark_used_global_type(global_type, used)
-        dae_collect_used_type_idx_instrs(body, used)
+        let @lib.Global(@lib.GlobalType(val_type, _), @lib.Expr(body)) = global
+        if dae_val_type_references_slot(val_type, target_slot, -1) ||
+          dae_instrs_reference_type_slot(body, target_slot) {
+          return true
+        }
       }
     None => ()
   }
@@ -6351,16 +6643,22 @@ fn dae_mark_non_funcsec_type_refs(
         let @lib.Elem(_, kind) = elem
         match kind {
           @lib.TypedExprsElemKind(ref_type, exprs) => {
-            dae_mark_used_ref_type(ref_type, used)
+            if dae_ref_type_references_slot(ref_type, target_slot, -1) {
+              return true
+            }
             for expr in exprs {
               let @lib.Expr(body) = expr
-              dae_collect_used_type_idx_instrs(body, used)
+              if dae_instrs_reference_type_slot(body, target_slot) {
+                return true
+              }
             }
           }
           @lib.FuncExprsElemKind(exprs) =>
             for expr in exprs {
               let @lib.Expr(body) = expr
-              dae_collect_used_type_idx_instrs(body, used)
+              if dae_instrs_reference_type_slot(body, target_slot) {
+                return true
+              }
             }
           _ => ()
         }
@@ -6372,12 +6670,17 @@ fn dae_mark_non_funcsec_type_refs(
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(body)) = func
         for local_run in locals.runs() {
-          dae_mark_used_val_type(local_run.val_type(), used)
+          if dae_val_type_references_slot(local_run.val_type(), target_slot, -1) {
+            return true
+          }
         }
-        dae_collect_used_type_idx_instrs(body, used)
+        if dae_instrs_reference_type_slot(body, target_slot) {
+          return true
+        }
       }
     None => ()
   }
+  false
 }
 
 ///|
@@ -6399,8 +6702,17 @@ fn dae_can_replace_unique_defined_func_type(
   if old_slot < 0 || old_slot >= flat_len {
     return false
   }
-  if dae_type_sec_single_rec_entry_slot(type_sec, old_type_idx) is None {
+  if dae_type_sec_rec_entry_location(type_sec, old_type_idx) is None {
     return false
+  }
+  match dae_type_sec_subtype(type_sec, old_type_idx) {
+    Some(@lib.CompTypeSubType(metadata, @lib.FuncCompType(_, _))) => {
+      let { describes, descriptor } = metadata
+      if describes is Some(_) || descriptor is Some(_) {
+        return false
+      }
+    }
+    _ => return false
   }
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
@@ -6428,9 +6740,47 @@ fn dae_can_replace_unique_defined_func_type(
   if user_count != 1 {
     return false
   }
-  let used = Array::make(flat_len, false)
-  dae_mark_non_funcsec_type_refs(mod_, used)
-  !used[old_slot]
+  !dae_non_funcsec_references_type_slot(mod_, old_slot) &&
+  !dae_type_sec_references_slot(type_sec, old_slot)
+}
+
+///|
+fn dae_replace_defined_func_type_in_place(
+  type_sec : @lib.TypeSec,
+  type_idx : @lib.TypeIdx,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> @lib.TypeSec? {
+  let (entry_slot, subtype_slot) = match
+    dae_type_sec_rec_entry_location(type_sec, type_idx) {
+    Some(location) => location
+    None => return None
+  }
+  let @lib.TypeSec(rec_types) = type_sec
+  if entry_slot < 0 || entry_slot >= rec_types.length() {
+    return None
+  }
+  let replacement = @lib.SubType::comp_type(
+    @lib.CompType::func(params, results),
+  )
+  let next = rec_types.copy()
+  match rec_types[entry_slot] {
+    @lib.SingleRecType(_) => {
+      if subtype_slot != 0 {
+        return None
+      }
+      next[entry_slot] = @lib.RecType::new(replacement)
+    }
+    @lib.GroupRecType(group) => {
+      if subtype_slot < 0 || subtype_slot >= group.length() {
+        return None
+      }
+      let rewritten_group = group.copy()
+      rewritten_group[subtype_slot] = replacement
+      next[entry_slot] = @lib.RecType::group(rewritten_group)
+    }
+  }
+  Some(@lib.TypeSec::new(next))
 }
 
 ///|
@@ -6450,15 +6800,11 @@ fn dae_update_defined_func_type(
   if dae_can_replace_unique_defined_func_type(
       mod_, func_types, def_idx, old_type_idx,
     ) {
-    match dae_type_sec_single_rec_entry_slot(type_sec, old_type_idx) {
-      Some(entry_slot) => {
-        let @lib.TypeSec(rec_types) = type_sec
-        let next = rec_types.copy()
-        next[entry_slot] = @lib.RecType::new(
-          @lib.SubType::comp_type(@lib.CompType::func(params, results)),
-        )
-        return (@lib.TypeSec::new(next), old_type_idx)
-      }
+    match
+      dae_replace_defined_func_type_in_place(
+        type_sec, old_type_idx, params, results,
+      ) {
+      Some(next_type_sec) => return (next_type_sec, old_type_idx)
       None => ()
     }
   }

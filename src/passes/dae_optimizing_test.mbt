@@ -14590,12 +14590,16 @@ fn dae_test_grouped_signature_rewrite_module(
         ),
       ]),
     )
-    .with_func_sec(@lib.FuncSec::new([target_type, run_type]))
+    .with_func_sec(@lib.FuncSec::new([target_type, run_type, run_type]))
     .with_export_sec(
       @lib.ExportSec::new([
         @lib.Export::new(
           @lib.Name::from_string("run"),
           @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("run2"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
         ),
       ]),
     )
@@ -14610,6 +14614,14 @@ fn dae_test_grouped_signature_rewrite_module(
           @lib.Expr::new([
             @lib.Instruction::i32_const(@lib.I32(7)),
             @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::i32_const(@lib.I32(10)),
             @lib.Instruction::call(@lib.FuncIdx::new(0U)),
           ]),
         ),
