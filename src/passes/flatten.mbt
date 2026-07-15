@@ -1142,6 +1142,40 @@ fn flatten_try_table_dead_suffix_root_is_direct_drop_i32_add_consts(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_root_is_direct_drop_i32_mul_consts(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  let multiply_id = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, multiply_id).op {
+    @ir.HotOp::Binary => ()
+    _ => return false
+  }
+  if @ir.hot_node_exact_instr(func, multiply_id) !=
+    Some(@lib.Instruction::i32_mul()) ||
+    @ir.hot_child_count(func, multiply_id) != 2 {
+    return false
+  }
+  let left_id = @ir.hot_child_get(func, multiply_id, 0)
+  let right_id = @ir.hot_child_get(func, multiply_id, 1)
+  if left_id == right_id {
+    return false
+  }
+  match
+    (@ir.hot_node_get(func, left_id).op, @ir.hot_node_get(func, right_id).op) {
+    (@ir.HotOp::Const, @ir.HotOp::Const) => true
+    _ => false
+  }
+}
+
+///|
 fn flatten_try_table_dead_suffix_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1161,6 +1195,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_unreachable_then_drop_const = suffix_count == 2
       let mut exact_add_drop_then_unreachable = suffix_count == 2
       let mut exact_two_direct_add_drops = suffix_count == 2
+      let mut exact_two_direct_multiply_drops = suffix_count == 2
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1182,6 +1217,11 @@ fn flatten_try_table_dead_suffix_nodes(
             func, root_id,
           ) {
           exact_two_direct_add_drops = false
+        }
+        if !flatten_try_table_dead_suffix_root_is_direct_drop_i32_mul_consts(
+            func, root_id,
+          ) {
+          exact_two_direct_multiply_drops = false
         }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
@@ -1210,7 +1250,8 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_drop_const_then_unreachable &&
         !exact_unreachable_then_drop_const &&
         !exact_add_drop_then_unreachable &&
-        !exact_two_direct_add_drops {
+        !exact_two_direct_add_drops &&
+        !exact_two_direct_multiply_drops {
         return None
       }
     }
