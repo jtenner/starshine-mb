@@ -223,6 +223,56 @@ fn flatten_build_node_use_counts(func : @ir.HotFunc) -> @ir.HotNodeUseCounts {
 }
 
 ///|
+fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
+  let branch_nodes : Array[Array[Int]] = []
+  for label_idx = 0; label_idx < func.labels.length(); label_idx = label_idx + 1 {
+    branch_nodes.push([])
+  }
+  let record = fn(label_id : Int, node_id : Int) {
+    if label_id >= 0 &&
+      label_id < branch_nodes.length() &&
+      !branch_nodes[label_id].contains(node_id) {
+      branch_nodes[label_id].push(node_id)
+    }
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Br
+      | @ir.HotOp::BrIf
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate => record(node.imm0, node_id)
+      @ir.HotOp::BrTable => {
+        record(@ir.hot_branch_table_default_target(func, node.imm0), node_id)
+        for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+          record(label_id, node_id)
+        }
+      }
+      @ir.HotOp::TryTable => {
+        let info = @ir.hot_catch_info_get(func, node.imm1)
+        for catch_ in info.catches {
+          let label_id = match catch_ {
+            @ir.HotCatchArm::CatchArm(_, label_id)
+            | @ir.HotCatchArm::CatchRefArm(_, label_id)
+            | @ir.HotCatchArm::CatchAllArm(label_id)
+            | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+          }
+          record(label_id, node_id)
+        }
+      }
+      _ => ()
+    }
+  }
+  branch_nodes
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -230,6 +280,7 @@ priv struct FlattenRewriteState {
   sequenced_root_nodes : Array[Int]
   eh_repair_requirement : FlattenEhRepairRequirement
   label_used : @bitset.BitSet
+  label_branch_nodes : Array[Array[Int]]
   use_def : @ir.HotNodeUseCounts
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
@@ -247,13 +298,21 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
     label_temps.push([])
   }
+  let label_branch_nodes = flatten_build_label_branch_nodes(func)
+  let label_used = @bitset.BitSet::new(func.labels.length())
+  for label_id = 0
+      label_id < label_branch_nodes.length()
+      label_id = label_id + 1 {
+    label_used[label_id] = !label_branch_nodes[label_id].is_empty()
+  }
   {
     label_temps,
     terminal_payloads: [],
     sequenced_root_holders: [],
     sequenced_root_nodes: [],
     eh_repair_requirement: flatten_eh_repair_requirement(func),
-    label_used: pass_compute_label_used(func),
+    label_used,
+    label_branch_nodes,
     use_def: flatten_build_node_use_counts(func),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
@@ -3925,12 +3984,11 @@ fn flatten_target_can_route_scalar_branches(
     }
   }
   let mut saw_target = false
-  for branch_id = 0
-      branch_id < @ir.hot_node_count(func)
-      branch_id = branch_id + 1 {
-    if !@ir.hot_node_is_live(func, branch_id) {
-      continue
-    }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  for branch_id in branch_nodes {
     let branch = @ir.hot_node_get(func, branch_id)
     match branch.op {
       @ir.HotOp::Br if branch.imm0 == label_id => {

@@ -5995,3 +5995,20 @@ test "flatten lightweight use counts match exact pre-mutation ownership" {
   @debug.assert_eq(@ir.hot_node_use_count(actual, sum), 1)
   @debug.assert_eq(@ir.hot_node_use_count(actual, shared), 2)
 }
+
+///|
+test "flatten label branch cache records each exact targeting node once" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_label = fixture[1]
+  let table_id = fixture[2]
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  let branch_id = @ir.hot_build_br(func, block_label)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, fixture[0]), [
+    table_id, branch_id,
+  ])
+  let branches = flatten_build_label_branch_nodes(func)
+  @debug.assert_eq(branches[try_label], [table_id])
+  @debug.assert_eq(branches[block_label], [branch_id])
+}
