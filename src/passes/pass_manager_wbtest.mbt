@@ -19443,6 +19443,55 @@ test "DAEO selected cleanup folds sentinel wrap conditionals" {
 }
 
 ///|
+test "DAEO selected cleanup sinks a terminal default aggregate into its call" {
+  let first = @lib.LocalIdx::new(5U)
+  let second = @lib.LocalIdx::new(6U)
+  let aggregate = @lib.LocalIdx::new(9U)
+  let aggregate_array = @lib.Instruction::array_new_fixed(
+    @lib.TypeIdx::new(10U),
+    @lib.U32(0U),
+  )
+  let aggregate_struct = @lib.Instruction::struct_new(@lib.TypeIdx::new(11U))
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(11)),
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::i32_const(@lib.I32(22)),
+    @lib.Instruction::local_set(second),
+    aggregate_array,
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    aggregate_struct,
+    @lib.Instruction::local_set(aggregate),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::call(@lib.FuncIdx::new(99U)),
+  ]
+  let rewritten = match
+    dae_try_sink_terminal_default_aggregate_local_body_once(body) {
+    Some(value) => value
+    None => fail("expected terminal default aggregate sinking")
+  }
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(11)),
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::i32_const(@lib.I32(22)),
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::local_get(second),
+    aggregate_array,
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    aggregate_struct,
+    @lib.Instruction::call(@lib.FuncIdx::new(99U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)

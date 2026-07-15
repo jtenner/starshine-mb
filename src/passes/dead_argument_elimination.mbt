@@ -12249,8 +12249,28 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
           combined_touched[def_idx] = true
         }
       }
+      let aggregate_sunk = dae_try_sink_selected_terminal_default_aggregate_local_once(
+        sentinel_folded.mod_out,
+        combined_touched,
+      )
+      if !aggregate_sunk.changed {
+        return {
+          mod_out: sentinel_folded.mod_out,
+          touched: combined_touched,
+          changed: true,
+          primary_def: result.primary_def,
+        }
+      }
+      for def_idx = 0
+          def_idx < aggregate_sunk.touched.length()
+          def_idx = def_idx + 1 {
+        if aggregate_sunk.touched[def_idx] &&
+          def_idx < combined_touched.length() {
+          combined_touched[def_idx] = true
+        }
+      }
       return {
-        mod_out: sentinel_folded.mod_out,
+        mod_out: aggregate_sunk.mod_out,
         touched: combined_touched,
         changed: true,
         primary_def: result.primary_def,
@@ -31098,6 +31118,70 @@ fn dae_fold_i64_sentinel_wrap_if_instrs(
 }
 
 ///|
+fn dae_try_sink_terminal_default_aggregate_local_body_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 11 {
+    return None
+  }
+  let start = body.length() - 11
+  let aggregate = match
+    (
+      body[start],
+      body[start + 1],
+      body[start + 2],
+      body[start + 3],
+      body[start + 4],
+      body[start + 5],
+      body[start + 6],
+      body[start + 7],
+      body[start + 8],
+      body[start + 9],
+      body[start + 10],
+    ) {
+    (
+      @lib.ArrayNewFixed(_, @lib.U32(0U)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.StructNew(_),
+      @lib.LocalSet(aggregate),
+      @lib.LocalGet(arg0),
+      @lib.LocalGet(arg1),
+      @lib.LocalGet(arg2),
+      @lib.LocalGet(arg3),
+      @lib.LocalGet(arg4),
+      @lib.LocalGet(aggregate_read),
+      @lib.Call(_),
+    ) if aggregate == aggregate_read &&
+      aggregate != arg0 &&
+      aggregate != arg1 &&
+      aggregate != arg2 &&
+      aggregate != arg3 &&
+      aggregate != arg4 => aggregate
+    _ => return None
+  }
+  let local_count = dae_next_free_local_idx(body, 0)
+  let local_gets : Array[Int] = Array::make(local_count, 0)
+  let local_sets : Array[Int] = Array::make(local_count, 0)
+  let local_tees : Array[Int] = Array::make(local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    body, local_gets, local_sets, local_tees,
+  )
+  let aggregate_idx = dae_local_idx_slot(aggregate)
+  if aggregate_idx < 0 ||
+    aggregate_idx >= local_count ||
+    local_gets[aggregate_idx] != 1 ||
+    local_sets[aggregate_idx] != 1 ||
+    local_tees[aggregate_idx] != 0 {
+    return None
+  }
+  let out = dae_copy_instr_range(body, 0, start)
+  out.append(dae_copy_instr_range(body, start + 4, start + 9))
+  out.append(dae_copy_instr_range(body, start, start + 3))
+  out.push(body[start + 10])
+  Some(out)
+}
+
+///|
 fn dae_try_inline_terminal_call_local_sets_body_once(
   body : Array[@lib.Instruction],
   arg_count : Int,
@@ -31459,6 +31543,42 @@ fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
       Some(@lib.Func::new(locals, @lib.Expr::new(rewritten_body)))
     } else {
       None
+    }
+  }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
+}
+
+///|
+fn dae_try_sink_selected_terminal_default_aggregate_local_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let rewrite_func = fn(
+    func : @lib.Func,
+    def_idx : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let param_count = match
+      dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => return None
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    match dae_try_sink_terminal_default_aggregate_local_body_once(body) {
+      Some(rewritten_body) =>
+        Some(
+          @lib.Func::new(
+            dae_trim_trailing_unused_func237_locals(
+              locals, rewritten_body, param_count,
+            ),
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+      None => None
     }
   }
   dae_try_apply_first_selected_func_rewrite_once(
