@@ -60977,6 +60977,76 @@ fn run_hot_pipeline_dae_try_fold_four_result_terminal_self_branch(
 }
 
 ///|
+// After the exact terminal branch is folded, the zero-parameter result block
+// has no remaining control purpose. Splicing its exact aggregate-field body
+// preserves the four fallthrough values and avoids carrying Type 309.
+fn run_hot_pipeline_dae_try_flatten_four_result_fallthrough_block(
+  block_type : @lib.BlockType,
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if dae_block_type_zero_param_result_count(block_type, type_sec) != Some(4) ||
+    body.length() != 13 {
+    return None
+  }
+  match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(struct_type, @lib.U32(2U)),
+      @lib.LocalGet(second_aggregate),
+      @lib.StructGet(second_type, @lib.U32(0U)),
+      @lib.LocalGet(third_aggregate),
+      @lib.StructGet(third_type, @lib.U32(1U)),
+      @lib.LocalGet(fourth_aggregate),
+      @lib.StructGet(fourth_type, @lib.U32(3U)),
+    ) if aggregate == second_aggregate &&
+      aggregate == third_aggregate &&
+      aggregate == fourth_aggregate &&
+      struct_type == second_type &&
+      struct_type == third_type &&
+      struct_type == fourth_type => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      if aggregate_idx < 0 ||
+        aggregate_idx >= local_gets.length() ||
+        !run_hot_pipeline_dae_local_is_nonnullable_ref(
+          local_types, aggregate_idx,
+        ) ||
+        local_gets[aggregate_idx] != 3 ||
+        local_sets[aggregate_idx] != 0 ||
+        local_tees[aggregate_idx] != 1 {
+        return None
+      }
+      Some(body)
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
   instr : @lib.Instruction,
   param_count : Int,
@@ -61465,8 +61535,28 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
       local_tees,
       type_sec,
     )
-    rewritten.push(next)
-    rewrite_count = rewrite_count + nested_count
+    match next {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        match
+          run_hot_pipeline_dae_try_flatten_four_result_fallthrough_block(
+            block_type, body, type_sec, local_types, local_gets, local_sets, local_tees,
+          ) {
+          Some(flattened) => {
+            for flattened_instr in flattened {
+              rewritten.push(flattened_instr)
+            }
+            rewrite_count = rewrite_count + nested_count + 1
+          }
+          None => {
+            rewritten.push(next)
+            rewrite_count = rewrite_count + nested_count
+          }
+        }
+      _ => {
+        rewritten.push(next)
+        rewrite_count = rewrite_count + nested_count
+      }
+    }
     idx += 1
   }
   (rewritten, rewrite_count)

@@ -19686,6 +19686,52 @@ test "DAEO selected cleanup turns an exact four-result self branch into fallthro
 }
 
 ///|
+test "DAEO selected cleanup flattens an exact four-result fallthrough block" {
+  let block_type = @lib.BlockType::type_idx(@lib.TypeIdx::new(0U))
+  let aggregate = @lib.LocalIdx::new(4U)
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(9U)),
+    @lib.Instruction::local_tee(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(1U), @lib.U32(2U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(1U), @lib.U32(0U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(1U), @lib.U32(1U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(1U), @lib.U32(3U)),
+  ]
+  let parsed = pass_test_module_from_wat(
+    "(module (type (func (result i32 i32 i32 i32))) (func))",
+  )
+  let flattened = match
+    run_hot_pipeline_dae_try_flatten_four_result_fallthrough_block(
+      block_type,
+      body,
+      parsed.type_sec,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+        ),
+      ],
+      [1, 1, 1, 1, 3],
+      [0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1],
+    ) {
+    Some(value) => value
+    None => fail("expected exact four-result fallthrough block to flatten")
+  }
+  @debug.assert_eq(flattened, body)
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
