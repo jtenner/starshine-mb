@@ -5903,3 +5903,65 @@ test "flatten recognizes a submul-dropconst-and try-table suffix sequence" {
     ),
   )
 }
+
+///|
+test "flatten terminal table proofs require an exact pre-mutation cache" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let suffix = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    suffix[0],
+  ])
+  let cached = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func,
+      table_id,
+      label_id,
+      1,
+      false,
+      state=Some(cached),
+    ),
+  )
+  cached.rewrites_started = true
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func,
+      table_id,
+      label_id,
+      1,
+      false,
+      state=Some(cached),
+    ),
+  )
+  let missing = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_try_table_dead_suffix_nodes(
+      func,
+      @ir.hot_region_body_ref(func, try_id),
+      table_id,
+      state=Some(missing),
+    )
+    is Some(_),
+  )
+  missing.rewrites_started = true
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func,
+      table_id,
+      label_id,
+      1,
+      false,
+      state=Some(missing),
+    ),
+  )
+}

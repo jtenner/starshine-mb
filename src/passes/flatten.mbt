@@ -228,6 +228,10 @@ priv struct FlattenRewriteState {
   use_def : @ir.HotUseDef
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
+  terminal_table_labels : Array[Int]
+  terminal_table_payload_counts : Array[Int]
+  terminal_table_allow_mixed_targets : Array[Bool]
+  terminal_table_supported : Array[Bool?]
   scalar_try_supported : Array[Bool?]
   mut rewrites_started : Bool
 }
@@ -248,6 +252,13 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     use_def: @ir.use_def_build_node_uses(func),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
+    terminal_table_labels: Array::make(@ir.hot_node_count(func), -1),
+    terminal_table_payload_counts: Array::make(@ir.hot_node_count(func), -1),
+    terminal_table_allow_mixed_targets: Array::make(
+      @ir.hot_node_count(func),
+      false,
+    ),
+    terminal_table_supported: Array::make(@ir.hot_node_count(func), None),
     scalar_try_supported: Array::make(@ir.hot_node_count(func), None),
     rewrites_started: false,
   }
@@ -1836,6 +1847,52 @@ fn flatten_try_table_dead_suffix_nodes(
 
 ///|
 fn flatten_try_terminal_br_table_targets_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_id : Int,
+  payload_count : Int,
+  allow_mixed_targets : Bool,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  if node_id < 0 || node_id >= @ir.hot_node_count(func) {
+    return false
+  }
+  match state {
+    Some(state) =>
+      match state.terminal_table_supported[node_id] {
+        Some(supported) =>
+          return state.terminal_table_labels[node_id] == label_id &&
+            state.terminal_table_payload_counts[node_id] == payload_count &&
+            state.terminal_table_allow_mixed_targets[node_id] ==
+            allow_mixed_targets &&
+            supported
+        None if state.rewrites_started => return false
+        None => ()
+      }
+    None => ()
+  }
+  let supported = flatten_try_terminal_br_table_targets_label_uncached(
+    func,
+    node_id,
+    label_id,
+    payload_count,
+    allow_mixed_targets,
+    state~,
+  )
+  match state {
+    Some(state) => {
+      state.terminal_table_labels[node_id] = label_id
+      state.terminal_table_payload_counts[node_id] = payload_count
+      state.terminal_table_allow_mixed_targets[node_id] = allow_mixed_targets
+      state.terminal_table_supported[node_id] = Some(supported)
+    }
+    None => ()
+  }
+  supported
+}
+
+///|
+fn flatten_try_terminal_br_table_targets_label_uncached(
   func : @ir.HotFunc,
   node_id : Int,
   label_id : Int,
