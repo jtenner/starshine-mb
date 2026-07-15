@@ -2228,10 +2228,11 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, try_id)
   let mut saw_target = false
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  for node_id in branch_nodes {
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::Br if node.imm0 == label_id => {
@@ -4924,7 +4925,11 @@ fn flatten_try_route_multivalue_br_if(
   match label_kind {
     @ir.HotLabelKind::TryLabel => {
       let try_id = @ir.hot_label_owner(func, label_id)
-      if !flatten_multivalue_legacy_try_is_supported(func, try_id) {
+      if !flatten_multivalue_legacy_try_is_supported(
+          func,
+          try_id,
+          state=Some(state),
+        ) {
         return false
       }
       let flow = match

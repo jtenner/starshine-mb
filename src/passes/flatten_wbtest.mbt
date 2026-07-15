@@ -6153,3 +6153,80 @@ test "flatten resolves each br_table target local vector once" {
   @debug.assert_eq(second, first)
   @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
 }
+
+///|
+test "flatten rewrite multivalue try proof uses the pre-mutation branch index" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i64_type]),
+  )
+  let body_first = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let body_second = @ir.hot_build_const_i64(func, @lib.I64(10L))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_first, body_second],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let first_payload = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let second_payload = @ir.hot_build_const_i64(func, @lib.I64(8L))
+  let branch = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[first_payload, second_payload],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    branch,
+    @ir.hot_build_drop(func, second_payload),
+    @ir.hot_build_drop(func, first_payload),
+    body_first,
+    body_second,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id, try_id]))
+  let result_types = [i32_type, i64_type]
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_legacy_try_label_uses_are_supported(
+      func,
+      try_id,
+      result_types,
+      state=Some(state),
+    ),
+  )
+  let rogue = @ir.hot_build_br(func, label_id, values=[
+    @ir.hot_build_const_i32(func, @lib.I32(13)),
+  ])
+  @ir.hot_root_append(func, rogue)
+  assert_false(
+    flatten_multivalue_legacy_try_label_uses_are_supported(
+      func, try_id, result_types,
+    ),
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_multivalue_legacy_try_label_uses_are_supported(
+      func,
+      try_id,
+      result_types,
+      state=Some(state),
+    ),
+  )
+}
