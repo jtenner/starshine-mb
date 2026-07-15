@@ -1807,6 +1807,181 @@ test "flatten keeps two add-of-two-multiplies suffix roots unsupported" {
 }
 
 ///|
+test "flatten recognizes one exclusively owned subtract-const-multiply drop try-table suffix" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let outer_left = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let multiply = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_mul(),
+    10,
+    11,
+  )
+  let subtract = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    outer_left,
+    multiply[0],
+  )
+  @ir.hot_node_exact_instr_set(func, subtract, @lib.Instruction::i32_sub())
+  let dead_drop = @ir.hot_build_drop(func, subtract)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, dead_drop])
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      dead_drop,
+      subtract,
+      outer_left,
+      multiply[0],
+      multiply[1],
+      multiply[2],
+    ]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps subtract-const-multiply suffix unsupported when a descendant is shared" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let multiply = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+  )
+  @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
+  let subtract = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    shared,
+    multiply,
+  )
+  @ir.hot_node_exact_instr_set(func, subtract, @lib.Instruction::i32_sub())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, subtract),
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps subtract-multiply-const orientation unsupported pending separate audit" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let multiply = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_mul(),
+    9,
+    10,
+  )
+  let outer_right = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let subtract = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    multiply[0],
+    outer_right,
+  )
+  @ir.hot_node_exact_instr_set(func, subtract, @lib.Instruction::i32_sub())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, subtract),
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps subtract-const-add suffix unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let outer_left = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let add = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_add(),
+    10,
+    11,
+  )
+  let subtract = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    outer_left,
+    add[0],
+  )
+  @ir.hot_node_exact_instr_set(func, subtract, @lib.Instruction::i32_sub())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, subtract),
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps two subtract-const-multiply suffix roots unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let drops : Array[Int] = []
+  for base in [9, 12] {
+    let multiply = flatten_test_build_direct_binary(
+      func,
+      @lib.Instruction::i32_mul(),
+      base + 1,
+      base + 2,
+    )
+    let subtract = @ir.hot_build_binary(
+      func,
+      @lib.ValType::i32(),
+      @ir.hot_build_const_i32(func, @lib.I32(base)),
+      multiply[0],
+    )
+    @ir.hot_node_exact_instr_set(func, subtract, @lib.Instruction::i32_sub())
+    drops.push(@ir.hot_build_drop(func, subtract))
+  }
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    drops[0],
+    drops[1],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
 test "flatten recognizes one exclusively owned subtract-of-two-multiplies drop try-table suffix" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()

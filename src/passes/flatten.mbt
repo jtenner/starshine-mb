@@ -861,6 +861,59 @@ fn flatten_direct_enclosing_target_controls(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
+  func : @ir.HotFunc,
+  root_id : Int,
+  value_id : Int,
+  left_id : Int,
+  right_id : Int,
+  multiply_on_right : Bool,
+) -> Array[Int]? {
+  let constant_id = if multiply_on_right { left_id } else { right_id }
+  let multiply_id = if multiply_on_right { right_id } else { left_id }
+  match
+    (
+      @ir.hot_node_get(func, constant_id).op,
+      @ir.hot_node_get(func, multiply_id).op,
+    ) {
+    (@ir.HotOp::Const, @ir.HotOp::Binary) => ()
+    _ => return None
+  }
+  if @ir.hot_node_exact_instr(func, multiply_id) !=
+    Some(@lib.Instruction::i32_mul()) ||
+    @ir.hot_child_count(func, multiply_id) != 2 {
+    return None
+  }
+  let multiply_left = @ir.hot_child_get(func, multiply_id, 0)
+  let multiply_right = @ir.hot_child_get(func, multiply_id, 1)
+  let nested_nodes = [
+    root_id, value_id, left_id, right_id, multiply_left, multiply_right,
+  ]
+  for outer = 0; outer < nested_nodes.length(); outer = outer + 1 {
+    for inner = outer + 1; inner < nested_nodes.length(); inner = inner + 1 {
+      if nested_nodes[outer] == nested_nodes[inner] {
+        return None
+      }
+    }
+  }
+  match
+    (
+      @ir.hot_node_get(func, multiply_left).op,
+      @ir.hot_node_get(func, multiply_right).op,
+    ) {
+    (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+    _ => return None
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  for owned_id in [left_id, right_id, multiply_left, multiply_right] {
+    if @ir.node_use_count(use_def, owned_id) != 1 {
+      return None
+    }
+  }
+  Some(nested_nodes)
+}
+
+///|
 fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
   func : @ir.HotFunc,
   root_id : Int,
@@ -1076,6 +1129,17 @@ fn flatten_try_table_dead_suffix_root_nodes(
               match
                 flatten_try_table_dead_suffix_two_multiply_children_nodes(
                   func, root_id, value_id, left_id, right_id,
+                ) {
+                Some(nodes) => return Some(nodes)
+                None => ()
+              }
+            _ => ()
+          }
+          match instr {
+            @lib.I32Sub =>
+              match
+                flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
+                  func, root_id, value_id, left_id, right_id, true,
                 ) {
                 Some(nodes) => return Some(nodes)
                 None => ()
