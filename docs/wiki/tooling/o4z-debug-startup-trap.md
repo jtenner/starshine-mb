@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-02
 sources:
   - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
-  - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../../../scripts/lib/build-self-optimized.mjs
   - ../../../scripts/lib/self-optimized-artifacts.mjs
   - ../../../scripts/lib/o4z-debug-startup-map.test.ts
@@ -32,7 +31,7 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 - The stale committed debug-WASI artifact path is repaired. The reduced `malloc` shape now carries the TLSF root/control pointer into `tlsf/removeBlock` instead of leaving a literal zero on the stack.
 - `scripts/lib/build-self-optimized.mjs` describes the build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
-- The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) and [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
+- The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
 - The detailed owner evidence and the repaired pass-owner follow-up live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
 - The Node-hosted WASI runner boundary lives in [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md); this page uses that runner as replay evidence but does not make WASI 0.2/0.3, Component Model, JSPI, or sandboxing claims.
 
@@ -55,7 +54,6 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 
 - Archived research note: [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md)
 - Runtime-trap semantics guide: [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md)
-- Runtime-trap source refresh: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
 - Build pipeline: [`../../../scripts/lib/build-self-optimized.mjs`](../../../scripts/lib/build-self-optimized.mjs)
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)
 - Active reduced guard: [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts)

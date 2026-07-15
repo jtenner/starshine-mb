@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../../../src/wast/keywords.mbt
@@ -220,7 +219,6 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 
 ## Sources
 
-- Current reference call/cast/branch refresh: [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
 - Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Focused typed-function-reference source refresh: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md)

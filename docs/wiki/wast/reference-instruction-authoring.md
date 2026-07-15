@@ -7,7 +7,6 @@ sources:
   - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../binaryen/release-horizon-and-oracles.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
-  - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - https://webassembly.github.io/spec/core/valid/modules.html
@@ -199,7 +198,7 @@ The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.m
 - Cross-layer GC boundary refresh: [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
 - Binaryen BrOn assertion / oracle boundary: [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md)
 - Descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
-- Primary-source and local-code manifests: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md), [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Primary-source and local-code manifests: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)

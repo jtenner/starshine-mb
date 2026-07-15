@@ -3,7 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
+  - https://webassembly.github.io/spec/core/exec/runtime.html#syntax-trap
+  - https://webassembly.github.io/spec/core/exec/instructions.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
+  - https://www.w3.org/TR/wasm-js-api-2/
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/validate.mbt
@@ -35,7 +38,7 @@ A WebAssembly **trap** is what happens when a valid module reaches a runtime fai
 
 Use this page when a page or report says `RuntimeError: unreachable`, `assert_trap`, `traps-never-happen`, `mayTrap`, `equal trap`, `unreachable`, integer divide-by-zero, memory/table/GC bounds failure, null reference trap, or trap-preserving rewrite.
 
-The current source refresh is [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md). It rechecked current WebAssembly Core 3.0 execution/runtime/validation pages, the WebAssembly JavaScript API, MDN host-facing references, and Starshine's validator, HOT/effect, fuzz, and compare-pass code paths. Current Starshine CLI/config routing is grounded directly in the local CLI, command, optimizer, and effect sources listed below; Binaryen's upstream `traps-never-happen` assumption remains a separate oracle concern.
+The official WebAssembly Core execution/runtime/validation pages, the WebAssembly JavaScript API, MDN host-facing references, and the Starshine validator, HOT/effect, fuzz, and compare-pass code paths listed below ground this page. Current Starshine CLI/config routing is grounded directly in the local CLI, command, optimizer, and effect sources listed below; Binaryen's upstream `traps-never-happen` assumption remains a separate oracle concern.
 
 ## Beginner Model
 
@@ -155,6 +158,5 @@ When a pass, generator, or investigation touches trap-sensitive behavior:
 
 ## Sources
 
-- Current source refresh: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/exec/runtime.html#syntax-trap>, <https://webassembly.github.io/spec/core/exec/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://www.w3.org/TR/wasm-js-api-2/>
 - Host-facing references checked: <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/RuntimeError>, <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Control_flow/unreachable>

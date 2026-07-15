@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
+  - https://webassembly.github.io/spec/core/text/instructions.html
+  - https://webassembly.github.io/spec/core/binary/instructions.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/binary/decode.mbt
@@ -29,7 +31,7 @@ SIMD lane immediates are the small integer fields that pick one lane out of a `v
 - lane extract/replace instructions such as `i16x8.extract_lane_s` and `f64x2.replace_lane`;
 - lane load/store instructions such as `v128.load32_lane` and `v128.store64_lane`.
 
-The important maintenance rule is that a lane immediate is **not just a byte**. The byte-level instruction may be syntactically present, but validation must prove that the lane number is legal for the selected instruction shape. The current primary-source and Starshine-code refresh is [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md); it supersedes the older 2026-05-20 local-gap manifest where that manifest says the typechecker did not re-check binary-origin lanes. The broader WAST SIMD authoring guide remains [`../wast/simd-authoring.md`](../wast/simd-authoring.md).
+The important maintenance rule is that a lane immediate is **not just a byte**. The byte-level instruction may be syntactically present, but validation must prove that the lane number is legal for the selected instruction shape. Current official Core text/binary/validation pages and the Starshine source/test anchors below establish the contract; the older local typechecker gap is closed. The broader WAST SIMD authoring guide remains [`../wast/simd-authoring.md`](../wast/simd-authoring.md).
 
 ## Official Contract In Plain Terms
 
@@ -135,7 +137,6 @@ A binary payload can encode the same semantic mistake as a raw lane byte. Starsh
 
 ## Sources
 
-- Current SIMD lane refresh manifest: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Starshine WAST implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Starshine binary implementation: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)

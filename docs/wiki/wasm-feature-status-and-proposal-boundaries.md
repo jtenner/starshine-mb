@@ -34,7 +34,6 @@ sources:
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md
   - raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md
-  - raw/wasm/2026-06-04-relaxed-simd-status-refresh.md
   - raw/wasm/2026-07-11-multivalue-core-boundary-recheck.md
   - raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
@@ -250,7 +249,6 @@ When changing a feature-status claim:
 - Active proposal routing refresh: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Relaxed-atomics-focused status recheck: [`raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md)
 - Earlier same-day status bridge: [`raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md`](raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md)
-- Relaxed SIMD status bridge: [`raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](raw/wasm/2026-06-04-relaxed-simd-status-refresh.md)
 - Local generator gate vocabulary: [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
 - Custom-descriptor instruction bridge: [`raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md)
 - Focused companion pages: [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md)

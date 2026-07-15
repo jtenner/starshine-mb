@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
@@ -142,7 +141,6 @@ If ordinary WAST `call_ref` is added:
 ## Sources
 
 - Current focused bridge: [`raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md)
-- Current reference-call/cast refresh: [`raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
 - `ref.func` declaration-source guide: [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md)
 - WAST call guide: [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md)
 - Reference instruction guide: [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md)

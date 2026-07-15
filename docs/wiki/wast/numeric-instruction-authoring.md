@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
-  - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -41,7 +40,7 @@ Use this page when writing or reviewing scalar numeric WAST fixtures for `i32`, 
 - float unary, binary, and comparison operations;
 - conversions, reinterprets, sign-extension operations, and saturating truncations.
 
-This page is scalar-only for the current Core/Starshine numeric surface. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). Active-proposal Wide Arithmetic (`i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u`) is scalar-looking but outside current Starshine support; route it through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md), not through the ordinary `i64.*` or `i64x2.*` rules here. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) rechecked the current WebAssembly Core 3.0 pages dated 2026-06-03 and found no new scalar numeric family or local-code drift that needs a separate page.
+This page is scalar-only for the current Core/Starshine numeric surface. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). Active-proposal Wide Arithmetic (`i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u`) is scalar-looking but outside current Starshine support; route it through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md), not through the ordinary `i64.*` or `i64x2.*` rules here. The official Core instruction, text-value, binary, validation, and numeric-execution sources cited below remain the authority for this family split.
 
 ## Beginner Mental Model
 
@@ -213,7 +212,6 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 
 ## Sources
 
-- Current-source refresh: [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md)
 - Wide Arithmetic proposal boundary: [`../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md), [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Official numeric execution and text values sources: <https://webassembly.github.io/spec/core/exec/numerics.html>, <https://webassembly.github.io/spec/core/text/values.html>
