@@ -328,6 +328,12 @@ Commits `81cfb9619` and `dda2bdfe3` complete the next exact two-code internal it
 
 The second commit caches each inspected inputful-loop support result in `FlattenRewriteState`, reuses only that exact admission result after mutation starts, and fails closed if no entry exists. Its red-first invariant proves a post-snapshot malformed backedge can make an uncached proof fail without changing the cached rewrite decision. A 600-function native-release inputful-loop fixture was timing-flat at `2,589 -> 2,584 us`. Private flatten is `165/165`, focused flatten `245/245`, passes `5,740/5,740`, the full suite `9,201/9,201`, and `moon info` is green with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` performance gate, typed EH, structured control-plus-owned-label deletion, broader parity, flatten aggregate, four-lane signoff, ordered-neighborhood proof, and public admission remain open.
 
+## 2026-07-15 branch append and admission-roster follow-up
+
+Commits `6a74918d6` and `1acb9bc14` complete the next exact two-code internal iteration without widening behavior. The branch index now uses the monotonic HOT node order to deduplicate only repeated targets from the current branch node, avoiding a scan of every prior user of that label. The same immutable node scan also records exact loop, legacy-try, and payload-bearing branch admission rosters, so admission no longer performs three whole-live-node scans.
+
+The branch-dense native-release fixture improved `17,065 -> 14,723 us` (`13.72%`). The root-heavy fixture improved `54,596 -> 51,076.5 us` (`6.45%`) with a `49,953.5 us` rerun, and the reconstructed representative moved directionally `1,111.5 -> 1,066 us`. Private flatten is `167/167`, focused flatten `245/245`, passes `5,742/5,742`, the full suite `9,203/9,203`, and `moon info` remains green with 11 existing warnings. No semantic family, `.mbti`, or public surface changed. The durable `970.5 us` / `3.65x` gate and all typed-EH, structured-label deletion, broader-parity, aggregate, signoff, neighborhood, and public-readiness blockers remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

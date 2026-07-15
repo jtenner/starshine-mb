@@ -27,7 +27,9 @@ This note records the bounded internal-only iteration that:
 21. dispatches generic postorder branch routing only for carried plain `br` nodes because payload-bearing `br_if` and `br_table` already route and return in dedicated arms;
 22. retains sequenced-root holder/node identity only for nodes with multiple reachable pre-mutation owners, with an explicit snapshot node limit for rewrite-created ids;
 23. reuses the exact resolved target-local vector as the payload staging vector when a table's repeated/default labels deduplicate to one unique target, while retaining separate staging and fanout for multiple targets;
-24. freezes each inspected inputful-loop support result before mutation and rejects an absent rewrite-time entry.
+24. freezes each inspected inputful-loop support result before mutation and rejects an absent rewrite-time entry;
+25. replaces each per-label prior-population scan during branch-index construction with one monotonic last-recorded-node guard;
+26. records exact live loop, legacy-try, and payload-bearing branch admission rosters in that same immutable pre-mutation node scan, eliminating three later whole-live-node scans.
 
 The public registry, dispatcher, CLI execution path, preset scheduler, compare allowlist, and flatten API snapshots remain unchanged. Across the iterations recorded here, the only `.mbti` addition is the public HOT mutation `hot_region_truncate_suffix(...)` in `src/ir/pkg.generated.mbti`; the newest multivalue changes add no API. `flatten` is still public-removed.
 
@@ -51,6 +53,7 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Current sparse proof-cache iteration: `e165fde1c` (`perf: sparsify flatten conditional proof caches`) and `476848f9d` (`perf: sparsify flatten terminal proof caches`).
 - Current postorder-routing/shared-root iteration: `7801166ac` (`perf: dispatch flatten branch routing by node kind`) and `18101a947` (`perf: retain only shared flatten sequence roots`).
 - Current single-target-table/inputful-loop iteration: `81cfb9619` (`perf: reuse single flatten table target locals`) and `dda2bdfe3` (`perf: freeze flatten inputful loop support`).
+- Current branch-append/admission-roster iteration: `6a74918d6` (`perf: append flatten branch users in constant time`) and `1acb9bc14` (`perf: share flatten admission node rosters`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -133,11 +136,17 @@ The single-target-table/inputful-loop follow-up also added exactly one red-first
 - `flatten single-target table stages in the exact target vector` first failed because `flatten_br_table_staging_locals` did not exist. The implemented helper returns the resolved target vector unchanged for one unique target, allocates no local, and still creates a distinct typed staging vector for multiple targets. Existing behavior expectations then moved from the Binaryen-style staging-plus-copy shape to the smaller direct target writes across scalar, tuple, loop, legacy-try, suffix, and nested-placeholder families. Private flatten moved to `164/164`;
 - `flatten inputful loop support freezes the exact admission result` first failed because `FlattenRewriteState` had no inputful-loop support entries. Admission now stores the exact supported/unsupported result per inspected loop; a post-snapshot malformed payloadless backedge makes the uncached support fail, while rewrite consumes the pre-mutation positive result. An absent entry after mutation starts fails closed. Private flatten moved to `165/165`.
 
+The branch-append/admission-roster follow-up again added exactly one red-first invariant per code commit:
+
+- `flatten branch index deduplicates only the current node target` first failed because `flatten_record_label_branch_node` did not exist. The monotonic live-node scan now suppresses only repeated labels emitted by the current node and appends each later branch user without scanning the prior per-label population. Private flatten moved to `166/166`;
+- `flatten admission node index shares the exact live-node scan` first failed because `flatten_build_pre_mutation_node_index` did not exist. The same scan now records exact loop, legacy-try, and payload-bearing branch rosters while excluding 256 unrelated roots; admission consumes those frozen populations instead of rescanning all live nodes. Private flatten moved to `167/167`.
+
 ## Ownership and mutation safety
 
 `FlattenRewriteState` now owns:
 
 - one lightweight exact reachable node-use-count snapshot built before admission, without full use-site or local-use allocation;
+- one immutable live-node index containing exact per-label branch populations plus loop, legacy-try, and payload-bearing branch admission rosters;
 - sparse exact conditional-flow and chained-replacement entries keyed only by admitted branch/value ids;
 - sparse exact dead-suffix entries containing table id, owner region, and owned node vector;
 - sparse exact terminal-table support entries keyed by table node, try label, payload arity, and mixed-target policy;
@@ -257,6 +266,8 @@ The postorder-routing iteration recovered a repeatable high-resolution native-re
 
 The single-target-table iteration reused that reconstructed representative. The pre-iteration median was `1,128.5 us`; code 1 measured `1,087 us`, while later code-2 samples measured `1,136 us` and `1,122 us`. Treat the timing as overlapping rather than a stable speed win. The structural win is directly measured: on a focused scalar repeated-target table, encoded output shrank from `51` to `47` bytes because one staging local and one local-copy pair disappeared. A pinned Binaryen v130 probe emits the separate staging local and target copy. The inputful-loop cache used a 600-function native-release fixture: code-1 baseline measured `2,589 us`, and the reliable current rerun measured `2,584 us`; one earlier `3,304 us` current sample was not reproduced. Classify code 2 as proof-boundary/repeated-support removal, not a timing win. Neither result requalifies the durable public performance gate.
 
+The branch-append/admission-roster iteration used the recovered native-release path. A 200-function fixture with 256 `br_if` users of one label improved from `17,065 us` (`16,122..18,472`) to `14,723 us` (`14,245..16,413`), a `13.72%` reduction from replacing growing per-label `contains` scans with the monotonic current-node guard. The 1,200-function root-heavy fixture then improved from a code-1 baseline of `54,596 us` (`50,430..56,353`) to `51,076.5 us` (`48,892..54,148`), with a `49,953.5 us` rerun, after admission reused the exact loop/try/branch rosters from the same node scan. The contemporaneous reconstructed representative moved directionally from `1,111.5 us` to `1,066 us`. These are targeted/reconstructed wins; they do not recover the original gate contract or replace the durable `970.5 us` / `3.65x` checkpoint.
+
 ## Validation
 
 - HOT-lower focused file: `88/88`.
@@ -300,10 +311,12 @@ The postorder-routing/shared-root iteration passes focused flatten `245/245`, pr
 
 The single-target-table/inputful-loop iteration passes focused flatten `245/245`, private flatten `165/165`, passes `5,740/5,740`, the full suite `9,201/9,201`, `moon info` with 11 existing warnings, targeted formatting, and `git diff --check`. No `.mbti`, registry, dispatcher, CLI, compare/API, generator, or preset surface changed. The pinned owner hash remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`. The table-shape change was probed directly against Binaryen v130; the loop-support commit admits no semantic family and required no additional oracle probe.
 
+The branch-append/admission-roster iteration passes focused flatten `245/245`, private flatten `167/167`, passes `5,742/5,742`, the full suite `9,203/9,203`, `moon info` with 11 existing warnings, targeted formatting, and `git diff --check`. No `.mbti`, registry, dispatcher, CLI, compare/API, generator, or preset surface changed. Both commits preserve the admitted semantic surface, so no Binaryen probe was required. The pinned owner hash remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, dedicated postorder branch dispatch, lightweight reachable ownership counts, shared-root-only sequence storage, single-target direct staging, cached inputful-loop support, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, one-time table target-vector resolution, exact legacy-try/inputful-loop branch indexing, region-tail/tuple-entry/tuple-branch count proof, cached conditional-flow sites, and sparse proof storage reduce repeated immutable scans, generic router attempts, redundant one-target local copies, region rebuilds, full use-def/use-site allocation, local-vector checks, unconditional root bookkeeping, and node-count-sized cache setup. The newest focused encoded probe improves `51 -> 47` bytes. Representative and inputful-loop timing is overlapping/flat, so no new stable speed claim is made. The prior stable representative median remains `970.5 us`, outside the `<=2x` Binaryen target, and has not been requalified.
+- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, constant-time branch-user append, shared admission rosters, dedicated postorder branch dispatch, lightweight reachable ownership counts, shared-root-only sequence storage, single-target direct staging, cached inputful-loop support, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, one-time table target-vector resolution, exact legacy-try/inputful-loop branch indexing, region-tail/tuple-entry/tuple-branch count proof, cached conditional-flow sites, and sparse proof storage reduce repeated immutable scans, generic router attempts, redundant one-target local copies, region rebuilds, full use-def/use-site allocation, local-vector checks, unconditional root bookkeeping, and node-count-sized cache setup. The newest branch-dense and root-heavy fixtures improve `13.72%` and `6.45%`; the representative reconstruction is directionally `1,111.5 -> 1,066 us`. The prior stable representative median remains `970.5 us`, outside the `<=2x` Binaryen target, and has not been requalified.
 - **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.

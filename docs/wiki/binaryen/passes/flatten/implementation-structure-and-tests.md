@@ -293,6 +293,10 @@ The next exact two-code iteration adds commits `81cfb9619` and `dda2bdfe3`. The 
 
 Validation is focused flatten `245/245`, private flatten `165/165`, passes `5,740/5,740`, full suite `9,201/9,201`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. Reconstructed timing was overlapping/flat, so code 1 is classified by its measured size and operation-count win and code 2 by its proof-boundary/repeated-support removal. The durable `970.5 us` / `3.65x` performance gate remains unrequalified.
 
+The next exact two-code iteration adds commits `6a74918d6` and `1acb9bc14`. The first replaces `branch_nodes[label].contains(node_id)` with a monotonic per-label last-recorded-node guard, preserving exact node order while deduplicating repeated/default labels from the current table or try-table node in constant time. The second extends that same immutable live-node scan to collect exact loop, legacy-try, and payload-bearing branch admission rosters; the three deferred-family checks now iterate those populations rather than rescanning every live node.
+
+Validation is focused flatten `245/245`, private flatten `167/167`, passes `5,742/5,742`, full suite `9,203/9,203`, and green `moon info`, targeted formatting, owner verification, and diff checks. The branch-dense fixture improves `17,065 -> 14,723 us` (`13.72%`); the root-heavy fixture improves `54,596 -> 51,076.5 us` (`6.45%`) with a `49,953.5 us` rerun; the reconstructed representative moves directionally `1,111.5 -> 1,066 us`. No `.mbti`, semantic family, or public pass surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

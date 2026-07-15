@@ -330,6 +330,10 @@ The latest exact two-code iteration narrows table-local construction and freezes
 
 Validation reaches private `165/165`, focused `245/245`, passes `5,740/5,740`, and full `9,201/9,201`. The pinned v130 owner hash is unchanged. No `.mbti`, registry, dispatcher, CLI, compare/API, generator, or preset surface changes. The durable `970.5 us` / `3.65x` gate and all typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blockers remain open.
 
+The latest exact two-code iteration removes two more run-wide scan costs without widening behavior. `6a74918d6` appends branch users to the immutable per-label index in constant time by exploiting monotonic HOT node order; repeated labels from one table remain deduplicated, and later branch nodes remain ordered. `1acb9bc14` records loop, legacy-try, and payload-bearing branch candidate rosters in that same scan and reuses them for deferred-family admission.
+
+Validation reaches private `167/167`, focused `245/245`, passes `5,742/5,742`, and full `9,203/9,203`. The branch-dense benchmark improves `13.72%`, the root-heavy benchmark improves `6.45%` with a faster rerun, and the representative reconstruction moves directionally `1,111.5 -> 1,066 us`. These are measured internal scan reductions, not a requalification of the lost gate harness. No `.mbti`, registry, dispatcher, CLI, compare/API, generator, preset, or semantic family changes; the durable `970.5 us` / `3.65x` gate and every public-readiness blocker remain open.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

@@ -395,6 +395,12 @@ Commit `81cfb9619` keeps Binaryen's source-order rule—payload work before sele
 
 Commit `dda2bdfe3` freezes the complete supported/unsupported result for each inspected inputful loop. Admission computes the result from exact types, entry ownership, label branches, conditional-flow sites, backedges, and result-tail ownership; rewrite may consume only that cached result. A missing entry after `rewrites_started` fails closed. The inputful-loop benchmark was timing-flat (`2,589 -> 2,584 us`), so the durable value is repeated-support removal and one stronger mutation-time proof boundary.
 
+### Branch-user append and admission discovery now share one exact scan
+
+Commits `6a74918d6` and `1acb9bc14` do not change the Flat-IR output contract. The immutable live-node scan now appends each branch user in constant time by remembering only the last node recorded for each label; repeated/default table labels from that same node are suppressed, while later branch nodes remain in exact HOT id order. That scan also records the complete pre-mutation loop, legacy-try, and payload-bearing branch candidate populations used by admission.
+
+The new red-first invariants prove exact label populations, duplicate suppression, exact candidate rosters, and exclusion of 256 unrelated roots. Admission still performs every type, ownership, control, EH, effect, trap, and failure-atomicity proof; it merely starts from the exact relevant owner vectors instead of rediscovering them with three more whole-function scans. Targeted native-release measurement improves the branch-dense fixture `13.72%` and the root-heavy fixture `6.45%`. No transform family is admitted.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

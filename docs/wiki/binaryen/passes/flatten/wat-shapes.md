@@ -615,6 +615,12 @@ When all explicit/default `br_table` labels deduplicate to one target, Starshine
 
 Inputful-loop support is now also a frozen admission fact. Exact parameter/result types, entry and backedge ownership, conditional flow, label branches, and result tails are checked before mutation; rewrite cannot discover a new supported loop after that boundary. This changes no WAT family and measured timing was flat, but it closes another stale-proof path.
 
+### Latest branch-index and admission-roster implementation detail
+
+Commits `6a74918d6` and `1acb9bc14` do not alter any WAT shape above. The immutable label index now records a branch node once per targeted label without scanning earlier users: repeated/default labels emitted by the same node are suppressed by a per-label last-node guard, while later nodes remain in HOT id order. The same scan records exact loop, legacy-try, and payload-bearing branch candidates for admission.
+
+All family-specific target, type, ownership, false-flow, EH, effect, trap, and deletion checks remain unchanged. The only behavior is less rediscovery: admission iterates exact candidate rosters rather than all live nodes three more times. The red-first roster invariant excludes 256 unrelated roots, and targeted native-release fixtures improve `13.72%` and `6.45%`. No opcode, control, payload, EH, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before
