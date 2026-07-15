@@ -6,7 +6,7 @@ sources:
   - raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
   - https://nodejs.org/api/wasi.html
   - raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
-  - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
+  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - wasm-js-string-builtins-boundary.md
   - wasm-jspi-host-async-boundary.md
   - wasm-component-model-boundary.md
@@ -140,7 +140,7 @@ Do **not** start by adding Starshine WAST syntax, binary opcode cases, validatio
 
 - Current source bridge: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md)
 - Historical ESM source bridge: [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md)
-- Active proposal routing refresh: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
+- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Shared feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - JSPI boundary: [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md)

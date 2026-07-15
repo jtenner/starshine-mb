@@ -5,7 +5,7 @@ last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
-  - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
+  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../../src/lib/types.mbt
@@ -102,5 +102,5 @@ A credible Starshine custom-page-size slice would need to update and test all of
 
 - Current Binaryen owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp>; current fixtures: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering.wast> and <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering-with-bounds-checks.wast>.
 - Current source bridge: [`raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md)
-- Active proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
+- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Core/resource implementation: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/match.mbt`](../../src/validate/match.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt)

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-memory-control-boundary-refresh.md
-  - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
+  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
@@ -123,7 +123,7 @@ If Memory Control work becomes in scope, land it as a focused implementation sli
 ## Sources
 
 - Focused bridge: [`raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](raw/wasm/2026-06-05-memory-control-boundary-refresh.md)
-- Active proposal routing snapshot: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
+- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Current memory instruction docs: [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md)
 - Related memory-type boundaries: [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)
 - Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)

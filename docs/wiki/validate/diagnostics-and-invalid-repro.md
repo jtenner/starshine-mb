@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
+  - ../wast/static-assertion-harness.md
   - https://webassembly.github.io/spec/core/valid/index.html
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt

@@ -5,8 +5,7 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - ../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
-  - ../raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md
+  - ../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../../../src/lib/types.mbt
@@ -166,8 +165,7 @@ When touching atomics:
 ## Sources
 
 - Relaxed Atomics boundary: [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md), [`../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md)
-- Active proposal routing refresh: [`../raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](../raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
-- Focused Relaxed Atomics recheck: [`../raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](../raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md)
+- Shared Core/proposal status bridge: [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Current unshared-atomic validation reconciliation: [`../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
 - Historical fence/unshared-memory reconciliation: [`../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
 - Historical linear-memory threads/shared-memory refresh: [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)

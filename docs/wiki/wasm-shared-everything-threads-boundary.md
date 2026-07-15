@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
-  - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
+  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../../src/lib/types.mbt
   - ../../src/wast/struct_atomic_get_surface_test.mbt
   - ../../src/validate/typecheck.mbt
@@ -110,7 +110,7 @@ Current order spellings are canonicalized to `seq_cst` and `acq_rel`. The parser
 ## Source Map
 
 - Focused boundary refresh: [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md)
-- Active-proposal routing: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
+- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Linear-memory Threads boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md)
 - Linear-memory atomic WAST authoring: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)
 - GC aggregate authoring: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)

@@ -8,7 +8,7 @@ sources:
   - https://wasi.dev/roadmap
   - https://component-model.bytecodealliance.org/
   - raw/wasm/2026-06-05-component-model-boundary-refresh.md
-  - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
+  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/wast/parser.mbt
@@ -149,7 +149,7 @@ Until those questions have answers and tests, keep component artifacts out of or
 ## Sources
 
 - Focused source bridge: [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md)
-- Broad active-proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
+- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [Node `node:wasi`](https://nodejs.org/api/wasi.html), [WebAssembly/WASI](https://github.com/WebAssembly/WASI), and the [WASI roadmap](https://wasi.dev/roadmap)
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
