@@ -55,4 +55,4 @@ This manifest refreshes the SIMD lane-immediate contract after a wiki-health che
 
 ## Supersession note
 
-This manifest supersedes the local-gap claims in [`2026-05-19-wast-simd-sources.md`](2026-05-19-wast-simd-sources.md) and the initial [`2026-05-20-simd-lane-immediate-validation-refresh.md`](2026-05-20-simd-lane-immediate-validation-refresh.md) where they say Starshine's typechecker does not re-check binary-origin shape-specific lane bounds. Those older manifests remain useful immutable provenance for the original gap and the test-layer plan.
+This manifest supersedes the local-gap claims in the removed 2026-05-19 broad SIMD manifest and the initial [`2026-05-20-simd-lane-immediate-validation-refresh.md`](2026-05-20-simd-lane-immediate-validation-refresh.md) where they say Starshine's typechecker does not re-check binary-origin shape-specific lane bounds. The retained 2026-05-20 manifest remains useful immutable provenance for the original gap and the test-layer plan.

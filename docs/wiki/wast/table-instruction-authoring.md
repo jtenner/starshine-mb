@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-05-19-wast-table-instruction-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
@@ -170,7 +169,6 @@ When a pass or generator change touches table instructions, use this checklist:
 
 ## Source Map
 
-- Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-table-instruction-sources.md`](../raw/wasm/2026-05-19-wast-table-instruction-sources.md)
 - Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Targeted table64 / `table.fill` validation correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - WAST opcode vocabulary and parser: [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)

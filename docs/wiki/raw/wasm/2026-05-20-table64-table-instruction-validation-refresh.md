@@ -16,12 +16,11 @@ related:
   - ../../validate/module-validation-phases.md
   - ../../binaryen/passes/memory64-lowering/index.md
 supersedes:
-  - 2026-05-19-wast-table-instruction-sources.md#local-table-fill-width-summary
 ---
 
 # Table64 Table Instruction Validation Refresh (2026-05-20)
 
-Purpose: targeted correction for the table64 / table-address-width caveat in [`../../wast/table-instruction-authoring.md`](../../wast/table-instruction-authoring.md), especially the stale local claim in [`2026-05-19-wast-table-instruction-sources.md`](2026-05-19-wast-table-instruction-sources.md) that grouped `table.fill` with fully address-width-aware table operations.
+Purpose: targeted correction for the table64 / table-address-width caveat in [`../../wast/table-instruction-authoring.md`](../../wast/table-instruction-authoring.md), especially the stale local claim in the removed 2026-05-19 table-instruction manifest that grouped `table.fill` with fully address-width-aware table operations.
 
 ## Primary sources rechecked
 

@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
-  - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
   - ../../../src/wast/spec_harness.mbt
   - ../../../src/wast/parser.mbt
@@ -28,7 +27,7 @@ related:
 
 ## Overview
 
-WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The current lifecycle recheck [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md), plus the earlier snapshots [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) record the upstream reference-interpreter script model, the separate Core embedding/instantiation boundary, and Starshine's local static implementation and skip policy.
+WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The current lifecycle recheck [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md), plus the earlier current refresh [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md) and skip-policy refresh [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md), record the upstream reference-interpreter script model, the separate Core embedding/instantiation boundary, and Starshine's local static implementation and skip policy.
 
 Starshine currently implements a **static** spec-harness subset:
 
@@ -165,7 +164,7 @@ When touching WAST script support or static assertions:
 
 ## Sources
 
-- Primary-source snapshots: [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md), [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
+- Primary-source snapshots: [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md), [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Parser and AST: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt)
 - Static evaluator and tests: [`../../../src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt)
 - CLI wrapper: [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt)

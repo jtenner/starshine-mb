@@ -17,7 +17,6 @@ sources:
   - https://nodejs.org/api/packages.html
   - https://www.typescriptlang.org/docs/handbook/modules/reference.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
-  - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0110-2026-04-18-node-package-api-audit.md
   - ../../../node/package.json
   - ../../../node/README.md

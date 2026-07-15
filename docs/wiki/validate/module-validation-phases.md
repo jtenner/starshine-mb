@@ -22,7 +22,6 @@ sources:
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
-  - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
