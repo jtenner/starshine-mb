@@ -16600,3 +16600,174 @@ test "flatten removes an add-call0-clz suffix sequence after a scalar legacy try
 test "flatten removes an extend-callarg-and suffix sequence after a scalar legacy try table" {
   flatten_test_remove_sequence_with_direct_call(true)
 }
+
+///|
+fn flatten_test_build_owned_one_multiply_child_drop(
+  func : @ir.HotFunc,
+  outer_instr : @lib.Instruction,
+  multiply_on_left : Bool,
+  base : Int,
+) -> Array[Int] {
+  let multiply_left = @ir.hot_build_const_i32(func, @lib.I32(base))
+  let multiply_right = @ir.hot_build_const_i32(func, @lib.I32(base + 1))
+  let multiply = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    multiply_left,
+    multiply_right,
+  )
+  @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
+  let outer_const = @ir.hot_build_const_i32(func, @lib.I32(base + 2))
+  let outer = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    if multiply_on_left {
+      multiply
+    } else {
+      outer_const
+    },
+    if multiply_on_left {
+      outer_const
+    } else {
+      multiply
+    },
+  )
+  @ir.hot_node_exact_instr_set(func, outer, outer_instr)
+  [
+    @ir.hot_build_drop(func, outer),
+    outer,
+    if multiply_on_left {
+      multiply
+    } else {
+      outer_const
+    },
+    if multiply_on_left {
+      outer_const
+    } else {
+      multiply
+    },
+    multiply_left,
+    multiply_right,
+  ]
+}
+
+///|
+fn flatten_test_remove_sequence_with_one_multiply_child_drop(
+  subtract_tree : Bool,
+) -> Unit raise {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(15))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let roots = if subtract_tree {
+    [
+      flatten_test_build_owned_unary_drop_root(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        9,
+        @lib.ValType::i64(),
+        true,
+      ),
+      flatten_test_build_owned_one_multiply_child_drop(
+        func,
+        @lib.Instruction::i32_sub(),
+        true,
+        10,
+      ),
+      flatten_test_build_owned_binary_drop_root(
+        func,
+        @lib.Instruction::i32_and(),
+        13,
+        14,
+      ),
+    ]
+  } else {
+    [
+      flatten_test_build_owned_binary_drop_root(
+        func,
+        @lib.Instruction::i32_add(),
+        9,
+        10,
+      ),
+      flatten_test_build_owned_one_multiply_child_drop(
+        func,
+        @lib.Instruction::i32_add(),
+        false,
+        11,
+      ),
+      flatten_test_build_owned_unary_drop_root(
+        func,
+        @lib.Instruction::i32_clz(),
+        14,
+        i32_type,
+        false,
+      ),
+    ]
+  }
+  let suffix_roots : Array[Int] = [branch_id]
+  let owned_nodes : Array[Int] = []
+  for root in roots {
+    suffix_roots.push(root[0])
+    for node_id in root {
+      owned_nodes.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, suffix_roots)
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  for node_id in owned_nodes {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      body_ref,
+      @ir.hot_region_root_count(func, body_ref) - 1,
+    ),
+    branch_id,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected suffix sequence with nested drop tree to verify, got \{err}",
+      )
+  }
+}
+
+///|
+test "flatten removes an add-nested-addmul-clz suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_one_multiply_child_drop(false)
+}
+
+///|
+test "flatten removes an extend-nested-submul-and suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_one_multiply_child_drop(true)
+}
