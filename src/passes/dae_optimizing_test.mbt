@@ -16007,7 +16007,7 @@ test "dae-optimizing removes a forwarding-only parameter component and preserves
 }
 
 ///|
-test "dae-optimizing replays local cleanup on changed forwarding-component functions after a large touched-set skip" {
+test "dae-optimizing replays coalesce and vacuum on changed forwarding-component functions after a large touched-set skip" {
   let source =
     #|(module
     #|  (import "env" "effect" (func $effect (result i32)))
@@ -16065,15 +16065,21 @@ test "dae-optimizing replays local cleanup on changed forwarding-component funct
     #|    call $d7
     #|    i32.const 8
     #|    call $d8))
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(plain, 0).length(), 2)
+  let @lib.Func(plain_a_locals, _) = dae_test_defined_func(plain, 0)
+  assert_true(
+    plain_a_locals.length() >= 16,
+    msg=plain.pretty_print_defined_func(0U),
+  )
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
   let @lib.Func(a_locals, _) = dae_test_defined_func(optimized, 0)
-  assert_true(
-    a_locals.length() < 16,
-    msg=optimized.pretty_print_defined_func(0U),
-  )
+  let optimized_a = optimized.pretty_print_defined_func(0U)
+  assert_true(a_locals.length() < 16, msg=optimized_a)
+  assert_false(optimized_a.contains("nop"), msg=optimized_a)
   assert_true(
     trace.any(fn(line) {
       line.contains(
@@ -16084,7 +16090,9 @@ test "dae-optimizing replays local cleanup on changed forwarding-component funct
   )
   assert_true(
     trace.any(fn(line) {
-      line.contains("pass[dae-optimizing]:post-component-cleanup defs=[0]")
+      line.contains(
+        "pass[dae-optimizing]:post-component-cleanup defs=[0] passes=[coalesce-locals, vacuum]",
+      )
     }),
     msg=trace.to_string(),
   )
