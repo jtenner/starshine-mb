@@ -9,7 +9,6 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt-options.h
   - ../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
-  - ../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../src/cmd/fuzz_harness_wbtest.mbt
 related:
@@ -168,7 +167,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 
 - Binaryen BrOn assertion / oracle boundary: [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md)
 - Official command surfaces: [`wasm-tools` README](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md), [WABT `wasm-validate`](https://github.com/WebAssembly/wabt/blob/main/docs/wabt.md#wasm-validate), and [Binaryen `wasm-opt`](https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp)
-- Current Core/proposal/dashboard recheck: [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md); historical feature-dashboard routing: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md); shared vocabulary: [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md)
+- Current Core/proposal/dashboard recheck: [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md); shared vocabulary: [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md)
 - Adapter implementation: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Adapter and classifier tests: [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt)
 - Related workflows: [`fuzz-runner.md`](fuzz-runner.md), [`pass-fuzz-compare.md`](pass-fuzz-compare.md), [`validation-gates.md`](validation-gates.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)

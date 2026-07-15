@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-15
 sources:
-  - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
+  - https://webassembly.github.io/spec/core/syntax/instructions.html
+  - https://webassembly.github.io/spec/core/binary/instructions.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
+  - raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
   - ../../src/wast/parser.mbt
@@ -38,7 +40,7 @@ Use this page when a claim involves **first-class function references** or `call
 3. **Starshine WAST support:** high-level Starshine WAST text currently exposes `return_call_ref` and `ref.func`, but not ordinary non-tail `call_ref` text.
 4. **Declaration rules:** `ref.func` needs a module-level declaration source; `call_ref` consumes a function reference and does not declare one.
 
-The current source bridge is [`raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md). It rechecked the current WebAssembly Core 3.0 syntax/text/binary/validation pages, official Wasm 3.0 completion routing, historical function-references validation pages used as teaching aids, and current Starshine WAST/core/binary/validator/generator sources.
+Current Core syntax, binary, and validation pages anchor the standards status and stack rules; [`raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md) anchors Starshine's separate `ref.func` declaration-source boundary. The local WAST/core/binary/validator/generator evidence is cited below.
 
 ## Beginner Model
 
@@ -66,7 +68,7 @@ The function reference may come from `ref.func`, a table read, a global, a block
 
 | Layer | Current status | Evidence and guidance |
 | --- | --- | --- |
-| Standards / Core | `call_ref` and `return_call_ref` are Core 3.0 call-family instructions with function-type immediates. | Use the raw bridge and official Core pages linked from it for standards-status claims. The historical function-references proposal pages remain useful teaching aids, not active-status authority. |
+| Standards / Core | `call_ref` and `return_call_ref` are Core 3.0 call-family instructions with function-type immediates. | Use the official Core syntax, binary, and validation pages cited in this page's sources for standards-status claims. Historical function-references proposal pages remain teaching aids, not active-status authority. |
 | WAST keywords/parser | `return_call_ref` is registered; ordinary `call_ref` is not. | [`src/wast/keywords.mbt`](../../src/wast/keywords.mbt) registers `return_call_ref`, `ref.func`, `call`, and `call_indirect`; docs and tests should not use human-authored Starshine WAST `call_ref` until keyword/parser/lowerer/printer support lands. |
 | WAST lowerer/printer | Lowers and prints `return_call_ref` plus `ref.func`; does not lower or print ordinary `call_ref` text. | [`src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt). |
 | Core AST | Separate ordinary and tail reference-call variants. | [`Instruction::CallRef(TypeIdx)`](../../src/lib/types.mbt) pushes results; `ReturnCallRef(TypeIdx)` is tail-call control flow. |
@@ -140,7 +142,7 @@ If ordinary WAST `call_ref` is added:
 
 ## Sources
 
-- Current focused bridge: [`raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md)
+- Official Core instruction sources: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - `ref.func` declaration-source guide: [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md)
 - WAST call guide: [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md)
 - Reference instruction guide: [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md)

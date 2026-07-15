@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
-  - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt

@@ -3,8 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - code-metadata-and-function-annotations.md
   - ../wasm-more-array-constructors-boundary.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
@@ -42,7 +40,7 @@ Use this ledger when a fixture, reducer, fuzz corpus entry, or pass regression n
 
 For beginners: **WAST** is a text syntax. Starshine has several deeper layers after text parsing: a core module/instruction model, binary encode/decode, validation, generators, and optimizer passes. A shape can be real in those deeper layers while still missing from the high-level WAST keyword/parser/printer path. When that happens, use a direct core builder, binary fixture, or generated module until a WAST widening slice lands.
 
-The focused family pages and local implementation sources cited below distinguish official Core 3.0 text/syntax/validation from Starshine's current keyword/parser/lowerer/printer coverage. Numeric data-segment payload syntax is separately routed through [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md) because it is active-proposal text, not a Core-vs-local layer gap.
+The focused family pages and local implementation sources cited below distinguish official Core 3.0 text/syntax/validation from Starshine's current keyword/parser/lowerer/printer coverage. Numeric data-segment payload syntax is separately routed through [`data-segment-authoring.md`](data-segment-authoring.md) because it is active-proposal text, not a Core-vs-local layer gap.
 
 This page is deliberately a **navigation layer**. Keep detailed semantics on focused family pages. Keep validator semantic divergences on [`../validate/local-spec-divergence-ledger.md`](../validate/local-spec-divergence-ledger.md).
 
@@ -92,7 +90,7 @@ When closing one of these gaps:
 ## Source Map
 
 - Code-metadata / branch-hint status: [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) and the official Core/code-metadata sources cited there.
-- Numeric data-segment proposal routing: [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md)
+- Numeric data-segment proposal routing: [`data-segment-authoring.md`](data-segment-authoring.md)
 - More Array Constructors boundary: [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
 - WAST implementation: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)
 - Core/validator/generator evidence: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)

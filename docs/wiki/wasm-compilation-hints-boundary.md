@@ -7,7 +7,6 @@ sources:
   - https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md
   - https://webassembly.github.io/spec/metadata/code/
   - https://webassembly.github.io/spec/metadata/code/branch-hinting.html
-  - raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - wast/code-metadata-and-function-annotations.md
   - binary/custom-and-name-sections.md
   - ../../src/lib/types.mbt
@@ -127,5 +126,5 @@ A real Starshine implementation needs to answer all of these before any optimize
 
 - Official proposal/status sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md>, <https://webassembly.github.io/spec/metadata/code/>, and <https://webassembly.github.io/spec/metadata/code/branch-hinting.html>.
 - Code metadata / branch-hint routing: [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md)
-- Custom-section metadata routing: [`raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md)
+- Custom-section metadata routing: [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md)
 - Starshine source: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/passes/no_inline.mbt`](../../src/passes/no_inline.mbt), [`../../src/passes/inlining.mbt`](../../src/passes/inlining.mbt)

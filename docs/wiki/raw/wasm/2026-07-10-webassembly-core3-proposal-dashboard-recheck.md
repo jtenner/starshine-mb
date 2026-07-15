@@ -10,9 +10,8 @@
 1. WebAssembly Core Specification, Introduction, checked 2026-07-10: <https://webassembly.github.io/spec/core/intro/introduction.html>
 2. WebAssembly proposals tracker README, checked 2026-07-10: <https://github.com/WebAssembly/proposals>
 3. WebAssembly feature-status dashboard, checked 2026-07-10: <https://webassembly.org/features/>
-4. Earlier Starshine source bridges for historical context:
+4. Earlier Starshine source bridge for historical context:
    - [`2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
-   - [`2026-06-05-webassembly-feature-dashboard-routing.md`](2026-06-05-webassembly-feature-dashboard-routing.md)
 
 ## Durable takeaways
 

@@ -3,7 +3,6 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-12
 sources:
-  - ../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
   - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md

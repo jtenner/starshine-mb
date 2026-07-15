@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
-  - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
@@ -34,7 +33,7 @@ related:
 3. add a narrow module pass that deletes decoded opaque `target_features` custom sections; or
 4. add first-class target-feature metadata and implement a closer Binaryen-style metadata toggle.
 
-Do not treat opaque custom-section round-tripping as an implementation of the pass. Round-tripping can preserve `target_features`; the pass must suppress or clear that metadata. For the shared Starshine `CustomSec` / structured `name` model, `producers` provenance boundary, and placement-normalization caveats, see [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md) and [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md).
+Do not treat opaque custom-section round-tripping as an implementation of the pass. Round-tripping can preserve `target_features`; the pass must suppress or clear that metadata. For the shared Starshine `CustomSec` / structured `name` model, `producers` provenance boundary, and placement-normalization caveats, see [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md).
 
 ## Upstream contract to match
 

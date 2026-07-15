@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
-  - ../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../wasm-compilation-hints-boundary.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../../../src/lib/types.mbt
@@ -43,7 +42,7 @@ For the whole-module placement and ordering map that ties custom metadata to the
 
 The standardized name section is a special custom section named `name`, but the official-versus-local boundary matters. The current WebAssembly 3.0 appendix documents module, function, local, type, field, and tag name subsections. The focused [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md) sharpens the remaining ids: Starshine additionally accepts, validates, and can emit label, table, memory, global, element, and data name maps as proposal-facing/local richer metadata, not current Core 3.0 name-section evidence. Use [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md) for that active Phase-2 proposal boundary.
 
-Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The 2026-07-10 recheck in [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) reconfirms that current Core custom sections remain non-semantic while the separate WebAssembly linking convention gives `target_features` a purpose-specific linker-metadata payload. The earlier 2026-06-05 tool-conventions refresh remains the provenance bridge. `producers` is toolchain provenance and must not become an optimizer hint source; `target_features` communicates feature constraints to link-time tooling, but stripping it is not feature lowering or a Core-validation repair.
+Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The 2026-07-10 recheck in [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md) reconfirms that current Core custom sections remain non-semantic while the separate WebAssembly linking convention gives `target_features` a purpose-specific linker-metadata payload. The retained 2026-07-10 metadata recheck is the current provenance bridge. `producers` is toolchain provenance and must not become an optimizer hint source; `target_features` communicates feature constraints to link-time tooling, but stripping it is not feature lowering or a Core-validation repair.
 
 The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
 
@@ -188,7 +187,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 
 - Extended Name Section boundary: [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md)
 - Current target-features / Core-custom metadata recheck: [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
-- Tool-conventions custom metadata refresh: [`../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
+- Tool-conventions `producers` convention: <https://github.com/WebAssembly/tool-conventions/blob/main/ProducersSection.md>
 - Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) and its cited official proposal sources.
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)

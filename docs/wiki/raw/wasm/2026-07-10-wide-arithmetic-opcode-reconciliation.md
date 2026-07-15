@@ -3,7 +3,7 @@
 - Capture date: 2026-07-10
 - Source family: official WebAssembly proposal tracker and Wide Arithmetic proposal repository, with current Starshine codec evidence
 - Reason for capture: resolve the live wiki's ambiguous “subopcode contradiction” into an operational rule for future Starshine work without claiming that the active proposal is stable Core WebAssembly.
-- Status: immutable primary-source bridge for [`../../wasm-wide-arithmetic-boundary.md`](../../wasm-wide-arithmetic-boundary.md), [`../../wasm-feature-status-and-proposal-boundaries.md`](../../wasm-feature-status-and-proposal-boundaries.md), [`../../wast/numeric-instruction-authoring.md`](../../wast/numeric-instruction-authoring.md), and [`../../binary/instruction-and-expression-encoding.md`](../../binary/instruction-and-expression-encoding.md). It supersedes the **exact-opcode interpretation** of [`2026-06-05-wide-arithmetic-boundary-refresh.md`](2026-06-05-wide-arithmetic-boundary-refresh.md); that earlier capture remains historical provenance for the original mismatch and Starshine no-support map.
+- Status: immutable primary-source bridge for [`../../wasm-wide-arithmetic-boundary.md`](../../wasm-wide-arithmetic-boundary.md), [`../../wasm-feature-status-and-proposal-boundaries.md`](../../wasm-feature-status-and-proposal-boundaries.md), [`../../wast/numeric-instruction-authoring.md`](../../wast/numeric-instruction-authoring.md), and [`../../binary/instruction-and-expression-encoding.md`](../../binary/instruction-and-expression-encoding.md). It supersedes the earlier June exact-opcode interpretation; the living boundary page retains the validated no-support map and the original mismatch is recorded in the wiki log.
 
 ## Primary sources checked
 

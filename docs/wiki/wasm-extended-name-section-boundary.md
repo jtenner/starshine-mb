@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
-  - raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/binary/encode.mbt
@@ -118,7 +117,7 @@ Future strict-mode or feature-gate work should explicitly decide what to do with
 ## Sources
 
 - Official Extended Name Section overview: <https://github.com/WebAssembly/extended-name-section/blob/main/proposals/extended-name-section/Overview.md>
-- Current Core/proposal/dashboard recheck: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md); historical feature-dashboard routing: [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md)
+- Current Core/proposal/dashboard recheck: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Official custom/name appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - Starshine representation and codec: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/lib/module.mbt`](../../src/lib/module.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt)
 - Starshine validation and fuzz evidence: [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/fuzz/metamorphic.mbt`](../../src/fuzz/metamorphic.mbt), [`../../src/fuzz/invalid_binary_wbtest.mbt`](../../src/fuzz/invalid_binary_wbtest.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)

@@ -11,7 +11,6 @@ sources:
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/wast/arbitrary.mbt
-  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md

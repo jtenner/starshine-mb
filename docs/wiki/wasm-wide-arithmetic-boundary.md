@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
-  - raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
@@ -122,7 +121,7 @@ A safe Starshine implementation would need all of these, in order:
 ## Sources
 
 - Current opcode reconciliation: [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md)
-- Historical source bridge: [`raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md)
+- Proposal overview: <https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md>
 - Shared status routing: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - Numeric and binary companion pages: [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md)
 - Local source evidence: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

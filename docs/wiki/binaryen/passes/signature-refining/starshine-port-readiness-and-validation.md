@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
-  - ../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ./index.md
@@ -36,7 +35,7 @@ related:
 # `signature-refining`: Starshine port readiness and validation
 
 Use this page when turning the existing `signature-refining` dossier into implementation work.
-The rest of the folder explains the upstream Binaryen contract; this page turns that contract into a Starshine-first implementation ladder, with the ordinary-`call_ref` fixture guidance narrowed by the retained typed-function-reference boundary refresh in [`../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md).
+The rest of the folder explains the upstream Binaryen contract; this page turns that contract into a Starshine-first implementation ladder, with the ordinary-`call_ref` fixture guidance narrowed by the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md).
 
 ## Current status in one sentence
 
@@ -203,7 +202,7 @@ When it lands, test both:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
-- [`../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md)
+- [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md)
 - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)

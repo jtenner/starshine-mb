@@ -4,11 +4,8 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md
-  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - code-metadata-and-function-annotations.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
-  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - code-metadata-and-function-annotations.md

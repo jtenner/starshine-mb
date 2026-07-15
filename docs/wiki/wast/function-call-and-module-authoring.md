@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
-  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../../../src/wast/keywords.mbt
@@ -56,7 +55,7 @@ Neighbor pages own the parts that are easy to conflate with this topic:
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) own `ref.func`, declaration sources, and the current start-section declaration divergence.
 - [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, the parameter-local versus encoded-body-local split, and module-pass remap checklists.
 
-The focused typed-function-reference router is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), backed by [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md). Use it for the Core-3.0 status of `call_ref` / `return_call_ref`, the current Starshine WAST ordinary-`call_ref` gap, generator and binary evidence, and the separation from `ref.func` declaration sources. The broader source-routing refresh for reference calls, casts, and reference branches remains [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). Official [WebAssembly 3.0 text modules](https://webassembly.github.io/spec/core/text/modules.html), [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), and [binary modules](https://webassembly.github.io/spec/core/binary/modules.html) anchor the WAST function/import/export/start and code-entry/local-run rules.
+The focused typed-function-reference router is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md). Use it for the Core-3.0 status of `call_ref` / `return_call_ref`, the current Starshine WAST ordinary-`call_ref` gap, generator and binary evidence, and the separation from `ref.func` declaration sources. The broader source-routing refresh for reference calls, casts, and reference branches remains [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). Official [WebAssembly 3.0 text modules](https://webassembly.github.io/spec/core/text/modules.html), [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), and [binary modules](https://webassembly.github.io/spec/core/binary/modules.html) anchor the WAST function/import/export/start and code-entry/local-run rules.
 
 ## Beginner Model: Names Become Absolute Function Indices
 
@@ -221,7 +220,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 
 - Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
-- Focused typed-function-reference source refresh: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md)
+- Focused typed-function-reference boundary: [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
 - Official WAST/module rules: [text modules](https://webassembly.github.io/spec/core/text/modules.html), [module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Official binary code-entry/local-run rules: [WebAssembly binary modules](https://webassembly.github.io/spec/core/binary/modules.html)
 - WAST parser/lowerer/printer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)

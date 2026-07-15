@@ -6,7 +6,6 @@ sources:
   - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - wasm-shared-everything-threads-boundary.md
   - wasm-more-array-constructors-boundary.md
-  - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md
   - ../../src/lib/types.mbt
@@ -126,7 +125,7 @@ A struct constructor accepted in a function body is not automatically accepted i
 
 - Official Core GC sources: <https://webassembly.github.io/spec/core/syntax/types.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Type-use/subtyping: [`raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md)
-- Reference/call/cast/branch: [`raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md)
+- Reference/call/cast/branch: [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md)
 - Aggregate instructions: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
 - More Array Constructors proposal split: [`wasm-more-array-constructors-boundary.md`](wasm-more-array-constructors-boundary.md)
 - Constant expressions: [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
