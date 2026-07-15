@@ -61045,6 +61045,127 @@ fn run_hot_pipeline_dae_try_collapse_two_field_aggregate_spill(
 }
 
 ///|
+fn run_hot_pipeline_dae_try_forward_four_field_aggregate_leader(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if idx + 15 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+      instrs[idx + 11],
+      instrs[idx + 12],
+      instrs[idx + 13],
+      instrs[idx + 14],
+      instrs[idx + 15],
+    ) {
+    (
+      @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(first_type, first_field),
+      @lib.LocalSet(@lib.LocalIdx(first_raw) as first),
+      @lib.LocalGet(second_aggregate),
+      @lib.StructGet(second_type, second_field),
+      @lib.LocalSet(@lib.LocalIdx(second_raw) as second),
+      @lib.LocalGet(third_aggregate),
+      @lib.StructGet(leader_type, leader_field),
+      @lib.LocalSet(@lib.LocalIdx(leader_raw) as leader),
+      @lib.LocalGet(fourth_aggregate),
+      @lib.StructGet(fourth_type, fourth_field),
+      @lib.LocalSet(@lib.LocalIdx(fourth_raw) as fourth),
+      @lib.LocalGet(leader_read),
+      @lib.LocalGet(first_read),
+      @lib.LocalGet(second_read),
+      @lib.LocalGet(fourth_read),
+    ) if aggregate == second_aggregate &&
+      aggregate == third_aggregate &&
+      aggregate == fourth_aggregate &&
+      first == first_read &&
+      second == second_read &&
+      leader == leader_read &&
+      fourth == fourth_read &&
+      first_type == second_type &&
+      first_type == leader_type &&
+      first_type == fourth_type => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      let first_idx = first_raw.reinterpret_as_int()
+      let second_idx = second_raw.reinterpret_as_int()
+      let leader_idx = leader_raw.reinterpret_as_int()
+      let fourth_idx = fourth_raw.reinterpret_as_int()
+      if first_idx < 0 ||
+        second_idx < 0 ||
+        leader_idx < 0 ||
+        fourth_idx < 0 ||
+        first_idx >= local_gets.length() ||
+        second_idx >= local_gets.length() ||
+        leader_idx >= local_gets.length() ||
+        fourth_idx >= local_gets.length() ||
+        aggregate_idx == first_idx ||
+        aggregate_idx == second_idx ||
+        aggregate_idx == leader_idx ||
+        aggregate_idx == fourth_idx ||
+        first_idx == second_idx ||
+        first_idx == leader_idx ||
+        first_idx == fourth_idx ||
+        second_idx == leader_idx ||
+        second_idx == fourth_idx ||
+        leader_idx == fourth_idx ||
+        !run_hot_pipeline_dae_local_is_nonnullable_ref(
+          local_types, aggregate_idx,
+        ) ||
+        local_gets[first_idx] != 1 ||
+        local_sets[first_idx] != 1 ||
+        local_tees[first_idx] != 0 ||
+        local_gets[second_idx] != 1 ||
+        local_sets[second_idx] != 1 ||
+        local_tees[second_idx] != 0 ||
+        local_gets[leader_idx] != 1 ||
+        local_sets[leader_idx] != 1 ||
+        local_tees[leader_idx] != 0 ||
+        local_gets[fourth_idx] != 1 ||
+        local_sets[fourth_idx] != 1 ||
+        local_tees[fourth_idx] != 0 {
+        return None
+      }
+      local_gets[leader_idx] = 0
+      local_sets[leader_idx] = 0
+      Some([
+        @lib.Instruction::local_tee(aggregate),
+        @lib.Instruction::struct_get(first_type, first_field),
+        @lib.Instruction::local_set(first),
+        @lib.Instruction::local_get(aggregate),
+        @lib.Instruction::struct_get(second_type, second_field),
+        @lib.Instruction::local_set(second),
+        @lib.Instruction::local_get(aggregate),
+        @lib.Instruction::struct_get(fourth_type, fourth_field),
+        @lib.Instruction::local_set(fourth),
+        @lib.Instruction::local_get(aggregate),
+        @lib.Instruction::struct_get(leader_type, leader_field),
+        @lib.Instruction::local_get(first),
+        @lib.Instruction::local_get(second),
+        @lib.Instruction::local_get(fourth),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -61067,6 +61188,20 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
         }
         rewrite_count = rewrite_count + 1
         idx += 8
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_dae_try_forward_four_field_aggregate_leader(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some(replacement) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += 16
         continue
       }
       None => ()
