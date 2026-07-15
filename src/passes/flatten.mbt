@@ -1323,6 +1323,65 @@ fn flatten_try_table_dead_suffix_call_two_multiply_children_argument_nodes(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_call_deeper_two_multiply_argument_nodes(
+  func : @ir.HotFunc,
+  call_id : Int,
+) -> Array[Int]? {
+  let child_count = @ir.hot_child_count(func, call_id)
+  if child_count == 0 {
+    return None
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  let nodes : Array[Int] = [call_id]
+  let mut rich_id = -1
+  for child_idx = 0; child_idx < child_count; child_idx = child_idx + 1 {
+    let argument_id = @ir.hot_child_get(func, call_id, child_idx)
+    if @ir.hot_node_result_arity(func, argument_id) != 1 ||
+      @ir.node_use_count(use_def, argument_id) != 1 {
+      return None
+    }
+    for owned_id in nodes {
+      if argument_id == owned_id {
+        return None
+      }
+    }
+    match @ir.hot_node_get(func, argument_id).op {
+      @ir.HotOp::Const => ()
+      @ir.HotOp::Binary => {
+        if rich_id != -1 {
+          return None
+        }
+        rich_id = argument_id
+      }
+      _ => return None
+    }
+    nodes.push(argument_id)
+  }
+  if rich_id == -1 || @ir.hot_child_count(func, rich_id) != 2 {
+    return None
+  }
+  let nested = match
+    flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
+      func,
+      call_id,
+      rich_id,
+      @ir.hot_child_get(func, rich_id, 0),
+      @ir.hot_child_get(func, rich_id, 1),
+    ) {
+    Some(nested) => nested
+    None => return None
+  }
+  for idx = 2; idx < nested.length(); idx = idx + 1 {
+    let node_id = nested[idx]
+    if nodes.contains(node_id) {
+      return None
+    }
+    nodes.push(node_id)
+  }
+  Some(nodes)
+}
+
+///|
 fn flatten_try_table_dead_suffix_call_rich_argument_vector_nodes(
   func : @ir.HotFunc,
   call_id : Int,
@@ -1473,6 +1532,13 @@ fn flatten_try_table_dead_suffix_root_nodes(
       }
       match
         flatten_try_table_dead_suffix_call_two_multiply_children_argument_nodes(
+          func, root_id,
+        ) {
+        Some(nodes) => return Some(nodes)
+        None => ()
+      }
+      match
+        flatten_try_table_dead_suffix_call_deeper_two_multiply_argument_nodes(
           func, root_id,
         ) {
         Some(nodes) => return Some(nodes)
@@ -2029,6 +2095,12 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
         return true
       }
       if flatten_try_table_dead_suffix_call_two_multiply_children_argument_nodes(
+          func, root_id,
+        )
+        is Some(_) {
+        return true
+      }
+      if flatten_try_table_dead_suffix_call_deeper_two_multiply_argument_nodes(
           func, root_id,
         )
         is Some(_) {
