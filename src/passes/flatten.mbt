@@ -863,6 +863,7 @@ fn flatten_direct_enclosing_target_controls(
 ///|
 fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   root_id : Int,
   value_id : Int,
   left_id : Int,
@@ -904,7 +905,6 @@ fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
     (@ir.HotOp::Const, @ir.HotOp::Const) => ()
     _ => return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
   for owned_id in [left_id, right_id, multiply_left, multiply_right] {
     if @ir.node_use_count(use_def, owned_id) != 1 {
       return None
@@ -916,6 +916,7 @@ fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
 ///|
 fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   root_id : Int,
   value_id : Int,
   left_id : Int,
@@ -958,7 +959,6 @@ fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
       _ => return None
     }
   }
-  let use_def = @ir.use_def_build_node_uses(func)
   for
     owned_id in [
       left_id, right_id, left_multiply_left, left_multiply_right, right_multiply_left,
@@ -974,6 +974,7 @@ fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
 ///|
 fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   root_id : Int,
   value_id : Int,
   left_id : Int,
@@ -1045,7 +1046,6 @@ fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
       _ => return None
     }
   }
-  let use_def = @ir.use_def_build_node_uses(func)
   for
     owned_id in [
       left_id, right_id, rich_left, rich_right, left_multiply_left, left_multiply_right,
@@ -1157,7 +1157,10 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         return false
       }
       match @ir.hot_node_exact_instr(func, argument_id) {
-        Some(@lib.I32Add) | Some(@lib.I32Sub) | Some(@lib.I32DivS) => true
+        Some(@lib.I32Add)
+        | Some(@lib.I32Sub)
+        | Some(@lib.I32Mul)
+        | Some(@lib.I32DivS) => true
         _ => false
       }
     }
@@ -1168,12 +1171,12 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
 ///|
 fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   call_id : Int,
 ) -> Array[Int]? {
   if @ir.hot_node_result_arity(func, call_id) != 0 {
     return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
   if @ir.node_use_count(use_def, call_id) != 1 {
     return None
   }
@@ -1226,18 +1229,20 @@ fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
 ///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   root_id : Int,
 ) -> Array[Int]? {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Unreachable => Some([root_id])
     @ir.HotOp::Call =>
-      flatten_try_table_dead_suffix_call_owned_argument_nodes(func, root_id)
+      flatten_try_table_dead_suffix_call_owned_argument_nodes(
+        func, use_def, root_id,
+      )
     @ir.HotOp::Drop => {
       if @ir.hot_child_count(func, root_id) != 1 {
         return None
       }
       let value_id = @ir.hot_child_get(func, root_id, 0)
-      let use_def = @ir.use_def_build_node_uses(func)
       if @ir.node_use_count(use_def, root_id) != 1 ||
         @ir.node_use_count(use_def, value_id) != 1 {
         return None
@@ -1297,14 +1302,14 @@ fn flatten_try_table_dead_suffix_root_nodes(
             @lib.I32Add | @lib.I32Sub => {
               match
                 flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
-                  func, root_id, value_id, left_id, right_id,
+                  func, use_def, root_id, value_id, left_id, right_id,
                 ) {
                 Some(nodes) => return Some(nodes)
                 None => ()
               }
               match
                 flatten_try_table_dead_suffix_two_multiply_children_nodes(
-                  func, root_id, value_id, left_id, right_id,
+                  func, use_def, root_id, value_id, left_id, right_id,
                 ) {
                 Some(nodes) => return Some(nodes)
                 None => ()
@@ -1316,14 +1321,14 @@ fn flatten_try_table_dead_suffix_root_nodes(
             @lib.I32Sub => {
               match
                 flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
-                  func, root_id, value_id, left_id, right_id, true,
+                  func, use_def, root_id, value_id, left_id, right_id, true,
                 ) {
                 Some(nodes) => return Some(nodes)
                 None => ()
               }
               match
                 flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
-                  func, root_id, value_id, left_id, right_id, false,
+                  func, use_def, root_id, value_id, left_id, right_id, false,
                 ) {
                 Some(nodes) => return Some(nodes)
                 None => ()
@@ -1517,6 +1522,7 @@ fn flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(
 ///|
 fn flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   root_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, root_id).op {
@@ -1536,6 +1542,7 @@ fn flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
   }
   flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
     func,
+    use_def,
     root_id,
     value_id,
     @ir.hot_child_get(func, value_id, 0),
@@ -1603,6 +1610,7 @@ fn flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
 ///|
 fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
   func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
   root_id : Int,
 ) -> Bool {
   if flatten_try_table_dead_suffix_root_is_direct_drop_const(func, root_id) ||
@@ -1610,7 +1618,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
     is Some(_) ||
     flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(func, root_id) ||
     flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
-      func, root_id,
+      func, use_def, root_id,
     ) ||
     flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
       func, root_id,
@@ -1621,7 +1629,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
     @ir.HotOp::Unreachable => return true
     @ir.HotOp::Call =>
       return flatten_try_table_dead_suffix_call_owned_argument_nodes(
-          func, root_id,
+          func, use_def, root_id,
         )
         is Some(_)
     @ir.HotOp::Drop => ()
@@ -1666,6 +1674,7 @@ fn flatten_try_table_dead_suffix_nodes(
       continue
     }
     let suffix_count = root_count - root_idx - 1
+    let use_def = @ir.use_def_build_node_uses(func)
     let recognized_suffix_roots : Array[Array[Int]?] = []
     if suffix_count > 1 {
       let mut all_unreachable = true
@@ -1680,7 +1689,7 @@ fn flatten_try_table_dead_suffix_nodes(
           suffix_idx = suffix_idx + 1 {
         let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
         let recognized_root = flatten_try_table_dead_suffix_root_nodes(
-          func, root_id,
+          func, use_def, root_id,
         )
         recognized_suffix_roots.push(recognized_root)
         let root_is_unreachable = match @ir.hot_node_get(func, root_id).op {
@@ -1705,7 +1714,7 @@ fn flatten_try_table_dead_suffix_nodes(
           @ir.HotOp::Call => recognized_root is Some(_)
           _ =>
             flatten_try_table_dead_suffix_root_is_direct_sequence_member(
-              func, root_id,
+              func, use_def, root_id,
             )
         }
         if !root_is_direct_sequence {
@@ -1752,7 +1761,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let recognized_root = if suffix_count > 1 {
         recognized_suffix_roots[suffix_idx - root_idx - 1]
       } else {
-        flatten_try_table_dead_suffix_root_nodes(func, root_id)
+        flatten_try_table_dead_suffix_root_nodes(func, use_def, root_id)
       }
       let root_nodes = match recognized_root {
         Some(root_nodes) => root_nodes
