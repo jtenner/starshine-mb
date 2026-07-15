@@ -19335,6 +19335,55 @@ test "DAEO selected cleanup tees value-block readbacks" {
 }
 
 ///|
+test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
+  let aggregate = @lib.LocalIdx::new(0U)
+  let first = @lib.LocalIdx::new(1U)
+  let second = @lib.LocalIdx::new(2U)
+  let body = [
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::local_tee(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+  ]
+  let local_gets = [2, 1, 1]
+  let local_sets = [0, 1, 1]
+  let local_tees = [1, 0, 0]
+  let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+    body,
+    1,
+    [
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      ),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ],
+    local_gets,
+    local_sets,
+    local_tees,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(local_gets, [2, 0, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::local_tee(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 test "DAEO selected cleanup forwards one-use immutable parameter copies" {
   let source = @lib.LocalIdx::new(0U)
   let target = @lib.LocalIdx::new(2U)

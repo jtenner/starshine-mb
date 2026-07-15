@@ -60959,6 +60959,92 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
 }
 
 ///|
+fn run_hot_pipeline_dae_local_is_nonnullable_ref(
+  local_types : Array[@lib.ValType],
+  local_idx : Int,
+) -> Bool {
+  if local_idx < 0 || local_idx >= local_types.length() {
+    return false
+  }
+  match local_types[local_idx] {
+    @lib.RefTypeValType(ref_type) => !ref_type.is_nullable()
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_try_collapse_two_field_aggregate_spill(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if idx + 7 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+    ) {
+    (
+      @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(first_type, first_field),
+      @lib.LocalSet(@lib.LocalIdx(first_raw) as first),
+      @lib.LocalGet(next_aggregate),
+      @lib.StructGet(second_type, second_field),
+      @lib.LocalSet(@lib.LocalIdx(second_raw) as second),
+      @lib.LocalGet(first_read),
+      @lib.LocalGet(second_read),
+    ) if aggregate == next_aggregate &&
+      first == first_read &&
+      second == second_read &&
+      first_type == second_type => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      let first_idx = first_raw.reinterpret_as_int()
+      let second_idx = second_raw.reinterpret_as_int()
+      if first_idx == second_idx ||
+        first_idx == aggregate_idx ||
+        second_idx == aggregate_idx ||
+        first_idx < 0 ||
+        second_idx < 0 ||
+        first_idx >= local_gets.length() ||
+        second_idx >= local_gets.length() ||
+        !run_hot_pipeline_dae_local_is_nonnullable_ref(
+          local_types, aggregate_idx,
+        ) ||
+        local_gets[first_idx] != 1 ||
+        local_sets[first_idx] != 1 ||
+        local_tees[first_idx] != 0 ||
+        local_gets[second_idx] != 1 ||
+        local_sets[second_idx] != 1 ||
+        local_tees[second_idx] != 0 {
+        return None
+      }
+      local_gets[first_idx] = 0
+      local_sets[first_idx] = 0
+      local_gets[second_idx] = 0
+      local_sets[second_idx] = 0
+      Some([
+        @lib.Instruction::local_tee(aggregate),
+        @lib.Instruction::struct_get(first_type, first_field),
+        @lib.Instruction::local_get(aggregate),
+        @lib.Instruction::struct_get(second_type, second_field),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -60971,6 +61057,20 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_collapse_two_field_aggregate_spill(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some(replacement) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += 8
+        continue
+      }
+      None => ()
+    }
     if idx + 1 < instrs.length() {
       match (instrs[idx], instrs[idx + 1]) {
         (
