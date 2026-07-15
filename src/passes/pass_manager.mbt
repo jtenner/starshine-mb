@@ -60735,6 +60735,88 @@ fn run_hot_pipeline_dae_remove_never_read_local_tees(
 }
 
 ///|
+fn run_hot_pipeline_dae_tee_struct_get_readbacks_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Int) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+        body,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+        body,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+        body,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        count,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+        then_body,
+      )
+      let mut count = then_count
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (rewritten, else_count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+            body,
+          )
+          count = count + else_count
+          Some(rewritten)
+        }
+        None => None
+      }
+      (@lib.Instruction::if_(block_type, rewritten_then, rewritten_else), count)
+    }
+    _ => (instr, 0)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_tee_struct_get_readbacks(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.StructGet(_, _), @lib.LocalSet(target), @lib.LocalGet(readback)) if target ==
+          readback => {
+          rewritten.push(instrs[idx])
+          rewritten.push(@lib.Instruction::local_tee(target))
+          rewrite_count = rewrite_count + 1
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    let (next, nested_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_instr(
+      instrs[idx],
+    )
+    rewritten.push(next)
+    rewrite_count = rewrite_count + nested_count
+    idx += 1
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
   instrs : Array[@lib.Instruction],
   local_gets : Array[Int],
@@ -60856,8 +60938,11 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
     if removed_tee_count == 0 {
       return (mod_, 0, false)
     }
+    let (readback_body, _) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+      next_body,
+    )
     let next_funcs = funcs.copy()
-    next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+    next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(readback_body))
     return (
       mod_.with_code_sec(@lib.CodeSec::new(next_funcs)),
       removed_tee_count,
@@ -60894,13 +60979,15 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
       local_remap[local_id] = -1
     }
   }
+  let remapped_body = run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
+    body, local_gets, local_remap,
+  )
+  let (readback_body, _) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+    remapped_body,
+  )
   let next_func = @lib.Func::new(
     @lib.Locals::from_types(compacted_local_types),
-    @lib.Expr::new(
-      run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
-        body, local_gets, local_remap,
-      ),
-    ),
+    @lib.Expr::new(readback_body),
   )
   let next_funcs = funcs.copy()
   next_funcs[def_idx] = next_func

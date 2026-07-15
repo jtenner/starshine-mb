@@ -19289,3 +19289,26 @@ test "DAEO post-component cleanup compacts locals exposed by dead tee removal" {
   }
   @debug.assert_eq(locals, @lib.Locals::empty())
 }
+
+///|
+test "DAEO selected cleanup tees aggregate field readbacks" {
+  let field = @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U))
+  let target = @lib.LocalIdx::new(1U)
+  let original = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    field,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
+    original,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    field,
+    @lib.Instruction::local_tee(target),
+    @lib.Instruction::drop(),
+  ])
+}
