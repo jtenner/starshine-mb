@@ -20291,6 +20291,64 @@ test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
 }
 
 ///|
+test "DAEO selected readback traversal forwards terminal four-field aggregates" {
+  let aggregate = @lib.LocalIdx::new(0U)
+  let first_field = @lib.LocalIdx::new(1U)
+  let second_field = @lib.LocalIdx::new(2U)
+  let third_field = @lib.LocalIdx::new(3U)
+  let fourth_field = @lib.LocalIdx::new(4U)
+  let body = [
+    @lib.Instruction::local_tee(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(2U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(3U)),
+    @lib.Instruction::local_set(fourth_field),
+    @lib.Instruction::local_set(third_field),
+    @lib.Instruction::local_set(second_field),
+    @lib.Instruction::local_set(first_field),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(second_field),
+    @lib.Instruction::local_get(third_field),
+    @lib.Instruction::local_get(first_field),
+    @lib.Instruction::i64_extend_i32s(),
+    @lib.Instruction::local_get(fourth_field),
+    @lib.Instruction::i64_extend_i32s(),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(4U)),
+  ]
+  let local_gets = [3, 1, 1, 1, 1, 1]
+  let local_sets = [0, 1, 1, 1, 1, 0]
+  let local_tees = [1, 0, 0, 0, 0, 0]
+  let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+    body, local_gets, local_sets, local_tees,
+  )
+  assert_eq(count, 1)
+  @debug.assert_eq(local_gets, [4, 0, 0, 0, 0, 1])
+  @debug.assert_eq(local_sets, [1, 0, 0, 0, 0, 0])
+  @debug.assert_eq(local_tees, [0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_set(aggregate),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(2U)),
+    @lib.Instruction::i64_extend_i32s(),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(3U)),
+    @lib.Instruction::i64_extend_i32s(),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(4U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup forwards reordered four-field aggregate leader" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)

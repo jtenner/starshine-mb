@@ -60735,25 +60735,28 @@ fn run_hot_pipeline_dae_remove_never_read_local_tees(
 }
 
 ///|
-fn run_hot_pipeline_dae_tee_struct_get_readbacks_instr(
+fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_instr(
   instr : @lib.Instruction,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
 ) -> (@lib.Instruction, Int) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
-        body,
+      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+        body, local_gets, local_sets, local_tees,
       )
       (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
-        body,
+      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+        body, local_gets, local_sets, local_tees,
       )
       (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
-        body,
+      let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+        body, local_gets, local_sets, local_tees,
       )
       (
         @lib.Instruction::try_table(
@@ -60765,14 +60768,14 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_instr(
       )
     }
     @lib.If(block_type, then_body, else_body) => {
-      let (rewritten_then, then_count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
-        then_body,
+      let (rewritten_then, then_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+        then_body, local_gets, local_sets, local_tees,
       )
       let mut count = then_count
       let rewritten_else = match else_body {
         Some(body) => {
-          let (rewritten, else_count) = run_hot_pipeline_dae_tee_struct_get_readbacks(
-            body,
+          let (rewritten, else_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+            body, local_gets, local_sets, local_tees,
           )
           count = count + else_count
           Some(rewritten)
@@ -60798,13 +60801,153 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
-fn run_hot_pipeline_dae_tee_struct_get_readbacks(
+fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
   instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
 ) -> (Array[@lib.Instruction], Int) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    if idx + 20 < instrs.length() && instrs[idx] is @lib.LocalTee(_) {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+          instrs[idx + 6],
+          instrs[idx + 7],
+          instrs[idx + 8],
+          instrs[idx + 9],
+          instrs[idx + 10],
+          instrs[idx + 11],
+          instrs[idx + 12],
+          instrs[idx + 13],
+          instrs[idx + 14],
+          instrs[idx + 15],
+          instrs[idx + 16],
+          instrs[idx + 17],
+          instrs[idx + 18],
+          instrs[idx + 19],
+          instrs[idx + 20],
+        ) {
+        (
+          @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+          @lib.StructGet(first_type, first_field),
+          @lib.LocalGet(second_aggregate),
+          @lib.StructGet(second_type, second_field),
+          @lib.LocalGet(third_aggregate),
+          @lib.StructGet(third_type, third_field),
+          @lib.LocalGet(fourth_aggregate),
+          @lib.StructGet(fourth_type, fourth_field),
+          @lib.LocalSet(@lib.LocalIdx(fourth_raw) as fourth),
+          @lib.LocalSet(@lib.LocalIdx(third_raw) as third),
+          @lib.LocalSet(@lib.LocalIdx(second_raw) as second),
+          @lib.LocalSet(@lib.LocalIdx(first_raw) as first),
+          @lib.LocalGet(consumer_arg0),
+          @lib.LocalGet(second_read),
+          @lib.LocalGet(third_read),
+          @lib.LocalGet(first_read),
+          @lib.I64ExtendI32S,
+          @lib.LocalGet(fourth_read),
+          @lib.I64ExtendI32S,
+          @lib.Call(consumer),
+          @lib.Br(label),
+        ) if aggregate == second_aggregate &&
+          aggregate == third_aggregate &&
+          aggregate == fourth_aggregate &&
+          first == first_read &&
+          second == second_read &&
+          third == third_read &&
+          fourth == fourth_read &&
+          first_type == second_type &&
+          first_type == third_type &&
+          first_type == fourth_type => {
+          let aggregate_idx = aggregate_raw.reinterpret_as_int()
+          let first_idx = first_raw.reinterpret_as_int()
+          let second_idx = second_raw.reinterpret_as_int()
+          let third_idx = third_raw.reinterpret_as_int()
+          let fourth_idx = fourth_raw.reinterpret_as_int()
+          if aggregate_idx >= 0 &&
+            aggregate_idx < local_gets.length() &&
+            aggregate_idx < local_sets.length() &&
+            aggregate_idx < local_tees.length() &&
+            first_idx >= 0 &&
+            second_idx >= 0 &&
+            third_idx >= 0 &&
+            fourth_idx >= 0 &&
+            first_idx < local_gets.length() &&
+            second_idx < local_gets.length() &&
+            third_idx < local_gets.length() &&
+            fourth_idx < local_gets.length() &&
+            aggregate_idx != first_idx &&
+            aggregate_idx != second_idx &&
+            aggregate_idx != third_idx &&
+            aggregate_idx != fourth_idx &&
+            first_idx != second_idx &&
+            first_idx != third_idx &&
+            first_idx != fourth_idx &&
+            second_idx != third_idx &&
+            second_idx != fourth_idx &&
+            third_idx != fourth_idx &&
+            local_gets[first_idx] == 1 &&
+            local_sets[first_idx] == 1 &&
+            local_tees[first_idx] == 0 &&
+            local_gets[second_idx] == 1 &&
+            local_sets[second_idx] == 1 &&
+            local_tees[second_idx] == 0 &&
+            local_gets[third_idx] == 1 &&
+            local_sets[third_idx] == 1 &&
+            local_tees[third_idx] == 0 &&
+            local_gets[fourth_idx] == 1 &&
+            local_sets[fourth_idx] == 1 &&
+            local_tees[fourth_idx] == 0 {
+            local_gets[aggregate_idx] = local_gets[aggregate_idx] + 1
+            local_sets[aggregate_idx] = local_sets[aggregate_idx] + 1
+            local_tees[aggregate_idx] = local_tees[aggregate_idx] - 1
+            local_gets[first_idx] = 0
+            local_sets[first_idx] = 0
+            local_gets[second_idx] = 0
+            local_sets[second_idx] = 0
+            local_gets[third_idx] = 0
+            local_sets[third_idx] = 0
+            local_gets[fourth_idx] = 0
+            local_sets[fourth_idx] = 0
+            rewritten.push(@lib.Instruction::local_set(aggregate))
+            rewritten.push(@lib.Instruction::local_get(consumer_arg0))
+            rewritten.push(@lib.Instruction::local_get(aggregate))
+            rewritten.push(
+              @lib.Instruction::struct_get(second_type, second_field),
+            )
+            rewritten.push(@lib.Instruction::local_get(aggregate))
+            rewritten.push(
+              @lib.Instruction::struct_get(third_type, third_field),
+            )
+            rewritten.push(@lib.Instruction::local_get(aggregate))
+            rewritten.push(
+              @lib.Instruction::struct_get(first_type, first_field),
+            )
+            rewritten.push(@lib.Instruction::i64_extend_i32s())
+            rewritten.push(@lib.Instruction::local_get(aggregate))
+            rewritten.push(
+              @lib.Instruction::struct_get(fourth_type, fourth_field),
+            )
+            rewritten.push(@lib.Instruction::i64_extend_i32s())
+            rewritten.push(@lib.Instruction::call(consumer))
+            rewritten.push(@lib.Instruction::br(label))
+            rewrite_count = rewrite_count + 1
+            idx += 21
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
     if idx + 2 < instrs.length() {
       match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
         (producer, @lib.LocalSet(target), @lib.LocalGet(readback)) if target ==
@@ -60819,14 +60962,24 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks(
         _ => ()
       }
     }
-    let (next, nested_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_instr(
+    let (next, nested_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_instr(
       instrs[idx],
+      local_gets,
+      local_sets,
+      local_tees,
     )
     rewritten.push(next)
     rewrite_count = rewrite_count + nested_count
     idx += 1
   }
   (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_tee_struct_get_readbacks(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(instrs, [], [], [])
 }
 
 ///|
@@ -62522,12 +62675,23 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   for local_idx = 0; local_idx < total_local_count; local_idx = local_idx + 1 {
     local_remap.push(local_idx)
   }
+  let remapped_gets : Array[Int] = []
+  let remapped_sets : Array[Int] = []
+  let remapped_tees : Array[Int] = []
+  for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
+    remapped_gets.push(local_gets[param_idx])
+    remapped_sets.push(local_sets[param_idx])
+    remapped_tees.push(local_tees[param_idx])
+  }
   let compacted_local_types : Array[@lib.ValType] = []
   for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
     let local_id = params.length() + local_idx
     if local_gets[local_id] > 0 || local_sets[local_id] > 0 {
-      local_remap[local_id] = params.length() + compacted_local_types.length()
+      local_remap[local_id] = remapped_gets.length()
       compacted_local_types.push(locals.get(local_idx))
+      remapped_gets.push(local_gets[local_id])
+      remapped_sets.push(local_sets[local_id])
+      remapped_tees.push(local_tees[local_id])
     } else {
       local_remap[local_id] = -1
     }
@@ -62535,8 +62699,8 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   let remapped_body = run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
     forwarded_body, local_gets, local_remap,
   )
-  let (readback_body, _) = run_hot_pipeline_dae_tee_struct_get_readbacks(
-    remapped_body,
+  let (readback_body, _) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+    remapped_body, remapped_gets, remapped_sets, remapped_tees,
   )
   let next_func = @lib.Func::new(
     @lib.Locals::from_types(compacted_local_types),
