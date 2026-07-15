@@ -369,6 +369,8 @@ Multivalue legacy-try label support now uses that same exact branch population. 
 
 Exact multivalue `TupleMake` region tails now use the same frozen ownership population. Because the tuple is already observed at the exact region-tail root and slot, a total reachable use count of one proves exclusive ownership without allocating a use-site vector; mutation-time block, if, loop, and legacy-try routes require `rewrites_started` before consuming that cached fact. Inputful-loop proof likewise uses the pre-mutation per-label branch population for both general backedges and exact multivalue `br_if` flow, and reuses the same reachable counts for tuple flow during admission and rewrite.
 
+The same rule now covers two scalar/control-adjacent families. A tuple-made inputful-loop entry is already known to occupy every entry slot and every immediate reversed body-prefix drop, so exact reachable count `2 * input_arity` proves complete ownership. A scalar legacy-try `br_if` payload is already known at the branch plus one immediately adjacent false-flow consumer, so payload count two and one-use rich-consumer count replace full site allocation. Dedicated rewrite helpers require `rewrites_started`, while uncached checks can still observe later uses and fail.
+
 These changes do not relax any result-type, label-use, ownership, EH, trap, effect, or complete-subtree-deletion gate.
 
 ## The placeholder `unreachable` rule

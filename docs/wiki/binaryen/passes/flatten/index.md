@@ -290,6 +290,12 @@ Commits `3d0acb44e` and `19fa4eda8` complete the next exact two-code internal it
 
 Private flatten is `153/153`, focused flatten `245/245`, passes `5,728/5,728`, and the full suite `9,189/9,189`; `moon info`, targeted formatting, and diff checks pass. The 120-function two-lane tuple-tail fixture improved `6,569 -> 4,144.5 us` (`36.91%`), and the exact inputful-loop `br_if` fixture improved `8,344 -> 6,870 us` (`17.67%`). The reconstructed representative terminal-table fixture was noisy (`2,953.5 -> 3,038.5 us` with overlapping ranges), so the stable `970.5 us` / `3.65x` checkpoint remains the durable gate result. No `.mbti` or public pass surface changed; typed EH, structured control-plus-label deletion, broader parity, the flatten GenValid aggregate, four-lane signoff, ordered-neighborhood proof, and public admission remain open.
 
+## 2026-07-15 loop-entry and scalar-try ownership follow-up
+
+Commits `3a88b5bd6` and `5c0235d71` remove two more full node-use/use-site builds without widening behavior. Exact tuple-made inputful-loop entries now use the immutable reachable counts plus the structurally known entry slots and reversed body-prefix drops. Exact scalar legacy-try `br_if` false flow uses the same snapshot plus the known branch/adjacent-consumer shape. Both red-first invariants prove post-snapshot extra uses fail uncached without widening mutation-time proof.
+
+Private flatten is `155/155`, focused flatten `245/245`, passes `5,730/5,730`, and the full suite `9,191/9,191`; `moon info`, targeted formatting, owner-hash verification, and diff checks pass. Targeted 120-function fixtures with 256 extra roots improved `10,895.5 -> 4,506 us` (`58.64%`) for tuple loop entries and `8,867.5 -> 4,214.5 us` (`52.47%`) for scalar try flow. The stable representative remains `970.5 us` / `3.65x` Binaryen, so public readiness is unchanged and all wiring stays absent.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

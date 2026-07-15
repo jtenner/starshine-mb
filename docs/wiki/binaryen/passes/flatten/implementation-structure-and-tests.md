@@ -269,6 +269,10 @@ The next exact two-code iteration adds commits `3d0acb44e` and `19fa4eda8`. The 
 
 Validation is now focused flatten `245/245`, private flatten `153/153`, passes `5,728/5,728`, full suite `9,189/9,189`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. The tuple-tail fixture improved `6,569 -> 4,144.5 us` (`36.91%`), and the loop fixture improved `8,344 -> 6,870 us` (`17.67%`). The reconstructed representative fixture remained noisy, so the stable `970.5 us` / `3.65x` checkpoint still blocks public readiness.
 
+The next exact two-code iteration adds commits `3a88b5bd6` and `5c0235d71`. The first replaces full use-site allocation for exact tuple-made inputful-loop entries with the frozen reachable counts, requiring exactly the known entry-slot and reversed-drop uses; its invariant is `flatten rewrite tuple loop entry proof uses pre-mutation ownership counts`. The second applies the same snapshot boundary to exact scalar legacy-try `br_if` payload and rich-consumer ownership; its invariant is `flatten rewrite scalar try flow uses pre-mutation ownership counts`.
+
+Validation is now focused flatten `245/245`, private flatten `155/155`, passes `5,730/5,730`, full suite `9,191/9,191`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. The tuple-entry fixture improved `10,895.5 -> 4,506 us` (`58.64%`), and the scalar-try fixture improved `8,867.5 -> 4,214.5 us` (`52.47%`). These targeted wins do not replace the stable representative `970.5 us` / `3.65x` public gate result.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

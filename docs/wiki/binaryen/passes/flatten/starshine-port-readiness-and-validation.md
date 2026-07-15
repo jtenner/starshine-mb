@@ -140,6 +140,8 @@ The latest legacy-try branch/ownership iteration keeps that hold point unchanged
 
 The region-tail/loop-branch iteration also leaves the hold point unchanged. Exact `TupleMake` tails now prove one-owner status from the pre-mutation reachable count plus the already-known region root/slot, and inputful-loop multivalue conditional/backedge proof uses the immutable label branch population and the same count snapshot throughout admission and rewrite. Private flatten reaches `153/153`, passes `5,728/5,728`, and the full suite `9,189/9,189`. Targeted fixtures improve `36.91%` and `17.67%`, but the representative fixture does not improve reliably and the stable result remains `3.65x` Binaryen. No semantic family, EH capability, mutation API, generator, signoff lane, or public surface is admitted.
 
+The loop-entry/scalar-try ownership iteration keeps the same hold point. Exact tuple-made inputful-loop entries and exact scalar legacy-try `br_if` false flow now consume the frozen reachable counts behind explicit rewrite-only helpers; post-snapshot extra uses fail uncached without widening mutation-time proof. Private flatten reaches `155/155`, passes `5,730/5,730`, and the full suite `9,191/9,191`. Targeted fixtures improve `58.64%` and `52.47%`, but the stable representative remains `3.65x` Binaryen. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the aggregate, four-lane signoff, ordered-neighborhood proof, typed EH, and structured label-owner deletion remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

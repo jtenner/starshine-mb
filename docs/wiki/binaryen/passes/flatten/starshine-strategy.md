@@ -314,6 +314,8 @@ The latest two-code iteration applies those proof rules to multivalue legacy tri
 
 The next two-code iteration removes the remaining full use-site allocation for exact multivalue region-tail tuples and the remaining full live-node branch scans in the inputful-loop support chain. `3d0acb44e` reuses the frozen reachable count when the exact tail root/slot is already known; `19fa4eda8` reuses the frozen per-label branch population and count snapshot for loop backedges and multivalue `br_if` flow during admission and rewrite. Targeted fixtures improve `36.91%` and `17.67%`; validation reaches focused `245/245`, private `153/153`, passes `5,728/5,728`, and full `9,189/9,189`. The representative fixture remains noisy and the stable result remains `3.65x` Binaryen, so public readiness is unchanged.
 
+The current two-code iteration removes two more full use-site builds. `3a88b5bd6` proves exact tuple-made inputful-loop entry ownership from the frozen reachable count plus the known entry slots and reversed body-prefix drops. `5c0235d71` proves exact scalar legacy-try `br_if` payload/consumer ownership from the same snapshot. Targeted fixtures improve `58.64%` and `52.47%`; validation reaches focused `245/245`, private `155/155`, passes `5,730/5,730`, and full `9,191/9,191`. The stable representative remains `3.65x` Binaryen, so public readiness and public-removed status are unchanged.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
