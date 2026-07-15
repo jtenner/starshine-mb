@@ -61430,6 +61430,96 @@ fn run_hot_pipeline_dae_try_collapse_residual_four_field_aggregate_spill(
 }
 
 ///|
+fn run_hot_pipeline_dae_zero_param_single_block_result_type(
+  block_type : @lib.BlockType,
+  type_sec : @lib.TypeSec?,
+) -> @lib.ValType? {
+  match block_type {
+    @lib.ValTypeBlockType(result) => Some(result)
+    @lib.TypeIdxBlockType(type_idx) =>
+      match type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              if params.length() == 0 && results.length() == 1 {
+                Some(results[0])
+              } else {
+                None
+              }
+            _ => None
+          }
+        None => None
+      }
+    @lib.VoidBlockType => None
+  }
+}
+
+///|
+// Binaryen's structured SimplifyLocals path carries this one-use block result
+// directly into the terminal constructor. Moving only the pure zero argument
+// before a zero-parameter block preserves every producer effect and trap.
+fn run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_struct_arg(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  param_count : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  type_sec : @lib.TypeSec?,
+) -> Array[@lib.Instruction]? {
+  if idx + 5 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+    ) {
+    (
+      @lib.Block(block_type, _) as producer,
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(readback),
+      @lib.StructNew(struct_type),
+      @lib.Return,
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      let result_type = match
+        run_hot_pipeline_dae_zero_param_single_block_result_type(
+          block_type, type_sec,
+        ) {
+        Some(result_type) => result_type
+        None => return None
+      }
+      if target_idx < param_count ||
+        target_idx < 0 ||
+        target_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        producer,
+        @lib.Instruction::struct_new(struct_type),
+        @lib.Instruction::return_(),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
 // In a three-producer dispatch arm, Binaryen keeps the first two results local
 // but sinks the final one through four pure consumer arguments. All producer
 // effects stay ordered, and direct calls cannot observe caller-local reads.
@@ -61695,6 +61785,21 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_struct_arg(
+        instrs, idx, param_count, local_types, local_gets, local_sets, local_tees,
+        type_sec,
+      ) {
+      Some(replacement) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += 6
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_sink_final_three_producer_call_result(
         instrs, idx, local_gets, local_sets, local_tees,

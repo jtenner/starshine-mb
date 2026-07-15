@@ -19888,6 +19888,58 @@ test "DAEO selected cleanup sinks the final three-producer sibling result" {
 }
 
 ///|
+test "DAEO selected cleanup sinks a terminal block result through a zero struct argument" {
+  let target = @lib.LocalIdx::new(7U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(20U))]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ]
+  let local_types = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]
+  let local_gets = [0, 0, 0, 0, 0, 0, 0, 1]
+  let local_sets = [0, 0, 0, 0, 0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_struct_arg(
+      body,
+      0,
+      7,
+      local_types,
+      local_gets,
+      local_sets,
+      local_tees,
+      None,
+    ) {
+    Some(value) => value
+    None => fail("expected terminal block-result sinking")
+  }
+  @debug.assert_eq(local_gets, [0, 0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    producer,
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ])
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
