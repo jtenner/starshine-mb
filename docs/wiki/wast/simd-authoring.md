@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
   - ../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md
   - ../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md
-  - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -216,7 +215,6 @@ When changing SIMD WAST support:
 ## Sources
 
 - Current SIMD lane-immediate validation manifest: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md)
-- Original SIMD lane-immediate validation manifest: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
 - Focused lane-immediate validator guide: [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Relaxed-SIMD execution/test-discipline recheck: [`../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md`](../raw/wasm/2026-07-10-relaxed-simd-execution-semantics-recheck.md)
 - Relaxed-SIMD status manifest: [`../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md)

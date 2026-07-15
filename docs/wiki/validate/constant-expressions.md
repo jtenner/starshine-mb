@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
-  - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/match.mbt
@@ -188,7 +187,6 @@ When changing constant-expression behavior:
 - Earlier current-source capture (superseded for the local array-constructor admission claim): [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
 - Aggregate-instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
-- Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Generator and invalid-fuzzer evidence: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
 - Related validator pages: [`module-validation-phases.md`](module-validation-phases.md), [`ref-func-declarations.md`](ref-func-declarations.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md)

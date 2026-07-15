@@ -14,18 +14,15 @@ sources:
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
-  - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
-  - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
-  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
   - ../../../scripts/test/pass-fuzz-normalization-fixtures.ts
@@ -287,7 +284,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - Valid generator implementation: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)
 - Invalid AST/binary/repro surfaces: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
 - Type-section validation/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md), current bridge [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), and older bridge [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
-- Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md), [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md), [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
+- Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md), [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
 - WAST text-generation boundary: [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md)
 - Compare-pass failure metadata and workflow: [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts), and the Binaryen / `wasm-tools` / WebAssembly-validation references cited by that workflow
 - External semantic anchor checked during this review: current WebAssembly 3.0 module validation docs for [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [validation index](https://webassembly.github.io/spec/core/valid/index.html), [binary module section / segment encoding](https://webassembly.github.io/spec/core/binary/modules.html), and [custom/name sections](https://webassembly.github.io/spec/core/appendix/custom).

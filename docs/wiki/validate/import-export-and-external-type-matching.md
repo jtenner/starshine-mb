@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
-  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/match.mbt
   - ../../../src/validate/env.mbt
@@ -174,7 +173,7 @@ When a pass, generator, or fixture changes import/export structure:
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Current source manifest: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
 - Module-validation phase and official model: [`module-validation-phases.md`](module-validation-phases.md), [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [runtime instantiation](https://webassembly.github.io/spec/core/exec/modules.html)
-- Resource-section validation snapshot: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
+- Resource-section validation contract: [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Validation implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
 - Invalid-fuzzer evidence: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
 - Core/binary/WAST surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

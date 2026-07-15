@@ -14,7 +14,6 @@ sources:
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
-  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -211,7 +210,7 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 - Official Core module rules: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Current GC type/subtyping refresh: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Older type-section validation refresh: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
-- Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
+- Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation environment and rules: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)

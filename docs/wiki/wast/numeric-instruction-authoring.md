@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
-  - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - ../../../src/wast/keywords.mbt
@@ -42,7 +41,7 @@ Use this page when writing or reviewing scalar numeric WAST fixtures for `i32`, 
 - float unary, binary, and comparison operations;
 - conversions, reinterprets, sign-extension operations, and saturating truncations.
 
-This page is scalar-only for the current Core/Starshine numeric surface. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). Active-proposal Wide Arithmetic (`i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u`) is scalar-looking but outside current Starshine support; route it through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md), not through the ordinary `i64.*` or `i64x2.*` rules here. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) sharpens the official-literal versus Starshine lexer/parser/lowerer split and the optimizer rewrite hazards around traps, saturation, reinterprets, signedness, NaNs, and signed zero. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) rechecked the current WebAssembly Core 3.0 pages dated 2026-06-03 and found no new scalar numeric family or local-code drift that needs a separate page.
+This page is scalar-only for the current Core/Starshine numeric surface. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). Active-proposal Wide Arithmetic (`i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u`) is scalar-looking but outside current Starshine support; route it through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md), not through the ordinary `i64.*` or `i64x2.*` rules here. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) rechecked the current WebAssembly Core 3.0 pages dated 2026-06-03 and found no new scalar numeric family or local-code drift that needs a separate page.
 
 ## Beginner Mental Model
 
@@ -196,7 +195,7 @@ When a pass changes scalar numeric code, check these invariants before accepting
 2. **Trap behavior:** ordinary integer division/remainder and non-saturating float-to-int truncations can trap; `trunc_sat` does not trap for the same out-of-range/NaN cases. Do not fold through a trap boundary without proof.
 3. **Signedness:** `_s` and `_u` suffixes are semantic. They are not alternate spellings and cannot be interchanged because a fixture happens to use a small positive literal.
 4. **Bit-level identity:** `reinterpret` preserves bits, while `convert`, `promote`, `demote`, `wrap`, and `extend` compute numeric conversions. Optimizers must keep that distinction visible.
-5. **NaN and float corner cases:** float `min`/`max`, NaN payloads, signed zero, and rounding operations need oracle or source-backed evidence before canonicalization. The 2026-05-20 literal/rewrite refresh is the current wiki anchor for why typechecking alone is not enough here.
+5. **NaN and float corner cases:** float `min`/`max`, NaN payloads, signed zero, and rounding operations need oracle or source-backed evidence before canonicalization. The current-source refresh and the official numeric-execution source are the wiki anchors for why typechecking alone is not enough here.
 6. **Constant expression context:** if a pass moves numeric work into globals, table initializers, element/data offsets, or other initializer contexts, rerun module validation rather than assuming body-valid code is initializer-valid.
 7. **Coverage vocabulary:** use [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) for `[FZG]002` valid-generator evidence, and [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md) when the same syntax is only parser/printer coverage.
 
@@ -214,7 +213,6 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 
 ## Sources
 
-- Targeted literal/rewrite refresh: [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
 - Current-source refresh: [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md)
 - Wide Arithmetic proposal boundary: [`../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md), [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>

@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
-  - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../../../src/validate/validate.mbt
@@ -152,7 +151,6 @@ This shape is rejected unless another declaration source names `$f`. Current Cor
 - Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
 - Current primary-source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - Superseded historical refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
-- Previous source refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Core declared-reference rule: [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - https://webassembly.github.io/spec/core/valid/index.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
-  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt

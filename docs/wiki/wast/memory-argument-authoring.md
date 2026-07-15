@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -182,7 +181,7 @@ When changing memory-argument text, binary, or validation behavior:
 - Current multi-memory Core boundary: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
 - Current memory64/table64 Core/status bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Detailed memory/table address-width validator refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
-- Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
+- Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/_download/WebAssembly.pdf>
 - Historical proposal/context surfaces checked by older manifests: <https://webassembly.github.io/multi-memory/core/text/modules.html>, <https://webassembly.github.io/memory64/core/>; use the 2026-06-05 Core/status bridge before making current memory64/table64 status claims.
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/eq.mbt`](../../../src/lib/eq.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

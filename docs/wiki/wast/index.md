@@ -18,7 +18,6 @@ sources:
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../../README.md
 related:
