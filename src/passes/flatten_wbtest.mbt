@@ -84,20 +84,7 @@ test "flatten hard unsupported admission prevents partial mutation" {
 }
 
 ///|
-test "flatten classifies missing legacy EH repair prerequisites before mutation" {
-  let func = @ir.HotFunc::new()
-  let empty = flatten_eh_repair_requirement(func)
-  assert_true(empty.is_clear())
-  @debug.assert_eq(empty.needs_catch_payload_tracking, false)
-  @debug.assert_eq(empty.needs_exceptional_transfer_repair, false)
-  ignore(@ir.hot_build_node(func, @ir.HotOp::catch_(), @ir.hot_type_void(func)))
-  ignore(
-    @ir.hot_build_node(func, @ir.HotOp::rethrow(), @ir.hot_type_void(func)),
-  )
-  let requirement = flatten_eh_repair_requirement(func)
-  @debug.assert_eq(requirement.needs_catch_payload_tracking, true)
-  @debug.assert_eq(requirement.needs_exceptional_transfer_repair, true)
-  assert_false(requirement.is_clear())
+test "flatten intentionally gates missing legacy EH repair before any mutation" {
   let ctx = HotPassContext::new(
     flatten_descriptor(),
     @ir.HotAnalysisCache::new(),
@@ -105,7 +92,57 @@ test "flatten classifies missing legacy EH repair prerequisites before mutation"
     false,
     fn(_) { () },
   )
-  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::unchanged())
+
+  let catch_func = @ir.HotFunc::new()
+  let empty = flatten_eh_repair_requirement(catch_func)
+  assert_true(empty.is_clear())
+  @debug.assert_eq(empty.needs_catch_payload_tracking, false)
+  @debug.assert_eq(empty.needs_exceptional_transfer_repair, false)
+  let catch_rich = flatten_test_build_rich_drop(catch_func)
+  let catch_id = @ir.hot_build_node(
+    catch_func,
+    @ir.HotOp::catch_(),
+    @ir.hot_type_void(catch_func),
+  )
+  @ir.hot_root_append(catch_func, catch_rich[1])
+  @ir.hot_root_append(catch_func, catch_id)
+  let catch_requirement = flatten_eh_repair_requirement(catch_func)
+  @debug.assert_eq(catch_requirement.needs_catch_payload_tracking, true)
+  @debug.assert_eq(catch_requirement.needs_exceptional_transfer_repair, false)
+  match flatten_run_admission(catch_func, flatten_classify_hot(catch_func)) {
+    FlattenRunAdmission::DeferredCatchPayloadRepair => ()
+    _ => fail("expected typed-catch payload repair admission gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, catch_func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_local_count(catch_func), 0)
+  @debug.assert_eq(
+    @ir.hot_child_get(catch_func, catch_rich[1], 0),
+    catch_rich[0],
+  )
+
+  let transfer_func = @ir.HotFunc::new()
+  let transfer_rich = flatten_test_build_rich_drop(transfer_func)
+  let rethrow_id = @ir.hot_build_node(
+    transfer_func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(transfer_func),
+  )
+  @ir.hot_root_append(transfer_func, transfer_rich[1])
+  @ir.hot_root_append(transfer_func, rethrow_id)
+  let transfer_requirement = flatten_eh_repair_requirement(transfer_func)
+  @debug.assert_eq(transfer_requirement.needs_catch_payload_tracking, false)
+  @debug.assert_eq(transfer_requirement.needs_exceptional_transfer_repair, true)
+  match
+    flatten_run_admission(transfer_func, flatten_classify_hot(transfer_func)) {
+    FlattenRunAdmission::DeferredExceptionalTransferRepair => ()
+    _ => fail("expected exceptional-transfer repair admission gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, transfer_func), HotPassResult::unchanged())
+  @debug.assert_eq(@ir.hot_local_count(transfer_func), 0)
+  @debug.assert_eq(
+    @ir.hot_child_get(transfer_func, transfer_rich[1], 0),
+    transfer_rich[0],
+  )
 }
 
 ///|

@@ -5953,6 +5953,8 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
 priv enum FlattenRunAdmission {
   Admitted
   UpstreamHardUnsupported
+  DeferredCatchPayloadRepair
+  DeferredExceptionalTransferRepair
   DeferredInputfulLoop
   DeferredLegacyTry
   DeferredBranchPayload
@@ -5970,6 +5972,12 @@ fn flatten_run_admission(
   }
   if report.unsupported_count > 0 {
     return FlattenRunAdmission::UpstreamHardUnsupported
+  }
+  if analysis.eh_repair_requirement.needs_catch_payload_tracking {
+    return FlattenRunAdmission::DeferredCatchPayloadRepair
+  }
+  if analysis.eh_repair_requirement.needs_exceptional_transfer_repair {
+    return FlattenRunAdmission::DeferredExceptionalTransferRepair
   }
   if flatten_has_deferred_inputful_loop(func) {
     return FlattenRunAdmission::DeferredInputfulLoop
@@ -5990,6 +5998,8 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   match flatten_run_admission(func, before, state=Some(state)) {
     FlattenRunAdmission::Admitted => ()
     FlattenRunAdmission::UpstreamHardUnsupported
+    | FlattenRunAdmission::DeferredCatchPayloadRepair
+    | FlattenRunAdmission::DeferredExceptionalTransferRepair
     | FlattenRunAdmission::DeferredInputfulLoop
     | FlattenRunAdmission::DeferredLegacyTry
     | FlattenRunAdmission::DeferredBranchPayload =>

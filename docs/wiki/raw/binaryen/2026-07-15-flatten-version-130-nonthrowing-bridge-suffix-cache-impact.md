@@ -92,9 +92,10 @@ The representative native release benchmark prebuilt 120 HOT functions, evenly s
 | run-wide cached current | 2,345.5 us | 2,248..2,660 us | 8.82x |
 | cached EH/effective-terminal current | 1,641 us | 1,583..1,813 us | 6.17x |
 | cached scalar-try support current | 1,275 us | 1,224..1,324 us | 4.79x |
+| explicit EH admission-gate current | 1,347.5 us | 1,280..1,931 us | 5.06x |
 | Binaryen v130 | 266.05 us | 250.16..380.856 us | 1.00x |
 
-The follow-up profile attributed most measured time to repeated legacy-try support during rewrite. `FlattenRewriteState` now caches the immutable pre-admission EH prerequisite classification, try-target terminal checks consume the existing cached suffix proof instead of rebuilding an uncached use-def snapshot, and the complete scalar legacy-try support decision is cached per owner before mutation and consumed only by matching later rewrite checks. The representative median improves another 22.30% from `1,641 us` to `1,275 us`, but is still about 2.40 times slower than the maximum acceptable `2x Binaryen` threshold, so performance remains a public-exposure blocker.
+The follow-up profile attributed most measured time to repeated legacy-try support during rewrite. `FlattenRewriteState` now caches the immutable pre-admission EH prerequisite classification, try-target terminal checks consume the existing cached suffix proof instead of rebuilding an uncached use-def snapshot, and the complete scalar legacy-try support decision is cached per owner before mutation and consumed only by matching later rewrite checks. The representative median improved another 22.30% from `1,641 us` to `1,275 us`. After adding explicit catch-payload and exceptional-transfer admission outcomes, the same 120-function native-release shape reran at `1,347.5 us` median (`1,280..1,931 us`), or `5.06x` Binaryen. Performance therefore remains well outside the maximum acceptable `2x Binaryen` threshold and blocks public exposure.
 
 ## Validation
 
@@ -109,13 +110,16 @@ The follow-up profile attributed most measured time to repeated legacy-try suppo
 
 Follow-up proof-cache validation: direct `i32.or` behavior was red at `240/241` and green at `241/241`; direct `i32.xor` behavior was red at `241/242` and green at `242/242`. Private flatten passed `142/142`, the pass package passed `5,714/5,714`, and `moon info` passed with the existing warnings.
 
+Follow-up EH-gate validation used a pinned Binaryen v130 typed-catch probe. Direct `--flatten` stages the typed `(pop i32)` into a fresh local before the original drop, confirming that payload extraction is semantic work rather than optional cleanup. The updated private behavior test first failed because a rooted `Catch` plus an otherwise flattenable rich operand returned `{ changed: true }`; explicit `DeferredCatchPayloadRepair` and `DeferredExceptionalTransferRepair` admission outcomes now stop `Catch`/`CatchAll` and `Rethrow`/`Delegate` functions before locals or operand rewrites can begin. Final validation passed private flatten `142/142`, passes `5,714/5,714`, the full suite `9,173/9,173`, `moon info`, targeted formatting, and `git diff --check`. Repository-wide `moon fmt --check` still fails only on the pre-existing `moon.mod` `options(source: ...)` versus `source = ...` syntax disagreement.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix caching plus cached EH, effective-terminal, and scalar-try support proofs reduce the representative median from `3,682.5 us` to `1,275 us`; current remains `4.79x` Binaryen and outside target.
+- **Performance movement:** run-wide suffix caching plus cached EH, effective-terminal, and scalar-try support proofs reduce the representative median from `3,682.5 us` to `1,275 us`; the post-EH-gate rerun is `1,347.5 us`, or `5.06x` Binaryen, and remains outside target.
 - **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, and `i32.xor` call roots now use the same recursive complete-ownership proof.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
+- **Durable representation gate:** `Catch`/`CatchAll` now select `DeferredCatchPayloadRepair`, while `Rethrow`/`Delegate` select `DeferredExceptionalTransferRepair`, before any mutation. This closes a partial-mutation hole but does not implement EH repair.
 - **Still gated:** typed catches and payloads, nested-pop repair, `rethrow`, `delegate`, structured suffix control-plus-label deletion, broader branch/control families, result calls, indirect/reference calls, and public execution.
 - **Public signoff:** not run. No flatten GenValid aggregate or four-lane compare surface exists, and public wiring remains intentionally removed.
 

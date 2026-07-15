@@ -618,7 +618,8 @@ The exact output is verbose, but the key source-backed facts are:
 ## Why
 
 - without that repair step, the resulting EH structure would be invalid
-- Starshine currently classifies this prerequisite and fails closed; it does not yet represent the typed payload `pop` needed to perform the move
+- a pinned Binaryen v130 direct probe stages `(pop i32)` into a fresh local before the original drop
+- Starshine does not yet represent that typed payload `pop`; `Catch`/`CatchAll` therefore select `DeferredCatchPayloadRepair` before any operand or local mutation, while `Rethrow`/`Delegate` select the separate `DeferredExceptionalTransferRepair` gate
 
 ## Shape 14: real control effects become preludes plus placeholder `unreachable`
 
