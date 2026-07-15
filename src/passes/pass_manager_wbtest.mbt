@@ -19411,6 +19411,38 @@ test "DAEO selected uniform null suffix folds the callee null-test" {
 }
 
 ///|
+test "DAEO selected cleanup folds sentinel wrap conditionals" {
+  let source = @lib.LocalIdx::new(0U)
+  let dead_tee = @lib.LocalIdx::new(1U)
+  let output = @lib.LocalIdx::new(2U)
+  let body = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+    @lib.Instruction::i64_eq(),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(@lib.I32(0))],
+      Some([
+        @lib.Instruction::local_get(source),
+        @lib.Instruction::local_tee(dead_tee),
+        @lib.Instruction::i32_wrap_i64(),
+      ]),
+    ),
+    @lib.Instruction::local_set(output),
+  ]
+  let local_gets = [2, 0, 0]
+  let local_sets = [0, 0, 1]
+  let local_tees = [0, 1, 0]
+  let (rewritten, changed) = dae_fold_i64_sentinel_wrap_if_instrs(
+    body, local_gets, local_sets, local_tees,
+  )
+  assert_true(changed)
+  assert_false(rewritten.any(fn(instr) { instr is @lib.If(_, _, _) }))
+  assert_false(rewritten.any(fn(instr) { instr is @lib.LocalTee(_) }))
+  @debug.assert_eq(local_tees, [0, 0, 0])
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)

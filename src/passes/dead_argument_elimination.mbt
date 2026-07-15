@@ -12229,8 +12229,28 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
           combined_touched[def_idx] = true
         }
       }
+      let sentinel_folded = dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
+        folded.mod_out,
+        combined_touched,
+      )
+      if !sentinel_folded.changed {
+        return {
+          mod_out: folded.mod_out,
+          touched: combined_touched,
+          changed: true,
+          primary_def: result.primary_def,
+        }
+      }
+      for def_idx = 0
+          def_idx < sentinel_folded.touched.length()
+          def_idx = def_idx + 1 {
+        if sentinel_folded.touched[def_idx] &&
+          def_idx < combined_touched.length() {
+          combined_touched[def_idx] = true
+        }
+      }
       return {
-        mod_out: folded.mod_out,
+        mod_out: sentinel_folded.mod_out,
         touched: combined_touched,
         changed: true,
         primary_def: result.primary_def,
@@ -31018,6 +31038,66 @@ fn dae_fold_ref_null_is_null_if_instrs(
 }
 
 ///|
+fn dae_fold_i64_sentinel_wrap_if_instrs(
+  body : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    if idx + 4 < body.length() {
+      match
+        (body[idx], body[idx + 1], body[idx + 2], body[idx + 3], body[idx + 4]) {
+        (
+          @lib.LocalGet(source),
+          @lib.I64Const(@lib.I64(4294967296L)),
+          @lib.I64Eq,
+          @lib.If(
+            @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+            [@lib.I32Const(@lib.I32(0))],
+            Some(
+              [
+                @lib.LocalGet(else_source),
+                @lib.LocalTee(@lib.LocalIdx(tee_raw)),
+                @lib.I32WrapI64,
+              ]
+            )
+          ),
+          @lib.LocalSet(output),
+        ) if source == else_source => {
+          let tee_idx = tee_raw.reinterpret_as_int()
+          if tee_idx >= 0 &&
+            tee_idx < local_gets.length() &&
+            local_gets[tee_idx] == 0 &&
+            local_sets[tee_idx] == 0 &&
+            local_tees[tee_idx] == 1 {
+            out.push(@lib.Instruction::local_get(source))
+            out.push(@lib.Instruction::i32_wrap_i64())
+            out.push(@lib.Instruction::i32_const(@lib.I32(0)))
+            out.push(@lib.Instruction::local_get(source))
+            out.push(@lib.Instruction::i64_const(@lib.I64(4294967296L)))
+            out.push(@lib.Instruction::i64_ne())
+            out.push(@lib.Instruction::select())
+            out.push(@lib.Instruction::local_set(output))
+            local_tees[tee_idx] = 0
+            changed = true
+            idx += 5
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    out.push(body[idx])
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
 fn dae_try_inline_terminal_call_local_sets_body_once(
   body : Array[@lib.Instruction],
   arg_count : Int,
@@ -31343,6 +31423,38 @@ fn dae_try_fold_selected_ref_null_is_null_ifs_once(
   ) -> @lib.Func? {
     let @lib.Func(locals, @lib.Expr(body)) = func
     let (rewritten_body, changed) = dae_fold_ref_null_is_null_if_instrs(body)
+    if changed {
+      Some(@lib.Func::new(locals, @lib.Expr::new(rewritten_body)))
+    } else {
+      None
+    }
+  }
+  dae_try_apply_first_selected_func_rewrite_once(
+    mod_, selected_defs, rewrite_func,
+  )
+}
+
+///|
+fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+) -> DaePassResult {
+  let rewrite_func = fn(
+    func : @lib.Func,
+    _ : Int,
+    _ : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    let local_count = dae_next_free_local_idx(body, 0)
+    let local_gets : Array[Int] = Array::make(local_count, 0)
+    let local_sets : Array[Int] = Array::make(local_count, 0)
+    let local_tees : Array[Int] = Array::make(local_count, 0)
+    run_hot_pipeline_raw_collect_local_ref_counts(
+      body, local_gets, local_sets, local_tees,
+    )
+    let (rewritten_body, changed) = dae_fold_i64_sentinel_wrap_if_instrs(
+      body, local_gets, local_sets, local_tees,
+    )
     if changed {
       Some(@lib.Func::new(locals, @lib.Expr::new(rewritten_body)))
     } else {
