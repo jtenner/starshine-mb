@@ -5,7 +5,6 @@ last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
-  - ../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -43,7 +42,7 @@ Exception handling in Starshine crosses three layers:
 
 Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. Start from the root boundary page [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md) when the question is feature status or cross-layer routing. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on text syntax, lowering, validation, and execution-preservation traps that are easiest to miss.
 
-The current feature-status bridge is [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md), crystallized for root-level navigation in [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md). It rechecked the official finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, current Core 3.0 instruction/validation/execution pages, Stack Switching proposal repository, and current Starshine WAST/core/validator evidence. The detailed source refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) remains the owner-file and tag-result-shape source map. The targeted 2026-05-20 refresh [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) remains the historical correction that `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
+The current feature-status bridge is [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md), crystallized for root-level navigation in [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md). It rechecked the official finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, current Core 3.0 instruction/validation/execution pages, Stack Switching proposal repository, and current Starshine WAST/core/validator evidence. The detailed source refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) remains the owner-file and tag-result-shape source map. The same current refresh confirms that `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
 
 ## Feature Status And Nearby Boundaries
 
@@ -207,7 +206,6 @@ When a pass rewrites control around `try_table`, rerun validation. The high-risk
 
 - Exception Handling feature-status bridge: [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md)
 - Current exception tag refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
-- Targeted `throw_ref` nullability refresh: [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md)
 - Binary tag/resource guide: [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md)
 - Validator phase guide: [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
 - Stack-polymorphism guide: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)

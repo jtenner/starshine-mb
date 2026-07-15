@@ -24,11 +24,9 @@ sources:
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
-  - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
-  - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -220,7 +218,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 ## Sources
 
 - Official WebAssembly 3.0 sources: [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), and [validation overview](https://webassembly.github.io/spec/core/valid/index.html)
-- Constant-expression source bridge: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
+- Current constant-expression source bridge: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
@@ -228,7 +226,6 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
 - Stack-polymorphism source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
 - Current import/export matching source bridge: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
-- Previous import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Current GC type/subtyping bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Older type-section and subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Official WebAssembly 3.0 module layout: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html) and [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html)

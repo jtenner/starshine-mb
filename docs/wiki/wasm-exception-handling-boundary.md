@@ -5,7 +5,6 @@ last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md
   - raw/wasm/2026-06-04-exception-tag-current-refresh.md
-  - raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
   - ../src/lib/types.mbt
   - ../src/wast/parser.mbt
   - ../src/wast/lower_to_lib.mbt
@@ -133,7 +132,6 @@ When changing code or docs around Exception Handling:
 
 - Feature-status bridge: [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md)
 - Current exception/tag source refresh: [`raw/wasm/2026-06-04-exception-tag-current-refresh.md`](raw/wasm/2026-06-04-exception-tag-current-refresh.md)
-- `throw_ref` nullability correction: [`raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md)
 - Detailed WAST guide: [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md)
 - Binary tag/resource guide: [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md)
 - Validation phase and stack-polymorphism guides: [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md)

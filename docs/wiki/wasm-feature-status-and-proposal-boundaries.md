@@ -44,7 +44,6 @@ sources:
   - raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
-  - raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../../src/validate/gen_valid.mbt
 related:
   - wasm-typed-function-references-boundary.md

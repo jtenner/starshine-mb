@@ -4,7 +4,7 @@
 - Source family: WebAssembly Core Specification 3.0 custom/name section appendix plus Starshine repository evidence
 - Primary sources:
   - WebAssembly Core Specification, `Custom Sections and Annotations — WebAssembly 3.0 (current as checked on 2026-05-20)`: <https://webassembly.github.io/spec/core/appendix/custom>
-  - Earlier Starshine manifest now corrected for this point: [`2026-05-20-custom-name-section-subsection-refresh.md`](2026-05-20-custom-name-section-subsection-refresh.md)
+  - Earlier Starshine manifest corrected for this point; the living binary/name-section pages retain the supported current-source links.
 
 ## Durable takeaways
 

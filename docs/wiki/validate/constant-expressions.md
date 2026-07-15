@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
-  - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
@@ -188,7 +187,6 @@ When changing constant-expression behavior:
 
 - Current reconciliation: [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md)
 - Earlier current-source capture (superseded for the local array-constructor admission claim): [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
-- Earlier source manifest: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
 - Aggregate constant-expression refresh: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)

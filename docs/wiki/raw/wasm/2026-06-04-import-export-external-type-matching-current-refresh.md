@@ -1,6 +1,6 @@
 # Import, Export, And External-Type Matching Current Refresh (2026-06-04)
 
-This manifest refreshes [`../../validate/import-export-and-external-type-matching.md`](../../validate/import-export-and-external-type-matching.md) against the current WebAssembly Core 3.0 pages and local Starshine source surfaces. It supersedes the source freshness of [`2026-05-20-external-type-matching-import-export-validation.md`](2026-05-20-external-type-matching-import-export-validation.md) for the focused import/export/matching page, while keeping that older manifest as useful provenance.
+This manifest refreshes [`../../validate/import-export-and-external-type-matching.md`](../../validate/import-export-and-external-type-matching.md) against the current WebAssembly Core 3.0 pages and local Starshine source surfaces. It supersedes the source freshness of the former 2026-05-20 import/export matching manifest for the focused page; the living page retains the current-source provenance.
 
 ## Primary external sources checked
 

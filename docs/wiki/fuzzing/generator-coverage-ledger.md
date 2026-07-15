@@ -17,9 +17,7 @@ sources:
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
-  - ../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
-  - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md

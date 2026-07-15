@@ -9,7 +9,6 @@ sources:
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
-  - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/research/0018-2026-03-22-wast-struct-type-surface.md
   - ../raw/research/0019-2026-03-22-wast-array-type-surface.md
   - ../raw/research/0020-2026-03-22-wast-rec-group-surface.md
@@ -174,7 +173,6 @@ Starshine rejects the second type because `describes` appears after `descriptor`
 - Older validator-side type-section refresh: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md), [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
 - Custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Current custom-descriptor status bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
-- Earlier custom-descriptor `ref.get_desc` / exactness refresh: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Archived research docs:
   [`../raw/research/0018-2026-03-22-wast-struct-type-surface.md`](../raw/research/0018-2026-03-22-wast-struct-type-surface.md),
   [`../raw/research/0019-2026-03-22-wast-array-type-surface.md`](../raw/research/0019-2026-03-22-wast-array-type-surface.md),

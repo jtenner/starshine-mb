@@ -7,7 +7,6 @@ sources:
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
-  - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md
   - ../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md
 related:
@@ -51,7 +50,6 @@ related:
 - Static assertion harness snapshots: [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md), [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
 - Descriptor instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Current descriptor status/source bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
-- Earlier descriptor exactness/source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Archived research docs:
   [`../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md`](../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md),
   [`../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md`](../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md)
