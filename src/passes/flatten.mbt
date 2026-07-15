@@ -1059,6 +1059,31 @@ fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_call_has_two_constant_arguments(
+  func : @ir.HotFunc,
+  call_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, call_id) != 2 {
+    return false
+  }
+  let first_id = @ir.hot_child_get(func, call_id, 0)
+  let second_id = @ir.hot_child_get(func, call_id, 1)
+  if first_id == second_id ||
+    @ir.hot_node_result_arity(func, first_id) != 1 ||
+    @ir.hot_node_result_arity(func, second_id) != 1 {
+    return false
+  }
+  match
+    (@ir.hot_node_get(func, first_id).op, @ir.hot_node_get(func, second_id).op) {
+    (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+    _ => return false
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  @ir.node_use_count(use_def, first_id) == 1 &&
+  @ir.node_use_count(use_def, second_id) == 1
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   root_id : Int,
@@ -1067,7 +1092,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
     @ir.HotOp::Unreachable => Some([root_id])
     @ir.HotOp::Call => {
       let child_count = @ir.hot_child_count(func, root_id)
-      if child_count > 1 || @ir.hot_node_result_arity(func, root_id) != 0 {
+      if child_count > 2 || @ir.hot_node_result_arity(func, root_id) != 0 {
         return None
       }
       let use_def = @ir.use_def_build_node_uses(func)
@@ -1076,6 +1101,18 @@ fn flatten_try_table_dead_suffix_root_nodes(
       }
       if child_count == 0 {
         return Some([root_id])
+      }
+      if child_count == 2 {
+        if !flatten_try_table_dead_suffix_call_has_two_constant_arguments(
+            func, root_id,
+          ) {
+          return None
+        }
+        return Some([
+          root_id,
+          @ir.hot_child_get(func, root_id, 0),
+          @ir.hot_child_get(func, root_id, 1),
+        ])
       }
       let argument_id = @ir.hot_child_get(func, root_id, 0)
       if @ir.hot_node_result_arity(func, argument_id) != 1 ||
@@ -1594,11 +1631,16 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
     @ir.HotOp::Unreachable => return true
     @ir.HotOp::Call => {
       let child_count = @ir.hot_child_count(func, root_id)
-      if @ir.hot_node_result_arity(func, root_id) != 0 || child_count > 1 {
+      if @ir.hot_node_result_arity(func, root_id) != 0 || child_count > 2 {
         return false
       }
       if child_count == 0 {
         return true
+      }
+      if child_count == 2 {
+        return flatten_try_table_dead_suffix_call_has_two_constant_arguments(
+          func, root_id,
+        )
       }
       return flatten_try_table_dead_suffix_call_argument_is_sequence_member(
         func,
