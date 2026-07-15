@@ -5045,25 +5045,123 @@ test "flatten recognizes an extend-callextenddiv-unreachable try-table suffix se
 }
 
 ///|
-test "flatten keeps two binary-rich call arguments gated" {
+fn flatten_wbtest_recognize_sequence_with_two_binary_arguments(
+  division_first : Bool,
+) -> Unit raise {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
   let label_id = fixture[1]
   let table_id = fixture[2]
+  let first = if division_first {
+    flatten_wbtest_build_direct_unary_drop(
+      func,
+      @lib.Instruction::i64_extend_i32s(),
+      9,
+      @lib.ValType::i64(),
+      true,
+    )
+  } else {
+    flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_add(),
+      9,
+      10,
+    )
+  }
   let add = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  let division = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_div_s(),
+    if division_first {
+      10
+    } else {
+      13
+    },
+    0,
+  )
+  let call = @ir.hot_build_call(
+    func,
+    99,
+    [],
+    if division_first {
+      [division[0], add[0]]
+    } else {
+      [add[0], division[0]]
+    },
+  )
+  let last = if division_first {
+    [@ir.hot_build_unreachable(func)]
+  } else {
+    flatten_wbtest_build_direct_unary_drop(
+      func,
+      @lib.Instruction::i32_clz(),
+      14,
+      @lib.ValType::i32(),
+      false,
+    )
+  }
+  let call_nodes = if division_first {
+    [call, division[0], add[0], division[1], division[2], add[1], add[2]]
+  } else {
+    [call, add[0], division[0], add[1], add[2], division[1], division[2]]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in [first, call_nodes, last] {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-calladddiv-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_two_binary_arguments(false)
+}
+
+///|
+test "flatten recognizes an extend-calldivadd-unreachable try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_two_binary_arguments(true)
+}
+
+///|
+test "flatten keeps two same-opcode binary-rich call arguments gated" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let first_add = flatten_test_build_direct_binary(
     func,
     @lib.Instruction::i32_add(),
     9,
     10,
   )
-  let division = flatten_test_build_direct_binary(
+  let second_add = flatten_test_build_direct_binary(
     func,
-    @lib.Instruction::i32_div_s(),
+    @lib.Instruction::i32_add(),
     11,
-    0,
+    12,
   )
-  let call = @ir.hot_build_call(func, 99, [], [add[0], division[0]])
+  let call = @ir.hot_build_call(func, 99, [], [first_add[0], second_add[0]])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     call,

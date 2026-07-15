@@ -17693,6 +17693,142 @@ test "flatten removes an extend-callextenddiv-unreachable suffix sequence after 
 }
 
 ///|
+fn flatten_test_remove_sequence_with_two_binary_arguments(
+  division_first : Bool,
+) -> Unit raise {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(15))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let first = if division_first {
+    flatten_test_build_owned_unary_drop_root(
+      func,
+      @lib.Instruction::i64_extend_i32s(),
+      9,
+      @lib.ValType::i64(),
+      true,
+    )
+  } else {
+    flatten_test_build_owned_binary_drop_root(
+      func,
+      @lib.Instruction::i32_add(),
+      9,
+      10,
+    )
+  }
+  let add = flatten_test_build_owned_binary_drop_root(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  let division = flatten_test_build_owned_binary_drop_root(
+    func,
+    @lib.Instruction::i32_div_s(),
+    if division_first {
+      10
+    } else {
+      13
+    },
+    0,
+  )
+  let call = @ir.hot_build_call(
+    func,
+    99,
+    [],
+    if division_first {
+      [division[1], add[1]]
+    } else {
+      [add[1], division[1]]
+    },
+  )
+  let last = if division_first {
+    [@ir.hot_build_unreachable(func)]
+  } else {
+    flatten_test_build_owned_unary_drop_root(
+      func,
+      @lib.Instruction::i32_clz(),
+      14,
+      i32_type,
+      false,
+    )
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch_id,
+    first[0],
+    call,
+    last[0],
+  ])
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_delete_node(func, add[0])
+  @ir.hot_delete_node(func, division[0])
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let owned_nodes : Array[Int] = [call]
+  for rich in [add, division] {
+    for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
+      owned_nodes.push(rich[node_idx])
+    }
+  }
+  for root in [first, last] {
+    for node_id in root {
+      owned_nodes.push(node_id)
+    }
+  }
+  for node_id in owned_nodes {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      body_ref,
+      @ir.hot_region_root_count(func, body_ref) - 1,
+    ),
+    branch_id,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected two-binary call sequence to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten removes an add-calladddiv-clz suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_binary_arguments(false)
+}
+
+///|
+test "flatten removes an extend-calldivadd-unreachable suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_binary_arguments(true)
+}
+
+///|
 fn flatten_test_remove_sequence_with_binary_and_constant_arguments(
   rich_first : Bool,
 ) -> Unit raise {

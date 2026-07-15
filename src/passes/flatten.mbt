@@ -1192,7 +1192,7 @@ fn flatten_try_table_dead_suffix_call_one_rich_argument_nodes(
 }
 
 ///|
-fn flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
+fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
   func : @ir.HotFunc,
   call_id : Int,
 ) -> Array[Int]? {
@@ -1212,6 +1212,16 @@ fn flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
     | (@ir.HotOp::Unary, @ir.HotOp::Binary)
     | (@ir.HotOp::Binary, @ir.HotOp::Convert)
     | (@ir.HotOp::Convert, @ir.HotOp::Binary) => ()
+    (@ir.HotOp::Binary, @ir.HotOp::Binary) =>
+      match
+        (
+          @ir.hot_node_exact_instr(func, first_id),
+          @ir.hot_node_exact_instr(func, second_id),
+        ) {
+        (Some(@lib.I32Add), Some(@lib.I32DivS))
+        | (Some(@lib.I32DivS), Some(@lib.I32Add)) => ()
+        _ => return None
+      }
     _ => return None
   }
   let use_def = @ir.use_def_build_node_uses(func)
@@ -1322,7 +1332,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
         None => ()
       }
       match
-        flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
+        flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
           func, root_id,
         ) {
         Some(nodes) => return Some(nodes)
@@ -1866,7 +1876,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
         is Some(_) {
         return true
       }
-      if flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
+      if flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
           func, root_id,
         )
         is Some(_) {
