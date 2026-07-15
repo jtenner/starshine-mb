@@ -5143,7 +5143,7 @@ test "flatten recognizes an extend-calldivadd-unreachable try-table suffix seque
 }
 
 ///|
-test "flatten keeps two same-opcode binary-rich call arguments gated" {
+test "flatten keeps a binary-rich call pair gated when one opcode is outside the roster" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -5155,13 +5155,13 @@ test "flatten keeps two same-opcode binary-rich call arguments gated" {
     9,
     10,
   )
-  let second_add = flatten_test_build_direct_binary(
+  let multiply = flatten_test_build_direct_binary(
     func,
-    @lib.Instruction::i32_add(),
+    @lib.Instruction::i32_mul(),
     11,
     12,
   )
-  let call = @ir.hot_build_call(func, 99, [], [first_add[0], second_add[0]])
+  let call = @ir.hot_build_call(func, 99, [], [first_add[0], multiply[0]])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     call,

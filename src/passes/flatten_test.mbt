@@ -17694,8 +17694,9 @@ test "flatten removes an extend-callextenddiv-unreachable suffix sequence after 
 
 ///|
 fn flatten_test_remove_sequence_with_two_binary_arguments(
-  division_first : Bool,
+  pair_kind : Int,
 ) -> Unit raise {
+  let division_first = pair_kind == 1 || pair_kind == 3
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
@@ -17730,32 +17731,37 @@ fn flatten_test_remove_sequence_with_two_binary_arguments(
       10,
     )
   }
-  let add = flatten_test_build_owned_binary_drop_root(
+  let first_argument = flatten_test_build_owned_binary_drop_root(
     func,
-    @lib.Instruction::i32_add(),
+    if pair_kind == 1 || pair_kind == 3 {
+      @lib.Instruction::i32_div_s()
+    } else {
+      @lib.Instruction::i32_add()
+    },
     11,
-    12,
-  )
-  let division = flatten_test_build_owned_binary_drop_root(
-    func,
-    @lib.Instruction::i32_div_s(),
-    if division_first {
-      10
+    if pair_kind == 1 || pair_kind == 3 {
+      0
     } else {
-      13
-    },
-    0,
-  )
-  let call = @ir.hot_build_call(
-    func,
-    99,
-    [],
-    if division_first {
-      [division[1], add[1]]
-    } else {
-      [add[1], division[1]]
+      12
     },
   )
+  let second_argument = flatten_test_build_owned_binary_drop_root(
+    func,
+    if pair_kind == 0 || pair_kind == 3 {
+      @lib.Instruction::i32_div_s()
+    } else {
+      @lib.Instruction::i32_add()
+    },
+    13,
+    if pair_kind == 0 || pair_kind == 3 {
+      0
+    } else {
+      14
+    },
+  )
+  let call = @ir.hot_build_call(func, 99, [], [
+    first_argument[1], second_argument[1],
+  ])
   let last = if division_first {
     [@ir.hot_build_unreachable(func)]
   } else {
@@ -17775,8 +17781,8 @@ fn flatten_test_remove_sequence_with_two_binary_arguments(
     last[0],
   ])
   @ir.hot_delete_node(func, body_fallback)
-  @ir.hot_delete_node(func, add[0])
-  @ir.hot_delete_node(func, division[0])
+  @ir.hot_delete_node(func, first_argument[0])
+  @ir.hot_delete_node(func, second_argument[0])
   @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
   let ctx = HotPassContext::new(
     flatten_descriptor(),
@@ -17787,7 +17793,7 @@ fn flatten_test_remove_sequence_with_two_binary_arguments(
   )
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
   let owned_nodes : Array[Int] = [call]
-  for rich in [add, division] {
+  for rich in [first_argument, second_argument] {
     for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
       owned_nodes.push(rich[node_idx])
     }
@@ -17820,12 +17826,22 @@ fn flatten_test_remove_sequence_with_two_binary_arguments(
 
 ///|
 test "flatten removes an add-calladddiv-clz suffix sequence after a scalar legacy try table" {
-  flatten_test_remove_sequence_with_two_binary_arguments(false)
+  flatten_test_remove_sequence_with_two_binary_arguments(0)
 }
 
 ///|
 test "flatten removes an extend-calldivadd-unreachable suffix sequence after a scalar legacy try table" {
-  flatten_test_remove_sequence_with_two_binary_arguments(true)
+  flatten_test_remove_sequence_with_two_binary_arguments(1)
+}
+
+///|
+test "flatten removes an add-calladdadd-clz suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_binary_arguments(2)
+}
+
+///|
+test "flatten removes an extend-calldivdiv-unreachable suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_binary_arguments(3)
 }
 
 ///|

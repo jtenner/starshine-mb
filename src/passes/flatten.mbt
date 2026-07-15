@@ -1243,8 +1243,10 @@ fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
           @ir.hot_node_exact_instr(func, first_id),
           @ir.hot_node_exact_instr(func, second_id),
         ) {
-        (Some(@lib.I32Add), Some(@lib.I32DivS))
-        | (Some(@lib.I32DivS), Some(@lib.I32Add)) => ()
+        (Some(@lib.I32Add), Some(@lib.I32Add))
+        | (Some(@lib.I32Add), Some(@lib.I32DivS))
+        | (Some(@lib.I32DivS), Some(@lib.I32Add))
+        | (Some(@lib.I32DivS), Some(@lib.I32DivS)) => ()
         _ => return None
       }
     _ => return None
