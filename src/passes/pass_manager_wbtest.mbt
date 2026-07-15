@@ -19373,6 +19373,44 @@ test "DAEO selected callers expose a uniform ref-null callee candidate" {
 }
 
 ///|
+test "DAEO selected uniform null suffix folds the callee null-test" {
+  let source =
+    #|(module
+    #|  (type $items (array i32))
+    #|  (func $callee (param (ref null $items)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null
+    #|    if (result i32)
+    #|      i32.const 11
+    #|    else
+    #|      i32.const 22
+    #|    end)
+    #|  (func $caller (export "caller") (result i32)
+    #|    ref.null $items
+    #|    call $callee))
+  let parsed = match pass_test_run_pipeline(source, []) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected uniform null fold fixture parse, got \{err}")
+  }
+  let snapshot = dae_collect_module_boundary_snapshot(parsed)
+  let result = dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
+    parsed,
+    [1],
+    snapshot.imported,
+    snapshot.defined,
+    snapshot.total,
+    snapshot.type_indices,
+    snapshot.boundary_facts,
+  )
+  let funcs = match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected rewritten code section")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+  assert_false(body.any(fn(instr) { instr == @lib.Instruction::ref_is_null() }))
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)

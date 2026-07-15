@@ -12216,7 +12216,25 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       boundary_facts.direct_calls[callee_abs],
     )
     if result.changed {
-      return result
+      let folded = dae_try_fold_selected_ref_null_is_null_ifs_once(
+        result.mod_out,
+        result.touched,
+      )
+      if !folded.changed {
+        return result
+      }
+      let combined_touched = result.touched.copy()
+      for def_idx = 0; def_idx < folded.touched.length(); def_idx = def_idx + 1 {
+        if folded.touched[def_idx] && def_idx < combined_touched.length() {
+          combined_touched[def_idx] = true
+        }
+      }
+      return {
+        mod_out: folded.mod_out,
+        touched: combined_touched,
+        changed: true,
+        primary_def: result.primary_def,
+      }
     }
   }
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
