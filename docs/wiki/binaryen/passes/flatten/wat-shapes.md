@@ -589,7 +589,7 @@ After an unconditional legacy-try `br_table`, Starshine can delete one exact own
     (i32.const 13)))
 ```
 
-The call and complete subtree are deleted only after immediate argument order, nested left-to-right order, distinctness, one-use ownership, and unconditional transfer are proven. Direct `i32.sub` roots now use the same proof. Alternate `i32.ctz` arguments and structured suffixes remain gated. The resultless synthetic catch-all bridge now makes current Starshine byte/runtime output representable, but matched cleanup remains 19 aggregate bytes larger than Binaryen and candidate-dense pass-local performance remains a blocker. See the [2026-07-15 impact evidence](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
+The call and complete subtree are deleted only after immediate argument order, nested left-to-right order, distinctness, one-use ownership, and unconditional transfer are proven. Direct `i32.sub`, `i32.mul`, and `i32.and` roots now use the same proof. Admission caches the exact owned nodes and owner region from one run-wide use-def snapshot, and mutation fails closed on a cache miss. Alternate `i32.ctz` arguments and structured suffixes remain gated. Nonthrowing synthetic catch-all lowering makes the refreshed three-probe cleanup matrix a measured 24-byte Starshine win, while candidate-dense pass-local performance remains `8.82x` Binaryen and blocks public exposure. See the [current 2026-07-15 impact evidence](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
 
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 

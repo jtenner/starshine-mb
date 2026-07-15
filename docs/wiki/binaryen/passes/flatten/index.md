@@ -3,6 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -257,7 +258,7 @@ That is much closer to the real pass than “flatten removes nesting.”
 
 Three internal commits added resultless synthetic catch-all `Try` lowering, replaced six bounded call-argument recognizers with one recursive distinct one-use collector, admitted direct subtraction roots, and reused multi-root ownership results. On the three-probe detached-baseline matrix, the bridge shape was already Flat but unlowerable at baseline, while recursive and direct-subtract call suffixes moved from unchanged/non-Flat to changed/Flat. Current Starshine now lowers, encodes, validates, and executes all three probes.
 
-The matched byte matrix totals `204` input bytes, `263` current Starshine direct bytes, `255` Starshine cleanup bytes, `275` Binaryen direct bytes, and `236` Binaryen cleanup bytes. Starshine is smaller before cleanup but remains 19 bytes larger afterwards, so cleanup is a size-losing parity gap rather than a win. Refreshed native pass-only timing improved from `16,880 us` baseline to `3,682.5 us` current, but Binaryen v130 measured `266.05 us`; performance remains outside the `<=2x` target. Full evidence is in [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
+The refreshed matched byte matrix totals `204` input bytes, `212` current Starshine direct bytes, `212` Starshine cleanup bytes, `275` Binaryen direct bytes, and `236` Binaryen cleanup bytes. The nonthrowing synthetic-try lowering removes the dead handler and retains only a target block where needed, making this narrow bridge/control/local family 63 bytes smaller direct and 24 bytes smaller after matched cleanup. All outputs validate and deterministic runtime results still match; this is now a measured narrow Starshine size win rather than the previous cleanup loss. Run-wide suffix ownership caching also reduces the representative 120-function pass-only median from `3,682.5 us` to `2,345.5 us`, but that remains `8.82x` Binaryen v130's `266.05 us` and outside the `<=2x` target. Full current evidence is in [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md); the prior loss is retained historically in the earlier impact note.
 
 ## Current maintenance rule
 
@@ -270,6 +271,7 @@ The matched byte matrix totals `204` input bytes, `263` current Starshine direct
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md)
 - [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
 - [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)

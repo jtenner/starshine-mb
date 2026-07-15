@@ -223,6 +223,10 @@ priv struct FlattenRewriteState {
   terminal_payloads : Array[Int]
   sequenced_root_holders : Array[Int]
   sequenced_root_nodes : Array[Int]
+  use_def : @ir.HotUseDef
+  dead_suffix_nodes : Array[Array[Int]?]
+  dead_suffix_regions : Array[@ir.HotRegionRef?]
+  mut rewrites_started : Bool
 }
 
 ///|
@@ -236,6 +240,10 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     terminal_payloads: [],
     sequenced_root_holders: [],
     sequenced_root_nodes: [],
+    use_def: @ir.use_def_build_node_uses(func),
+    dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
+    dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
+    rewrites_started: false,
   }
 }
 
@@ -1160,6 +1168,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         Some(@lib.I32Add)
         | Some(@lib.I32Sub)
         | Some(@lib.I32Mul)
+        | Some(@lib.I32And)
         | Some(@lib.I32DivS) => true
         _ => false
       }
@@ -1666,7 +1675,19 @@ fn flatten_try_table_dead_suffix_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   table_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
+  match state {
+    Some(state) =>
+      match state.dead_suffix_nodes[table_id] {
+        Some(nodes) if state.dead_suffix_regions[table_id] == Some(region_ref) =>
+          return Some(nodes)
+        Some(_) => return None
+        None if state.rewrites_started => return None
+        None => ()
+      }
+    None => ()
+  }
   let nodes : Array[Int] = []
   let root_count = @ir.hot_region_root_count(func, region_ref)
   for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
@@ -1674,7 +1695,10 @@ fn flatten_try_table_dead_suffix_nodes(
       continue
     }
     let suffix_count = root_count - root_idx - 1
-    let use_def = @ir.use_def_build_node_uses(func)
+    let use_def = match state {
+      Some(state) => state.use_def
+      None => @ir.use_def_build_node_uses(func)
+    }
     let recognized_suffix_roots : Array[Array[Int]?] = []
     if suffix_count > 1 {
       let mut all_unreachable = true
@@ -1774,6 +1798,13 @@ fn flatten_try_table_dead_suffix_nodes(
         nodes.push(node_id)
       }
     }
+    match state {
+      Some(state) => {
+        state.dead_suffix_nodes[table_id] = Some(nodes)
+        state.dead_suffix_regions[table_id] = Some(region_ref)
+      }
+      None => ()
+    }
     return Some(nodes)
   }
   None
@@ -1786,6 +1817,7 @@ fn flatten_try_terminal_br_table_targets_label(
   label_id : Int,
   payload_count : Int,
   allow_mixed_targets : Bool,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -1826,7 +1858,8 @@ fn flatten_try_terminal_br_table_targets_label(
   }
   let mut is_terminal = false
   for region_ref in [@ir.hot_region_body_ref(func, try_id), catch_ref] {
-    if flatten_try_table_dead_suffix_nodes(func, region_ref, node_id) is Some(_) {
+    if flatten_try_table_dead_suffix_nodes(func, region_ref, node_id, state~)
+      is Some(_) {
       is_terminal = true
     }
   }
@@ -1841,6 +1874,7 @@ fn flatten_try_terminal_br_table_targets_label(
 fn flatten_try_region_effective_terminal_id(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  state? : FlattenRewriteState? = None,
 ) -> Int {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if root_count == 0 {
@@ -1851,7 +1885,12 @@ fn flatten_try_region_effective_terminal_id(
     let node_id = @ir.hot_region_get(func, region_ref, root_idx)
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::BrTable =>
-        if flatten_try_table_dead_suffix_nodes(func, region_ref, node_id)
+        if flatten_try_table_dead_suffix_nodes(
+            func,
+            region_ref,
+            node_id,
+            state~,
+          )
           is Some(_) {
           return node_id
         }
@@ -1868,6 +1907,7 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
   label_id : Int,
   payload_count : Int,
   allow_mixed_targets : Bool,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
@@ -1875,7 +1915,12 @@ fn flatten_multivalue_try_terminal_br_table_targets_label(
     _ => return false
   }
   flatten_try_terminal_br_table_targets_label(
-    func, node_id, label_id, payload_count, allow_mixed_targets,
+    func,
+    node_id,
+    label_id,
+    payload_count,
+    allow_mixed_targets,
+    state~,
   )
 }
 
@@ -2009,6 +2054,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
   func : @ir.HotFunc,
   try_id : Int,
   result_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let label_id = @ir.hot_control_node_label(func, try_id)
   let mut saw_target = false
@@ -2078,6 +2124,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
             label_id,
             result_types.length(),
             true,
+            state~,
           ) {
           return false
         }
@@ -2120,6 +2167,7 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
 fn flatten_multivalue_legacy_try_is_supported(
   func : @ir.HotFunc,
   try_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let try_node = @ir.hot_node_get(func, try_id)
   match try_node.op {
@@ -2147,7 +2195,10 @@ fn flatten_multivalue_legacy_try_is_supported(
   )
   if label_is_used &&
     !flatten_multivalue_legacy_try_label_uses_are_supported(
-      func, try_id, result_types,
+      func,
+      try_id,
+      result_types,
+      state~,
     ) {
     return false
   }
@@ -2161,7 +2212,11 @@ fn flatten_multivalue_legacy_try_is_supported(
     if root_count == 0 {
       return false
     }
-    let tail_id = flatten_try_region_effective_terminal_id(func, region_ref)
+    let tail_id = flatten_try_region_effective_terminal_id(
+      func,
+      region_ref,
+      state~,
+    )
     if label_is_used &&
       (
         flatten_multivalue_try_terminal_plain_br_targets_label(
@@ -2176,6 +2231,7 @@ fn flatten_multivalue_legacy_try_is_supported(
           label_id,
           result_types.length(),
           true,
+          state~,
         )
       ) {
       continue
@@ -2202,7 +2258,11 @@ fn flatten_try_route_multivalue_try(
   state : FlattenRewriteState,
   try_id : Int,
 ) -> Array[Int]? {
-  if !flatten_multivalue_legacy_try_is_supported(func, try_id) {
+  if !flatten_multivalue_legacy_try_is_supported(
+      func,
+      try_id,
+      state=Some(state),
+    ) {
     return None
   }
   let result_types = @ir.hot_type_results(
@@ -3412,6 +3472,7 @@ fn flatten_legacy_try_has_deferred_eh_repair(func : @ir.HotFunc) -> Bool {
 fn flatten_scalar_legacy_try_is_supported(
   func : @ir.HotFunc,
   try_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let try_node = @ir.hot_node_get(func, try_id)
   match try_node.op {
@@ -3430,7 +3491,12 @@ fn flatten_scalar_legacy_try_is_supported(
     pass_compute_label_used(func),
   )
   if label_is_used &&
-    !flatten_target_can_route_scalar_branches(func, label_id, result_types[0]) {
+    !flatten_target_can_route_scalar_branches(
+      func,
+      label_id,
+      result_types[0],
+      state~,
+    ) {
     return false
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
@@ -3442,7 +3508,11 @@ fn flatten_scalar_legacy_try_is_supported(
     if root_count == 0 {
       return false
     }
-    let tail_id = flatten_try_region_effective_terminal_id(func, region_ref)
+    let tail_id = flatten_try_region_effective_terminal_id(
+      func,
+      region_ref,
+      state~,
+    )
     let tail_types = @ir.hot_type_results(
       func,
       @ir.hot_node_get(func, tail_id).ty,
@@ -3466,7 +3536,7 @@ fn flatten_try_route_scalar_try(
   state : FlattenRewriteState,
   try_id : Int,
 ) -> Int? {
-  if !flatten_scalar_legacy_try_is_supported(func, try_id) {
+  if !flatten_scalar_legacy_try_is_supported(func, try_id, state=Some(state)) {
     return None
   }
   let result_type = @ir.hot_type_results(
@@ -3700,6 +3770,7 @@ fn flatten_target_can_route_scalar_branches(
   func : @ir.HotFunc,
   label_id : Int,
   target_type : @lib.ValType,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let owner_id = @ir.hot_label_owner(func, label_id)
   let owner = @ir.hot_node_get(func, owner_id)
@@ -3821,7 +3892,12 @@ fn flatten_target_can_route_scalar_branches(
         match owner.op {
           @ir.HotOp::Try =>
             if !flatten_try_terminal_br_table_targets_label(
-                func, branch_id, label_id, 1, true,
+                func,
+                branch_id,
+                label_id,
+                1,
+                true,
+                state~,
               ) {
               return false
             }
@@ -4855,6 +4931,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
   table_id : Int,
   payload_types : Array[@lib.ValType],
   targets : Array[Int],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let tuple_values = flatten_multivalue_tuple_branch_payload_values(
     func,
@@ -4890,6 +4967,7 @@ fn flatten_tuple_mixed_try_table_is_supported(
     try_label,
     payload_types.length(),
     true,
+    state~,
   )
 }
 
@@ -4922,7 +5000,11 @@ fn flatten_try_route_br_table(
     return false
   }
   if !flatten_tuple_mixed_try_table_is_supported(
-      func, node_id, payload_types, targets,
+      func,
+      node_id,
+      payload_types,
+      targets,
+      state=Some(state),
     ) {
     return false
   }
@@ -4984,12 +5066,25 @@ fn flatten_try_route_br_table(
         let try_id = @ir.hot_label_owner(func, target)
         if payload_count == 1 {
           if !flatten_try_terminal_br_table_targets_label(
-              func, node_id, target, 1, true,
+              func,
+              node_id,
+              target,
+              1,
+              true,
+              state=Some(state),
             ) ||
-            !flatten_scalar_legacy_try_is_supported(func, try_id) {
+            !flatten_scalar_legacy_try_is_supported(
+              func,
+              try_id,
+              state=Some(state),
+            ) {
             return false
           }
-        } else if !flatten_multivalue_legacy_try_is_supported(func, try_id) {
+        } else if !flatten_multivalue_legacy_try_is_supported(
+            func,
+            try_id,
+            state=Some(state),
+          ) {
           return false
         }
       }
@@ -5008,7 +5103,10 @@ fn flatten_try_route_br_table(
     state.terminal_payloads.push(value_id)
   }
   let suffix_nodes = flatten_try_table_dead_suffix_nodes(
-    func, owner_region, node_id,
+    func,
+    owner_region,
+    node_id,
+    state=Some(state),
   )
   match suffix_nodes {
     Some(nodes) if !nodes.is_empty() => {
@@ -5574,7 +5672,10 @@ fn flatten_has_deferred_inputful_loop(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
-fn flatten_has_deferred_legacy_try(func : @ir.HotFunc) -> Bool {
+fn flatten_has_deferred_legacy_try(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -5583,11 +5684,19 @@ fn flatten_has_deferred_legacy_try(func : @ir.HotFunc) -> Bool {
       @ir.HotOp::Try => {
         let result_arity = @ir.hot_node_result_arity(func, node_id)
         if result_arity == 1 &&
-          !flatten_scalar_legacy_try_is_supported(func, node_id) {
+          !flatten_scalar_legacy_try_is_supported(
+            func,
+            node_id,
+            state=Some(state),
+          ) {
           return true
         }
         if result_arity > 1 &&
-          !flatten_multivalue_legacy_try_is_supported(func, node_id) {
+          !flatten_multivalue_legacy_try_is_supported(
+            func,
+            node_id,
+            state=Some(state),
+          ) {
           return true
         }
       }
@@ -5810,14 +5919,19 @@ priv enum FlattenRunAdmission {
 fn flatten_run_admission(
   func : @ir.HotFunc,
   report : FlattenFlatnessReport,
+  state? : FlattenRewriteState? = None,
 ) -> FlattenRunAdmission {
+  let analysis = match state {
+    Some(state) => state
+    None => FlattenRewriteState::new(func)
+  }
   if report.unsupported_count > 0 {
     return FlattenRunAdmission::UpstreamHardUnsupported
   }
   if flatten_has_deferred_inputful_loop(func) {
     return FlattenRunAdmission::DeferredInputfulLoop
   }
-  if flatten_has_deferred_legacy_try(func) {
+  if flatten_has_deferred_legacy_try(func, analysis) {
     return FlattenRunAdmission::DeferredLegacyTry
   }
   if flatten_has_deferred_rich_branch_payload(func) {
@@ -5829,7 +5943,8 @@ fn flatten_run_admission(
 ///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let before = flatten_classify_hot(func)
-  match flatten_run_admission(func, before) {
+  let state = FlattenRewriteState::new(func)
+  match flatten_run_admission(func, before, state=Some(state)) {
     FlattenRunAdmission::Admitted => ()
     FlattenRunAdmission::UpstreamHardUnsupported
     | FlattenRunAdmission::DeferredInputfulLoop
@@ -5837,7 +5952,7 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     | FlattenRunAdmission::DeferredBranchPayload =>
       return HotPassResult::unchanged()
   }
-  let state = FlattenRewriteState::new(func)
+  state.rewrites_started = true
   let mut changed = flatten_rewrite_region_operands(
     ctx,
     func,

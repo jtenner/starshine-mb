@@ -130,7 +130,7 @@ The exact current local surfaces are:
 
 Read this as a deliberately internal partial implementation, not as public pass availability or parity evidence.
 
-The latest internal bridge can lower Starshine's existing **resultless synthetic catch-all** `Try` representation through nested blocks and `try_table`, so that narrow subset now has encoded-size, validation, and runtime evidence. It does not represent typed catch payloads, nested-pop repair, `rethrow`, or `delegate`. The matched three-probe cleanup neighborhood remains 19 bytes larger than Binaryen, current pass-local time remains `13.84x` Binaryen, and no GenValid/four-lane public matrix exists. Those are still hard public-readiness blockers; see the [consolidated impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
+The latest internal bridge can lower Starshine's existing **resultless synthetic catch-all** `Try` representation and now removes the bridge entirely when the body is proven nonthrowing, retaining only a void block when branches target the try label. It does not represent typed catch payloads, nested-pop repair, `rethrow`, or `delegate`. The refreshed three-probe matrix is now a narrow measured size win (`212` Starshine cleanup bytes versus `236` Binaryen), but current pass-local time remains `8.82x` Binaryen and no GenValid/four-lane public matrix exists. EH representation, broader behavior, performance, and signoff are still hard public-readiness blockers; see the [current impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
 
 ## First decision: local Flat IR contract
 
