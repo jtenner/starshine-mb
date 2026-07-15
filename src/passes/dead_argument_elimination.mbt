@@ -12216,9 +12216,14 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       boundary_facts.direct_calls[callee_abs],
     )
     if result.changed {
+      if result.primary_def < 0 || result.primary_def >= result.touched.length() {
+        return result
+      }
+      let cleanup_defs = Array::make(result.touched.length(), false)
+      cleanup_defs[result.primary_def] = true
       let folded = dae_try_fold_selected_ref_null_is_null_ifs_once(
         result.mod_out,
-        result.touched,
+        cleanup_defs,
       )
       if !folded.changed {
         return result
@@ -12231,7 +12236,7 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       }
       let sentinel_folded = dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
         folded.mod_out,
-        combined_touched,
+        cleanup_defs,
       )
       if !sentinel_folded.changed {
         return {
@@ -12249,48 +12254,8 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
           combined_touched[def_idx] = true
         }
       }
-      let aggregate_sunk = dae_try_sink_selected_terminal_default_aggregate_local_once(
-        sentinel_folded.mod_out,
-        combined_touched,
-      )
-      if !aggregate_sunk.changed {
-        return {
-          mod_out: sentinel_folded.mod_out,
-          touched: combined_touched,
-          changed: true,
-          primary_def: result.primary_def,
-        }
-      }
-      for def_idx = 0
-          def_idx < aggregate_sunk.touched.length()
-          def_idx = def_idx + 1 {
-        if aggregate_sunk.touched[def_idx] &&
-          def_idx < combined_touched.length() {
-          combined_touched[def_idx] = true
-        }
-      }
-      let first_sentinel_sunk = dae_try_sink_selected_terminal_first_sentinel_local_once(
-        aggregate_sunk.mod_out,
-        combined_touched,
-      )
-      if !first_sentinel_sunk.changed {
-        return {
-          mod_out: aggregate_sunk.mod_out,
-          touched: combined_touched,
-          changed: true,
-          primary_def: result.primary_def,
-        }
-      }
-      for def_idx = 0
-          def_idx < first_sentinel_sunk.touched.length()
-          def_idx = def_idx + 1 {
-        if first_sentinel_sunk.touched[def_idx] &&
-          def_idx < combined_touched.length() {
-          combined_touched[def_idx] = true
-        }
-      }
       return {
-        mod_out: first_sentinel_sunk.mod_out,
+        mod_out: sentinel_folded.mod_out,
         touched: combined_touched,
         changed: true,
         primary_def: result.primary_def,
@@ -31307,6 +31272,62 @@ fn dae_try_sink_terminal_first_sentinel_local_body_once(
 }
 
 ///|
+fn dae_try_sink_terminal_second_sentinel_local_body_once(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 23 {
+    return None
+  }
+  let start = body.length() - 23
+  match (body[start], body[start + 1], body[start + 2]) {
+    (@lib.LocalGet(_), @lib.LocalGet(_), @lib.LocalGet(_)) => ()
+    _ => return None
+  }
+  match dae_terminal_sentinel_select_producer_source(body, start + 3) {
+    Some(_) => ()
+    None => return None
+  }
+  match dae_terminal_sentinel_select_producer_source(body, start + 10) {
+    Some(_) => ()
+    None => return None
+  }
+  let second = match (body[start + 17], body[start + 18]) {
+    (@lib.LocalSet(second), @lib.LocalGet(second_read)) if second == second_read =>
+      second
+    _ => return None
+  }
+  match
+    (body[start + 19], body[start + 20], body[start + 21], body[start + 22]) {
+    (
+      @lib.ArrayNewFixed(_, @lib.U32(0U)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.StructNew(_),
+      @lib.Call(_),
+    ) => ()
+    _ => return None
+  }
+  let local_count = dae_next_free_local_idx(body, 0)
+  let local_gets : Array[Int] = Array::make(local_count, 0)
+  let local_sets : Array[Int] = Array::make(local_count, 0)
+  let local_tees : Array[Int] = Array::make(local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    body, local_gets, local_sets, local_tees,
+  )
+  let second_idx = dae_local_idx_slot(second)
+  if second_idx < 0 ||
+    second_idx >= local_count ||
+    local_gets[second_idx] != 1 ||
+    local_sets[second_idx] != 1 ||
+    local_tees[second_idx] != 0 {
+    return None
+  }
+  let out = dae_copy_instr_range(body, 0, start + 17)
+  out.append(dae_copy_instr_range(body, start + 19, start + 22))
+  out.push(body[start + 22])
+  Some(out)
+}
+
+///|
 fn dae_try_inline_terminal_call_local_sets_body_once(
   body : Array[@lib.Instruction],
   arg_count : Int,
@@ -31648,11 +31669,18 @@ fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
   let rewrite_func = fn(
     func : @lib.Func,
-    _ : Int,
+    def_idx : Int,
     _ : @lib.TypeSec?,
   ) -> @lib.Func? {
+    let param_count = match
+      dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => return None
+    }
     let @lib.Func(locals, @lib.Expr(body)) = func
     let local_count = dae_next_free_local_idx(body, 0)
     let local_gets : Array[Int] = Array::make(local_count, 0)
@@ -31661,86 +31689,33 @@ fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
     run_hot_pipeline_raw_collect_local_ref_counts(
       body, local_gets, local_sets, local_tees,
     )
-    let (rewritten_body, changed) = dae_fold_i64_sentinel_wrap_if_instrs(
+    let (sentinel_body, changed) = dae_fold_i64_sentinel_wrap_if_instrs(
       body, local_gets, local_sets, local_tees,
     )
-    if changed {
-      Some(@lib.Func::new(locals, @lib.Expr::new(rewritten_body)))
-    } else {
-      None
+    if !changed {
+      return None
     }
-  }
-  dae_try_apply_first_selected_func_rewrite_once(
-    mod_, selected_defs, rewrite_func,
-  )
-}
-
-///|
-fn dae_try_sink_selected_terminal_default_aggregate_local_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-) -> DaePassResult {
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let rewrite_func = fn(
-    func : @lib.Func,
-    def_idx : Int,
-    _ : @lib.TypeSec?,
-  ) -> @lib.Func? {
-    let param_count = match
-      dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
-      Some(@lib.FuncType(params, _)) => params.length()
-      None => return None
+    let aggregate_body = match
+      dae_try_sink_terminal_default_aggregate_local_body_once(sentinel_body) {
+      Some(value) => value
+      None => sentinel_body
     }
-    let @lib.Func(locals, @lib.Expr(body)) = func
-    match dae_try_sink_terminal_default_aggregate_local_body_once(body) {
-      Some(rewritten_body) =>
-        Some(
-          @lib.Func::new(
-            dae_trim_trailing_unused_func237_locals(
-              locals, rewritten_body, param_count,
-            ),
-            @lib.Expr::new(rewritten_body),
-          ),
-        )
-      None => None
+    let first_sentinel_body = match
+      dae_try_sink_terminal_first_sentinel_local_body_once(aggregate_body) {
+      Some(value) => value
+      None => aggregate_body
     }
-  }
-  dae_try_apply_first_selected_func_rewrite_once(
-    mod_, selected_defs, rewrite_func,
-  )
-}
-
-///|
-fn dae_try_sink_selected_terminal_first_sentinel_local_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-) -> DaePassResult {
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let rewrite_func = fn(
-    func : @lib.Func,
-    def_idx : Int,
-    _ : @lib.TypeSec?,
-  ) -> @lib.Func? {
-    let param_count = match
-      dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
-      Some(@lib.FuncType(params, _)) => params.length()
-      None => return None
+    let final_body = match
+      dae_try_sink_terminal_second_sentinel_local_body_once(first_sentinel_body) {
+      Some(value) => value
+      None => first_sentinel_body
     }
-    let @lib.Func(locals, @lib.Expr(body)) = func
-    match dae_try_sink_terminal_first_sentinel_local_body_once(body) {
-      Some(rewritten_body) =>
-        Some(
-          @lib.Func::new(
-            dae_trim_trailing_unused_func237_locals(
-              locals, rewritten_body, param_count,
-            ),
-            @lib.Expr::new(rewritten_body),
-          ),
-        )
-      None => None
-    }
+    Some(
+      @lib.Func::new(
+        dae_trim_trailing_unused_func237_locals(locals, final_body, param_count),
+        @lib.Expr::new(final_body),
+      ),
+    )
   }
   dae_try_apply_first_selected_func_rewrite_once(
     mod_, selected_defs, rewrite_func,

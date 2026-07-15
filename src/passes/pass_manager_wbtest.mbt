@@ -19555,6 +19555,66 @@ test "DAEO selected cleanup sinks the first terminal sentinel result" {
 }
 
 ///|
+test "DAEO selected cleanup sinks the second terminal sentinel result" {
+  let first_source = @lib.LocalIdx::new(3U)
+  let second_source = @lib.LocalIdx::new(4U)
+  let second = @lib.LocalIdx::new(6U)
+  let aggregate_array = @lib.Instruction::array_new_fixed(
+    @lib.TypeIdx::new(10U),
+    @lib.U32(0U),
+  )
+  let aggregate_struct = @lib.Instruction::struct_new(@lib.TypeIdx::new(11U))
+  let first_producer = [
+    @lib.Instruction::local_get(first_source),
+    @lib.Instruction::i32_wrap_i64(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(first_source),
+    @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+    @lib.Instruction::i64_ne(),
+    @lib.Instruction::select(),
+  ]
+  let second_producer = [
+    @lib.Instruction::local_get(second_source),
+    @lib.Instruction::i32_wrap_i64(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(second_source),
+    @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+    @lib.Instruction::i64_ne(),
+    @lib.Instruction::select(),
+  ]
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ]
+  body.append(first_producer)
+  body.append(second_producer)
+  body.push(@lib.Instruction::local_set(second))
+  body.push(@lib.Instruction::local_get(second))
+  body.push(aggregate_array)
+  body.push(@lib.Instruction::i32_const(@lib.I32(0)))
+  body.push(aggregate_struct)
+  body.push(@lib.Instruction::call(@lib.FuncIdx::new(99U)))
+  let rewritten = match
+    dae_try_sink_terminal_second_sentinel_local_body_once(body) {
+    Some(value) => value
+    None => fail("expected second terminal sentinel sinking")
+  }
+  let expected = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  ]
+  expected.append(first_producer)
+  expected.append(second_producer)
+  expected.push(aggregate_array)
+  expected.push(@lib.Instruction::i32_const(@lib.I32(0)))
+  expected.push(aggregate_struct)
+  expected.push(@lib.Instruction::call(@lib.FuncIdx::new(99U)))
+  @debug.assert_eq(rewritten, expected)
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
