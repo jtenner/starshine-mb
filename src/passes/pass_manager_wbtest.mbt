@@ -19253,3 +19253,25 @@ test "DAEO post-component vacuum rotates an outer branch-only if into br_if" {
   assert_true(pretty.contains("br_if"), msg=pretty)
   assert_false(pretty.contains("if (Void)"), msg=pretty)
 }
+
+///|
+test "DAEO post-component cleanup removes a never-read local tee" {
+  let original = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+  ]
+  let (cleaned, removed) = run_hot_pipeline_dae_remove_never_read_local_tees(
+    original,
+  )
+  @debug.assert_eq(removed, 1)
+  @debug.assert_eq(
+    cleaned,
+    [
+      @lib.Instruction::i32_const(@lib.I32(4)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::i32_add(),
+    ],
+  )
+}

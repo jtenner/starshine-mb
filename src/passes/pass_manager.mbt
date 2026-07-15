@@ -60641,6 +60641,127 @@ fn run_hot_pipeline_dae_clone_cleanup_defs(
 }
 
 ///|
+fn run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut removed_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        if local_idx >= 0 &&
+          local_idx < local_gets.length() &&
+          local_gets[local_idx] == 0 {
+          removed_count = removed_count + 1
+        } else {
+          rewritten.push(instr)
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+          body, local_gets,
+        )
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        removed_count = removed_count + nested_count
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+          body, local_gets,
+        )
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+        removed_count = removed_count + nested_count
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+          body, local_gets,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        removed_count = removed_count + nested_count
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+          then_body, local_gets,
+        )
+        removed_count = removed_count + then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+              body, local_gets,
+            )
+            removed_count = removed_count + else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        rewritten.push(
+          @lib.Instruction::if_(block_type, next_then, next_else),
+        )
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, removed_count)
+}
+
+///|
+fn run_hot_pipeline_dae_remove_never_read_local_tees(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let max_local_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+    instrs,
+  )
+  if max_local_idx < 0 {
+    return (instrs, 0)
+  }
+  let local_gets : Array[Int] = Array::make(max_local_idx + 1, 0)
+  let local_sets : Array[Int] = Array::make(max_local_idx + 1, 0)
+  let local_tees : Array[Int] = Array::make(max_local_idx + 1, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
+    instrs, local_gets,
+  )
+}
+
+///|
+fn run_hot_pipeline_dae_remove_selected_never_read_local_tees(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> (@lib.Module, Int) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, 0)
+  }
+  let func = match funcs.get(def_idx) {
+    Some(func) => func
+    None => return (mod_, 0)
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (next_body, removed_count) = run_hot_pipeline_dae_remove_never_read_local_tees(
+    body,
+  )
+  if removed_count == 0 {
+    return (mod_, 0)
+  }
+  let next_funcs = funcs.copy()
+  next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+  (mod_.with_code_sec(@lib.CodeSec::new(next_funcs)), removed_count)
+}
+
+///|
 fn run_hot_pipeline_dae_rotate_branch_only_if_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
@@ -60797,12 +60918,16 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
   let coalesce_only_defs : Array[Int] = []
   let vacuum_defs : Array[Int] = []
   let branch_if_defs : Array[Int] = []
+  let dead_tee_defs : Array[Int] = []
+  let branch_if_dead_tee_defs : Array[Int] = []
   let coalesce_rolled_back_defs : Array[Int] = []
   let vacuum_rolled_back_defs : Array[Int] = []
   let branch_if_rolled_back_defs : Array[Int] = []
+  let dead_tee_rolled_back_defs : Array[Int] = []
   let coalesce_non_improving_defs : Array[Int] = []
   let vacuum_non_improving_defs : Array[Int] = []
   let branch_if_non_improving_defs : Array[Int] = []
+  let dead_tee_non_improving_defs : Array[Int] = []
   let small_local_defs : Array[Int] = []
   for def_idx in defs {
     let @lib.Func(locals, _) = funcs[def_idx]
@@ -60880,38 +61005,98 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
         continue
       }
     }
+    let mut branch_if_accepted = false
     let (rotated, rotated_count) = run_hot_pipeline_dae_rotate_selected_branch_only_ifs(
       current, def_idx,
     )
-    if rotated_count == 0 {
-      vacuum_defs.push(def_idx)
+    if rotated_count > 0 {
+      let (retained_rotated, rotated_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+        current, rotated, def_idx,
+      )
+      if !rotated_valid {
+        branch_if_rolled_back_defs.push(def_idx)
+      } else {
+        match
+          run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+            current, retained_rotated, def_idx,
+          ) {
+          Some(true) => {
+            current = retained_rotated
+            branch_if_accepted = true
+          }
+          Some(false) => branch_if_non_improving_defs.push(def_idx)
+          None => branch_if_rolled_back_defs.push(def_idx)
+        }
+      }
+    }
+    let (without_dead_tees, removed_tee_count) = run_hot_pipeline_dae_remove_selected_never_read_local_tees(
+      current, def_idx,
+    )
+    if removed_tee_count == 0 {
+      if branch_if_accepted {
+        branch_if_defs.push(def_idx)
+      } else {
+        vacuum_defs.push(def_idx)
+      }
       continue
     }
-    let (retained_rotated, rotated_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
-      current, rotated, def_idx,
+    let (retained_without_dead_tees, dead_tee_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      current, without_dead_tees, def_idx,
     )
-    if !rotated_valid {
-      vacuum_defs.push(def_idx)
-      branch_if_rolled_back_defs.push(def_idx)
+    if !dead_tee_valid {
+      dead_tee_rolled_back_defs.push(def_idx)
+      if branch_if_accepted {
+        branch_if_defs.push(def_idx)
+      } else {
+        vacuum_defs.push(def_idx)
+      }
       continue
     }
     match
       run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
-        current, retained_rotated, def_idx,
+        current, retained_without_dead_tees, def_idx,
       ) {
       Some(true) => {
-        current = retained_rotated
-        branch_if_defs.push(def_idx)
+        current = retained_without_dead_tees
+        if branch_if_accepted {
+          branch_if_dead_tee_defs.push(def_idx)
+        } else {
+          dead_tee_defs.push(def_idx)
+        }
       }
       Some(false) => {
-        vacuum_defs.push(def_idx)
-        branch_if_non_improving_defs.push(def_idx)
+        dead_tee_non_improving_defs.push(def_idx)
+        if branch_if_accepted {
+          branch_if_defs.push(def_idx)
+        } else {
+          vacuum_defs.push(def_idx)
+        }
       }
       None => {
-        vacuum_defs.push(def_idx)
-        branch_if_rolled_back_defs.push(def_idx)
+        dead_tee_rolled_back_defs.push(def_idx)
+        if branch_if_accepted {
+          branch_if_defs.push(def_idx)
+        } else {
+          vacuum_defs.push(def_idx)
+        }
       }
     }
+  }
+  if branch_if_dead_tee_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{branch_if_dead_tee_defs.to_string()} passes=[coalesce-locals, vacuum, branch-only-if-to-br-if, remove-never-read-local-tees]",
+    )
+  }
+  if dead_tee_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{dead_tee_defs.to_string()} passes=[coalesce-locals, vacuum, remove-never-read-local-tees]",
+    )
   }
   if branch_if_defs.length() > 0 {
     pipeline_trace_hook(
@@ -60961,6 +61146,14 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       payload="reason=branch-only-if-validation-or-encode defs=\{branch_if_rolled_back_defs.to_string()}",
     )
   }
+  if dead_tee_rolled_back_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-rollback",
+      payload="reason=never-read-local-tee-validation-or-encode defs=\{dead_tee_rolled_back_defs.to_string()}",
+    )
+  }
   if coalesce_non_improving_defs.length() > 0 {
     pipeline_trace_hook(
       options.trace,
@@ -60983,6 +61176,14 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       "dae-optimizing",
       "post-component-cleanup-skip",
       payload="reason=non-improving-branch-only-if-encoded-size defs=\{branch_if_non_improving_defs.to_string()}",
+    )
+  }
+  if dead_tee_non_improving_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-skip",
+      payload="reason=non-improving-never-read-local-tee-encoded-size defs=\{dead_tee_non_improving_defs.to_string()}",
     )
   }
   if small_local_defs.length() > 0 {
