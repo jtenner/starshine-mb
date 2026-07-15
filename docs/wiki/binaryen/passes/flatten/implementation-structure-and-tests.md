@@ -285,6 +285,10 @@ The next exact two-code iteration adds commits `e165fde1c` and `476848f9d`. The 
 
 Validation is focused flatten `245/245`, private flatten `161/161`, passes `5,736/5,736`, full suite `9,197/9,197`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. The reconstructed three-family benchmark showed only coarse directional movement for code 1 and no code-2 timing win; the durable `970.5 us` / `3.65x` checkpoint remains unrequalified.
 
+The next exact two-code iteration adds commits `7801166ac` and `18101a947`. The first proves that only carried plain `br` nodes need the generic postorder router after recursive operand handling; payload-bearing `br_if` and `br_table` already use dedicated arms that return, while ordinary and payloadless nodes need no generic routing attempt. The second proves that sequence-root deduplication needs storage only for nodes with more than one reachable pre-mutation owner. Its frozen node limit is part of the invariant: the first implementation caused five focused failures by querying rewrite-created ids against the old count population, and the corrected helper rejects those ids before lookup.
+
+Validation is focused flatten `245/245`, private flatten `163/163`, passes `5,738/5,738`, full suite `9,199/9,199`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. A recovered native-release pass-only path measured the root-heavy fixture at `57,498 -> 52,402 -> 52,534.5 us` and the reconstructed representative at `1,177 -> 1,176 -> 1,171.5 us`. Code 1 is a measured targeted traversal win; code 2 is allocation-footprint/proof-boundary work with overlapping timing. The durable `970.5 us` / `3.65x` checkpoint remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

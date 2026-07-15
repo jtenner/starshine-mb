@@ -603,6 +603,12 @@ Tuple-made inputful-loop entries now use that snapshot too: the tuple must appea
 
 The WAT-level shapes above are unchanged by commits `e165fde1c` and `476848f9d`. Instead of allocating proof slots for every HOT node, admission appends exact entries only for inspected conditional branches, flowing values, terminal tables, dead suffix owners, and scalar tries. Tuple and distinct multivalue negative flow results are still cached explicitly; scalar `br_if` still freezes exact parent populations; terminal entries still bind table, label, payload arity, and mixed-target policy; suffix entries still bind the exact region and owned nodes. Rewrite cannot discover a missing entry after mutation starts. The red-first invariants pass at private flatten `161/161`; no new opcode, control, payload, EH, or deletion shape is admitted.
 
+### Latest recursive-dispatch and shared-root implementation detail
+
+Commits `7801166ac` and `18101a947` do not alter any WAT shape above. Payload-bearing `br_if` and `br_table` are still routed in their dedicated recursive arms; the generic postorder tail now dispatches only a carried plain `br`. Sequence-root identity is still the mechanism that prevents a terminal already present as an earlier root in the same owner region from being emitted again under a later operand, but unique roots are no longer stored. Only nodes with multiple reachable owners in the immutable pre-mutation count snapshot are retained, and ids allocated after that snapshot cannot query it.
+
+The red-first shared-root invariant uses 256 unique roots, one branch that is both an earlier root and a later `select` child, and one post-snapshot node. Rewrite retains exactly the branch's holder/node pair and leaves one placeholder `unreachable` without duplicating the branch. Native measurement found an `8.86%` targeted traversal win from postorder dispatch narrowing; shared-root storage was timing-flat but reduced the invariant's bookkeeping from every root to the single shared root. No opcode, control, payload, EH, type, effect, trap, or deletion family was admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

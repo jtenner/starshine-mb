@@ -383,6 +383,12 @@ The latest internal state no longer allocates node-count-sized arrays for every 
 
 The red-first sparse-cache invariants pass at private flatten `161/161`. Coarse reconstructed timing is directional or flat rather than a public-readiness win, so the unrequalified `970.5 us` checkpoint and all EH/label/signoff gates remain authoritative.
 
+### Generic postorder routing and sequenced-root storage are now exact
+
+Commits `7801166ac` and `18101a947` narrow two run-wide rewrite costs without changing any WAT-level transform. Generic postorder recursion now dispatches only carried plain `br` nodes to the remaining generic router; payload-bearing `br_if` and `br_table` already route and return in dedicated arms, while payloadless and ordinary nodes need no late router call. Sequence-root deduplication still binds the exact owner-region holder and node id, but stores only roots whose frozen pre-mutation reachable count proves more than one owner. A snapshot node limit makes rewrite-created ids fail the storage predicate instead of indexing stale counts.
+
+The new invariants preserve the original reason for sequence tracking: a terminal effect already emitted as an earlier root in the same region must not be duplicated when HOT also exposes it under a later operand. Unique roots and post-snapshot nodes cannot satisfy that proof. Native-release pass-only measurement found an `8.86%` targeted win on the root-heavy recursive fixture after dispatch narrowing; shared-root sparsity was timing-flat but reduced exact bookkeeping from all processed roots to the one shared root in the invariant. Private flatten is now `163/163`; the durable `970.5 us` gate and all EH/label/signoff blockers remain authoritative.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

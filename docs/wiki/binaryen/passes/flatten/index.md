@@ -314,6 +314,14 @@ Commits `e165fde1c` and `476848f9d` replace fifteen node-sized conditional-flow,
 
 The two red-first invariants prove that functions with 256 unrelated nodes begin with zero entries and allocate only for inspected owners. Private flatten is `161/161`, focused flatten `245/245`, passes `5,736/5,736`, the full suite `9,197/9,197`, and `moon info` is green with 11 existing warnings. A reconstructed 1,200-function version of the documented three-family representative mix moved from a scaled `1,900 us` to `1,800 us` per 120 after code 1, then measured `1,900 us` on both sides of code 2; the node-heavy code-2 fixture moved `8,200 -> 8,300 us`. These overlapping coarse samples do not requalify the durable `970.5 us` / `3.65x` gate. No semantic family, `.mbti`, or public pass surface changed, so all public wiring remains absent.
 
+## 2026-07-15 postorder-routing and shared-root follow-up
+
+Commits `7801166ac` and `18101a947` complete the next exact two-code internal iteration without widening behavior. The first replaces three generic postorder router attempts on every recursively visited node with one exact carried-`br` dispatch; payload-bearing `br_if` and `br_table` remain in their dedicated arms. The second retains sequence-root holder/node identity only for roots whose immutable pre-mutation reachable use count is greater than one, and rejects rewrite-created ids beyond that frozen population. Its first implementation exposed five focused out-of-range failures before the explicit snapshot node limit restored the boundary.
+
+A repeatable high-resolution native-release pass-only path was recovered through the existing `passes_perf_long` package with temporary benchmark sources preserved under `.tmp`. A 1,200-function fixture with 256 unrelated roots plus one carried branch improved from a `57,498 us` median at `be140ee73` to `52,402 us` after code 1 (`8.86%`); code 2 measured `52,534.5 us`. The reconstructed 120-function three-family representative measured `1,177 -> 1,176 -> 1,171.5 us`, with overlapping ranges. These results establish one targeted traversal win and one allocation-footprint reduction, but they do not reproduce or replace the durable `970.5 us` / `3.65x` public gate.
+
+Private flatten is `163/163`, focused flatten `245/245`, passes `5,738/5,738`, the full suite `9,199/9,199`, and `moon info` remains green with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI, compare/API, generator, or preset surface changed. Typed EH, structured control-plus-owned-label deletion, broader parity, the flatten GenValid aggregate, four-lane signoff, ordered-neighborhood proof, performance readiness, and public admission remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.
