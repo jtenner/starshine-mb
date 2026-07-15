@@ -6490,6 +6490,69 @@ test "flatten rewrite tuple branch payload proof uses pre-mutation ownership cou
 }
 
 ///|
+test "flatten rewrite tuple br_if flow uses pre-mutation exact site cache" {
+  let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  @ir.hot_control_result_type_set(
+    func,
+    block_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      result_types,
+    ),
+  )
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+    @ir.hot_build_const_i64(func, @lib.I64(9L)),
+  ])
+  let branch_id = @ir.hot_build_br_if(
+    func,
+    @ir.hot_control_node_label(func, block_id),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[tuple_id, tuple_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    branch_id, tuple_id, tuple_id,
+  ])
+  @ir.hot_root_append(func, block_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_tuple_br_if_flow(
+      func,
+      branch_id,
+      result_types.length(),
+      result_types,
+      state=Some(state),
+    )
+    is Some(_),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, tuple_id))
+  assert_true(
+    flatten_multivalue_tuple_br_if_flow(
+      func,
+      branch_id,
+      result_types.length(),
+      result_types,
+    )
+    is None,
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_multivalue_tuple_br_if_flow(
+      func,
+      state,
+      branch_id,
+      result_types.length(),
+      result_types,
+    )
+    is Some(_),
+  )
+}
+
+///|
 test "flatten rewrite scalar try flow uses pre-mutation ownership counts" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(

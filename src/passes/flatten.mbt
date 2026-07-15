@@ -298,6 +298,8 @@ priv struct FlattenRewriteState {
   label_used : @bitset.BitSet
   label_branch_nodes : Array[Array[Int]]
   use_def : @ir.HotNodeUseCounts
+  tuple_br_if_flow_cached : Array[Bool]
+  tuple_br_if_flows : Array[Array[Int]?]
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
   terminal_table_labels : Array[Int]
@@ -330,6 +332,8 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     label_used,
     label_branch_nodes,
     use_def: flatten_build_node_use_counts(func),
+    tuple_br_if_flow_cached: Array::make(@ir.hot_node_count(func), false),
+    tuple_br_if_flows: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
     terminal_table_labels: Array::make(@ir.hot_node_count(func), -1),
@@ -4422,11 +4426,103 @@ fn flatten_multivalue_br_if_flow_span(
 }
 
 ///|
+fn flatten_tuple_br_if_cached_flow_is_current(
+  func : @ir.HotFunc,
+  tuple_id : Int,
+  payload_count : Int,
+  flow : Array[Int],
+) -> Bool {
+  if flow.length() != 3 ||
+    flow[0] != tuple_id ||
+    flow[1] < 0 ||
+    !@ir.hot_node_is_live(func, flow[1]) ||
+    flow[2] < 0 ||
+    flow[2] + payload_count > @ir.hot_child_count(func, flow[1]) {
+    return false
+  }
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    if @ir.hot_child_get(func, flow[1], flow[2] + slot) != tuple_id {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn flatten_locate_reachable_tuple_br_if_flow(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  tuple_id : Int,
+  payload_count : Int,
+) -> Array[Int]? {
+  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let worklist : Array[Int] = []
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    let root_id = @ir.hot_root_get(func, root_idx)
+    if root_id == tuple_id {
+      return None
+    }
+    if @ir.hot_node_is_live(func, root_id) && !seen[root_id] {
+      seen[root_id] = true
+      worklist.push(root_id)
+    }
+  }
+  let branch_slots = Array::make(payload_count, false)
+  let flow_slots : Array[Int] = []
+  let mut flow_parent = -1
+  let mut site_count = 0
+  while !worklist.is_empty() {
+    let node_id = worklist.pop().unwrap()
+    let child_count = @ir.hot_child_count(func, node_id)
+    for child_slot = 0; child_slot < child_count; child_slot = child_slot + 1 {
+      let child_id = @ir.hot_child_get(func, node_id, child_slot)
+      if child_id == tuple_id {
+        site_count = site_count + 1
+        if node_id == branch_id && child_slot < payload_count {
+          if branch_slots[child_slot] {
+            return None
+          }
+          branch_slots[child_slot] = true
+        } else {
+          if flow_parent < 0 {
+            flow_parent = node_id
+          } else if flow_parent != node_id {
+            return None
+          }
+          if flow_slots.contains(child_slot) {
+            return None
+          }
+          flow_slots.push(child_slot)
+        }
+      }
+      if @ir.hot_node_is_live(func, child_id) && !seen[child_id] {
+        seen[child_id] = true
+        worklist.push(child_id)
+      }
+    }
+  }
+  if site_count != payload_count * 2 ||
+    flow_parent < 0 ||
+    flow_slots.length() != payload_count {
+    return None
+  }
+  flow_slots.sort()
+  let flow_start = flow_slots[0]
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    if !branch_slots[slot] || flow_slots[slot] != flow_start + slot {
+      return None
+    }
+  }
+  Some([tuple_id, flow_parent, flow_start])
+}
+
+///|
 fn flatten_multivalue_tuple_br_if_flow(
   func : @ir.HotFunc,
   branch_id : Int,
   payload_count : Int,
   target_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   if payload_count <= 1 ||
     target_types.length() != payload_count ||
@@ -4448,45 +4544,47 @@ fn flatten_multivalue_tuple_br_if_flow(
     @ir.hot_child_count(func, tuple_id) != payload_count {
     return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
-  if sites.length() != payload_count * 2 {
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
+  }
+  if @ir.hot_node_use_count(use_counts, tuple_id) != payload_count * 2 {
     return None
   }
-  let branch_slots = Array::make(payload_count, false)
-  let flow_slots : Array[Int] = []
-  let mut flow_parent = -1
-  for site in sites {
-    match site.kind {
-      @ir.HotUseSlotKind::ChildUseSlot =>
-        if site.user == branch_id && site.slot >= 0 && site.slot < payload_count {
-          if branch_slots[site.slot] {
-            return None
-          }
-          branch_slots[site.slot] = true
-          continue
+  let cached_flow = match state {
+    Some(state) => {
+      if branch_id < 0 || branch_id >= state.tuple_br_if_flows.length() {
+        return None
+      }
+      if state.tuple_br_if_flow_cached[branch_id] {
+        state.tuple_br_if_flows[branch_id]
+      } else {
+        if state.rewrites_started {
+          return None
         }
-      @ir.HotUseSlotKind::RootUseSlot => ()
+        let flow = flatten_locate_reachable_tuple_br_if_flow(
+          func, branch_id, tuple_id, payload_count,
+        )
+        state.tuple_br_if_flow_cached[branch_id] = true
+        state.tuple_br_if_flows[branch_id] = flow
+        flow
+      }
     }
-    if flow_parent < 0 {
-      flow_parent = site.user
-    } else if site.user != flow_parent {
-      return None
-    }
-    if flow_slots.contains(site.slot) {
-      return None
-    }
-    flow_slots.push(site.slot)
+    None =>
+      flatten_locate_reachable_tuple_br_if_flow(
+        func, branch_id, tuple_id, payload_count,
+      )
   }
-  if flow_parent < 0 || flow_slots.length() != payload_count {
+  let flow = match cached_flow {
+    Some(flow) => flow
+    None => return None
+  }
+  if !flatten_tuple_br_if_cached_flow_is_current(
+      func, tuple_id, payload_count, flow,
+    ) {
     return None
   }
-  flow_slots.sort()
-  let flow_start = flow_slots[0]
   for slot = 0; slot < payload_count; slot = slot + 1 {
-    if !branch_slots[slot] || flow_slots[slot] != flow_start + slot {
-      return None
-    }
     let value_id = @ir.hot_child_get(func, tuple_id, slot)
     let value_types = @ir.hot_type_results(
       func,
@@ -4499,7 +4597,30 @@ fn flatten_multivalue_tuple_br_if_flow(
       return None
     }
   }
-  Some([tuple_id, flow_parent, flow_start])
+  Some(flow)
+}
+
+///|
+fn flatten_rewrite_multivalue_tuple_br_if_flow(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  branch_id : Int,
+  payload_count : Int,
+  target_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if !state.rewrites_started ||
+    branch_id < 0 ||
+    branch_id >= state.tuple_br_if_flow_cached.length() ||
+    !state.tuple_br_if_flow_cached[branch_id] {
+    return None
+  }
+  flatten_multivalue_tuple_br_if_flow(
+    func,
+    branch_id,
+    payload_count,
+    target_types,
+    state=Some(state),
+  )
 }
 
 ///|
@@ -4798,6 +4919,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
           branch_id,
           target_types.length(),
           target_types,
+          state~,
         )
         if tuple_flow is None {
           for slot = 0; slot < target_types.length(); slot = slot + 1 {
@@ -5202,8 +5324,8 @@ fn flatten_try_route_multivalue_br_if(
     ) {
     return false
   }
-  let tuple_flow = flatten_multivalue_tuple_br_if_flow(
-    func, node_id, payload_count, target_types,
+  let tuple_flow = flatten_rewrite_multivalue_tuple_br_if_flow(
+    func, state, node_id, payload_count, target_types,
   )
   let flow_span = match tuple_flow {
     Some(flow) => [flow[1], flow[2]]
