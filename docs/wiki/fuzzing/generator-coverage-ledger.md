@@ -20,7 +20,7 @@ sources:
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
-  - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md

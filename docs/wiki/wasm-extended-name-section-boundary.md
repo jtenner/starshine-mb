@@ -7,7 +7,6 @@ sources:
   - raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
   - raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
-  - raw/wasm/2026-05-20-name-section-label-subsection-correction.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/binary/encode.mbt
@@ -123,7 +122,6 @@ Future strict-mode or feature-gate work should explicitly decide what to do with
 - Current Extended Name Section bridge: [`raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md`](raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md)
 - Current Core/proposal/dashboard recheck: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md); historical feature-dashboard routing: [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md)
 - Custom/name current refresh: [`raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
-- Earlier label-subsection correction: [`raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](raw/wasm/2026-05-20-name-section-label-subsection-correction.md)
 - Starshine representation and codec: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/lib/module.mbt`](../../src/lib/module.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt)
 - Starshine validation and fuzz evidence: [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/fuzz/metamorphic.mbt`](../../src/fuzz/metamorphic.mbt), [`../../src/fuzz/invalid_binary_wbtest.mbt`](../../src/fuzz/invalid_binary_wbtest.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)
 - Related living pages: [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`validate/local-spec-divergence-ledger.md`](validate/local-spec-divergence-ledger.md)

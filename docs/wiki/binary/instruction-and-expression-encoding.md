@@ -11,7 +11,6 @@ sources:
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
-  - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - https://webassembly.github.io/spec/core/binary/instructions.html
   - https://webassembly.github.io/spec/core/binary/modules.html
@@ -231,7 +230,7 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - Relaxed Atomics boundary refresh: [`../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md), [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md)
 - Current SIMD lane-immediate validation refresh: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Original SIMD lane-immediate validation refresh: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
-- LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
+- LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Official WebAssembly 3.0 sources: [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html), [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [binary values](https://webassembly.github.io/spec/core/binary/values.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Local implementation evidence: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), and [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

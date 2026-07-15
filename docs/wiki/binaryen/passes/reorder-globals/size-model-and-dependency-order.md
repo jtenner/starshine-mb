@@ -5,7 +5,6 @@ last_reviewed: 2026-06-01
 sources:
   - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
-  - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
   - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
