@@ -7,7 +7,11 @@ sources:
   - https://github.com/WebAssembly/WASI
   - https://wasi.dev/roadmap
   - https://component-model.bytecodealliance.org/
-  - raw/wasm/2026-06-05-component-model-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/component-model
+  - https://github.com/WebAssembly/component-model/blob/main/design/mvp/Explainer.md
+  - https://component-model.bytecodealliance.org/design/wit.html
+  - https://component-model.bytecodealliance.org/advanced/canonical-abi.html
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
@@ -32,7 +36,7 @@ Use this page when a bug report, fixture idea, package request, or external tool
 
 For a beginner: a Core WebAssembly module is the familiar `module` with functions, memories, tables, globals, imports, exports, code, data, and custom sections. A Component Model component is a higher-level packaging and interoperability layer. It can contain Core modules, but it also describes interfaces, instances, lifted/lowered functions, and host-language data passing through the Canonical ABI.
 
-The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md), with the Node-hosted Preview 1 runner boundary grounded directly in current local runner code and the [Node `node:wasi` API](https://nodejs.org/api/wasi.html). Together with the official proposals tracker, Component Model/WIT/Canonical-ABI documentation, the [WASI roadmap](https://wasi.dev/roadmap), and current Starshine source evidence, they support the following durable status:
+The official proposal tracker, Component Model repository/MVP explainer, WIT and Canonical ABI documentation, the [WASI roadmap](https://wasi.dev/roadmap), the [Node `node:wasi` API](https://nodejs.org/api/wasi.html), and current Starshine source evidence support the following durable status:
 
 - **Standards status:** the official proposals tracker currently routes `Component Model` as an active Phase-1 feature-proposal row, not a finished/Core 3.0 feature.
 - **Starshine status:** no documented local support for component binaries, WIT, component text, worlds, component validation, or Canonical ABI lift/lower exists today.
@@ -148,7 +152,7 @@ Until those questions have answers and tests, keep component artifacts out of or
 
 ## Sources
 
-- Focused source bridge: [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md)
+- Component Model sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/component-model>, <https://github.com/WebAssembly/component-model/blob/main/design/mvp/Explainer.md>, <https://component-model.bytecodealliance.org/design/wit.html>, and <https://component-model.bytecodealliance.org/advanced/canonical-abi.html>.
 - Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [Node `node:wasi`](https://nodejs.org/api/wasi.html), [WebAssembly/WASI](https://github.com/WebAssembly/WASI), and the [WASI roadmap](https://wasi.dev/roadmap)

@@ -6,7 +6,7 @@ sources:
   - ../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
-  - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
+  - ../wasm-compilation-hints-boundary.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
@@ -190,7 +190,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - Extended Name Section boundary refresh: [`../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md`](../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md), [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md)
 - Current target-features / Core-custom metadata recheck: [`../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md`](../raw/wasm/2026-07-10-target-features-custom-metadata-recheck.md)
 - Tool-conventions custom metadata refresh: [`../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
-- Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
+- Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) and its cited official proposal sources.
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)

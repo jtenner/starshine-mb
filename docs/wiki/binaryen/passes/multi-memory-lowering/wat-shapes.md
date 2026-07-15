@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
-  - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
+  - ../../../wasm-custom-page-sizes-boundary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md

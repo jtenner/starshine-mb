@@ -5,7 +5,7 @@ last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
-  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - code-metadata-and-function-annotations.md
   - ../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
@@ -91,7 +91,7 @@ When closing one of these gaps:
 
 ## Source Map
 
-- Code-metadata / branch-hint status bridge: [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md)
+- Code-metadata / branch-hint status: [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) and the official Core/code-metadata sources cited there.
 - Numeric data-segment proposal routing: [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md)
 - More Array Constructors boundary: [`../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md), [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
 - WAST implementation: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)

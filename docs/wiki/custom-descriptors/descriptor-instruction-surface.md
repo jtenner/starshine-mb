@@ -3,7 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md
+  - https://github.com/WebAssembly/custom-descriptors/issues/48
+  - https://chromium.googlesource.com/v8/v8.git/+/f52d915ff72fb8771263a0baa1c6f9ce936a7d29%5E%21/
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -41,7 +44,7 @@ Use this page when a fixture, validator change, generator change, or pass touche
 
 The concept is easiest to learn in two steps. First, a **described struct** points at a **descriptor struct** through type metadata. Second, descriptor-specific instructions preserve the exact relationship between those two structs so a runtime cannot allocate or cast a described base type with a descriptor belonging to an incompatible subtype.
 
-The current primary-source and local-code bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md). It rechecked the Phase-3 custom-descriptors proposal, the proposal issue/V8 fix for `ref.get_desc` bottom inputs, and current Starshine WAST/core/binary/validator/generator evidence. Keep the feature-status caveat visible: **Custom Descriptors is still an active Phase-3 proposal, not stable Core WebAssembly 3.0.** Starshine implements a useful local/proposal-shaped instruction subset, while broader JS prototype behavior and branch descriptor-cast forms remain undocumented local support.
+The retained primary evidence is the custom-descriptors proposal, its `ref.get_desc` bottom-input issue and V8 fix, and the current Starshine WAST/core/binary/validator/generator sources cited below. Keep the feature-status caveat visible: **Custom Descriptors is still an active Phase-3 proposal, not stable Core WebAssembly 3.0.** Starshine implements a useful local/proposal-shaped instruction subset, while broader JS prototype behavior and branch descriptor-cast forms remain undocumented local support.
 
 ## Beginner Mental Model
 
@@ -178,7 +181,6 @@ This is valid only when all fields in `$cell` have defaults. If a non-null refer
 
 ## Sources
 
-- Current instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md)
-- Proposal/status evidence: <https://github.com/WebAssembly/proposals>, <https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md>, and the current instruction-surface bridge above.
+- Proposal/status evidence: <https://github.com/WebAssembly/proposals>, <https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md>, <https://github.com/WebAssembly/custom-descriptors/issues/48>, and <https://chromium.googlesource.com/v8/v8.git/+/f52d915ff72fb8771263a0baa1c6f9ce936a7d29%5E%21/>.
 - Focused living companions: [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), [`exact-reference-equivalence.md`](exact-reference-equivalence.md), [`static-fixtures.md`](static-fixtures.md), [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md), [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)
 - Current implementation/tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - descriptor-instruction-surface.md
   - ../wast/static-assertion-harness.md
   - ../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md
   - ../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md
@@ -33,7 +33,7 @@ related:
   - struct trailing-field subtyping.
 - Higher-level lowering tests now cover descriptor subtype chains in ordinary `src/wast` coverage in addition to the [static spec harness](../wast/static-assertion-harness.md).
 - The 2026-06-04 focused recheck in [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md) keeps the custom-descriptors proposal in Phase 3 and still struct-oriented. `descriptor` / `describes` metadata on array type definitions remains a Starshine-local WAST parsing/lowering compatibility surface, not upstream proposal acceptance; current validation rejects non-struct descriptor metadata through `validate_descriptor_metadata_group(...)`.
-- The 2026-06-05 instruction-surface bridge in [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) keeps the full descriptor instruction family routed through [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md): descriptor-aware struct allocation, `ref.get_desc`, descriptor predicate/cast forms, exact descriptor operands, and the current lack of documented Starshine support for proposal branch descriptor-cast forms.
+- The focused [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) boundary keeps the full descriptor instruction family routed together: descriptor-aware struct allocation, `ref.get_desc`, descriptor predicate/cast forms, exact descriptor operands, and the current lack of documented Starshine support for proposal branch descriptor-cast forms.
 - The same recheck keeps static fixture interpretation tied to the upstream `ref.get_desc` bottom-input exactness discussion, the V8 fix, and Starshine's current `Env::descriptor_result_type(...)` / `Match::matches(...)` implementation split documented in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md) and [`exact-reference-equivalence.md`](exact-reference-equivalence.md).
 
 ## Practical Rule
@@ -46,7 +46,7 @@ related:
 ## Sources
 
 - Static assertion harness: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)
-- Descriptor instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
+- Descriptor instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current descriptor status/source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Archived research docs:
   [`../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md`](../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md),

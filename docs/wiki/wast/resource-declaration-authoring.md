@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
+  - ../wasm-custom-page-sizes-boundary.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - https://webassembly.github.io/spec/core/valid/matching.html
   - https://webassembly.github.io/spec/core/binary/modules.html
@@ -212,7 +212,7 @@ Useful related signoff pages:
 - Validator resource-section contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Import/export matching contract: [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), <https://webassembly.github.io/spec/core/valid/matching.html>
 - Linear-memory Threads/shared-memory boundary: [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
-- Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
+- Custom Page Sizes boundary: [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md) and its cited official proposal/Core sources.
 - Core binary/module rules: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>; historical memory64 proposal context remains at <https://webassembly.github.io/memory64/core/>, but current status claims should cite the 2026-06-05 Core/status bridge.
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
+  - ../wasm-custom-page-sizes-boundary.md
   - ../raw/wasm/2026-06-05-memory-control-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
@@ -208,7 +208,7 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
-- Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
+- Custom Page Sizes boundary: [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md) and its cited official proposal/Core sources.
 - Memory Control boundary refresh: [`../raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](../raw/wasm/2026-06-05-memory-control-boundary-refresh.md), [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md)
 - Current linear-memory atomic validation reconciliation: [`../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md); detailed local authoring guidance: [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/modules.html>

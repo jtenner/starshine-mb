@@ -5,7 +5,7 @@ last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-memory-control-boundary-refresh.md
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
-  - raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
+  - wasm-custom-page-sizes-boundary.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../../src/lib/types.mbt

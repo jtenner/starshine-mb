@@ -3,8 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
-  - raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md
+  - https://webassembly.github.io/spec/metadata/code/
+  - https://webassembly.github.io/spec/metadata/code/branch-hinting.html
   - raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - wast/code-metadata-and-function-annotations.md
   - binary/custom-and-name-sections.md
@@ -33,7 +35,7 @@ Use this page when a fixture, external source, pass note, or future implementati
 - `metadata.code.call_targets`
 - `never_opt`, `always_opt`, hotness, profile, or likely-call-target hints
 
-Compilation Hints is an **active Phase-2 WebAssembly proposal** as of the 2026-06-05 source check, not stable Core 3.0 and not current Starshine optimizer behavior. The source bridge is [`raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md).
+Compilation Hints was an **active Phase-2 WebAssembly proposal** at the 2026-06-05 source check, not stable Core 3.0 and not current Starshine optimizer behavior. The official proposal overview and code-metadata specifications, together with the cited local sources below, are the retained evidence.
 
 For beginners: a compilation hint is metadata that tells a compiler how important or hot some code is likely to be. It should not change what the program computes. That makes it very different from a normal instruction such as `i32.add`, and it also makes it dangerous for optimizer docs: a pass may be allowed to ignore a hint, but if it uses a hint to rewrite code, the rewrite still needs a normal semantic proof.
 
@@ -123,7 +125,7 @@ A real Starshine implementation needs to answer all of these before any optimize
 
 ## Sources
 
-- Focused source bridge: [`raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md)
-- Code metadata / branch-hint routing: [`raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md), [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md)
+- Official proposal/status sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md>, <https://webassembly.github.io/spec/metadata/code/>, and <https://webassembly.github.io/spec/metadata/code/branch-hinting.html>.
+- Code metadata / branch-hint routing: [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md)
 - Custom-section metadata routing: [`raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md)
 - Starshine source: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/passes/no_inline.mbt`](../../src/passes/no_inline.mbt), [`../../src/passes/inlining.mbt`](../../src/passes/inlining.mbt)

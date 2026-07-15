@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - descriptor-instruction-surface.md
   - ../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md
   - ../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md
   - ../raw/research/0024-2026-03-22-wast-struct-get-surface.md
@@ -49,7 +49,7 @@ related:
 
 Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) for the broader descriptor-aware instruction family (`struct.new_desc`, `struct.new_default_desc`, `ref.test_desc*`, and `ref.cast_desc_eq*`), [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule, [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata, and [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) for the validator phase that proves descriptor metadata pairs are structurally valid before instructions can rely on them.
 
-The current instruction-surface bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), building on [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These rechecks covered the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
+The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
 
 ## Concrete Flow
 
@@ -155,7 +155,7 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 
 ## Sources
 
-- Current instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
+- Current instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current primary-source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Archived fixture-path research: [`../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md`](../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md), [`../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md`](../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md), [`../raw/research/0024-2026-03-22-wast-struct-get-surface.md`](../raw/research/0024-2026-03-22-wast-struct-get-surface.md), [`../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md`](../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md), [`../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md`](../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md), [`../raw/research/0027-2026-03-22-exact-ref-null-immediates.md`](../raw/research/0027-2026-03-22-exact-ref-null-immediates.md), [`../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md`](../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md)
 - Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt); shared bottom-value contract: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)

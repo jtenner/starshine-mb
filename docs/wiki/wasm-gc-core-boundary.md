@@ -9,7 +9,7 @@ sources:
   - raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
   - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
-  - raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md
   - ../../src/lib/types.mbt
   - ../../src/wast/parser.mbt
   - ../../src/wast/lower_to_lib.mbt
@@ -131,4 +131,4 @@ A struct constructor accepted in a function body is not automatically accepted i
 - Aggregate instructions: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
 - More Array Constructors proposal split: [`wasm-more-array-constructors-boundary.md`](wasm-more-array-constructors-boundary.md), [`raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md)
 - Constant expressions: [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
-- Custom descriptors: [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md), [`raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md)
+- Custom descriptors: [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md), the [custom-descriptors proposal overview](https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md), and the cited local source/test anchors.

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - descriptor-instruction-surface.md
   - ../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md
   - ../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md
   - ../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md
@@ -36,7 +36,7 @@ Two rules are easy to confuse:
 
 This page owns the second rule. The descriptor instruction-family overview lives in [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), the `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
 
-The current instruction-surface bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), building on the broader [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These rechecked the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
+The current instruction-surface boundary is [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), building on the broader [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These sources cover the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
 
 ## Concrete Shapes
 
@@ -112,7 +112,7 @@ When changing exact reference matching:
 
 ## Sources
 
-- Current instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
+- Current instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current primary-source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Type-section/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
 - Archived research docs: [`../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md`](../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md), [`../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md`](../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md), [`../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md`](../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md)

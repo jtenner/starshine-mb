@@ -7,12 +7,12 @@ sources:
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
-  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - code-metadata-and-function-annotations.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - code-metadata-and-function-annotations.md
   - ../../README.md
 related:
   - ../wasm-typed-function-references-boundary.md

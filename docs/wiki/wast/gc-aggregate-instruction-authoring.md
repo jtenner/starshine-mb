@@ -5,7 +5,7 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - ../custom-descriptors/descriptor-instruction-surface.md
   - ../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
   - ../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
@@ -226,7 +226,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 - More Array Constructors boundary refresh: [`../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md), [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
-- Custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
+- Custom-descriptor instruction boundary: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Type declaration companion: [`gc-type-authoring.md`](gc-type-authoring.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/show.mbt`](../../../src/lib/show.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)

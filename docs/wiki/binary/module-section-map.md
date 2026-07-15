@@ -8,7 +8,7 @@ sources:
   - https://webassembly.github.io/spec/core/binary/modules.html
   - https://webassembly.github.io/spec/core/syntax/modules.html
   - https://webassembly.github.io/spec/core/valid/modules.html
-  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - ../wast/code-metadata-and-function-annotations.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt

@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - https://webassembly.github.io/spec/core/valid/types.html
-  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
+  - ../custom-descriptors/descriptor-instruction-surface.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/env.mbt
@@ -93,7 +93,7 @@ The official Core 3.0 rules are stricter than mere Starshine parser acceptance. 
 
 ## Descriptor Metadata And Exact References
 
-Custom descriptors add proposal-local metadata on top of the core type-section flow. Starshine validates that surface in the same `RecType` group pass, but the durable proposal explanation belongs in the custom-descriptor pages and the current instruction bridge [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) plus descriptor source bridge [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). That bridge keeps the official proposal/local split explicit: descriptor metadata remains Phase-3 proposal material and currently struct-oriented, while Starshine WAST parsing/lowering can still carry broader array metadata shapes that this validator rejects.
+Custom descriptors add proposal-local metadata on top of the core type-section flow. Starshine validates that surface in the same `RecType` group pass, but the durable proposal explanation belongs in the custom-descriptor pages and the focused [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) plus descriptor source bridge [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). That bridge keeps the official proposal/local split explicit: descriptor metadata remains Phase-3 proposal material and currently struct-oriented, while Starshine WAST parsing/lowering can still carry broader array metadata shapes that this validator rejects.
 
 Current local descriptor checks in [`validate_descriptor_metadata_group(...)`](../../../src/validate/validate.mbt):
 
@@ -189,7 +189,7 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 ## Sources
 
 - Official type/subtyping sources: <https://webassembly.github.io/spec/core/syntax/types.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
-- Current custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
+- Current custom-descriptor instruction boundary: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Custom-descriptor instruction/status guide: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)

@@ -24,7 +24,7 @@
 - [`2026-06-04-reference-call-and-cast-current-refresh.md`](2026-06-04-reference-call-and-cast-current-refresh.md) for reference instructions, `call_ref`, `ref.test` / `ref.cast`, and `br_on_*` WAST-versus-core layer splits.
 - [`2026-06-04-constant-expression-current-refresh.md`](2026-06-04-constant-expression-current-refresh.md) for the local constant-expression allow-list split around aggregate constructors.
 - [`2026-06-04-struct-atomic-get-sources.md`](2026-06-04-struct-atomic-get-sources.md) for the shared-GC aggregate atomic get-only WAST surface.
-- [`2026-06-05-custom-descriptor-instruction-surface-refresh.md`](2026-06-05-custom-descriptor-instruction-surface-refresh.md) and [`2026-06-04-custom-descriptor-current-recheck.md`](2026-06-04-custom-descriptor-current-recheck.md) for active-proposal descriptor metadata and instruction routing.
+- [`../../custom-descriptors/descriptor-instruction-surface.md`](../../custom-descriptors/descriptor-instruction-surface.md) and [`2026-06-04-custom-descriptor-current-recheck.md`](2026-06-04-custom-descriptor-current-recheck.md) for active-proposal descriptor metadata and instruction routing.
 
 ## Local code checked
 

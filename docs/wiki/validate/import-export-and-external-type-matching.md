@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
+  - ../wasm-custom-page-sizes-boundary.md
   - https://webassembly.github.io/spec/core/valid/matching.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/validate/validate.mbt

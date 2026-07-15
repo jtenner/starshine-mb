@@ -3,8 +3,11 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
-  - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
+  - https://webassembly.github.io/spec/core/appendix/custom.html
+  - https://webassembly.github.io/spec/metadata/code/
+  - https://webassembly.github.io/spec/metadata/code/branch-hinting.html
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md
   - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
   - ../binaryen/passes/inlining/binaryen-strategy.md
@@ -42,7 +45,7 @@ Use this page when a fixture, pass, or CLI policy mentions `(@...)`, `@metadata.
 - **Compilation Hints** is a separate active Phase-2 proposal over `metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets`; route that through [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) instead of treating local annotations or branch hints as support.
 - **Starshine today supports only a narrow function/import annotation lane** in WAST and in memory. Its `(@...)` syntax looks similar to code metadata text, but it attaches to the following function/import field and lowers to `FuncAnnotationSec`. It does not yet model official `@name`, placement-aware `@custom`, expression-level code metadata, `metadata.code.branch_hint`, or binary custom-section encoding for those annotations.
 
-The current 2026-06-05 status refresh is [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md). It rechecked the current Core 3.0 custom appendix, code-metadata pages, branch-hinting spec, finished-proposals table, active proposals tracker, and Starshine repository evidence. The 2026-06-04 custom/name refresh adds one practical warning: official text `(@name ...)` and `(@custom ...)` have name-section and placement-aware custom-section meanings upstream, but Starshine's current WAST `(@...)` lane does not implement those official semantics.
+The retained evidence is the Core custom-section appendix, official code-metadata and branch-hinting pages, the WebAssembly proposal tracker, and the Starshine repository sources cited below. Their 2026-06-05 check established the status wording used here; the local implementation claims remain grounded in the cited source files. The 2026-06-04 custom/name refresh adds one practical warning: official text `(@name ...)` and `(@custom ...)` have name-section and placement-aware custom-section meanings upstream, but Starshine's current WAST `(@...)` lane does not implement those official semantics.
 
 ## Layer Map
 
@@ -165,8 +168,8 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 
 ## Sources
 
-- Current code-metadata / branch-hint status refresh: [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md)
-- Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
+- Official custom/name/code-metadata/branch-hint sources: <https://webassembly.github.io/spec/core/appendix/custom.html>, <https://webassembly.github.io/spec/metadata/code/>, and <https://webassembly.github.io/spec/metadata/code/branch-hinting.html>.
+- Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md), with <https://github.com/WebAssembly/proposals> and <https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md>.
 - Binaryen `mark-js-called` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Current Binaryen behavior recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>

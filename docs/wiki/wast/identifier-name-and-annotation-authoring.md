@@ -5,7 +5,7 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
-  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - code-metadata-and-function-annotations.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt
