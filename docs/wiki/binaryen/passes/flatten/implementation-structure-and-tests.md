@@ -265,6 +265,10 @@ The next exact two-code iteration adds commits `e39faf79e` and `e64428dc1`. The 
 
 Validation is now focused flatten `245/245`, private flatten `151/151`, passes `5,726/5,726`, full suite `9,187/9,187`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. The 120-function tuple-made legacy-try `br_if` fixture improved `16,524.5 -> 16,167 -> 6,724.5 us` (`59.31%` total). The stable representative checkpoint remains `970.5 us` (`3.65x` Binaryen), so this targeted win does not satisfy public performance readiness.
 
+The next exact two-code iteration adds commits `3d0acb44e` and `19fa4eda8`. The first replaces two full region-tail tuple use-site builds with the immutable reachable-use counts already owned by `FlattenRewriteState`; its red-first invariant is `flatten rewrite region tail tuple proof uses pre-mutation ownership counts`. The second threads state through inputful-loop support/rewrite, replaces full live-node loop branch scans with the immutable per-label branch population, and reuses the same count snapshot for tuple conditional flow; its invariant is `flatten rewrite multivalue loop proof uses the pre-mutation branch index`.
+
+Validation is now focused flatten `245/245`, private flatten `153/153`, passes `5,728/5,728`, full suite `9,189/9,189`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. The tuple-tail fixture improved `6,569 -> 4,144.5 us` (`36.91%`), and the loop fixture improved `8,344 -> 6,870 us` (`17.67%`). The reconstructed representative fixture remained noisy, so the stable `970.5 us` / `3.65x` checkpoint still blocks public readiness.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

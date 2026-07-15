@@ -138,6 +138,8 @@ The following multivalue proof/local-vector iteration also leaves readiness unch
 
 The latest legacy-try branch/ownership iteration keeps that hold point unchanged. Multivalue legacy-try support now uses the exact pre-mutation label branch population, while legacy-try and loop conditional ownership use lightweight reachable counts instead of full use-def structures. Private flatten reaches `151/151`, passes `5,726/5,726`, and the full suite `9,187/9,187`. The targeted legacy-try `br_if` fixture improves `16,524.5 -> 6,724.5 us` (`59.31%`), but the stable representative checkpoint remains `3.65x` Binaryen. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH, and structured label-owner deletion therefore remain blocked.
 
+The region-tail/loop-branch iteration also leaves the hold point unchanged. Exact `TupleMake` tails now prove one-owner status from the pre-mutation reachable count plus the already-known region root/slot, and inputful-loop multivalue conditional/backedge proof uses the immutable label branch population and the same count snapshot throughout admission and rewrite. Private flatten reaches `153/153`, passes `5,728/5,728`, and the full suite `9,189/9,189`. Targeted fixtures improve `36.91%` and `17.67%`, but the representative fixture does not improve reliably and the stable result remains `3.65x` Binaryen. No semantic family, EH capability, mutation API, generator, signoff lane, or public surface is admitted.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

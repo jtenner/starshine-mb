@@ -312,6 +312,8 @@ The next two-code iteration extends the same boundary to multivalue routing. `9a
 
 The latest two-code iteration applies those proof rules to multivalue legacy tries and conditional ownership. `e39faf79e` makes legacy-try label support consume the immutable branch index. `e64428dc1` replaces full node-use/use-def construction in legacy-try and loop `br_if` flow proof with lightweight reachable counts and an explicit rewrite-only snapshot boundary. The targeted 120-function legacy-try fixture improves `16,524.5 -> 6,724.5 us` (`59.31%`), with focused flatten `245/245`, private `151/151`, passes `5,726/5,726`, and full `9,187/9,187`. The stable representative checkpoint remains `3.65x` Binaryen, so public readiness is unchanged.
 
+The next two-code iteration removes the remaining full use-site allocation for exact multivalue region-tail tuples and the remaining full live-node branch scans in the inputful-loop support chain. `3d0acb44e` reuses the frozen reachable count when the exact tail root/slot is already known; `19fa4eda8` reuses the frozen per-label branch population and count snapshot for loop backedges and multivalue `br_if` flow during admission and rewrite. Targeted fixtures improve `36.91%` and `17.67%`; validation reaches focused `245/245`, private `153/153`, passes `5,728/5,728`, and full `9,189/9,189`. The representative fixture remains noisy and the stable result remains `3.65x` Binaryen, so public readiness is unchanged.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

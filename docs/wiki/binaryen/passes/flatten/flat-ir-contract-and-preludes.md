@@ -367,6 +367,8 @@ The same proof boundary now applies to multivalue block/if targets. Recursive ne
 
 Multivalue legacy-try label support now uses that same exact branch population. Its `br_if` flow proof, plus the corresponding multivalue loop proof, uses lightweight reachable `HotNodeUseCounts` for exact two-use payload/tuple ownership and one-use consumer-expression ownership. Admission reads the pre-mutation snapshot; rewrite requires `rewrites_started` before consuming it. This removes full node-use/use-def allocation without changing evaluation order, result vectors, false-flow placement, EH gates, or deletion ownership.
 
+Exact multivalue `TupleMake` region tails now use the same frozen ownership population. Because the tuple is already observed at the exact region-tail root and slot, a total reachable use count of one proves exclusive ownership without allocating a use-site vector; mutation-time block, if, loop, and legacy-try routes require `rewrites_started` before consuming that cached fact. Inputful-loop proof likewise uses the pre-mutation per-label branch population for both general backedges and exact multivalue `br_if` flow, and reuses the same reachable counts for tuple flow during admission and rewrite.
+
 These changes do not relax any result-type, label-use, ownership, EH, trap, effect, or complete-subtree-deletion gate.
 
 ## The placeholder `unreachable` rule

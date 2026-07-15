@@ -284,6 +284,12 @@ Commits `e39faf79e` and `e64428dc1` complete the next exact two-code internal it
 
 Private flatten is `151/151`, focused flatten `245/245`, passes `5,726/5,726`, and the full suite `9,187/9,187`; `moon info`, targeted formatting, and diff checks pass. A 120-function tuple-made legacy-try `br_if` fixture with 256 extra roots improved `16,524.5 -> 16,167 -> 6,724.5 us`, a `59.31%` total reduction. No `.mbti` or public pass surface changed. The prior stable representative checkpoint remains `970.5 us` (`3.65x` Binaryen v130), so all public-readiness blockers remain open.
 
+## 2026-07-15 region-tail ownership and loop-branch follow-up
+
+Commits `3d0acb44e` and `19fa4eda8` complete the next exact two-code internal iteration without widening behavior. Exact multivalue `TupleMake` region tails now prove exclusive ownership from the immutable reachable-use counts plus the already-known tail root/slot instead of allocating full use-site arrays. The complete inputful-loop support and rewrite chain now consumes the immutable per-label branch population and the same pre-mutation counts for multivalue `br_if` and tuple-flow proof. Both red-first invariants prove that post-snapshot uses or branches can fail uncached checks without widening mutation-time admission.
+
+Private flatten is `153/153`, focused flatten `245/245`, passes `5,728/5,728`, and the full suite `9,189/9,189`; `moon info`, targeted formatting, and diff checks pass. The 120-function two-lane tuple-tail fixture improved `6,569 -> 4,144.5 us` (`36.91%`), and the exact inputful-loop `br_if` fixture improved `8,344 -> 6,870 us` (`17.67%`). The reconstructed representative terminal-table fixture was noisy (`2,953.5 -> 3,038.5 us` with overlapping ranges), so the stable `970.5 us` / `3.65x` checkpoint remains the durable gate result. No `.mbti` or public pass surface changed; typed EH, structured control-plus-label deletion, broader parity, the flatten GenValid aggregate, four-lane signoff, ordered-neighborhood proof, and public admission remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.
