@@ -362,6 +362,12 @@ Commits `80e6a652b` and `efb8fdfa2` complete the next exact two-code internal it
 
 The two red-first invariants queried three branches out of order and failed with `[17, 5, 11]` and `[14, 4, 9]` before sorted insertion. Exact cached-lookup reconstruction held 1,048,576 lookups per sample: tuple flow improved `304,931 -> 160,577 us` at 512 candidates, while distinct flow improved `365,408.5 -> 120,985.5 us` at 512 candidates. Final validation is focused flatten `245/245`, private flatten `175/175`, passes `5,750/5,750`, full suite `9,211/9,211`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
 
+## 2026-07-15 table-target and terminal-payload lookup follow-up
+
+Commits `bdad9efaf` and `902848fca` complete the next exact two-code internal iteration without widening behavior. Unique `br_table` targets now use one label-sized mark set instead of repeatedly scanning the growing result vector, preserving first explicit-target order and appending a previously unseen default target last. Terminal payload roots remain sparse but are now sorted by exact node id and binary-searchable during scalar block repair and recursive region traversal.
+
+The red-first invariants failed because the new exact mark and sorted-payload helpers did not exist. At 512 labels, 4,096 repeated unique-target collections improved from `437,000 us` to a `16,000 us` median; at 512 payload roots, 1,048,576 membership checks improved from a `110,000 us` code-1 median to `20,000 us` (`81.82%`). Final validation is focused flatten `245/245`, private flatten `177/177`, passes `5,752/5,752`, full suite `9,213/9,213`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

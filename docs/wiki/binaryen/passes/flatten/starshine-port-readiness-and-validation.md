@@ -168,6 +168,10 @@ The tuple/distinct conditional-flow proof-lookup iteration also leaves the hold 
 
 Exact cached-lookup reconstruction improves tuple flow `47.34%` and distinct flow `66.89%` at 512 candidates, but it is owner-specific telemetry rather than representative gate requalification. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` performance gate remain blocked.
 
+The table-target/terminal-payload lookup iteration also leaves the hold point unchanged. `bdad9efaf` marks each valid table label once while preserving first source order and a previously unseen default target last. `902848fca` keeps terminal payload roots sparse, sorted by exact node id, and binary-searchable; duplicate records are rejected and absent roots remain absent. Their red-first invariants move private flatten to `177/177`; focused flatten is `245/245`, passes are `5,752/5,752`, the full suite is `9,213/9,213`, and `moon info` is green with 11 existing warnings.
+
+Dense owner-specific reconstruction improves target extraction `437,000 -> 16,000 us` and terminal payload membership `110,000 -> 20,000 us` at 512 candidates. These results do not recover the original representative contract or change any readiness predicate. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` performance gate remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

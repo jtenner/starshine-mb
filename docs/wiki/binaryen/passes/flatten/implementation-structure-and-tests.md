@@ -317,6 +317,10 @@ The next exact two-code iteration adds commits `80e6a652b` and `efb8fdfa2`. The 
 
 Validation is focused flatten `245/245`, private flatten `175/175`, passes `5,750/5,750`, full suite `9,211/9,211`, and green `moon info` with 11 existing warnings. Exact cached-lookup medians at 512 candidates improve `304,931 -> 160,577 us` for tuple flow and `365,408.5 -> 120,985.5 us` for distinct flow. No `.mbti`, semantic family, or public surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The next exact two-code iteration adds commits `bdad9efaf` and `902848fca`. The first replaces the quadratic growing-vector target deduplication in `flatten_unique_br_table_targets(...)` with one label-sized bitset and an exact record helper. Its red-first invariant proves first explicit-target order, duplicate suppression, mark retention, invalid-label rejection, and default-target compatibility. The second keeps `FlattenRewriteState.terminal_payloads` sparse and sorted by exact node id, rejects duplicate records, and uses binary membership in scalar block tail repair plus recursive region-root removal. Its invariant queried payloads in mixed order and required exact present/absent results.
+
+Validation is focused flatten `245/245`, private flatten `177/177`, passes `5,752/5,752`, full suite `9,213/9,213`, and green `moon info` with 11 existing warnings. The exact 512-label extraction reconstruction improves `437,000 -> 16,000 us`; the 512-root membership reconstruction improves `110,000 -> 20,000 us`. No `.mbti`, semantic family, or public surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

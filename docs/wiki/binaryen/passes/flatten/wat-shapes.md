@@ -645,6 +645,12 @@ Commits `80e6a652b` and `efb8fdfa2` leave every WAT shape above unchanged. Tuple
 
 The red-first invariants queried three branches out of order and failed on append order before implementation. Exact cached-lookup timing improves `47.34%` for tuple flow and `66.89%` for distinct flow at 512 candidates. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Latest table-target and terminal-payload lookup detail
+
+Commits `bdad9efaf` and `902848fca` leave every WAT shape above unchanged. Unique `br_table` targets are still emitted in first explicit-target order with a previously unseen default target last; a label-sized mark set now suppresses repeats instead of rescanning the growing output. Terminal payload roots still identify exact pre-mutation values that must be removed from a region after payload staging; they are now stored sparsely in node-id order and queried with binary search.
+
+The red-first invariants lock target order, duplicate and invalid-label handling, sparse payload order, duplicate rejection, and exact present/absent membership. Dense targeted timing improves target extraction `437,000 -> 16,000 us` and payload membership `110,000 -> 20,000 us` at 512 candidates. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

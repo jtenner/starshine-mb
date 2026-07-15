@@ -350,6 +350,10 @@ The latest exact two-code iteration completes binary lookup for the remaining mu
 
 Validation reaches private `175/175`, focused `245/245`, passes `5,750/5,750`, full `9,211/9,211`, and green `moon info`. Exact cached-lookup medians at 512 candidates improve `304,931 -> 160,577 us` for tuple flow and `365,408.5 -> 120,985.5 us` for distinct flow. These are targeted owner wins, not recovery of the original benchmark contract; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
 
+The latest exact two-code iteration removes two measured lookup hot spots without widening behavior. `bdad9efaf` uses one label-sized mark set for unique `br_table` targets, retaining first explicit-target order and default-target-last behavior. `902848fca` stores terminal payload roots as a sorted sparse set and uses binary membership during scalar control repair and recursive region traversal. Duplicate payload records are rejected; target/type/ownership/EH/effect/trap/deletion proof remains unchanged.
+
+Validation reaches private `177/177`, focused `245/245`, passes `5,752/5,752`, full `9,213/9,213`, and green `moon info`. At 512 candidates, target extraction improves `437,000 -> 16,000 us` and payload membership improves `110,000 -> 20,000 us`. These are targeted owner wins rather than recovery of the original benchmark contract; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

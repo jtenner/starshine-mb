@@ -425,6 +425,12 @@ Commits `80e6a652b` and `efb8fdfa2` complete sorted sparse lookup for the two re
 
 The red-first invariants queried three branches in mixed order and failed on append order before sorted insertion. Exact cached-lookup reconstruction measured `47.34%` reduction for tuple flow and `66.89%` for distinct flow at 512 candidates. No Flat-IR, WAT shape, type, label, EH, effect, trap, ownership, deletion, or public-surface contract changed.
 
+### Table-target and terminal-payload lookup stays exact
+
+Commits `bdad9efaf` and `902848fca` remove two measured repeated linear scans without changing any Flat-IR rule. Unique table-target collection now marks labels once while retaining first source order and default-target-last behavior. Terminal payload roots remain a sparse exact set keyed by pre-mutation node id; sorted insertion and binary membership replace recursive traversal's repeated linear `contains` calls.
+
+The red-first invariants lock duplicate suppression, invalid-label rejection, mixed-order sparse insertion, duplicate payload rejection, exact retrieval, and absent-root rejection. Dense reconstruction improves 512-label target extraction from `437,000 us` to `16,000 us` and 512-root payload membership from `110,000 us` to `20,000 us`. Type, target, ownership, EH, effect, trap, deletion, current-structure, and mutation-boundary proofs remain in their existing family helpers; no WAT or public surface changes.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.
