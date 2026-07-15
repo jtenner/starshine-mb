@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md
+  - https://github.com/WebAssembly/spec/tree/main/interpreter
   - ../../../src/wast/spec_harness.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/types.mbt
@@ -25,7 +25,7 @@ related:
 
 ## Overview
 
-WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The current lifecycle recheck [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md) records the upstream reference-interpreter script model, the separate Core embedding/instantiation boundary, and Starshine's local static implementation and skip policy.
+WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The [WebAssembly/spec reference interpreter](https://github.com/WebAssembly/spec/tree/main/interpreter), the vendored upstream scripts, and Starshine's local parser/harness establish the separate script-lifecycle and static-validation boundaries described here.
 
 Starshine currently implements a **static** spec-harness subset:
 
@@ -61,7 +61,7 @@ Official spec scripts can also declare reusable module definitions and instantia
 
 Those are **not** ordinary Core module declarations. They model script-level lifecycle state: a definition environment, generative instantiation, then registration. Starshine currently has no `WastCommand` variant or parser branch for the `definition` and `instance` forms. [`parse_module_command(...)`](../../../src/wast/parser.mbt) accepts only an optional `$id` followed by `binary`, `quote`, or ordinary module fields; [`parse_command(...)`](../../../src/wast/parser.mbt) has no alternate lifecycle command arm.
 
-Therefore a vendored upstream file such as [`tests/spec/instance.wast`](../../../tests/spec/instance.wast), or the `module definition` boundary cases in [`tests/spec/memory.wast`](../../../tests/spec/memory.wast) and [`tests/spec/table.wast`](../../../tests/spec/table.wast), is currently a **whole-file `Skipped(...)`** case when this grammar is reached. The parser cannot construct the script AST, so this is not the command-scoped runtime-only skip described below, not a Core-module validation result, and not evidence that later static assertions ran. The current source reconciliation is [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md).
+Therefore a vendored upstream file such as [`tests/spec/instance.wast`](../../../tests/spec/instance.wast), or the `module definition` boundary cases in [`tests/spec/memory.wast`](../../../tests/spec/memory.wast) and [`tests/spec/table.wast`](../../../tests/spec/table.wast), is currently a **whole-file `Skipped(...)`** case when this grammar is reached. The parser cannot construct the script AST, so this is not the command-scoped runtime-only skip described below, not a Core-module validation result, and not evidence that later static assertions ran. The upstream [`instance.wast`](https://github.com/WebAssembly/spec/blob/main/test/core/instance.wast) script and the local parser/harness sources cited below establish this boundary.
 
 For current module-only coverage, extract an ordinary `(module ...)` fixture and state that it does not test definition/instance lifecycle behavior. A future implementation needs a definition/instance representation, a registration environment, instantiation and import-matching semantics, and an execution/linking policy; it must be designed alongside [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), not treated as a small extension of `ValidBeforeLink`.
 
@@ -162,7 +162,7 @@ When touching WAST script support or static assertions:
 
 ## Sources
 
-- Primary-source snapshot: [`../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md`](../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md)
+- Upstream script model and fixtures: [reference interpreter](https://github.com/WebAssembly/spec/tree/main/interpreter), [`instance.wast`](https://github.com/WebAssembly/spec/blob/main/test/core/instance.wast), [`tests/spec/memory.wast`](../../../tests/spec/memory.wast), and [`tests/spec/table.wast`](../../../tests/spec/table.wast)
 - Parser and AST: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt)
 - Static evaluator and tests: [`../../../src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt)
 - CLI wrapper: [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt)

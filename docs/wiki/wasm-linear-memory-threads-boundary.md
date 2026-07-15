@@ -5,7 +5,7 @@ last_reviewed: 2026-07-10
 sources:
   - https://webassembly.github.io/threads/core/valid/instructions.html
   - https://webassembly.github.io/threads/core/exec/instructions.html
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - wast/atomic-memory-instruction-authoring.md
   - validate/resource-sections-and-limits.md
   - wast/resource-declaration-authoring.md
@@ -154,7 +154,7 @@ When touching shared memory or ordinary atomics:
 ## Sources
 
 - Threads validation/execution: [validation](https://webassembly.github.io/threads/core/valid/instructions.html) and [execution](https://webassembly.github.io/threads/core/exec/instructions.html)
-- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Living companion pages: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)
 - WebAssembly Threads proposal and draft: <https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md>, <https://webassembly.github.io/threads/core/syntax/types.html#memory-types>, <https://webassembly.github.io/threads/core/binary/types.html#memory-types>, <https://webassembly.github.io/threads/core/valid/types.html#memory-types>, <https://webassembly.github.io/threads/core/syntax/instructions.html>, <https://webassembly.github.io/threads/core/valid/instructions.html>, <https://webassembly.github.io/threads/core/exec/instructions.html>
 - Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

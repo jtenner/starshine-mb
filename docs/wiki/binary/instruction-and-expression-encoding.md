@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
+  - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
   - ../wasm-multi-memory-boundary.md
   - ../wasm-memory-control-boundary.md
   - ../wasm-relaxed-atomics-boundary.md

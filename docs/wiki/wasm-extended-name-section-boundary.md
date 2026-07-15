@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/binary/encode.mbt
@@ -23,7 +23,7 @@ related:
 
 The **WebAssembly name section** is debug metadata carried in a custom section named `name`. It helps tools print readable module, function, local, type, field, and tag names, but it does not decide validation semantics: validation still uses numeric indices and typed operands. The current Core 3.0 custom/name appendix documents subsection ids `0` module, `1` function, `2` local, `4` type, `10` field, and `11` tag.
 
-The active **Extended Name Section** proposal adds the missing debug-name maps many tools want for other index spaces: `3` label names, `5` table names, `6` memory names, `7` global names, `8` element segment names, and `9` data segment names. The shared 2026-07-10 recheck confirms the tracker still places it in Phase 2 and that feature dashboards are only implementation-availability evidence; see [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md). The official proposal overview, Core custom/name appendix, and Starshine owner files below provide the exact payload and local source map.
+The active **Extended Name Section** proposal adds the missing debug-name maps many tools want for other index spaces: `3` label names, `5` table names, `6` memory names, `7` global names, `8` element segment names, and `9` data segment names. The shared 2026-07-10 recheck confirms the tracker still places it in Phase 2 and that feature dashboards are only implementation-availability evidence; see the [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals). The official proposal overview, Core custom/name appendix, and Starshine owner files below provide the exact payload and local source map.
 
 Starshine already has structured support for exactly those extra ids. That is useful, but the wording matters: until the proposal is finished and incorporated into Core, document Starshine as having **proposal-facing/local structured metadata support** for ids `3` and `5..9`, not finished/Core Extended Name Section support.
 
@@ -117,7 +117,7 @@ Future strict-mode or feature-gate work should explicitly decide what to do with
 ## Sources
 
 - Official Extended Name Section overview: <https://github.com/WebAssembly/extended-name-section/blob/main/proposals/extended-name-section/Overview.md>
-- Current Core/proposal/dashboard recheck: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Current Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Official custom/name appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - Starshine representation and codec: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/lib/module.mbt`](../../src/lib/module.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt)
 - Starshine validation and fuzz evidence: [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/fuzz/metamorphic.mbt`](../../src/fuzz/metamorphic.mbt), [`../../src/fuzz/invalid_binary_wbtest.mbt`](../../src/fuzz/invalid_binary_wbtest.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)

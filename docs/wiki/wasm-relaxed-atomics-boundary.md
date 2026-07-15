@@ -6,7 +6,7 @@ sources:
   - wasm-linear-memory-threads-boundary.md
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - wast/atomic-memory-instruction-authoring.md
@@ -104,7 +104,7 @@ After implementation, signoff should include:
 ## Sources
 
 - Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md>
-- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Current ordinary atomics evidence: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md), and the historical June shared-memory/fence bridges.
 - Shared-GC atomic-get evidence: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
 - Local code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt)

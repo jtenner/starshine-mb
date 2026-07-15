@@ -3,8 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
+  - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
   - ../../src/binary/decode.mbt
@@ -28,7 +28,7 @@ Use this page when a fixture, external tool result, Binaryen comparison, or opti
 
 For beginners: ordinary `i64.add` consumes two `i64` values and pushes one wrapped `i64` result. Wide Arithmetic adds instructions whose result is too wide for one `i64`, so the proposal represents the result as **two `i64` values** on the wasm stack. That makes it a scalar-numeric proposal, but it also touches multi-value validation, binary prefixed-opcode assignment, WAST printing/parsing, and pass rewrite safety.
 
-The current source bridge is [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md). It rechecks the official proposal tracker, maintained proposal overview, rendered binary/validation drafts, and Starshine's current `0xFC` codec. It supersedes the June source bridge **only for interpreting the exact proposed opcode range**: the old rendered binary table remains inconsistent, but the maintained overview gives the operational placement described below.
+The [proposal tracker](https://github.com/WebAssembly/proposals), maintained [Wide Arithmetic overview](https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md), rendered [binary draft](https://webassembly.github.io/wide-arithmetic/core/binary/instructions.html), rendered [validation draft](https://webassembly.github.io/wide-arithmetic/core/valid/instructions.html), and Starshine's current `0xFC` codec establish this boundary. The overview supplies the operational placement below; the older rendered binary table remains inconsistent.
 
 ## Proposal Shape
 
@@ -76,7 +76,7 @@ The proposal is still active, so its encoding is not a final Core compatibility 
 
 The maintained proposal overview explicitly rejects `13..16` because those values collide with table instructions and places Wide Arithmetic at `19..22`. The rendered proposal binary page still shows `13..16` and identifies itself as a 2025-09-21 draft. Record that page as an unreconciled/stale artifact, not an alternate legal encoding. A compatibility decoder for its values would reinterpret valid Core table instructions and is therefore forbidden.
 
-Before implementation, recheck the overview, rendered drafts, tracker, and exact tool versions/feature flags. The task is to detect whether the rendered draft caught up—not to reopen `13..16` as a possible implementation choice. See [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md) for the evidence and remaining active-proposal uncertainty.
+Before implementation, recheck the overview, rendered drafts, tracker, and exact tool versions/feature flags. The task is to detect whether the rendered draft caught up—not to reopen `13..16` as a possible implementation choice.
 
 ## Examples And Non-Examples
 
@@ -120,8 +120,7 @@ A safe Starshine implementation would need all of these, in order:
 
 ## Sources
 
-- Current opcode reconciliation: [`raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md)
-- Proposal overview: <https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md>
-- Shared status routing: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
+- Proposal status and opcode sources: [tracker](https://github.com/WebAssembly/proposals), [overview](https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md), [rendered binary draft](https://webassembly.github.io/wide-arithmetic/core/binary/instructions.html), and [rendered validation draft](https://webassembly.github.io/wide-arithmetic/core/valid/instructions.html)
+- Shared status routing: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - Numeric and binary companion pages: [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md)
 - Local source evidence: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

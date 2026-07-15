@@ -5,7 +5,7 @@ last_reviewed: 2026-06-05
 sources:
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
   - ../../src/wast/struct_atomic_get_surface_test.mbt
   - ../../src/validate/typecheck.mbt
@@ -111,7 +111,7 @@ Current order spellings are canonicalized to `seq_cst` and `acq_rel`. The parser
 ## Source Map
 
 - Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md>
-- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Linear-memory Threads boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md)
 - Linear-memory atomic WAST authoring: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)
 - GC aggregate authoring: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)

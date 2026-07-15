@@ -5,7 +5,7 @@ last_reviewed: 2026-07-10
 sources:
   - ../wasm-linear-memory-threads-boundary.md
   - ../wasm-relaxed-atomics-boundary.md
-  - ../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../../../src/lib/types.mbt
@@ -165,7 +165,7 @@ When touching atomics:
 ## Sources
 
 - Relaxed Atomics boundary: [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md) and its cited official proposal sources
-- Shared Core/proposal status bridge: [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Current linear-memory Threads boundary: [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md)
 - Historical fence/unshared-memory reconciliation: [`../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
 - Historical linear-memory threads/shared-memory refresh: [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - raw/wasm/2026-07-11-multivalue-core-boundary-recheck.md
+  - https://webassembly.github.io/spec/core/syntax/types.html
   - ../../src/lib/types.mbt
   - ../../src/wast/parser.mbt
   - ../../src/wast/lower_to_lib.mbt
@@ -36,7 +36,7 @@ block with those results: ... -> ..., i32, i64
 branch to that block:  supply i32, i64; no local fallthrough
 ```
 
-This page is the cross-layer map. Use it before treating a multi-value failure as a parser, binary, validator, IR, or pass problem. The source reconciliation is [`raw/wasm/2026-07-11-multivalue-core-boundary-recheck.md`](raw/wasm/2026-07-11-multivalue-core-boundary-recheck.md).
+This page is the cross-layer map. Use it before treating a multi-value failure as a parser, binary, validator, IR, or pass problem. Its standards model is grounded in the official [types](https://webassembly.github.io/spec/core/syntax/types.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), and [binary instruction](https://webassembly.github.io/spec/core/binary/instructions.html) specifications.
 
 ## Core Model
 
@@ -155,7 +155,7 @@ When a transform touches a multi-value function, call, branch, or control node:
 
 ## Sources
 
-- Primary/source reconciliation: [`raw/wasm/2026-07-11-multivalue-core-boundary-recheck.md`](raw/wasm/2026-07-11-multivalue-core-boundary-recheck.md)
+- Official Core sources: [types](https://webassembly.github.io/spec/core/syntax/types.html), [instructions](https://webassembly.github.io/spec/core/syntax/instructions.html), [text instructions](https://webassembly.github.io/spec/core/text/instructions.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), [binary types](https://webassembly.github.io/spec/core/binary/types.html), and [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html)
 - Feature-status routing: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - WAST authoring: [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md)
 - Core/binary/validation: [`src/lib/types.mbt`](../src/lib/types.mbt), [`src/binary/decode.mbt`](../src/binary/decode.mbt), [`src/binary/encode.mbt`](../src/binary/encode.mbt), [`src/validate/typecheck.mbt`](../src/validate/typecheck.mbt)

@@ -6,7 +6,7 @@ sources:
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/memory-control
   - https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/discard.md
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - wasm-custom-page-sizes-boundary.md
   - raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
@@ -125,7 +125,7 @@ If Memory Control work becomes in scope, land it as a focused implementation sli
 ## Sources
 
 - Official proposal sources: [tracker](https://github.com/WebAssembly/proposals), [repository](https://github.com/WebAssembly/memory-control), [overview](https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/Overview.md), and [`memory.discard`](https://github.com/WebAssembly/memory-control/blob/main/proposals/memory-control/discard.md)
-- Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Current memory instruction docs: [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md)
 - Related memory-type boundaries: [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)
 - Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
+  - https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -211,7 +211,7 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 
 ## Sources
 
-- Wide Arithmetic proposal boundary: [`../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md`](../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md), [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
+- Wide Arithmetic proposal boundary: [proposal overview](https://github.com/WebAssembly/wide-arithmetic/blob/main/proposals/wide-arithmetic/Overview.md), [proposal tracker](https://github.com/WebAssembly/proposals), and [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Official numeric execution and text values sources: <https://webassembly.github.io/spec/core/exec/numerics.html>, <https://webassembly.github.io/spec/core/text/values.html>
 - Local parser/lowerer/printer sources listed in the frontmatter above.

@@ -6,7 +6,7 @@ sources:
   - https://github.com/WebAssembly/proposals/blob/main/README.md
   - https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md
   - https://webassembly.github.io/compact-import-section/
-  - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
+  - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
   - ../../src/binary/encode.mbt
@@ -127,6 +127,6 @@ A future port should keep three decisions separate.
 ## Sources
 
 - Official proposal sources: [tracker](https://github.com/WebAssembly/proposals/blob/main/README.md), [overview](https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md), and [modified specification](https://webassembly.github.io/compact-import-section/)
-- Shared Core/proposal source bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
+- Shared Core/proposal status source: [WebAssembly proposals tracker](https://github.com/WebAssembly/proposals)
 - Core import model and codec: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt)
 - WAT and validation: [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt)

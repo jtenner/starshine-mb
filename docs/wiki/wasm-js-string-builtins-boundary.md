@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
+  - https://webassembly.github.io/esm-integration/js-api/index.html
   - https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md
   - https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static
   - https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants
@@ -43,7 +43,7 @@ Use this page when a wiki claim mentions any of these similar-looking names:
 - `stringref`, `string.const`, or Starshine's `StringRefsSec`;
 - JS Primitive Builtins or JS Text Encoding Builtins names such as `wasm:js-number`, `wasm:js-bigint`, or `wasm:text-encoding`.
 
-They are related string features, but they do **not** all mean the same thing. The current Node-loader supplement is [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md); it rechecked the Phase-3 ESM status, the 2026-03-04 ESM Integration draft, Node v26.4.0 Wasm ESM documentation, and current Starshine runtime source. The finished-proposal and `importedStringConstants` split is grounded directly in the [WebAssembly finished-proposals table](https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md) and MDN's [`WebAssembly.compile()`](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static) and [imported string constants](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants) references.
+They are related string features, but they do **not** all mean the same thing. The [ESM Integration draft](https://webassembly.github.io/esm-integration/js-api/index.html), [proposal tracker](https://github.com/WebAssembly/proposals), [Node Wasm-module ESM documentation](https://nodejs.org/docs/latest/api/esm.html#wasm-modules), and current Starshine runtime source establish the loader-specific boundary. The finished-proposal and `importedStringConstants` split is grounded directly in the [WebAssembly finished-proposals table](https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md) and MDN's [`WebAssembly.compile()`](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static) and [imported string constants](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants) references.
 
 The durable rule is:
 
@@ -150,12 +150,12 @@ When touching string-related docs or code:
 
 ## Sources
 
-- Current Node-loader / ESM builtin recheck: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md)
+- ESM/Node loader sources: [proposal tracker](https://github.com/WebAssembly/proposals), [ESM Integration draft](https://webassembly.github.io/esm-integration/js-api/index.html), and [Node Wasm-module ESM documentation](https://nodejs.org/docs/latest/api/esm.html)
 - JS API builtin and imported-constant references: [finished proposals](https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md), [`WebAssembly.compile()`](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/compile_static), and [imported string constants](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Imported_string_constants)
 - JS Primitive / JS Text Encoding Builtins boundary: [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Core section-id boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html)
-- ESM Integration boundary: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
+- ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) and its cited official ESM/Node sources
 - Focused local pages: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
 - Binaryen pass dossiers: [`binaryen/passes/string-gathering/index.md`](binaryen/passes/string-gathering/index.md), [`binaryen/passes/string-lowering/index.md`](binaryen/passes/string-lowering/index.md), [`binaryen/passes/string-lifting/index.md`](binaryen/passes/string-lifting/index.md)
 - Local source anchors: [`../../node/internal/runtime.js`](../../node/internal/runtime.js), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)
