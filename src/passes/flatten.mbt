@@ -1300,6 +1300,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
     return true
   }
   match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Unreachable => return true
     @ir.HotOp::Drop => ()
     _ => return false
   }
