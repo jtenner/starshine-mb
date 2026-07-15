@@ -334,6 +334,14 @@ Commits `6a74918d6` and `1acb9bc14` complete the next exact two-code internal it
 
 The branch-dense native-release fixture improved `17,065 -> 14,723 us` (`13.72%`). The root-heavy fixture improved `54,596 -> 51,076.5 us` (`6.45%`) with a `49,953.5 us` rerun, and the reconstructed representative moved directionally `1,111.5 -> 1,066 us`. Private flatten is `167/167`, focused flatten `245/245`, passes `5,742/5,742`, the full suite `9,203/9,203`, and `moon info` remains green with 11 existing warnings. No semantic family, `.mbti`, or public surface changed. The durable `970.5 us` / `3.65x` gate and all typed-EH, structured-label deletion, broader-parity, aggregate, signoff, neighborhood, and public-readiness blockers remain open.
 
+## 2026-07-15 EH and flatness scan-sharing follow-up
+
+Commits `7706110c1` and `2c5a54ac3` complete the next exact two-code internal iteration without widening behavior. The first records typed-catch payload and exceptional-transfer repair prerequisites in the immutable pre-mutation node-index scan and makes `FlattenRewriteState` consume that result instead of walking every live node again. Its red-first invariant covers `Catch` plus `Rethrow` with 256 unrelated roots; private flatten moved to `168/168`. The reconstructed representative improved `1,131 -> 1,060 us` (`6.28%`), while the root-heavy ordering was noisy and does not establish a second win.
+
+The second records the complete Flat IR violation report in that same immutable scan. `flatten_run` now consumes the frozen report; the standalone classifier shares the exact per-node and body-tail helpers, so public analysis behavior remains unchanged. Its red-first invariant covers rich operands, value control, hard-unsupported control, and concrete body flow; private flatten moved to `169/169`. Representative and root-heavy timings overlapped or regressed by run order, so classify it as exact scan consolidation rather than a measured speed win.
+
+Final validation is focused flatten `245/245`, private flatten `169/169`, passes `5,744/5,744`, full suite `9,205/9,205`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH repair, structured-label deletion, broader-parity, aggregate, four-lane signoff, neighborhood, and public-readiness blocker remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

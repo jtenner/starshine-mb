@@ -621,6 +621,12 @@ Commits `6a74918d6` and `1acb9bc14` do not alter any WAT shape above. The immuta
 
 All family-specific target, type, ownership, false-flow, EH, effect, trap, and deletion checks remain unchanged. The only behavior is less rediscovery: admission iterates exact candidate rosters rather than all live nodes three more times. The red-first roster invariant excludes 256 unrelated roots, and targeted native-release fixtures improve `13.72%` and `6.45%`. No opcode, control, payload, EH, or output family is admitted.
 
+### Latest EH-prerequisite and flatness scan-sharing detail
+
+Commits `7706110c1` and `2c5a54ac3` do not alter any WAT shape above. The immutable pre-mutation scan now records exact `Catch`/`CatchAll` payload-repair and `Rethrow`/`Delegate` exceptional-transfer requirements, plus the complete Flat IR violation report. `Delegate` continues to enter the label branch index while selecting the exceptional-transfer gate. `flatten_run` consumes the frozen indexed report; standalone classification uses the same per-live-node and body-tail logic.
+
+The red-first invariants compare the indexed and standalone facts in functions padded with 256 unrelated roots. Every family-specific label, type, ownership, EH, effect, trap, control-result, deletion, and mutation-time failure boundary is unchanged. Code 1 improves one reconstructed representative by `6.28%`; code 2 has no stable timing win. No opcode, control, payload, EH-repair, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

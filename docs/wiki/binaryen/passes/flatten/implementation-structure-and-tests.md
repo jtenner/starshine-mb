@@ -297,6 +297,12 @@ The next exact two-code iteration adds commits `6a74918d6` and `1acb9bc14`. The 
 
 Validation is focused flatten `245/245`, private flatten `167/167`, passes `5,742/5,742`, full suite `9,203/9,203`, and green `moon info`, targeted formatting, owner verification, and diff checks. The branch-dense fixture improves `17,065 -> 14,723 us` (`13.72%`); the root-heavy fixture improves `54,596 -> 51,076.5 us` (`6.45%`) with a `49,953.5 us` rerun; the reconstructed representative moves directionally `1,111.5 -> 1,066 us`. No `.mbti`, semantic family, or public pass surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The next exact two-code iteration adds commits `7706110c1` and `2c5a54ac3`. The first extends `FlattenPreMutationNodeIndex` with the exact `FlattenEhRepairRequirement`, setting typed-catch-payload and exceptional-transfer bits during the existing live-node scan and preserving `Delegate` label indexing. Its single red-first invariant is `flatten pre-mutation node index shares EH prerequisite classification`; `FlattenRewriteState` now reuses the indexed requirement rather than calling a separate whole-node classifier.
+
+The second factors exact per-live-node and function-tail Flat IR classification, stores the complete report in the same pre-mutation index and rewrite state, and makes `flatten_run` consume that frozen report. Its single red-first invariant is `flatten pre-mutation node index shares flatness classification`, comparing rich operands, value control, hard-unsupported control, and concrete body flow against the standalone classifier. The standalone analysis API remains behaviorally identical.
+
+Validation is focused flatten `245/245`, private flatten `169/169`, passes `5,744/5,744`, full suite `9,205/9,205`, and green `moon info`, targeted formatting, owner verification, and diff checks. Code 1's reconstructed representative improves `1,131 -> 1,060 us` (`6.28%`); code 2 timings overlap or regress by order and are not classified as a win. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

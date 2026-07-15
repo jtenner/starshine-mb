@@ -401,6 +401,12 @@ Commits `6a74918d6` and `1acb9bc14` do not change the Flat-IR output contract. T
 
 The new red-first invariants prove exact label populations, duplicate suppression, exact candidate rosters, and exclusion of 256 unrelated roots. Admission still performs every type, ownership, control, EH, effect, trap, and failure-atomicity proof; it merely starts from the exact relevant owner vectors instead of rediscovering them with three more whole-function scans. Targeted native-release measurement improves the branch-dense fixture `13.72%` and the root-heavy fixture `6.45%`. No transform family is admitted.
 
+### EH prerequisites and Flat IR classification now share the immutable scan
+
+Commits `7706110c1` and `2c5a54ac3` preserve the Flat-IR output and admission contracts while removing two more run-wide discovery traversals. The pre-mutation node index now records the exact typed-catch-payload and exceptional-transfer repair requirements alongside label branches and candidate rosters; `Delegate` still records its label target while selecting the exceptional-transfer gate. The same scan also accumulates the complete rich-operand, value-control, tee, control-under-set, body-flow, and hard-unsupported classification used by `flatten_run`.
+
+The standalone `flatten_classify_hot(...)` path remains available and shares the same per-live-node and function-tail helpers, while rewrite state freezes the indexed report before mutation. The red-first invariants prove equality with the standalone classifier and exact EH outcomes in functions padded with 256 unrelated roots. No target, type, ownership, control, EH, effect, trap, deletion, or post-boundary failure rule changed. Code 1 produced a `6.28%` reconstructed representative reduction; code 2 timings overlapped or regressed by run order and is classified as scan consolidation only. The durable `970.5 us` / `3.65x` gate remains authoritative.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

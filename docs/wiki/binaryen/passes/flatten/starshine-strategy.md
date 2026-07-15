@@ -334,6 +334,10 @@ The latest exact two-code iteration removes two more run-wide scan costs without
 
 Validation reaches private `167/167`, focused `245/245`, passes `5,742/5,742`, and full `9,203/9,203`. The branch-dense benchmark improves `13.72%`, the root-heavy benchmark improves `6.45%` with a faster rerun, and the representative reconstruction moves directionally `1,111.5 -> 1,066 us`. These are measured internal scan reductions, not a requalification of the lost gate harness. No `.mbti`, registry, dispatcher, CLI, compare/API, generator, preset, or semantic family changes; the durable `970.5 us` / `3.65x` gate and every public-readiness blocker remain open.
 
+The latest exact two-code iteration consolidates the remaining run-start classification scans without widening behavior. `7706110c1` records catch-payload and exceptional-transfer repair prerequisites in the immutable pre-mutation node index, including `Delegate`'s label target, and reuses that exact requirement in rewrite state. `2c5a54ac3` records the complete Flat IR violation report in the same scan; `flatten_run` consumes the frozen report, while standalone `flatten_classify_hot(...)` shares exact per-node and body-tail helpers.
+
+Validation reaches private `169/169`, focused `245/245`, passes `5,744/5,744`, full `9,205/9,205`, and green `moon info`. Code 1's representative reconstruction improves `1,131 -> 1,060 us` (`6.28%`); code 2 timing is overlapping/order-sensitive and is classified only as exact scan consolidation. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes. The durable `970.5 us` / `3.65x` gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
