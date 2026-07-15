@@ -1,11 +1,10 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md
-  - ../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
   - ../../../src/cli/cli.mbt
@@ -15,6 +14,9 @@ sources:
   - ../../../src/cmd/cmd_wbtest.mbt
   - ../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../src/passes/optimize.mbt
+  - ../../../src/passes/memory_packing.mbt
+  - ../../../src/passes/code_pushing.mbt
+  - ../../../src/passes/optimize_instructions.mbt
   - ../../../src/passes/pass_manager_wbtest.mbt
   - ../../../README.md
 related:
@@ -109,7 +111,7 @@ Both local presets currently expand to the same implemented mixed module/hot pas
 
 Command/config/environment merge follows the general option precedence above: CLI, then environment, then config. Config accepts both `optimize.trapMode` / `optimize.trap-mode` style values and boolean `options.trapsNeverHappen` / `options.traps-never-happen` style values. The resolved boolean is stored in `OptimizeOptions`, written into `CmdRunSummary.traps_never_happen`, included in trace option lines, and preserved in post-encode repro hints when set.
 
-Important current caveat: the 2026-06-04 trap-mode routing refresh found no current Starshine pass implementation that consumes `OptimizeOptions.traps_never_happen` to relax trap-sensitive rewrites. Treat the flag as command/config/report vocabulary and future pass-option plumbing unless a pass-specific Starshine strategy page documents local TNH behavior. The shared trap vocabulary and Binaryen-vs-Starshine split lives in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md), sourced through [`../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md).
+Important current caveat: `--traps-never-happen` is not merely report vocabulary. Current local owner sources show pass-local consumers in `memory-packing`, `code-pushing`, and `optimize-instructions`; each still needs its own contract and tests before it is used as parity evidence. The flag is not a global validator setting or blanket permission to relax arbitrary trap-sensitive rewrites. The shared trap vocabulary and Binaryen-vs-Starshine split lives in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md).
 
 Some hot passes have trace-labeled conservative fallbacks for pathological module or function shapes. For example, `ssa-nomerge`, `simplify-locals`, `optimize-instructions`, `precompute`, and `code-pushing` can skip very large, structured, or branch-heavy shapes rather than risk an unsafe transform, abort, OOM, or non-terminating self-optimization run; these are no-op fallbacks, not silent pass-name acceptance.
 
@@ -171,14 +173,13 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 - Help output intentionally lists only runnable hot passes and presets. Module passes may still be runnable when known to the registry, but help is kept focused.
 - Boundary-only and removed pass names should stay visible in wiki dossiers and registry maps but not in CLI help.
 - Any new command flag needs parser coverage in `src/cli/cli_test.mbt` or command coverage in `src/cmd/cmd_wbtest.mbt`; any new pass category or preset change also needs `src/passes/optimize.mbt` and registry/preset docs refreshed.
-- If a pass starts consuming `OptimizeOptions.traps_never_happen`, update the pass dossier, [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md), compare-pass classification guidance, command tests, and the trap-mode raw source bridge together.
+- If a pass starts or stops consuming `OptimizeOptions.traps_never_happen`, update the pass dossier, [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md), compare-pass classification guidance, command tests, and the relevant local owner/test citations together.
 - Any new printable item kind needs coordinated changes to CLI help, `cmd_is_supported_print_kind(...)`, `cmd_resolve_pipeline_print_entry(...)`, the ordered stderr log test, this page, and whichever focused wiki page owns the selector's name source or index space.
 
 ## Sources
 
 - 2026-06-04 print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - 2026-06-04 dispatcher/stdin source audit: [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md)
-- 2026-06-04 trap-mode routing refresh: [`../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md)
 - Upstream CLI orientation: <https://github.com/WebAssembly/binaryen/blob/main/README.md>, <https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp>
 - Parser/config/glob code: [`../../../src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt), [`../../../src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt)
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)

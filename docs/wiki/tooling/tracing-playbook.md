@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../raw/research/0001-2026-03-10-tracing.md
   - ../../../src/cmd/cmd.mbt
   - ../../../src/passes/perf.mbt
@@ -29,7 +28,7 @@ Starshine has two trace-like surfaces that serve different jobs:
 1. **Command / optimizer tracing** from the runtime CLI: `starshine --tracing <pass|phase|helper> ...`, `STARSHINE_TRACING`, or config `tracing` enable stderr lines prefixed with `[trace]`. This surface explains what the command read, which pass/debug steps it scheduled, what optimizer segment ran, and selected optimizer performance counters.
 2. **Validator trace benchmarking** from `bun validate trace-benchmark ...` / `moon run src/validate_trace -- ...`. This surface runs fixed in-repo validator corpora and prints `phase_totals`, `helper_totals`, and `hotspots` blocks for regression triage.
 
-The current source bridge is [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md). Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for runtime CLI precedence and debug-limit behavior, [`validation-gates.md`](./validation-gates.md) for `bun validate trace-benchmark` command syntax, and [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for the fixed benchmark corpus map and baseline policy.
+Current tracing and benchmark ownership is grounded in the local command, optimizer-perf, validator-trace, wrapper, and test sources listed below. Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for runtime CLI precedence and debug-limit behavior, [`validation-gates.md`](./validation-gates.md) for `bun validate trace-benchmark` command syntax, and [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for the fixed benchmark corpus map and baseline policy.
 
 ## Durable Rules
 
@@ -115,7 +114,6 @@ When tracing changes:
 
 ## Sources
 
-- Current source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
 - Archived tracing research: [`../raw/research/0001-2026-03-10-tracing.md`](../raw/research/0001-2026-03-10-tracing.md)
 - Runtime command tracing: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - Optimizer perf tracing: [`../../../src/passes/perf.mbt`](../../../src/passes/perf.mbt), [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)

@@ -1,16 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
-  - ../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md
   - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/ir/hot_flags.mbt
   - ../../../src/ir/effects.mbt
+  - ../../../src/passes/memory_packing.mbt
+  - ../../../src/passes/memory_packing_test.mbt
+  - ../../../src/passes/code_pushing.mbt
+  - ../../../src/passes/optimize_instructions.mbt
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/effect-trap-scanner.ts
@@ -33,7 +36,7 @@ A WebAssembly **trap** is what happens when a valid module reaches a runtime fai
 
 Use this page when a page or report says `RuntimeError: unreachable`, `assert_trap`, `traps-never-happen`, `mayTrap`, `equal trap`, `unreachable`, integer divide-by-zero, memory/table/GC bounds failure, null reference trap, or trap-preserving rewrite.
 
-The current source refresh is [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md). It rechecked current WebAssembly Core 3.0 execution/runtime/validation pages, the WebAssembly JavaScript API, MDN host-facing references, and Starshine's validator, HOT/effect, fuzz, and compare-pass code paths. The focused trap-mode routing bridge [`../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md) adds the current Starshine CLI/config split from Binaryen's upstream `traps-never-happen` optimization assumption.
+The current source refresh is [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md). It rechecked current WebAssembly Core 3.0 execution/runtime/validation pages, the WebAssembly JavaScript API, MDN host-facing references, and Starshine's validator, HOT/effect, fuzz, and compare-pass code paths. Current Starshine CLI/config routing is grounded directly in the local CLI, command, optimizer, and effect sources listed below; Binaryen's upstream `traps-never-happen` assumption remains a separate oracle concern.
 
 ## Beginner Model
 
@@ -102,10 +105,10 @@ Starshine accepts trap-mode vocabulary so command lines and configs can stay clo
 | --- | --- | --- |
 | CLI flags | [`src/cli/cli.mbt`](../../../src/cli/cli.mbt) parses `--trap-mode <allow|never>`, longer values `traps-may-happen` / `traps-never-happen`, and aliases `--traps-never-happen` / `--traps-may-happen`. The last trap-mode flag wins. | Keep these flags out of the scheduled pass list; [`src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt) locks that boundary. |
 | Config/env merge | [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) resolves trap mode with CLI > environment > config precedence, accepts config spellings such as `trapMode` / `trap-mode` and `trapsNeverHappen` / `traps-never-happen`, stores the result in `OptimizeOptions`, and records it in summaries and repro hints. | Update [`../tooling/cli-command-and-dispatcher.md`](../tooling/cli-command-and-dispatcher.md) and command tests if this merge or report shape changes. |
-| Optimizer semantics | As of the 2026-06-04 source check, no current Starshine pass implementation consumes `OptimizeOptions.traps_never_happen` to relax rewrites. Local passes still rely on conservative `HOT_FLAG_MAY_TRAP` / `EFFECT_MASK_TRAP` facts unless a pass-specific page says otherwise. | Do not classify a Starshine transform as TNH-enabled just because the command accepted `--traps-never-happen`. Add pass-specific tests and docs before using the option as semantic evidence. |
-| Binaryen oracle | Binaryen has a real `trapsNeverHappen` optimizer option, and several upstream pass dossiers document TNH-specific behavior. | Keep Binaryen strategy claims separate from current Starshine parity claims. A future local TNH implementation must update the affected pass dossier, this page, compare-pass classification guidance, and the raw source bridge together. |
+| Optimizer semantics | Current local sources show that `memory-packing`, `code-pushing`, and `optimize-instructions` consume `traps_never_happen` for documented trap-relaxed rewrites; for example, `memory-packing` can drop otherwise trap-preserving active zero data under TNH, with focused coverage. Other passes remain trap-preserving unless their own owner source and tests prove a TNH path. | Do not classify a transform as TNH-enabled merely because the command accepted `--traps-never-happen`; cite the pass-specific implementation and tests. |
+| Binaryen oracle | Binaryen has a real `trapsNeverHappen` optimizer option, and several upstream pass dossiers document TNH-specific behavior. | Keep Binaryen strategy claims separate from current Starshine parity claims. A future local TNH implementation must update the affected pass dossier, this page, compare-pass classification guidance, and the relevant owner/test citations together. |
 
-Default Starshine semantics should therefore be described as **traps may happen / trap-preserving**. `--traps-never-happen` is currently command/config/report vocabulary plus future pass-option plumbing, not a global validator setting and not a blanket permission to delete or reorder trap producers.
+Default Starshine semantics should therefore be described as **traps may happen / trap-preserving**. `--traps-never-happen` is not a global validator setting or blanket permission to delete or reorder trap producers, but it does enable the documented pass-local TNH paths in passes that consume the option.
 
 ## Compare-Pass And Runtime Smoke Guidance
 
@@ -154,7 +157,6 @@ When a pass, generator, or investigation touches trap-sensitive behavior:
 ## Sources
 
 - Current source refresh: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
-- Trap-mode routing refresh: [`../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](../raw/validation/2026-06-04-trap-mode-routing-source-refresh.md)
 - Earlier focused source note: [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/exec/runtime.html#syntax-trap>, <https://webassembly.github.io/spec/core/exec/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://www.w3.org/TR/wasm-js-api-2/>
 - Host-facing references checked: <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/RuntimeError>, <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Control_flow/unreachable>

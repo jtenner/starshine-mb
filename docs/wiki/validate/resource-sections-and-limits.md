@@ -18,7 +18,6 @@ sources:
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
-  - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/invalid_fuzzer.mbt

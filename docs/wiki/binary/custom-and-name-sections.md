@@ -11,7 +11,6 @@ sources:
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/wasm/2026-05-20-name-section-label-subsection-correction.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
-  - ../raw/wasm/2026-05-13-custom-and-name-section-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -199,7 +198,6 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - Label-subsection correction: [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md)
 - Earlier table/memory/global/element/data correction, now superseded for the label-subsection detail: [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md)
-- Earlier superseded source snapshot: [`../raw/wasm/2026-05-13-custom-and-name-section-sources.md`](../raw/wasm/2026-05-13-custom-and-name-section-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and invalid generation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)

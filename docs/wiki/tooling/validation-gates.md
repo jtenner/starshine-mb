@@ -8,7 +8,6 @@ sources:
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
   - https://docs.moonbitlang.com/en/latest/language/verification.html
   - https://moonbitlang.github.io/moon/commands.html
-  - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../../README.md
   - ../../../AGENTS.md
   - ../../../package.json
@@ -132,7 +131,7 @@ In CI (`CI=true`), an increased uncovered-line count versus the baseline is fata
 moon run --target <target> src/validate_trace -- --repeat <n> --corpus <name> ...
 ```
 
-Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines, and use the 2026-06-04 source refresh in [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md) for the current corpus/test/wrapper evidence plus the runtime tracing split. Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
+Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines; current corpus, test, wrapper, and runtime-tracing evidence is the local source/test set listed below and in [`tracing-playbook.md`](tracing-playbook.md). Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
 
 ## Self-Optimized Artifact Gate
 
@@ -184,7 +183,6 @@ Practical rules:
 ## Sources
 
 - Official MoonBit [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html), [formal verification](https://docs.moonbitlang.com/en/latest/language/verification.html), and [command manual](https://moonbitlang.github.io/moon/commands.html)
-- Current tracing and validation trace benchmark source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
 - Official wasm-tools README: [validation examples](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#examples) and [proposal feature defaults](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#webassembly-proposals)
 - Repo validation rules: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)

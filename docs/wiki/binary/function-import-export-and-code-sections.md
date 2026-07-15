@@ -10,7 +10,6 @@ sources:
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-function-code-section-source-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
-  - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -67,7 +66,7 @@ Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L369)
 | Start | `8` | [`StartSec(FuncIdx)`](../../../src/lib/types.mbt#L463). | Target function exists and has no params/results. |
 | Code | `10` | [`CodeSec(Array[Func])`](../../../src/lib/types.mbt#L509). | Body vector length equals `FuncSec` length; body ordinal `i` belongs to absolute function index `imported_func_count + i`; each body is locals plus an expression whose binary instruction details are covered in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
 
-The current source refresh in [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md) rechecks the official WebAssembly 3.0 module, binary, validation, and text sources behind this table. The earlier broader snapshot [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md) remains the surrounding function/import/export/start context.
+The current source refresh in [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md) rechecks the official WebAssembly 3.0 module, binary, validation, and text sources behind this table, while the focused start and `ref.func` corrections cited below cover the surrounding context.
 
 ## Imported-Prefix Function Index Model
 
@@ -222,7 +221,6 @@ Existing pass dossiers that depend on this checklist include:
 - Binaryen `remove-imports` source read: [`../raw/binaryen/2026-07-10-remove-imports-current-source-read.md`](../raw/binaryen/2026-07-10-remove-imports-current-source-read.md)
 - Function/code primary-source refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)
 - Focused start-section refresh: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
-- Broader primary-source snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and proof helpers: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate_proof/func_index.mbt`](../../../src/validate_proof/func_index.mbt)

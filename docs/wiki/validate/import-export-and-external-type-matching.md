@@ -8,7 +8,6 @@ sources:
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
-  - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../src/validate/validate.mbt
@@ -179,7 +178,6 @@ When a pass, generator, or fixture changes import/export structure:
 - Current source manifest: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
 - Previous source manifest: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Module-validation phase snapshot: [`../raw/wasm/2026-05-13-module-validation-phase-sources.md`](../raw/wasm/2026-05-13-module-validation-phase-sources.md)
-- Function/import/export snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - WAST resource declaration snapshot: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
 - Resource-section validation snapshot: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Validation implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)

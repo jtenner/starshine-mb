@@ -7,7 +7,6 @@ sources:
   - ../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
-  - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -221,7 +220,6 @@ A faithful text fix should be test-first:
 - Earlier focused source refresh: [`../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md`](../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md)
 - Aggregate/initializer boundary: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Earlier element-source refresh: [`../raw/wasm/2026-05-19-wast-element-segment-sources.md`](../raw/wasm/2026-05-19-wast-element-segment-sources.md)
-- Broader data/element/data-count source snapshot: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md)
 - WAST parser AST and element parser: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)
 - WAST lowerer: [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

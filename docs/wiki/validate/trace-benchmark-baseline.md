@@ -3,7 +3,6 @@ kind: comparison
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../raw/research/0010-2026-03-18-validate-trace-baseline.md
   - ../../../src/validate_trace/main.mbt
   - ../../../src/validate_trace/main_wbtest.mbt
@@ -23,7 +22,7 @@ related:
 
 ## Overview
 
-The validation trace benchmark is Starshine's stable way to watch **where validator time goes** across a small checked-in corpus set. It is not a portable wall-clock benchmark. The durable facts are the emitted `phase_totals`, `helper_totals`, corpus names, and hotspot shapes captured in [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md), refreshed against current trace, wrapper, and corpus source ownership in [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md).
+The validation trace benchmark is Starshine's stable way to watch **where validator time goes** across a small checked-in corpus set. It is not a portable wall-clock benchmark. The durable facts are the emitted `phase_totals`, `helper_totals`, corpus names, and hotspot shapes captured in [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md), with current trace, wrapper, and corpus ownership grounded in the local sources and tests listed below.
 
 Use this page when a validator change might move work between phases, add a new validation phase, change function-body scanning cost, or alter the `ref.func` declaration-source model. Use [`module-validation-phases.md`](module-validation-phases.md) for the canonical phase order and trace-line vocabulary, [`../tooling/validation-gates.md`](../tooling/validation-gates.md) for command syntax, and [`../tooling/tracing-playbook.md`](../tooling/tracing-playbook.md) for the shared tracing contract.
 
@@ -118,7 +117,6 @@ When a trace run changes:
 
 ## Sources
 
-- Current tracing/benchmark source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
 - Archived benchmark snapshot: [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md)
 - Trace benchmark entrypoint and tests: [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt), [`../../../src/validate_trace/main_wbtest.mbt`](../../../src/validate_trace/main_wbtest.mbt)
 - Validator trace implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
