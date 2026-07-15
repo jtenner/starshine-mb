@@ -5,7 +5,6 @@ last_reviewed: 2026-06-02
 sources:
   - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
-  - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
   - ../../../scripts/lib/build-self-optimized.mjs
   - ../../../scripts/lib/self-optimized-artifacts.mjs
   - ../../../scripts/lib/o4z-debug-startup-map.test.ts
@@ -57,7 +56,6 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 - Archived research note: [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md)
 - Runtime-trap semantics guide: [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md)
 - Runtime-trap source refresh: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
-- Earlier focused source note: [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md)
 - Build pipeline: [`../../../scripts/lib/build-self-optimized.mjs`](../../../scripts/lib/build-self-optimized.mjs)
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)
 - Active reduced guard: [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts)

@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md
-  - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -45,7 +44,7 @@ These instructions are "parametric" because their core behavior is about stack v
 
 Ordinary control-flow labels, `br_if` fallthrough payloads, loop parameters, and `br_table` stay in [`control-flow-authoring.md`](control-flow-authoring.md). The validator-side bottom-value contract for unreachable-code stack polymorphism lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). This page focuses on the parametric stack shapes and the places where Starshine's current implementation is wider than the current official validation text.
 
-The latest primary-source and local-code refresh is [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md), which rechecked the official WebAssembly 3.0 pages dated 2026-06-03. The earlier May 20 manifest remains useful provenance for the original page split: [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md).
+The latest primary-source and local-code refresh is [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md), which rechecked the official WebAssembly 3.0 pages dated 2026-06-03.
 
 ## Beginner Mental Model
 
@@ -163,7 +162,6 @@ This shape is useful as a local regression surface for Starshine's vector-valued
 ## Source Map
 
 - Current primary-source and local-code refresh: [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md)
-- Original primary-source and local-code manifest: [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and matching: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)

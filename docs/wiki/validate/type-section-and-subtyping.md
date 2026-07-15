@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
-  - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../../../src/lib/types.mbt
@@ -191,7 +190,6 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 ## Sources
 
 - Current source bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
-- Older WAST type-use and subtype source bridge: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
 - Current custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Current custom-descriptor status bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)

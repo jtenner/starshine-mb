@@ -40,4 +40,4 @@
 
 ## Supersession
 
-This note supersedes the source-freshness layer of `2026-05-20-wast-gc-typeuse-and-subtype-sources.md` and `2026-05-20-type-section-validation-and-subtyping-refresh.md` where they describe the current official page date or say final-supertype enforcement is not yet documented by local evidence. Those older manifests remain useful provenance for the original WAST type-use page split, recursive-group flat-index bug class, and initial subtype validation audit.
+This note supersedes the source-freshness layer of the retired initial WAST type-use bridge and `2026-05-20-type-section-validation-and-subtyping-refresh.md` where they describe the current official page date or say final-supertype enforcement is not yet documented by local evidence. Its retained repository evidence covers the original WAST type-use page split, recursive-group flat-index bug class, and subtype validation audit.

@@ -14,7 +14,6 @@ sources:
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
-  - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md

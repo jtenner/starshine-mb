@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
-  - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/validate.mbt
@@ -157,6 +156,5 @@ When a pass, generator, or investigation touches trap-sensitive behavior:
 ## Sources
 
 - Current source refresh: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
-- Earlier focused source note: [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/exec/runtime.html#syntax-trap>, <https://webassembly.github.io/spec/core/exec/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://www.w3.org/TR/wasm-js-api-2/>
 - Host-facing references checked: <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/RuntimeError>, <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Control_flow/unreachable>

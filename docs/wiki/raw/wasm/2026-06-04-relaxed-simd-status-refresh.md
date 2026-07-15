@@ -1,7 +1,7 @@
 # Relaxed SIMD status refresh
 
 _Capture date:_ 2026-06-04  
-_Status:_ immutable primary-source bridge for [`../../wasm-feature-status-and-proposal-boundaries.md`](../../wasm-feature-status-and-proposal-boundaries.md) and [`../../wast/simd-authoring.md`](../../wast/simd-authoring.md), updating the status-routing layer for the already-filed relaxed-SIMD spelling/arity source bridge [`2026-05-20-wast-relaxed-simd-spellings.md`](2026-05-20-wast-relaxed-simd-spellings.md).
+_Status:_ immutable primary-source bridge for [`../../wasm-feature-status-and-proposal-boundaries.md`](../../wasm-feature-status-and-proposal-boundaries.md) and [`../../wast/simd-authoring.md`](../../wast/simd-authoring.md), updating the status-routing layer for the retired relaxed-SIMD spelling/arity capture.
 
 ## Scope
 

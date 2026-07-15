@@ -2,7 +2,7 @@
 
 - Capture date: 2026-06-04
 - Source family: WebAssembly Core 3.0 execution/runtime semantics plus WebAssembly JavaScript host-surface semantics, checked to turn the earlier `RuntimeError: unreachable` note into reusable wiki guidance.
-- Supersedes/extends: [`2026-06-02-runtimeerror-unreachable-trap-sources.md`](2026-06-02-runtimeerror-unreachable-trap-sources.md) for general wiki routing. The older note remains useful provenance for the `o4z` startup investigation.
+- Supersedes/extends the retired focused `RuntimeError: unreachable` capture for general wiki routing. The retained `o4z` research and living trap guide preserve the startup-investigation provenance.
 
 ## Primary sources checked
 

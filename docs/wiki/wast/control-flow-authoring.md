@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
-  - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -197,7 +196,7 @@ When a pass, generator, or fixture change touches ordinary control flow:
 
 ## Source Map
 
-- Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md), [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
+- Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md), [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)

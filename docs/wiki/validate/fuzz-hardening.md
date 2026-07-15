@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
-  - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
   - https://webassembly.github.io/spec/core/valid/index.html
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md
@@ -140,7 +139,7 @@ The key invariant is that coverage means **the intended strategy ran and reached
 
 - Archived research doc: [`../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`](../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md)
 - Completed execution plan / historical slice ledger: [`../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md)
-- WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
+- WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md)
 - Diagnostic-family and invalid-repro contract: [WebAssembly 3.0 validation overview](https://webassembly.github.io/spec/core/valid/index.html), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
 - LEB128 binary-integer source refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
 - Active follow-up backlog, if any: [`../../../agent-todo.md`](../../../agent-todo.md)

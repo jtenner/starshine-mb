@@ -14,7 +14,6 @@ sources:
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - https://webassembly.github.io/spec/core/valid/index.html
-  - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html

@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
-  - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
