@@ -61430,6 +61430,73 @@ fn run_hot_pipeline_dae_try_collapse_residual_four_field_aggregate_spill(
 }
 
 ///|
+// SimplifyLocals can sink a one-use call result through intervening local.get
+// arguments: direct calls cannot observe or mutate caller locals, so moving
+// those pure gets before the producer preserves effects and value dominance.
+fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if idx + 10 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+    ) {
+    (
+      @lib.LocalGet(producer_arg0),
+      @lib.LocalGet(producer_arg1),
+      @lib.Call(producer),
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(consumer_arg0),
+      @lib.LocalGet(consumer_arg1),
+      @lib.LocalGet(consumer_arg2),
+      @lib.LocalGet(consumer_arg3),
+      @lib.LocalGet(readback),
+      @lib.Call(consumer),
+      @lib.Br(label),
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      if target_idx < 0 ||
+        target_idx >= local_gets.length() ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some([
+        @lib.Instruction::local_get(consumer_arg0),
+        @lib.Instruction::local_get(consumer_arg1),
+        @lib.Instruction::local_get(consumer_arg2),
+        @lib.Instruction::local_get(consumer_arg3),
+        @lib.Instruction::local_get(producer_arg0),
+        @lib.Instruction::local_get(producer_arg1),
+        @lib.Instruction::call(producer),
+        @lib.Instruction::call(consumer),
+        @lib.Instruction::br(label),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   instrs : Array[@lib.Instruction],
   param_count : Int,
@@ -61443,6 +61510,20 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
+        instrs, idx, local_gets, local_sets, local_tees,
+      ) {
+      Some(replacement) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += 11
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_collapse_two_field_aggregate_spill(
         instrs, idx, local_types, local_gets, local_sets, local_tees,

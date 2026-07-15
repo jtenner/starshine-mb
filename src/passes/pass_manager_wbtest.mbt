@@ -19732,6 +19732,47 @@ test "DAEO selected cleanup flattens an exact four-result fallthrough block" {
 }
 
 ///|
+test "DAEO selected cleanup sinks a one-use call result through pure terminal arguments" {
+  let target = @lib.LocalIdx::new(7U)
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+  ]
+  let local_gets = [1, 1, 1, 1, 0, 1, 1, 1]
+  let local_sets = [0, 0, 0, 0, 0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
+      body, 0, local_gets, local_sets, local_tees,
+    ) {
+    Some(value) => value
+    None => fail("expected one-use call-result sinking")
+  }
+  @debug.assert_eq(local_gets, [1, 1, 1, 1, 0, 1, 1, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
