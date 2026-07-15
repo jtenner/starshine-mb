@@ -6607,6 +6607,53 @@ test "flatten rewrite multivalue br_if flow uses pre-mutation exact site cache" 
 }
 
 ///|
+test "flatten rewrite scalar br_if flow uses pre-mutation exact site cache" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  @ir.hot_control_result_type_set(
+    func,
+    block_id,
+    @ir.hot_type_intern_results(func, [@lib.ValType::i32()]),
+  )
+  let value_id = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let branch_id = @ir.hot_build_br_if(
+    func,
+    @ir.hot_control_node_label(func, block_id),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[value_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    branch_id, value_id,
+  ])
+  @ir.hot_root_append(func, block_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_scalar_br_if_flow_sites(
+      func,
+      branch_id,
+      value_id,
+      state=Some(state),
+    )
+    is Some(_),
+  )
+  let extra_drop = @ir.hot_build_drop(func, value_id)
+  @ir.hot_root_append(func, extra_drop)
+  state.rewrites_started = true
+  let local_id = @ir.hot_append_body_local(func, @lib.ValType::i32())
+  assert_true(
+    flatten_replace_cached_flowing_value_uses(
+      func, state, branch_id, value_id, local_id,
+    ),
+  )
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, 1)).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, extra_drop, 0), value_id)
+}
+
+///|
 test "flatten rewrite scalar try flow uses pre-mutation ownership counts" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(

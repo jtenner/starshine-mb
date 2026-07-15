@@ -302,6 +302,9 @@ priv struct FlattenRewriteState {
   tuple_br_if_flows : Array[Array[Int]?]
   multivalue_br_if_flow_cached : Array[Bool]
   multivalue_br_if_flows : Array[Array[Int]?]
+  scalar_br_if_flow_values : Array[Int]
+  scalar_br_if_flow_sites : Array[Array[Int]?]
+  scalar_flow_replacements : Array[Int]
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
   terminal_table_labels : Array[Int]
@@ -338,6 +341,9 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     tuple_br_if_flows: Array::make(@ir.hot_node_count(func), None),
     multivalue_br_if_flow_cached: Array::make(@ir.hot_node_count(func), false),
     multivalue_br_if_flows: Array::make(@ir.hot_node_count(func), None),
+    scalar_br_if_flow_values: Array::make(@ir.hot_node_count(func), -1),
+    scalar_br_if_flow_sites: Array::make(@ir.hot_node_count(func), None),
+    scalar_flow_replacements: Array::make(@ir.hot_node_count(func), -1),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
     terminal_table_labels: Array::make(@ir.hot_node_count(func), -1),
@@ -3002,6 +3008,22 @@ fn flatten_loop_backedge_payloads_are_supported(
       return false
     }
   }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::BrIf if payload_count == 1 => {
+      let value_id = @ir.hot_child_get(func, node_id, 0)
+      let flow_sites = match state {
+        Some(state) if state.rewrites_started =>
+          flatten_rewrite_scalar_br_if_flow_sites(
+            func, state, node_id, value_id,
+          )
+        _ => flatten_scalar_br_if_flow_sites(func, node_id, value_id, state~)
+      }
+      if flow_sites is None {
+        return false
+      }
+    }
+    _ => ()
+  }
   true
 }
 
@@ -4190,6 +4212,179 @@ fn flatten_rewrite_scalar_try_br_if_flow_is_exact(
 }
 
 ///|
+fn flatten_scalar_br_if_current_flow_sites(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  value_id : Int,
+  cached_sites : Array[Int],
+) -> Array[Int]? {
+  if cached_sites.length() % 2 != 0 ||
+    @ir.hot_child_count(func, branch_id) < 1 ||
+    @ir.hot_child_get(func, branch_id, 0) != value_id {
+    return None
+  }
+  let parents : Array[Int] = []
+  let expected_counts : Array[Int] = []
+  for site = 0; site < cached_sites.length(); site = site + 2 {
+    let parent_id = cached_sites[site]
+    let mut parent_idx = -1
+    for i = 0; i < parents.length(); i = i + 1 {
+      if parents[i] == parent_id {
+        parent_idx = i
+      }
+    }
+    if parent_idx < 0 {
+      parents.push(parent_id)
+      expected_counts.push(1)
+    } else {
+      expected_counts[parent_idx] = expected_counts[parent_idx] + 1
+    }
+  }
+  let current_sites : Array[Int] = []
+  for parent_idx = 0; parent_idx < parents.length(); parent_idx = parent_idx + 1 {
+    let parent_id = parents[parent_idx]
+    let mut found = 0
+    if parent_id < 0 {
+      for root_idx = 0
+          root_idx < @ir.hot_root_count(func)
+          root_idx = root_idx + 1 {
+        if @ir.hot_root_get(func, root_idx) == value_id {
+          current_sites.push(-1)
+          current_sites.push(root_idx)
+          found = found + 1
+        }
+      }
+    } else {
+      if !@ir.hot_node_is_live(func, parent_id) {
+        return None
+      }
+      for slot = 0; slot < @ir.hot_child_count(func, parent_id); slot = slot + 1 {
+        if @ir.hot_child_get(func, parent_id, slot) == value_id &&
+          !(parent_id == branch_id && slot == 0) {
+          current_sites.push(parent_id)
+          current_sites.push(slot)
+          found = found + 1
+        }
+      }
+    }
+    if found != expected_counts[parent_idx] {
+      return None
+    }
+  }
+  Some(current_sites)
+}
+
+///|
+fn flatten_locate_scalar_br_if_flow_sites(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  value_id : Int,
+) -> Array[Int]? {
+  if branch_id < 0 ||
+    branch_id >= @ir.hot_node_count(func) ||
+    !@ir.hot_node_is_live(func, branch_id) ||
+    @ir.hot_child_count(func, branch_id) < 1 ||
+    @ir.hot_child_get(func, branch_id, 0) != value_id {
+    return None
+  }
+  let sites : Array[Int] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      if @ir.hot_child_get(func, node_id, slot) == value_id &&
+        !(node_id == branch_id && slot == 0) {
+        sites.push(node_id)
+        sites.push(slot)
+      }
+    }
+  }
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    if @ir.hot_root_get(func, root_idx) == value_id {
+      sites.push(-1)
+      sites.push(root_idx)
+    }
+  }
+  Some(sites)
+}
+
+///|
+fn flatten_scalar_br_if_flow_sites(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  value_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Array[Int]? {
+  let cached_sites = match state {
+    Some(state) => {
+      if branch_id < 0 || branch_id >= state.scalar_br_if_flow_sites.length() {
+        return None
+      }
+      if state.scalar_br_if_flow_values[branch_id] >= 0 {
+        if state.scalar_br_if_flow_values[branch_id] != value_id {
+          return None
+        }
+        state.scalar_br_if_flow_sites[branch_id]
+      } else {
+        if state.rewrites_started {
+          return None
+        }
+        let sites = flatten_locate_scalar_br_if_flow_sites(
+          func, branch_id, value_id,
+        )
+        match sites {
+          Some(_) => {
+            state.scalar_br_if_flow_values[branch_id] = value_id
+            state.scalar_br_if_flow_sites[branch_id] = sites
+          }
+          None => ()
+        }
+        sites
+      }
+    }
+    None => flatten_locate_scalar_br_if_flow_sites(func, branch_id, value_id)
+  }
+  let sites = match cached_sites {
+    Some(sites) => sites
+    None => return None
+  }
+  flatten_scalar_br_if_current_flow_sites(func, branch_id, value_id, sites)
+}
+
+///|
+fn flatten_rewrite_scalar_br_if_flow_sites(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  branch_id : Int,
+  value_id : Int,
+) -> Array[Int]? {
+  if !state.rewrites_started ||
+    branch_id < 0 ||
+    branch_id >= state.scalar_br_if_flow_values.length() ||
+    state.scalar_br_if_flow_values[branch_id] < 0 {
+    return None
+  }
+  let cached_value = state.scalar_br_if_flow_values[branch_id]
+  if @ir.hot_child_count(func, branch_id) < 1 {
+    return None
+  }
+  let current_value = @ir.hot_child_get(func, branch_id, 0)
+  if current_value != cached_value {
+    if cached_value < 0 ||
+      cached_value >= state.scalar_flow_replacements.length() ||
+      state.scalar_flow_replacements[cached_value] != current_value {
+      return None
+    }
+    return Some([])
+  }
+  if value_id != cached_value {
+    return None
+  }
+  flatten_scalar_br_if_flow_sites(func, branch_id, value_id, state=Some(state))
+}
+
+///|
 fn flatten_target_can_route_scalar_branches(
   func : @ir.HotFunc,
   label_id : Int,
@@ -4295,6 +4490,17 @@ fn flatten_target_can_route_scalar_branches(
             }
           }
           _ => ()
+        }
+        let flow_sites = match state {
+          Some(state) if state.rewrites_started =>
+            flatten_rewrite_scalar_br_if_flow_sites(
+              func, state, branch_id, value_id,
+            )
+          _ =>
+            flatten_scalar_br_if_flow_sites(func, branch_id, value_id, state~)
+        }
+        if flow_sites is None {
+          return false
         }
       }
       @ir.HotOp::BrOnNull
@@ -5294,6 +5500,38 @@ fn flatten_try_route_br(
 }
 
 ///|
+fn flatten_replace_cached_flowing_value_uses(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  branch_id : Int,
+  value_id : Int,
+  local_id : Int,
+) -> Bool {
+  let sites = match
+    flatten_rewrite_scalar_br_if_flow_sites(func, state, branch_id, value_id) {
+    Some(sites) => sites
+    None => return false
+  }
+  if sites.is_empty() {
+    return false
+  }
+  let replacement = @ir.hot_build_local_get(func, local_id)
+  for site = 0; site < sites.length(); site = site + 2 {
+    let parent_id = sites[site]
+    let slot = sites[site + 1]
+    if parent_id < 0 {
+      @ir.hot_root_set(func, slot, replacement)
+    } else {
+      @ir.hot_child_set(func, parent_id, slot, replacement)
+    }
+  }
+  if value_id >= 0 && value_id < state.scalar_flow_replacements.length() {
+    state.scalar_flow_replacements[value_id] = replacement
+  }
+  true
+}
+
+///|
 fn flatten_replace_flowing_value_uses(
   func : @ir.HotFunc,
   branch_id : Int,
@@ -5565,14 +5803,26 @@ fn flatten_try_route_scalar_br_if(
       }
       for slot = 0; slot < payload_count; slot = slot + 1 {
         let payload_id = @ir.hot_child_get(func, node_id, slot)
-        ignore(
-          flatten_replace_flowing_value_uses(
-            func,
-            node_id,
-            payload_id,
-            locals[slot],
-          ),
-        )
+        if payload_count == 1 {
+          ignore(
+            flatten_replace_cached_flowing_value_uses(
+              func,
+              state,
+              node_id,
+              payload_id,
+              locals[slot],
+            ),
+          )
+        } else {
+          ignore(
+            flatten_replace_flowing_value_uses(
+              func,
+              node_id,
+              payload_id,
+              locals[slot],
+            ),
+          )
+        }
         preludes.push(@ir.hot_build_local_set(func, locals[slot], payload_id))
       }
       let condition_id = @ir.hot_child_get(func, node_id, payload_count)
@@ -5615,7 +5865,9 @@ fn flatten_try_route_scalar_br_if(
     @ir.hot_append_body_local(func, value_types[0])
   }
   ignore(
-    flatten_replace_flowing_value_uses(func, node_id, value_id, flow_local),
+    flatten_replace_cached_flowing_value_uses(
+      func, state, node_id, value_id, flow_local,
+    ),
   )
   if flow_local == local_id {
     preludes.push(@ir.hot_build_local_set(func, local_id, value_id))
@@ -6570,10 +6822,10 @@ fn flatten_has_deferred_rich_branch_payload(
           continue
         }
         if child_count == 2 {
-          if !flatten_scalar_branch_payload_has_supported_origin(
-              func,
-              @ir.hot_child_get(func, node_id, 0),
-            ) {
+          let value_id = @ir.hot_child_get(func, node_id, 0)
+          if !flatten_scalar_branch_payload_has_supported_origin(func, value_id) ||
+            flatten_scalar_br_if_flow_sites(func, node_id, value_id, state~)
+            is None {
             return true
           }
           continue
