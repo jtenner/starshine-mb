@@ -1269,7 +1269,8 @@ fn flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
   let instr = match @ir.hot_node_exact_instr(func, binary_id) {
     Some(instr) =>
       match instr {
-        @lib.I32Add | @lib.I32Sub | @lib.I32Mul | @lib.I32And => instr
+        @lib.I32Add | @lib.I32Sub | @lib.I32Mul | @lib.I32And | @lib.I32DivS =>
+          instr
         _ => return None
       }
     None => return None
@@ -1290,7 +1291,7 @@ fn flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
 }
 
 ///|
-fn flatten_try_table_dead_suffix_root_is_direct_nontrapping(
+fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
   func : @ir.HotFunc,
   root_id : Int,
 ) -> Bool {
@@ -1348,7 +1349,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_unreachable_then_drop_const = suffix_count == 2
       let mut exact_add_drop_then_unreachable = suffix_count == 2
       let mut exact_unreachable_then_add_drop = suffix_count == 2
-      let mut all_direct_nontrapping_drops = true
+      let mut all_direct_sequence_roots = true
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1371,10 +1372,10 @@ fn flatten_try_table_dead_suffix_nodes(
         )
         let root_is_direct_add = direct_binary_instr ==
           Some(@lib.Instruction::i32_add())
-        if !flatten_try_table_dead_suffix_root_is_direct_nontrapping(
+        if !flatten_try_table_dead_suffix_root_is_direct_sequence_member(
             func, root_id,
           ) {
-          all_direct_nontrapping_drops = false
+          all_direct_sequence_roots = false
         }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
@@ -1406,7 +1407,7 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_unreachable_then_drop_const &&
         !exact_add_drop_then_unreachable &&
         !exact_unreachable_then_add_drop &&
-        !all_direct_nontrapping_drops {
+        !all_direct_sequence_roots {
         return None
       }
     }

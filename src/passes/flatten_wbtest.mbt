@@ -3880,3 +3880,127 @@ test "flatten keeps a sequence with unsigned i32 extension unsupported after a t
     ),
   )
 }
+
+///|
+fn flatten_wbtest_recognize_middle_divzero_suffix_roots(
+  conversion_first : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let roots = if conversion_first {
+    [
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        9,
+        @lib.ValType::i64(),
+        true,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_div_s(),
+        10,
+        0,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_and(),
+        11,
+        12,
+      ),
+    ]
+  } else {
+    [
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_add(),
+        9,
+        10,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_div_s(),
+        11,
+        0,
+      ),
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i32_clz(),
+        12,
+        @lib.ValType::i32(),
+        false,
+      ),
+    ]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in roots {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-divzero-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_middle_divzero_suffix_roots(false)
+}
+
+///|
+test "flatten recognizes an extend-divzero-and try-table suffix sequence" {
+  flatten_wbtest_recognize_middle_divzero_suffix_roots(true)
+}
+
+///|
+test "flatten keeps a sequence with unsigned division unsupported after a try table" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let division = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_div_u(),
+    11,
+    0,
+  )
+  let clz = flatten_wbtest_build_direct_unary_drop(
+    func,
+    @lib.Instruction::i32_clz(),
+    12,
+    @lib.ValType::i32(),
+    false,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    add[0],
+    division[0],
+    clz[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
