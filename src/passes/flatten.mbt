@@ -1204,6 +1204,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         | Some(@lib.I32Xor)
         | Some(@lib.I32Shl)
         | Some(@lib.I32ShrS)
+        | Some(@lib.I32ShrU)
         | Some(@lib.I32DivS) => true
         _ => false
       }
@@ -5668,6 +5669,7 @@ fn flatten_rewrite_node_operands(
         ) {
         changed = true
       }
+      return changed
     }
     @ir.HotOp::BrTable if @ir.hot_child_count(func, node_id) > 1 => {
       let payload_count = @ir.hot_child_count(func, node_id) - 1
@@ -5689,6 +5691,7 @@ fn flatten_rewrite_node_operands(
         ) {
         changed = true
       }
+      return changed
     }
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
