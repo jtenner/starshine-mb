@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/typecheck_negative_tests.mbt
@@ -30,7 +29,7 @@ WebAssembly validation treats code after a nonfallthrough instruction as **stack
 
 Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction. Use [`runtime-trap-semantics.md`](runtime-trap-semantics.md) for the separate execution-time trap/`RuntimeError`/`mayTrap` vocabulary.
 
-The current Core/Starshine source bridge is [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md). The 2026-06-04 refresh rechecked current WebAssembly Core 3.0 validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests. It found no drift in the core rule, but it sharpens the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
+Official WebAssembly validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests support the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
 
 The 2026-06-05 Relaxed Dead Code Validation bridge, [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), adds an important proposal boundary: active Phase-2 Relaxed Dead Code Validation is a future validator-policy relaxation, not the current Core/Starshine bottom model. Use [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) when a fixture or external tool result depends on skipping stack-dependent checks in dead code beyond ordinary bottom synthesis.
 
@@ -175,7 +174,6 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 
 ## Sources
 
-- Current source refresh: [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md)
 - Relaxed Dead Code Validation proposal boundary: [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md)
 - Runtime trap execution/host boundary: [`runtime-trap-semantics.md`](runtime-trap-semantics.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>

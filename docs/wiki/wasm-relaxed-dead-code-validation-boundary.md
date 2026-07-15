@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
-  - raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../../src/validate/typecheck.mbt
   - ../../src/validate/typecheck_negative_tests.mbt
   - ../../src/validate/validate.mbt

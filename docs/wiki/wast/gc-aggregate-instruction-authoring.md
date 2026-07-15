@@ -8,7 +8,6 @@ sources:
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
   - ../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -135,7 +134,7 @@ Use `struct.get_s` and `struct.get_u` only for packed fields. Plain `struct.get`
       (local.get 0))))
 ```
 
-The atomic get variants consume one struct reference like ordinary `struct.get*`, then push the field value. Plain `struct.atomic.get` is for non-packed fields; packed fields require signed or unsigned variants. Starshine currently prints `seq_cst` / `acq_rel`; it accepts `acqrel` as a compatibility alias, but the 2026-06-04 source snapshot does not document a local `seqcst` alias. Do not infer support for `struct.atomic.set`, aggregate RMW/cmpxchg, or array atomic aggregate instructions from this get-only surface.
+The atomic get variants consume one struct reference like ordinary `struct.get*`, then push the field value. Plain `struct.atomic.get` is for non-packed fields; packed fields require signed or unsigned variants. Starshine currently prints `seq_cst` / `acq_rel`; it accepts `acqrel` as a compatibility alias, and the current parser has no `seqcst` alias. Do not infer support for `struct.atomic.set`, aggregate RMW/cmpxchg, or array atomic aggregate instructions from this get-only surface.
 
 ### Descriptor constructor surface
 
@@ -225,7 +224,6 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 - Constant-expression reconciliation: [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md), which supersedes the earlier local array-constructor admission claim; see also [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 - Shared-Everything Threads boundary refresh: [`../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md), [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md)
 - More Array Constructors boundary refresh: [`../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md), [`../wasm-more-array-constructors-boundary.md`](../wasm-more-array-constructors-boundary.md)
-- Struct atomic get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)

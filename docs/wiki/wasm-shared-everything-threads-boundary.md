@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
-  - raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - ../../src/lib/types.mbt
   - ../../src/wast/struct_atomic_get_surface_test.mbt
@@ -32,7 +31,7 @@ Use this page when a claim mentions **Shared-Everything Threads**, **shared GC h
 
 For beginners: WebAssembly linear memory is a byte array. WebAssembly GC adds typed heap objects such as structs and arrays. Shared-Everything Threads is about making those **typed heap objects** safely shareable between agents. That is why a `struct.atomic.get` claim belongs with GC aggregate/type/effect reasoning, not with the selected-memory `MemArg` rule used by linear-memory atomics.
 
-The current source bridge is [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md), which rechecked the active proposals tracker, the Shared-Everything Threads overview, the already-ingested [`raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md), and current Starshine source. As of this review, Shared-Everything Threads is **active Phase 1 proposal evidence**, not stable Core WebAssembly 3.0.
+The retained [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md), the active proposals tracker, the Shared-Everything Threads overview, and current Starshine source establish that Shared-Everything Threads is **active Phase 1 proposal evidence**, not stable Core WebAssembly 3.0.
 
 ## Boundary Table
 
@@ -111,7 +110,6 @@ Current order spellings are canonicalized to `seq_cst` and `acq_rel`. The parser
 ## Source Map
 
 - Focused boundary refresh: [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md)
-- Struct-atomic-get source snapshot: [`raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Active-proposal routing: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Linear-memory Threads boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md)
 - Linear-memory atomic WAST authoring: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)

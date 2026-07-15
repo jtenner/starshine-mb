@@ -5,7 +5,6 @@ last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md
   - raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
-  - raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - wasm-js-string-builtins-boundary.md
   - wast/string-instruction-authoring.md
   - tooling/node-package-surface.md
@@ -124,6 +123,6 @@ If Starshine implements either proposal later:
 
 - Boundary refresh: [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md)
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md), [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
-- Stringref/local instruction pages: [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), [`raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
+- Stringref/local instruction pages: [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md)
 - Node/package page: [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`../../node/internal/runtime.js`](../../node/internal/runtime.js)
 - Binaryen string pass dossiers: [`binaryen/passes/string-lowering/index.md`](binaryen/passes/string-lowering/index.md), [`binaryen/passes/string-lifting/index.md`](binaryen/passes/string-lifting/index.md)

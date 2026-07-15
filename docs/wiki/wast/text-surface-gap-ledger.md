@@ -8,7 +8,6 @@ sources:
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
   - ../raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md
-  - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md

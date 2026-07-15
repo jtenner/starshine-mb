@@ -10,12 +10,10 @@ sources:
   - ../../../src/wast/arbitrary.mbt
   - ../../../src/wast/fuzz_tests.mbt
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
-  - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
 related:
   - ../wast/control-flow-authoring.md

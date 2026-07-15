@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/research/0052-2026-03-22-string-const-surface.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../binary/type-table-memory-global-tag-sections.md
@@ -43,7 +42,7 @@ related:
 - Preserve literal bytes exactly through lowering, validation, and binary roundtrip; later string work depends on literal identity, not just section indices.
 - Keep the local string-literal section stable and deterministic during encode.
 - Do not call `StringRefsSec` an imported-string-constants mechanism. Imported string constants are host/JS API globals selected by a compile option; `StringRefsSec` is Starshine's module-local literal pool for `string.const`.
-- When documenting binary layout, link to [`../binary/module-section-map.md`](../binary/module-section-map.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), and the 2026-06-04 source refresh so the section-id-`14` proposal-versus-core caveat stays visible.
+- When documenting binary layout, link to [`../binary/module-section-map.md`](../binary/module-section-map.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), and the active Reference-Typed Strings proposal so the section-id-`14` proposal-versus-core caveat stays visible.
 - Use [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) for array-backed string new/encode helper stack shapes, storage-width checks, and WAST arbitrary/generator coverage boundaries.
 - The next meaningful follow-up for this literal-pool page is `StringGathering`, not more literal-plumbing variations.
 
@@ -51,7 +50,7 @@ related:
 
 - Archived research doc: [`../raw/research/0052-2026-03-22-string-const-surface.md`](../raw/research/0052-2026-03-22-string-const-surface.md)
 - JS String Builtins boundary refresh: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
-- Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
+- Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Core binary section boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../binary/module-section-map.md`](../binary/module-section-map.md)
 - WAST string instruction companion: [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md)
 - Constant-expression validator companion: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)

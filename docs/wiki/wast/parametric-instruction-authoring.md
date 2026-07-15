@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -44,7 +43,7 @@ These instructions are "parametric" because their core behavior is about stack v
 
 Ordinary control-flow labels, `br_if` fallthrough payloads, loop parameters, and `br_table` stay in [`control-flow-authoring.md`](control-flow-authoring.md). The validator-side bottom-value contract for unreachable-code stack polymorphism lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). This page focuses on the parametric stack shapes and the places where Starshine's current implementation is wider than the current official validation text.
 
-The latest primary-source and local-code refresh is [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md), which rechecked the official WebAssembly 3.0 pages dated 2026-06-03.
+Official WebAssembly Core syntax, text, binary, validation, and execution pages plus the local parser, codec, and typechecker are the sources for this page's portable-versus-local `select` boundary.
 
 ## Beginner Mental Model
 
@@ -147,7 +146,7 @@ Starshine's core model and binary codec store typed-select annotations as `Array
     select (result i32 i64)))
 ```
 
-This shape is useful as a local regression surface for Starshine's vector-valued `Select(Some(...))` plumbing, but it is not a safe portable WAST fixture today. The 2026-06-04 refresh confirms that the current official validation page still presents typed select as an optional single value type and notes that multi-value select may be allowed in the future, even though the binary/text representation carries a vector-like annotation. Keep that contradiction visible in docs and tests instead of silently treating local support as upstream-stable WebAssembly.
+This shape is useful as a local regression surface for Starshine's vector-valued `Select(Some(...))` plumbing, but it is not a safe portable WAST fixture today. The official validation page still presents typed select as an optional single value type and notes that multi-value select may be allowed in the future, even though the binary/text representation carries a vector-like annotation. Keep that contradiction visible in docs and tests instead of silently treating local support as upstream-stable WebAssembly.
 
 ## Edge Cases And Rewrite Guidance
 
@@ -161,7 +160,7 @@ This shape is useful as a local regression surface for Starshine's vector-valued
 
 ## Source Map
 
-- Current primary-source and local-code refresh: [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md)
+- Official Core instruction sources: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/exec/instructions.html>
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and matching: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)
