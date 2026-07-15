@@ -61794,9 +61794,9 @@ fn run_hot_pipeline_dae_try_sink_final_two_producer_call_result(
 }
 
 ///|
-// SimplifyLocals can sink a one-use call result through intervening local.get
-// arguments: direct calls cannot observe or mutate caller locals, so moving
-// those pure gets before the producer preserves effects and value dominance.
+// SimplifyLocals can sink one-use direct-call results through intervening pure
+// caller arguments. Exact complete producer slices keep every nested call and
+// operand ordered while direct calls remain unable to observe caller locals.
 fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
   instrs : Array[@lib.Instruction],
   idx : Int,
@@ -61844,7 +61844,7 @@ fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
       }
       local_gets[target_idx] = 0
       local_sets[target_idx] = 0
-      Some([
+      return Some([
         @lib.Instruction::local_get(consumer_arg0),
         @lib.Instruction::local_get(consumer_arg1),
         @lib.Instruction::local_get(consumer_arg2),
@@ -61854,6 +61854,84 @@ fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
         @lib.Instruction::call(producer),
         @lib.Instruction::call(consumer),
         @lib.Instruction::br(label),
+      ])
+    }
+    _ => ()
+  }
+  if idx + 22 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+      instrs[idx + 11],
+      instrs[idx + 12],
+      instrs[idx + 13],
+      instrs[idx + 14],
+      instrs[idx + 15],
+      instrs[idx + 16],
+      instrs[idx + 17],
+      instrs[idx + 18],
+      instrs[idx + 19],
+      instrs[idx + 20],
+      instrs[idx + 21],
+      instrs[idx + 22],
+    ) {
+    (
+      @lib.LocalGet(prefix_arg0),
+      @lib.I32Const(prefix_const),
+      @lib.LocalGet(prefix_arg2),
+      @lib.Call(prefix_call),
+      @lib.LocalGet(producer_arg0),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(producer_arg2),
+      @lib.Call(producer),
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(consumer_arg0),
+      @lib.LocalGet(readback),
+      @lib.Call(_),
+      @lib.Drop,
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.Drop,
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.Drop,
+      @lib.I32Const(@lib.I32(1)),
+      @lib.LocalGet(_),
+      @lib.StructNew(_),
+      @lib.Return,
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      if target_idx < 0 ||
+        target_idx >= local_gets.length() ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some([
+        @lib.Instruction::local_get(consumer_arg0),
+        @lib.Instruction::local_get(prefix_arg0),
+        @lib.Instruction::i32_const(prefix_const),
+        @lib.Instruction::local_get(prefix_arg2),
+        @lib.Instruction::call(prefix_call),
+        @lib.Instruction::local_get(producer_arg0),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_get(producer_arg2),
+        @lib.Instruction::call(producer),
       ])
     }
     _ => None
