@@ -7002,6 +7002,57 @@ test "flatten conditional proof caches allocate only admitted entries" {
 }
 
 ///|
+test "flatten scalar conditional proof caches keep sparse entries sorted" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (drop (block (result i32) i32.const 7 local.get 0 br_if 0 drop i32.const 9)) (drop (block (result i32) i32.const 11 local.get 0 br_if 0 drop i32.const 13)) (drop (block (result i32) i32.const 15 local.get 0 br_if 0 drop i32.const 17))))",
+  )
+  let branch_ids : Array[Int] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrIf => branch_ids.push(node_id)
+      _ => ()
+    }
+  }
+  @debug.assert_eq(branch_ids.length(), 3)
+  let state = FlattenRewriteState::new(func)
+  for index in [2, 0, 1] {
+    let branch_id = branch_ids[index]
+    assert_true(
+      flatten_scalar_br_if_flow_sites(
+        func,
+        branch_id,
+        @ir.hot_child_get(func, branch_id, 0),
+        state=Some(state),
+      )
+      is Some(_),
+    )
+  }
+  @debug.assert_eq(
+    state.scalar_br_if_flow_entries.map(fn(entry) { entry.branch_id }),
+    branch_ids,
+  )
+  state.rewrites_started = true
+  let value_ids = branch_ids.map(fn(branch_id) {
+    @ir.hot_child_get(func, branch_id, 0)
+  })
+  for index in [2, 0, 1] {
+    assert_true(
+      flatten_replace_cached_flowing_value_uses(
+        func,
+        state,
+        branch_ids[index],
+        value_ids[index],
+        @ir.hot_append_body_local(func, @lib.ValType::i32()),
+      ),
+    )
+  }
+  @debug.assert_eq(
+    state.scalar_flow_replacement_entries.map(fn(entry) { entry.value_id }),
+    value_ids,
+  )
+}
+
+///|
 test "flatten rewrite scalar br_if flow uses pre-mutation exact site cache" {
   let func = @ir.HotFunc::new()
   let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])

@@ -416,16 +416,66 @@ fn flatten_br_if_flow_entry_index(
 }
 
 ///|
+fn flatten_scalar_br_if_flow_entry_lower_bound(
+  entries : Array[FlattenScalarBrIfFlowEntry],
+  branch_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].branch_id < branch_id {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
 fn flatten_scalar_br_if_flow_entry_index(
   entries : Array[FlattenScalarBrIfFlowEntry],
   branch_id : Int,
 ) -> Int {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].branch_id == branch_id {
-      return index
+  let index = flatten_scalar_br_if_flow_entry_lower_bound(entries, branch_id)
+  if index < entries.length() && entries[index].branch_id == branch_id {
+    index
+  } else {
+    -1
+  }
+}
+
+///|
+fn flatten_scalar_br_if_flow_entry_set(
+  entries : Array[FlattenScalarBrIfFlowEntry],
+  entry : FlattenScalarBrIfFlowEntry,
+) -> Unit {
+  let index = flatten_scalar_br_if_flow_entry_lower_bound(
+    entries,
+    entry.branch_id,
+  )
+  if index >= entries.length() || entries[index].branch_id != entry.branch_id {
+    entries.insert(index, entry)
+  }
+}
+
+///|
+fn flatten_scalar_flow_replacement_entry_lower_bound(
+  entries : Array[FlattenScalarFlowReplacementEntry],
+  value_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].value_id < value_id {
+      low = middle + 1
+    } else {
+      high = middle
     }
   }
-  -1
+  low
 }
 
 ///|
@@ -433,12 +483,14 @@ fn flatten_scalar_flow_replacement(
   entries : Array[FlattenScalarFlowReplacementEntry],
   value_id : Int,
 ) -> Int {
-  for entry in entries {
-    if entry.value_id == value_id {
-      return entry.replacement_id
-    }
+  let index = flatten_scalar_flow_replacement_entry_lower_bound(
+    entries, value_id,
+  )
+  if index < entries.length() && entries[index].value_id == value_id {
+    entries[index].replacement_id
+  } else {
+    -1
   }
-  -1
 }
 
 ///|
@@ -447,15 +499,15 @@ fn flatten_scalar_flow_replacement_set(
   value_id : Int,
   replacement_id : Int,
 ) -> Unit {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].value_id == value_id {
-      entries[index] = FlattenScalarFlowReplacementEntry::new(
-        value_id, replacement_id,
-      )
-      return
-    }
+  let index = flatten_scalar_flow_replacement_entry_lower_bound(
+    entries, value_id,
+  )
+  let entry = FlattenScalarFlowReplacementEntry::new(value_id, replacement_id)
+  if index < entries.length() && entries[index].value_id == value_id {
+    entries[index] = entry
+  } else {
+    entries.insert(index, entry)
   }
-  entries.push(FlattenScalarFlowReplacementEntry::new(value_id, replacement_id))
 }
 
 ///|
@@ -4799,7 +4851,8 @@ fn flatten_scalar_br_if_flow_sites(
         )
         match sites {
           Some(sites) =>
-            state.scalar_br_if_flow_entries.push(
+            flatten_scalar_br_if_flow_entry_set(
+              state.scalar_br_if_flow_entries,
               FlattenScalarBrIfFlowEntry::new(branch_id, value_id, sites),
             )
           None => ()
