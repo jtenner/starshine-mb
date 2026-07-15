@@ -6829,3 +6829,59 @@ test "flatten postorder branch routing admits only carried br nodes" {
     flatten_node_needs_postorder_branch_routing(func, @ir.hot_build_nop(func)),
   )
 }
+
+///|
+test "flatten sequenced roots track only pre-mutation shared nodes" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let branch_id = @ir.hot_build_br(func, label_id, values=[
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+  ])
+  let roots : Array[Int] = []
+  for i = 0; i < 256; i = i + 1 {
+    roots.push(@ir.hot_build_nop(func))
+  }
+  let unique_root = roots[0]
+  roots.push(branch_id)
+  let select_id = @ir.hot_build_select(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    branch_id,
+  )
+  roots.push(select_id)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @ir.hot_region_replace_body(func, body_ref, roots)
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, block_id))
+  let state = FlattenRewriteState::new(func)
+  assert_false(flatten_root_needs_sequence_tracking(state, unique_root))
+  assert_true(flatten_root_needs_sequence_tracking(state, branch_id))
+  let post_snapshot_root = @ir.hot_build_nop(func)
+  assert_false(flatten_root_needs_sequence_tracking(state, post_snapshot_root))
+  match
+    flatten_run_admission(func, flatten_classify_hot(func), state=Some(state)) {
+    FlattenRunAdmission::Admitted => ()
+    _ => fail("expected the shared-root fixture to be admitted")
+  }
+  state.rewrites_started = true
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::final_module_only(),
+    false,
+    fn(_) { () },
+  )
+  assert_true(flatten_rewrite_region_operands(ctx, func, state, body_ref))
+  @debug.assert_eq(state.sequenced_root_holders, [body_ref.holder])
+  @debug.assert_eq(state.sequenced_root_nodes, [branch_id])
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, select_id, 2)).op.to_string(),
+    "Unreachable",
+  )
+}

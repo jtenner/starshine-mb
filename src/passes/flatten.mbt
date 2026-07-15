@@ -487,6 +487,7 @@ priv struct FlattenRewriteState {
   label_used : @bitset.BitSet
   label_branch_nodes : Array[Array[Int]]
   use_def : @ir.HotNodeUseCounts
+  use_count_node_limit : Int
   tuple_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
   multivalue_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
   scalar_br_if_flow_entries : Array[FlattenScalarBrIfFlowEntry]
@@ -519,6 +520,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     label_used,
     label_branch_nodes,
     use_def: flatten_build_node_use_counts(func),
+    use_count_node_limit: @ir.hot_node_count(func),
     tuple_br_if_flow_entries: [],
     multivalue_br_if_flow_entries: [],
     scalar_br_if_flow_entries: [],
@@ -6511,6 +6513,16 @@ fn flatten_try_lower_region_root_tee(
 }
 
 ///|
+fn flatten_root_needs_sequence_tracking(
+  state : FlattenRewriteState,
+  node_id : Int,
+) -> Bool {
+  node_id >= 0 &&
+  node_id < state.use_count_node_limit &&
+  @ir.hot_node_use_count(state.use_def, node_id) > 1
+}
+
+///|
 fn flatten_rewrite_region_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6533,8 +6545,10 @@ fn flatten_rewrite_region_operands(
       changed = true
     }
     let root_idx = idx + inserted
-    state.sequenced_root_holders.push(region_ref.holder)
-    state.sequenced_root_nodes.push(node_id)
+    if flatten_root_needs_sequence_tracking(state, node_id) {
+      state.sequenced_root_holders.push(region_ref.holder)
+      state.sequenced_root_nodes.push(node_id)
+    }
     if state.terminal_payloads.contains(node_id) {
       ignore(pass_splice_region(ctx, func, region_ref, root_idx, 1, []))
       changed = true
