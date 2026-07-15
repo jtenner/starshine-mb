@@ -1136,7 +1136,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
             _ => ()
           }
           match instr {
-            @lib.I32Sub =>
+            @lib.I32Sub => {
               match
                 flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
                   func, root_id, value_id, left_id, right_id, true,
@@ -1144,6 +1144,14 @@ fn flatten_try_table_dead_suffix_root_nodes(
                 Some(nodes) => return Some(nodes)
                 None => ()
               }
+              match
+                flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
+                  func, root_id, value_id, left_id, right_id, false,
+                ) {
+                Some(nodes) => return Some(nodes)
+                None => ()
+              }
+            }
             _ => ()
           }
           match instr {
