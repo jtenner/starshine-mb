@@ -295,6 +295,35 @@ pub fn hot_region_remove(
 }
 
 ///|
+pub fn hot_region_truncate_suffix(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  keep_count : Int,
+) -> Array[NodeId] {
+  let root_count = hot_region_root_count(func, region_ref)
+  hot_region_require_index(root_count, keep_count, allow_end=true)
+  let removed : Array[NodeId] = []
+  for idx = keep_count; idx < root_count; idx = idx + 1 {
+    removed.push(hot_region_get(func, region_ref, idx))
+  }
+  if removed.is_empty() {
+    return removed
+  }
+  if hot_region_is_root(region_ref) {
+    while func.roots.length() > keep_count {
+      ignore(func.roots.pop())
+    }
+  } else {
+    let holder = hot_region_require_holder(func, region_ref)
+    let node = hot_node_get(func, holder)
+    let base = hot_region_body_base(func, holder)
+    func.nodes[holder] = { ..node, child_count: base + keep_count }
+  }
+  hot_revision_bump(func)
+  removed
+}
+
+///|
 pub fn hot_region_splice(
   func : HotFunc,
   region_ref : HotRegionRef,

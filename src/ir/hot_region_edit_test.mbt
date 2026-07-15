@@ -42,6 +42,28 @@ test "body region helpers rewrite direct block and loop bodies" {
 }
 
 ///|
+test "body region suffix truncation preserves the existing child span" {
+  let func = HotFunc::new()
+  let first = hot_build_const_i32(func, @lib.I32(1))
+  let second = hot_build_const_i32(func, @lib.I32(2))
+  let third = hot_build_const_i32(func, @lib.I32(3))
+  let block_id = hot_build_block(func, @lib.BlockType::void_(), [
+    first, second, third,
+  ])
+  let body_ref = hot_region_body_ref(func, block_id)
+  let child_storage_count = hot_child_storage_count(func)
+  let revision = hot_revision_current(func)
+
+  @debug.assert_eq(hot_region_truncate_suffix(func, body_ref, 1), [
+    second, third,
+  ])
+  @debug.assert_eq(hot_region_root_count(func, body_ref), 1)
+  @debug.assert_eq(hot_region_get(func, body_ref, 0), first)
+  @debug.assert_eq(hot_child_storage_count(func), child_storage_count)
+  @debug.assert_eq(hot_revision_current(func), revision + 1)
+}
+
+///|
 test "structured region refs rewrite if and try wrapper bodies" {
   let func = HotFunc::new()
   let condition = hot_build_const_i32(func, @lib.I32(1))

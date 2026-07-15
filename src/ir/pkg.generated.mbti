@@ -599,6 +599,8 @@ pub fn hot_region_split_trailing_plain_br_target(HotFunc, HotRegionRef) -> (Arra
 
 pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
 
+pub fn hot_region_truncate_suffix(HotFunc, HotRegionRef, Int) -> Array[Int]
+
 pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_replace_child_spans_and_control_result_type(HotFunc, Int, Int, Array[HotChildSpanRewrite]) -> Unit

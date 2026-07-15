@@ -5347,16 +5347,8 @@ fn flatten_try_route_br_table(
           root_idx + 1 >= root_count {
           continue
         }
-        ignore(
-          pass_splice_region(
-            ctx,
-            func,
-            owner_region,
-            root_idx + 1,
-            root_count - root_idx - 1,
-            [],
-          ),
-        )
+        ignore(@ir.hot_region_truncate_suffix(func, owner_region, root_idx + 1))
+        pass_mark_mutated(ctx, func)
         @ir.hot_delete_detached_nodes(func, nodes)
         break
       }
