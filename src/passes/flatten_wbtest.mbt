@@ -915,7 +915,7 @@ test "flatten keeps a repeated add-drop suffix root unsupported" {
 }
 
 ///|
-test "flatten keeps three independently owned add-drop suffix roots unsupported" {
+test "flatten recognizes three independently owned add-drop try-table suffix roots" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -932,25 +932,50 @@ test "flatten keeps three independently owned add-drop suffix roots unsupported"
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
-  let drops : Array[Int] = []
-  for value = 9; value <= 13; value = value + 2 {
-    let add = @ir.hot_build_binary(
-      func,
-      i32_type,
-      @ir.hot_build_const_i32(func, @lib.I32(value)),
-      @ir.hot_build_const_i32(func, @lib.I32(value + 1)),
-    )
-    @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
-    drops.push(@ir.hot_build_drop(func, add))
-  }
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+  let first = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let second = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  let third = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    13,
+    14,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
     table_id,
-    drops[0],
-    drops[1],
-    drops[2],
+    first[0],
+    second[0],
+    third[0],
   ])
   @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
-  assert_false(
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      first[0],
+      first[1],
+      first[2],
+      first[3],
+      second[0],
+      second[1],
+      second[2],
+      second[3],
+      third[0],
+      third[1],
+      third[2],
+      third[3],
+    ]),
+  )
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
