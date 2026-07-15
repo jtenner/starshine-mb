@@ -6208,6 +6208,47 @@ test "flatten resolves each br_table target local vector once" {
 }
 
 ///|
+test "flatten single-target table stages in the exact target vector" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) (block (result i32 i64) (br_table 0 1 (i32.const 7) (i64.const 9) (i32.const 0)))) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let outer_id = @ir.hot_child_get(func, return_id, 0)
+  let inner_id = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, outer_id),
+    0,
+  )
+  let targets = [
+    @ir.hot_control_node_label(func, inner_id),
+    @ir.hot_control_node_label(func, outer_id),
+  ]
+  let target_types = @ir.hot_type_results(
+    func,
+    @ir.hot_label_result_type(func, targets[0]),
+  )
+  let state = FlattenRewriteState::new(func)
+  state.rewrites_started = true
+  let target_locals = flatten_rewrite_br_table_target_locals(
+    func, state, targets, target_types,
+  ).unwrap()
+  let local_count = @ir.hot_local_count(func)
+  let single = flatten_br_table_staging_locals(
+    func,
+    [target_locals[0]],
+    target_types,
+  )
+  @debug.assert_eq(single, target_locals[0])
+  @debug.assert_eq(@ir.hot_local_count(func), local_count)
+  let multiple = flatten_br_table_staging_locals(
+    func, target_locals, target_types,
+  )
+  @debug.assert_eq(@ir.hot_local_count(func), local_count + 2)
+  assert_true(multiple != target_locals[0])
+  assert_true(multiple != target_locals[1])
+}
+
+///|
 test "flatten rewrite multivalue try proof uses the pre-mutation branch index" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

@@ -648,18 +648,13 @@ test "flatten routes one repeated-target scalar br_table to a legacy try" {
   @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
   @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
   @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
-  let stage_set = @ir.hot_region_get(func, body_ref, 0)
-  let result_set = @ir.hot_region_get(func, body_ref, 1)
-  let selector_set = @ir.hot_region_get(func, body_ref, 2)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 3), branch)
-  @debug.assert_eq(@ir.hot_child_get(func, stage_set, 0), payload)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  let result_set = @ir.hot_region_get(func, body_ref, 0)
+  let selector_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  @debug.assert_eq(@ir.hot_child_get(func, result_set, 0), payload)
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
   let result_local = @ir.hot_node_get(func, result_set).imm0
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, result_set, 0)).imm0,
-    @ir.hot_node_get(func, stage_set).imm0,
-  )
   @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 1)
   @debug.assert_eq(
     @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, 0)).imm0,
@@ -7689,28 +7684,18 @@ test "flatten routes one repeated-target tuple-made br_table to a legacy try" {
   @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
   @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
   @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 8)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
   let first_value_set = @ir.hot_region_get(func, body_ref, 0)
   let second_value_set = @ir.hot_region_get(func, body_ref, 1)
-  let first_stage_set = @ir.hot_region_get(func, body_ref, 2)
-  let second_stage_set = @ir.hot_region_get(func, body_ref, 3)
-  let first_result_set = @ir.hot_region_get(func, body_ref, 4)
-  let second_result_set = @ir.hot_region_get(func, body_ref, 5)
-  let selector_set = @ir.hot_region_get(func, body_ref, 6)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch)
+  let first_result_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_result_set = @ir.hot_region_get(func, body_ref, 3)
+  let selector_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
   @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_payload)
   @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_payload)
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
   let first_local = @ir.hot_node_get(func, first_result_set).imm0
   let second_local = @ir.hot_node_get(func, second_result_set).imm0
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, first_result_set, 0)).imm0,
-    @ir.hot_node_get(func, first_stage_set).imm0,
-  )
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, second_result_set, 0)).imm0,
-    @ir.hot_node_get(func, second_stage_set).imm0,
-  )
   @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
   @debug.assert_eq(
     @ir.hot_node_get(func, @ir.hot_region_get(func, catch_ref, 0)).imm0,
@@ -9337,8 +9322,8 @@ test "flatten moves nested terminal br_table effects before unreachable placehol
     @ir.hot_node_get(func, @ir.hot_child_get(func, select_id, 2)).op.to_string(),
     "Unreachable",
   )
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 2), branch)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 1), branch)
   assert_true(flatten_classify_hot(func).is_flat())
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
@@ -10016,29 +10001,21 @@ test "flatten routes ordered two-parameter loop br_table payloads" {
   let second_entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).imm0
   let first_value_set = @ir.hot_region_get(func, body_ref, 2)
   let second_value_set = @ir.hot_region_get(func, body_ref, 3)
-  let first_target_set = @ir.hot_region_get(func, body_ref, 4)
-  let second_target_set = @ir.hot_region_get(func, body_ref, 5)
-  let selector_set = @ir.hot_region_get(func, body_ref, 6)
+  let selector_set = @ir.hot_region_get(func, body_ref, 4)
   @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_payload)
   @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_payload)
-  assert_false(
-    @ir.hot_node_get(func, first_value_set).imm0 == first_entry_local,
-  )
-  assert_false(
-    @ir.hot_node_get(func, second_value_set).imm0 == second_entry_local,
-  )
   @debug.assert_eq(
-    @ir.hot_node_get(func, first_target_set).imm0,
+    @ir.hot_node_get(func, first_value_set).imm0,
     first_entry_local,
   )
   @debug.assert_eq(
-    @ir.hot_node_get(func, second_target_set).imm0,
+    @ir.hot_node_get(func, second_value_set).imm0,
     second_entry_local,
   )
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 9)
-  let result_set = @ir.hot_region_get(func, body_ref, 8)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 7)
+  let result_set = @ir.hot_region_get(func, body_ref, 6)
   let result_local = @ir.hot_node_get(func, result_set).imm0
   assert_false(result_local == first_entry_local)
   assert_false(result_local == second_entry_local)
@@ -10377,34 +10354,22 @@ test "flatten scalarizes one exclusively owned tuple-made br_table payload" {
   @debug.assert_eq(@ir.hot_node_result_arity(func, block_id), 0)
   @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
   @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 8)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
   let first_value_set = @ir.hot_region_get(func, body_ref, 0)
   let second_value_set = @ir.hot_region_get(func, body_ref, 1)
-  let first_stage = @ir.hot_region_get(func, body_ref, 2)
-  let second_stage = @ir.hot_region_get(func, body_ref, 3)
-  let first_target_set = @ir.hot_region_get(func, body_ref, 4)
-  let second_target_set = @ir.hot_region_get(func, body_ref, 5)
-  let selector_set = @ir.hot_region_get(func, body_ref, 6)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch_id)
+  let first_target_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_target_set = @ir.hot_region_get(func, body_ref, 3)
+  let selector_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch_id)
   @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_value)
   @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_value)
   @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, first_stage, 0)).op.to_string(),
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_target_set, 0)).op.to_string(),
     "LocalGet",
   )
   @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, second_stage, 0)).op.to_string(),
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_target_set, 0)).op.to_string(),
     "LocalGet",
-  )
-  let first_stage_local = @ir.hot_node_get(func, first_stage).imm0
-  let second_stage_local = @ir.hot_node_get(func, second_stage).imm0
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, first_target_set, 0)).imm0,
-    first_stage_local,
-  )
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, second_target_set, 0)).imm0,
-    second_stage_local,
   )
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
   assert_false(@ir.hot_node_is_live(func, tuple_id))
@@ -11232,14 +11197,12 @@ test "flatten routes scalar loop br_table payloads through entry locals" {
   )
   let entry_local = @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).imm0
   let value_set = @ir.hot_region_get(func, then_ref, 0)
-  let target_set = @ir.hot_region_get(func, then_ref, 1)
-  let selector_set = @ir.hot_region_get(func, then_ref, 2)
+  let selector_set = @ir.hot_region_get(func, then_ref, 1)
   @debug.assert_eq(@ir.hot_child_get(func, value_set, 0), payload)
-  assert_false(@ir.hot_node_get(func, value_set).imm0 == entry_local)
-  @debug.assert_eq(@ir.hot_node_get(func, target_set).imm0, entry_local)
+  @debug.assert_eq(@ir.hot_node_get(func, value_set).imm0, entry_local)
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
-  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 3), branch)
-  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 4)
+  @debug.assert_eq(@ir.hot_region_get(func, then_ref, 2), branch)
+  @debug.assert_eq(@ir.hot_region_root_count(func, then_ref), 3)
   let result_set = @ir.hot_region_get(
     func,
     body_ref,
@@ -11283,29 +11246,20 @@ test "flatten deduplicates ordered multivalue br_table block fanout" {
     @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, block_id)),
     0,
   )
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
-  let first_stage = @ir.hot_region_get(func, body_ref, 0)
-  let second_stage = @ir.hot_region_get(func, body_ref, 1)
-  @debug.assert_eq(@ir.hot_child_get(func, first_stage, 0), first_payload)
-  @debug.assert_eq(@ir.hot_child_get(func, second_stage, 0), second_payload)
-  let first_stage_local = @ir.hot_node_get(func, first_stage).imm0
-  let second_stage_local = @ir.hot_node_get(func, second_stage).imm0
-  assert_false(first_stage_local == second_stage_local)
-  let first_copy = @ir.hot_region_get(func, body_ref, 2)
-  let second_copy = @ir.hot_region_get(func, body_ref, 3)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  let first_target_set = @ir.hot_region_get(func, body_ref, 0)
+  let second_target_set = @ir.hot_region_get(func, body_ref, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, first_target_set, 0), first_payload)
   @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, first_copy, 0)).imm0,
-    first_stage_local,
+    @ir.hot_child_get(func, second_target_set, 0),
+    second_payload,
   )
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, second_copy, 0)).imm0,
-    second_stage_local,
-  )
-  let selector_set = @ir.hot_region_get(func, body_ref, 4)
+  let first_target_local = @ir.hot_node_get(func, first_target_set).imm0
+  let second_target_local = @ir.hot_node_get(func, second_target_set).imm0
+  assert_false(first_target_local == second_target_local)
+  let selector_set = @ir.hot_region_get(func, body_ref, 2)
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch)
-  let first_target_local = @ir.hot_node_get(func, first_copy).imm0
-  let second_target_local = @ir.hot_node_get(func, second_copy).imm0
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 3), branch)
   @debug.assert_eq(
     @ir.hot_node_get(func, @ir.hot_child_get(func, return_id, 0)).imm0,
     first_target_local,
@@ -13753,15 +13707,13 @@ test "flatten removes an unreachable-only suffix after a tuple-made legacy try t
   @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
   @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
   @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 8)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 6)
   let first_value_set = @ir.hot_region_get(func, body_ref, 0)
   let second_value_set = @ir.hot_region_get(func, body_ref, 1)
-  let first_stage_set = @ir.hot_region_get(func, body_ref, 2)
-  let second_stage_set = @ir.hot_region_get(func, body_ref, 3)
-  let first_result_set = @ir.hot_region_get(func, body_ref, 4)
-  let second_result_set = @ir.hot_region_get(func, body_ref, 5)
-  let selector_set = @ir.hot_region_get(func, body_ref, 6)
-  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), branch_id)
+  let first_result_set = @ir.hot_region_get(func, body_ref, 2)
+  let second_result_set = @ir.hot_region_get(func, body_ref, 3)
+  let selector_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 5), branch_id)
   @debug.assert_eq(@ir.hot_child_get(func, first_value_set, 0), first_payload)
   @debug.assert_eq(@ir.hot_child_get(func, second_value_set, 0), second_payload)
   @debug.assert_eq(@ir.hot_child_get(func, selector_set, 0), selector_id)
@@ -13769,14 +13721,6 @@ test "flatten removes an unreachable-only suffix after a tuple-made legacy try t
     @ir.hot_node_get(func, first_result_set).imm0,
     @ir.hot_node_get(func, second_result_set).imm0,
   ]
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, first_result_set, 0)).imm0,
-    @ir.hot_node_get(func, first_stage_set).imm0,
-  )
-  @debug.assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, second_result_set, 0)).imm0,
-    @ir.hot_node_get(func, second_stage_set).imm0,
-  )
   @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 2)
   for slot = 0; slot < 2; slot = slot + 1 {
     @debug.assert_eq(

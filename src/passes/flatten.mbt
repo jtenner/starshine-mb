@@ -6163,6 +6163,22 @@ fn flatten_rewrite_br_table_target_locals(
 }
 
 ///|
+fn flatten_br_table_staging_locals(
+  func : @ir.HotFunc,
+  target_locals : Array[Array[Int]],
+  payload_types : Array[@lib.ValType],
+) -> Array[Int] {
+  if target_locals.length() == 1 {
+    return target_locals[0]
+  }
+  let staging : Array[Int] = []
+  for payload_type in payload_types {
+    staging.push(@ir.hot_append_body_local(func, payload_type))
+  }
+  staging
+}
+
+///|
 fn flatten_tuple_mixed_try_table_is_supported(
   func : @ir.HotFunc,
   table_id : Int,
@@ -6340,15 +6356,15 @@ fn flatten_try_route_br_table(
     Some(target_locals) => target_locals
     None => return false
   }
-  let value_locals : Array[Int] = []
+  let value_locals = flatten_br_table_staging_locals(
+    func, target_locals, payload_types,
+  )
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let value_id = match tuple_values {
       Some(values) => values[slot]
       None => @ir.hot_child_get(func, node_id, slot)
     }
-    let value_local = @ir.hot_append_body_local(func, payload_types[slot])
-    value_locals.push(value_local)
-    preludes.push(@ir.hot_build_local_set(func, value_local, value_id))
+    preludes.push(@ir.hot_build_local_set(func, value_locals[slot], value_id))
     state.terminal_payloads.push(value_id)
   }
   let suffix_nodes = flatten_try_table_dead_suffix_nodes(
@@ -6377,13 +6393,15 @@ fn flatten_try_route_br_table(
       target_slot < target_locals.length()
       target_slot = target_slot + 1 {
     for slot = 0; slot < payload_count; slot = slot + 1 {
-      preludes.push(
-        @ir.hot_build_local_set(
-          func,
-          target_locals[target_slot][slot],
-          @ir.hot_build_local_get(func, value_locals[slot]),
-        ),
-      )
+      if target_locals[target_slot][slot] != value_locals[slot] {
+        preludes.push(
+          @ir.hot_build_local_set(
+            func,
+            target_locals[target_slot][slot],
+            @ir.hot_build_local_get(func, value_locals[slot]),
+          ),
+        )
+      }
     }
   }
   let selector_id = @ir.hot_child_get(func, node_id, payload_count)
