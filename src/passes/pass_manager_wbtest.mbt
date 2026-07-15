@@ -19200,3 +19200,21 @@ test "DAEO post-component cleanup selected-definition validation rolls back an i
   assert_false(accepted)
   @debug.assert_eq(retained, original)
 }
+
+///|
+test "DAEO post-component profitability proves a strict selected-function encoding reduction" {
+  let original = pass_test_module_from_wat("(module (func nop nop))")
+  let candidate = pass_test_module_from_wat("(module (func nop))")
+  @debug.assert_eq(
+    run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+      original, candidate, 0,
+    ),
+    Some(true),
+  )
+  @debug.assert_eq(
+    run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+      candidate, original, 0,
+    ),
+    Some(false),
+  )
+}

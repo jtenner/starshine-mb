@@ -60576,6 +60576,51 @@ fn run_hot_pipeline_dae_encoded_size(mod_ : @lib.Module) -> Int? {
 }
 
 ///|
+fn run_hot_pipeline_dae_encoded_func_size(func : @lib.Func) -> Int? {
+  let buf = @buffer.new()
+  match @binary.Encode::encode(func, buf) {
+    Ok(_) => Some(buf.to_bytes().length())
+    Err(_) => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+  current : @lib.Module,
+  candidate : @lib.Module,
+  def_idx : Int,
+) -> Bool? {
+  if current.type_sec != candidate.type_sec {
+    let current_size = run_hot_pipeline_dae_encoded_size(current)
+    let candidate_size = run_hot_pipeline_dae_encoded_size(candidate)
+    return match (current_size, candidate_size) {
+      (Some(before), Some(after)) => Some(after < before)
+      _ => None
+    }
+  }
+  let current_func = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.get(def_idx)
+    None => None
+  }
+  let candidate_func = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.get(def_idx)
+    None => None
+  }
+  match (current_func, candidate_func) {
+    (Some(before), Some(after)) =>
+      match
+        (
+          run_hot_pipeline_dae_encoded_func_size(before),
+          run_hot_pipeline_dae_encoded_func_size(after),
+        ) {
+        (Some(before_size), Some(after_size)) => Some(after_size < before_size)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_clone_cleanup_defs(
   mod_ : @lib.Module,
   defs : Array[Int],
@@ -60635,18 +60680,6 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
     touched[def_idx] = true
   }
   let mut current = mod_
-  let mut current_size = match run_hot_pipeline_dae_encoded_size(current) {
-    Some(size) => size
-    None => {
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "post-component-cleanup-rollback",
-        payload="reason=baseline-encode defs=\{defs.to_string()}",
-      )
-      return mod_
-    }
-  }
   let coalesce_only_defs : Array[Int] = []
   let vacuum_defs : Array[Int] = []
   let coalesce_rolled_back_defs : Array[Int] = []
@@ -60678,20 +60711,20 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       coalesce_rolled_back_defs.push(def_idx)
       continue
     }
-    let coalesced_size = match
-      run_hot_pipeline_dae_encoded_size(retained_coalesced) {
-      Some(size) => size
+    match
+      run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+        current, retained_coalesced, def_idx,
+      ) {
+      Some(true) => current = retained_coalesced
+      Some(false) => {
+        coalesce_non_improving_defs.push(def_idx)
+        continue
+      }
       None => {
         coalesce_rolled_back_defs.push(def_idx)
         continue
       }
     }
-    if coalesced_size >= current_size {
-      coalesce_non_improving_defs.push(def_idx)
-      continue
-    }
-    current = retained_coalesced
-    current_size = coalesced_size
     let vacuum_isolated = run_hot_pipeline_dae_clone_cleanup_defs(current, [
       def_idx,
     ])
@@ -60714,22 +60747,22 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       vacuum_rolled_back_defs.push(def_idx)
       continue
     }
-    let vacuumed_size = match
-      run_hot_pipeline_dae_encoded_size(retained_vacuumed) {
-      Some(size) => size
+    match
+      run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+        current, retained_vacuumed, def_idx,
+      ) {
+      Some(true) => {
+        current = retained_vacuumed
+        vacuum_defs.push(def_idx)
+      }
+      Some(false) => {
+        coalesce_only_defs.push(def_idx)
+        vacuum_non_improving_defs.push(def_idx)
+      }
       None => {
         coalesce_only_defs.push(def_idx)
         vacuum_rolled_back_defs.push(def_idx)
-        continue
       }
-    }
-    if vacuumed_size < current_size {
-      current = retained_vacuumed
-      current_size = vacuumed_size
-      vacuum_defs.push(def_idx)
-    } else {
-      coalesce_only_defs.push(def_idx)
-      vacuum_non_improving_defs.push(def_idx)
     }
   }
   if vacuum_defs.length() > 0 {
