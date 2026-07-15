@@ -60903,6 +60903,80 @@ fn run_hot_pipeline_dae_replace_local_gets(
 }
 
 ///|
+// Binaryen v130 SimplifyLocals/structured cleanup leaves the four exact
+// aggregate fields as block results. Once the only exit is the terminal self
+// branch, falling through carries the same values without changing effects.
+fn run_hot_pipeline_dae_try_fold_four_result_terminal_self_branch(
+  block_type : @lib.BlockType,
+  body : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if dae_block_type_zero_param_result_count(block_type, type_sec) != Some(4) ||
+    body.length() != 14 {
+    return None
+  }
+  match
+    (
+      body[0],
+      body[1],
+      body[2],
+      body[3],
+      body[4],
+      body[5],
+      body[6],
+      body[7],
+      body[8],
+      body[9],
+      body[10],
+      body[11],
+      body[12],
+      body[13],
+    ) {
+    (
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.LocalGet(_),
+      @lib.Call(_),
+      @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(struct_type, @lib.U32(2U)),
+      @lib.LocalGet(second_aggregate),
+      @lib.StructGet(second_type, @lib.U32(0U)),
+      @lib.LocalGet(third_aggregate),
+      @lib.StructGet(third_type, @lib.U32(1U)),
+      @lib.LocalGet(fourth_aggregate),
+      @lib.StructGet(fourth_type, @lib.U32(3U)),
+      @lib.Br(@lib.LabelIdx(0U)),
+    ) if aggregate == second_aggregate &&
+      aggregate == third_aggregate &&
+      aggregate == fourth_aggregate &&
+      struct_type == second_type &&
+      struct_type == third_type &&
+      struct_type == fourth_type => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      if aggregate_idx < 0 ||
+        aggregate_idx >= local_gets.length() ||
+        !run_hot_pipeline_dae_local_is_nonnullable_ref(
+          local_types, aggregate_idx,
+        ) ||
+        local_gets[aggregate_idx] != 3 ||
+        local_sets[aggregate_idx] != 0 ||
+        local_tees[aggregate_idx] != 1 {
+        return None
+      }
+      let rewritten = body.copy()
+      ignore(rewritten.pop())
+      Some(rewritten)
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
   instr : @lib.Instruction,
   param_count : Int,
@@ -60910,23 +60984,38 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
   local_gets : Array[Int],
   local_sets : Array[Int],
   local_tees : Array[Int],
+  type_sec : @lib.TypeSec?,
 ) -> (@lib.Instruction, Int) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
-        body, param_count, local_types, local_gets, local_sets, local_tees,
+        body, param_count, local_types, local_gets, local_sets, local_tees, type_sec,
       )
-      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
+      match
+        run_hot_pipeline_dae_try_fold_four_result_terminal_self_branch(
+          block_type, rewritten, type_sec, local_types, local_gets, local_sets, local_tees,
+        ) {
+        Some(folded) =>
+          (
+            @lib.Instruction::block(block_type, @lib.Expr::new(folded)),
+            count + 1,
+          )
+        None =>
+          (
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten)),
+            count,
+          )
+      }
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
-        body, param_count, local_types, local_gets, local_sets, local_tees,
+        body, param_count, local_types, local_gets, local_sets, local_tees, type_sec,
       )
       (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
-        body, param_count, local_types, local_gets, local_sets, local_tees,
+        body, param_count, local_types, local_gets, local_sets, local_tees, type_sec,
       )
       (
         @lib.Instruction::try_table(
@@ -60940,12 +61029,13 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
     @lib.If(block_type, then_body, else_body) => {
       let (rewritten_then, then_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
         then_body, param_count, local_types, local_gets, local_sets, local_tees,
+        type_sec,
       )
       let mut count = then_count
       let rewritten_else = match else_body {
         Some(body) => {
           let (rewritten, else_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
-            body, param_count, local_types, local_gets, local_sets, local_tees,
+            body, param_count, local_types, local_gets, local_sets, local_tees, type_sec,
           )
           count = count + else_count
           Some(rewritten)
@@ -61277,6 +61367,7 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   local_gets : Array[Int],
   local_sets : Array[Int],
   local_tees : Array[Int],
+  type_sec : @lib.TypeSec?,
 ) -> (Array[@lib.Instruction], Int) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
@@ -61353,7 +61444,7 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
               local_sets[target_idx] = 0
               let (final_suffix, nested_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
                 forwarded_suffix, param_count, local_types, local_gets, local_sets,
-                local_tees,
+                local_tees, type_sec,
               )
               for suffix_instr in final_suffix {
                 rewritten.push(suffix_instr)
@@ -61372,6 +61463,7 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
       local_gets,
       local_sets,
       local_tees,
+      type_sec,
     )
     rewritten.push(next)
     rewrite_count = rewrite_count + nested_count
@@ -61531,6 +61623,7 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
     local_gets,
     local_sets,
     local_tees,
+    mod_.type_sec,
   )
   let mut removed_tee_count = 0
   for local_idx = 0; local_idx < total_local_count; local_idx = local_idx + 1 {

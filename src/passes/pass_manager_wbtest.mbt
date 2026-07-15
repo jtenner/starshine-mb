@@ -19615,6 +19615,77 @@ test "DAEO selected cleanup sinks the second terminal sentinel result" {
 }
 
 ///|
+test "DAEO selected cleanup turns an exact four-result self branch into fallthrough" {
+  let parsed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $quad (func (result i32 i32 i32 i32)))
+      #|  (type $record (struct (field i32) (field i32) (field i32) (field i32)))
+      #|  (func $producer (result (ref $record))
+      #|    i32.const 10
+      #|    i32.const 20
+      #|    i32.const 30
+      #|    i32.const 40
+      #|    struct.new $record)
+      #|  (func (param i32 i32 i32 i32) (result i32)
+      #|    (local (ref $record))
+      #|    block (type $quad)
+      #|      local.get 0
+      #|      local.get 1
+      #|      local.get 2
+      #|      local.get 3
+      #|      call $producer
+      #|      local.tee 4
+      #|      struct.get $record 2
+      #|      local.get 4
+      #|      struct.get $record 0
+      #|      local.get 4
+      #|      struct.get $record 1
+      #|      local.get 4
+      #|      struct.get $record 3
+      #|      br 0
+      #|    end
+      #|    drop
+      #|    drop
+      #|    drop
+      #|    drop
+      #|    i32.const 0))
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = match parsed.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[1]
+    None => fail("expected exact four-result branch fixture code")
+  }
+  let (block_type, block_body) = match body[0] {
+    @lib.Block(block_type, @lib.Expr(block_body)) => (block_type, block_body)
+    other => fail("expected leading four-result block, got \{other}")
+  }
+  let rewritten = match
+    run_hot_pipeline_dae_try_fold_four_result_terminal_self_branch(
+      block_type,
+      block_body,
+      parsed.type_sec,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+        ),
+      ],
+      [1, 1, 1, 1, 3],
+      [0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1],
+    ) {
+    Some(value) => value
+    None => fail("expected exact four-result terminal self branch to fold")
+  }
+  assert_false(rewritten.any(fn(instr) { instr is @lib.Br(_) }))
+  @debug.assert_eq(rewritten.length(), block_body.length() - 1)
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
@@ -19648,6 +19719,7 @@ test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
     local_gets,
     local_sets,
     local_tees,
+    None,
   )
   @debug.assert_eq(count, 1)
   @debug.assert_eq(local_gets, [2, 0, 0])
@@ -19821,6 +19893,7 @@ test "DAEO selected cleanup forwards one-use immutable parameter copies" {
     local_gets,
     local_sets,
     local_tees,
+    None,
   )
   @debug.assert_eq(count, 1)
   @debug.assert_eq(local_gets, [1, 0, 0])
