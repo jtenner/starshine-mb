@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../../../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md

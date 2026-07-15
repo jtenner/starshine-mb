@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
-  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -84,7 +83,7 @@ For binary/data layout details, pair this page with [`../binary/data-element-and
 
 ## Official List Versus Starshine Local List
 
-The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. The 2026-06-04 refresh confirms the context-sensitive `global.get` note is still easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The current reconciliation keeps the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; see [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
+The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. Its context-sensitive `global.get` rule is easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The current reconciliation keeps the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; see [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
 
 Starshine's local [`validate_const_instr(...)`](../../../src/validate/validate.mbt) is **not identical** to that official list:
 
@@ -184,7 +183,8 @@ When changing constant-expression behavior:
 ## Sources
 
 - Current reconciliation: [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md)
-- Earlier current-source capture (superseded for the local array-constructor admission claim): [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Official constant-expression validation: <https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions>
+- Official module validation: <https://webassembly.github.io/spec/core/valid/modules.html>
 - Aggregate-instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)

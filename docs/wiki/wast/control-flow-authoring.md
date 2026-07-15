@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -43,7 +42,7 @@ Use this page when writing, reducing, or widening WAST fixtures that use ordinar
 - terminators: `return` and `unreachable`;
 - nearby parametric control value selection: untyped and typed `select`.
 
-The 2026-06-04 current-source refresh is [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md). The main maintenance split is explicit: this page owns **ordinary structured-control and label-payload mechanics**, while specialized families route elsewhere instead of duplicating their stack rules here.
+This page owns **ordinary structured-control and label-payload mechanics**; specialized families route elsewhere instead of duplicating their stack rules here. The official Core 3.0 syntax, text, binary, validation, and execution instruction chapters plus the linked local source surfaces are the maintained evidence.
 
 Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Reference-sensitive branches (`br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`) are documented in [`reference-instruction-authoring.md`](reference-instruction-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). Detailed `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select caveats live in [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md). Ordinary Core multi-value function/block/branch vectors and Starshine's cross-layer representation are centralized in [`../wasm-multivalue-core-boundary.md`](../wasm-multivalue-core-boundary.md). This page focuses on the ordinary label stack, branch payloads, fallthrough, and WAST shapes for unreachable continuations. The focused validator-side bottom-value model is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 
@@ -196,7 +195,7 @@ When a pass, generator, or fixture change touches ordinary control flow:
 
 ## Source Map
 
-- Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md), [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
+- Official Core instruction sources: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/exec/instructions.html>; focused local/current bridges: [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)

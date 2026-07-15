@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
-  - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -165,7 +164,7 @@ This unusual but important fixture is covered directly by [`src/wast/passive_typ
 
 ## Sources
 
-- Primary-source snapshots: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md), [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md), [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md); focused validator companion: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md); aggregate instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
+- Primary-source snapshots: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md), [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md), focused validator companion: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md); WAST data companion: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md); WAST runtime memory companion: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md); WAST memory-argument companion: [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md); aggregate instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - WAST parse/lower/print evidence and declarative-mode caveat: [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/passive_typed_elem_surface_test.mbt`](../../../src/wast/passive_typed_elem_surface_test.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)

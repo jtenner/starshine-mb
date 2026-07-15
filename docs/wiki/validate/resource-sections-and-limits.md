@@ -5,12 +5,10 @@ last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
-  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
-  - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
@@ -188,8 +186,8 @@ Validation signoff should include the focused tests or fuzz lanes for the change
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`memory-table-address-widths.md`](memory-table-address-widths.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
-- Focused data-count/data-index recheck: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`data-count-and-code-data-indices.md`](data-count-and-code-data-indices.md)
-- Current constant-expression refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Focused data-count/data-index guide: [`data-count-and-code-data-indices.md`](data-count-and-code-data-indices.md)
+- Constant-expression contract: [`constant-expressions.md`](constant-expressions.md)
 - Focused initializer contract: [`constant-expressions.md`](constant-expressions.md)
 - Current import/export matching refresh: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
 - Import/export and host-matching split: [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md)

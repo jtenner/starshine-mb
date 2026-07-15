@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../../../src/wast/parser.mbt
@@ -164,7 +163,7 @@ Do not infer official text `@custom` placement support from this. The official c
 ## Sources
 
 - Extended Name Section boundary refresh: [`../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md`](../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md), [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md)
-- Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
+- Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - WAST parser/printer/lowerer: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
 - Core module metadata: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md)

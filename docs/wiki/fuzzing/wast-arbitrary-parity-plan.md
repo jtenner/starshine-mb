@@ -9,7 +9,6 @@ sources:
   - ../../../src/validate/validate.mbt
   - ../../../src/wast/arbitrary.mbt
   - ../../../src/wast/fuzz_tests.mbt
-  - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
@@ -18,7 +17,6 @@ sources:
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
-  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
   - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md

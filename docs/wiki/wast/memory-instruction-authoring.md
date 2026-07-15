@@ -8,7 +8,6 @@ sources:
   - ../raw/wasm/2026-06-05-memory-control-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
-  - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -207,7 +206,7 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 
 - Multi-memory Core boundary refresh: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
-- Focused data-count/data-index guide: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
+- Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
 - Memory Control boundary refresh: [`../raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](../raw/wasm/2026-06-05-memory-control-boundary-refresh.md), [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md)

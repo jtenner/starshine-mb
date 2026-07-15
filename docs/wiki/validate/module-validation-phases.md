@@ -9,12 +9,10 @@ sources:
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
-  - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - https://webassembly.github.io/spec/core/valid/index.html
-  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
@@ -209,11 +207,11 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 ## Sources
 
 - Official WebAssembly 3.0 sources: [module validation](https://webassembly.github.io/spec/core/valid/modules.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), and [validation overview](https://webassembly.github.io/spec/core/valid/index.html)
-- Current constant-expression source bridge: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Constant-expression contract: [`constant-expressions.md`](constant-expressions.md)
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
-- Focused data-count/data-index recheck: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`data-count-and-code-data-indices.md`](data-count-and-code-data-indices.md)
+- Focused data-count/data-index guide: [`data-count-and-code-data-indices.md`](data-count-and-code-data-indices.md)
 - Current import/export matching source bridge: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
 - Current GC type/subtyping bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Official WebAssembly 3.0 module layout: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html) and [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html)

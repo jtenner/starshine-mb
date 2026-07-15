@@ -6,7 +6,6 @@ sources:
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
   - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
   - ../binaryen/passes/inlining/binaryen-strategy.md
   - ../../../src/wast/lexer.mbt
@@ -170,7 +169,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
 - Binaryen `mark-js-called` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Current Binaryen behavior recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
-- WAST identifier/name boundary: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
+- Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
+- WAST identifier/name boundary: [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
 - Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md), direct tagged URLs in [`../binaryen/passes/inlining/binaryen-strategy.md`](../binaryen/passes/inlining/binaryen-strategy.md), and the direct official source links in [`../binaryen/passes/strip-toolchain-annotations/index.md`](../binaryen/passes/strip-toolchain-annotations/index.md)
 - Starshine code: [`../../../src/wast/lexer.mbt`](../../../src/wast/lexer.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`../../../src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), [`../../../src/passes/duplicate_function_elimination.mbt`](../../../src/passes/duplicate_function_elimination.mbt), [`../../../src/passes/duplicate_import_elimination.mbt`](../../../src/passes/duplicate_import_elimination.mbt), [`../../../src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt)

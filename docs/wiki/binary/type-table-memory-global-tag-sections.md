@@ -8,7 +8,6 @@ sources:
   - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../raw/wasm/2026-06-05-memory-control-boundary-refresh.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
-  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - https://webassembly.github.io/spec/core/binary/modules.html
@@ -203,7 +202,7 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 - Linear-memory Threads/shared-memory boundary: [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
 - Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
 - Memory Control boundary refresh: [`../raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](../raw/wasm/2026-06-05-memory-control-boundary-refresh.md), [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md)
-- Current constant-expression refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Constant-expression contract: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Official Core module rules: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)

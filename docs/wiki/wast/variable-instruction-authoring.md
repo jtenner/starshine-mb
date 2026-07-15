@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -167,7 +166,7 @@ Useful validation lanes are ordinary `moon test` for local parser/lowerer/typech
 
 ## Sources
 
-- Current constant-expression refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Constant-expression contract: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Official WebAssembly text instructions: <https://webassembly.github.io/spec/core/text/instructions.html>
 - Official WebAssembly syntax instructions: <https://webassembly.github.io/spec/core/syntax/instructions.html>
 - Official WebAssembly binary instructions: <https://webassembly.github.io/spec/core/binary/instructions.html>
