@@ -9,7 +9,6 @@ sources:
   - https://webassembly.github.io/spec/core/valid/
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../fuzzing/reduction-backends.md
-  - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
@@ -101,7 +100,7 @@ Run a long compare lane only when its pass is executable at **both** sides of th
 
 A pass that fails any of these checks has a **planned fuzzing profile**, not a runnable smoke lane. Its wiki page should document the status test and future command template, but must not label parser rejection, command failure, or zero comparisons as Binaryen-parity evidence. This is especially important for boundary-only registry entries: a Binaryen pass can be real while Starshine deliberately has no active implementation yet.
 
-Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
+Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md), and the harness implementation.
 
 ## Input Generators
 
@@ -258,7 +257,7 @@ For preset or neighborhood work, direct pass green is necessary but not sufficie
 
 - Binaryen BrOn assertion / oracle boundary: [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md)
 - Upstream tool and validation references: <https://github.com/WebAssembly/binaryen>, <https://github.com/bytecodealliance/wasm-tools>, <https://docs.rs/wasm-smith/latest/wasm_smith/>, and <https://webassembly.github.io/spec/core/valid/>
-- Native artifact-path policy bridge: [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md)
+- Native artifact-path policy: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md), and the harness implementation below
 - Harness implementation: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
 - Wrapper split: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)
 - Command-shape tests: [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts), [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)

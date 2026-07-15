@@ -3,12 +3,11 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
+  - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
   - https://docs.moonbitlang.com/en/latest/language/verification.html
   - https://moonbitlang.github.io/moon/commands.html
-  - ../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
   - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
@@ -105,7 +104,7 @@ moon build --target native --release src/cmd
 bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly; use the same `--jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` pair there too. The path is a Starshine freshness policy rather than a generic MoonBit output guarantee: after the native build, do not substitute a pre-existing `target/native/...` binary unless its timestamp or hash proves it is the refreshed executable; see [`../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
+For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly; use the same `--jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` pair there too. The path is a Starshine freshness policy rather than a generic MoonBit output guarantee: after the native build, do not substitute a pre-existing `target/native/...` binary unless its timestamp or hash proves it is the refreshed executable; see the canonical [`pass-fuzz-compare.md`](pass-fuzz-compare.md) workflow and the local policy in [`../../../AGENTS.md`](../../../AGENTS.md).
 
 The pass-comparison harness has its own contract: generated inputs, default persistent caching for deterministic `wasm-smith` inputs and Binaryen oracle outputs/failures, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and parallel lanes requiring a prebuilt `--starshine-bin` next to `--jobs auto`. Its `mismatch`/failure statuses are measurements, not acceptance verdicts: keep pass evidence in the affected dossier and apply the explicit agent taxonomy in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), where an unproven drift remains a parity gap rather than “safe” by validation alone. Optional command-harness binary differential validators (`wasm-tools`, WABT, Binaryen) are a separate opt-in evidence surface; use [`external-validator-adapters.md`](external-validator-adapters.md) for their stage classification, command lines, and skipped-tool semantics. For DAE / generator-debris lanes, use the explicit `--normalize drop-consts --normalize unreachable-control-debris` pair so cleanup-normalized matches stay separate from exact normalized matches.
 

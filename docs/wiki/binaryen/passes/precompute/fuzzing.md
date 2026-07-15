@@ -35,7 +35,7 @@ For ordinary direct-pass development after rebuilding the native CLI, use the re
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass precompute --out-dir .tmp/pass-fuzz-precompute --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-For this checkout, use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. A `target/native/...` artifact can coexist but is not signoff evidence unless freshness is verified against the current `_build/...` binary; see [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
+For this checkout, use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. A `target/native/...` artifact can coexist but is not signoff evidence unless freshness is verified against the current `_build/...` binary; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 When replaying the known branch-heavy cleanup family or the dedicated `precompute-all` profile, preserve the normalizers used by the latest recorded evidence so known dropped-constant/local-cleanup/unreachable-control debris reports as `cleanupNormalizedMatchCount` rather than raw mismatch noise:
 

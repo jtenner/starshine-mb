@@ -67,7 +67,7 @@ Recommended ordinary GenValid smoke lane:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --out-dir .tmp/pass-fuzz-code-pushing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Native-path note: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` artifact may coexist, but it is not signoff evidence unless timestamp/hash comparison verifies that it is the freshly built executable; see [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
+Native-path note: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` artifact may coexist, but it is not signoff evidence unless timestamp/hash comparison verifies that it is the freshly built executable; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 ## Dedicated GenValid profile
 

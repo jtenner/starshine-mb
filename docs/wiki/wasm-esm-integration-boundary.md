@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
-  - raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
+  - https://nodejs.org/api/wasi.html
   - raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - wasm-js-string-builtins-boundary.md
@@ -145,6 +145,6 @@ Do **not** start by adding Starshine WAST syntax, binary opcode cases, validatio
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - JSPI boundary: [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md)
 - Component Model boundary: [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md)
-- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md)
+- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html)
 - Node package surface: [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
 - Current Node package files: [`../../node/package.json`](../../node/package.json), [`../../node/README.md`](../../node/README.md), [`../../node/internal/runtime.js`](../../node/internal/runtime.js), [`../../node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js)

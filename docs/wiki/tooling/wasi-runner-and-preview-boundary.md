@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - ../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md
   - ../raw/node/2026-07-10-node-wasi-runner-api-recheck.md
-  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
-  - ../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md
+  - https://nodejs.org/api/wasi.html
+  - https://github.com/WebAssembly/WASI
+  - https://wasi.dev/roadmap
+  - https://component-model.bytecodealliance.org/
   - ../../../node/internal/wasi-runner.js
   - ../../../scripts/lib/moonbit-wasi-runner.mjs
   - ../../../scripts/lib/build-node-package.mjs
@@ -31,7 +33,7 @@ related:
 
 Use this page when a wiki claim, test, release step, Node package change, or runtime error mentions **WASI**, **`wasi_snapshot_preview1`**, **WASI Preview 1**, **WASI Preview 2 / WASI 0.2**, or a Starshine `*-wasi.wasm` artifact.
 
-The current Node-runner bridge is [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), corrected on the `finalizeBindings` detail by [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md); together they extend rather than replace the earlier Preview 1/0.2/0.3 boundary bridges [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md) and [`../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md). Together they check Node's current `node:wasi` API, the WebAssembly/WASI repository, the WASI proposal/API catalog and roadmap, Component Model documentation, the Preview 1 WITX source, and current Starshine runner/build/test evidence.
+The current Node-runner bridge is [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), corrected on the `finalizeBindings` detail by [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md). It is grounded in the official [Node `node:wasi` API](https://nodejs.org/api/wasi.html), the [WebAssembly/WASI repository](https://github.com/WebAssembly/WASI), the [WASI roadmap](https://wasi.dev/roadmap), Component Model documentation, the Preview 1 WITX source, and current Starshine runner/build/test evidence.
 
 Durable status:
 
@@ -159,7 +161,7 @@ When a change touches the WASI runner, `*-wasi.wasm` artifacts, or release packa
 
 ## Sources
 
-- Current Node API/runner recheck and binding correction: [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md); earlier Preview 1/0.2/0.3 bridges: [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md)
+- Current Node API/runner recheck and binding correction: [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md); upstream Preview 1/component-roadmap evidence: [Node `node:wasi`](https://nodejs.org/api/wasi.html), [WebAssembly/WASI](https://github.com/WebAssembly/WASI), [WASI roadmap](https://wasi.dev/roadmap), and [Component Model documentation](https://component-model.bytecodealliance.org/)
 - Package and script runners: [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - Package build/test: [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)
 - Self-opt validation: [`validation-gates.md`](validation-gates.md), [`../../../scripts/lib/self-opt-task.ts`](../../../scripts/lib/self-opt-task.ts), [`../../../scripts/lib/run-self-optimized-spec-suite.mjs`](../../../scripts/lib/run-self-optimized-spec-suite.mjs)

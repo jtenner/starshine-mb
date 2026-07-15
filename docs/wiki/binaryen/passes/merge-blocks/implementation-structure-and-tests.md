@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
-  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/merge_blocks.mbt
@@ -119,7 +118,7 @@ For a behavior change:
 4. use a pass-targeted `compare-pass --pass merge-blocks ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` lane; and
 5. classify output differences from inspected transform evidence rather than validation alone.
 
-Do not use a stale `target/native/...` artifact as current signoff evidence; see [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md).
+Do not use a stale `target/native/...` artifact as current signoff evidence; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
 ## Sources
 

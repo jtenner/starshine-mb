@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-02
 sources:
-  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
@@ -63,5 +62,5 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)
 - Active reduced guard: [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts)
 - Reduced repro: [`../../../tests/repros/o4z-debug-startup-map-init-repro.wasm`](../../../tests/repros/o4z-debug-startup-map-init-repro.wasm)
-- WASI runner / Preview boundary: [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md)
+- WASI runner / Preview boundary: [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html)
 - Related audit: [`./cli-startup-path.md`](./cli-startup-path.md)

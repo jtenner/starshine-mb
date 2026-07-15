@@ -1,18 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
   - ../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md
   - ../raw/node/2026-07-10-node-wasi-runner-api-recheck.md
-  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
+  - https://nodejs.org/api/wasi.html
   - ../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md
   - ../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
-  - ../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md
-  - ../raw/node/2026-05-20-node-package-export-boundary.md
+  - https://nodejs.org/api/packages.html
+  - https://www.typescriptlang.org/docs/handbook/modules/reference.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/research/0110-2026-04-18-node-package-api-audit.md
@@ -52,7 +52,7 @@ related:
 The checked-in `node/` package is a hand-maintained, ESM-first boundary package for `@jtenner/starshine`, not a live mirror of every active MoonBit package.
 It exports a small JavaScript-facing toolkit for binary/text roundtrips, command execution, validation, and examples, while deeper compiler internals remain repo-local.
 Treat the Node package as a public API layer whose correctness depends on explicit wrapper tests and packaging checks rather than on automatic regeneration from `src/*`.
-The public boundary is the explicit [`node/package.json`](../../../node/package.json) `exports` map: Node resolves only the listed package subpaths, and TypeScript must resolve matching declaration files through the same listed surface. The 2026-06-04 recheck in [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md) refreshed the current Node and TypeScript package-resolution rules behind that claim: unlisted subpaths stay private, export targets must be package-relative `./...` paths, TypeScript follows `exports` in Node-aware modes, and each public subpath needs declaration/runtime parity.
+The public boundary is the explicit [`node/package.json`](../../../node/package.json) `exports` map: Node resolves only the listed package subpaths, and TypeScript must resolve matching declaration files through the same listed surface. The official [Node package documentation](https://nodejs.org/api/packages.html) and [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html) support the package-resolution rules behind that claim: unlisted subpaths stay private, export targets must be package-relative `./...` paths, TypeScript follows `exports` in Node-aware modes, and each public subpath needs declaration/runtime parity.
 
 The current flow has two important artifacts:
 
@@ -91,7 +91,7 @@ That omission is acceptable only while the README and tests keep the package fra
 
 ## Export-Map Health Contract
 
-Start every Node package audit from [`node/package.json#exports`](../../../node/package.json), not from the full `node/` directory and not from every generated MoonBit interface. The current official Node package docs and TypeScript module-resolution docs, captured in [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), make the export map the consumer-facing boundary: unlisted package subpaths are private to package resolution, and TypeScript resolves declaration targets through Node-aware `exports` conditions.
+Start every Node package audit from [`node/package.json#exports`](../../../node/package.json), not from the full `node/` directory and not from every generated MoonBit interface. The official [Node package documentation](https://nodejs.org/api/packages.html) and [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html) make the export map the consumer-facing boundary: unlisted package subpaths are private to package resolution, and TypeScript resolves declaration targets through Node-aware `exports` conditions.
 
 Use this audit shape:
 
@@ -214,12 +214,12 @@ The comparison must start from the `exports` allowlist, not from every file in `
 
 ## Sources
 
-- WASI runner / Preview boundary: [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md), [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
+- WASI runner / Preview boundary: [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md), [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - JSPI host-async boundary: [`../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md), [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - ESM Integration boundary: [`../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), historical [`../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md), [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md), [`../../../node/package.json`](../../../node/package.json), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - JS String Builtins runtime boundary: [`../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js)
 - npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
-- Node/TypeScript package export bridge and drift refresh: [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), [`../raw/node/2026-05-20-node-package-export-boundary.md`](../raw/node/2026-05-20-node-package-export-boundary.md)
+- Node/TypeScript package-resolution evidence: official [Node package documentation](https://nodejs.org/api/packages.html), official [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html), and the local package metadata/wrapper/test sources listed below
 - Archived baseline audit: [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md)
 - Package metadata and README: [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)

@@ -3,7 +3,6 @@ kind: workflow
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
   - ../raw/release/2026-06-04-release-package-surface-refresh.md
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
@@ -211,6 +210,6 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 - Earlier release source snapshot superseded for local `moon.mod.json` paths: [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md)
 - Repo policy: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Package metadata: [`../../../moon.mod`](../../../moon.mod), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json)
-- Node package boundary: [`./node-package-surface.md`](node-package-surface.md), [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), [`../../../node/README.md`](../../../node/README.md), [`../../../node/internal/.gitignore`](../../../node/internal/.gitignore), [`../../../node/internal/.npmignore`](../../../node/internal/.npmignore), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
+- Node package boundary: [`./node-package-surface.md`](node-package-surface.md), official [Node package documentation](https://nodejs.org/api/packages.html), official [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html), [`../../../node/README.md`](../../../node/README.md), [`../../../node/internal/.gitignore`](../../../node/internal/.gitignore), [`../../../node/internal/.npmignore`](../../../node/internal/.npmignore), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
 - Validation gates: [`./validation-gates.md`](validation-gates.md), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`./pass-fuzz-compare.md`](pass-fuzz-compare.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)
 - npm docs checked by the source snapshot: <https://docs.npmjs.com/cli/v11/configuring-npm/package-json>, <https://docs.npmjs.com/cli/v11/commands/npm-publish>, <https://docs.npmjs.com/cli/v11/commands/npm-pack>, <https://docs.npmjs.com/cli/v11/using-npm/scripts#life-cycle-scripts>

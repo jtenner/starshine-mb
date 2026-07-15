@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md
   - raw/node/2026-07-10-node-wasi-runner-api-recheck.md
-  - raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
-  - raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md
+  - https://nodejs.org/api/wasi.html
+  - https://github.com/WebAssembly/WASI
+  - https://wasi.dev/roadmap
+  - https://component-model.bytecodealliance.org/
   - raw/wasm/2026-06-05-component-model-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - ../../src/lib/types.mbt
@@ -32,7 +34,7 @@ Use this page when a bug report, fixture idea, package request, or external tool
 
 For a beginner: a Core WebAssembly module is the familiar `module` with functions, memories, tables, globals, imports, exports, code, data, and custom sections. A Component Model component is a higher-level packaging and interoperability layer. It can contain Core modules, but it also describes interfaces, instances, lifted/lowered functions, and host-language data passing through the Canonical ABI.
 
-The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md), with the WASI runner / WASI 0.3 routing refresh in [`raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md) and the later Node runner API/local-thread-boundary recheck plus binding correction in [`raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](raw/node/2026-07-10-node-wasi-runner-api-recheck.md) and [`raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md). These notes rechecked the official proposals tracker, the Component Model repository, the MVP explainer, WIT documentation, Canonical ABI documentation, current WASI roadmap material, Node's current Preview 1 runner API, and current Starshine source evidence. The durable status is:
+The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md), supplemented by the later Node runner API/local-thread-boundary recheck plus binding correction in [`raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](raw/node/2026-07-10-node-wasi-runner-api-recheck.md) and [`raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md). These notes rechecked the official proposals tracker, Component Model/WIT/Canonical-ABI documentation, the [WASI roadmap](https://wasi.dev/roadmap), the [Node `node:wasi` API](https://nodejs.org/api/wasi.html), and current Starshine source evidence. The durable status is:
 
 - **Standards status:** the official proposals tracker currently routes `Component Model` as an active Phase-1 feature-proposal row, not a finished/Core 3.0 feature.
 - **Starshine status:** no documented local support for component binaries, WIT, component text, worlds, component validation, or Canonical ABI lift/lower exists today.
@@ -151,7 +153,7 @@ Until those questions have answers and tests, keep component artifacts out of or
 - Focused source bridge: [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md)
 - Broad active-proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
-- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md), [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md)
+- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md), [Node `node:wasi`](https://nodejs.org/api/wasi.html), [WebAssembly/WASI](https://github.com/WebAssembly/WASI), and the [WASI roadmap](https://wasi.dev/roadmap)
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Core module map: [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md)
 - Local implementation anchors: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

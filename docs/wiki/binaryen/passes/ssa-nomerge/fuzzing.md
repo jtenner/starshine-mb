@@ -3,7 +3,6 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ./parity.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../src/validate/gen_valid.mbt
@@ -39,7 +38,7 @@ bun scripts/pass-fuzz-compare.ts --count 1000000 --seed 0x5eed --pass ssa-nomerg
 
 ## Native binary path note
 
-The `target/native/...` paths in the historical 2026-06-16 result records below document the executable actually used at that time; do not reuse them as current commands. Under the current policy, build with `moon build --target native --release src/cmd` and pass `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` binary is acceptable only when its hash or timestamp proves it is the freshly built executable. See [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md) and [`../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
+The `target/native/...` paths in the historical 2026-06-16 result records below document the executable actually used at that time; do not reuse them as current commands. Under the current policy, build with `moon build --target native --release src/cmd` and pass `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` binary is acceptable only when its hash or timestamp proves it is the freshly built executable. See [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md) and [`../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
 
 ## 2026-06-16 Final Lane Results
 

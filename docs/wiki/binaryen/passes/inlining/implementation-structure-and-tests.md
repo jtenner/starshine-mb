@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-11
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
-  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -239,6 +238,6 @@ A future implementation slice should validate in this order:
 2. `moon build --target native --release src/cmd` before long compare lanes;
 3. direct `bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` for plain stop-point behavior;
 4. direct `bun scripts/pass-fuzz-compare.ts --pass inlining-optimizing ... --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe` for optimizing behavior;
-5. use the freshly built `_build/...` executable, not a merely present `target/native/...` artifact, unless a timestamp or hash proves it is fresh; the local policy and broader harness contract are [`../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md`](../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md);
+5. use the freshly built `_build/...` executable, not a merely present `target/native/...` artifact, unless a timestamp or hash proves it is fresh; the local policy and broader harness contract are [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md);
 6. saved mismatch replay from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2` until retired or split;
 7. late-tail neighborhood replay only after direct pass semantics are green across the agreed seed lanes.
