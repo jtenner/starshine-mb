@@ -2978,7 +2978,7 @@ test "flatten recognizes one add-drop then multiply-drop try-table suffix" {
 }
 
 ///|
-test "flatten keeps reverse multiply-drop then add-drop try-table suffix unsupported" {
+test "flatten recognizes one multiply-drop then add-drop try-table suffix" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -2996,12 +2996,22 @@ test "flatten keeps reverse multiply-drop then add-drop try-table suffix unsuppo
     11,
     12,
   )
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
-    table_id,
-    multiply[0],
-    add[0],
-  ])
-  assert_false(
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, multiply[0], add[0]])
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      multiply[0],
+      multiply[1],
+      multiply[2],
+      multiply[3],
+      add[0],
+      add[1],
+      add[2],
+      add[3],
+    ]),
+  )
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
@@ -3103,6 +3113,110 @@ test "flatten keeps a third distinct rich root after an add-multiply suffix pair
     table_id,
     add[0],
     multiply[0],
+    third[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps multiply-add suffix roots unsupported when a descendant is shared" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let multiply = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+  )
+  @ir.hot_node_exact_instr_set(func, multiply, @lib.Instruction::i32_mul())
+  let add = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  )
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, multiply),
+    @ir.hot_build_drop(func, add),
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a repeated add root after a multiply-add suffix pair unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    9,
+    10,
+  )
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    multiply[0],
+    add[0],
+    add[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a third distinct rich root after a multiply-add suffix pair unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    9,
+    10,
+  )
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    11,
+    12,
+  )
+  let third = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    13,
+    14,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    multiply[0],
+    add[0],
     third[0],
   ])
   assert_false(
