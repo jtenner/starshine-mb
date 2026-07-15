@@ -1,4 +1,4 @@
-# Binaryen v130 `flatten`: nonthrowing bridge cleanup and run-wide suffix ownership
+# Binaryen v130 `flatten`: nonthrowing bridge cleanup and proof-cache performance
 
 ## Scope
 
@@ -17,6 +17,8 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Code commit 1: `d20ebd21c` (`perf: elide nonthrowing flatten catch bridges`).
 - Code commit 2: `e9cb90b84` (`perf: share flatten suffix use-def proofs`).
 - Code slice 3: run-wide suffix cache plus direct `i32.and` admission, committed with this note.
+- Later label/shift iteration: `de1bc430f`, `64a86a381`, and docs commit `e14935de2`.
+- Current proof-cache/routing iteration: `23f779aa8` (`perf: cache flatten terminal table proofs`) and `32da5c798` (`perf: avoid duplicate flatten terminal routing`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -32,7 +34,12 @@ Exactly one behavioral test was added for each code slice:
 - `flatten removes an exclusively owned direct multiply call suffix` failed unchanged at `238/239`, then passed after direct `i32.mul` root admission and per-attempt use-def reuse;
 - `flatten removes an exclusively owned direct and call suffix` failed unchanged at `239/240`, then passed after direct `i32.and` admission and run-wide cached ownership.
 
-The whitebox outside-roster boundary moved from newly admitted `i32.mul`, then `i32.and`, to still-gated `i32.or`; it remains a fail-closed boundary rather than a second positive slice.
+The whitebox outside-roster boundary moved from newly admitted `i32.mul`, then `i32.and`, through the shift family and now rests at still-gated `i32.rotl`; it remains a fail-closed boundary rather than a second positive slice.
+
+The current two-code iteration added exactly one red-first test per commit:
+
+- `flatten terminal table proofs require an exact pre-mutation cache` failed at `142/143` because a suffix-only cache still authorized the broader terminal-table proof after mutation started; exact table id, label, payload arity, mixed-target policy, and support are now cached together, and the test passes at `143/143`;
+- `flatten removes an exclusively owned direct unsigned-shift call suffix` failed unchanged at `244/245`, then passed after direct `i32.shr_u` admission under the existing recursive distinct one-use proof. The pinned v130 probe retains `i32.shr_u`, `call $dead`, and unreachable Flat-IR debris.
 
 ## Ownership and mutation safety
 
@@ -41,9 +48,10 @@ The whitebox outside-roster boundary moved from newly admitted `i32.mul`, then `
 - one use-def snapshot built before admission;
 - one optional exact dead-suffix node vector per table node;
 - the exact owner region for each cached vector;
+- one exact terminal-table support record keyed by table node, try label, payload arity, and mixed-target policy;
 - a `rewrites_started` boundary.
 
-Admission computes and caches the complete distinct one-use proof. Rewrite consumes only a cache entry whose table id and owner region match. If mutation has started and no matching cache exists, suffix recognition returns `None`. This prevents a stale pre-mutation use-def snapshot from widening ownership after structural edits.
+Admission computes and caches the complete distinct one-use proof. Rewrite consumes only a suffix cache entry whose table id and owner region match and a terminal-table proof whose table, label, payload arity, and mixed-target policy match exactly. If mutation has started and either required proof is absent, the corresponding check fails closed. This prevents a stale or partial pre-mutation fact from widening ownership or target support after structural edits.
 
 ## Refreshed output matrix
 
@@ -95,9 +103,13 @@ The representative native release benchmark prebuilt 120 HOT functions, evenly s
 | explicit EH admission-gate current | 1,347.5 us | 1,280..1,931 us | 5.06x |
 | cached label-use / direct-shift current | 1,218.5 us | 1,159..1,310 us | 4.58x |
 | signed-shift / state-threaded current | 1,259 us | 1,219..1,321 us | 4.73x |
+| exact terminal-table proof cache | 1,195 us | 1,166..1,485 us | 4.49x |
+| unsigned-shift / duplicate-router removal current | 1,182.5 us | 1,166..1,425 us | 4.44x |
 | Binaryen v130 | 266.05 us | 250.16..380.856 us | 1.00x |
 
-The follow-up profile attributed most measured time to repeated legacy-try support during rewrite. `FlattenRewriteState` now caches the immutable pre-admission EH prerequisite classification, try-target terminal checks consume the existing cached suffix proof instead of rebuilding an uncached use-def snapshot, and the complete scalar legacy-try support decision is cached per owner before mutation and consumed only by matching later rewrite checks. The representative median improved another 22.30% from `1,641 us` to `1,275 us`. After adding explicit catch-payload and exceptional-transfer admission outcomes, the same 120-function native-release shape reran at `1,347.5 us`. The next iteration cached immutable label-use facts once per rewrite state and reused them through scalar and multivalue control support/routing, reaching `1,218.5 us` in the first post-change sample. After adding direct signed-shift roots and threading state through rich branch admission, the final current rerun measured `1,259 us` (`1,219..1,321 us`), or `4.73x` Binaryen. Performance therefore remains well outside the maximum acceptable `2x Binaryen` threshold and blocks public exposure.
+The follow-up profile attributed most measured time to repeated legacy-try support during rewrite. `FlattenRewriteState` now caches the immutable pre-admission EH prerequisite classification, try-target terminal checks consume the existing cached suffix proof instead of rebuilding an uncached use-def snapshot, and the complete scalar legacy-try support decision is cached per owner before mutation and consumed only by matching later rewrite checks. The representative median improved another 22.30% from `1,641 us` to `1,275 us`. After adding explicit catch-payload and exceptional-transfer admission outcomes, the same 120-function native-release shape reran at `1,347.5 us`. The next iteration cached immutable label-use facts once per rewrite state and reused them through scalar and multivalue control support/routing, reaching `1,218.5 us` in the first post-change sample. After adding direct signed-shift roots and threading state through rich branch admission, the rerun measured `1,259 us`.
+
+The current exact phase profile, measured across the same 120 prebuilt candidate-dense functions after five warmup batches, reports median batch attribution of `55.5 us` classify, `152.5 us` rewrite-state construction, `251.5 us` admission, `684.5 us` rewrite, and `5 us` body-result handling. Rewrite remains the dominant measured phase. Caching the complete terminal-table decision lowered the same-session median from `1,247.5 us` to `1,195 us`. Returning directly from the dedicated payload-bearing `br_if` and `br_table` rewrite arms avoids retrying the generic `br`, `br_if`, and `br_table` routers after payload removal; the final rerun measured `1,182.5 us` (`1,166..1,425 us`), or `4.44x` Binaryen. An initial noisy post-change sample measured `1,252 us` with one `1,883 us` outlier, so the improvement should be treated as modest rather than a closed performance result. Performance remains well outside the maximum acceptable `2x Binaryen` threshold and blocks public exposure.
 
 ## Validation
 
@@ -114,13 +126,15 @@ Follow-up proof-cache validation: direct `i32.or` behavior was red at `240/241` 
 
 Follow-up EH-gate validation used a pinned Binaryen v130 typed-catch probe. Direct `--flatten` stages the typed `(pop i32)` into a fresh local before the original drop, confirming that payload extraction is semantic work rather than optional cleanup. The updated private behavior test first failed because a rooted `Catch` plus an otherwise flattenable rich operand returned `{ changed: true }`; explicit `DeferredCatchPayloadRepair` and `DeferredExceptionalTransferRepair` admission outcomes now stop `Catch`/`CatchAll` and `Rethrow`/`Delegate` functions before locals or operand rewrites can begin. That iteration passed private flatten `142/142`, passes `5,714/5,714`, and the full suite `9,173/9,173`.
 
-The next two red-first behavior slices admitted direct `i32.shl` and `i32.shr_s` resultless-call argument roots under the same complete distinct one-use proof. Each pinned Binaryen v130 probe retains the operation, call, and unreachable Flat-IR debris. Focused flatten moved from `242/243` to `243/243`, then `243/244` to `244/244`; the private boundary remained `142/142` while moving from `i32.shl` to `i32.shr_s` and then `i32.shr_u`. Final validation passed passes `5,716/5,716`, the full suite `9,175/9,175`, `moon info`, targeted formatting, and `git diff --check`. Repository-wide `moon fmt --check` remains blocked only by the pre-existing `moon.mod` syntax disagreement.
+The next two red-first behavior slices admitted direct `i32.shl` and `i32.shr_s` resultless-call argument roots under the same complete distinct one-use proof. Each pinned Binaryen v130 probe retains the operation, call, and unreachable Flat-IR debris. Focused flatten moved from `242/243` to `243/243`, then `243/244` to `244/244`; the private boundary remained `142/142` while moving from `i32.shl` to `i32.shr_s` and then `i32.shr_u`. That iteration passed passes `5,716/5,716`, the full suite `9,175/9,175`, `moon info`, targeted formatting, and `git diff --check`.
+
+Current proof-cache/routing validation moved private flatten from red `142/143` to green `143/143`, then focused flatten from red `244/245` to green `245/245`. Final current validation passed private flatten `143/143`, passes `5,718/5,718`, the full suite `9,177/9,177`, `moon info`, targeted formatting, and `git diff --check`. No `.mbti` public API diff was produced. Repository-wide `moon fmt --check` remains blocked only by the pre-existing `moon.mod` syntax disagreement.
 
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, and label-use caching reduce the representative median from `3,682.5 us` to a current `1,259 us`, or `4.73x` Binaryen; this remains outside target.
-- **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, and `i32.shr_s` call roots now use the same recursive complete-ownership proof; `i32.shr_u` remains the tested outside-roster boundary.
+- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, and exact terminal-table caches plus duplicate-router removal reduce the representative median from `3,682.5 us` to a current `1,182.5 us`, or `4.44x` Binaryen; this remains outside target.
+- **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
 - **Durable representation gate:** `Catch`/`CatchAll` now select `DeferredCatchPayloadRepair`, while `Rethrow`/`Delegate` select `DeferredExceptionalTransferRepair`, before any mutation. This closes a partial-mutation hole but does not implement EH repair.
@@ -129,6 +143,7 @@ The next two red-first behavior slices admitted direct `i32.shl` and `i32.shr_s`
 
 ## Next work
 
-1. profile and remove the next dominant repeated support/label-use scan without weakening exact label or ownership proof;
+1. profile inside rewrite-state construction and the remaining `684.5 us` rewrite phase, prioritizing repeated immutable support/use-def or mutation-helper work without weakening exact label or ownership proof;
 2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
-3. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.
+3. add a verified control-plus-owned-label deletion mutation before admitting structured suffix roots;
+4. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.
