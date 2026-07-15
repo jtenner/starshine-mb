@@ -2939,6 +2939,7 @@ fn flatten_loop_backedge_payloads_are_supported(
   node_id : Int,
   payload_count : Int,
   param_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   if payload_count != param_types.length() {
     return false
@@ -2960,6 +2961,10 @@ fn flatten_loop_backedge_payloads_are_supported(
           @ir.hot_label_owner(func, label_id),
           node_id,
           param_types,
+          use_counts=match state {
+            Some(state) => Some(state.use_def)
+            None => None
+          },
         )
         is Some(_) {
         return true
@@ -2988,11 +2993,13 @@ fn flatten_loop_backedges_are_supported(
   func : @ir.HotFunc,
   label_id : Int,
   param_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  for node_id in branch_nodes {
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::Br if node.imm0 == label_id =>
@@ -3001,6 +3008,7 @@ fn flatten_loop_backedges_are_supported(
             node_id,
             @ir.hot_child_count(func, node_id),
             param_types,
+            state~,
           ) {
           return false
         }
@@ -3010,6 +3018,7 @@ fn flatten_loop_backedges_are_supported(
             node_id,
             @ir.hot_child_count(func, node_id) - 1,
             param_types,
+            state~,
           ) {
           return false
         }
@@ -3023,6 +3032,7 @@ fn flatten_loop_backedges_are_supported(
             node_id,
             @ir.hot_child_count(func, node_id) - 1,
             param_types,
+            state~,
           ) {
           return false
         }
@@ -3236,16 +3246,19 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
   loop_id : Int,
   label_id : Int,
   payload_count : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   let root_count = @ir.hot_region_root_count(func, body_ref)
-  let use_counts = flatten_build_node_use_counts(func)
-  for branch_id = 0
-      branch_id < @ir.hot_node_count(func)
-      branch_id = branch_id + 1 {
-    if !@ir.hot_node_is_live(func, branch_id) {
-      continue
-    }
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
+  }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  for branch_id in branch_nodes {
     let branch = @ir.hot_node_get(func, branch_id)
     match branch.op {
       @ir.HotOp::BrIf if branch.imm0 == label_id => ()
@@ -3306,6 +3319,26 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
     }
   }
   true
+}
+
+///|
+fn flatten_rewrite_multivalue_loop_br_if_flows_are_exact(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  loop_id : Int,
+  label_id : Int,
+  payload_count : Int,
+) -> Bool {
+  if !state.rewrites_started {
+    return false
+  }
+  flatten_multivalue_loop_br_if_flows_are_exact(
+    func,
+    loop_id,
+    label_id,
+    payload_count,
+    state=Some(state),
+  )
 }
 
 ///|
@@ -3475,14 +3508,37 @@ fn flatten_inputful_loop_is_supported(
   if param_types.length() != input_count || loop_node.child_count <= input_count {
     return false
   }
-  if result_types.length() > 1 &&
-    !flatten_multivalue_loop_br_if_flows_are_exact(
-      func,
-      loop_id,
-      label_id,
-      param_types.length(),
-    ) {
-    return false
+  if result_types.length() > 1 {
+    let flows_are_exact = match state {
+      Some(state) =>
+        if state.rewrites_started {
+          flatten_rewrite_multivalue_loop_br_if_flows_are_exact(
+            func,
+            state,
+            loop_id,
+            label_id,
+            param_types.length(),
+          )
+        } else {
+          flatten_multivalue_loop_br_if_flows_are_exact(
+            func,
+            loop_id,
+            label_id,
+            param_types.length(),
+            state=Some(state),
+          )
+        }
+      None =>
+        flatten_multivalue_loop_br_if_flows_are_exact(
+          func,
+          loop_id,
+          label_id,
+          param_types.length(),
+        )
+    }
+    if !flows_are_exact {
+      return false
+    }
   }
   if flatten_inputful_loop_tuple_entry_values(func, loop_id, param_types)
     is None {
@@ -3500,8 +3556,8 @@ fn flatten_inputful_loop_is_supported(
       }
     }
   }
-  if pass_label_is_used(label_id, pass_compute_label_used(func)) &&
-    !flatten_loop_backedges_are_supported(func, label_id, param_types) {
+  if flatten_cached_label_is_used(func, label_id, state~) &&
+    !flatten_loop_backedges_are_supported(func, label_id, param_types, state~) {
     return false
   }
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
@@ -5132,6 +5188,7 @@ fn flatten_try_route_scalar_br_if(
         @ir.hot_label_owner(func, label_id),
         node_id,
         param_types,
+        use_counts=Some(state.use_def),
       )
       match tuple_flow {
         Some(flow) => {
@@ -6206,6 +6263,10 @@ fn flatten_has_deferred_rich_branch_payload(
                 @ir.hot_label_owner(func, label_id),
                 node_id,
                 param_types,
+                use_counts=match state {
+                  Some(state) => Some(state.use_def)
+                  None => None
+                },
               )
               is None {
               for slot = 0; slot < payload_count; slot = slot + 1 {

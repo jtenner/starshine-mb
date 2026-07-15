@@ -6353,3 +6353,42 @@ test "flatten rewrite region tail tuple proof uses pre-mutation ownership counts
     is Some(_),
   )
 }
+
+///|
+test "flatten rewrite multivalue loop proof uses the pre-mutation branch index" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 3 call 4 call 5 br_if $loop drop drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 7) (func (result i64) i64.const 9) (func (result i32) i32.const 0))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  let payload_count = @ir.hot_label_branch_arity(func, label_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_loop_br_if_flows_are_exact(
+      func,
+      loop_id,
+      label_id,
+      payload_count,
+      state=Some(state),
+    ),
+  )
+  let rogue = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(17))],
+  )
+  @ir.hot_root_append(func, rogue)
+  assert_false(
+    flatten_multivalue_loop_br_if_flows_are_exact(
+      func, loop_id, label_id, payload_count,
+    ),
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_multivalue_loop_br_if_flows_are_exact(
+      func, state, loop_id, label_id, payload_count,
+    ),
+  )
+}
