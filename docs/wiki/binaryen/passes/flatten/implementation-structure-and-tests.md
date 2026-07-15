@@ -303,6 +303,12 @@ The second factors exact per-live-node and function-tail Flat IR classification,
 
 Validation is focused flatten `245/245`, private flatten `169/169`, passes `5,744/5,744`, full suite `9,205/9,205`, and green `moon info`, targeted formatting, owner verification, and diff checks. Code 1's reconstructed representative improves `1,131 -> 1,060 us` (`6.28%`); code 2 timings overlap or regress by order and are not classified as a win. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The next exact two-code iteration adds commits `c420a9950` and `9b5c4170a`. The first keeps scalar legacy-try proof entries sorted by exact pre-mutation try id, uses binary search for lookup, and inserts without node-sized storage. Its single red-first invariant is `flatten scalar try proof cache keeps sparse entries sorted`; the old append-only order failed as `[16, 4, 10]` instead of `[4, 10, 16]`.
+
+The second applies the same sparse sorted lookup contract to dead-suffix and terminal-table entries keyed by exact table node id. Its single red-first invariant is `flatten terminal proof caches keep sparse entries sorted`; the old append-only order failed as `[33, 7, 20]` instead of `[7, 20, 33]`. Existing region, label, payload-arity, mixed-target, support, ownership-vector, and rewrite-boundary checks are unchanged, and the first proof for an owner is never widened by a later insertion.
+
+Validation is focused flatten `245/245`, private flatten `171/171`, passes `5,746/5,746`, full suite `9,207/9,207`, and green `moon info`, targeted formatting, owner verification, and diff checks. The scalar candidate-density median improves `7,115.5 -> 6,689.5 us` at 512 candidates per function; the terminal density median improves `22,708.5 -> 9,426 us` at 256 candidates per function. The representative reconstruction overlaps by order (`1,069.5` baseline versus `1,108` then `1,063 us` current). No `.mbti`, semantic family, or public surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

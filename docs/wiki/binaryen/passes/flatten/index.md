@@ -342,6 +342,14 @@ The second records the complete Flat IR violation report in that same immutable 
 
 Final validation is focused flatten `245/245`, private flatten `169/169`, passes `5,744/5,744`, full suite `9,205/9,205`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH repair, structured-label deletion, broader-parity, aggregate, four-lane signoff, neighborhood, and public-readiness blocker remain open.
 
+## 2026-07-15 sparse proof lookup follow-up
+
+Commits `c420a9950` and `9b5c4170a` complete the next exact two-code internal iteration without widening behavior. Scalar legacy-try support, dead-suffix ownership, and terminal-table support remain sparse exact entry vectors, but their entries are now kept in pre-mutation node-id order and resolved with binary search. The first proof for an owner remains authoritative; a missing entry after rewriting starts still fails closed. The red-first invariants deliberately queried owners out of order and failed on unsorted populations before the sorted insertion/lookup path landed. Private flatten moved to `171/171`.
+
+The candidate-dense scalar-try reconstruction improved at 512 candidates per function from median `7,115.5 us` to `6,689.5 us` (`5.99%`). The terminal-dense reconstruction improved at 256 candidates per function from `22,708.5 us` to `9,426 us` (`58.49%`). The reconstructed representative was order-sensitive and overlapping (`1,069.5 us` baseline versus `1,108 us` then `1,063 us` current), so neither slice requalifies the durable `970.5 us` / `3.65x` public gate.
+
+Final validation is focused flatten `245/245`, private flatten `171/171`, passes `5,746/5,746`, full suite `9,207/9,207`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. Typed EH repair, structured control-plus-owned-label deletion, broader parity, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, performance readiness, and public admission remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

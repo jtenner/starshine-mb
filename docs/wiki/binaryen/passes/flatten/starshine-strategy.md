@@ -338,6 +338,10 @@ The latest exact two-code iteration consolidates the remaining run-start classif
 
 Validation reaches private `169/169`, focused `245/245`, passes `5,744/5,744`, full `9,205/9,205`, and green `moon info`. Code 1's representative reconstruction improves `1,131 -> 1,060 us` (`6.28%`); code 2 timing is overlapping/order-sensitive and is classified only as exact scan consolidation. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes. The durable `970.5 us` / `3.65x` gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
 
+The latest exact two-code iteration addresses candidate-dense sparse proof lookup without widening behavior. `c420a9950` keeps scalar legacy-try proof entries sorted by exact pre-mutation owner id and resolves them with binary search. `9b5c4170a` keeps dead-suffix and terminal-table proof entries sorted by exact table id and resolves them the same way. No node-sized cache was added: storage still exists only for inspected owners, the first exact proof remains authoritative, and missing post-boundary entries still fail closed.
+
+Validation reaches private `171/171`, focused `245/245`, passes `5,746/5,746`, full `9,207/9,207`, and green `moon info`. At fixed total candidate counts, the scalar reconstruction improves `7,115.5 -> 6,689.5 us` for 512 candidates per function, and the terminal reconstruction improves `22,708.5 -> 9,426 us` for 256 candidates per function. The representative reconstruction overlaps by order (`1,069.5`, `1,108`, and `1,063 us`), so the original `970.5 us` / `3.65x` gate remains unrequalified. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

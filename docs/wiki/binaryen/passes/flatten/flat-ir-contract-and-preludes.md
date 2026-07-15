@@ -407,6 +407,12 @@ Commits `7706110c1` and `2c5a54ac3` preserve the Flat-IR output and admission co
 
 The standalone `flatten_classify_hot(...)` path remains available and shares the same per-live-node and function-tail helpers, while rewrite state freezes the indexed report before mutation. The red-first invariants prove equality with the standalone classifier and exact EH outcomes in functions padded with 256 unrelated roots. No target, type, ownership, control, EH, effect, trap, deletion, or post-boundary failure rule changed. Code 1 produced a `6.28%` reconstructed representative reduction; code 2 timings overlapped or regressed by run order and is classified as scan consolidation only. The durable `970.5 us` / `3.65x` gate remains authoritative.
 
+### Sparse proof lookup stays exact at candidate density
+
+Commits `c420a9950` and `9b5c4170a` keep scalar-try, dead-suffix, and terminal-table proof storage sparse while replacing repeated linear lookup with sorted insertion and binary search. The ordering key is the exact pre-mutation try or table node id. Dead-suffix entries still bind the owner region and complete owned-node vector; terminal entries still bind label, payload arity, mixed-target policy, and support; scalar-try entries still bind the exact owner and support result. The first cached fact remains authoritative, and absent post-boundary facts remain rejection rather than an invitation to rediscover support.
+
+The red-first tests query three owners in descending/mixed order and require the resulting sparse populations to remain sorted and exactly retrievable. Targeted native-release reconstruction measured `5.99%` improvement at 512 scalar tries per function and `58.49%` improvement at 256 terminal-table candidates per function. Representative timing overlapped by run order, so this is candidate-density work rather than public performance requalification. No Flat-IR, type, label, EH, effect, trap, ownership, deletion, or output-shape contract changed.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

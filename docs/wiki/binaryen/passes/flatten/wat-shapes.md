@@ -627,6 +627,12 @@ Commits `7706110c1` and `2c5a54ac3` do not alter any WAT shape above. The immuta
 
 The red-first invariants compare the indexed and standalone facts in functions padded with 256 unrelated roots. Every family-specific label, type, ownership, EH, effect, trap, control-result, deletion, and mutation-time failure boundary is unchanged. Code 1 improves one reconstructed representative by `6.28%`; code 2 has no stable timing win. No opcode, control, payload, EH-repair, or output family is admitted.
 
+### Latest sparse proof lookup detail
+
+Commits `c420a9950` and `9b5c4170a` do not alter any WAT shape above. Scalar legacy-try, dead-suffix, and terminal-table decisions remain sparse exact proof entries; they are now sorted by the corresponding pre-mutation try/table id and located with binary search. The entries still retain every semantic discriminator used before the change, and a missing entry after rewriting starts still rejects the route.
+
+The red-first invariants create or inspect three owners out of order and require sorted exact lookup. Candidate-dense native-release timing improves `5.99%` for scalar tries and `58.49%` for terminal tables, while representative samples overlap by order. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before
