@@ -3476,7 +3476,7 @@ test "flatten recognizes an add-multiply-add try-table suffix sequence" {
 }
 
 ///|
-test "flatten keeps an add-subtract-multiply suffix sequence unsupported" {
+test "flatten keeps an add-xor-multiply suffix sequence unsupported" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -3488,9 +3488,9 @@ test "flatten keeps an add-subtract-multiply suffix sequence unsupported" {
     9,
     10,
   )
-  let subtract = flatten_test_build_direct_binary_drop(
+  let xor = flatten_test_build_direct_binary_drop(
     func,
-    @lib.Instruction::i32_sub(),
+    @lib.Instruction::i32_xor(),
     11,
     12,
   )
@@ -3503,7 +3503,7 @@ test "flatten keeps an add-subtract-multiply suffix sequence unsupported" {
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     add[0],
-    subtract[0],
+    xor[0],
     multiply[0],
   ])
   assert_false(
@@ -3633,4 +3633,68 @@ test "flatten recognizes a multiply-add-multiply try-table suffix sequence" {
       func, table_id, label_id, 1, false,
     ),
   )
+}
+
+///|
+fn flatten_test_recognize_four_direct_binary_suffix_roots(
+  reverse : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let instructions = if reverse {
+    [
+      @lib.Instruction::i32_and(),
+      @lib.Instruction::i32_mul(),
+      @lib.Instruction::i32_sub(),
+      @lib.Instruction::i32_add(),
+    ]
+  } else {
+    [
+      @lib.Instruction::i32_add(),
+      @lib.Instruction::i32_sub(),
+      @lib.Instruction::i32_mul(),
+      @lib.Instruction::i32_and(),
+    ]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root_index = 0
+      root_index < instructions.length()
+      root_index = root_index + 1 {
+    let value = 9 + root_index * 2
+    let root = flatten_test_build_direct_binary_drop(
+      func,
+      instructions[root_index],
+      value,
+      value + 1,
+    )
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-subtract-multiply-and try-table suffix sequence" {
+  flatten_test_recognize_four_direct_binary_suffix_roots(false)
+}
+
+///|
+test "flatten recognizes an and-multiply-subtract-add try-table suffix sequence" {
+  flatten_test_recognize_four_direct_binary_suffix_roots(true)
 }

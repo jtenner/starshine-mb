@@ -1250,69 +1250,42 @@ fn flatten_try_table_dead_suffix_root_is_direct_drop_const(
 }
 
 ///|
-fn flatten_try_table_dead_suffix_root_is_direct_drop_i32_add_consts(
+fn flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
   func : @ir.HotFunc,
   root_id : Int,
-) -> Bool {
+) -> @lib.Instruction? {
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Drop => ()
-    _ => return false
+    _ => return None
   }
   if @ir.hot_child_count(func, root_id) != 1 {
-    return false
+    return None
   }
-  let add_id = @ir.hot_child_get(func, root_id, 0)
-  match @ir.hot_node_get(func, add_id).op {
+  let binary_id = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, binary_id).op {
     @ir.HotOp::Binary => ()
-    _ => return false
+    _ => return None
   }
-  if @ir.hot_node_exact_instr(func, add_id) != Some(@lib.Instruction::i32_add()) ||
-    @ir.hot_child_count(func, add_id) != 2 {
-    return false
+  let instr = match @ir.hot_node_exact_instr(func, binary_id) {
+    Some(instr) =>
+      match instr {
+        @lib.I32Add | @lib.I32Sub | @lib.I32Mul | @lib.I32And => instr
+        _ => return None
+      }
+    None => return None
   }
-  let left_id = @ir.hot_child_get(func, add_id, 0)
-  let right_id = @ir.hot_child_get(func, add_id, 1)
+  if @ir.hot_child_count(func, binary_id) != 2 {
+    return None
+  }
+  let left_id = @ir.hot_child_get(func, binary_id, 0)
+  let right_id = @ir.hot_child_get(func, binary_id, 1)
   if left_id == right_id {
-    return false
+    return None
   }
   match
     (@ir.hot_node_get(func, left_id).op, @ir.hot_node_get(func, right_id).op) {
-    (@ir.HotOp::Const, @ir.HotOp::Const) => true
-    _ => false
-  }
-}
-
-///|
-fn flatten_try_table_dead_suffix_root_is_direct_drop_i32_mul_consts(
-  func : @ir.HotFunc,
-  root_id : Int,
-) -> Bool {
-  match @ir.hot_node_get(func, root_id).op {
-    @ir.HotOp::Drop => ()
-    _ => return false
-  }
-  if @ir.hot_child_count(func, root_id) != 1 {
-    return false
-  }
-  let multiply_id = @ir.hot_child_get(func, root_id, 0)
-  match @ir.hot_node_get(func, multiply_id).op {
-    @ir.HotOp::Binary => ()
-    _ => return false
-  }
-  if @ir.hot_node_exact_instr(func, multiply_id) !=
-    Some(@lib.Instruction::i32_mul()) ||
-    @ir.hot_child_count(func, multiply_id) != 2 {
-    return false
-  }
-  let left_id = @ir.hot_child_get(func, multiply_id, 0)
-  let right_id = @ir.hot_child_get(func, multiply_id, 1)
-  if left_id == right_id {
-    return false
-  }
-  match
-    (@ir.hot_node_get(func, left_id).op, @ir.hot_node_get(func, right_id).op) {
-    (@ir.HotOp::Const, @ir.HotOp::Const) => true
-    _ => false
+    (@ir.HotOp::Const, @ir.HotOp::Const) => Some(instr)
+    _ => None
   }
 }
 
@@ -1336,7 +1309,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_unreachable_then_drop_const = suffix_count == 2
       let mut exact_add_drop_then_unreachable = suffix_count == 2
       let mut exact_unreachable_then_add_drop = suffix_count == 2
-      let mut all_direct_add_or_multiply_drops = true
+      let mut all_direct_nontrapping_binary_drops = true
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1354,14 +1327,13 @@ fn flatten_try_table_dead_suffix_nodes(
         if !root_is_direct_drop_const {
           all_direct_drop_consts = false
         }
-        let root_is_direct_add = flatten_try_table_dead_suffix_root_is_direct_drop_i32_add_consts(
+        let direct_binary_instr = flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
           func, root_id,
         )
-        let root_is_direct_multiply = flatten_try_table_dead_suffix_root_is_direct_drop_i32_mul_consts(
-          func, root_id,
-        )
-        if !root_is_direct_add && !root_is_direct_multiply {
-          all_direct_add_or_multiply_drops = false
+        let root_is_direct_add = direct_binary_instr ==
+          Some(@lib.Instruction::i32_add())
+        if direct_binary_instr is None {
+          all_direct_nontrapping_binary_drops = false
         }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
@@ -1393,7 +1365,7 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_unreachable_then_drop_const &&
         !exact_add_drop_then_unreachable &&
         !exact_unreachable_then_add_drop &&
-        !all_direct_add_or_multiply_drops {
+        !all_direct_nontrapping_binary_drops {
         return None
       }
     }
