@@ -413,6 +413,12 @@ Commits `c420a9950` and `9b5c4170a` keep scalar-try, dead-suffix, and terminal-t
 
 The red-first tests query three owners in descending/mixed order and require the resulting sparse populations to remain sorted and exactly retrievable. Targeted native-release reconstruction measured `5.99%` improvement at 512 scalar tries per function and `58.49%` improvement at 256 terminal-table candidates per function. Representative timing overlapped by run order, so this is candidate-density work rather than public performance requalification. No Flat-IR, type, label, EH, effect, trap, ownership, deletion, or output-shape contract changed.
 
+### Inputful-loop and scalar-flow lookup stays exact at candidate density
+
+Commits `e32819f5b` and `fc5c89bff` extend the same sorted sparse contract to inputful-loop support, scalar `br_if` flow sites, and same-state scalar replacements. Loop entries are keyed by the exact pre-mutation loop id; flow-site entries by branch id; replacement entries by the original flowing value id. Admission still computes complete type, entry, ownership, branch, conditional-flow, result-tail, and current-parent facts before mutation. Rewrite still rejects an absent entry, rechecks current structure only within the frozen parent population, and accepts chained replacement identity only from the same state. Existing scalar replacement entries retain update semantics rather than first-proof immutability because they describe the current same-state replacement, not an admission decision.
+
+The red-first invariants queried owners in descending/mixed order and failed on append order before sorted insertion landed. Fixed-total native-release density fixtures improved inputful loops `9.57%` and scalar flow `3.34%` at 128 candidates per function. No Flat-IR family, WAT output shape, type, label, EH, effect, trap, ownership, deletion, or public surface changed.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

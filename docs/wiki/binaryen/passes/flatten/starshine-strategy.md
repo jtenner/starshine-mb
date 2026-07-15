@@ -342,6 +342,10 @@ The latest exact two-code iteration addresses candidate-dense sparse proof looku
 
 Validation reaches private `171/171`, focused `245/245`, passes `5,746/5,746`, full `9,207/9,207`, and green `moon info`. At fixed total candidate counts, the scalar reconstruction improves `7,115.5 -> 6,689.5 us` for 512 candidates per function, and the terminal reconstruction improves `22,708.5 -> 9,426 us` for 256 candidates per function. The representative reconstruction overlaps by order (`1,069.5`, `1,108`, and `1,063 us`), so the original `970.5 us` / `3.65x` gate remains unrequalified. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
 
+The latest exact two-code iteration extends sorted sparse lookup to two remaining measured owners without widening behavior. `e32819f5b` orders inputful-loop support by pre-mutation loop id. `fc5c89bff` orders scalar `br_if` flow sites by branch id and same-state replacement identity by original value id. Binary lookup replaces linear scans; first support/site proof remains authoritative, replacement updates remain supported, and rewrite still requires exact cached parents, current structure, same-state identity, and a present pre-mutation entry.
+
+Validation reaches private `173/173`, focused `245/245`, passes `5,748/5,748`, full `9,209/9,209`, and green `moon info` with 11 existing warnings. At 128 candidates per function, fixed-total native-release fixtures improve inputful loops `14,038 -> 12,694 us` (`9.57%`) and scalar flow `36,469 -> 35,250.5 us` (`3.34%`). These targeted wins do not recover the original benchmark contract or requalify the durable `970.5 us` / `3.65x` gate. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

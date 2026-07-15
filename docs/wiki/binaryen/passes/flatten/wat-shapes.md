@@ -633,6 +633,12 @@ Commits `c420a9950` and `9b5c4170a` do not alter any WAT shape above. Scalar leg
 
 The red-first invariants create or inspect three owners out of order and require sorted exact lookup. Candidate-dense native-release timing improves `5.99%` for scalar tries and `58.49%` for terminal tables, while representative samples overlap by order. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Latest inputful-loop and scalar-flow lookup detail
+
+Commits `e32819f5b` and `fc5c89bff` also leave every WAT shape above unchanged. Inputful-loop support entries are now sorted by exact pre-mutation loop id. Scalar `br_if` flow-site entries are sorted by branch id, and same-state replacement entries are sorted by original value id. Binary lookup replaces linear scans, but admission still proves exact loop types/entries/backedges/results or exact scalar parent populations, and rewrite still rechecks current structure and rejects a missing pre-mutation entry. Replacement entries retain update behavior for a value already replaced by the same state.
+
+The red-first invariants queried three candidates out of order and failed on append order before implementation. Fixed-total native-release density fixtures improve inputful loops `9.57%` and scalar flow `3.34%` at 128 candidates per function. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

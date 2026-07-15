@@ -350,6 +350,12 @@ The candidate-dense scalar-try reconstruction improved at 512 candidates per fun
 
 Final validation is focused flatten `245/245`, private flatten `171/171`, passes `5,746/5,746`, full suite `9,207/9,207`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. Typed EH repair, structured control-plus-owned-label deletion, broader parity, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, performance readiness, and public admission remain open.
 
+## 2026-07-15 inputful-loop and scalar-flow proof lookup follow-up
+
+Commits `e32819f5b` and `fc5c89bff` complete the next exact two-code internal iteration without widening behavior. Inputful-loop support entries now remain sparse and sorted by exact pre-mutation loop id. Scalar `br_if` flow-site entries remain sparse and sorted by branch id, while same-state replacement entries remain sorted by original value id and retain update semantics. All three use binary lookup; first admission proofs, frozen parent populations, current-structure checks, same-state replacement identity, and missing-entry rewrite rejection remain exact.
+
+The two red-first invariants queried three owners out of order and failed on append order before implementation. At fixed 2,048 candidates, the native-release reconstruction improves inputful loops `14,038 -> 12,694 us` (`9.57%`) and scalar flow `36,469 -> 35,250.5 us` (`3.34%`) at 128 candidates per function. Final validation is focused flatten `245/245`, private flatten `173/173`, passes `5,748/5,748`, full suite `9,209/9,209`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

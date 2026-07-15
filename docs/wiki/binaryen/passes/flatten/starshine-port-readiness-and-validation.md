@@ -160,6 +160,10 @@ The sparse proof lookup iteration also leaves the hold point unchanged. `c420a99
 
 The targeted scalar density fixture improves `5.99%`, and the terminal density fixture improves `58.49%`; the reconstructed representative is order-sensitive and overlapping, so the durable `970.5 us` / `3.65x` checkpoint remains the public gate. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and representative performance remain blocked.
 
+The inputful-loop/scalar-flow proof-lookup iteration also leaves the hold point unchanged. `e32819f5b` sorts sparse inputful-loop support by exact loop id and uses binary lookup. `fc5c89bff` sorts scalar `br_if` flow sites by branch id and same-state replacements by original value id, preserving first admission proof plus replacement-update semantics. Their red-first invariants fail on mixed query order before implementation and private flatten reaches `173/173` afterwards. Fixed-total density fixtures improve inputful loops `9.57%` and scalar flow `3.34%` at 128 candidates per function. Focused flatten is `245/245`, passes are `5,748/5,748`, the full suite is `9,209/9,209`, and `moon info` is green with 11 existing warnings.
+
+No public-readiness predicate changed. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` performance gate remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

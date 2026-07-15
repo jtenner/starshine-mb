@@ -309,6 +309,10 @@ The second applies the same sparse sorted lookup contract to dead-suffix and ter
 
 Validation is focused flatten `245/245`, private flatten `171/171`, passes `5,746/5,746`, full suite `9,207/9,207`, and green `moon info`, targeted formatting, owner verification, and diff checks. The scalar candidate-density median improves `7,115.5 -> 6,689.5 us` at 512 candidates per function; the terminal density median improves `22,708.5 -> 9,426 us` at 256 candidates per function. The representative reconstruction overlaps by order (`1,069.5` baseline versus `1,108` then `1,063 us` current). No `.mbti`, semantic family, or public surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The next exact two-code iteration adds commits `e32819f5b` and `fc5c89bff`. The first keeps inputful-loop support entries sparse and sorted by exact pre-mutation loop id; its red-first invariant queried three supported loops out of order and failed with `[11, 1, 6]` instead of `[1, 6, 11]`. The second keeps scalar `br_if` flow sites sorted by branch id and same-state replacements sorted by original value id; its invariant failed with branch order `[17, 3, 10]` instead of `[3, 10, 17]`. Binary lookup now serves all three populations, first admission proofs remain authoritative, replacement updates remain supported, and rewrite-time absent entries still fail closed.
+
+Validation is focused flatten `245/245`, private flatten `173/173`, passes `5,748/5,748`, full suite `9,209/9,209`, and green `moon info` with 11 existing warnings. At fixed 2,048 candidates, inputful loops improve `14,038 -> 12,694 us` (`9.57%`) and scalar flow improves `36,469 -> 35,250.5 us` (`3.34%`) at 128 candidates per function. These are targeted lookup wins; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:
