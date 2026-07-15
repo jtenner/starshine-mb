@@ -6436,3 +6436,47 @@ test "flatten rewrite tuple loop entry proof uses pre-mutation ownership counts"
     is Some(_),
   )
 }
+
+///|
+test "flatten rewrite scalar try flow uses pre-mutation ownership counts" {
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let value_id = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let branch_id = @ir.hot_build_br_if(
+    func,
+    @ir.hot_control_node_label(func, try_id),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[value_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    branch_id,
+    @ir.hot_build_drop(func, value_id),
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+  ])
+  @ir.hot_root_append(func, try_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_scalar_try_br_if_flow_is_exact(
+      func,
+      try_id,
+      branch_id,
+      value_id,
+      state=Some(state),
+    ),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, value_id))
+  assert_false(
+    flatten_scalar_try_br_if_flow_is_exact(func, try_id, branch_id, value_id),
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_scalar_try_br_if_flow_is_exact(
+      func, state, try_id, branch_id, value_id,
+    ),
+  )
+}

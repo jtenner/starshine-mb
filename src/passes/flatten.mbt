@@ -4062,7 +4062,7 @@ fn flatten_try_route_scalar_control(
 ///|
 fn flatten_scalar_try_br_if_consumer_matches_payload(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_counts : @ir.HotNodeUseCounts,
   consumer_id : Int,
   value_id : Int,
 ) -> Bool {
@@ -4076,7 +4076,7 @@ fn flatten_scalar_try_br_if_consumer_matches_payload(
     return true
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
-  if @ir.node_use_count(use_def, consumed_id) != 1 ||
+  if @ir.hot_node_use_count(use_counts, consumed_id) != 1 ||
     @ir.hot_child_count(func, consumed_id) == 0 {
     return false
   }
@@ -4117,6 +4117,7 @@ fn flatten_scalar_try_br_if_flow_is_exact(
   try_id : Int,
   branch_id : Int,
   value_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let branch = @ir.hot_node_get(func, branch_id)
   match branch.op {
@@ -4125,8 +4126,11 @@ fn flatten_scalar_try_br_if_flow_is_exact(
       @ir.hot_child_get(func, branch_id, 0) == value_id => ()
     _ => return false
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  if @ir.node_use_count(use_def, value_id) != 2 {
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
+  }
+  if @ir.hot_node_use_count(use_counts, value_id) != 2 {
     return false
   }
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
@@ -4141,11 +4145,31 @@ fn flatten_scalar_try_br_if_flow_is_exact(
       }
       let consumer_id = @ir.hot_region_get(func, region_ref, root_idx + 1)
       return flatten_scalar_try_br_if_consumer_matches_payload(
-        func, use_def, consumer_id, value_id,
+        func, use_counts, consumer_id, value_id,
       )
     }
   }
   false
+}
+
+///|
+fn flatten_rewrite_scalar_try_br_if_flow_is_exact(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  try_id : Int,
+  branch_id : Int,
+  value_id : Int,
+) -> Bool {
+  if !state.rewrites_started {
+    return false
+  }
+  flatten_scalar_try_br_if_flow_is_exact(
+    func,
+    try_id,
+    branch_id,
+    value_id,
+    state=Some(state),
+  )
 }
 
 ///|
@@ -4230,16 +4254,29 @@ fn flatten_target_can_route_scalar_branches(
           return false
         }
         match owner.op {
-          @ir.HotOp::Try =>
+          @ir.HotOp::Try => {
+            let flow_is_exact = match state {
+              Some(state) if state.rewrites_started =>
+                flatten_rewrite_scalar_try_br_if_flow_is_exact(
+                  func, state, owner_id, branch_id, value_id,
+                )
+              _ =>
+                flatten_scalar_try_br_if_flow_is_exact(
+                  func,
+                  owner_id,
+                  branch_id,
+                  value_id,
+                  state~,
+                )
+            }
             if value_types[0] != target_type ||
               !flatten_scalar_branch_payload_has_supported_origin(
                 func, value_id,
               ) ||
-              !flatten_scalar_try_br_if_flow_is_exact(
-                func, owner_id, branch_id, value_id,
-              ) {
+              !flow_is_exact {
               return false
             }
+          }
           _ => ()
         }
       }
