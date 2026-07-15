@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
@@ -242,6 +243,12 @@ Starshine implements only the first internal transform slices today; the public 
 | Old IR2 batch intent | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` still leads the old preferred Batch 2 implementation order. |
 | Old registry-map batch status | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains documented as removed until implementation lands. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | Tracks the remaining source refresh, control/EH implementation, public wiring, profile, closeout, and aggressive-neighborhood proof. |
+
+## Latest internal call-tree slice
+
+Commits `18a868a5d`, `9c6d614c9`, and `40d4fad8c` add one verifier-backed positive each for resultless dead calls with one multiply child, two multiply children, and a bounded deeper two-multiply argument. The collectors first record the complete immediate argument vector and then append nested descendants in operand order. Every call, argument, intermediate binary, and leaf must be distinct and one-use before deletion.
+
+A fixed baseline/current HOT matrix now transforms `126/129` functions versus `0/129` at the iteration start. Alternate `i32.ctz` arguments and structured suffix controls remain whole-function fail-closed. The matrix also exposed two closeout blockers: synthetic legacy-try HOT cannot lower for actual Starshine byte/runtime measurement, and current native pass-only candidate-dense time is `9,592.5 us` versus Binaryen v130's `334 us`. See the [pinned impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
 
 ## What a faithful Starshine test ladder should start with
 

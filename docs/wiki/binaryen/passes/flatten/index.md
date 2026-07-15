@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
@@ -250,6 +251,12 @@ That is much closer to the real pass than “flatten removes nesting.”
   Exact current Starshine status/port map for `flatten`: removed-name registry tracking, preserved `--flatten` CLI spelling, Batch 2 planning surfaces, the still-missing active backlog slice, and the downstream dossier cluster a future local port would need to serve.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Future implementation-readiness bridge: analyzer-first Flat IR classification, narrow first mutating slice, tee and branch-payload follow-ups, EH and unsupported-family gates, downstream cluster validation, and the criteria for moving `flatten` out of the removed-name registry.
+
+## 2026-07-15 nested call-argument iteration
+
+Three internal commits admitted complete owned resultless-call suffixes whose single rich argument is a one-multiply add/sub tree, a two-multiply add/sub tree, or the bounded deeper two-multiply-plus-constant tree. On the fixed internal corpus, transformed coverage moved from `0/129` functions at baseline `515d01be6` to `126/129` after `40d4fad8c`; three alternate-opcode or structured functions remained fail-closed. This is coverage movement, not a test-count claim.
+
+Actual Starshine encoded bytes and generated-runtime results remain unavailable because synthetic legacy `Try` HOT cannot lower, while lifted WAT catch representation intentionally triggers the EH-repair gate. Binaryen reference artifacts grew from `4,031` input bytes to `7,128` direct-flatten bytes and `5,967` cleanup bytes. Native pass-only timing on 120 candidate-dense functions measured `551 us` at the fail-closed baseline, `9,592.5 us` current, and `334 us` for Binaryen v130, so performance is an explicit public-exposure blocker. Full evidence and per-item measurements are in [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
 
 ## Current maintenance rule
 

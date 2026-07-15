@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
@@ -348,6 +349,12 @@ That may look redundant, but it expresses the right truth:
 - so each possible target’s carried-value channel must be made explicit
 
 Again, flatten prefers a simple explicit representation over a clever compact one.
+
+## Owned dead-call argument trees after unconditional table transfer
+
+Starshine's internal legacy-try table route now recognizes three nested resultless-call argument families beyond shallow rich arguments: one multiply child, two multiply children, and one bounded deeper two-multiply subtree plus a direct constant. The proof remains structural and count-independent for surrounding immediate constants. It records every immediate call argument first, then nested descendants in source operand order, and requires complete distinct one-use ownership before deleting the suffix.
+
+This is not an extension of generic purity or effect analysis. Binaryen v130 keeps the unreachable suffix in Flat IR order; Starshine deletes it only because the preceding `br_table` is unconditional and no deleted node can be reached or shared. Alternate opcodes, repeated descendants, more than one nested rich argument, result calls, indirect/reference calls, and structured suffix roots remain gated. The fixed matrix and measurement limitations are recorded in [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
 
 ## The placeholder `unreachable` rule
 

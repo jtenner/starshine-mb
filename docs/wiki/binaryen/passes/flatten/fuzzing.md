@@ -1,9 +1,10 @@
 ---
 kind: workflow
 status: planned
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-15
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
+  - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -29,6 +30,10 @@ Safe inspection only:
 ```text
 bun fuzz compare-pass --list-passes
 ```
+
+## Internal impact evidence is not public fuzz signoff
+
+The 2026-07-15 fixed internal HOT matrix measured `126/129` newly transformed functions for three nested dead-call argument families. It did not expose `flatten`, did not add a GenValid profile, and did not run any of the four public compare lanes. Actual Starshine encoded/runtime comparison was blocked by the legacy-try lower/repair representation gap, and candidate-dense pass-local timing remained above target. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
 
 ## Future executable lane
 

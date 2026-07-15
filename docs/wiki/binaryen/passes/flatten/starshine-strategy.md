@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
@@ -295,6 +296,12 @@ Why:
 - a future Starshine `flatten` port would therefore affect more than one immediate neighbor folder
 
 That is another reason to document the pass as a structural root rather than a one-off cleanup.
+
+## Latest measured movement and blocker
+
+The 2026-07-15 iteration widened only the internal legacy-try table dead-suffix call proof. Three commits admitted one owned nested call argument at progressively richer exact tree depths. A fixed detached-baseline matrix changed `126/129` functions current versus `0/129` at baseline, while the alternate-unary and structured-control boundaries remained unchanged. The change therefore moves transformation coverage, but it does not establish public pass readiness.
+
+No Starshine byte or generated-runtime claim is available for these shapes: current HOT lowering cannot emit the synthetic legacy `Try`, and the representable lifted WAT form correctly activates the catch-payload repair gate. Native pass-only timing also remains far outside target (`9,592.5 us` current versus `551 us` baseline and `334 us` Binaryen v130 on 120 candidate-dense functions). The public removed status, absent compare profile/matrix, EH bridge, and performance blocker all remain explicit. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
 
 ## What Starshine does **not** have yet
 
