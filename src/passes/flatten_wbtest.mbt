@@ -3698,3 +3698,185 @@ test "flatten recognizes an add-subtract-multiply-and try-table suffix sequence"
 test "flatten recognizes an and-multiply-subtract-add try-table suffix sequence" {
   flatten_test_recognize_four_direct_binary_suffix_roots(true)
 }
+
+///|
+fn flatten_wbtest_build_direct_unary_drop(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+  input_value : Int,
+  result_type : @lib.ValType,
+  convert : Bool,
+) -> Array[Int] {
+  let input = @ir.hot_build_const_i32(func, @lib.I32(input_value))
+  let value = if convert {
+    @ir.hot_build_convert(func, result_type, input)
+  } else {
+    @ir.hot_build_unary(func, result_type, input)
+  }
+  @ir.hot_node_exact_instr_set(func, value, instr)
+  let drop = @ir.hot_build_drop(func, value)
+  [drop, value, input]
+}
+
+///|
+fn flatten_wbtest_recognize_mixed_nontrapping_suffix_roots(
+  reverse : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let roots = if reverse {
+    [
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        9,
+        @lib.ValType::i64(),
+        true,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_mul(),
+        10,
+        11,
+      ),
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i32_clz(),
+        12,
+        @lib.ValType::i32(),
+        false,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_sub(),
+        13,
+        14,
+      ),
+    ]
+  } else {
+    [
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_add(),
+        9,
+        10,
+      ),
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i32_clz(),
+        11,
+        @lib.ValType::i32(),
+        false,
+      ),
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        12,
+        @lib.ValType::i64(),
+        true,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_and(),
+        13,
+        14,
+      ),
+    ]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in roots {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-clz-extend-and try-table suffix sequence" {
+  flatten_wbtest_recognize_mixed_nontrapping_suffix_roots(false)
+}
+
+///|
+test "flatten recognizes an extend-multiply-clz-subtract try-table suffix sequence" {
+  flatten_wbtest_recognize_mixed_nontrapping_suffix_roots(true)
+}
+
+///|
+test "flatten keeps a sequence with i32 ctz unsupported after a try table" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let ctz = flatten_wbtest_build_direct_unary_drop(
+    func,
+    @lib.Instruction::i32_ctz(),
+    9,
+    @lib.ValType::i32(),
+    false,
+  )
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    10,
+    11,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    ctz[0],
+    add[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps a sequence with unsigned i32 extension unsupported after a try table" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let conversion = flatten_wbtest_build_direct_unary_drop(
+    func,
+    @lib.Instruction::i64_extend_i32u(),
+    9,
+    @lib.ValType::i64(),
+    true,
+  )
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    10,
+    11,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    conversion[0],
+    add[0],
+  ])
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}

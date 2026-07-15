@@ -1290,6 +1290,45 @@ fn flatten_try_table_dead_suffix_root_direct_i32_binary_instr(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_root_is_direct_nontrapping(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  if flatten_try_table_dead_suffix_root_direct_i32_binary_instr(func, root_id)
+    is Some(_) {
+    return true
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Unary =>
+      if @ir.hot_node_exact_instr(func, value_id) !=
+        Some(@lib.Instruction::i32_clz()) {
+        return false
+      }
+    @ir.HotOp::Convert =>
+      if @ir.hot_node_exact_instr(func, value_id) !=
+        Some(@lib.Instruction::i64_extend_i32s()) {
+        return false
+      }
+    _ => return false
+  }
+  if @ir.hot_child_count(func, value_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, value_id, 0)).op {
+    @ir.HotOp::Const => true
+    _ => false
+  }
+}
+
+///|
 fn flatten_try_table_dead_suffix_nodes(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1309,7 +1348,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_unreachable_then_drop_const = suffix_count == 2
       let mut exact_add_drop_then_unreachable = suffix_count == 2
       let mut exact_unreachable_then_add_drop = suffix_count == 2
-      let mut all_direct_nontrapping_binary_drops = true
+      let mut all_direct_nontrapping_drops = true
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -1332,8 +1371,10 @@ fn flatten_try_table_dead_suffix_nodes(
         )
         let root_is_direct_add = direct_binary_instr ==
           Some(@lib.Instruction::i32_add())
-        if direct_binary_instr is None {
-          all_direct_nontrapping_binary_drops = false
+        if !flatten_try_table_dead_suffix_root_is_direct_nontrapping(
+            func, root_id,
+          ) {
+          all_direct_nontrapping_drops = false
         }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
@@ -1365,7 +1406,7 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_unreachable_then_drop_const &&
         !exact_add_drop_then_unreachable &&
         !exact_unreachable_then_add_drop &&
-        !all_direct_nontrapping_binary_drops {
+        !all_direct_nontrapping_drops {
         return None
       }
     }
