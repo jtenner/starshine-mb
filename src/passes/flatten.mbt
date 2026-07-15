@@ -1192,6 +1192,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         | Some(@lib.I32Or)
         | Some(@lib.I32Xor)
         | Some(@lib.I32Shl)
+        | Some(@lib.I32ShrS)
         | Some(@lib.I32DivS) => true
         _ => false
       }
@@ -5764,7 +5765,10 @@ fn flatten_has_deferred_legacy_try(
 }
 
 ///|
-fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
+fn flatten_has_deferred_rich_branch_payload(
+  func : @ir.HotFunc,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -5806,6 +5810,7 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
             if !flatten_multivalue_legacy_try_is_supported(
                 func,
                 @ir.hot_label_owner(func, label_id),
+                state~,
               ) {
               return true
             }
@@ -5901,6 +5906,7 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
             if !flatten_multivalue_legacy_try_is_supported(
                 func,
                 @ir.hot_label_owner(func, label_id),
+                state~,
               ) {
               return true
             }
@@ -5920,7 +5926,11 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
         }
         let targets = flatten_unique_br_table_targets(func, node.imm0)
         if !flatten_tuple_mixed_try_table_is_supported(
-            func, node_id, payload_types, targets,
+            func,
+            node_id,
+            payload_types,
+            targets,
+            state~,
           ) {
           return true
         }
@@ -5949,6 +5959,7 @@ fn flatten_has_deferred_rich_branch_payload(func : @ir.HotFunc) -> Bool {
                 if !flatten_multivalue_legacy_try_is_supported(
                     func,
                     @ir.hot_label_owner(func, target),
+                    state~,
                   ) {
                   return true
                 }
@@ -5999,7 +6010,7 @@ fn flatten_run_admission(
   if flatten_has_deferred_legacy_try(func, analysis) {
     return FlattenRunAdmission::DeferredLegacyTry
   }
-  if flatten_has_deferred_rich_branch_payload(func) {
+  if flatten_has_deferred_rich_branch_payload(func, state=Some(analysis)) {
     return FlattenRunAdmission::DeferredBranchPayload
   }
   FlattenRunAdmission::Admitted

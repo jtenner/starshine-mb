@@ -5194,7 +5194,7 @@ test "flatten keeps a binary-rich call pair gated when one opcode is outside the
   )
   let shift = flatten_test_build_direct_binary(
     func,
-    @lib.Instruction::i32_shr_s(),
+    @lib.Instruction::i32_shr_u(),
     11,
     12,
   )
