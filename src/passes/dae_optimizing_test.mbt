@@ -16007,6 +16007,110 @@ test "dae-optimizing removes a forwarding-only parameter component and preserves
 }
 
 ///|
+test "dae-optimizing replays local cleanup on changed forwarding-component functions after a large touched-set skip" {
+  let source =
+    #|(module
+    #|  (import "env" "effect" (func $effect (result i32)))
+    #|  (import "env" "use_i32" (func $use_i32 (param i32)))
+    #|  (func $a (param i32 i32 i32) (local i32 i32 i32)
+    #|    local.get 2
+    #|    local.set 3
+    #|    local.get 3
+    #|    local.set 4
+    #|    local.get 4
+    #|    local.set 5
+    #|    local.get 5
+    #|    call $use_i32
+    #|    local.get 0
+    #|    local.get 2
+    #|    call $b)
+    #|  (func $b (param i32 i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    local.get 1
+    #|    call $a)
+    #|  (func $bridge (param i32 i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    local.get 1
+    #|    call $a)
+    #|  (func $d0 (param i32))
+    #|  (func $d1 (param i32))
+    #|  (func $d2 (param i32))
+    #|  (func $d3 (param i32))
+    #|  (func $d4 (param i32))
+    #|  (func $d5 (param i32))
+    #|  (func $d6 (param i32))
+    #|  (func $d7 (param i32))
+    #|  (func $d8 (param i32))
+    #|  (func (export "run")
+    #|    call $effect
+    #|    call $effect
+    #|    call $bridge
+    #|    i32.const 0
+    #|    call $d0
+    #|    i32.const 1
+    #|    call $d1
+    #|    i32.const 2
+    #|    call $d2
+    #|    i32.const 3
+    #|    call $d3
+    #|    i32.const 4
+    #|    call $d4
+    #|    i32.const 5
+    #|    call $d5
+    #|    i32.const 6
+    #|    call $d6
+    #|    i32.const 7
+    #|    call $d7
+    #|    i32.const 8
+    #|    call $d8))
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+  let @lib.Func(a_locals, _) = dae_test_defined_func(optimized, 0)
+  assert_true(a_locals.length() < 3, msg=optimized.pretty_print_defined_func(0U))
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:post-component-cleanup defs=[0, 1, 2]",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing post-component cleanup validation rolls back an invalid candidate" {
+  let original = pass_test_module_from_wat("(module (func))")
+  let invalid = original.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let (retained, accepted) = run_hot_pipeline_dae_validate_or_rollback(
+    original, invalid,
+  )
+  assert_false(accepted)
+  @debug.assert_eq(retained, original)
+}
+
+///|
 test "dae-optimizing keeps a forwarding-component parameter with one semantic use" {
   let source =
     #|(module
