@@ -17035,3 +17035,118 @@ test "flatten removes an add-tworichadd-clz suffix sequence after a scalar legac
 test "flatten removes an extend-tworichsub-and suffix sequence after a scalar legacy try table" {
   flatten_test_remove_sequence_with_two_multiply_children_drop(true)
 }
+
+///|
+fn flatten_test_build_owned_direct_drop_const(
+  func : @ir.HotFunc,
+  value : Int,
+) -> Array[Int] {
+  let constant = @ir.hot_build_const_i32(func, @lib.I32(value))
+  [@ir.hot_build_drop(func, constant), constant]
+}
+
+///|
+fn flatten_test_remove_sequence_with_direct_drop_const(
+  rich_first : Bool,
+) -> Unit raise {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(15))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let roots = if rich_first {
+    [
+      flatten_test_build_owned_one_multiply_child_drop(
+        func,
+        @lib.Instruction::i32_sub(),
+        true,
+        9,
+      ),
+      flatten_test_build_owned_direct_drop_const(func, 12),
+      flatten_test_build_owned_binary_drop_root(
+        func,
+        @lib.Instruction::i32_and(),
+        13,
+        14,
+      ),
+    ]
+  } else {
+    let call = @ir.hot_build_call(func, 99, [], [])
+    [
+      flatten_test_build_owned_direct_drop_const(func, 9),
+      [@ir.hot_build_unreachable(func)],
+      flatten_test_build_owned_binary_drop_root(
+        func,
+        @lib.Instruction::i32_div_s(),
+        10,
+        0,
+      ),
+      [call],
+    ]
+  }
+  let body : Array[Int] = [branch_id]
+  let owned_nodes : Array[Int] = []
+  for root in roots {
+    body.push(root[0])
+    for node_id in root {
+      owned_nodes.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  for node_id in owned_nodes {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      body_ref,
+      @ir.hot_region_root_count(func, body_ref) - 1,
+    ),
+    branch_id,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected suffix sequence with direct drop-const to verify, got \{err}",
+      )
+  }
+}
+
+///|
+test "flatten removes a dropconst-unreachable-divzero-call0 suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_direct_drop_const(false)
+}
+
+///|
+test "flatten removes a submul-dropconst-and suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_direct_drop_const(true)
+}

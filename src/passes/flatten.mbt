@@ -1431,7 +1431,8 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
   func : @ir.HotFunc,
   root_id : Int,
 ) -> Bool {
-  if flatten_try_table_dead_suffix_root_direct_i32_binary_instr(func, root_id)
+  if flatten_try_table_dead_suffix_root_is_direct_drop_const(func, root_id) ||
+    flatten_try_table_dead_suffix_root_direct_i32_binary_instr(func, root_id)
     is Some(_) ||
     flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(func, root_id) ||
     flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(

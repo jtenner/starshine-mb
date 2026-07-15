@@ -751,7 +751,7 @@ test "flatten recognizes unreachable add-drop unreachable try-table suffix roots
 }
 
 ///|
-test "flatten keeps three-root mixed drop-const unreachable try-table suffix unsupported" {
+test "flatten recognizes three-root mixed drop-const unreachable try-table suffix" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -775,7 +775,7 @@ test "flatten keeps three-root mixed drop-const unreachable try-table suffix uns
     @ir.hot_build_unreachable(func),
   ])
   @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
-  assert_false(
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
@@ -4543,6 +4543,58 @@ test "flatten keeps a sequence with a deeper two-rich-child root unsupported" {
     @ir.hot_build_drop(func, deeper),
   ])
   assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes a submul-dropconst-and try-table suffix sequence" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let rich = flatten_wbtest_build_one_multiply_child_drop(
+    func,
+    @lib.Instruction::i32_sub(),
+    true,
+    9,
+  )
+  let constant = @ir.hot_build_const_i32(func, @lib.I32(12))
+  let drop_const = @ir.hot_build_drop(func, constant)
+  let last = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_and(),
+    13,
+    14,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id,
+    rich[0],
+    drop_const,
+    last[0],
+  ])
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      rich[0],
+      rich[1],
+      rich[2],
+      rich[3],
+      rich[4],
+      rich[5],
+      drop_const,
+      constant,
+      last[0],
+      last[1],
+      last[2],
+      last[3],
+    ]),
+  )
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
