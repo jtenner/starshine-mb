@@ -356,6 +356,12 @@ Commits `e32819f5b` and `fc5c89bff` complete the next exact two-code internal it
 
 The two red-first invariants queried three owners out of order and failed on append order before implementation. At fixed 2,048 candidates, the native-release reconstruction improves inputful loops `14,038 -> 12,694 us` (`9.57%`) and scalar flow `36,469 -> 35,250.5 us` (`3.34%`) at 128 candidates per function. Final validation is focused flatten `245/245`, private flatten `173/173`, passes `5,748/5,748`, full suite `9,209/9,209`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
 
+## 2026-07-15 tuple and multivalue conditional-flow proof lookup follow-up
+
+Commits `80e6a652b` and `efb8fdfa2` complete the next exact two-code internal iteration without widening behavior. Tuple-made and distinct non-tuple multivalue `br_if` flow entries now remain sparse, sorted by exact pre-mutation branch id, and binary-searchable. Positive and negative first admission proofs, current-structure checks, and missing-entry rejection after `rewrites_started` remain unchanged.
+
+The two red-first invariants queried three branches out of order and failed with `[17, 5, 11]` and `[14, 4, 9]` before sorted insertion. Exact cached-lookup reconstruction held 1,048,576 lookups per sample: tuple flow improved `304,931 -> 160,577 us` at 512 candidates, while distinct flow improved `365,408.5 -> 120,985.5 us` at 512 candidates. Final validation is focused flatten `245/245`, private flatten `175/175`, passes `5,750/5,750`, full suite `9,211/9,211`, and green `moon info` with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` public gate and every typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blocker remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

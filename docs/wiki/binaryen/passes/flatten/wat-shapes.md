@@ -639,6 +639,12 @@ Commits `e32819f5b` and `fc5c89bff` also leave every WAT shape above unchanged. 
 
 The red-first invariants queried three candidates out of order and failed on append order before implementation. Fixed-total native-release density fixtures improve inputful loops `9.57%` and scalar flow `3.34%` at 128 candidates per function. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Latest tuple and distinct multivalue conditional-flow lookup detail
+
+Commits `80e6a652b` and `efb8fdfa2` leave every WAT shape above unchanged. Tuple-made and distinct non-tuple block/if `br_if` flow proofs remain sparse exact admission entries, now sorted by exact pre-mutation branch id and located with binary search. Explicit negative flow results remain cached; rewrite still validates the current cached parent and contiguous slots and refuses an absent entry after mutation begins.
+
+The red-first invariants queried three branches out of order and failed on append order before implementation. Exact cached-lookup timing improves `47.34%` for tuple flow and `66.89%` for distinct flow at 512 candidates. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

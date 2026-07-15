@@ -419,6 +419,12 @@ Commits `e32819f5b` and `fc5c89bff` extend the same sorted sparse contract to in
 
 The red-first invariants queried owners in descending/mixed order and failed on append order before sorted insertion landed. Fixed-total native-release density fixtures improved inputful loops `9.57%` and scalar flow `3.34%` at 128 candidates per function. No Flat-IR family, WAT output shape, type, label, EH, effect, trap, ownership, deletion, or public surface changed.
 
+### Tuple and distinct multivalue conditional-flow lookup stays exact
+
+Commits `80e6a652b` and `efb8fdfa2` complete sorted sparse lookup for the two remaining multivalue block/if `br_if` flow populations. Tuple-made and distinct-flow entries are keyed by exact pre-mutation branch id; admission still records an explicit positive or negative result, rewrite still checks the current cached parent/slots, and an absent entry after mutation starts still rejects.
+
+The red-first invariants queried three branches in mixed order and failed on append order before sorted insertion. Exact cached-lookup reconstruction measured `47.34%` reduction for tuple flow and `66.89%` for distinct flow at 512 candidates. No Flat-IR, WAT shape, type, label, EH, effect, trap, ownership, deletion, or public-surface contract changed.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

@@ -164,6 +164,10 @@ The inputful-loop/scalar-flow proof-lookup iteration also leaves the hold point 
 
 No public-readiness predicate changed. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` performance gate remain blocked.
 
+The tuple/distinct conditional-flow proof-lookup iteration also leaves the hold point unchanged. `80e6a652b` sorts tuple-made multivalue `br_if` flow entries by exact branch id; `efb8fdfa2` applies the same helper to distinct non-tuple flow and removes the final linear conditional-flow lookup. Both preserve explicit negative admission results, first-proof authority, current cached parent/slot checks, and absent-entry failure after mutation begins. Their mixed-order red-first invariants move private flatten to `175/175`; focused flatten is `245/245`, passes are `5,750/5,750`, the full suite is `9,211/9,211`, and `moon info` is green with 11 existing warnings.
+
+Exact cached-lookup reconstruction improves tuple flow `47.34%` and distinct flow `66.89%` at 512 candidates, but it is owner-specific telemetry rather than representative gate requalification. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` performance gate remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

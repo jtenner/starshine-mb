@@ -346,6 +346,10 @@ The latest exact two-code iteration extends sorted sparse lookup to two remainin
 
 Validation reaches private `173/173`, focused `245/245`, passes `5,748/5,748`, full `9,209/9,209`, and green `moon info` with 11 existing warnings. At 128 candidates per function, fixed-total native-release fixtures improve inputful loops `14,038 -> 12,694 us` (`9.57%`) and scalar flow `36,469 -> 35,250.5 us` (`3.34%`). These targeted wins do not recover the original benchmark contract or requalify the durable `970.5 us` / `3.65x` gate. No `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
 
+The latest exact two-code iteration completes binary lookup for the remaining multivalue conditional-flow caches without widening behavior. `80e6a652b` sorts tuple-made `br_if` flow entries by exact pre-mutation branch id. `efb8fdfa2` moves distinct non-tuple flow to the same sorted sparse helper and removes the final linear conditional-flow cache lookup. First positive or negative admission proof, current cached parent/slot validation, and post-boundary absent-entry rejection remain mandatory.
+
+Validation reaches private `175/175`, focused `245/245`, passes `5,750/5,750`, full `9,211/9,211`, and green `moon info`. Exact cached-lookup medians at 512 candidates improve `304,931 -> 160,577 us` for tuple flow and `365,408.5 -> 120,985.5 us` for distinct flow. These are targeted owner wins, not recovery of the original benchmark contract; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

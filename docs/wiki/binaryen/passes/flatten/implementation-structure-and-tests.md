@@ -313,6 +313,10 @@ The next exact two-code iteration adds commits `e32819f5b` and `fc5c89bff`. The 
 
 Validation is focused flatten `245/245`, private flatten `173/173`, passes `5,748/5,748`, full suite `9,209/9,209`, and green `moon info` with 11 existing warnings. At fixed 2,048 candidates, inputful loops improve `14,038 -> 12,694 us` (`9.57%`) and scalar flow improves `36,469 -> 35,250.5 us` (`3.34%`) at 128 candidates per function. These are targeted lookup wins; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The next exact two-code iteration adds commits `80e6a652b` and `efb8fdfa2`. The first keeps tuple-made multivalue `br_if` flow entries sorted by exact pre-mutation branch id; its single red-first invariant failed with `[17, 5, 11]` instead of `[5, 11, 17]`. The second switches the distinct non-tuple flow population to the same sorted sparse helper and removes the final linear conditional-flow cache lookup; its invariant failed with `[14, 4, 9]` instead of `[4, 9, 14]`.
+
+Validation is focused flatten `245/245`, private flatten `175/175`, passes `5,750/5,750`, full suite `9,211/9,211`, and green `moon info` with 11 existing warnings. Exact cached-lookup medians at 512 candidates improve `304,931 -> 160,577 us` for tuple flow and `365,408.5 -> 120,985.5 us` for distinct flow. No `.mbti`, semantic family, or public surface changed, and the durable `970.5 us` / `3.65x` gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:
