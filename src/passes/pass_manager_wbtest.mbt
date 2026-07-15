@@ -19179,3 +19179,24 @@ test "DAEO filtered prefix folds immutable struct first-field literals only in s
   }
   ignore(selected)
 }
+
+///|
+test "DAEO post-component cleanup validation rolls back an invalid candidate" {
+  let original = pass_test_module_from_wat("(module (func))")
+  let invalid = original.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let (retained, accepted) = run_hot_pipeline_dae_validate_or_rollback(
+    original, invalid,
+  )
+  assert_false(accepted)
+  @debug.assert_eq(retained, original)
+}

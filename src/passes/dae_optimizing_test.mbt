@@ -16012,7 +16012,7 @@ test "dae-optimizing replays local cleanup on changed forwarding-component funct
     #|(module
     #|  (import "env" "effect" (func $effect (result i32)))
     #|  (import "env" "use_i32" (func $use_i32 (param i32)))
-    #|  (func $a (param i32 i32 i32) (local i32 i32 i32)
+    #|  (func $a (param i32 i32 i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
     #|    local.get 2
     #|    local.set 3
     #|    local.get 3
@@ -16070,7 +16070,10 @@ test "dae-optimizing replays local cleanup on changed forwarding-component funct
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
   let @lib.Func(a_locals, _) = dae_test_defined_func(optimized, 0)
-  assert_true(a_locals.length() < 3, msg=optimized.pretty_print_defined_func(0U))
+  assert_true(
+    a_locals.length() < 16,
+    msg=optimized.pretty_print_defined_func(0U),
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains(
@@ -16081,33 +16084,18 @@ test "dae-optimizing replays local cleanup on changed forwarding-component funct
   )
   assert_true(
     trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:post-component-cleanup defs=[0]")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:post-component-cleanup defs=[0, 1, 2]",
+        "pass[dae-optimizing]:post-component-cleanup-skip reason=small-local-set defs=[1, 2]",
       )
     }),
     msg=trace.to_string(),
   )
-}
-
-///|
-test "dae-optimizing post-component cleanup validation rolls back an invalid candidate" {
-  let original = pass_test_module_from_wat("(module (func))")
-  let invalid = original.with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(
-        @lib.Locals::empty(),
-        @lib.Expr::new([
-          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-          @lib.Instruction::drop(),
-        ]),
-      ),
-    ]),
-  )
-  let (retained, accepted) = run_hot_pipeline_dae_validate_or_rollback(
-    original, invalid,
-  )
-  assert_false(accepted)
-  @debug.assert_eq(retained, original)
 }
 
 ///|

@@ -60509,6 +60509,195 @@ fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
 }
 
 ///|
+fn run_hot_pipeline_dae_validate_or_rollback(
+  original : @lib.Module,
+  candidate : @lib.Module,
+) -> (@lib.Module, Bool) {
+  match @validate.validate_module(candidate) {
+    Ok(_) => (candidate, true)
+    Err(_) => (original, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_clone_cleanup_instr(
+  instr : @lib.Instruction,
+) -> @lib.Instruction {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(body.map(run_hot_pipeline_dae_clone_cleanup_instr)),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(body.map(run_hot_pipeline_dae_clone_cleanup_instr)),
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches.copy(),
+        @lib.Expr::new(body.map(run_hot_pipeline_dae_clone_cleanup_instr)),
+      )
+    @lib.If(block_type, then_body, else_body) =>
+      @lib.Instruction::if_(
+        block_type,
+        then_body.map(run_hot_pipeline_dae_clone_cleanup_instr),
+        else_body.map(fn(body) {
+          body.map(run_hot_pipeline_dae_clone_cleanup_instr)
+        }),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_encoded_size(mod_ : @lib.Module) -> Int? {
+  match @binary.encode_module(mod_) {
+    Ok(bytes) => Some(bytes.length())
+    Err(_) => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_clone_cleanup_defs(
+  mod_ : @lib.Module,
+  defs : Array[Int],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let cloned = funcs.copy()
+  for def_idx in defs {
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    cloned[def_idx] = @lib.Func::new(
+      locals,
+      @lib.Expr::new(body.map(run_hot_pipeline_dae_clone_cleanup_instr)),
+    )
+  }
+  mod_.with_code_sec(@lib.CodeSec::new(cloned))
+}
+
+///|
+fn run_hot_pipeline_apply_dae_post_component_cleanup(
+  mod_ : @lib.Module,
+  defs : Array[Int],
+  options : HotPipelineOptions,
+) -> @lib.Module {
+  if defs.length() == 0 || defs.length() > 8 {
+    return mod_
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let touched = Array::make(dae_defined_func_count(mod_), false)
+  for def_idx in defs {
+    if def_idx < 0 || def_idx >= touched.length() {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "post-component-cleanup-rollback",
+        payload="reason=definition-out-of-range defs=\{defs.to_string()}",
+      )
+      return mod_
+    }
+    touched[def_idx] = true
+  }
+  let mut current = mod_
+  let mut current_size = match run_hot_pipeline_dae_encoded_size(current) {
+    Some(size) => size
+    None => {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "post-component-cleanup-rollback",
+        payload="reason=baseline-encode defs=\{defs.to_string()}",
+      )
+      return mod_
+    }
+  }
+  let accepted_defs : Array[Int] = []
+  let rolled_back_defs : Array[Int] = []
+  let non_improving_defs : Array[Int] = []
+  let small_local_defs : Array[Int] = []
+  for def_idx in defs {
+    let @lib.Func(locals, _) = funcs[def_idx]
+    if locals.length() < 16 {
+      small_local_defs.push(def_idx)
+      continue
+    }
+    let selected = Array::make(touched.length(), false)
+    selected[def_idx] = true
+    let isolated = run_hot_pipeline_dae_clone_cleanup_defs(current, [def_idx])
+    let coalesced = match
+      run_hot_pipeline_apply_coalesce_locals_to_touched(isolated, selected) {
+      Ok(next) => next
+      Err(_) => {
+        rolled_back_defs.push(def_idx)
+        continue
+      }
+    }
+    let (retained, accepted) = run_hot_pipeline_dae_validate_or_rollback(
+      current, coalesced,
+    )
+    if !accepted {
+      rolled_back_defs.push(def_idx)
+      continue
+    }
+    let candidate_size = match run_hot_pipeline_dae_encoded_size(retained) {
+      Some(size) => size
+      None => {
+        rolled_back_defs.push(def_idx)
+        continue
+      }
+    }
+    if candidate_size < current_size {
+      current = retained
+      current_size = candidate_size
+      accepted_defs.push(def_idx)
+    } else {
+      non_improving_defs.push(def_idx)
+    }
+  }
+  if accepted_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{accepted_defs.to_string()} passes=[coalesce-locals]",
+    )
+  }
+  if rolled_back_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-rollback",
+      payload="reason=validation-pass-or-encode defs=\{rolled_back_defs.to_string()}",
+    )
+  }
+  if non_improving_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-skip",
+      payload="reason=non-improving-encoded-size defs=\{non_improving_defs.to_string()}",
+    )
+  }
+  if small_local_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-skip",
+      payload="reason=small-local-set defs=\{small_local_defs.to_string()}",
+    )
+  }
+  current
+}
+
+///|
 fn run_hot_pipeline_apply_dae_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -61939,6 +62128,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let forwarded_cycle_defs = dae_collect_forwarded_param_cycle_defs(
     core_mod, forwarded_scc_seeds,
   )
+  let mut post_component_cleanup_defs : Array[Int] = []
   if forwarded_cycle_defs.length() > 1 {
     let scc_cleanup_touched = Array::make(forwarded_scc_seeds.length(), false)
     for def_idx in forwarded_cycle_defs {
@@ -61980,6 +62170,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         core_mod = application.mod_out
         core_touched = application.touched
         forwarded_scc_seeds = application.touched.copy()
+        post_component_cleanup_defs = application.defs.copy()
         (options.trace)(
           "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
         )
@@ -61987,6 +62178,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       None => ()
     }
   }
+  core_mod = run_hot_pipeline_apply_dae_post_component_cleanup(
+    core_mod, post_component_cleanup_defs, options,
+  )
   match dae_run_forwarded_param_scc_transaction(core_mod, forwarded_scc_seeds) {
     Some(application) => {
       core_mod = application.mod_out
