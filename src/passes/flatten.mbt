@@ -224,6 +224,7 @@ priv struct FlattenRewriteState {
   sequenced_root_holders : Array[Int]
   sequenced_root_nodes : Array[Int]
   eh_repair_requirement : FlattenEhRepairRequirement
+  label_used : @bitset.BitSet
   use_def : @ir.HotUseDef
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
@@ -243,11 +244,24 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     sequenced_root_holders: [],
     sequenced_root_nodes: [],
     eh_repair_requirement: flatten_eh_repair_requirement(func),
+    label_used: pass_compute_label_used(func),
     use_def: @ir.use_def_build_node_uses(func),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
     scalar_try_supported: Array::make(@ir.hot_node_count(func), None),
     rewrites_started: false,
+  }
+}
+
+///|
+fn flatten_cached_label_is_used(
+  func : @ir.HotFunc,
+  label_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  match state {
+    Some(state) => pass_label_is_used(label_id, state.label_used)
+    None => pass_label_is_used(label_id, pass_compute_label_used(func))
   }
 }
 
@@ -597,9 +611,10 @@ fn flatten_try_route_multivalue_block(
     }
   }
   let label_id = @ir.hot_control_node_label(func, block_id)
-  let label_is_used = pass_label_is_used(
+  let label_is_used = flatten_cached_label_is_used(
+    func,
     label_id,
-    pass_compute_label_used(func),
+    state=Some(state),
   )
   let locals = if label_is_used {
     if !flatten_label_temps_match_types(func, state, label_id, result_types) ||
@@ -688,9 +703,10 @@ fn flatten_try_route_multivalue_if(
     }
   }
   let label_id = @ir.hot_control_node_label(func, if_id)
-  let label_is_used = pass_label_is_used(
+  let label_is_used = flatten_cached_label_is_used(
+    func,
     label_id,
-    pass_compute_label_used(func),
+    state=Some(state),
   )
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
@@ -1175,6 +1191,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         | Some(@lib.I32And)
         | Some(@lib.I32Or)
         | Some(@lib.I32Xor)
+        | Some(@lib.I32Shl)
         | Some(@lib.I32DivS) => true
         _ => false
       }
@@ -2195,10 +2212,7 @@ fn flatten_multivalue_legacy_try_is_supported(
     }
   }
   let label_id = @ir.hot_control_node_label(func, try_id)
-  let label_is_used = pass_label_is_used(
-    label_id,
-    pass_compute_label_used(func),
-  )
+  let label_is_used = flatten_cached_label_is_used(func, label_id, state~)
   if label_is_used &&
     !flatten_multivalue_legacy_try_label_uses_are_supported(
       func,
@@ -2650,9 +2664,10 @@ fn flatten_try_route_scalar_block(
     return None
   }
   let label_id = @ir.hot_control_node_label(func, block_id)
-  let label_is_used = pass_label_is_used(
+  let label_is_used = flatten_cached_label_is_used(
+    func,
     label_id,
-    pass_compute_label_used(func),
+    state=Some(state),
   )
   let routed_local = if label_is_used {
     if label_id < 0 ||
@@ -3529,10 +3544,7 @@ fn flatten_scalar_legacy_try_is_supported_uncached(
     return false
   }
   let label_id = @ir.hot_control_node_label(func, try_id)
-  let label_is_used = pass_label_is_used(
-    label_id,
-    pass_compute_label_used(func),
-  )
+  let label_is_used = flatten_cached_label_is_used(func, label_id, state~)
   if label_is_used &&
     !flatten_target_can_route_scalar_branches(
       func,
@@ -3587,9 +3599,10 @@ fn flatten_try_route_scalar_try(
       @ir.hot_node_get(func, try_id).ty,
     )[0]
   let label_id = @ir.hot_control_node_label(func, try_id)
-  let label_is_used = pass_label_is_used(
+  let label_is_used = flatten_cached_label_is_used(
+    func,
     label_id,
-    pass_compute_label_used(func),
+    state=Some(state),
   )
   let local_id = if label_is_used {
     if label_id < 0 ||
@@ -3640,9 +3653,10 @@ fn flatten_try_route_scalar_if(
     return None
   }
   let label_id = @ir.hot_control_node_label(func, if_id)
-  let label_is_used = pass_label_is_used(
+  let label_is_used = flatten_cached_label_is_used(
+    func,
     label_id,
-    pass_compute_label_used(func),
+    state=Some(state),
   )
   let routed_local = if label_is_used {
     if label_id < 0 ||
