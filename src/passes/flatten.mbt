@@ -389,6 +389,95 @@ fn flatten_scalar_flow_replacement_set(
 }
 
 ///|
+priv struct FlattenDeadSuffixEntry {
+  table_id : Int
+  region_ref : @ir.HotRegionRef
+  nodes : Array[Int]
+}
+
+///|
+fn FlattenDeadSuffixEntry::new(
+  table_id : Int,
+  region_ref : @ir.HotRegionRef,
+  nodes : Array[Int],
+) -> FlattenDeadSuffixEntry {
+  { table_id, region_ref, nodes }
+}
+
+///|
+priv struct FlattenTerminalTableEntry {
+  node_id : Int
+  label_id : Int
+  payload_count : Int
+  allow_mixed_targets : Bool
+  supported : Bool
+}
+
+///|
+fn FlattenTerminalTableEntry::new(
+  node_id : Int,
+  label_id : Int,
+  payload_count : Int,
+  allow_mixed_targets : Bool,
+  supported : Bool,
+) -> FlattenTerminalTableEntry {
+  { node_id, label_id, payload_count, allow_mixed_targets, supported }
+}
+
+///|
+priv struct FlattenScalarTryEntry {
+  try_id : Int
+  supported : Bool
+}
+
+///|
+fn FlattenScalarTryEntry::new(
+  try_id : Int,
+  supported : Bool,
+) -> FlattenScalarTryEntry {
+  { try_id, supported }
+}
+
+///|
+fn flatten_dead_suffix_entry_index(
+  entries : Array[FlattenDeadSuffixEntry],
+  table_id : Int,
+) -> Int {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].table_id == table_id {
+      return index
+    }
+  }
+  -1
+}
+
+///|
+fn flatten_terminal_table_entry_index(
+  entries : Array[FlattenTerminalTableEntry],
+  node_id : Int,
+) -> Int {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].node_id == node_id {
+      return index
+    }
+  }
+  -1
+}
+
+///|
+fn flatten_scalar_try_entry_index(
+  entries : Array[FlattenScalarTryEntry],
+  try_id : Int,
+) -> Int {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].try_id == try_id {
+      return index
+    }
+  }
+  -1
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -402,13 +491,9 @@ priv struct FlattenRewriteState {
   multivalue_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
   scalar_br_if_flow_entries : Array[FlattenScalarBrIfFlowEntry]
   scalar_flow_replacement_entries : Array[FlattenScalarFlowReplacementEntry]
-  dead_suffix_nodes : Array[Array[Int]?]
-  dead_suffix_regions : Array[@ir.HotRegionRef?]
-  terminal_table_labels : Array[Int]
-  terminal_table_payload_counts : Array[Int]
-  terminal_table_allow_mixed_targets : Array[Bool]
-  terminal_table_supported : Array[Bool?]
-  scalar_try_supported : Array[Bool?]
+  dead_suffix_entries : Array[FlattenDeadSuffixEntry]
+  terminal_table_entries : Array[FlattenTerminalTableEntry]
+  scalar_try_entries : Array[FlattenScalarTryEntry]
   mut rewrites_started : Bool
 }
 
@@ -438,16 +523,9 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     multivalue_br_if_flow_entries: [],
     scalar_br_if_flow_entries: [],
     scalar_flow_replacement_entries: [],
-    dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
-    dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
-    terminal_table_labels: Array::make(@ir.hot_node_count(func), -1),
-    terminal_table_payload_counts: Array::make(@ir.hot_node_count(func), -1),
-    terminal_table_allow_mixed_targets: Array::make(
-      @ir.hot_node_count(func),
-      false,
-    ),
-    terminal_table_supported: Array::make(@ir.hot_node_count(func), None),
-    scalar_try_supported: Array::make(@ir.hot_node_count(func), None),
+    dead_suffix_entries: [],
+    terminal_table_entries: [],
+    scalar_try_entries: [],
     rewrites_started: false,
   }
 }
@@ -1918,14 +1996,22 @@ fn flatten_try_table_dead_suffix_nodes(
   state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   match state {
-    Some(state) =>
-      match state.dead_suffix_nodes[table_id] {
-        Some(nodes) if state.dead_suffix_regions[table_id] == Some(region_ref) =>
-          return Some(nodes)
-        Some(_) => return None
-        None if state.rewrites_started => return None
-        None => ()
+    Some(state) => {
+      let entry_index = flatten_dead_suffix_entry_index(
+        state.dead_suffix_entries,
+        table_id,
+      )
+      if entry_index >= 0 {
+        let entry = state.dead_suffix_entries[entry_index]
+        if entry.region_ref == region_ref {
+          return Some(entry.nodes)
+        }
+        return None
       }
+      if state.rewrites_started {
+        return None
+      }
+    }
     None => ()
   }
   let nodes : Array[Int] = []
@@ -2039,10 +2125,10 @@ fn flatten_try_table_dead_suffix_nodes(
       }
     }
     match state {
-      Some(state) => {
-        state.dead_suffix_nodes[table_id] = Some(nodes)
-        state.dead_suffix_regions[table_id] = Some(region_ref)
-      }
+      Some(state) =>
+        state.dead_suffix_entries.push(
+          FlattenDeadSuffixEntry::new(table_id, region_ref, nodes),
+        )
       None => ()
     }
     return Some(nodes)
@@ -2063,17 +2149,22 @@ fn flatten_try_terminal_br_table_targets_label(
     return false
   }
   match state {
-    Some(state) =>
-      match state.terminal_table_supported[node_id] {
-        Some(supported) =>
-          return state.terminal_table_labels[node_id] == label_id &&
-            state.terminal_table_payload_counts[node_id] == payload_count &&
-            state.terminal_table_allow_mixed_targets[node_id] ==
-            allow_mixed_targets &&
-            supported
-        None if state.rewrites_started => return false
-        None => ()
+    Some(state) => {
+      let entry_index = flatten_terminal_table_entry_index(
+        state.terminal_table_entries,
+        node_id,
+      )
+      if entry_index >= 0 {
+        let entry = state.terminal_table_entries[entry_index]
+        return entry.label_id == label_id &&
+          entry.payload_count == payload_count &&
+          entry.allow_mixed_targets == allow_mixed_targets &&
+          entry.supported
       }
+      if state.rewrites_started {
+        return false
+      }
+    }
     None => ()
   }
   let supported = flatten_try_terminal_br_table_targets_label_uncached(
@@ -2085,12 +2176,12 @@ fn flatten_try_terminal_br_table_targets_label(
     state~,
   )
   match state {
-    Some(state) => {
-      state.terminal_table_labels[node_id] = label_id
-      state.terminal_table_payload_counts[node_id] = payload_count
-      state.terminal_table_allow_mixed_targets[node_id] = allow_mixed_targets
-      state.terminal_table_supported[node_id] = Some(supported)
-    }
+    Some(state) =>
+      state.terminal_table_entries.push(
+        FlattenTerminalTableEntry::new(
+          node_id, label_id, payload_count, allow_mixed_targets, supported,
+        ),
+      )
     None => ()
   }
   supported
@@ -3953,12 +4044,18 @@ fn flatten_scalar_legacy_try_is_supported(
     return false
   }
   match state {
-    Some(state) =>
-      match state.scalar_try_supported[try_id] {
-        Some(supported) => return supported
-        None if state.rewrites_started => return false
-        None => ()
+    Some(state) => {
+      let entry_index = flatten_scalar_try_entry_index(
+        state.scalar_try_entries,
+        try_id,
+      )
+      if entry_index >= 0 {
+        return state.scalar_try_entries[entry_index].supported
       }
+      if state.rewrites_started {
+        return false
+      }
+    }
     None => ()
   }
   let supported = flatten_scalar_legacy_try_is_supported_uncached(
@@ -3967,7 +4064,10 @@ fn flatten_scalar_legacy_try_is_supported(
     state~,
   )
   match state {
-    Some(state) => state.scalar_try_supported[try_id] = Some(supported)
+    Some(state) =>
+      state.scalar_try_entries.push(
+        FlattenScalarTryEntry::new(try_id, supported),
+      )
     None => ()
   }
   supported

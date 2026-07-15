@@ -5905,6 +5905,59 @@ test "flatten recognizes a submul-dropconst-and try-table suffix sequence" {
 }
 
 ///|
+test "flatten terminal proof caches allocate only inspected owners" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let suffix = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    suffix[0],
+  ])
+  let scalar_try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_const_i32(func, @lib.I32(3))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(4))]),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, scalar_try_id))
+  for i = 0; i < 256; i = i + 1 {
+    @ir.hot_root_append(func, @ir.hot_build_nop(func))
+  }
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(state.dead_suffix_entries.length(), 0)
+  @debug.assert_eq(state.terminal_table_entries.length(), 0)
+  @debug.assert_eq(state.scalar_try_entries.length(), 0)
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func,
+      table_id,
+      label_id,
+      1,
+      false,
+      state=Some(state),
+    ),
+  )
+  @debug.assert_eq(state.dead_suffix_entries.length(), 1)
+  @debug.assert_eq(state.terminal_table_entries.length(), 1)
+  assert_true(
+    flatten_scalar_legacy_try_is_supported(
+      func,
+      scalar_try_id,
+      state=Some(state),
+    ),
+  )
+  @debug.assert_eq(state.scalar_try_entries.length(), 1)
+}
+
+///|
 test "flatten terminal table proofs require an exact pre-mutation cache" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
