@@ -15901,3 +15901,95 @@ test "flatten removes three independently owned multiply-drop suffix roots after
       fail("expected three multiply-drop suffix roots to verify, got \{err}")
   }
 }
+
+///|
+fn flatten_test_remove_three_alternating_add_multiply_suffix_roots(
+  first_is_add : Bool,
+) -> Unit raise {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(15))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let owned_nodes : Array[Int] = []
+  let suffix_roots : Array[Int] = [branch_id]
+  for root_index = 0; root_index < 3; root_index = root_index + 1 {
+    let value = 9 + root_index * 2
+    let left = @ir.hot_build_const_i32(func, @lib.I32(value))
+    let right = @ir.hot_build_const_i32(func, @lib.I32(value + 1))
+    let binary = @ir.hot_build_binary(func, i32_type, left, right)
+    let use_add = if root_index % 2 == 0 { first_is_add } else { !first_is_add }
+    @ir.hot_node_exact_instr_set(
+      func,
+      binary,
+      if use_add {
+        @lib.Instruction::i32_add()
+      } else {
+        @lib.Instruction::i32_mul()
+      },
+    )
+    let drop = @ir.hot_build_drop(func, binary)
+    suffix_roots.push(drop)
+    owned_nodes.push(drop)
+    owned_nodes.push(binary)
+    owned_nodes.push(left)
+    owned_nodes.push(right)
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, suffix_roots)
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  for node_id in owned_nodes {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      body_ref,
+      @ir.hot_region_root_count(func, body_ref) - 1,
+    ),
+    branch_id,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected alternating add/multiply suffix roots to verify, got \{err}",
+      )
+  }
+}
+
+///|
+test "flatten removes an add-multiply-add suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_three_alternating_add_multiply_suffix_roots(true)
+}
+
+///|
+test "flatten removes a multiply-add-multiply suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_three_alternating_add_multiply_suffix_roots(false)
+}

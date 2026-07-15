@@ -3420,7 +3420,7 @@ test "flatten keeps a repeated multiply root after an add-multiply suffix pair u
 }
 
 ///|
-test "flatten keeps a third distinct rich root after an add-multiply suffix pair unsupported" {
+test "flatten recognizes an add-multiply-add try-table suffix sequence" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -3444,11 +3444,67 @@ test "flatten keeps a third distinct rich root after an add-multiply suffix pair
     13,
     14,
   )
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
     table_id,
     add[0],
     multiply[0],
     third[0],
+  ])
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      add[0],
+      add[1],
+      add[2],
+      add[3],
+      multiply[0],
+      multiply[1],
+      multiply[2],
+      multiply[3],
+      third[0],
+      third[1],
+      third[2],
+      third[3],
+    ]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps an add-subtract-multiply suffix sequence unsupported" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let add = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let subtract = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_sub(),
+    11,
+    12,
+  )
+  let multiply = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_mul(),
+    13,
+    14,
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    add[0],
+    subtract[0],
+    multiply[0],
   ])
   assert_false(
     flatten_try_terminal_br_table_targets_label(
@@ -3524,7 +3580,7 @@ test "flatten keeps a repeated add root after a multiply-add suffix pair unsuppo
 }
 
 ///|
-test "flatten keeps a third distinct rich root after a multiply-add suffix pair unsupported" {
+test "flatten recognizes a multiply-add-multiply try-table suffix sequence" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -3548,13 +3604,31 @@ test "flatten keeps a third distinct rich root after a multiply-add suffix pair 
     13,
     14,
   )
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
     table_id,
     multiply[0],
     add[0],
     third[0],
   ])
-  assert_false(
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      multiply[0],
+      multiply[1],
+      multiply[2],
+      multiply[3],
+      add[0],
+      add[1],
+      add[2],
+      add[3],
+      third[0],
+      third[1],
+      third[2],
+      third[3],
+    ]),
+  )
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
