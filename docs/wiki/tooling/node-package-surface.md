@@ -4,13 +4,16 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
-  - ../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md
-  - ../raw/node/2026-07-10-node-wasi-runner-api-recheck.md
   - https://nodejs.org/api/wasi.html
   - ../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md
   - ../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
-  - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
+  - https://docs.npmjs.com/trusted-publishers
+  - https://docs.npmjs.com/generating-provenance-statements
+  - https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect
+  - ../../../.github/workflows/node-wasm-tests.yml
+  - ../../../.github/workflows/fuzz.yml
+  - ../../../.github/workflows/readme-api-sync.yml
   - https://nodejs.org/api/packages.html
   - https://www.typescriptlang.org/docs/handbook/modules/reference.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
@@ -166,7 +169,7 @@ The current MoonBit `wast` package also exposes `wast_arbitrary_feature_stats(..
 
 ## Publication Metadata And Provenance Boundary
 
-The Node package is also the npm publication boundary. The 2026-06-05 trusted-publishing refresh in [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md) checked npm trusted-publisher / provenance docs and GitHub Actions OIDC docs against current package metadata and workflows. Current Starshine is **not** configured for npm trusted publishing yet:
+The Node package is also the npm publication boundary. Current package metadata and workflows, read with npm's [trusted-publisher](https://docs.npmjs.com/trusted-publishers) / [provenance](https://docs.npmjs.com/generating-provenance-statements) documentation and GitHub Actions [OIDC guidance](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect), show that Starshine is **not** configured for npm trusted publishing yet:
 
 - [`node/package.json`](../../../node/package.json) has no `repository` field and no `publishConfig`.
 - Existing GitHub workflows are validation/test workflows with read-only contents permissions; no workflow grants `id-token: write` for an npm OIDC publish.
@@ -214,11 +217,11 @@ The comparison must start from the `exports` allowlist, not from every file in `
 
 ## Sources
 
-- WASI runner / Preview boundary: [`../raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](../raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](../raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md), [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
+- WASI runner / Preview boundary: [Node `node:wasi` documentation](https://nodejs.org/api/wasi.html), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - JSPI host-async boundary: [`../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md), [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - ESM Integration boundary: [`../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), historical [`../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md), [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md), [`../../../node/package.json`](../../../node/package.json), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - JS String Builtins runtime boundary: [`../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](../raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js)
-- npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
+- npm trusted-publishing, provenance, and OIDC evidence: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers), [npm provenance](https://docs.npmjs.com/generating-provenance-statements), [GitHub Actions OIDC guidance](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect), [`../../../.github/workflows/node-wasm-tests.yml`](../../../.github/workflows/node-wasm-tests.yml), [`../../../.github/workflows/fuzz.yml`](../../../.github/workflows/fuzz.yml), [`../../../.github/workflows/readme-api-sync.yml`](../../../.github/workflows/readme-api-sync.yml)
 - Node/TypeScript package-resolution evidence: official [Node package documentation](https://nodejs.org/api/packages.html), official [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html), and the local package metadata/wrapper/test sources listed below
 - Archived baseline audit: [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md)
 - Package metadata and README: [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)

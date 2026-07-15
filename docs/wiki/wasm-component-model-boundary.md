@@ -3,8 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md
-  - raw/node/2026-07-10-node-wasi-runner-api-recheck.md
   - https://nodejs.org/api/wasi.html
   - https://github.com/WebAssembly/WASI
   - https://wasi.dev/roadmap
@@ -34,7 +32,7 @@ Use this page when a bug report, fixture idea, package request, or external tool
 
 For a beginner: a Core WebAssembly module is the familiar `module` with functions, memories, tables, globals, imports, exports, code, data, and custom sections. A Component Model component is a higher-level packaging and interoperability layer. It can contain Core modules, but it also describes interfaces, instances, lifted/lowered functions, and host-language data passing through the Canonical ABI.
 
-The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md), supplemented by the later Node runner API/local-thread-boundary recheck plus binding correction in [`raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](raw/node/2026-07-10-node-wasi-runner-api-recheck.md) and [`raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md). These notes rechecked the official proposals tracker, Component Model/WIT/Canonical-ABI documentation, the [WASI roadmap](https://wasi.dev/roadmap), the [Node `node:wasi` API](https://nodejs.org/api/wasi.html), and current Starshine source evidence. The durable status is:
+The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md), with the Node-hosted Preview 1 runner boundary grounded directly in current local runner code and the [Node `node:wasi` API](https://nodejs.org/api/wasi.html). Together with the official proposals tracker, Component Model/WIT/Canonical-ABI documentation, the [WASI roadmap](https://wasi.dev/roadmap), and current Starshine source evidence, they support the following durable status:
 
 - **Standards status:** the official proposals tracker currently routes `Component Model` as an active Phase-1 feature-proposal row, not a finished/Core 3.0 feature.
 - **Starshine status:** no documented local support for component binaries, WIT, component text, worlds, component validation, or Canonical ABI lift/lower exists today.
@@ -153,7 +151,7 @@ Until those questions have answers and tests, keep component artifacts out of or
 - Focused source bridge: [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md)
 - Broad active-proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
-- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-07-10-node-wasi-runner-api-recheck.md`](raw/node/2026-07-10-node-wasi-runner-api-recheck.md), [`raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md`](raw/node/2026-07-10-node-wasi-finalize-bindings-correction.md), [Node `node:wasi`](https://nodejs.org/api/wasi.html), [WebAssembly/WASI](https://github.com/WebAssembly/WASI), and the [WASI roadmap](https://wasi.dev/roadmap)
+- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [Node `node:wasi`](https://nodejs.org/api/wasi.html), [WebAssembly/WASI](https://github.com/WebAssembly/WASI), and the [WASI roadmap](https://wasi.dev/roadmap)
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Core module map: [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md)
 - Local implementation anchors: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

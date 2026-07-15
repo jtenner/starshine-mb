@@ -1,12 +1,16 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
-  - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
-  - ../raw/release/2026-06-04-release-package-surface-refresh.md
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
-  - ../raw/release/2026-05-20-starshine-release-process-sources.md
+  - https://docs.npmjs.com/cli/v11/configuring-npm/package-json
+  - https://docs.npmjs.com/cli/v11/commands/npm-pack
+  - https://docs.npmjs.com/cli/v11/commands/npm-publish
+  - https://docs.npmjs.com/cli/v11/using-npm/scripts#life-cycle-scripts
+  - https://docs.npmjs.com/trusted-publishers
+  - https://docs.npmjs.com/generating-provenance-statements
+  - https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect
   - ../../../AGENTS.md
   - ../../README.md
   - ../../../moon.mod
@@ -18,6 +22,9 @@ sources:
   - ../../../scripts/lib/validate-task.ts
   - ../../../scripts/lib/build-node-package.mjs
   - ../../../scripts/lib/generate-node-package.mjs
+  - ../../../.github/workflows/node-wasm-tests.yml
+  - ../../../.github/workflows/fuzz.yml
+  - ../../../.github/workflows/readme-api-sync.yml
   - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
 related:
   - ./wasi-runner-and-preview-boundary.md
@@ -28,7 +35,6 @@ related:
   - ./pass-fuzz-compare.md
   - ../validate/trace-benchmark-baseline.md
   - ../validation/moonbit-prove-strategy.md
-  - ../raw/release/2026-05-20-starshine-release-process-sources.md
 ---
 
 # Release Process
@@ -45,9 +51,9 @@ A Starshine release is not just “run tests and publish npm.” The current rep
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
 
-The current release package-surface refresh is [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md). It supersedes the stale local-path claims in the older [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md) manifest after rechecking current npm CLI v11 packaging docs, current MoonBit `moon.mod` docs, and the live Starshine package files. The live [`moon.mod`](../../../moon.mod) and official [MoonBit module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) establish the current module-file format.
+The release package surface is grounded directly in the live [`moon.mod`](../../../moon.mod), [`node/package.json`](../../../node/package.json), root [`package.json`](../../../package.json), Node build scripts, and current package/test workflows, alongside the official npm and MoonBit documentation listed below. [`moon.mod`](../../../moon.mod) and official [MoonBit module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) establish the current module-file format.
 
-The current publication-trust refresh is [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md). It checked current npm trusted-publishing / provenance docs and GitHub Actions OIDC docs against the live Starshine package and workflows. The durable result is a boundary, not a new release path: Starshine has release-prep guidance, package tests, and tarball-inspection guidance, but no configured npm trusted publisher, no publish workflow, no `id-token: write` publication job, and no `node/package.json` `repository` field yet.
+The current publication-trust result is a boundary, not a new release path: Starshine has release-prep guidance, package tests, and tarball-inspection guidance, but no configured npm trusted publisher, no publish workflow, no `id-token: write` publication job, and no `node/package.json` `repository` field yet. This is supported by the current package metadata and the checked-in `node-wasm-tests`, `fuzz`, and `readme-api-sync` workflows, which are test/validation workflows with `contents: read` permissions and no publish step.
 
 For releases that include an already-built self-optimized CLI artifact, treat that artifact as a separate release surface. Use the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate from [`validation-gates.md`](validation-gates.md) so artifact safety stays explicit instead of being inferred from the ordinary repo validation ladder.
 
@@ -204,12 +210,9 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 
 ## Sources
 
-- npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
-- Current release package-surface refresh: [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md)
+- Official npm [package metadata](https://docs.npmjs.com/cli/v11/configuring-npm/package-json), [`npm pack`](https://docs.npmjs.com/cli/v11/commands/npm-pack), [`npm publish`](https://docs.npmjs.com/cli/v11/commands/npm-publish), [lifecycle scripts](https://docs.npmjs.com/cli/v11/using-npm/scripts#life-cycle-scripts), [trusted publishers](https://docs.npmjs.com/trusted-publishers), and [provenance](https://docs.npmjs.com/generating-provenance-statements) documentation; GitHub Actions [OIDC guidance](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
 - Official MoonBit [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) and the live [`moon.mod`](../../../moon.mod)
-- Earlier release source snapshot superseded for local `moon.mod.json` paths: [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md)
 - Repo policy: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
-- Package metadata: [`../../../moon.mod`](../../../moon.mod), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json)
+- Package metadata and workflow evidence: [`../../../moon.mod`](../../../moon.mod), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json), [`../../../.github/workflows/node-wasm-tests.yml`](../../../.github/workflows/node-wasm-tests.yml), [`../../../.github/workflows/fuzz.yml`](../../../.github/workflows/fuzz.yml), [`../../../.github/workflows/readme-api-sync.yml`](../../../.github/workflows/readme-api-sync.yml)
 - Node package boundary: [`./node-package-surface.md`](node-package-surface.md), official [Node package documentation](https://nodejs.org/api/packages.html), official [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html), [`../../../node/README.md`](../../../node/README.md), [`../../../node/internal/.gitignore`](../../../node/internal/.gitignore), [`../../../node/internal/.npmignore`](../../../node/internal/.npmignore), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
 - Validation gates: [`./validation-gates.md`](validation-gates.md), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`./pass-fuzz-compare.md`](pass-fuzz-compare.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)
-- npm docs checked by the source snapshot: <https://docs.npmjs.com/cli/v11/configuring-npm/package-json>, <https://docs.npmjs.com/cli/v11/commands/npm-publish>, <https://docs.npmjs.com/cli/v11/commands/npm-pack>, <https://docs.npmjs.com/cli/v11/using-npm/scripts#life-cycle-scripts>
