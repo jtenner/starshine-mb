@@ -403,7 +403,7 @@ fn FlattenScalarFlowReplacementEntry::new(
 }
 
 ///|
-fn flatten_br_if_flow_entry_index(
+fn flatten_br_if_flow_entry_linear_index(
   entries : Array[FlattenBrIfFlowEntry],
   branch_id : Int,
 ) -> Int {
@@ -413,6 +413,48 @@ fn flatten_br_if_flow_entry_index(
     }
   }
   -1
+}
+
+///|
+fn flatten_br_if_flow_entry_lower_bound(
+  entries : Array[FlattenBrIfFlowEntry],
+  branch_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].branch_id < branch_id {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
+fn flatten_br_if_flow_entry_index(
+  entries : Array[FlattenBrIfFlowEntry],
+  branch_id : Int,
+) -> Int {
+  let index = flatten_br_if_flow_entry_lower_bound(entries, branch_id)
+  if index < entries.length() && entries[index].branch_id == branch_id {
+    index
+  } else {
+    -1
+  }
+}
+
+///|
+fn flatten_br_if_flow_entry_set(
+  entries : Array[FlattenBrIfFlowEntry],
+  entry : FlattenBrIfFlowEntry,
+) -> Unit {
+  let index = flatten_br_if_flow_entry_lower_bound(entries, entry.branch_id)
+  if index >= entries.length() || entries[index].branch_id != entry.branch_id {
+    entries.insert(index, entry)
+  }
 }
 
 ///|
@@ -5204,7 +5246,7 @@ fn flatten_multivalue_br_if_flow_span(
   }
   let cached_flow = match state {
     Some(state) => {
-      let entry_index = flatten_br_if_flow_entry_index(
+      let entry_index = flatten_br_if_flow_entry_linear_index(
         state.multivalue_br_if_flow_entries,
         branch_id,
       )
@@ -5248,7 +5290,7 @@ fn flatten_rewrite_multivalue_br_if_flow_span(
   payload_count : Int,
 ) -> Array[Int]? {
   if !state.rewrites_started ||
-    flatten_br_if_flow_entry_index(
+    flatten_br_if_flow_entry_linear_index(
       state.multivalue_br_if_flow_entries,
       branch_id,
     ) <
@@ -5404,7 +5446,8 @@ fn flatten_multivalue_tuple_br_if_flow(
         let flow = flatten_locate_reachable_tuple_br_if_flow(
           func, branch_id, tuple_id, payload_count,
         )
-        state.tuple_br_if_flow_entries.push(
+        flatten_br_if_flow_entry_set(
+          state.tuple_br_if_flow_entries,
           FlattenBrIfFlowEntry::new(branch_id, flow),
         )
         flow
