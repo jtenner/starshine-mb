@@ -1192,7 +1192,7 @@ fn flatten_try_table_dead_suffix_call_one_rich_argument_nodes(
 }
 
 ///|
-fn flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
+fn flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
   func : @ir.HotFunc,
   call_id : Int,
 ) -> Array[Int]? {
@@ -1209,7 +1209,9 @@ fn flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
   match
     (@ir.hot_node_get(func, first_id).op, @ir.hot_node_get(func, second_id).op) {
     (@ir.HotOp::Binary, @ir.HotOp::Unary)
-    | (@ir.HotOp::Unary, @ir.HotOp::Binary) => ()
+    | (@ir.HotOp::Unary, @ir.HotOp::Binary)
+    | (@ir.HotOp::Binary, @ir.HotOp::Convert)
+    | (@ir.HotOp::Convert, @ir.HotOp::Binary) => ()
     _ => return None
   }
   let use_def = @ir.use_def_build_node_uses(func)
@@ -1220,10 +1222,17 @@ fn flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
   let nodes : Array[Int] = [call_id, first_id, second_id]
   for argument_id in [first_id, second_id] {
     match @ir.hot_node_get(func, argument_id).op {
-      @ir.HotOp::Unary => {
-        if @ir.hot_node_exact_instr(func, argument_id) !=
-          Some(@lib.Instruction::i32_clz()) ||
-          @ir.hot_child_count(func, argument_id) != 1 {
+      @ir.HotOp::Unary | @ir.HotOp::Convert => {
+        match
+          (
+            @ir.hot_node_get(func, argument_id).op,
+            @ir.hot_node_exact_instr(func, argument_id),
+          ) {
+          (@ir.HotOp::Unary, Some(@lib.I32Clz))
+          | (@ir.HotOp::Convert, Some(@lib.I64ExtendI32S)) => ()
+          _ => return None
+        }
+        if @ir.hot_child_count(func, argument_id) != 1 {
           return None
         }
         let input_id = @ir.hot_child_get(func, argument_id, 0)
@@ -1313,7 +1322,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
         None => ()
       }
       match
-        flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
+        flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
           func, root_id,
         ) {
         Some(nodes) => return Some(nodes)
@@ -1857,7 +1866,7 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
         is Some(_) {
         return true
       }
-      if flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
+      if flatten_try_table_dead_suffix_call_binary_unary_or_conversion_argument_nodes(
           func, root_id,
         )
         is Some(_) {
