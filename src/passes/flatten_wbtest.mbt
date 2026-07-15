@@ -6039,3 +6039,42 @@ test "flatten replaces one region root without rebuilding its siblings" {
   @debug.assert_eq(@ir.hot_child_get(func, replacement, 0), value)
   @debug.assert_eq(@ir.hot_revision_current(func), revision + 1)
 }
+
+///|
+test "flatten rewrite scalar target proof uses the pre-mutation branch index" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let label_id = fixture[1]
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, fixture[0]), [
+    fixture[2],
+  ])
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_target_can_route_scalar_branches(
+      func,
+      label_id,
+      @lib.ValType::i32(),
+      state=Some(state),
+    ),
+  )
+  let left = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let right = @ir.hot_build_const_i32(func, @lib.I32(2))
+  let rogue = @ir.hot_build_br(func, label_id)
+  ignore(@ir.hot_replace_child_span(func, rogue, [left, right]))
+  assert_false(
+    flatten_target_can_route_scalar_branches(
+      func,
+      label_id,
+      @lib.ValType::i32(),
+    ),
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_target_can_route_scalar_branches(
+      func,
+      state,
+      label_id,
+      @lib.ValType::i32(),
+    ),
+  )
+}

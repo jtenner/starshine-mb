@@ -4142,6 +4142,21 @@ fn flatten_target_can_route_scalar_branches(
 }
 
 ///|
+fn flatten_rewrite_target_can_route_scalar_branches(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  label_id : Int,
+  target_type : @lib.ValType,
+) -> Bool {
+  flatten_target_can_route_scalar_branches(
+    func,
+    label_id,
+    target_type,
+    state=Some(state),
+  )
+}
+
+///|
 fn flatten_multivalue_br_if_flow_span(
   func : @ir.HotFunc,
   branch_id : Int,
@@ -4799,7 +4814,12 @@ fn flatten_try_route_br(
     value_types.length() != 1 ||
     target_types[0] != value_types[0] ||
     !flatten_value_type_is_defaultable(target_types[0]) ||
-    !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
+    !flatten_rewrite_target_can_route_scalar_branches(
+      func,
+      state,
+      label_id,
+      target_types[0],
+    ) {
     return false
   }
   let locals = match
@@ -5104,7 +5124,12 @@ fn flatten_try_route_scalar_br_if(
     value_types.length() != 1 ||
     !flatten_value_type_is_defaultable(target_types[0]) ||
     !flatten_value_type_is_defaultable(value_types[0]) ||
-    !flatten_target_can_route_scalar_branches(func, label_id, target_types[0]) {
+    !flatten_rewrite_target_can_route_scalar_branches(
+      func,
+      state,
+      label_id,
+      target_types[0],
+    ) {
     return false
   }
   let target_locals = match
@@ -5272,8 +5297,9 @@ fn flatten_try_route_br_table(
           }
         }
         if payload_count == 1 {
-          if !flatten_target_can_route_scalar_branches(
+          if !flatten_rewrite_target_can_route_scalar_branches(
               func,
+              state,
               target,
               payload_types[0],
             ) {
