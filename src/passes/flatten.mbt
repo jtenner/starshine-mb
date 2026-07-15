@@ -6665,6 +6665,17 @@ fn flatten_rewrite_operand_slot(
 }
 
 ///|
+fn flatten_node_needs_postorder_branch_routing(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br => @ir.hot_child_count(func, node_id) > 0
+    _ => false
+  }
+}
+
+///|
 fn flatten_rewrite_node_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6814,15 +6825,8 @@ fn flatten_rewrite_node_operands(
         }
       }
   }
-  if flatten_try_route_br(ctx, func, state, node_id, preludes) {
-    changed = true
-  }
-  if flatten_try_route_scalar_br_if(ctx, func, state, node_id, preludes) {
-    changed = true
-  }
-  if flatten_try_route_br_table(
-      ctx, func, state, owner_region, node_id, preludes,
-    ) {
+  if flatten_node_needs_postorder_branch_routing(func, node_id) &&
+    flatten_try_route_br(ctx, func, state, node_id, preludes) {
     changed = true
   }
   changed

@@ -6797,3 +6797,35 @@ test "flatten rewrite scalar try flow uses pre-mutation ownership counts" {
     ),
   )
 }
+
+///|
+test "flatten postorder branch routing admits only carried br nodes" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let payload = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let carried_br = @ir.hot_build_br(func, label_id, values=[payload])
+  let payloadless_br = @ir.hot_build_br(func, label_id)
+  let carried_br_if = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[payload],
+  )
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[payload],
+  )
+  assert_true(flatten_node_needs_postorder_branch_routing(func, carried_br))
+  assert_false(
+    flatten_node_needs_postorder_branch_routing(func, payloadless_br),
+  )
+  assert_false(flatten_node_needs_postorder_branch_routing(func, carried_br_if))
+  assert_false(flatten_node_needs_postorder_branch_routing(func, table_id))
+  assert_false(
+    flatten_node_needs_postorder_branch_routing(func, @ir.hot_build_nop(func)),
+  )
+}
