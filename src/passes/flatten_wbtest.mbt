@@ -5958,6 +5958,60 @@ test "flatten terminal proof caches allocate only inspected owners" {
 }
 
 ///|
+test "flatten terminal proof caches keep sparse entries sorted" {
+  let func = @ir.HotFunc::new()
+  let label_ids : Array[Int] = []
+  let table_ids : Array[Int] = []
+  for value in [1, 3, 5] {
+    let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+    let try_id = fixture[0]
+    let table_id = fixture[2]
+    let suffix = flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_add(),
+      value,
+      value + 1,
+    )
+    @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+      table_id,
+      suffix[0],
+    ])
+    label_ids.push(fixture[1])
+    table_ids.push(table_id)
+  }
+  let state = FlattenRewriteState::new(func)
+  for index in [2, 0, 1] {
+    assert_true(
+      flatten_try_terminal_br_table_targets_label(
+        func,
+        table_ids[index],
+        label_ids[index],
+        1,
+        false,
+        state=Some(state),
+      ),
+    )
+  }
+  @debug.assert_eq(
+    state.dead_suffix_entries.map(fn(entry) { entry.table_id }),
+    table_ids,
+  )
+  @debug.assert_eq(
+    state.terminal_table_entries.map(fn(entry) { entry.node_id }),
+    table_ids,
+  )
+  for table_id in table_ids {
+    assert_true(
+      flatten_dead_suffix_entry_index(state.dead_suffix_entries, table_id) >= 0,
+    )
+    assert_true(
+      flatten_terminal_table_entry_index(state.terminal_table_entries, table_id) >=
+      0,
+    )
+  }
+}
+
+///|
 test "flatten scalar try proof cache keeps sparse entries sorted" {
   let func = @ir.HotFunc::new()
   let try_ids : Array[Int] = []

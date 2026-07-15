@@ -523,16 +523,63 @@ fn FlattenInputfulLoopSupportEntry::new(
 }
 
 ///|
+fn flatten_dead_suffix_entry_lower_bound(
+  entries : Array[FlattenDeadSuffixEntry],
+  table_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].table_id < table_id {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
 fn flatten_dead_suffix_entry_index(
   entries : Array[FlattenDeadSuffixEntry],
   table_id : Int,
 ) -> Int {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].table_id == table_id {
-      return index
+  let index = flatten_dead_suffix_entry_lower_bound(entries, table_id)
+  if index < entries.length() && entries[index].table_id == table_id {
+    index
+  } else {
+    -1
+  }
+}
+
+///|
+fn flatten_dead_suffix_entry_set(
+  entries : Array[FlattenDeadSuffixEntry],
+  entry : FlattenDeadSuffixEntry,
+) -> Unit {
+  let index = flatten_dead_suffix_entry_lower_bound(entries, entry.table_id)
+  if index >= entries.length() || entries[index].table_id != entry.table_id {
+    entries.insert(index, entry)
+  }
+}
+
+///|
+fn flatten_terminal_table_entry_lower_bound(
+  entries : Array[FlattenTerminalTableEntry],
+  node_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].node_id < node_id {
+      low = middle + 1
+    } else {
+      high = middle
     }
   }
-  -1
+  low
 }
 
 ///|
@@ -540,12 +587,23 @@ fn flatten_terminal_table_entry_index(
   entries : Array[FlattenTerminalTableEntry],
   node_id : Int,
 ) -> Int {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].node_id == node_id {
-      return index
-    }
+  let index = flatten_terminal_table_entry_lower_bound(entries, node_id)
+  if index < entries.length() && entries[index].node_id == node_id {
+    index
+  } else {
+    -1
   }
-  -1
+}
+
+///|
+fn flatten_terminal_table_entry_set(
+  entries : Array[FlattenTerminalTableEntry],
+  entry : FlattenTerminalTableEntry,
+) -> Unit {
+  let index = flatten_terminal_table_entry_lower_bound(entries, entry.node_id)
+  if index >= entries.length() || entries[index].node_id != entry.node_id {
+    entries.insert(index, entry)
+  }
 }
 
 ///|
@@ -2269,7 +2327,8 @@ fn flatten_try_table_dead_suffix_nodes(
     }
     match state {
       Some(state) =>
-        state.dead_suffix_entries.push(
+        flatten_dead_suffix_entry_set(
+          state.dead_suffix_entries,
           FlattenDeadSuffixEntry::new(table_id, region_ref, nodes),
         )
       None => ()
@@ -2320,7 +2379,8 @@ fn flatten_try_terminal_br_table_targets_label(
   )
   match state {
     Some(state) =>
-      state.terminal_table_entries.push(
+      flatten_terminal_table_entry_set(
+        state.terminal_table_entries,
         FlattenTerminalTableEntry::new(
           node_id, label_id, payload_count, allow_mixed_targets, supported,
         ),
