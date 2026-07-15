@@ -1400,6 +1400,28 @@ fn flatten_try_table_dead_suffix_call_argument_is_sequence_member(
 ) -> Bool {
   match @ir.hot_node_get(func, argument_id).op {
     @ir.HotOp::Const => true
+    @ir.HotOp::Unary => {
+      if @ir.hot_node_exact_instr(func, argument_id) !=
+        Some(@lib.Instruction::i32_clz()) ||
+        @ir.hot_child_count(func, argument_id) != 1 {
+        return false
+      }
+      match @ir.hot_node_get(func, @ir.hot_child_get(func, argument_id, 0)).op {
+        @ir.HotOp::Const => true
+        _ => false
+      }
+    }
+    @ir.HotOp::Convert => {
+      if @ir.hot_node_exact_instr(func, argument_id) !=
+        Some(@lib.Instruction::i64_extend_i32s()) ||
+        @ir.hot_child_count(func, argument_id) != 1 {
+        return false
+      }
+      match @ir.hot_node_get(func, @ir.hot_child_get(func, argument_id, 0)).op {
+        @ir.HotOp::Const => true
+        _ => false
+      }
+    }
     @ir.HotOp::Binary => {
       match @ir.hot_node_exact_instr(func, argument_id) {
         Some(@lib.I32Add) | Some(@lib.I32DivS) => ()

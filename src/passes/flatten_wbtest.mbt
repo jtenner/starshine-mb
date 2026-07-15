@@ -4232,7 +4232,96 @@ test "flatten recognizes an add-calldivzero-clz try-table suffix sequence" {
 }
 
 ///|
-test "flatten keeps a sequence with a unary-argument call unsupported" {
+fn flatten_wbtest_recognize_sequence_with_unary_or_conversion_argument_call(
+  conversion : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let first = flatten_test_build_direct_binary_drop(
+    func,
+    if conversion {
+      @lib.Instruction::i32_and()
+    } else {
+      @lib.Instruction::i32_add()
+    },
+    9,
+    10,
+  )
+  let input = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let argument = if conversion {
+    @ir.hot_build_convert(func, @lib.ValType::i64(), input)
+  } else {
+    @ir.hot_build_unary(func, @lib.ValType::i32(), input)
+  }
+  @ir.hot_node_exact_instr_set(
+    func,
+    argument,
+    if conversion {
+      @lib.Instruction::i64_extend_i32s()
+    } else {
+      @lib.Instruction::i32_clz()
+    },
+  )
+  let call = @ir.hot_build_call(func, 99, [], [argument])
+  let last = if conversion {
+    [@ir.hot_build_unreachable(func)]
+  } else {
+    flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_div_s(),
+      12,
+      0,
+    )
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id,
+    first[0],
+    call,
+    last[0],
+  ])
+  let expected : Array[Int] = [
+    first[0],
+    first[1],
+    first[2],
+    first[3],
+    call,
+    argument,
+    input,
+  ]
+  for node_id in last {
+    expected.push(node_id)
+  }
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-callclz-divzero try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_unary_or_conversion_argument_call(
+    false,
+  )
+}
+
+///|
+test "flatten recognizes an and-callextend-unreachable try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_unary_or_conversion_argument_call(true)
+}
+
+///|
+fn flatten_wbtest_sequence_with_other_unary_or_conversion_argument_is_gated(
+  conversion : Bool,
+) -> Unit raise {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -4245,8 +4334,20 @@ test "flatten keeps a sequence with a unary-argument call unsupported" {
     10,
   )
   let input = @ir.hot_build_const_i32(func, @lib.I32(11))
-  let argument = @ir.hot_build_unary(func, @lib.ValType::i32(), input)
-  @ir.hot_node_exact_instr_set(func, argument, @lib.Instruction::i32_clz())
+  let argument = if conversion {
+    @ir.hot_build_convert(func, @lib.ValType::i64(), input)
+  } else {
+    @ir.hot_build_unary(func, @lib.ValType::i32(), input)
+  }
+  @ir.hot_node_exact_instr_set(
+    func,
+    argument,
+    if conversion {
+      @lib.Instruction::i64_extend_i32u()
+    } else {
+      @lib.Instruction::i32_ctz()
+    },
+  )
   let call = @ir.hot_build_call(func, 99, [], [argument])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
@@ -4258,6 +4359,18 @@ test "flatten keeps a sequence with a unary-argument call unsupported" {
       func, table_id, label_id, 1, false,
     ),
   )
+}
+
+///|
+test "flatten keeps a sequence with another unary-argument call unsupported" {
+  flatten_wbtest_sequence_with_other_unary_or_conversion_argument_is_gated(
+    false,
+  )
+}
+
+///|
+test "flatten keeps a sequence with another conversion-argument call unsupported" {
+  flatten_wbtest_sequence_with_other_unary_or_conversion_argument_is_gated(true)
 }
 
 ///|
