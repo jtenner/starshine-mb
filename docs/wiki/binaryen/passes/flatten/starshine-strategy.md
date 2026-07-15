@@ -326,6 +326,10 @@ The latest two-code iteration narrows recursive rewrite overhead and sequence bo
 
 A high-resolution native-release pass-only path was recovered in the existing long-performance package with temporary sources preserved under `.tmp`. The 1,200-function root-heavy fixture improved `57,498 -> 52,402 us` after code 1 (`8.86%`) and measured `52,534.5 us` after code 2. The reconstructed representative measured `1,177 -> 1,176 -> 1,171.5 us`, so shared-root sparsity is classified as allocation-footprint work rather than a timing win. Validation reaches private `163/163`, focused `245/245`, passes `5,738/5,738`, and full `9,199/9,199`. The original native gate harness is still unrecovered, the durable result remains `970.5 us` / `3.65x` Binaryen, and no `.mbti` or public surface changed.
 
+The latest exact two-code iteration narrows table-local construction and freezes one more run-wide support decision without widening behavior. `81cfb9619` reuses the resolved target vector when all table labels deduplicate to one target, removing one staging local and one local-copy pair per lane while preserving payload-before-selector order; a focused encoded module shrinks `51 -> 47` bytes. Multi-target fanout remains Binaryen-shaped. `dda2bdfe3` caches exact inputful-loop support before mutation and refuses an absent rewrite-time entry. Its targeted native fixture is timing-flat (`2,589 -> 2,584 us`), and reconstructed representative samples overlap the `1,128.5 us` pre-iteration baseline.
+
+Validation reaches private `165/165`, focused `245/245`, passes `5,740/5,740`, and full `9,201/9,201`. The pinned v130 owner hash is unchanged. No `.mbti`, registry, dispatcher, CLI, compare/API, generator, or preset surface changes. The durable `970.5 us` / `3.65x` gate and all typed-EH, structured-label, broader-parity, aggregate, signoff, neighborhood, and public-readiness blockers remain open.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

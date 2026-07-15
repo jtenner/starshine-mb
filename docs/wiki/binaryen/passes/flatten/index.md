@@ -322,6 +322,12 @@ A repeatable high-resolution native-release pass-only path was recovered through
 
 Private flatten is `163/163`, focused flatten `245/245`, passes `5,738/5,738`, the full suite `9,199/9,199`, and `moon info` remains green with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI, compare/API, generator, or preset surface changed. Typed EH, structured control-plus-owned-label deletion, broader parity, the flatten GenValid aggregate, four-lane signoff, ordered-neighborhood proof, performance readiness, and public admission remain open.
 
+## 2026-07-15 single-target table and loop-support follow-up
+
+Commits `81cfb9619` and `dda2bdfe3` complete the next exact two-code internal iteration. The first reuses the exact resolved target-local vector as the staging vector when a `br_table`'s repeated/default labels deduplicate to one target. Multi-target fanout still allocates a separate staging vector and copies to every unique target. The red-first invariant proves the one-target path allocates no extra staging locals while the multi-target path remains distinct. Existing scalar, tuple, loop, legacy-try, suffix, and placeholder expectations now lock the smaller shape. A focused encoded probe shrank from `51` to `47` bytes; the reconstructed representative samples were `1,128.5 us` baseline, `1,087 us` after code 1, and later `1,136` / `1,122 us`, so the durable claim is the measured 4-byte size and local/operation-count win rather than a stable timing win.
+
+The second commit caches each inspected inputful-loop support result in `FlattenRewriteState`, reuses only that exact admission result after mutation starts, and fails closed if no entry exists. Its red-first invariant proves a post-snapshot malformed backedge can make an uncached proof fail without changing the cached rewrite decision. A 600-function native-release inputful-loop fixture was timing-flat at `2,589 -> 2,584 us`. Private flatten is `165/165`, focused flatten `245/245`, passes `5,740/5,740`, the full suite `9,201/9,201`, and `moon info` is green with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The durable `970.5 us` / `3.65x` performance gate, typed EH, structured control-plus-owned-label deletion, broader parity, flatten aggregate, four-lane signoff, ordered-neighborhood proof, and public admission remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

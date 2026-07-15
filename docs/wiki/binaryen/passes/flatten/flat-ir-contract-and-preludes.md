@@ -389,6 +389,12 @@ Commits `7801166ac` and `18101a947` narrow two run-wide rewrite costs without ch
 
 The new invariants preserve the original reason for sequence tracking: a terminal effect already emitted as an earlier root in the same region must not be duplicated when HOT also exposes it under a later operand. Unique roots and post-snapshot nodes cannot satisfy that proof. Native-release pass-only measurement found an `8.86%` targeted win on the root-heavy recursive fixture after dispatch narrowing; shared-root sparsity was timing-flat but reduced exact bookkeeping from all processed roots to the one shared root in the invariant. Private flatten is now `163/163`; the durable `970.5 us` gate and all EH/label/signoff blockers remain authoritative.
 
+### Single-target table staging and inputful-loop support are now exact
+
+Commit `81cfb9619` keeps Binaryen's source-order rule—payload work before selector work—but removes a redundant local channel when every repeated/default table label resolves to one unique target. The payload is written directly into the already-resolved target vector; multi-target tables retain the separate staging vector and complete fanout. Existing verifier-backed tests prove scalar, tuple, loop, try, suffix, and nested-placeholder shapes all keep their target/result channels. A focused encoded module shrank `51 -> 47` bytes, so this is a measured Starshine size and local/operation-count win rather than an unmeasured representation drift. The pinned Binaryen v130 probe still emits the separate staging local and target copy.
+
+Commit `dda2bdfe3` freezes the complete supported/unsupported result for each inspected inputful loop. Admission computes the result from exact types, entry ownership, label branches, conditional-flow sites, backedges, and result-tail ownership; rewrite may consume only that cached result. A missing entry after `rewrites_started` fails closed. The inputful-loop benchmark was timing-flat (`2,589 -> 2,584 us`), so the durable value is repeated-support removal and one stronger mutation-time proof boundary.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

@@ -609,6 +609,12 @@ Commits `7801166ac` and `18101a947` do not alter any WAT shape above. Payload-be
 
 The red-first shared-root invariant uses 256 unique roots, one branch that is both an earlier root and a later `select` child, and one post-snapshot node. Rewrite retains exactly the branch's holder/node pair and leaves one placeholder `unreachable` without duplicating the branch. Native measurement found an `8.86%` targeted traversal win from postorder dispatch narrowing; shared-root storage was timing-flat but reduced the invariant's bookkeeping from every root to the single shared root. No opcode, control, payload, EH, type, effect, trap, or deletion family was admitted.
 
+### Latest one-target table and inputful-loop support detail
+
+When all explicit/default `br_table` labels deduplicate to one target, Starshine now writes each payload lane directly into that target's resolved local vector before selector work. The WAT-level behavior is unchanged, but the intermediate shape drops one staging local and one `local.get`/`local.set` copy per lane. Multi-target tables still stage once and fan out to every unique target. A focused scalar encoded module shrinks from `51` to `47` bytes, and existing scalar, tuple, loop, legacy-try, suffix, and placeholder tests lock the reduced root counts and exact target-local identity.
+
+Inputful-loop support is now also a frozen admission fact. Exact parameter/result types, entry and backedge ownership, conditional flow, label branches, and result tails are checked before mutation; rewrite cannot discover a new supported loop after that boundary. This changes no WAT family and measured timing was flat, but it closes another stale-proof path.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

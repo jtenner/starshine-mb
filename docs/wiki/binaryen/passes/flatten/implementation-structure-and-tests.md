@@ -289,6 +289,10 @@ The next exact two-code iteration adds commits `7801166ac` and `18101a947`. The 
 
 Validation is focused flatten `245/245`, private flatten `163/163`, passes `5,738/5,738`, full suite `9,199/9,199`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. A recovered native-release pass-only path measured the root-heavy fixture at `57,498 -> 52,402 -> 52,534.5 us` and the reconstructed representative at `1,177 -> 1,176 -> 1,171.5 us`. Code 1 is a measured targeted traversal win; code 2 is allocation-footprint/proof-boundary work with overlapping timing. The durable `970.5 us` / `3.65x` checkpoint remains unrequalified.
 
+The next exact two-code iteration adds commits `81cfb9619` and `dda2bdfe3`. The first removes the separate staging vector only when repeated/default `br_table` labels deduplicate to one unique target; the payload writes directly to the resolved target locals before selector work, while multi-target fanout is unchanged. Its red-first invariant covers both sides of that boundary, and existing behavior tests now lock the reduced scalar, tuple, loop, legacy-try, suffix, and placeholder shapes. A focused module encodes at `47` bytes versus `51` before the change. The second caches exact inputful-loop support decisions and refuses uncached discovery after mutation starts; its invariant adds a malformed post-snapshot backedge and proves the cached result remains the admission result.
+
+Validation is focused flatten `245/245`, private flatten `165/165`, passes `5,740/5,740`, full suite `9,201/9,201`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. Reconstructed timing was overlapping/flat, so code 1 is classified by its measured size and operation-count win and code 2 by its proof-boundary/repeated-support removal. The durable `970.5 us` / `3.65x` performance gate remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:
