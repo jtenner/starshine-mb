@@ -61430,6 +61430,108 @@ fn run_hot_pipeline_dae_try_collapse_residual_four_field_aggregate_spill(
 }
 
 ///|
+// In a three-producer dispatch arm, Binaryen keeps the first two results local
+// but sinks the final one through four pure consumer arguments. All producer
+// effects stay ordered, and direct calls cannot observe caller-local reads.
+fn run_hot_pipeline_dae_try_sink_final_three_producer_call_result(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if idx + 20 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+      instrs[idx + 11],
+      instrs[idx + 12],
+      instrs[idx + 13],
+      instrs[idx + 14],
+      instrs[idx + 15],
+      instrs[idx + 16],
+      instrs[idx + 17],
+      instrs[idx + 18],
+      instrs[idx + 19],
+      instrs[idx + 20],
+    ) {
+    (
+      @lib.LocalGet(first_arg0),
+      @lib.LocalGet(first_arg1),
+      @lib.Call(first_producer),
+      @lib.LocalSet(first_result),
+      @lib.LocalGet(second_arg0),
+      @lib.LocalGet(second_arg1),
+      @lib.Call(second_producer),
+      @lib.LocalSet(second_result),
+      @lib.LocalGet(final_arg0),
+      @lib.LocalGet(final_arg1),
+      @lib.Call(final_producer),
+      @lib.LocalSet(@lib.LocalIdx(final_raw) as final_result),
+      @lib.LocalGet(consumer_arg0),
+      @lib.LocalGet(consumer_arg1),
+      @lib.LocalGet(consumer_arg2),
+      @lib.LocalGet(consumer_arg3),
+      @lib.LocalGet(final_readback),
+      @lib.LocalGet(second_readback),
+      @lib.LocalGet(first_readback),
+      @lib.Call(consumer),
+      @lib.Br(label),
+    ) if first_result == first_readback &&
+      second_result == second_readback &&
+      final_result == final_readback => {
+      let final_idx = final_raw.reinterpret_as_int()
+      if first_result == second_result ||
+        final_result == first_result ||
+        final_result == second_result ||
+        final_idx < 0 ||
+        final_idx >= local_gets.length() ||
+        local_gets[final_idx] != 1 ||
+        local_sets[final_idx] != 1 ||
+        local_tees[final_idx] != 0 {
+        return None
+      }
+      local_gets[final_idx] = 0
+      local_sets[final_idx] = 0
+      Some([
+        @lib.Instruction::local_get(first_arg0),
+        @lib.Instruction::local_get(first_arg1),
+        @lib.Instruction::call(first_producer),
+        @lib.Instruction::local_set(first_result),
+        @lib.Instruction::local_get(second_arg0),
+        @lib.Instruction::local_get(second_arg1),
+        @lib.Instruction::call(second_producer),
+        @lib.Instruction::local_set(second_result),
+        @lib.Instruction::local_get(consumer_arg0),
+        @lib.Instruction::local_get(consumer_arg1),
+        @lib.Instruction::local_get(consumer_arg2),
+        @lib.Instruction::local_get(consumer_arg3),
+        @lib.Instruction::local_get(final_arg0),
+        @lib.Instruction::local_get(final_arg1),
+        @lib.Instruction::call(final_producer),
+        @lib.Instruction::local_get(second_result),
+        @lib.Instruction::local_get(first_result),
+        @lib.Instruction::call(consumer),
+        @lib.Instruction::br(label),
+      ])
+    }
+    _ => None
+  }
+}
+
+///|
 // In a two-producer dispatch arm, Binaryen keeps the first result local but
 // sinks the final one through four pure consumer arguments. Producer order is
 // unchanged, and direct calls cannot observe or mutate the caller's locals.
@@ -61593,6 +61695,20 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_sink_final_three_producer_call_result(
+        instrs, idx, local_gets, local_sets, local_tees,
+      ) {
+      Some(replacement) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += 21
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_sink_final_two_producer_call_result(
         instrs, idx, local_gets, local_sets, local_tees,
