@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
+  - validate/constant-expressions.md
   - wasm-shared-everything-threads-boundary.md
   - wasm-more-array-constructors-boundary.md
   - raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
@@ -38,7 +38,7 @@ related:
 
 Use this page when a claim mentions “WebAssembly GC” and you need to know which layer is meant. The ordinary GC feature is now a finished/Core-3.0 WebAssembly surface: it covers recursive `func` / `struct` / `array` types, abstract heap types such as `any`, `eq`, `struct`, `array`, and `i31`, typed references, ordinary cast/test/branch/call reference instructions, and struct/array aggregate instructions. The `call_ref` / `return_call_ref` slice is cross-linked to the focused typed-function-reference boundary at [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md). The active More Array Constructors proposal is separate: `array.new_array`, `array.new_memory`, and `array.new_table` route through [`wasm-more-array-constructors-boundary.md`](wasm-more-array-constructors-boundary.md), while current Core `array.new*` support remains part of this GC layer. That does **not** mean every Starshine layer exposes every Core syntax spelling today.
 
-The official Core 3.0 type/instruction/text/binary/validation pages and the Starshine owner files in the layer map establish this GC boundary. The later [`2026-07-10 constant-expression reconciliation`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md) corrects one narrow but important local status: Starshine now admits Core `array.new`, `array.new_default`, and `array.new_fixed` in constant expressions after array-type resolution. It does not widen high-level WAST `array.*` text or add the separate More Array Constructors proposal. The important routing rule is:
+The official Core 3.0 type/instruction/text/binary/validation pages and the Starshine owner files in the layer map establish this GC boundary. The current [`constant-expression guide`](validate/constant-expressions.md), grounded in Core validation and local tests, records one narrow but important local status: Starshine now admits Core `array.new`, `array.new_default`, and `array.new_fixed` in constant expressions after array-type resolution. It does not widen high-level WAST `array.*` text or add the separate More Array Constructors proposal. The important routing rule is:
 
 ```text
 Core WebAssembly GC
@@ -103,7 +103,7 @@ These are real Starshine core/binary/validator concepts, but not ordinary WAST t
 
 ### Constant-expression caveat
 
-A struct constructor accepted in a function body is not automatically accepted in a global/table/element/data initializer. For Core arrays, Starshine's initializer gate now admits `array.new`, `array.new_default`, and `array.new_fixed` after array-type resolution, while `array.new_data` / `array.new_elem` remain ordinary-instruction forms and WAST `array.*` text remains unavailable. Always route initializer claims through [`validate/constant-expressions.md`](validate/constant-expressions.md) and the [`2026-07-10 reconciliation`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
+A struct constructor accepted in a function body is not automatically accepted in a global/table/element/data initializer. For Core arrays, Starshine's initializer gate now admits `array.new`, `array.new_default`, and `array.new_fixed` after array-type resolution, while `array.new_data` / `array.new_elem` remain ordinary-instruction forms and WAST `array.*` text remains unavailable. Always route initializer claims through [`validate/constant-expressions.md`](validate/constant-expressions.md).
 
 ## Rewrite And Validation Risks
 
@@ -128,5 +128,5 @@ A struct constructor accepted in a function body is not automatically accepted i
 - Reference/call/cast/branch: [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md)
 - Aggregate instructions: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
 - More Array Constructors proposal split: [`wasm-more-array-constructors-boundary.md`](wasm-more-array-constructors-boundary.md)
-- Constant expressions: [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
+- Constant expressions: [`validate/constant-expressions.md`](validate/constant-expressions.md).
 - Custom descriptors: [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md), the [custom-descriptors proposal overview](https://raw.githubusercontent.com/WebAssembly/custom-descriptors/main/proposals/custom-descriptors/Overview.md), and the cited local source/test anchors.

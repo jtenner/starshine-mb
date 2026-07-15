@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
+  - ../validate/ref-func-declarations.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../../../src/wast/keywords.mbt
@@ -143,7 +143,7 @@ Exports target absolute function indices and have globally unique export names a
 (start $init)
 ```
 
-A start function must exist and have no parameters and no results. The focused validation and invalid-fuzz matrix now lives in [`../validate/start-section.md`](../validate/start-section.md). Current WAST lowering stores the last parsed start field as the module `StartSec`; validation still rejects invalid start signatures. Do not use start as a stand-in for a `ref.func` declaration source: the current Core rule and Starshine both exclude start from `refs`, as documented in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) and its [`2026-07-10 source correction`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md).
+A start function must exist and have no parameters and no results. The focused validation and invalid-fuzz matrix now lives in [`../validate/start-section.md`](../validate/start-section.md). Current WAST lowering stores the last parsed start field as the module `StartSec`; validation still rejects invalid start signatures. Do not use start as a stand-in for a `ref.func` declaration source: the current Core rule and Starshine both exclude start from `refs`, as documented in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ## Call Instruction Shapes
 
@@ -218,7 +218,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 
 ## Sources
 
-- Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Current `ref.func` / start boundary: [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Focused typed-function-reference boundary: [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
 - Official WAST/module rules: [text modules](https://webassembly.github.io/spec/core/text/modules.html), [module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)

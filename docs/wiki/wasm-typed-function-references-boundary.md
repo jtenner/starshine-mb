@@ -6,7 +6,7 @@ sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/binary/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
-  - raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
+  - validate/ref-func-declarations.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
   - ../../src/wast/parser.mbt
@@ -40,7 +40,7 @@ Use this page when a claim involves **first-class function references** or `call
 3. **Starshine WAST support:** high-level Starshine WAST text currently exposes `return_call_ref` and `ref.func`, but not ordinary non-tail `call_ref` text.
 4. **Declaration rules:** `ref.func` needs a module-level declaration source; `call_ref` consumes a function reference and does not declare one.
 
-Current Core syntax, binary, and validation pages anchor the standards status and stack rules; [`raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md) anchors Starshine's separate `ref.func` declaration-source boundary. The local WAST/core/binary/validator/generator evidence is cited below.
+Current Core syntax, binary, and validation pages anchor the standards status and stack rules; [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md), grounded in the Core module-validation rule and local tests, anchors Starshine's separate `ref.func` declaration-source boundary. The local WAST/core/binary/validator/generator evidence is cited below.
 
 ## Beginner Model
 

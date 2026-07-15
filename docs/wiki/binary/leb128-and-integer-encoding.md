@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-leb128-core3-recheck.md
+  - https://webassembly.github.io/spec/core/binary/values.html
+  - https://webassembly.github.io/spec/core/binary/conventions.html
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
   - ../../../src/binary/tests.mbt
@@ -37,7 +38,7 @@ The current official Core 3.0 sources permit **bounded nonminimal** LEB encoding
 | Encode output | Emit compact deterministic encodings. |
 | Size accounting | Use the compact encoded length, not an arbitrary accepted input spelling. |
 
-The current-source recheck and retained fuzzing/canonicality evidence are in [`../raw/wasm/2026-07-10-leb128-core3-recheck.md`](../raw/wasm/2026-07-10-leb128-core3-recheck.md), the checked-in codec tests, invalid-binary strategy inventory, and command-harness classifier.
+The official Core binary values/conventions pages, checked-in codec tests, invalid-binary strategy inventory, and command-harness classifier establish this split.
 
 ## The rule that prevents a common bug
 
@@ -164,7 +165,7 @@ When changing LEB code or a field that carries a LEB:
 
 ## Sources
 
-- Current primary-source/local reconciliation: [`../raw/wasm/2026-07-10-leb128-core3-recheck.md`](../raw/wasm/2026-07-10-leb128-core3-recheck.md)
+- Official LEB rules: [Core binary values](https://webassembly.github.io/spec/core/binary/values.html) and [binary conventions](https://webassembly.github.io/spec/core/binary/conventions.html)
 - Core codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Fuzz inventory and canonicality classification: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Spec-suite evidence: [`../../../tests/spec/binary-leb128.wast`](../../../tests/spec/binary-leb128.wast)

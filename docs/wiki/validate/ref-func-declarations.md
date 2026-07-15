@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
+  - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../../../src/validate/validate.mbt
@@ -37,7 +37,7 @@ related:
 1. a valid function index in the module's imported-prefix function index space; and
 2. present in the module's declared function-reference set.
 
-The official WebAssembly 3.0 validation sources call that second set `refs`. The current-source correction in [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md) confirms that `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and that module validation builds `refs` from function-index occurrences in globals, memories, tables, element segments, and exports—**not** from the optional start field. The memory family remains in the official formula, but ordinary Starshine memory definitions do not currently carry function indices directly.
+The official WebAssembly 3.0 validation sources call that second set `refs`: `ref.func x` requires `x` in the validation context's `funcs` and `refs`, and module validation builds `refs` from function-index occurrences in globals, memories, tables, element segments, and exports—**not** from the optional start field. The memory family remains in the official formula, but ordinary Starshine memory definitions do not currently carry function indices directly.
 
 Starshine implements the same idea as a separate `ref_func_declarations` validation phase in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), within the broader phase order documented in [`./module-validation-phases.md`](./module-validation-phases.md). The text/core/binary stack shape for the `ref.func` instruction itself is summarized with the rest of the reference family in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md). Starshine's deliberate `start_sec` exclusion now matches the current Core rule: start remains a function-index carrier and instantiation entrypoint, but is not itself a declaration source.
 
@@ -147,7 +147,6 @@ This shape is rejected unless another declaration source names `$f`. Current Cor
 ## Sources
 
 - Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
-- Current primary-source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - Core declared-reference rule: [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Invalid-fuzz registration: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)

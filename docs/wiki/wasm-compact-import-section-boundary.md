@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
+  - https://github.com/WebAssembly/proposals/blob/main/README.md
+  - https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md
+  - https://webassembly.github.io/compact-import-section/
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../../src/lib/types.mbt
   - ../../src/binary/decode.mbt
@@ -24,7 +26,7 @@ related:
 
 ## Overview
 
-**Compact Import Section** is an active **Phase-3** WebAssembly proposal that makes repeated imports smaller. It changes how imports are encoded in binary and written in WAT; it does **not** add a new kind of imported object, change index spaces, or change ordinary import validation/execution semantics. The current official tracker and proposal overview are captured in [`raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md).
+**Compact Import Section** is an active **Phase-3** WebAssembly proposal that makes repeated imports smaller. It changes how imports are encoded in binary and written in WAT; it does **not** add a new kind of imported object, change index spaces, or change ordinary import validation/execution semantics. The official proposal tracker, proposal overview, and modified specification define this active-proposal boundary.
 
 For a beginner, a normal import repeats its module name every time:
 
@@ -65,7 +67,7 @@ Those forms are **not current Starshine WAST syntax**. Use the ordinary one-item
 | Validation/execution | No new rule beyond ordinary import validation. | `validate_importsec(...)` can operate after a compact form has been expanded into flat imports. |
 | Byte-for-byte round trip | A flat semantic model cannot tell whether source bytes used the ordinary or a compact form. | Current Starshine cannot preserve compact grouping because it does not model it. |
 
-The proposal uses the existing import section rather than allocating another standard section. Its compact wire forms use an empty second name and a sentinel where a conventional import carries an external-type byte: `0x7F` for a group that shares a module name and `0x7E` for a group that shares both module name and external type. Old decoders fail rather than silently interpreting these as ordinary imports. See the immutable source bridge for exact grammar links and the proposal's modified specification entry point.
+The proposal uses the existing import section rather than allocating another standard section. Its compact wire forms use an empty second name and a sentinel where a conventional import carries an external-type byte: `0x7F` for a group that shares a module name and `0x7E` for a group that shares both module name and external type. Old decoders fail rather than silently interpreting these as ordinary imports; use the proposal overview and modified specification for the exact grammar.
 
 ## Current Starshine Boundary
 
@@ -124,7 +126,7 @@ A future port should keep three decisions separate.
 
 ## Sources
 
-- Focused current-source bridge: [`raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
+- Official proposal sources: [tracker](https://github.com/WebAssembly/proposals/blob/main/README.md), [overview](https://github.com/WebAssembly/compact-import-section/blob/main/proposals/compact-import-section/Overview.md), and [modified specification](https://webassembly.github.io/compact-import-section/)
 - Shared Core/proposal source bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Core import model and codec: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt)
 - WAT and validation: [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/wast/module_wast.mbt`](../../src/wast/module_wast.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt)

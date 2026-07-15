@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
+  - ../validate/constant-expressions.md
   - https://github.com/WebAssembly/wat-numeric-values/blob/main/proposals/wat-numeric-values/Overview.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../../../src/wast/parser.mbt

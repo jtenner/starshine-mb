@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md
+  - ../wasm-compact-import-section-boundary.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - https://webassembly.github.io/spec/core/syntax/modules.html
@@ -138,7 +138,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 ## Sources
 
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
-- Compact Import Section boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md), [`../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md`](../raw/wasm/2026-07-10-compact-import-section-boundary-recheck.md)
+- Compact Import Section boundary: [`../wasm-compact-import-section-boundary.md`](../wasm-compact-import-section-boundary.md)
 - Official WebAssembly 3.0 sources: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

@@ -13,7 +13,7 @@ sources:
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
-  - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
+  - ../wasm-linear-memory-threads-boundary.md
 related:
   - ../wast/control-flow-authoring.md
   - ../wast/parametric-instruction-authoring.md

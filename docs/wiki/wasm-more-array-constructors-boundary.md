@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
+  - validate/constant-expressions.md
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/more-array-constructors/blob/main/proposals/more-array-constructors/Overview.md
   - raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
@@ -70,7 +70,7 @@ Beginner model: Starshine already knows about ordinary GC arrays in its in-memor
 | WAST text | No ordinary `array.*` aggregate WAST text is currently exposed. That absence covers both Core arrays and More Array Constructors. | [`src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md) |
 | Binary codec | Current Core GC array opcodes roundtrip through the local `0xFB` aggregate lane. Proposal constructor opcodes are not decoded or encoded. | [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md) |
 | Validation | Current Core array constructors/access/mutation/init are typechecked for type indices, packed signedness, mutability, data/element indices, and stack shapes. Proposal constructors have no validator cases. | [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md) |
-| Constant expressions | Current Core 3.0 admits `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, and Starshine's current `validate_const_instr(...)` accepts the same three core forms after resolving the array type; normal typechecking still enforces operands and result type. More Array Constructors does not add the active-proposal constructors to that allow-list. | [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) |
+| Constant expressions | Current Core 3.0 admits `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, and Starshine's current `validate_const_instr(...)` accepts the same three core forms after resolving the array type; normal typechecking still enforces operands and result type. More Array Constructors does not add the active-proposal constructors to that allow-list. | [`validate/constant-expressions.md`](validate/constant-expressions.md), [`src/validate/validate.mbt`](../../src/validate/validate.mbt) |
 | Generator/fuzz | `gen_valid` can exercise current Core GC aggregate arrays through local feature/profile decisions. There is no More Array Constructors proposal gate or coverage row. | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) |
 
 ## Why The Names Are Easy To Confuse
@@ -108,6 +108,6 @@ If Starshine implements More Array Constructors, start with a source recheck bec
 - Official proposal sources: [tracker](https://github.com/WebAssembly/proposals) and [overview](https://github.com/WebAssembly/more-array-constructors/blob/main/proposals/more-array-constructors/Overview.md)
 - GC Core boundary: [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md)
 - Aggregate instruction authoring: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
-- Constant-expression boundary: [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md)
+- Constant-expression boundary: [`validate/constant-expressions.md`](validate/constant-expressions.md)
 - Data-count/data-index boundary: [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md)
 - Starshine local code: [`src/lib/types.mbt`](../../src/lib/types.mbt), [`src/wast/keywords.mbt`](../../src/wast/keywords.mbt), [`src/binary/decode.mbt`](../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../src/binary/encode.mbt), [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../src/validate/validate.mbt), [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

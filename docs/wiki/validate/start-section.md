@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
+  - ./ref-func-declarations.md
   - ../../../src/lib/types.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -81,7 +81,7 @@ That import can be the start function because its type is `[] -> []`. The same i
 
 ## Official Versus Starshine Contract
 
-The current official WebAssembly sources checked in [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md), with older source captures retained for audit history, establish these portable facts:
+The current official WebAssembly sources and the focused [`ref.func` declaration guide](ref-func-declarations.md), with older source captures retained for audit history, establish these portable facts:
 
 - start is optional and stores a single function index;
 - binary section id `8` is the start section;
@@ -163,7 +163,7 @@ Pass dossiers that should link back here when they touch start metadata include 
 
 ## Sources
 
-- Current `refs` / start source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Current `refs` / start boundary: [`ref-func-declarations.md`](ref-func-declarations.md)
 - Core, WAST, and binary surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
 - Invalid-fuzz surfaces: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt)

@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
+  - https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions
+  - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -37,7 +38,7 @@ A WebAssembly **constant expression** is a small expression that is evaluated du
 - active element-segment offsets;
 - function-reference and GC/reference element expressions.
 
-The current reconciliation is [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md); it supersedes the older raw captures' pre-2026-06-07 claim that Starshine rejected Core GC array constructors in initializer contexts while preserving those captures as historical provenance. The current official WebAssembly 3.0 validation docs define a bounded constant-instruction predicate and warn that the accepted list can grow in future versions. Starshine currently accepts a broader local set in `validate_const_instr(...)` and, since 2026-06-07, accepts the Core `array.new`, `array.new_default`, and `array.new_fixed` subset when the type index resolves to an array and ordinary constant-expression typechecking succeeds. Keep the local/spec split visible when writing portable fixtures, pass contracts, or generator claims.
+Current official Core validation rules and checked-in validator tests supersede the pre-2026-06-07 claim that Starshine rejected Core GC array constructors in initializer contexts; the older raw captures remain historical provenance. The current official WebAssembly 3.0 validation docs define a bounded constant-instruction predicate and warn that the accepted list can grow in future versions. Starshine currently accepts a broader local set in `validate_const_instr(...)` and, since 2026-06-07, accepts the Core `array.new`, `array.new_default`, and `array.new_fixed` subset when the type index resolves to an array and ordinary constant-expression typechecking succeeds. Keep the local/spec split visible when writing portable fixtures, pass contracts, or generator claims.
 
 ## Beginner Model
 
@@ -83,7 +84,7 @@ For binary/data layout details, pair this page with [`../binary/data-element-and
 
 ## Official List Versus Starshine Local List
 
-The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. Its context-sensitive `global.get` rule is easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The current reconciliation keeps the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; see [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md).
+The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. Its context-sensitive `global.get` rule is easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). Keep the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions; the local gate and focused tests below establish the current boundary.
 
 Starshine's local [`validate_const_instr(...)`](../../../src/validate/validate.mbt) is **not identical** to that official list:
 
@@ -108,7 +109,7 @@ The three Core constructors below pass Starshine's constant-instruction gate aft
   (array.new $a))
 ```
 
-The gate accepts `array.new`, `array.new_default`, and `array.new_fixed` only after `resolve_array_field(...)` proves the named type is an array; normal typechecking still enforces the element, length, defaultability, fixed-arity, and expected-result rules. Focused tests prove `array.new_fixed` in a table initializer plus `array.new_default` and `array.new` in element-expression payloads. They do **not** make `array.new_data` or `array.new_elem` constant expressions, and they do not widen WAST text support. See the [2026-07-10 reconciliation](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md) for the official/current-code evidence and supersession boundary.
+The gate accepts `array.new`, `array.new_default`, and `array.new_fixed` only after `resolve_array_field(...)` proves the named type is an array; normal typechecking still enforces the element, length, defaultability, fixed-arity, and expected-result rules. Focused tests prove `array.new_fixed` in a table initializer plus `array.new_default` and `array.new` in element-expression payloads. They do **not** make `array.new_data` or `array.new_elem` constant expressions, and they do not widen WAST text support. See the official validation sources and the local gate/tests cited on this page for the current evidence and supersession boundary.
 
 ## Examples
 
@@ -182,7 +183,6 @@ When changing constant-expression behavior:
 
 ## Sources
 
-- Current reconciliation: [`../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md)
 - Official constant-expression validation: <https://webassembly.github.io/spec/core/valid/instructions.html#constant-expressions>
 - Official module validation: <https://webassembly.github.io/spec/core/valid/modules.html>
 - Aggregate-instruction companion: [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)

@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-10
 sources:
-  - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
+  - https://webassembly.github.io/threads/core/valid/instructions.html
+  - https://webassembly.github.io/threads/core/exec/instructions.html
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - wast/atomic-memory-instruction-authoring.md
   - validate/resource-sections-and-limits.md
@@ -41,7 +42,7 @@ Use this page when a Starshine claim mentions **linear shared memory**, **ordina
 
 For beginners: a WebAssembly module can define one or more linear memories. A **shared** memory is intended for multiple agents/threads, so it needs a maximum bound and can be used by atomic operations. Atomic operations are not just unusual loads and stores: they carry synchronization semantics that optimizers must preserve.
 
-The current reconciliation is [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md). Current [`memarg_check_atomic(...)`](../../src/validate/typecheck.mbt) accepts an existing selected memory whether it is shared or unshared, after ordinary index/alignment/offset checks. `AtomicFence` remains distinct because it has no memory argument or stack effect, but that difference is **not** a sharedness split. The shared-memory maximum and proposal execution distinctions are grounded below in current Threads sources and local resource/typechecker evidence. The shared Core/proposal status bridge [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md) keeps Threads as active Phase 4 status-only evidence, not proof of full local support.
+The Threads draft and current local typechecker agree on the static-validation boundary: [`memarg_check_atomic(...)`](../../src/validate/typecheck.mbt) accepts an existing selected memory whether it is shared or unshared, after ordinary index/alignment/offset checks. `AtomicFence` remains distinct because it has no memory argument or stack effect, but that difference is **not** a sharedness split. The shared-memory maximum and proposal execution distinctions are grounded below in current Threads sources and local resource/typechecker evidence. The shared Core/proposal status bridge [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md) keeps Threads as active Phase 4 status-only evidence, not proof of full local support.
 
 ## Boundary Map
 
@@ -94,7 +95,7 @@ Starshine's current ordinary linear-memory atomic support is real but layer-spec
 2. [`src/binary/decode.mbt`](../../src/binary/decode.mbt) and [`src/binary/encode.mbt`](../../src/binary/encode.mbt) handle the `0xFE` atomic-prefixed family.
 3. [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) routes `MemArg`-based atomics through `memarg_check_atomic(...)`, which currently performs ordinary memory-index, alignment, offset, and address-width checks but does **not** require the selected memory's `shared` bit. [`src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt) locks the positive non-shared atomic-load case.
 4. `AtomicFence` is different: the typechecker accepts it as `Ok(st)` because it has no memory argument and no stack effect.
-5. [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) emits its coverage prelude only when `allow_atomics` is enabled and it can find a shared memory. That is representative generator topology, not a validator precondition; see [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md).
+5. [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) emits its coverage prelude only when `allow_atomics` is enabled and it can find a shared memory. That is representative generator topology, not a validator precondition; the focused typechecker regression cited above is the local proof.
 6. Current high-level WAST keywords/parser arms do **not** expose `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, or sibling linear-memory atomic text. Use core builders, binary bytes, or `gen_valid` for tests until [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) is widened.
 
 ### Example: valid shared-memory core shape (but sharedness is not an atomic validation precondition)
@@ -152,9 +153,8 @@ When touching shared memory or ordinary atomics:
 
 ## Sources
 
-- Current unshared-atomic validation reconciliation: [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
+- Threads validation/execution: [validation](https://webassembly.github.io/threads/core/valid/instructions.html) and [execution](https://webassembly.github.io/threads/core/exec/instructions.html)
 - Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
-- Current linear-memory atomic validation reconciliation: [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
 - Living companion pages: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)
 - WebAssembly Threads proposal and draft: <https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md>, <https://webassembly.github.io/threads/core/syntax/types.html#memory-types>, <https://webassembly.github.io/threads/core/binary/types.html#memory-types>, <https://webassembly.github.io/threads/core/valid/types.html#memory-types>, <https://webassembly.github.io/threads/core/syntax/instructions.html>, <https://webassembly.github.io/threads/core/valid/instructions.html>, <https://webassembly.github.io/threads/core/exec/instructions.html>
 - Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
+  - ./ref-func-declarations.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
@@ -59,7 +59,7 @@ related:
 
 ## Overview
 
-Starshine validates a module by building a WebAssembly validation context, checking cross-section invariants, and then typechecking every defined function body against that completed context. The official WebAssembly validation model is context-driven: module fields create entries such as types, functions, tables, memories, globals, tags, elements, data segments, exports, and declared function references, while instructions are checked with a typed operand stack and control-label stack. The current `ref.func`/start correction is [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md); the older module-phase snapshot remains useful implementation history.
+Starshine validates a module by building a WebAssembly validation context, checking cross-section invariants, and then typechecking every defined function body against that completed context. The official WebAssembly validation model is context-driven: module fields create entries such as types, functions, tables, memories, globals, tags, elements, data segments, exports, and declared function references, while instructions are checked with a typed operand stack and control-label stack. The current `ref.func`/start boundary is documented in [`ref-func-declarations.md`](ref-func-declarations.md); the older module-phase snapshot remains useful implementation history.
 
 The local implementation is split deliberately:
 
@@ -208,7 +208,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Current import/export matching source bridge: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
 - Current GC type/subtyping bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Official WebAssembly 3.0 module layout: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html) and [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html)
-- Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
+- Current `ref.func` / start boundary: [`ref-func-declarations.md`](ref-func-declarations.md)
 - Core `ref.func` membership rule: [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Official validation algorithm: [validation overview](https://webassembly.github.io/spec/core/valid/index.html) and [algorithm appendix](https://webassembly.github.io/spec/core/appendix/algorithm.html)
 - Implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
