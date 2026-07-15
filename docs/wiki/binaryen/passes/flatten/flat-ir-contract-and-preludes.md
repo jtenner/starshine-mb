@@ -375,6 +375,8 @@ Tuple-made plain branch and table payloads now use the same frozen counts: direc
 
 These changes do not relax any result-type, label-use, ownership, EH, trap, effect, or complete-subtree-deletion gate.
 
+Distinct non-tuple block/if `br_if` flow now uses the same admission/rewrite boundary: admission caches the exact contiguous false-flow parent/start or a negative result, and rewrite cannot discover a new site. Scalar `br_if` flow needs to tolerate region-holder slot shifts caused by inserted preludes, so it snapshots exact parent populations rather than fixed final slots. Rewrite rescans only those parents, requires the same occurrence count, and accepts a chained branch replacement only when the same state recorded the replacement node. A post-snapshot use under any other parent is left untouched. The scalar fixture showed slight targeted overhead (`22 -> 23 ms`), so this is a failure-atomicity improvement rather than a performance win.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

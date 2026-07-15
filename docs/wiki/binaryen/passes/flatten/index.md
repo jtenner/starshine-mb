@@ -302,6 +302,12 @@ Commits `24ca31723` and `32690a37d` remove flatten's last two full tuple use-sit
 
 Private flatten is `157/157`, focused flatten `245/245`, passes `5,732/5,732`, and the full suite `9,193/9,193`; `moon info`, targeted formatting, owner-hash verification, and diff checks pass. Targeted 120-function fixtures with 256 extra roots improved `13,697 -> 5,238 us` (`61.76%`) for tuple branch payloads and `12,764.5 -> 5,578.5 us` (`56.30%`) for tuple block `br_if`. No full node-use/use-site builder remains in `src/passes/flatten.mbt`. The stable public gate remains the unrequalified `970.5 us` / `3.65x` Binaryen checkpoint, so public wiring stays absent and all correctness/signoff blockers remain open.
 
+## 2026-07-15 distinct and scalar conditional-site proof follow-up
+
+Commits `ae096a883` and `b87464d25` remove the remaining whole-function rewrite-time flow discovery for ordinary block/if `br_if` without widening behavior. Distinct non-tuple multivalue flow caches the exact positive or negative contiguous parent/start during admission. Scalar flow snapshots the exact parent population, re-resolves only expected slot shifts inside those parents after prelude insertion, and records chained replacement identity in the same rewrite state; a use introduced under a new post-snapshot parent is not rewritten.
+
+Private flatten is `159/159`, focused flatten `245/245`, passes `5,734/5,734`, and the full suite `9,195/9,195`; `moon info`, targeted formatting, owner-hash verification, and diff checks pass. The distinct 600-function fixture moved `30 -> 28 ms`, while the scalar fixture moved `22 -> 23 ms` and is classified as correctness-only. No semantic family, `.mbti`, or public pass surface changed. The durable public gate remains the unrequalified `970.5 us` / `3.65x` Binaryen checkpoint, so all public wiring stays absent.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

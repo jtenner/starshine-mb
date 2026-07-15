@@ -19,7 +19,9 @@ This note records the bounded internal-only iteration that:
 13. replaces full use-site allocation for exact tuple-made inputful-loop entries with the frozen reachable counts plus the structurally known entry slots and reversed body-prefix drops;
 14. replaces full use-site allocation for exact scalar legacy-try `br_if` false flow with the same frozen counts plus the known branch and immediately adjacent consumer;
 15. replaces full tuple branch-payload use-site allocation with the frozen reachable counts plus the structurally known payload slots;
-16. replaces the final full node-use/use-site build for generic tuple-made block/if `br_if` flow with one bounded reachable locator cached during admission and consumed only behind the rewrite boundary.
+16. replaces the final full node-use/use-site build for generic tuple-made block/if `br_if` flow with one bounded reachable locator cached during admission and consumed only behind the rewrite boundary;
+17. caches exact distinct non-tuple multivalue block/if `br_if` false-flow spans during admission and requires that positive or negative result after mutation starts;
+18. snapshots scalar `br_if` false-flow parent populations before mutation, re-resolves only those parents after expected prelude-induced slot shifts, and never discovers a post-snapshot parent during rewrite.
 
 The public registry, dispatcher, CLI execution path, preset scheduler, compare allowlist, and flatten API snapshots remain unchanged. Across the iterations recorded here, the only `.mbti` addition is the public HOT mutation `hot_region_truncate_suffix(...)` in `src/ir/pkg.generated.mbti`; the newest multivalue changes add no API. `flatten` is still public-removed.
 
@@ -39,6 +41,7 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Current region-tail/loop-branch iteration: `3d0acb44e` (`perf: reuse flatten region-tail ownership counts`) and `19fa4eda8` (`perf: index flatten multivalue loop branches`).
 - Current loop-entry/scalar-try ownership iteration: `3a88b5bd6` (`perf: reuse flatten loop-entry ownership counts`) and `5c0235d71` (`perf: reuse flatten scalar try ownership counts`).
 - Current tuple branch/conditional-flow iteration: `24ca31723` (`perf: reuse flatten tuple branch ownership counts`) and `32690a37d` (`perf: cache flatten tuple conditional flow sites`).
+- Current distinct/scalar conditional-site iteration: `ae096a883` (`perf: cache flatten multivalue conditional flow sites`) and `b87464d25` (`fix: freeze flatten scalar conditional flow sites`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -101,6 +104,11 @@ The tuple branch/conditional-flow follow-up added exactly one red-first invarian
 - `flatten rewrite tuple branch payload proof uses pre-mutation ownership counts` first failed to compile because the helper had no `state` parameter and `flatten_rewrite_multivalue_tuple_branch_payload_values` was unbound. Every payload slot is structurally checked to contain the same tuple, so exact reachable count `payload_count` proves complete ownership; a post-snapshot extra use fails uncached without widening rewrite-time extraction. Private flatten moved to `156/156`;
 - `flatten rewrite tuple br_if flow uses pre-mutation exact site cache` first failed to compile because the tuple-flow helper had no `state` parameter and `flatten_rewrite_multivalue_tuple_br_if_flow` was unbound. Admission now locates the exact reachable false-flow parent/start once, caches positive or negative proof by branch id, and rewrite refuses an uncached result after mutation starts. A post-snapshot extra tuple use fails uncached while the exact cached site remains available. Private flatten moved to `157/157`.
 
+The distinct/scalar conditional-site follow-up added exactly one red-first invariant per code commit:
+
+- `flatten rewrite multivalue br_if flow uses pre-mutation exact site cache` first failed because the helper had no `state` parameter and the rewrite-only helper was unbound. Admission now caches the exact distinct payload parent/start or a negative result; a post-snapshot extra payload use fails uncached without widening rewrite-time flow. Private flatten moved to `158/158`;
+- `flatten rewrite scalar br_if flow uses pre-mutation exact site cache` first failed because the scalar site and cached replacement helpers were unbound. Admission snapshots exact live parent populations. Rewrite may re-resolve shifted slots only within those parents, chained branches may consume only a replacement created by the same state, and a use added under a new post-snapshot parent remains untouched. Private flatten moved to `159/159`.
+
 ## Ownership and mutation safety
 
 `FlattenRewriteState` now owns:
@@ -119,7 +127,7 @@ Multivalue legacy-try label support now iterates only the exact branch nodes cap
 
 Exact tuple-made inputful-loop entries now consume the same count snapshot. Structural proof already identifies the tuple in every loop entry slot and every immediate reversed body-prefix drop, so the reachable count must equal twice the input arity. Exact scalar legacy-try `br_if` flow also uses the snapshot: the payload must have exactly the branch use plus one immediately adjacent false-flow use, and any unary/conversion/binary consumer must itself be one-use.
 
-Tuple-made plain `br` and `br_table` payloads now use the snapshot as well. Every branch payload slot is checked directly before exact reachable count `payload_count` replaces a full site vector. Generic tuple-made block/if `br_if` still needs the exact false-flow parent and contiguous start slot, so counts alone are insufficient. Admission performs one reachable-root traversal for that tuple, caches the exact `[tuple, parent, start]` result (including a negative result), and rewrite requires both `rewrites_started` and an existing cache entry. Current structure is rechecked before consumption, so the snapshot cannot widen after mutation. These changes admit no new control, payload, effect, trap, type, or deletion family.
+Tuple-made plain `br` and `br_table` payloads now use the snapshot as well. Every branch payload slot is checked directly before exact reachable count `payload_count` replaces a full site vector. Generic tuple-made block/if `br_if` still needs the exact false-flow parent and contiguous start slot, so counts alone are insufficient. Admission performs one reachable-root traversal for that tuple, caches the exact `[tuple, parent, start]` result (including a negative result), and rewrite requires both `rewrites_started` and an existing cache entry. Distinct non-tuple multivalue flow now follows the same boundary with a cached `[parent, start]`. Scalar flow caches its exact pre-mutation parent population; because prelude insertion can shift region-holder slots, rewrite rescans only each cached parent and requires the same occurrence count. It does not scan unrelated parents, and chained branches accept only a replacement node recorded by the same rewrite state. Current structure is rechecked before consumption, so the snapshots cannot widen after mutation. These changes admit no new control, payload, effect, trap, type, or deletion family.
 
 ## Refreshed output matrix
 
@@ -208,7 +216,9 @@ The scalar-try ownership slice used 120 exact scalar legacy-try `br_if` function
 
 The tuple branch-payload slice used 120 exact two-lane tuple-made plain-branch functions with 256 extra roots. Clean `160fd52a7` measured `13,697 us` (`13,637..13,783`); `24ca31723` measured `5,238 us` (`5,106..5,367`), a `61.76%` reduction.
 
-The generic tuple conditional-flow slice used 120 exact two-lane tuple-made block `br_if` functions with 256 extra roots. Code 1 measured `12,764.5 us` (`12,620..12,922`); `32690a37d` measured `5,578.5 us` (`5,380..5,676`), a `56.30%` reduction. A reconstructed terminal-table fixture moved `3,216.5 -> 2,820.5 us`, but that fixture is not the durable public gate. The stable representative remains `970.5 us` / `3.65x` Binaryen v130 and has not been requalified under the exact original measurement chain.
+The generic tuple conditional-flow slice used 120 exact two-lane tuple-made block `br_if` functions with 256 extra roots. Code 1 measured `12,764.5 us` (`12,620..12,922`); `32690a37d` measured `5,578.5 us` (`5,380..5,676`), a `56.30%` reduction. A reconstructed terminal-table fixture moved `3,216.5 -> 2,820.5 us`, but that fixture is not the durable public gate.
+
+The distinct non-tuple conditional-site slice used 600 independently produced two-lane block `br_if` functions with 256 extra reachable roots. Detached clean `62f9abfd9` measured a 30 ms median and `ae096a883` measured 28 ms with 1 ms timer resolution, a directional `6.67%` reduction. The scalar site slice used 600 rich scalar block `br_if` functions with the same extra roots. Code 1 measured 22 ms and `b87464d25` measured 23 ms; this is slight targeted overhead and is classified only as a mutation-boundary correctness improvement, not a speed win. The stable representative remains `970.5 us` / `3.65x` Binaryen v130 and has not been requalified under the exact original measurement chain.
 
 ## Validation
 
@@ -245,10 +255,12 @@ The loop-entry/scalar-try ownership iteration passes focused flatten `245/245`, 
 
 The tuple branch/conditional-flow iteration passes focused flatten `245/245`, private flatten `157/157`, passes `5,732/5,732`, the full suite `9,193/9,193`, `moon info`, targeted formatting, and `git diff --check`. The final full node-use/use-site builder has been removed from `src/passes/flatten.mbt`. No `.mbti`, registry, dispatcher, CLI, compare/API, or preset surface changed. The pinned owner hash remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`. Both commits preserve the admitted semantic surface, so no new Binaryen probe was required.
 
+The distinct/scalar conditional-site iteration passes focused flatten `245/245`, private flatten `159/159`, passes `5,734/5,734`, the full suite `9,195/9,195`, `moon info` with 11 existing warnings, targeted formatting, and `git diff --check`. No `.mbti`, registry, dispatcher, CLI, compare/API, or preset surface changed. The pinned owner hash remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`. Both commits preserve the admitted semantic surface, so no new Binaryen probe was required.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, one-time table target-vector resolution, exact legacy-try/inputful-loop branch indexing, region-tail/tuple-entry/tuple-branch count proof, and cached tuple conditional-flow sites reduce repeated immutable scans, region rebuilds, full use-def/use-site allocation, and local-vector checks. Latest targeted deltas are `13,697 -> 5,238 us` for tuple branch payloads and `12,764.5 -> 5,578.5 us` for tuple block `br_if`; the final full node-use/use-site builder is gone from flatten. The prior stable representative median remains `970.5 us`, outside the `<=2x` Binaryen target, and has not been requalified by the reconstructed fixture.
+- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, one-time table target-vector resolution, exact legacy-try/inputful-loop branch indexing, region-tail/tuple-entry/tuple-branch count proof, and cached tuple/distinct conditional-flow sites reduce repeated immutable scans, region rebuilds, full use-def/use-site allocation, and local-vector checks. Latest distinct non-tuple directional evidence is `30 -> 28 ms`; scalar parent snapshots measure `22 -> 23 ms` and are correctness-only. The final full node-use/use-site builder is gone from flatten. The prior stable representative median remains `970.5 us`, outside the `<=2x` Binaryen target, and has not been requalified by the reconstructed fixture.
 - **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
@@ -258,7 +270,7 @@ The tuple branch/conditional-flow iteration passes focused flatten `245/245`, pr
 
 ## Next work
 
-1. requalify the exact representative benchmark and continue profiling remaining rewrite/admission work now that flatten has no full node-use/use-site builder, especially target-copy/local construction, recursive region traversal, generic non-tuple flow-site scans, cache-array setup, and uncached support retries;
+1. requalify the exact representative benchmark and continue profiling remaining rewrite/admission work now that generic tuple and distinct non-tuple block/if flow scans are cached, especially target-copy/local construction, recursive region traversal, cache-array setup, uncached support retries, and whether scalar exact-site snapshots can be folded into an existing run-wide traversal without the measured targeted overhead;
 2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
 3. extend HOT mutation with a verified control-plus-owned-label deletion operation before admitting structured suffix roots; the detached-node batch API still intentionally does not remove label metadata;
 4. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.

@@ -277,6 +277,10 @@ The next exact two-code iteration adds commits `24ca31723` and `32690a37d`. The 
 
 Validation is now focused flatten `245/245`, private flatten `157/157`, passes `5,732/5,732`, full suite `9,193/9,193`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. The tuple branch fixture improved `13,697 -> 5,238 us` (`61.76%`), and the tuple block-`br_if` fixture improved `12,764.5 -> 5,578.5 us` (`56.30%`). The stable representative remains the unrequalified `970.5 us` / `3.65x` public gate result.
 
+The next exact two-code iteration adds commits `ae096a883` and `b87464d25`. The first caches exact positive or negative distinct non-tuple multivalue block/if `br_if` flow spans during admission and requires that cache after mutation starts. The second snapshots scalar `br_if` flow parents, re-resolves only the same parent populations after prelude-induced slot shifts, and records replacement identity so chained branches cannot authorize an unrelated post-snapshot local read. Their red-first invariants are `flatten rewrite multivalue br_if flow uses pre-mutation exact site cache` and `flatten rewrite scalar br_if flow uses pre-mutation exact site cache`.
+
+Validation is focused flatten `245/245`, private flatten `159/159`, passes `5,734/5,734`, full suite `9,195/9,195`, and green `moon info`, targeted formatting, owner verification, and diff checks. The distinct 600-function fixture moved `30 -> 28 ms`; the scalar fixture moved `22 -> 23 ms`, so only the first is directional performance evidence and neither requalifies the durable gate. No `.mbti` or public pass surface changed.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:
