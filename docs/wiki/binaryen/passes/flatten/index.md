@@ -308,6 +308,12 @@ Commits `ae096a883` and `b87464d25` remove the remaining whole-function rewrite-
 
 Private flatten is `159/159`, focused flatten `245/245`, passes `5,734/5,734`, and the full suite `9,195/9,195`; `moon info`, targeted formatting, owner-hash verification, and diff checks pass. The distinct 600-function fixture moved `30 -> 28 ms`, while the scalar fixture moved `22 -> 23 ms` and is classified as correctness-only. No semantic family, `.mbti`, or public pass surface changed. The durable public gate remains the unrequalified `970.5 us` / `3.65x` Binaryen checkpoint, so all public wiring stays absent.
 
+## 2026-07-15 sparse proof-cache follow-up
+
+Commits `e165fde1c` and `476848f9d` replace fifteen node-sized conditional-flow, dead-suffix, terminal-table, and scalar-try cache arrays with seven sparse entry vectors keyed only by admitted branch, value, table, or try owners. The exact pre-mutation proof boundary is unchanged: positive and negative conditional decisions stay frozen, scalar parent populations still tolerate only expected same-parent slot shifts, terminal decisions retain region/label/arity/mixed-target identity, and a missing cache after mutation starts still fails closed.
+
+The two red-first invariants prove that functions with 256 unrelated nodes begin with zero entries and allocate only for inspected owners. Private flatten is `161/161`, focused flatten `245/245`, passes `5,736/5,736`, the full suite `9,197/9,197`, and `moon info` is green with 11 existing warnings. A reconstructed 1,200-function version of the documented three-family representative mix moved from a scaled `1,900 us` to `1,800 us` per 120 after code 1, then measured `1,900 us` on both sides of code 2; the node-heavy code-2 fixture moved `8,200 -> 8,300 us`. These overlapping coarse samples do not requalify the durable `970.5 us` / `3.65x` gate. No semantic family, `.mbti`, or public pass surface changed, so all public wiring remains absent.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

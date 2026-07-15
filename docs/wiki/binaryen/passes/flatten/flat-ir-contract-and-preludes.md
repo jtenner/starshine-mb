@@ -377,6 +377,12 @@ These changes do not relax any result-type, label-use, ownership, EH, trap, effe
 
 Distinct non-tuple block/if `br_if` flow now uses the same admission/rewrite boundary: admission caches the exact contiguous false-flow parent/start or a negative result, and rewrite cannot discover a new site. Scalar `br_if` flow needs to tolerate region-holder slot shifts caused by inserted preludes, so it snapshots exact parent populations rather than fixed final slots. Rewrite rescans only those parents, requires the same occurrence count, and accepts a chained branch replacement only when the same state recorded the replacement node. A post-snapshot use under any other parent is left untouched. The scalar fixture showed slight targeted overhead (`22 -> 23 ms`), so this is a failure-atomicity improvement rather than a performance win.
 
+### Sparse proof storage does not weaken the mutation boundary
+
+The latest internal state no longer allocates node-count-sized arrays for every possible conditional, terminal table, suffix, and scalar try. It stores exact entries only when admission inspects a branch, value, table, or try owner. This is a storage/layout change, not a semantic shortcut: multivalue negative flow decisions remain explicit entries, scalar flow retains exact pre-mutation parent populations and same-state replacement identity, terminal table entries retain label/payload/mixed-target identity, and dead suffix entries retain the exact owner region and node vector. Any absent entry after `rewrites_started` still fails closed.
+
+The red-first sparse-cache invariants pass at private flatten `161/161`. Coarse reconstructed timing is directional or flat rather than a public-readiness win, so the unrequalified `970.5 us` checkpoint and all EH/label/signoff gates remain authoritative.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

@@ -281,6 +281,10 @@ The next exact two-code iteration adds commits `ae096a883` and `b87464d25`. The 
 
 Validation is focused flatten `245/245`, private flatten `159/159`, passes `5,734/5,734`, full suite `9,195/9,195`, and green `moon info`, targeted formatting, owner verification, and diff checks. The distinct 600-function fixture moved `30 -> 28 ms`; the scalar fixture moved `22 -> 23 ms`, so only the first is directional performance evidence and neither requalifies the durable gate. No `.mbti` or public pass surface changed.
 
+The next exact two-code iteration adds commits `e165fde1c` and `476848f9d`. The first replaces node-sized tuple, multivalue, scalar `br_if`, and chained-flow replacement arrays with sparse exact admission entries. The second does the same for dead suffix, terminal-table, and scalar-try decisions. Their red-first invariants prove that 256 unrelated nodes allocate no proof entries and that each inspected owner adds exactly one matching entry. Existing mutation-time tests continue to prove that missing or mismatched entries cannot widen rewrite admission.
+
+Validation is focused flatten `245/245`, private flatten `161/161`, passes `5,736/5,736`, full suite `9,197/9,197`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. The reconstructed three-family benchmark showed only coarse directional movement for code 1 and no code-2 timing win; the durable `970.5 us` / `3.65x` checkpoint remains unrequalified.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

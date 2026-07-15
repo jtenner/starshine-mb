@@ -320,6 +320,8 @@ The tuple ownership/site-allocation iteration uses `24ca31723` to prove tuple-ma
 
 The latest two-code iteration extends exact-site caching to ordinary flow. `ae096a883` caches distinct non-tuple multivalue block/if `br_if` parent/start results before mutation. `b87464d25` snapshots scalar false-flow parent populations and permits only same-parent slot shifts plus same-state chained replacements; new parents are never discovered after rewrite starts. Validation reaches focused `245/245`, private `159/159`, passes `5,734/5,734`, and full `9,195/9,195`. The distinct fixture moves `30 -> 28 ms`; scalar moves `22 -> 23 ms` and is correctness-only. The stable representative remains an unrequalified `970.5 us` / `3.65x` Binaryen, so public readiness and public-removed status are unchanged.
 
+The latest two-code iteration reduces rewrite-state allocation breadth without changing behavior. `e165fde1c` sparsifies conditional-flow and chained-replacement proof; `476848f9d` sparsifies suffix, terminal-table, and scalar-try proof. Fifteen node-sized arrays become seven exact entry vectors, while the same pre-mutation identities and post-boundary failure rules remain mandatory. Validation reaches private `161/161`, focused `245/245`, passes `5,736/5,736`, and full `9,197/9,197`. Reconstructed timing does not establish public performance readiness, and no `.mbti`, registry, dispatcher, CLI, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
