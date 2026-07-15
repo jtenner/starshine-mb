@@ -3419,6 +3419,7 @@ fn flatten_inputful_loop_tuple_entry_values(
   func : @ir.HotFunc,
   loop_id : Int,
   param_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   let input_count = param_types.length()
   if input_count <= 1 || @ir.hot_child_count(func, loop_id) <= input_count {
@@ -3454,8 +3455,11 @@ fn flatten_inputful_loop_tuple_entry_values(
       return None
     }
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  if @ir.node_use_count(use_def, tuple_id) != input_count {
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
+  }
+  if @ir.hot_node_use_count(use_counts, tuple_id) != input_count * 2 {
     return None
   }
   let values : Array[Int] = []
@@ -3474,6 +3478,24 @@ fn flatten_inputful_loop_tuple_entry_values(
     values.push(value_id)
   }
   Some(values)
+}
+
+///|
+fn flatten_rewrite_inputful_loop_tuple_entry_values(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  loop_id : Int,
+  param_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if !state.rewrites_started {
+    return None
+  }
+  flatten_inputful_loop_tuple_entry_values(
+    func,
+    loop_id,
+    param_types,
+    state=Some(state),
+  )
 }
 
 ///|
@@ -3540,8 +3562,21 @@ fn flatten_inputful_loop_is_supported(
       return false
     }
   }
-  if flatten_inputful_loop_tuple_entry_values(func, loop_id, param_types)
-    is None {
+  let tuple_entry_values = match state {
+    Some(state) if state.rewrites_started =>
+      flatten_rewrite_inputful_loop_tuple_entry_values(
+        func, state, loop_id, param_types,
+      )
+    Some(state) =>
+      flatten_inputful_loop_tuple_entry_values(
+        func,
+        loop_id,
+        param_types,
+        state=Some(state),
+      )
+    None => flatten_inputful_loop_tuple_entry_values(func, loop_id, param_types)
+  }
+  if tuple_entry_values is None {
     for slot = 0; slot < input_count; slot = slot + 1 {
       let entry_id = @ir.hot_child_get(func, loop_id, slot)
       let entry_types = @ir.hot_type_results(
@@ -3624,7 +3659,10 @@ fn flatten_prepare_inputful_scalar_loop(
     @ir.HotTypeInfo::BlockResultResolved(_, params, _) => params
     _ => []
   }
-  match flatten_inputful_loop_tuple_entry_values(func, loop_id, param_types) {
+  match
+    flatten_rewrite_inputful_loop_tuple_entry_values(
+      func, state, loop_id, param_types,
+    ) {
     Some(values) => {
       let tuple_id = @ir.hot_child_get(func, loop_id, 0)
       let locals : Array[Int] = []

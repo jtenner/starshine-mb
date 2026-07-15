@@ -6392,3 +6392,47 @@ test "flatten rewrite multivalue loop proof uses the pre-mutation branch index" 
     ),
   )
 }
+
+///|
+test "flatten rewrite tuple loop entry proof uses pre-mutation ownership counts" {
+  let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32))) (func call 1 loop (type $carrier) drop drop i32.const 7 end drop) (func (result i32 i64) i32.const 5 i64.const 6))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let old_entry = @ir.hot_child_get(func, loop_id, 0)
+  let first = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let second = @ir.hot_build_const_i64(func, @lib.I64(13L))
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [first, second])
+  @ir.hot_child_set(func, loop_id, 0, tuple_id)
+  @ir.hot_child_set(func, loop_id, 1, tuple_id)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  for root_idx = 0; root_idx < 2; root_idx = root_idx + 1 {
+    let drop_id = @ir.hot_region_get(func, body_ref, root_idx)
+    @debug.assert_eq(@ir.hot_child_get(func, drop_id, 0), old_entry)
+    @ir.hot_child_set(func, drop_id, 0, tuple_id)
+  }
+  @ir.hot_delete_node(func, old_entry)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_inputful_loop_tuple_entry_values(
+      func,
+      loop_id,
+      result_types,
+      state=Some(state),
+    )
+    is Some(_),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, tuple_id))
+  assert_true(
+    flatten_inputful_loop_tuple_entry_values(func, loop_id, result_types)
+    is None,
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_inputful_loop_tuple_entry_values(
+      func, state, loop_id, result_types,
+    )
+    is Some(_),
+  )
+}
