@@ -593,7 +593,7 @@ The call and complete subtree are deleted only after immediate argument order, n
 
 ### Current branch-index and tail-write implementation detail
 
-Admission now precomputes the exact branch-like nodes targeting each label, deduplicating a `br_table` that repeats the same label in explicit and default positions. Result routing still performs the same ordered `local.set` transformation shown above, but a one-for-one region tail now changes only that root slot; sibling roots are not copied into a rebuilt child array. This implementation detail is guarded by private invariants and does not change the WAT-level transform contract or admit any new opcode/control family.
+Admission precomputes the exact branch-like nodes targeting each label, deduplicating a `br_table` that repeats the same label in explicit and default positions. Result routing still performs the same ordered `local.set` transformation shown above, but a one-for-one region tail changes only that root slot; sibling roots are not copied into a rebuilt child array. For an admitted unconditional table followed by exact owned unreachable debris, suffix roots are detached by shortening the existing holder span before batch deletion instead of rebuilding its prefix. Scalar mutation-time branch checks keep using the pre-mutation target-node population even after new nodes are allocated during rewriting. These implementation details are guarded by red-first invariants and do not change the WAT-level transform contract or admit any new opcode/control family.
 
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
