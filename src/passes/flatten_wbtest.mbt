@@ -6078,3 +6078,42 @@ test "flatten rewrite scalar target proof uses the pre-mutation branch index" {
     ),
   )
 }
+
+///|
+test "flatten rewrite multivalue target proof uses the pre-mutation branch index" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) (br 0 (i32.const 7) (i64.const 9))) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let block_id = @ir.hot_child_get(func, return_id, 0)
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let target_types = @ir.hot_type_results(
+    func,
+    @ir.hot_label_result_type(func, label_id),
+  )
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_branch_target_is_supported_with_table(
+      func,
+      label_id,
+      target_types,
+      -1,
+      state=Some(state),
+    ),
+  )
+  let rogue = @ir.hot_build_br(func, label_id, values=[
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  ])
+  assert_false(
+    flatten_multivalue_branch_target_is_supported_with_table(
+      func, label_id, target_types, -1,
+    ),
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_multivalue_branch_target_is_supported(
+      func, state, label_id, target_types, -1,
+    ),
+  )
+  assert_true(@ir.hot_node_is_live(func, rogue))
+}

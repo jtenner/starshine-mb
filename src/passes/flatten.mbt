@@ -4435,6 +4435,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
   label_id : Int,
   target_types : Array[@lib.ValType],
   admitted_table_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   if target_types.length() <= 1 ||
     @ir.hot_label_branch_arity(func, label_id) != target_types.length() {
@@ -4497,7 +4498,11 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
               nested_label,
             ) &&
             flatten_multivalue_branch_target_is_supported_with_table(
-              func, nested_label, target_types, admitted_table_id,
+              func,
+              nested_label,
+              target_types,
+              admitted_table_id,
+              state~,
             )
           }
           @ir.HotOp::Loop => {
@@ -4541,12 +4546,11 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
     }
   }
   let mut saw_target = false
-  for branch_id = 0
-      branch_id < @ir.hot_node_count(func)
-      branch_id = branch_id + 1 {
-    if !@ir.hot_node_is_live(func, branch_id) {
-      continue
-    }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  for branch_id in branch_nodes {
     let branch = @ir.hot_node_get(func, branch_id)
     match branch.op {
       @ir.HotOp::Br if branch.imm0 == label_id => {
@@ -4681,9 +4685,31 @@ fn flatten_multivalue_branch_target_is_supported(
   func : @ir.HotFunc,
   label_id : Int,
   target_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   flatten_multivalue_branch_target_is_supported_with_table(
-    func, label_id, target_types, -1,
+    func,
+    label_id,
+    target_types,
+    -1,
+    state~,
+  )
+}
+
+///|
+fn flatten_rewrite_multivalue_branch_target_is_supported(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  label_id : Int,
+  target_types : Array[@lib.ValType],
+  admitted_table_id : Int,
+) -> Bool {
+  flatten_multivalue_branch_target_is_supported_with_table(
+    func,
+    label_id,
+    target_types,
+    admitted_table_id,
+    state=Some(state),
   )
 }
 
@@ -4770,8 +4796,8 @@ fn flatten_try_route_br(
   if child_count > 1 {
     let target_is_supported = match @ir.hot_label_kind(func, label_id) {
       @ir.HotLabelKind::BlockLabel | @ir.HotLabelKind::IfLabel =>
-        flatten_multivalue_branch_target_is_supported(
-          func, label_id, target_types,
+        flatten_rewrite_multivalue_branch_target_is_supported(
+          func, state, label_id, target_types, -1,
         )
       @ir.HotLabelKind::TryLabel =>
         flatten_multivalue_legacy_try_is_supported(
@@ -4960,7 +4986,9 @@ fn flatten_try_route_multivalue_br_if(
   }
   if target_types.length() != payload_count ||
     @ir.hot_label_branch_arity(func, label_id) != payload_count ||
-    !flatten_multivalue_branch_target_is_supported(func, label_id, target_types) {
+    !flatten_rewrite_multivalue_branch_target_is_supported(
+      func, state, label_id, target_types, -1,
+    ) {
     return false
   }
   let tuple_flow = flatten_multivalue_tuple_br_if_flow(
@@ -5305,8 +5333,8 @@ fn flatten_try_route_br_table(
             ) {
             return false
           }
-        } else if !flatten_multivalue_branch_target_is_supported_with_table(
-            func, target, target_types, node_id,
+        } else if !flatten_rewrite_multivalue_branch_target_is_supported(
+            func, state, target, target_types, node_id,
           ) {
           return false
         }
@@ -5989,7 +6017,10 @@ fn flatten_has_deferred_rich_branch_payload(
               @ir.hot_label_result_type(func, label_id),
             )
             if !flatten_multivalue_branch_target_is_supported(
-                func, label_id, target_types,
+                func,
+                label_id,
+                target_types,
+                state~,
               ) {
               return true
             }
@@ -6085,7 +6116,10 @@ fn flatten_has_deferred_rich_branch_payload(
               @ir.hot_label_result_type(func, label_id),
             )
             if !flatten_multivalue_branch_target_is_supported(
-                func, label_id, target_types,
+                func,
+                label_id,
+                target_types,
+                state~,
               ) {
               return true
             }
@@ -6138,7 +6172,11 @@ fn flatten_has_deferred_rich_branch_payload(
                   @ir.hot_label_result_type(func, target),
                 )
                 if !flatten_multivalue_branch_target_is_supported_with_table(
-                    func, target, target_types, node_id,
+                    func,
+                    target,
+                    target_types,
+                    node_id,
+                    state~,
                   ) {
                   return true
                 }
