@@ -239,17 +239,33 @@ fn flatten_set_region_root(
 }
 
 ///|
+fn flatten_record_label_branch_node(
+  branch_nodes : Array[Array[Int]],
+  last_recorded_node : Array[Int],
+  label_id : Int,
+  node_id : Int,
+) -> Unit {
+  if label_id >= 0 &&
+    label_id < branch_nodes.length() &&
+    label_id < last_recorded_node.length() &&
+    last_recorded_node[label_id] != node_id {
+    branch_nodes[label_id].push(node_id)
+    last_recorded_node[label_id] = node_id
+  }
+}
+
+///|
 fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
   let branch_nodes : Array[Array[Int]] = []
+  let last_recorded_node : Array[Int] = []
   for label_idx = 0; label_idx < func.labels.length(); label_idx = label_idx + 1 {
     branch_nodes.push([])
+    last_recorded_node.push(-1)
   }
   let record = fn(label_id : Int, node_id : Int) {
-    if label_id >= 0 &&
-      label_id < branch_nodes.length() &&
-      !branch_nodes[label_id].contains(node_id) {
-      branch_nodes[label_id].push(node_id)
-    }
+    flatten_record_label_branch_node(
+      branch_nodes, last_recorded_node, label_id, node_id,
+    )
   }
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {

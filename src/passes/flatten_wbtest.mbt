@@ -6050,6 +6050,18 @@ test "flatten lightweight use counts match exact pre-mutation ownership" {
 }
 
 ///|
+test "flatten branch index deduplicates only the current node target" {
+  let branch_nodes : Array[Array[Int]] = [[], []]
+  let last_recorded_node = [-1, -1]
+  flatten_record_label_branch_node(branch_nodes, last_recorded_node, 1, 5)
+  flatten_record_label_branch_node(branch_nodes, last_recorded_node, 1, 5)
+  flatten_record_label_branch_node(branch_nodes, last_recorded_node, 1, 6)
+  @debug.assert_eq(branch_nodes[0], [])
+  @debug.assert_eq(branch_nodes[1], [5, 6])
+  @debug.assert_eq(last_recorded_node, [-1, 6])
+}
+
+///|
 test "flatten label branch cache records each exact targeting node once" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
