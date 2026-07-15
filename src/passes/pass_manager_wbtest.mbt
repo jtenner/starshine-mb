@@ -19766,7 +19766,9 @@ test "DAEO selected cleanup sinks a complete direct-call value slice through one
     run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
       body, 0, local_gets, local_sets, local_tees,
     ) {
-    Some(value) => value
+    Some((value, 11)) => value
+    Some((_, consumed)) =>
+      fail("expected eleven consumed instructions, got \{consumed}")
     None => fail("expected complete direct-call value-slice sinking")
   }
   @debug.assert_eq(local_gets, [1, 1, 1, 3, 1, 1, 1, 0])
@@ -19780,6 +19782,62 @@ test "DAEO selected cleanup sinks a complete direct-call value slice through one
     @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+  ])
+}
+
+///|
+test "DAEO selected cleanup sinks a complete call7053 carrier through three terminal arguments" {
+  let target = @lib.LocalIdx::new(10U)
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(19U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ]
+  let local_gets = [2, 0, 0, 1, 1, 1, 1, 2, 1, 1, 1]
+  let local_sets = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
+      body, 0, local_gets, local_sets, local_tees,
+    ) {
+    Some((value, 14)) => value
+    Some((_, consumed)) =>
+      fail("expected fourteen consumed instructions, got \{consumed}")
+    None => fail("expected complete call7053 carrier sinking")
+  }
+  @debug.assert_eq(local_gets, [2, 0, 0, 1, 1, 1, 1, 2, 1, 1, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(19U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
     @lib.Instruction::call(@lib.FuncIdx::new(20U)),
   ])
 }
@@ -19807,7 +19865,9 @@ test "DAEO selected cleanup sinks a one-use call result through pure terminal ar
     run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
       body, 0, local_gets, local_sets, local_tees,
     ) {
-    Some(value) => value
+    Some((value, 11)) => value
+    Some((_, consumed)) =>
+      fail("expected eleven consumed instructions, got \{consumed}")
     None => fail("expected one-use call-result sinking")
   }
   @debug.assert_eq(local_gets, [1, 1, 1, 1, 0, 1, 1, 0])
