@@ -1157,16 +1157,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         return false
       }
       match @ir.hot_node_exact_instr(func, argument_id) {
-        Some(@lib.I32Add) | Some(@lib.I32DivS) => true
-        Some(@lib.I32Sub) => {
-          let left = @ir.hot_child_get(func, argument_id, 0)
-          let right = @ir.hot_child_get(func, argument_id, 1)
-          match
-            (@ir.hot_node_get(func, left).op, @ir.hot_node_get(func, right).op) {
-            (@ir.HotOp::Const, @ir.HotOp::Const) => false
-            _ => true
-          }
-        }
+        Some(@lib.I32Add) | Some(@lib.I32Sub) | Some(@lib.I32DivS) => true
         _ => false
       }
     }
@@ -1675,6 +1666,7 @@ fn flatten_try_table_dead_suffix_nodes(
       continue
     }
     let suffix_count = root_count - root_idx - 1
+    let recognized_suffix_roots : Array[Array[Int]?] = []
     if suffix_count > 1 {
       let mut all_unreachable = true
       let mut all_direct_drop_consts = true
@@ -1687,6 +1679,10 @@ fn flatten_try_table_dead_suffix_nodes(
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
         let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
+        let recognized_root = flatten_try_table_dead_suffix_root_nodes(
+          func, root_id,
+        )
+        recognized_suffix_roots.push(recognized_root)
         let root_is_unreachable = match @ir.hot_node_get(func, root_id).op {
           @ir.HotOp::Unreachable => true
           _ => false
@@ -1705,9 +1701,14 @@ fn flatten_try_table_dead_suffix_nodes(
         )
         let root_is_direct_add = direct_binary_instr ==
           Some(@lib.Instruction::i32_add())
-        if !flatten_try_table_dead_suffix_root_is_direct_sequence_member(
-            func, root_id,
-          ) {
+        let root_is_direct_sequence = match @ir.hot_node_get(func, root_id).op {
+          @ir.HotOp::Call => recognized_root is Some(_)
+          _ =>
+            flatten_try_table_dead_suffix_root_is_direct_sequence_member(
+              func, root_id,
+            )
+        }
+        if !root_is_direct_sequence {
           all_direct_sequence_roots = false
         }
         if suffix_idx == root_idx + 1 {
@@ -1748,8 +1749,12 @@ fn flatten_try_table_dead_suffix_nodes(
         suffix_idx < root_count
         suffix_idx = suffix_idx + 1 {
       let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
-      let root_nodes = match
-        flatten_try_table_dead_suffix_root_nodes(func, root_id) {
+      let recognized_root = if suffix_count > 1 {
+        recognized_suffix_roots[suffix_idx - root_idx - 1]
+      } else {
+        flatten_try_table_dead_suffix_root_nodes(func, root_id)
+      }
+      let root_nodes = match recognized_root {
         Some(root_nodes) => root_nodes
         None => return None
       }
