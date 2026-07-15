@@ -261,6 +261,10 @@ The next exact two-code iteration adds commits `9aa7499e9` and `710cdc910`. The 
 
 Validation is now focused flatten `245/245`, private flatten `149/149`, passes `5,724/5,724`, full suite `9,185/9,185`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. A 120-function multivalue branch fixture improved from `5,581.5 us` to `5,099 us` in one same-session order (`8.64%`); the two-target/four-lane table fixture reversed direction across run order, so the vector-resolution slice is not classified as a measured speed win. The prior stable `970.5 us` candidate checkpoint remains about `3.65x` Binaryen.
 
+The next exact two-code iteration adds commits `e39faf79e` and `e64428dc1`. The first makes multivalue legacy-try label support consume the immutable pre-mutation branch index; its red-first invariant proves post-snapshot branches cannot widen rewrite-time try proof. The second replaces full node-use/use-def construction in multivalue legacy-try and loop conditional-flow proofs with exact lightweight reachable counts and adds an explicit rewrite-only ownership boundary.
+
+Validation is now focused flatten `245/245`, private flatten `151/151`, passes `5,726/5,726`, full suite `9,187/9,187`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. The 120-function tuple-made legacy-try `br_if` fixture improved `16,524.5 -> 16,167 -> 6,724.5 us` (`59.31%` total). The stable representative checkpoint remains `970.5 us` (`3.65x` Binaryen), so this targeted win does not satisfy public performance readiness.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

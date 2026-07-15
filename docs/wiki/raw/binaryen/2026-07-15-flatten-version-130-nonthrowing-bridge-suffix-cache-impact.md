@@ -11,7 +11,9 @@ This note records the bounded internal-only iteration that:
 5. truncates an admitted terminal-table suffix without rebuilding the region holder's child span;
 6. keeps scalar branch-target rewrite checks on the immutable pre-mutation branch index rather than rebuilding a live-node index after rewriting starts;
 7. threads that same exact branch population through multivalue block/if target support, recursive table checks, deferred admission, and mutation-time routing;
-8. resolves each admitted `br_table` target's complete typed local vector once and reuses it for every payload lane.
+8. resolves each admitted `br_table` target's complete typed local vector once and reuses it for every payload lane;
+9. makes multivalue legacy-try label support consume the immutable pre-mutation branch population instead of rescanning every live node;
+10. replaces full use-def construction in multivalue legacy-try and loop conditional ownership proofs with exact lightweight reachable use counts.
 
 The public registry, dispatcher, CLI execution path, preset scheduler, compare allowlist, and flatten API snapshots remain unchanged. Across the iterations recorded here, the only `.mbti` addition is the public HOT mutation `hot_region_truncate_suffix(...)` in `src/ir/pkg.generated.mbti`; the newest multivalue changes add no API. `flatten` is still public-removed.
 
@@ -27,6 +29,7 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Current branch-index/in-place-tail iteration: `c6181e26d` (`perf: index flatten branch targets once`) and `0a415161f` (`perf: replace flatten value tails in place`).
 - Current suffix-truncation/proof-boundary iteration: `13fe7b744` (`perf: truncate flatten dead suffixes in place`) and `9acdac744` (`fix: keep flatten scalar routing on pre-mutation proofs`).
 - Current multivalue-index/table-vector iteration: `9aa7499e9` (`perf: index flatten multivalue target branches`) and `710cdc910` (`perf: resolve flatten table target vectors once`).
+- Current legacy-try branch/ownership iteration: `e39faf79e` (`perf: index flatten multivalue try branches`) and `e64428dc1` (`perf: reuse flatten conditional ownership counts`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -69,6 +72,11 @@ The multivalue-index/table-vector follow-up also added exactly one red-first inv
 - `flatten rewrite multivalue target proof uses the pre-mutation branch index` failed because the support function had no `state` parameter and `flatten_rewrite_multivalue_branch_target_is_supported` was unbound. The implemented path uses the immutable label branch population during recursive target support, deferred rich-payload admission, and rewrite-time `br`, `br_if`, and `br_table` checks. A malformed post-snapshot branch can make the uncached proof fail but cannot widen the rewrite proof. Private flatten moved to `148/148`;
 - `flatten resolves each br_table target local vector once` failed because `flatten_rewrite_br_table_target_locals` was unbound. The helper preflights every target kind and existing vector type without mutation, requires the rewrite boundary, resolves each unique target vector once, and reuses the exact vectors on repeated calls without adding locals. Private flatten moved to `149/149`.
 
+The legacy-try branch/ownership follow-up added exactly one red-first invariant per code commit:
+
+- `flatten rewrite multivalue try proof uses the pre-mutation branch index` failed at `149/150` because multivalue legacy-try support still scanned every live node after the snapshot. It now consumes `state.label_branch_nodes[label]` during admission and rewrite; an uncached malformed post-snapshot branch fails without widening the mutation-time branch population;
+- `flatten rewrite multivalue try flow uses pre-mutation ownership counts` first failed to compile because the exact flow proof had no `state` parameter and the rewrite-only helper was unbound. Legacy-try and loop `br_if` flow proofs now use `HotNodeUseCounts`, and the rewrite helper requires the mutation boundary before consuming the pre-mutation ownership population. Private flatten moved to `151/151`.
+
 ## Ownership and mutation safety
 
 `FlattenRewriteState` now owns:
@@ -82,6 +90,8 @@ The multivalue-index/table-vector follow-up also added exactly one red-first inv
 Admission computes and caches the complete distinct one-use proof. The lightweight count builder traverses only the reachable root graph, so detached-but-live stale parents cannot inflate ownership counts; focused comparison locks agreement with full use-def. Rewrite consumes only a suffix cache entry whose table id and owner region match and a terminal-table proof whose table, label, payload arity, and mixed-target policy match exactly. After the exact same-region suffix roots are detached, one batch mutation tombstones the complete cached distinct node vector and invalidates the HOT revision once. Suffix detachment now truncates the holder's existing child span instead of allocating a replacement span. Scalar and multivalue mutation-time target checks consume the cached exact branch-node population; they do not discover nodes allocated after the admission snapshot. Recursive multivalue table support receives the same snapshot rather than falling back to a live-node scan.
 
 After every target/type/control family has passed admission, table routing performs one additional nonmutating preflight over all unique targets and any existing label-temp vectors. Only then does it allocate missing block/if/try vectors, while loop vectors must already match exactly. The resulting vector array is reused for every payload lane and on repeated resolution. If mutation has started and any required proof is absent, or any target vector is inconsistent, the corresponding check fails closed. This prevents a stale, partial, or post-snapshot fact from widening ownership, target support, or local-channel construction after structural edits.
+
+Multivalue legacy-try label support now iterates only the exact branch nodes captured for the try label. Conditional flow ownership no longer allocates node-use-site arrays or CFG/local-use data: admission uses the run-wide lightweight reachable counts, rewrite uses the same frozen population behind the explicit `rewrites_started` boundary, and uncached checks can still rebuild current lightweight counts for whitebox comparison. The loop conditional helpers use the same count representation, including one shared count snapshot inside the loop-wide proof. No new control or payload family is admitted.
 
 ## Refreshed output matrix
 
@@ -156,7 +166,9 @@ The suffix-truncation iteration reconstructed the same three-family, 120-functio
 
 The multivalue branch-index slice used 120 independently lifted two-lane block-branch functions with 256 extra roots to magnify whole-live-node target scans. In the clearer same-session ordering, clean code-1 baseline `9aa7499e9^` measured `5,581.5 us` (`5,183..7,300`) and `9aa7499e9` measured `5,099 us` (`4,711..6,343`), an `8.64%` reduction. An earlier ordering measured `5,323.5 -> 5,199 us` (`2.34%`). The representative scalar terminal-table fixture moved only `2,939 -> 2,904.5 us`, which is noise-level and expected because it does not exercise multivalue target scanning.
 
-The table-vector slice used 120 two-target, four-payload-lane functions with 256 extra roots. Code 1 and code 2 measured `7,848.5` versus `7,767.5 us` in one order, then `8,324` versus `8,619 us` in reversed order. Classify `710cdc910` as bounded repeated-resolution removal and stable failure-atomic local-vector reuse, not a measured speed win. The prior stable `970.5 us` representative candidate checkpoint remains `3.65x` Binaryen v130. Performance remains a hard blocker for public exposure.
+The table-vector slice used 120 two-target, four-payload-lane functions with 256 extra roots. Code 1 and code 2 measured `7,848.5` versus `7,767.5 us` in one order, then `8,324` versus `8,619 us` in reversed order. Classify `710cdc910` as bounded repeated-resolution removal and stable failure-atomic local-vector reuse, not a measured speed win.
+
+The legacy-try branch/ownership slice used 120 tuple-made two-lane legacy-try `br_if` functions with 256 extra roots. The iteration baseline measured `16,524.5 us` (`15,971..16,676`); branch indexing measured `16,167 us` (`16,048..16,354`), a `2.16%` reduction; lightweight conditional ownership measured `6,724.5 us` (`5,999..7,291`), a further `58.41%` reduction and `59.31%` total reduction from baseline. This is a measured win for the targeted multivalue conditional family, but it does not replace the prior stable representative candidate checkpoint of `970.5 us`, which remains `3.65x` Binaryen v130. Performance remains a hard blocker for public exposure.
 
 ## Validation
 
@@ -185,10 +197,12 @@ The suffix-truncation/proof-boundary iteration passes focused region editing `4/
 
 The multivalue-index/table-vector iteration passes focused flatten `245/245`, private flatten `149/149`, passes `5,724/5,724`, the full suite `9,185/9,185`, `moon info`, targeted formatting, and `git diff --check`. No `.mbti`, registry, dispatcher, CLI, compare/API, or preset surface changed. The pinned owner hash was rechecked after both commits and remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`. Neither commit admits a new semantic family, so no additional Binaryen probe was required.
 
+The legacy-try branch/ownership iteration passes focused flatten `245/245`, private flatten `151/151`, passes `5,726/5,726`, the full suite `9,187/9,187`, `moon info`, targeted formatting, and `git diff --check`. No `.mbti` or public pass surface changed. The pinned owner hash remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`. Both commits preserve the admitted semantic surface, so no new Binaryen probe was required.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, and one-time table target-vector resolution reduce repeated immutable scans, region rebuilds, and local-vector checks. The latest measured multivalue-index delta is `5,581.5 -> 5,099 us` (`8.64%`) on its target-heavy fixture; the prior stable representative median remains `970.5 us`. Scalar proof-boundary and table-vector timings were noisy and are not measured wins. All samples remain well outside the `<=2x` Binaryen target.
+- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, one-time table target-vector resolution, exact legacy-try branch indexing, and lightweight conditional ownership reduce repeated immutable scans, region rebuilds, full use-def allocation, and local-vector checks. The latest targeted legacy-try conditional delta is `16,524.5 -> 6,724.5 us` (`59.31%` across the iteration); the prior stable representative median remains `970.5 us`. Scalar proof-boundary and table-vector timings were noisy and are not measured wins. The stable representative result remains outside the `<=2x` Binaryen target.
 - **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
@@ -198,7 +212,7 @@ The multivalue-index/table-vector iteration passes focused flatten `245/245`, pr
 
 ## Next work
 
-1. continue profiling the remaining rewrite and admission work after scalar/multivalue exact branch-use indexing, in-place tail replacement, suffix truncation, and one-time target-vector resolution, especially target-copy/local construction itself, recursive region traversal, remaining multivalue use-def/site builds, and any uncached support retries;
+1. continue profiling the remaining rewrite and admission work after scalar/multivalue/legacy-try exact branch-use indexing, lightweight conditional ownership, in-place tail replacement, suffix truncation, and one-time target-vector resolution, especially target-copy/local construction itself, recursive region traversal, remaining tuple-flow use-site builds, loop branch-population scans, and any uncached support retries;
 2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
 3. extend HOT mutation with a verified control-plus-owned-label deletion operation before admitting structured suffix roots; the detached-node batch API still intentionally does not remove label metadata;
 4. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.

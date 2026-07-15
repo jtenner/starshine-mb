@@ -278,6 +278,12 @@ Commits `9aa7499e9` and `710cdc910` complete the next exact two-code internal it
 
 Private flatten is now `149/149`, focused flatten remains `245/245`, passes are `5,724/5,724`, the full suite is `9,185/9,185`, and `moon info`, targeted formatting, and diff checks pass. A 120-function multivalue branch fixture improved from a same-session `5,581.5 us` median to `5,099 us` (`8.64%`), while the table-vector fixture was noisy and did not establish a second speed win. No `.mbti` or public pass surface changed. The prior stable `970.5 us` candidate checkpoint remains `3.65x` Binaryen v130, so performance, typed EH, structured control-plus-owned-label deletion, broader behavior, the flatten GenValid aggregate, four-lane signoff, ordered-neighborhood proof, and public admission all remain open.
 
+## 2026-07-15 legacy-try branch and ownership follow-up
+
+Commits `e39faf79e` and `e64428dc1` complete the next exact two-code internal iteration without widening behavior. Multivalue legacy-try label support now consumes the immutable pre-mutation branch population, and multivalue legacy-try plus loop conditional-flow proofs reuse exact lightweight reachable ownership counts instead of allocating full node-use/use-def structures. The two red-first invariants lock both mutation-time proof populations.
+
+Private flatten is `151/151`, focused flatten `245/245`, passes `5,726/5,726`, and the full suite `9,187/9,187`; `moon info`, targeted formatting, and diff checks pass. A 120-function tuple-made legacy-try `br_if` fixture with 256 extra roots improved `16,524.5 -> 16,167 -> 6,724.5 us`, a `59.31%` total reduction. No `.mbti` or public pass surface changed. The prior stable representative checkpoint remains `970.5 us` (`3.65x` Binaryen v130), so all public-readiness blockers remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

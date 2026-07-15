@@ -310,6 +310,8 @@ The current two-code iteration continues that structural work. `13fe7b744` adds 
 
 The next two-code iteration extends the same boundary to multivalue routing. `9aa7499e9` removes the whole-live-node multivalue target scan by threading the exact pre-mutation label branch index through admission, recursive table support, and mutation-time routing; its target-heavy fixture improved `5,581.5 -> 5,099 us` (`8.64%`) in one same-session ordering. `710cdc910` resolves each admitted table target's typed local vector once after complete preflight and reuses it for every payload lane; repeated-resolution timings were noisy and are not classified as a win. Validation is focused flatten `245/245`, private `149/149`, passes `5,724/5,724`, and full `9,185/9,185`. The earlier `970.5 us` stable candidate checkpoint remains the best committed sample, still `3.65x` Binaryen and outside the `<=2x` gate.
 
+The latest two-code iteration applies those proof rules to multivalue legacy tries and conditional ownership. `e39faf79e` makes legacy-try label support consume the immutable branch index. `e64428dc1` replaces full node-use/use-def construction in legacy-try and loop `br_if` flow proof with lightweight reachable counts and an explicit rewrite-only snapshot boundary. The targeted 120-function legacy-try fixture improves `16,524.5 -> 6,724.5 us` (`59.31%`), with focused flatten `245/245`, private `151/151`, passes `5,726/5,726`, and full `9,187/9,187`. The stable representative checkpoint remains `3.65x` Binaryen, so public readiness is unchanged.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
