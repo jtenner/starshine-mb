@@ -653,16 +653,49 @@ fn flatten_scalar_try_entry_set(
 }
 
 ///|
+fn flatten_inputful_loop_support_entry_lower_bound(
+  entries : Array[FlattenInputfulLoopSupportEntry],
+  loop_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].loop_id < loop_id {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
 fn flatten_inputful_loop_support_entry_index(
   entries : Array[FlattenInputfulLoopSupportEntry],
   loop_id : Int,
 ) -> Int {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].loop_id == loop_id {
-      return index
-    }
+  let index = flatten_inputful_loop_support_entry_lower_bound(entries, loop_id)
+  if index < entries.length() && entries[index].loop_id == loop_id {
+    index
+  } else {
+    -1
   }
-  -1
+}
+
+///|
+fn flatten_inputful_loop_support_entry_set(
+  entries : Array[FlattenInputfulLoopSupportEntry],
+  loop_id : Int,
+  supported : Bool,
+) -> Unit {
+  let index = flatten_inputful_loop_support_entry_lower_bound(entries, loop_id)
+  if index >= entries.length() || entries[index].loop_id != loop_id {
+    entries.insert(
+      index,
+      FlattenInputfulLoopSupportEntry::new(loop_id, supported),
+    )
+  }
 }
 
 ///|
@@ -3948,8 +3981,10 @@ fn flatten_inputful_loop_is_supported(
         loop_id,
         state=Some(state),
       )
-      state.inputful_loop_support_entries.push(
-        FlattenInputfulLoopSupportEntry::new(loop_id, supported),
+      flatten_inputful_loop_support_entry_set(
+        state.inputful_loop_support_entries,
+        loop_id,
+        supported,
       )
       supported
     }

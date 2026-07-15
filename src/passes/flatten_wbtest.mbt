@@ -6712,6 +6712,35 @@ test "flatten inputful loop support freezes the exact admission result" {
 }
 
 ///|
+test "flatten inputful loop proof cache keeps sparse entries sorted" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func call 1 loop (type $carrier) drop i32.const 7 end drop call 1 loop (type $carrier) drop i32.const 8 end drop call 1 loop (type $carrier) drop i32.const 9 end drop) (func (result i32) i32.const 1))",
+  )
+  let loop_ids : Array[Int] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Loop => loop_ids.push(node_id)
+      _ => ()
+    }
+  }
+  @debug.assert_eq(loop_ids.length(), 3)
+  let state = FlattenRewriteState::new(func)
+  for index in [2, 0, 1] {
+    assert_true(
+      flatten_inputful_loop_is_supported(
+        func,
+        loop_ids[index],
+        state=Some(state),
+      ),
+    )
+  }
+  @debug.assert_eq(
+    state.inputful_loop_support_entries.map(fn(entry) { entry.loop_id }),
+    loop_ids,
+  )
+}
+
+///|
 test "flatten rewrite tuple loop entry proof uses pre-mutation ownership counts" {
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
   let func = pass_test_lift_first_func(
