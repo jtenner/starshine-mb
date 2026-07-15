@@ -5958,6 +5958,40 @@ test "flatten terminal proof caches allocate only inspected owners" {
 }
 
 ///|
+test "flatten scalar try proof cache keeps sparse entries sorted" {
+  let func = @ir.HotFunc::new()
+  let try_ids : Array[Int] = []
+  for value in [1, 3, 5] {
+    let try_id = @ir.hot_build_try(
+      func,
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@ir.hot_build_const_i32(func, @lib.I32(value))],
+      catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(value + 1))]),
+    )
+    try_ids.push(try_id)
+    @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  }
+  let state = FlattenRewriteState::new(func)
+  for try_id in [try_ids[2], try_ids[0], try_ids[1]] {
+    assert_true(
+      flatten_scalar_legacy_try_is_supported(func, try_id, state=Some(state)),
+    )
+  }
+  @debug.assert_eq(
+    state.scalar_try_entries.map(fn(entry) { entry.try_id }),
+    try_ids,
+  )
+  for try_id in try_ids {
+    let entry_index = flatten_scalar_try_entry_index(
+      state.scalar_try_entries,
+      try_id,
+    )
+    assert_true(entry_index >= 0)
+    @debug.assert_eq(state.scalar_try_entries[entry_index].try_id, try_id)
+  }
+}
+
+///|
 test "flatten terminal table proofs require an exact pre-mutation cache" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)

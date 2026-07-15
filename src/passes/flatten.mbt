@@ -549,16 +549,49 @@ fn flatten_terminal_table_entry_index(
 }
 
 ///|
+fn flatten_scalar_try_entry_lower_bound(
+  entries : Array[FlattenScalarTryEntry],
+  try_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = entries.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if entries[middle].try_id < try_id {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
 fn flatten_scalar_try_entry_index(
   entries : Array[FlattenScalarTryEntry],
   try_id : Int,
 ) -> Int {
-  for index = 0; index < entries.length(); index = index + 1 {
-    if entries[index].try_id == try_id {
-      return index
-    }
+  let index = flatten_scalar_try_entry_lower_bound(entries, try_id)
+  if index < entries.length() && entries[index].try_id == try_id {
+    index
+  } else {
+    -1
   }
-  -1
+}
+
+///|
+fn flatten_scalar_try_entry_set(
+  entries : Array[FlattenScalarTryEntry],
+  try_id : Int,
+  supported : Bool,
+) -> Unit {
+  let index = flatten_scalar_try_entry_lower_bound(entries, try_id)
+  let entry = FlattenScalarTryEntry::new(try_id, supported)
+  if index < entries.length() && entries[index].try_id == try_id {
+    entries[index] = entry
+  } else {
+    entries.insert(index, entry)
+  }
 }
 
 ///|
@@ -4207,9 +4240,7 @@ fn flatten_scalar_legacy_try_is_supported(
   )
   match state {
     Some(state) =>
-      state.scalar_try_entries.push(
-        FlattenScalarTryEntry::new(try_id, supported),
-      )
+      flatten_scalar_try_entry_set(state.scalar_try_entries, try_id, supported)
     None => ()
   }
   supported
