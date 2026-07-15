@@ -20,6 +20,7 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Later label/shift iteration: `de1bc430f`, `64a86a381`, and docs commit `e14935de2`.
 - Current proof-cache/routing iteration: `23f779aa8` (`perf: cache flatten terminal table proofs`) and `32da5c798` (`perf: avoid duplicate flatten terminal routing`).
 - Current lightweight-analysis/batch-mutation iteration: `b610394b4` (`perf: use lightweight flatten ownership counts`) and `56908b781` (`perf: batch flatten detached suffix deletion`).
+- Current branch-index/in-place-tail iteration: `c6181e26d` (`perf: index flatten branch targets once`) and `0a415161f` (`perf: replace flatten value tails in place`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -44,8 +45,13 @@ The terminal-proof/routing iteration added exactly one red-first test per commit
 
 The current lightweight-analysis/batch-mutation iteration also added exactly one red-first invariant per code commit:
 
-- `flatten lightweight use counts match exact pre-mutation ownership` first failed to compile because the lightweight builder did not exist. The first implementation exposed detached-but-live parent references and failed two existing suffix-sequence tests; changing the builder to traverse only the reachable root graph made its counts agree with full use-def for roots, structured regions, repeated child uses, and every live node in the fixture. Private flatten now passes `144/144`;
+- `flatten lightweight use counts match exact pre-mutation ownership` first failed to compile because the lightweight builder did not exist. The first implementation exposed detached-but-live parent references and failed two existing suffix-sequence tests; changing the builder to traverse only the reachable root graph made its counts agree with full use-def for roots, structured regions, repeated child uses, and every live node in the fixture. Private flatten then passed `144/144`;
 - `batched detached node deletion tombstones the whole set with one revision` first failed because `hot_delete_detached_nodes` did not exist. The new exact distinct-set mutation preflights every id before mutation, tombstones the whole detached set, preserves survivor liveness and no-immediate-reuse behavior, and bumps the HOT revision once. Focused HOT mutation passes `10/10`.
+
+The branch-index/in-place-tail follow-up again added exactly one red-first invariant per code commit:
+
+- `flatten label branch cache records each exact targeting node once` failed because `flatten_build_label_branch_nodes` was unbound. The implemented immutable index records each live branch-like node once per targeted label, deduplicates repeated/default `br_table` labels, derives `label_used` from the same scan, and lets scalar target admission inspect only exact target users. Private flatten moved to `145/145`;
+- `flatten replaces one region root without rebuilding its siblings` failed because `flatten_set_region_root` was unbound. The helper uses public HOT root replacement for one-for-one value-tail writes, preserves sibling identity and the old value as the new `local.set` child, invalidates pass analyses, and advances the HOT revision exactly once. Scalar and multivalue block, if, loop, and legacy-try result tails now avoid full region child-array reconstruction. Private flatten moved to `146/146`.
 
 ## Ownership and mutation safety
 
@@ -122,7 +128,11 @@ The prior exact phase profile, measured across the same 120 prebuilt candidate-d
 
 The rewrite subprofile then attributed the successful terminal-table route to `27.5 us` preflight, `30 us` payload staging, `3.5 us` cached suffix lookup, `185 us` suffix mutation, `48.5 us` target copies, and `13 us` selector handling. Inside suffix mutation, region splice accounted for `64 us` and per-node detached deletion for `73.5 us`, with the remaining time in root search and repeated mutation bookkeeping. The batch deletion API preserves the exact cached distinct ownership set while replacing per-node revision bumps with one invalidation. The final pass-only median is `970.5 us` (`955..1,161 us`), down `13.00%` from code 1 and `23.37%` from the same-session iteration baseline.
 
-The final exact phase profile at the committed implementation reports `53.5 us` classify, `67.5 us` state construction, `245.5 us` admission, `590.5 us` rewrite, and `5.5 us` body-result handling. Relative to the prior exact phase profile, state construction fell `55.74%` and rewrite fell `13.73%`; rewrite remains dominant and admission is now the second-largest phase. Current Starshine is still `3.65x` Binaryen v130, outside the maximum acceptable `2x` threshold, so performance remains a hard blocker for public exposure.
+The final exact phase profile at the lightweight-analysis/batch-mutation checkpoint reports `53.5 us` classify, `67.5 us` state construction, `245.5 us` admission, `590.5 us` rewrite, and `5.5 us` body-result handling. Relative to the prior exact phase profile, state construction fell `55.74%` and rewrite fell `13.73%`; rewrite remained dominant and admission second.
+
+The next iteration profiled before each slice. In the pre-code-1 admission sample, scalar-try support consumed `265 us` across 120 functions, including `170 us` in the full-node target-use scan and `54 us` in terminal-tail checks; inputful-loop and rich-branch admission contributed `10 us` and `33 us`. After indexing exact branch targets once, a diagnostic one-batch profile reported `48 us` classify, `65 us` state, `222 us` admission, and `647 us` rewrite. Within rewrite, terminal-table routing contributed `238 us` and scalar-try result routing `134 us`, motivating one-for-one region-root replacement as code 2. These instrumented one-batch sums are diagnostic attribution, not substitutes for the repeated timing medians.
+
+On one same-session reconstructed 120-function chain, the median moved from the pre-iteration `1,197.5 us` (`1,120..1,432`) to `1,092.5 us` (`1,057..1,135`) after the branch index, then `1,030 us` (`1,005..1,064`) after in-place value tails: a `13.99%` total reduction. On the exact candidate shape, code 1 measured `1,052.5 us` (`1,001..1,111`), while code 2 measured `1,033.5 us` (`969..1,122`) with a noisier `1,047 us` rerun (`997..1,536`). The prior stable checkpoint remains `970.5 us`; all current samples are still roughly `3.65x` to `3.95x` Binaryen v130's `266.05 us`, outside the maximum acceptable `2x` threshold. Performance therefore remains a hard blocker for public exposure.
 
 ## Validation
 
@@ -143,12 +153,14 @@ The next two red-first behavior slices admitted direct `i32.shl` and `i32.shr_s`
 
 The terminal-proof/routing validation moved private flatten from red `142/143` to green `143/143`, then focused flatten from red `244/245` to green `245/245`. That iteration passed private flatten `143/143`, passes `5,718/5,718`, the full suite `9,177/9,177`, `moon info`, targeted formatting, and `git diff --check`.
 
-Current lightweight-analysis/batch-mutation validation moved private flatten to `144/144` and focused HOT mutation to `10/10`; focused flatten remains `245/245`. Final current validation passed passes `5,719/5,719`, the full suite `9,180/9,180`, `moon info`, targeted formatting, and `git diff --check`. The reviewed `src/ir/pkg.generated.mbti` diff adds `HotNodeUseCounts`, `hot_node_use_counts_build`, `hot_node_use_count`, and `hot_delete_detached_nodes`; no pass or CLI public API changed. Repository-wide `moon fmt --check` remains blocked only by the pre-existing `moon.mod` syntax disagreement.
+The lightweight-analysis/batch-mutation validation moved private flatten to `144/144` and focused HOT mutation to `10/10`; focused flatten remained `245/245`. That checkpoint passed passes `5,719/5,719`, the full suite `9,180/9,180`, `moon info`, targeted formatting, and `git diff --check`. The reviewed `src/ir/pkg.generated.mbti` diff added `HotNodeUseCounts`, `hot_node_use_counts_build`, `hot_node_use_count`, and `hot_delete_detached_nodes`; no pass or CLI public API changed.
+
+The branch-index/in-place-tail iteration passes focused flatten `245/245`, private flatten `146/146`, passes `5,721/5,721`, the full suite `9,181/9,181`, `moon info`, targeted formatting, and `git diff --check`. It changes no `.mbti` snapshot and adds no public pass, CLI, or IR API. Repository-wide `moon fmt --check` remains blocked only by the pre-existing `moon.mod` syntax disagreement.
 
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, and exact terminal-table caches, duplicate-router removal, lightweight reachable ownership counts, and batched detached deletion reduce the representative median from `3,682.5 us` to a current `970.5 us`, or `3.65x` Binaryen; this remains outside target.
+- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, and exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, and in-place value-tail replacement reduce repeated immutable scans and one-for-one region rebuilds. The prior stable representative median is `970.5 us`; this iteration's same-session reconstructed chain improved `1,197.5 -> 1,092.5 -> 1,030 us`, but all samples remain well outside the `<=2x` Binaryen target.
 - **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
@@ -158,7 +170,7 @@ Current lightweight-analysis/batch-mutation validation moved private flatten to 
 
 ## Next work
 
-1. profile the remaining `590.5 us` rewrite and `245.5 us` admission phases, especially repeated target-family scans, root search, and scalar/multivalue support retries, without weakening exact label or ownership proof;
+1. continue profiling the remaining rewrite and admission work after exact branch-use indexing and in-place tail replacement, especially terminal-table suffix removal, target-copy/local construction, recursive region traversal, and any remaining uncached scalar/multivalue support retries;
 2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
-3. extend HOT mutation with a verified control-plus-owned-label deletion operation before admitting structured suffix roots; the new detached-node batch API intentionally does not remove label metadata;
+3. extend HOT mutation with a verified control-plus-owned-label deletion operation before admitting structured suffix roots; the detached-node batch API still intentionally does not remove label metadata;
 4. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.

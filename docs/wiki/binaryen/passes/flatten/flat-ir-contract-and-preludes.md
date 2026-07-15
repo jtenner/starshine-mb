@@ -357,6 +357,12 @@ Starshine's internal legacy-try table route now uses one recursive resultless di
 
 This is not generic purity or effect analysis. Binaryen v130 keeps the unreachable suffix in Flat IR order; Starshine deletes it only because the preceding `br_table` is unconditional and no deleted node can execute or be shared. Alternate unary/conversion opcodes, repeated descendants, result calls, indirect/reference calls, and structured suffix roots remain gated. The batch node API intentionally does not delete owned label metadata, so it does not unblock structured suffix controls. On the refreshed three-probe matrix, nonthrowing synthetic-try elision reduces Starshine direct and cleanup output to `212` aggregate bytes versus Binaryen's `275` direct and `236` cleanup bytes; this narrow bridge/local/control family remains a measured Starshine size win. Current candidate-dense pass-local timing is `970.5 us`, or `3.65x` Binaryen, after lightweight ownership counts and batched detached deletion; performance remains outside target. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
 
+### Exact branch-use indexing and one-for-one tail mutation
+
+The rewrite state now records each live branch-like node once per targeted label before mutation, including deduplicated repeated/default `br_table` labels and `try_table` catch labels. `label_used` is derived from that same index. Scalar target support therefore iterates only exact target users rather than rescanning every live node; the cache remains immutable and a missing post-mutation proof still fails closed.
+
+When control-result routing only replaces one region root with `local.set(temp, oldRoot)`, flatten now uses exact HOT region-root replacement instead of rebuilding the holder's complete child array through a splice. A private invariant locks sibling identity, old-value ownership, one revision advance, and pass-analysis invalidation. This applies to scalar and multivalue block, if, loop, and legacy-try tails; it does not relax any result-type, label-use, ownership, EH, trap, or effect gate.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

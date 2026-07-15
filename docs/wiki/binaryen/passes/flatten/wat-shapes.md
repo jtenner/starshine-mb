@@ -591,6 +591,10 @@ After an unconditional legacy-try `br_table`, Starshine can delete one exact own
 
 The call and complete subtree are deleted only after immediate argument order, nested left-to-right order, distinctness, one-use ownership, and unconditional transfer are proven. Direct `i32.sub`, `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` roots use the same proof; `i32.rotl` is the current outside-roster boundary. Admission caches exact owned nodes and owner regions from one lightweight reachable node-use-count snapshot, label-use facts once per rewrite state, and exact terminal-table support keyed by table, label, payload arity, and mixed-target policy; mutation fails closed on a missing exact cache. After same-region suffix detachment, the complete distinct owned vector tombstones with one revision invalidation. Alternate unary/conversion arguments and structured suffixes remain gated; the batch node API does not remove owned labels. Nonthrowing synthetic catch-all lowering keeps the refreshed three-probe cleanup matrix a measured 24-byte Starshine win, while current candidate-dense pass-local performance remains `3.65x` Binaryen and blocks public exposure. See the [current 2026-07-15 impact evidence](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
 
+### Current branch-index and tail-write implementation detail
+
+Admission now precomputes the exact branch-like nodes targeting each label, deduplicating a `br_table` that repeats the same label in explicit and default positions. Result routing still performs the same ordered `local.set` transformation shown above, but a one-for-one region tail now changes only that root slot; sibling roots are not copied into a rebuilt child array. This implementation detail is guarded by private invariants and does not change the WAT-level transform contract or admit any new opcode/control family.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before
