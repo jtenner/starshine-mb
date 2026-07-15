@@ -4728,33 +4728,109 @@ test "flatten keeps a two-argument call sequence gated when arguments repeat" {
 }
 
 ///|
-test "flatten keeps a three-argument call with one rich argument gated" {
+fn flatten_wbtest_recognize_sequence_with_one_rich_argument_vector(
+  conversion : Bool,
+) -> Unit raise {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
   let label_id = fixture[1]
   let table_id = fixture[2]
-  let rich = flatten_test_build_direct_binary(
-    func,
-    @lib.Instruction::i32_add(),
-    9,
-    10,
+  let first = if conversion {
+    flatten_wbtest_build_direct_unary_drop(
+      func,
+      @lib.Instruction::i64_extend_i32s(),
+      9,
+      @lib.ValType::i64(),
+      true,
+    )
+  } else {
+    flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_add(),
+      9,
+      10,
+    )
+  }
+  let rich = if conversion {
+    let input = @ir.hot_build_const_i32(func, @lib.I32(13))
+    let argument = @ir.hot_build_convert(func, @lib.ValType::i64(), input)
+    @ir.hot_node_exact_instr_set(
+      func,
+      argument,
+      @lib.Instruction::i64_extend_i32s(),
+    )
+    [argument, input]
+  } else {
+    flatten_test_build_direct_binary(func, @lib.Instruction::i32_add(), 12, 13)
+  }
+  let arguments : Array[Int] = if conversion {
+    [
+      @ir.hot_build_const_i32(func, @lib.I32(10)),
+      @ir.hot_build_const_i64(func, @lib.I64(11L)),
+      @ir.hot_build_const_i32(func, @lib.I32(12)),
+      rich[0],
+    ]
+  } else {
+    [
+      @ir.hot_build_const_i64(func, @lib.I64(11L)),
+      rich[0],
+      @ir.hot_build_const_i32(func, @lib.I32(14)),
+    ]
+  }
+  let call = @ir.hot_build_call(func, 99, [], arguments)
+  let last = if conversion {
+    flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_div_s(),
+      14,
+      0,
+    )
+  } else {
+    flatten_wbtest_build_direct_unary_drop(
+      func,
+      @lib.Instruction::i32_clz(),
+      15,
+      @lib.ValType::i32(),
+      false,
+    )
+  }
+  let body : Array[Int] = [table_id, first[0], call, last[0]]
+  let expected : Array[Int] = []
+  for node_id in first {
+    expected.push(node_id)
+  }
+  expected.push(call)
+  for argument in arguments {
+    expected.push(argument)
+  }
+  for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
+    expected.push(rich[node_idx])
+  }
+  for node_id in last {
+    expected.push(node_id)
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
   )
-  let call = @ir.hot_build_call(func, 99, [], [
-    @ir.hot_build_const_i32(func, @lib.I32(11)),
-    rich[0],
-    @ir.hot_build_const_i64(func, @lib.I64(12L)),
-  ])
-  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
-    table_id,
-    call,
-    @ir.hot_build_unreachable(func),
-  ])
-  assert_false(
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
   )
+}
+
+///|
+test "flatten recognizes an add-callconstaddconst-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_one_rich_argument_vector(false)
+}
+
+///|
+test "flatten recognizes an extend-call3constextend-divzero try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_one_rich_argument_vector(true)
 }
 
 ///|
