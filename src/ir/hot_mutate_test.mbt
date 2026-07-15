@@ -172,6 +172,27 @@ test "detached node deletion fast path records tombstones without immediate free
 }
 
 ///|
+test "batched detached node deletion tombstones the whole set with one revision" {
+  let func = HotFunc::new()
+  let first = hot_build_nop(func)
+  let second = hot_build_const_i32(func, @lib.I32(9))
+  let third = hot_build_unreachable(func)
+  let survivor = hot_build_nop(func)
+  hot_root_append(func, survivor)
+
+  let rev0 = hot_revision_current(func)
+  hot_delete_detached_nodes(func, [first, second, third])
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  assert_false(hot_node_is_live(func, first))
+  assert_false(hot_node_is_live(func, second))
+  assert_false(hot_node_is_live(func, third))
+  assert_true(hot_node_is_live(func, survivor))
+
+  let next = hot_build_unreachable(func)
+  @debug.assert_eq(next, 4)
+}
+
+///|
 test "label owner helper rehomes built control labels to replacement node ids" {
   let func = HotFunc::new()
   let temp_block = hot_build_block(func, @lib.BlockType::void_(), [

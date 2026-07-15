@@ -970,7 +970,7 @@ fn hot_mutate_assert_unreferenced(func : HotFunc, id : NodeId) -> Unit {
 }
 
 ///|
-fn hot_delete_node_finalize(func : HotFunc, id : NodeId) -> Unit {
+fn hot_delete_node_tombstone(func : HotFunc, id : NodeId) -> Unit {
   func.nodes[id] = {
     op: HotOp::Nop,
     ty: hot_type_void(func),
@@ -984,6 +984,11 @@ fn hot_delete_node_finalize(func : HotFunc, id : NodeId) -> Unit {
   if id < func.deleted_nodes.length() {
     func.deleted_nodes[id] = true
   }
+}
+
+///|
+fn hot_delete_node_finalize(func : HotFunc, id : NodeId) -> Unit {
+  hot_delete_node_tombstone(func, id)
   hot_revision_bump(func)
 }
 
@@ -991,6 +996,29 @@ fn hot_delete_node_finalize(func : HotFunc, id : NodeId) -> Unit {
 pub fn hot_delete_detached_node(func : HotFunc, id : NodeId) -> Unit {
   hot_mutate_require_live_node(func, id, "hot_delete_detached_node")
   hot_delete_node_finalize(func, id)
+}
+
+///|
+/// Delete an exact distinct detached node set with one revision invalidation.
+pub fn hot_delete_detached_nodes(
+  func : HotFunc,
+  node_ids : Array[NodeId],
+) -> Unit {
+  let seen = @bitset.BitSet::new(hot_node_count(func))
+  for node_id in node_ids {
+    hot_mutate_require_live_node(func, node_id, "hot_delete_detached_nodes")
+    if seen[node_id] {
+      abort("hot_delete_detached_nodes requires distinct node ids")
+    }
+    seen[node_id] = true
+  }
+  if node_ids.is_empty() {
+    return
+  }
+  for node_id in node_ids {
+    hot_delete_node_tombstone(func, node_id)
+  }
+  hot_revision_bump(func)
 }
 
 ///|

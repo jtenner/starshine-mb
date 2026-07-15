@@ -5247,12 +5247,7 @@ fn flatten_try_route_br_table(
             [],
           ),
         )
-        for node_id in nodes {
-          if @ir.hot_node_is_live(func, node_id) {
-            @ir.hot_delete_detached_node(func, node_id)
-          }
-        }
-        pass_mark_mutated(ctx, func)
+        @ir.hot_delete_detached_nodes(func, nodes)
         break
       }
     }
