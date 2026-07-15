@@ -149,54 +149,53 @@ fn flatten_op_is_unsupported(op : @ir.HotOp) -> Bool {
 }
 
 ///|
-/// Classify the current HOT function without mutating it.
-pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
-  let report = FlattenFlatnessReport::empty()
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    if flatten_op_is_unsupported(node.op) {
-      report.unsupported_count += 1
-    }
-    match node.op {
-      @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If | @ir.HotOp::Try =>
-        if @ir.hot_type_result_arity(func, node.ty) > 0 {
-          report.value_control_count += 1
+fn flatten_classify_live_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  report : FlattenFlatnessReport,
+) -> Unit {
+  let node = @ir.hot_node_get(func, node_id)
+  if flatten_op_is_unsupported(node.op) {
+    report.unsupported_count += 1
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If | @ir.HotOp::Try =>
+      if @ir.hot_type_result_arity(func, node.ty) > 0 {
+        report.value_control_count += 1
+      }
+    @ir.HotOp::LocalTee => report.local_tee_count += 1
+    @ir.HotOp::LocalSet =>
+      if @ir.hot_child_count(func, node_id) == 1 {
+        let child = @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0))
+        if flatten_op_is_control_structure(child.op) {
+          report.control_local_set_count += 1
         }
-      @ir.HotOp::LocalTee => report.local_tee_count += 1
-      @ir.HotOp::LocalSet =>
-        if @ir.hot_child_count(func, node_id) == 1 {
-          let child = @ir.hot_node_get(
-            func,
-            @ir.hot_child_get(func, node_id, 0),
-          )
-          if flatten_op_is_control_structure(child.op) {
-            report.control_local_set_count += 1
-          }
-        }
-      _ => ()
-    }
-    for slot = 0
-        slot < flatten_operand_slot_count(func, node_id)
-        slot = slot + 1 {
-      let child_id = @ir.hot_child_get(func, node_id, slot)
-      if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
-        let local_set_value_is_allowed = match node.op {
-          @ir.HotOp::LocalSet =>
-            !flatten_op_is_control_structure(
-              @ir.hot_node_get(func, child_id).op,
-            )
-          _ => false
-        }
-        if !local_set_value_is_allowed &&
-          !flatten_node_is_simple_operand(func, child_id) {
-          report.rich_operand_count += 1
-        }
+      }
+    _ => ()
+  }
+  for slot = 0
+      slot < flatten_operand_slot_count(func, node_id)
+      slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
+      let local_set_value_is_allowed = match node.op {
+        @ir.HotOp::LocalSet =>
+          !flatten_op_is_control_structure(@ir.hot_node_get(func, child_id).op)
+        _ => false
+      }
+      if !local_set_value_is_allowed &&
+        !flatten_node_is_simple_operand(func, child_id) {
+        report.rich_operand_count += 1
       }
     }
   }
+}
+
+///|
+fn flatten_classify_body_value_flow(
+  func : @ir.HotFunc,
+  report : FlattenFlatnessReport,
+) -> Unit {
   let root_count = @ir.hot_root_count(func)
   if root_count > 0 {
     let tail = @ir.hot_root_get(func, root_count - 1)
@@ -205,6 +204,18 @@ pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
       report.body_value_flow_count = 1
     }
   }
+}
+
+///|
+/// Classify the current HOT function without mutating it.
+pub fn flatten_classify_hot(func : @ir.HotFunc) -> FlattenFlatnessReport {
+  let report = FlattenFlatnessReport::empty()
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      flatten_classify_live_node(func, node_id, report)
+    }
+  }
+  flatten_classify_body_value_flow(func, report)
   report
 }
 
@@ -261,6 +272,7 @@ priv struct FlattenPreMutationNodeIndex {
   try_nodes : Array[Int]
   branch_payload_nodes : Array[Int]
   eh_repair_requirement : FlattenEhRepairRequirement
+  flatness_report : FlattenFlatnessReport
 }
 
 ///|
@@ -277,6 +289,7 @@ fn flatten_build_pre_mutation_node_index(
   let try_nodes : Array[Int] = []
   let branch_payload_nodes : Array[Int] = []
   let eh_repair_requirement = FlattenEhRepairRequirement::empty()
+  let flatness_report = FlattenFlatnessReport::empty()
   let record = fn(label_id : Int, node_id : Int) {
     flatten_record_label_branch_node(
       branch_nodes, last_recorded_node, label_id, node_id,
@@ -286,6 +299,7 @@ fn flatten_build_pre_mutation_node_index(
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    flatten_classify_live_node(func, node_id, flatness_report)
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
       @ir.HotOp::Loop => loop_nodes.push(node_id)
@@ -328,12 +342,14 @@ fn flatten_build_pre_mutation_node_index(
       _ => ()
     }
   }
+  flatten_classify_body_value_flow(func, flatness_report)
   {
     label_branch_nodes: branch_nodes,
     loop_nodes,
     try_nodes,
     branch_payload_nodes,
     eh_repair_requirement,
+    flatness_report,
   }
 }
 
@@ -580,6 +596,7 @@ priv struct FlattenRewriteState {
   terminal_table_entries : Array[FlattenTerminalTableEntry]
   scalar_try_entries : Array[FlattenScalarTryEntry]
   inputful_loop_support_entries : Array[FlattenInputfulLoopSupportEntry]
+  flatness_report : FlattenFlatnessReport
   mut rewrites_started : Bool
 }
 
@@ -618,6 +635,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     terminal_table_entries: [],
     scalar_try_entries: [],
     inputful_loop_support_entries: [],
+    flatness_report: node_index.flatness_report,
     rewrites_started: false,
   }
 }
@@ -7360,8 +7378,8 @@ fn flatten_run_admission(
 
 ///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
-  let before = flatten_classify_hot(func)
   let state = FlattenRewriteState::new(func)
+  let before = state.flatness_report
   match flatten_run_admission(func, before, state=Some(state)) {
     FlattenRunAdmission::Admitted => ()
     FlattenRunAdmission::UpstreamHardUnsupported

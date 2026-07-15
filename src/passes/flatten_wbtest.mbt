@@ -6050,6 +6050,29 @@ test "flatten lightweight use counts match exact pre-mutation ownership" {
 }
 
 ///|
+test "flatten pre-mutation node index shares flatness classification" {
+  let func = @ir.HotFunc::new()
+  let rich_drop = flatten_test_build_rich_drop(func)
+  @ir.hot_root_append(func, rich_drop[1])
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, block_id))
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_node(func, @ir.HotOp::br_on_null(), @ir.hot_type_void(func)),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(9)))
+  let expected = flatten_classify_hot(func)
+  let index = flatten_build_pre_mutation_node_index(func)
+  @debug.assert_eq(index.flatness_report, expected)
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(state.flatness_report, expected)
+}
+
+///|
 test "flatten pre-mutation node index shares EH prerequisite classification" {
   let func = @ir.HotFunc::new()
   let catch_id = @ir.hot_build_node(
