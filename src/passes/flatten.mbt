@@ -1192,6 +1192,94 @@ fn flatten_try_table_dead_suffix_call_one_rich_argument_nodes(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
+  func : @ir.HotFunc,
+  call_id : Int,
+) -> Array[Int]? {
+  if @ir.hot_child_count(func, call_id) != 2 {
+    return None
+  }
+  let first_id = @ir.hot_child_get(func, call_id, 0)
+  let second_id = @ir.hot_child_get(func, call_id, 1)
+  if first_id == second_id ||
+    @ir.hot_node_result_arity(func, first_id) != 1 ||
+    @ir.hot_node_result_arity(func, second_id) != 1 {
+    return None
+  }
+  match
+    (@ir.hot_node_get(func, first_id).op, @ir.hot_node_get(func, second_id).op) {
+    (@ir.HotOp::Binary, @ir.HotOp::Unary)
+    | (@ir.HotOp::Unary, @ir.HotOp::Binary) => ()
+    _ => return None
+  }
+  let use_def = @ir.use_def_build_node_uses(func)
+  if @ir.node_use_count(use_def, first_id) != 1 ||
+    @ir.node_use_count(use_def, second_id) != 1 {
+    return None
+  }
+  let nodes : Array[Int] = [call_id, first_id, second_id]
+  for argument_id in [first_id, second_id] {
+    match @ir.hot_node_get(func, argument_id).op {
+      @ir.HotOp::Unary => {
+        if @ir.hot_node_exact_instr(func, argument_id) !=
+          Some(@lib.Instruction::i32_clz()) ||
+          @ir.hot_child_count(func, argument_id) != 1 {
+          return None
+        }
+        let input_id = @ir.hot_child_get(func, argument_id, 0)
+        for owned_id in nodes {
+          if input_id == owned_id {
+            return None
+          }
+        }
+        if @ir.node_use_count(use_def, input_id) != 1 {
+          return None
+        }
+        match @ir.hot_node_get(func, input_id).op {
+          @ir.HotOp::Const => nodes.push(input_id)
+          _ => return None
+        }
+      }
+      @ir.HotOp::Binary => {
+        match @ir.hot_node_exact_instr(func, argument_id) {
+          Some(@lib.I32Add) | Some(@lib.I32DivS) => ()
+          _ => return None
+        }
+        if @ir.hot_child_count(func, argument_id) != 2 {
+          return None
+        }
+        let left_id = @ir.hot_child_get(func, argument_id, 0)
+        let right_id = @ir.hot_child_get(func, argument_id, 1)
+        if left_id == right_id {
+          return None
+        }
+        for owned_id in nodes {
+          if left_id == owned_id || right_id == owned_id {
+            return None
+          }
+        }
+        match
+          (
+            @ir.hot_node_get(func, left_id).op,
+            @ir.hot_node_get(func, right_id).op,
+          ) {
+          (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+          _ => return None
+        }
+        if @ir.node_use_count(use_def, left_id) != 1 ||
+          @ir.node_use_count(use_def, right_id) != 1 {
+          return None
+        }
+        nodes.push(left_id)
+        nodes.push(right_id)
+      }
+      _ => return None
+    }
+  }
+  Some(nodes)
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   root_id : Int,
@@ -1219,6 +1307,13 @@ fn flatten_try_table_dead_suffix_root_nodes(
       }
       match
         flatten_try_table_dead_suffix_call_one_rich_argument_nodes(
+          func, root_id,
+        ) {
+        Some(nodes) => return Some(nodes)
+        None => ()
+      }
+      match
+        flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
           func, root_id,
         ) {
         Some(nodes) => return Some(nodes)
@@ -1757,6 +1852,12 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
         return true
       }
       if flatten_try_table_dead_suffix_call_one_rich_argument_nodes(
+          func, root_id,
+        )
+        is Some(_) {
+        return true
+      }
+      if flatten_try_table_dead_suffix_call_binary_unary_argument_nodes(
           func, root_id,
         )
         is Some(_) {

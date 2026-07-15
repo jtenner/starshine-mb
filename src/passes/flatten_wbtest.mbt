@@ -4834,7 +4834,108 @@ test "flatten recognizes an extend-call3constextend-divzero try-table suffix seq
 }
 
 ///|
-test "flatten keeps a two-rich-argument call sequence gated" {
+fn flatten_wbtest_recognize_sequence_with_binary_and_unary_arguments(
+  unary_first : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let first = if unary_first {
+    flatten_wbtest_build_direct_unary_drop(
+      func,
+      @lib.Instruction::i64_extend_i32s(),
+      9,
+      @lib.ValType::i64(),
+      true,
+    )
+  } else {
+    flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_add(),
+      9,
+      10,
+    )
+  }
+  let binary = flatten_test_build_direct_binary(
+    func,
+    if unary_first {
+      @lib.Instruction::i32_div_s()
+    } else {
+      @lib.Instruction::i32_add()
+    },
+    11,
+    if unary_first {
+      0
+    } else {
+      12
+    },
+  )
+  let unary_input = @ir.hot_build_const_i32(
+    func,
+    @lib.I32(if unary_first { 10 } else { 13 }),
+  )
+  let unary = @ir.hot_build_unary(func, @lib.ValType::i32(), unary_input)
+  @ir.hot_node_exact_instr_set(func, unary, @lib.Instruction::i32_clz())
+  let call = @ir.hot_build_call(
+    func,
+    99,
+    [],
+    if unary_first {
+      [unary, binary[0]]
+    } else {
+      [binary[0], unary]
+    },
+  )
+  let last = if unary_first {
+    [@ir.hot_build_unreachable(func)]
+  } else {
+    flatten_test_build_direct_binary_drop(
+      func,
+      @lib.Instruction::i32_div_s(),
+      14,
+      0,
+    )
+  }
+  let call_nodes = if unary_first {
+    [call, unary, binary[0], unary_input, binary[1], binary[2]]
+  } else {
+    [call, binary[0], unary, binary[1], binary[2], unary_input]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in [first, call_nodes, last] {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-calladdclz-divzero try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_binary_and_unary_arguments(false)
+}
+
+///|
+test "flatten recognizes an extend-callclzdiv-unreachable try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_binary_and_unary_arguments(true)
+}
+
+///|
+test "flatten keeps a binary-plus-conversion two-rich call gated" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -4847,9 +4948,13 @@ test "flatten keeps a two-rich-argument call sequence gated" {
     10,
   )
   let input = @ir.hot_build_const_i32(func, @lib.I32(11))
-  let unary = @ir.hot_build_unary(func, @lib.ValType::i32(), input)
-  @ir.hot_node_exact_instr_set(func, unary, @lib.Instruction::i32_clz())
-  let call = @ir.hot_build_call(func, 99, [], [binary[0], unary])
+  let conversion = @ir.hot_build_convert(func, @lib.ValType::i64(), input)
+  @ir.hot_node_exact_instr_set(
+    func,
+    conversion,
+    @lib.Instruction::i64_extend_i32s(),
+  )
+  let call = @ir.hot_build_call(func, 99, [], [binary[0], conversion])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     call,
