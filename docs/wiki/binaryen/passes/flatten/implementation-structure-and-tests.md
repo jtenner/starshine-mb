@@ -273,6 +273,10 @@ The next exact two-code iteration adds commits `3a88b5bd6` and `5c0235d71`. The 
 
 Validation is now focused flatten `245/245`, private flatten `155/155`, passes `5,730/5,730`, full suite `9,191/9,191`, and green `moon info`, targeted formatting, and diff checks. No `.mbti` or public pass surface changed. The tuple-entry fixture improved `10,895.5 -> 4,506 us` (`58.64%`), and the scalar-try fixture improved `8,867.5 -> 4,214.5 us` (`52.47%`). These targeted wins do not replace the stable representative `970.5 us` / `3.65x` public gate result.
 
+The next exact two-code iteration adds commits `24ca31723` and `32690a37d`. The first replaces tuple-made plain branch/table payload use-site allocation with the frozen reachable count plus structurally known payload slots; its invariant is `flatten rewrite tuple branch payload proof uses pre-mutation ownership counts`. The second removes the final full node-use/use-site builder from flatten by locating generic tuple-made block/if `br_if` false-flow sites once during admission, caching the exact positive or negative result by branch id, and requiring that cache after rewriting starts; its invariant is `flatten rewrite tuple br_if flow uses pre-mutation exact site cache`.
+
+Validation is now focused flatten `245/245`, private flatten `157/157`, passes `5,732/5,732`, full suite `9,193/9,193`, and green `moon info`, targeted formatting, owner verification, and diff checks. No `.mbti` or public pass surface changed. The tuple branch fixture improved `13,697 -> 5,238 us` (`61.76%`), and the tuple block-`br_if` fixture improved `12,764.5 -> 5,578.5 us` (`56.30%`). The stable representative remains the unrequalified `970.5 us` / `3.65x` public gate result.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

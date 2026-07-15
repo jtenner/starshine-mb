@@ -316,6 +316,8 @@ The next two-code iteration removes the remaining full use-site allocation for e
 
 The current two-code iteration removes two more full use-site builds. `3a88b5bd6` proves exact tuple-made inputful-loop entry ownership from the frozen reachable count plus the known entry slots and reversed body-prefix drops. `5c0235d71` proves exact scalar legacy-try `br_if` payload/consumer ownership from the same snapshot. Targeted fixtures improve `58.64%` and `52.47%`; validation reaches focused `245/245`, private `155/155`, passes `5,730/5,730`, and full `9,191/9,191`. The stable representative remains `3.65x` Binaryen, so public readiness and public-removed status are unchanged.
 
+The latest two-code iteration removes the remaining tuple ownership/site-allocation hotspots. `24ca31723` proves tuple-made plain branch/table payload ownership from the frozen reachable count plus known branch slots. `32690a37d` replaces the final full node-use/use-site build with one admission-time reachable locator for generic tuple-made block/if `br_if`, caching exact positive or negative flow sites behind the rewrite boundary. Targeted fixtures improve `13,697 -> 5,238 us` (`61.76%`) and `12,764.5 -> 5,578.5 us` (`56.30%`); validation reaches focused `245/245`, private `157/157`, passes `5,732/5,732`, and full `9,193/9,193`. The stable representative remains an unrequalified `970.5 us` / `3.65x` Binaryen, so public readiness and public-removed status are unchanged.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

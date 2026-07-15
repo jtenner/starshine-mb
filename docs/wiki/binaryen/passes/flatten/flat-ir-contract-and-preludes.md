@@ -371,6 +371,8 @@ Exact multivalue `TupleMake` region tails now use the same frozen ownership popu
 
 The same rule now covers two scalar/control-adjacent families. A tuple-made inputful-loop entry is already known to occupy every entry slot and every immediate reversed body-prefix drop, so exact reachable count `2 * input_arity` proves complete ownership. A scalar legacy-try `br_if` payload is already known at the branch plus one immediately adjacent false-flow consumer, so payload count two and one-use rich-consumer count replace full site allocation. Dedicated rewrite helpers require `rewrites_started`, while uncached checks can still observe later uses and fail.
 
+Tuple-made plain branch and table payloads now use the same frozen counts: direct structural checks already prove that every payload slot contains the tuple, so exact total count equal to payload arity proves no other reachable owner. Generic tuple-made block/if `br_if` cannot use counts alone because rewrite needs the exact false-flow parent and contiguous start slot. Admission therefore runs one reachable-root locator, caches the exact positive or negative site result by branch id, and rewrite refuses uncached discovery after mutation starts while rechecking that the cached slots still contain the tuple.
+
 These changes do not relax any result-type, label-use, ownership, EH, trap, effect, or complete-subtree-deletion gate.
 
 ## The placeholder `unreachable` rule

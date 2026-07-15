@@ -142,6 +142,8 @@ The region-tail/loop-branch iteration also leaves the hold point unchanged. Exac
 
 The loop-entry/scalar-try ownership iteration keeps the same hold point. Exact tuple-made inputful-loop entries and exact scalar legacy-try `br_if` false flow now consume the frozen reachable counts behind explicit rewrite-only helpers; post-snapshot extra uses fail uncached without widening mutation-time proof. Private flatten reaches `155/155`, passes `5,730/5,730`, and the full suite `9,191/9,191`. Targeted fixtures improve `58.64%` and `52.47%`, but the stable representative remains `3.65x` Binaryen. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the aggregate, four-lane signoff, ordered-neighborhood proof, typed EH, and structured label-owner deletion remain blocked.
 
+The tuple branch/conditional-flow iteration also keeps the hold point unchanged. Tuple-made plain branch/table payload proof now uses frozen reachable counts, while generic tuple-made block/if `br_if` flow uses a bounded reachable locator whose exact positive or negative site result is cached before mutation and required by rewrite. Private flatten reaches `157/157`, passes `5,732/5,732`, and the full suite `9,193/9,193`. Targeted fixtures improve `61.76%` and `56.30%`, and the last full node-use/use-site builder is gone from flatten, but the durable representative remains an unrequalified `3.65x` Binaryen. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the aggregate, four-lane signoff, ordered-neighborhood proof, typed EH, and structured label-owner deletion remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

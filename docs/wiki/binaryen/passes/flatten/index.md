@@ -296,6 +296,12 @@ Commits `3a88b5bd6` and `5c0235d71` remove two more full node-use/use-site build
 
 Private flatten is `155/155`, focused flatten `245/245`, passes `5,730/5,730`, and the full suite `9,191/9,191`; `moon info`, targeted formatting, owner-hash verification, and diff checks pass. Targeted 120-function fixtures with 256 extra roots improved `10,895.5 -> 4,506 us` (`58.64%`) for tuple loop entries and `8,867.5 -> 4,214.5 us` (`52.47%`) for scalar try flow. The stable representative remains `970.5 us` / `3.65x` Binaryen, so public readiness is unchanged and all wiring stays absent.
 
+## 2026-07-15 tuple branch and conditional-flow proof follow-up
+
+Commits `24ca31723` and `32690a37d` remove flatten's last two full tuple use-site allocation paths without widening behavior. Tuple-made plain branch/table payloads now use the immutable reachable count plus structurally known payload slots. Tuple-made block/if `br_if` flow still needs an exact false-flow location, so admission performs one bounded reachable locator, caches the exact tuple/parent/start result by branch id, and rewrite requires that pre-mutation cache.
+
+Private flatten is `157/157`, focused flatten `245/245`, passes `5,732/5,732`, and the full suite `9,193/9,193`; `moon info`, targeted formatting, owner-hash verification, and diff checks pass. Targeted 120-function fixtures with 256 extra roots improved `13,697 -> 5,238 us` (`61.76%`) for tuple branch payloads and `12,764.5 -> 5,578.5 us` (`56.30%`) for tuple block `br_if`. No full node-use/use-site builder remains in `src/passes/flatten.mbt`. The stable public gate remains the unrequalified `970.5 us` / `3.65x` Binaryen checkpoint, so public wiring stays absent and all correctness/signoff blockers remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.
