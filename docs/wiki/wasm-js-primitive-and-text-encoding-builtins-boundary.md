@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md
   - raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - wasm-js-string-builtins-boundary.md
   - wast/string-instruction-authoring.md
@@ -38,7 +37,7 @@ The short rule is:
 - **JS Text Encoding Builtins** is still an active Phase-1 proposal. It proposes host builtins for UTF-8 encode/decode between JavaScript strings and Wasm storage.
 - **Starshine has no documented support for JS Primitive Builtins or JS Text Encoding Builtins today.** Current local string instructions are a narrow Reference-Typed Strings / `stringref` subset, not these host-builtin proposal APIs.
 
-The current source bridge is [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md). It rechecked the official WebAssembly proposals tracker, the two proposal overviews, the existing JS String Builtins boundary, and current Starshine Node/WAST/core/binary/validator evidence.
+This page is grounded in the official WebAssembly proposals tracker, the JS Primitive Builtins and JS Text Encoding Builtins proposal overviews, the JS String Builtins boundary, and current Starshine Node/WAST/core/binary/validator evidence.
 
 ## Beginner Mental Model
 
@@ -121,7 +120,7 @@ If Starshine implements either proposal later:
 
 ## Sources
 
-- Boundary refresh: [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md)
+- Official active-proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/js-primitive-builtins/blob/main/proposals/js-primitive-builtins/Overview.md>, <https://github.com/WebAssembly/js-text-encoding-builtins/blob/main/proposals/js-text-encoding-builtins/Overview.md>
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md), [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
 - Stringref/local instruction pages: [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md)
 - Node/package page: [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`../../node/internal/runtime.js`](../../node/internal/runtime.js)

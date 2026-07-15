@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
-  - raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
   - raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
   - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
@@ -40,7 +39,7 @@ related:
 
 Use this page when a claim mentions “WebAssembly GC” and you need to know which layer is meant. The ordinary GC feature is now a finished/Core-3.0 WebAssembly surface: it covers recursive `func` / `struct` / `array` types, abstract heap types such as `any`, `eq`, `struct`, `array`, and `i31`, typed references, ordinary cast/test/branch/call reference instructions, and struct/array aggregate instructions. The `call_ref` / `return_call_ref` slice is cross-linked to the focused typed-function-reference boundary at [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md). The active More Array Constructors proposal is separate: `array.new_array`, `array.new_memory`, and `array.new_table` route through [`wasm-more-array-constructors-boundary.md`](wasm-more-array-constructors-boundary.md), while current Core `array.new*` support remains part of this GC layer. That does **not** mean every Starshine layer exposes every Core syntax spelling today.
 
-The current GC-layer bridge is [`raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](raw/wasm/2026-06-05-gc-core-boundary-refresh.md). The later [`2026-07-10 constant-expression reconciliation`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md) corrects one narrow but important local status: Starshine now admits Core `array.new`, `array.new_default`, and `array.new_fixed` in constant expressions after array-type resolution. It does not widen high-level WAST `array.*` text or add the separate More Array Constructors proposal. The important routing rule is:
+The official Core 3.0 type/instruction/text/binary/validation pages and the Starshine owner files in the layer map establish this GC boundary. The later [`2026-07-10 constant-expression reconciliation`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md) corrects one narrow but important local status: Starshine now admits Core `array.new`, `array.new_default`, and `array.new_fixed` in constant expressions after array-type resolution. It does not widen high-level WAST `array.*` text or add the separate More Array Constructors proposal. The important routing rule is:
 
 ```text
 Core WebAssembly GC
@@ -125,7 +124,7 @@ A struct constructor accepted in a function body is not automatically accepted i
 
 ## Sources
 
-- GC boundary source bridge: [`raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](raw/wasm/2026-06-05-gc-core-boundary-refresh.md)
+- Official Core GC sources: <https://webassembly.github.io/spec/core/syntax/types.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Type-use/subtyping: [`raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md)
 - Reference/call/cast/branch: [`raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md)
 - Aggregate instructions: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)

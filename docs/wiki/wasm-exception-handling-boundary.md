@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../src/lib/types.mbt
   - ../src/wast/parser.mbt
@@ -37,9 +36,7 @@ Use this page when a standards-status claim, fixture, validator change, binary c
 
 For beginners: an exception tag is a typed description of what values an exception carries. `throw` builds and throws a new exception from a tag plus its payload values. `throw_ref` rethrows an existing exception reference, trapping if that reference is null. `try_table` runs a protected body and routes matching exceptions to ordinary labels with catch payloads.
 
-The current source bridge is [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md). It rechecked the official WebAssembly finished-proposals table, active proposal tracker, archived Exception Handling proposal repository, current Core 3.0 instruction/validation/execution pages, Stack Switching proposal repository, and Starshine WAST/core/validator evidence. The official Core instruction, validation, type, and binary pages plus the local owner files listed below provide the detailed tag-result-shape source map.
-
-No new raw source was added for this page: the 2026-06-05 bridge already captured the durable primary-source evidence, and a same-day web recheck found the same routing rule still holds. This page crystallizes that evidence into a root-level boundary page so readers do not have to infer Core feature status from the narrower WAST authoring guide alone.
+This page is grounded in the official WebAssembly finished-proposals table, active proposal tracker, archived Exception Handling proposal repository, current Core 3.0 instruction/validation/execution pages, Stack Switching proposal repository, and the Starshine WAST/core/validator owner files listed below. Those sources establish the feature-status routing and the detailed tag-result-shape map without relying on a retained raw capture.
 
 ## Status Rule
 
@@ -130,8 +127,7 @@ When changing code or docs around Exception Handling:
 
 ## Sources
 
-- Feature-status bridge: [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md)
-- Official exception/tag sources: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/binary/modules.html>
+- Official status and exception/tag sources: <https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md>, <https://github.com/WebAssembly/proposals>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/binary/modules.html>
 - Detailed WAST guide: [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md)
 - Binary tag/resource guide: [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md)
 - Validation phase and stack-polymorphism guides: [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md)

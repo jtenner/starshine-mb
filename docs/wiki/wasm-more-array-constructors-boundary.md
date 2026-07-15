@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md
-  - raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../../src/lib/types.mbt
   - ../../src/wast/keywords.mbt
@@ -106,7 +105,7 @@ If Starshine implements More Array Constructors, start with a source recheck bec
 ## Sources
 
 - Current focused bridge: [`raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md)
-- GC Core boundary: [`raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md)
+- GC Core boundary: [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md)
 - Aggregate instruction authoring: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)
 - Constant-expression boundary: [`validate/constant-expressions.md`](validate/constant-expressions.md), [`raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md`](raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md)
 - Data-count/data-index boundary: [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md)

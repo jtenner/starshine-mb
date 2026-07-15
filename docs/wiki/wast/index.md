@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-wast-script-lifecycle-boundary-recheck.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - code-metadata-and-function-annotations.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md

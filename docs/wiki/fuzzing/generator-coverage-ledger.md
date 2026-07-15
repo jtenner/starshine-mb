@@ -14,7 +14,6 @@ sources:
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
-  - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md

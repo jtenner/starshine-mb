@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -42,7 +41,7 @@ Exception handling in Starshine crosses three layers:
 
 Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. Start from the root boundary page [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md) when the question is feature status or cross-layer routing. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on text syntax, lowering, validation, and execution-preservation traps that are easiest to miss.
 
-The current feature-status bridge is [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md), crystallized for root-level navigation in [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md). It rechecked the official finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, current Core 3.0 instruction/validation/execution pages, Stack Switching proposal repository, and current Starshine WAST/core/validator evidence. The current Core instruction and validation pages plus the listed Starshine owners remain the tag-result-shape source map: `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
+The root-level [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md) routes this feature status and its official finished-proposal, proposal-tracker, Core 3.0, Stack Switching, and Starshine owner evidence. The current Core instruction and validation pages plus the listed Starshine owners remain the tag-result-shape source map: `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
 
 ## Feature Status And Nearby Boundaries
 
@@ -204,7 +203,7 @@ When a pass rewrites control around `try_table`, rerun validation. The high-risk
 
 ## Sources
 
-- Exception Handling feature-status bridge: [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md)
+- Exception Handling feature-status boundary: [`../wasm-exception-handling-boundary.md`](../wasm-exception-handling-boundary.md)
 - Official exception/tag sources: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/binary/modules.html>
 - Binary tag/resource guide: [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md)
 - Validator phase guide: [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)

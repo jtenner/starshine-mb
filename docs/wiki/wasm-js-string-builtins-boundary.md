@@ -5,8 +5,6 @@ last_reviewed: 2026-07-11
 sources:
   - raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
   - raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
-  - raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md
-  - raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - strings/string-const-surface.md
   - wast/string-instruction-authoring.md
@@ -152,10 +150,10 @@ When touching string-related docs or code:
 
 - Current Node-loader / ESM builtin recheck: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md)
 - JS String Builtins boundary refresh: [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
-- JS Primitive / JS Text Encoding Builtins boundary: [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md), [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md)
+- JS Primitive / JS Text Encoding Builtins boundary: [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Core section-id boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html)
-- ESM Integration boundary refresh: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), historical [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md), [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
+- ESM Integration boundary: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md), [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Focused local pages: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
 - Binaryen pass dossiers: [`binaryen/passes/string-gathering/index.md`](binaryen/passes/string-gathering/index.md), [`binaryen/passes/string-lowering/index.md`](binaryen/passes/string-lowering/index.md), [`binaryen/passes/string-lifting/index.md`](binaryen/passes/string-lifting/index.md)
 - Local source anchors: [`../../node/internal/runtime.js`](../../node/internal/runtime.js), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)

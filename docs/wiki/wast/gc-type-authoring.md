@@ -3,7 +3,6 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - https://webassembly.github.io/spec/core/valid/types.html
   - ../custom-descriptors/descriptor-instruction-surface.md
   - ../raw/research/0018-2026-03-22-wast-struct-type-surface.md
@@ -164,7 +163,7 @@ Starshine rejects the second type because `describes` appears after `descriptor`
 
 ## Sources
 
-- Cross-layer GC boundary refresh: [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
+- Cross-layer GC boundary: [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
 - Official GC type/subtyping sources: <https://webassembly.github.io/spec/core/syntax/types.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/binary/types.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
 - Validator-side type-section contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
 - Custom-descriptor instruction boundary: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.

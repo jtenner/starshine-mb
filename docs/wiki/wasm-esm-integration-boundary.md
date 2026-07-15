@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-14
 sources:
   - raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md
   - https://nodejs.org/api/wasi.html
-  - raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - wasm-js-string-builtins-boundary.md
   - wasm-jspi-host-async-boundary.md
@@ -35,7 +34,7 @@ Use this page when a Starshine or WebAssembly claim mentions **ESM Integration**
 
 For beginners: ECMAScript modules are JavaScript's `import` / `export` module system. WebAssembly Core modules are bytecode artifacts with their own imports and exports. **ESM Integration** is the active WebAssembly proposal that lets a JavaScript module graph treat a `.wasm` file as a module resource instead of making user code read bytes and call `WebAssembly.compile(...)` by hand.
 
-The current source bridge is [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md). It rechecked the official WebAssembly proposals tracker, the ESM Integration JavaScript Interface draft, Node.js v26.4.0 Wasm-module ESM docs, and Starshine's current Node/runtime sources. The earlier [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md) remains historical provenance.
+The current source bridge is [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md). It rechecked the official WebAssembly proposals tracker, the ESM Integration JavaScript Interface draft, Node.js v26.4.0 Wasm-module ESM docs, and Starshine's current Node/runtime sources.
 
 Durable status rule:
 
@@ -139,7 +138,6 @@ Do **not** start by adding Starshine WAST syntax, binary opcode cases, validatio
 ## Sources
 
 - Current source bridge: [`raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md`](raw/wasm/2026-07-11-esm-integration-node-loader-and-string-builtins-recheck.md)
-- Historical ESM source bridge: [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md)
 - Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Shared feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
