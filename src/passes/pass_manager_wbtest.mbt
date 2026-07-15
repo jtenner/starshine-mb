@@ -19312,3 +19312,24 @@ test "DAEO selected cleanup tees aggregate field readbacks" {
     @lib.Instruction::drop(),
   ])
 }
+
+///|
+test "DAEO selected cleanup tees value-block readbacks" {
+  let value_block = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+  )
+  let target = @lib.LocalIdx::new(0U)
+  let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks([
+    value_block,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ])
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [
+    value_block,
+    @lib.Instruction::local_tee(target),
+    @lib.Instruction::drop(),
+  ])
+}

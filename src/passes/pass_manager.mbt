@@ -60786,6 +60786,18 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_instr(
 }
 
 ///|
+fn run_hot_pipeline_dae_readback_producer_can_tee(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.StructGet(_, _) => true
+    @lib.Block(@lib.ValTypeBlockType(_), _)
+    | @lib.Block(@lib.TypeIdxBlockType(_), _) => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_tee_struct_get_readbacks(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
@@ -60795,9 +60807,10 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks(
   while idx < instrs.length() {
     if idx + 2 < instrs.length() {
       match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
-        (@lib.StructGet(_, _), @lib.LocalSet(target), @lib.LocalGet(readback)) if target ==
-          readback => {
-          rewritten.push(instrs[idx])
+        (producer, @lib.LocalSet(target), @lib.LocalGet(readback)) if target ==
+          readback &&
+          run_hot_pipeline_dae_readback_producer_can_tee(producer) => {
+          rewritten.push(producer)
           rewritten.push(@lib.Instruction::local_tee(target))
           rewrite_count = rewrite_count + 1
           idx += 3
