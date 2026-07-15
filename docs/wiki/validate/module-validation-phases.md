@@ -18,12 +18,9 @@ sources:
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - https://webassembly.github.io/spec/core/valid/index.html
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
-  - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
-  - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
-  - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
@@ -241,7 +238,7 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Core `ref.func` membership rule: [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Official validation algorithm: [validation overview](https://webassembly.github.io/spec/core/valid/index.html) and [algorithm appendix](https://webassembly.github.io/spec/core/appendix/algorithm.html)
-- Scalar numeric snapshots: [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md), [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
+- Scalar numeric refresh: [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md), [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md)
 - Table64 instruction-width correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - Implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing and trace: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt)

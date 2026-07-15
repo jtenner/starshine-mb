@@ -7,7 +7,6 @@ sources:
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
-  - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt

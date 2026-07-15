@@ -31,7 +31,7 @@ This targeted refresh extends the broader 2026-05-19 scalar numeric manifest wit
 1. the boundary between official numeric literal spellings and Starshine's local WAST lexer / parser / lowering paths; and
 2. the rewrite hazards around numeric operations that typecheck similarly but have different trap, saturation, bit-identity, signedness, NaN, or signed-zero behavior.
 
-It does not replace the full scalar numeric instruction snapshot in [`2026-05-19-wast-numeric-instruction-sources.md`](2026-05-19-wast-numeric-instruction-sources.md); it sharpens the literal/rewrite subtopic used by [`../../wast/numeric-instruction-authoring.md`](../../wast/numeric-instruction-authoring.md).
+It sharpens the literal/rewrite subtopic used by [`../../wast/numeric-instruction-authoring.md`](../../wast/numeric-instruction-authoring.md); the living page retains the broader scalar instruction contract.
 
 ## Primary external sources checked
 
