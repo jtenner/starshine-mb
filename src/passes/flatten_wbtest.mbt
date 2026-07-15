@@ -5965,3 +5965,33 @@ test "flatten terminal table proofs require an exact pre-mutation cache" {
     ),
   )
 }
+
+///|
+test "flatten lightweight use counts match exact pre-mutation ownership" {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let table_id = fixture[2]
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let sum = @ir.hot_build_binary(func, @lib.ValType::i32(), shared, shared)
+  @ir.hot_node_exact_instr_set(func, sum, @lib.Instruction::i32_add())
+  let call = @ir.hot_build_call(func, 99, [], [sum])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id, call,
+  ])
+  let expected = @ir.use_def_build_node_uses(func)
+  let actual = flatten_build_node_use_counts(func)
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      @debug.assert_eq(
+        @ir.hot_node_use_count(actual, node_id),
+        @ir.node_use_count(expected, node_id),
+      )
+    }
+  }
+  @debug.assert_eq(@ir.hot_node_use_count(actual, try_id), 1)
+  @debug.assert_eq(@ir.hot_node_use_count(actual, table_id), 1)
+  @debug.assert_eq(@ir.hot_node_use_count(actual, call), 1)
+  @debug.assert_eq(@ir.hot_node_use_count(actual, sum), 1)
+  @debug.assert_eq(@ir.hot_node_use_count(actual, shared), 2)
+}

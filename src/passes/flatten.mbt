@@ -218,6 +218,11 @@ fn flatten_value_type_is_defaultable(value_type : @lib.ValType) -> Bool {
 }
 
 ///|
+fn flatten_build_node_use_counts(func : @ir.HotFunc) -> @ir.HotNodeUseCounts {
+  @ir.hot_node_use_counts_build(func)
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -225,7 +230,7 @@ priv struct FlattenRewriteState {
   sequenced_root_nodes : Array[Int]
   eh_repair_requirement : FlattenEhRepairRequirement
   label_used : @bitset.BitSet
-  use_def : @ir.HotUseDef
+  use_def : @ir.HotNodeUseCounts
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
   terminal_table_labels : Array[Int]
@@ -249,7 +254,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     sequenced_root_nodes: [],
     eh_repair_requirement: flatten_eh_repair_requirement(func),
     label_used: pass_compute_label_used(func),
-    use_def: @ir.use_def_build_node_uses(func),
+    use_def: flatten_build_node_use_counts(func),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
     terminal_table_labels: Array::make(@ir.hot_node_count(func), -1),
@@ -902,7 +907,7 @@ fn flatten_direct_enclosing_target_controls(
 ///|
 fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   root_id : Int,
   value_id : Int,
   left_id : Int,
@@ -945,7 +950,7 @@ fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
     _ => return None
   }
   for owned_id in [left_id, right_id, multiply_left, multiply_right] {
-    if @ir.node_use_count(use_def, owned_id) != 1 {
+    if @ir.hot_node_use_count(use_def, owned_id) != 1 {
       return None
     }
   }
@@ -955,7 +960,7 @@ fn flatten_try_table_dead_suffix_subtract_one_multiply_child_nodes(
 ///|
 fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   root_id : Int,
   value_id : Int,
   left_id : Int,
@@ -1003,7 +1008,7 @@ fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
       left_id, right_id, left_multiply_left, left_multiply_right, right_multiply_left,
       right_multiply_right,
     ] {
-    if @ir.node_use_count(use_def, owned_id) != 1 {
+    if @ir.hot_node_use_count(use_def, owned_id) != 1 {
       return None
     }
   }
@@ -1013,7 +1018,7 @@ fn flatten_try_table_dead_suffix_two_multiply_children_nodes(
 ///|
 fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   root_id : Int,
   value_id : Int,
   left_id : Int,
@@ -1090,7 +1095,7 @@ fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
       left_id, right_id, rich_left, rich_right, left_multiply_left, left_multiply_right,
       right_multiply_left, right_multiply_right,
     ] {
-    if @ir.node_use_count(use_def, owned_id) != 1 {
+    if @ir.hot_node_use_count(use_def, owned_id) != 1 {
       return None
     }
   }
@@ -1100,7 +1105,7 @@ fn flatten_try_table_dead_suffix_deeper_two_multiply_children_nodes(
 ///|
 fn flatten_try_table_dead_suffix_collect_owned_call_argument(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   node_id : Int,
   nodes : Array[Int],
 ) -> Bool {
@@ -1109,7 +1114,7 @@ fn flatten_try_table_dead_suffix_collect_owned_call_argument(
     !@ir.hot_node_is_live(func, node_id) ||
     nodes.contains(node_id) ||
     @ir.hot_node_result_arity(func, node_id) != 1 ||
-    @ir.node_use_count(use_def, node_id) != 1 {
+    @ir.hot_node_use_count(use_def, node_id) != 1 {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
@@ -1216,13 +1221,13 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
 ///|
 fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   call_id : Int,
 ) -> Array[Int]? {
   if @ir.hot_node_result_arity(func, call_id) != 0 {
     return None
   }
-  if @ir.node_use_count(use_def, call_id) != 1 {
+  if @ir.hot_node_use_count(use_def, call_id) != 1 {
     return None
   }
   let nodes : Array[Int] = [call_id]
@@ -1233,7 +1238,7 @@ fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
       !@ir.hot_node_is_live(func, argument_id) ||
       nodes.contains(argument_id) ||
       @ir.hot_node_result_arity(func, argument_id) != 1 ||
-      @ir.node_use_count(use_def, argument_id) != 1 ||
+      @ir.hot_node_use_count(use_def, argument_id) != 1 ||
       !flatten_try_table_dead_suffix_call_argument_root_is_supported(
         func, argument_id,
       ) {
@@ -1274,7 +1279,7 @@ fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
 ///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   root_id : Int,
 ) -> Array[Int]? {
   match @ir.hot_node_get(func, root_id).op {
@@ -1288,8 +1293,8 @@ fn flatten_try_table_dead_suffix_root_nodes(
         return None
       }
       let value_id = @ir.hot_child_get(func, root_id, 0)
-      if @ir.node_use_count(use_def, root_id) != 1 ||
-        @ir.node_use_count(use_def, value_id) != 1 {
+      if @ir.hot_node_use_count(use_def, root_id) != 1 ||
+        @ir.hot_node_use_count(use_def, value_id) != 1 {
         return None
       }
       match @ir.hot_node_get(func, value_id).op {
@@ -1304,7 +1309,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
           }
           let input_id = @ir.hot_child_get(func, value_id, 0)
           if @ir.hot_node_result_arity(func, input_id) != 1 ||
-            @ir.node_use_count(use_def, input_id) != 1 {
+            @ir.hot_node_use_count(use_def, input_id) != 1 {
             return None
           }
           match @ir.hot_node_get(func, input_id).op {
@@ -1322,7 +1327,7 @@ fn flatten_try_table_dead_suffix_root_nodes(
           }
           let input_id = @ir.hot_child_get(func, value_id, 0)
           if @ir.hot_node_result_arity(func, input_id) != 1 ||
-            @ir.node_use_count(use_def, input_id) != 1 {
+            @ir.hot_node_use_count(use_def, input_id) != 1 {
             return None
           }
           match @ir.hot_node_get(func, input_id).op {
@@ -1418,10 +1423,10 @@ fn flatten_try_table_dead_suffix_root_nodes(
                   (@ir.HotOp::Const, @ir.HotOp::Const) => ()
                   _ => return None
                 }
-                if @ir.node_use_count(use_def, left_id) != 1 ||
-                  @ir.node_use_count(use_def, right_id) != 1 ||
-                  @ir.node_use_count(use_def, multiply_left) != 1 ||
-                  @ir.node_use_count(use_def, multiply_right) != 1 {
+                if @ir.hot_node_use_count(use_def, left_id) != 1 ||
+                  @ir.hot_node_use_count(use_def, right_id) != 1 ||
+                  @ir.hot_node_use_count(use_def, multiply_left) != 1 ||
+                  @ir.hot_node_use_count(use_def, multiply_right) != 1 {
                   return None
                 }
                 return Some(nested_nodes)
@@ -1445,8 +1450,8 @@ fn flatten_try_table_dead_suffix_root_nodes(
             (@ir.HotOp::Const, @ir.HotOp::Const) => ()
             _ => return None
           }
-          if @ir.node_use_count(use_def, left_id) != 1 ||
-            @ir.node_use_count(use_def, right_id) != 1 {
+          if @ir.hot_node_use_count(use_def, left_id) != 1 ||
+            @ir.hot_node_use_count(use_def, right_id) != 1 {
             return None
           }
           Some([root_id, value_id, left_id, right_id])
@@ -1567,7 +1572,7 @@ fn flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(
 ///|
 fn flatten_try_table_dead_suffix_root_is_deeper_two_multiply_children_drop(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   root_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, root_id).op {
@@ -1655,7 +1660,7 @@ fn flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
 ///|
 fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_def : @ir.HotNodeUseCounts,
   root_id : Int,
 ) -> Bool {
   if flatten_try_table_dead_suffix_root_is_direct_drop_const(func, root_id) ||
@@ -1733,7 +1738,7 @@ fn flatten_try_table_dead_suffix_nodes(
     let suffix_count = root_count - root_idx - 1
     let use_def = match state {
       Some(state) => state.use_def
-      None => @ir.use_def_build_node_uses(func)
+      None => flatten_build_node_use_counts(func)
     }
     let recognized_suffix_roots : Array[Array[Int]?] = []
     if suffix_count > 1 {

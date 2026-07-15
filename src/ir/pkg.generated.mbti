@@ -523,6 +523,10 @@ pub fn hot_node_set(HotFunc, Int, HotNode) -> Unit
 
 pub fn hot_node_type(HotFunc, Int) -> Int
 
+pub fn hot_node_use_count(HotNodeUseCounts, Int) -> Int
+
+pub fn hot_node_use_counts_build(HotFunc) -> HotNodeUseCounts
+
 pub fn hot_nodes_match_simple_value(HotFunc, Int, Int) -> Bool
 
 pub fn hot_param_count(HotFunc) -> Int
@@ -1259,6 +1263,10 @@ pub struct HotNode {
   child_count : Int
 } derive(Eq, @debug.Debug)
 pub impl Show for HotNode
+
+pub struct HotNodeUseCounts {
+  counts : Array[Int]
+} derive(Eq, @debug.Debug)
 
 pub enum HotOp {
   Nop

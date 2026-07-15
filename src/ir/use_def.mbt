@@ -32,6 +32,12 @@ pub struct HotUseDef {
 } derive(Eq, Debug)
 
 ///|
+/// Lightweight exact node-use counts without use-site or local-use allocation.
+pub struct HotNodeUseCounts {
+  counts : Array[Int]
+} derive(Eq, Debug)
+
+///|
 fn use_def_bitset_clone(src : Bitset) -> Bitset {
   let out = bitset_new(src.size)
   ignore(bitset_union_into(out, src))
@@ -336,6 +342,43 @@ pub fn use_def_build_node_uses(func : HotFunc) -> HotUseDef {
 }
 
 ///|
+fn hot_node_use_counts_visit(
+  func : HotFunc,
+  node_id : NodeId,
+  counts : Array[Int],
+  seen : @bitset.BitSet,
+) -> Unit {
+  if seen[node_id] {
+    return
+  }
+  seen[node_id] = true
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_id = func.children[node.child_base + slot]
+    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
+      continue
+    }
+    counts[child_id] = counts[child_id] + 1
+    hot_node_use_counts_visit(func, child_id, counts, seen)
+  }
+}
+
+///|
+/// Count every reachable live root and child reference in the current HOT snapshot.
+pub fn hot_node_use_counts_build(func : HotFunc) -> HotNodeUseCounts {
+  let counts = Array::make(hot_node_count(func), 0)
+  let seen = @bitset.BitSet::new(hot_node_count(func))
+  for root_id in func.roots {
+    if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+      continue
+    }
+    counts[root_id] = counts[root_id] + 1
+    hot_node_use_counts_visit(func, root_id, counts, seen)
+  }
+  { counts, }
+}
+
+///|
 pub fn use_def_build(func : HotFunc, cfg? : HotCfg? = None) -> HotUseDef {
   let (node_uses, local_reads, local_writes) = use_def_build_node_and_local_uses(
     func,
@@ -384,6 +427,17 @@ pub fn node_use_sites_borrowed(
 pub fn node_use_count(use_def : HotUseDef, node_id : NodeId) -> Int {
   use_def_require_node_range(use_def, node_id)
   use_def.node_uses[node_id].length()
+}
+
+///|
+pub fn hot_node_use_count(
+  use_counts : HotNodeUseCounts,
+  node_id : NodeId,
+) -> Int {
+  if node_id < 0 || node_id >= use_counts.counts.length() {
+    abort("HOT node-use count query requires a valid node id")
+  }
+  use_counts.counts[node_id]
 }
 
 ///|
