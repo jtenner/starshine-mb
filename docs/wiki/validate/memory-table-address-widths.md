@@ -5,7 +5,6 @@ last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/validate.mbt
@@ -31,7 +30,7 @@ Use this page when a fixture, validator change, generator, binary codec change, 
 - [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), and [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md) own fixture-facing text shapes and current WAST gaps.
 - This page owns the cross-cutting rule: **the selected resource's address type controls specific stack operands, but not every operand in that instruction family**.
 
-The current Core/status source bridge is [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md). It rechecked the official Core 3.0 type and instruction-validation pages, the finished-proposals table, the active-proposal tracker, and the local Starshine type/binary/typechecker/test surfaces. The detailed validator matrix remains [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md): memory and table instructions use address types positionally, while segment source offsets for `memory.init` / `table.init` remain `i32`.
+The current Core/status source bridge is [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md). It rechecked the official Core 3.0 type and instruction-validation pages, the finished-proposals table, the active-proposal tracker, and the local Starshine type/binary/typechecker/test surfaces. The detailed validator matrix is maintained on this page: memory and table instructions use address types positionally, while segment source offsets for `memory.init` / `table.init` remain `i32`.
 
 ## Core Status And Local Layer Split
 
@@ -168,7 +167,6 @@ Use this checklist for passes, generators, binary roundtrips, and validator chan
 
 - Multi-memory selected-resource source bridge: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
 - Current Core/status source bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md)
-- Detailed validator-matrix source bridge: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Resource-section validation contract: [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/syntax/types.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
 - Starshine implementation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

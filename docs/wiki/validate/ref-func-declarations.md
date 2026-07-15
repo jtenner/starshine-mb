@@ -5,7 +5,6 @@ last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
-  - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -149,7 +148,6 @@ This shape is rejected unless another declaration source names `$f`. Current Cor
 
 - Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
 - Current primary-source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
-- Superseded historical refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Core declared-reference rule: [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
 - Invalid-fuzz registration: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)

@@ -4,8 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
-  - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
-  - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - wast/atomic-memory-instruction-authoring.md
@@ -44,7 +42,7 @@ Use this page when a Starshine claim mentions **linear shared memory**, **ordina
 
 For beginners: a WebAssembly module can define one or more linear memories. A **shared** memory is intended for multiple agents/threads, so it needs a maximum bound and can be used by atomic operations. Atomic operations are not just unusual loads and stores: they carry synchronization semantics that optimizers must preserve.
 
-The current reconciliation is [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md). It supersedes the June local-validation claim: current [`memarg_check_atomic(...)`](../../src/validate/typecheck.mbt) accepts an existing selected memory whether it is shared or unshared, after ordinary index/alignment/offset checks. `AtomicFence` remains distinct because it has no memory argument or stack effect, but that difference is **not** a sharedness split. The earlier shared-memory and fence bridges remain historical evidence for memory-type flags, the maximum-on-shared-memory resource rule, and proposal execution distinctions. The official active proposal routing bridge [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) keeps Threads as active Phase 4 status-only evidence, not proof of full local support.
+The current reconciliation is [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md). Current [`memarg_check_atomic(...)`](../../src/validate/typecheck.mbt) accepts an existing selected memory whether it is shared or unshared, after ordinary index/alignment/offset checks. `AtomicFence` remains distinct because it has no memory argument or stack effect, but that difference is **not** a sharedness split. The shared-memory maximum and proposal execution distinctions are grounded below in current Threads sources and local resource/typechecker evidence. The official active proposal routing bridge [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) keeps Threads as active Phase 4 status-only evidence, not proof of full local support.
 
 ## Boundary Map
 
@@ -156,8 +154,6 @@ When touching shared memory or ordinary atomics:
 ## Sources
 
 - Current unshared-atomic validation reconciliation: [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
-- Historical shared-memory source bridge: [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
-- Historical fence/unshared-memory reconciliation: [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
 - Active proposal routing: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Current linear-memory atomic validation reconciliation: [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
 - Living companion pages: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)
