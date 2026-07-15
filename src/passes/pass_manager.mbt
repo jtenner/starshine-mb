@@ -61455,10 +61455,11 @@ fn run_hot_pipeline_dae_zero_param_single_block_result_type(
 }
 
 ///|
-// Binaryen's structured SimplifyLocals path can carry this one-use block result
-// through a unary call into the terminal constructor. Moving only the pure zero
-// before a zero-parameter block preserves every producer and call effect/trap.
-fn run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_unary_call(
+// Binaryen's structured SimplifyLocals path carries exact one-use block results
+// directly into their consumers. This fused matcher keeps the existing selected
+// traversal cheap: zero arguments move before zero-parameter blocks, while pure
+// caller-local call arguments move only when the block cannot rewrite them.
+fn run_hot_pipeline_dae_try_sink_selected_block_result_transport(
   instrs : Array[@lib.Instruction],
   idx : Int,
   param_count : Int,
@@ -61467,29 +61468,15 @@ fn run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_unary_call(
   local_sets : Array[Int],
   local_tees : Array[Int],
   type_sec : @lib.TypeSec?,
-) -> Array[@lib.Instruction]? {
-  if idx + 6 >= instrs.length() {
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 1 >= instrs.length() {
     return None
   }
-  match
+  match (instrs[idx], instrs[idx + 1]) {
     (
-      instrs[idx],
-      instrs[idx + 1],
-      instrs[idx + 2],
-      instrs[idx + 3],
-      instrs[idx + 4],
-      instrs[idx + 5],
-      instrs[idx + 6],
-    ) {
-    (
-      @lib.Block(block_type, _) as producer,
+      @lib.Block(block_type, @lib.Expr(producer_body)) as producer,
       @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
-      @lib.I32Const(@lib.I32(0)),
-      @lib.LocalGet(readback),
-      @lib.Call(unary_call),
-      @lib.StructNew(struct_type),
-      @lib.Return,
-    ) if target == readback => {
+    ) => {
       let target_idx = target_raw.reinterpret_as_int()
       let result_type = match
         run_hot_pipeline_dae_zero_param_single_block_result_type(
@@ -61508,80 +61495,114 @@ fn run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_unary_call(
         local_tees[target_idx] != 0 {
         return None
       }
-      local_gets[target_idx] = 0
-      local_sets[target_idx] = 0
-      Some([
-        @lib.Instruction::i32_const(@lib.I32(0)),
-        producer,
-        @lib.Instruction::call(unary_call),
-        @lib.Instruction::struct_new(struct_type),
-        @lib.Instruction::return_(),
-      ])
-    }
-    _ => None
-  }
-}
-
-///|
-// Binaryen's structured SimplifyLocals path carries this one-use block result
-// directly into the terminal constructor. Moving only the pure zero argument
-// before a zero-parameter block preserves every producer effect and trap.
-fn run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_struct_arg(
-  instrs : Array[@lib.Instruction],
-  idx : Int,
-  param_count : Int,
-  local_types : Array[@lib.ValType],
-  local_gets : Array[Int],
-  local_sets : Array[Int],
-  local_tees : Array[Int],
-  type_sec : @lib.TypeSec?,
-) -> Array[@lib.Instruction]? {
-  if idx + 5 >= instrs.length() {
-    return None
-  }
-  match
-    (
-      instrs[idx],
-      instrs[idx + 1],
-      instrs[idx + 2],
-      instrs[idx + 3],
-      instrs[idx + 4],
-      instrs[idx + 5],
-    ) {
-    (
-      @lib.Block(block_type, _) as producer,
-      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
-      @lib.I32Const(@lib.I32(0)),
-      @lib.LocalGet(readback),
-      @lib.StructNew(struct_type),
-      @lib.Return,
-    ) if target == readback => {
-      let target_idx = target_raw.reinterpret_as_int()
-      let result_type = match
-        run_hot_pipeline_dae_zero_param_single_block_result_type(
-          block_type, type_sec,
-        ) {
-        Some(result_type) => result_type
-        None => return None
+      if idx + 6 < instrs.length() {
+        match
+          (
+            instrs[idx + 2],
+            instrs[idx + 3],
+            instrs[idx + 4],
+            instrs[idx + 5],
+            instrs[idx + 6],
+          ) {
+          (
+            @lib.I32Const(@lib.I32(0)),
+            @lib.LocalGet(readback),
+            @lib.Call(unary_call),
+            @lib.StructNew(struct_type),
+            @lib.Return,
+          ) if target == readback => {
+            local_gets[target_idx] = 0
+            local_sets[target_idx] = 0
+            return Some(
+              (
+                [
+                  @lib.Instruction::i32_const(@lib.I32(0)),
+                  producer,
+                  @lib.Instruction::call(unary_call),
+                  @lib.Instruction::struct_new(struct_type),
+                  @lib.Instruction::return_(),
+                ],
+                7,
+              ),
+            )
+          }
+          _ => ()
+        }
       }
-      if target_idx < param_count ||
-        target_idx < 0 ||
-        target_idx >= local_types.length() ||
-        target_idx >= local_gets.length() ||
-        local_types[target_idx] != result_type ||
-        local_gets[target_idx] != 1 ||
-        local_sets[target_idx] != 1 ||
-        local_tees[target_idx] != 0 {
+      if idx + 5 >= instrs.length() {
         return None
       }
-      local_gets[target_idx] = 0
-      local_sets[target_idx] = 0
-      Some([
-        @lib.Instruction::i32_const(@lib.I32(0)),
-        producer,
-        @lib.Instruction::struct_new(struct_type),
-        @lib.Instruction::return_(),
-      ])
+      match
+        (instrs[idx + 2], instrs[idx + 3], instrs[idx + 4], instrs[idx + 5]) {
+        (
+          @lib.I32Const(@lib.I32(0)),
+          @lib.LocalGet(readback),
+          @lib.StructNew(struct_type),
+          @lib.Return,
+        ) if target == readback => {
+          local_gets[target_idx] = 0
+          local_sets[target_idx] = 0
+          Some(
+            (
+              [
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                producer,
+                @lib.Instruction::struct_new(struct_type),
+                @lib.Instruction::return_(),
+              ],
+              6,
+            ),
+          )
+        }
+        (
+          @lib.LocalGet(@lib.LocalIdx(first_arg_raw) as first_arg),
+          @lib.LocalGet(@lib.LocalIdx(second_arg_raw) as second_arg),
+          @lib.LocalGet(readback),
+          @lib.Call(consumer),
+        ) if target == readback => {
+          let first_arg_idx = first_arg_raw.reinterpret_as_int()
+          let second_arg_idx = second_arg_raw.reinterpret_as_int()
+          if first_arg_idx < 0 ||
+            second_arg_idx < 0 ||
+            first_arg_idx >= local_gets.length() ||
+            second_arg_idx >= local_gets.length() ||
+            first_arg_idx >= local_sets.length() ||
+            second_arg_idx >= local_sets.length() ||
+            first_arg_idx >= local_tees.length() ||
+            second_arg_idx >= local_tees.length() ||
+            target_idx == first_arg_idx ||
+            target_idx == second_arg_idx ||
+            (
+              (local_sets[first_arg_idx] > 0 || local_tees[first_arg_idx] > 0) &&
+              run_hot_pipeline_raw_branch_writes_local(
+                producer_body, first_arg_idx,
+              )
+            ) ||
+            (
+              second_arg_idx != first_arg_idx &&
+              (local_sets[second_arg_idx] > 0 || local_tees[second_arg_idx] > 0) &&
+              run_hot_pipeline_raw_branch_writes_local(
+                producer_body, second_arg_idx,
+              )
+            ) {
+            return None
+          }
+          local_gets[target_idx] = 0
+          local_sets[target_idx] = 0
+          Some(
+            (
+              [
+                @lib.Instruction::local_get(first_arg),
+                @lib.Instruction::local_get(second_arg),
+                producer,
+                @lib.Instruction::call(consumer),
+              ],
+              6,
+            ),
+          )
+        }
+        _ => None
+      }
     }
     _ => None
   }
@@ -61854,31 +61875,16 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   let mut idx = 0
   while idx < instrs.length() {
     match
-      run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_unary_call(
+      run_hot_pipeline_dae_try_sink_selected_block_result_transport(
         instrs, idx, param_count, local_types, local_gets, local_sets, local_tees,
         type_sec,
       ) {
-      Some(replacement) => {
+      Some((replacement, consumed_len)) => {
         for instr in replacement {
           rewritten.push(instr)
         }
         rewrite_count = rewrite_count + 1
-        idx += 7
-        continue
-      }
-      None => ()
-    }
-    match
-      run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_struct_arg(
-        instrs, idx, param_count, local_types, local_gets, local_sets, local_tees,
-        type_sec,
-      ) {
-      Some(replacement) => {
-        for instr in replacement {
-          rewritten.push(instr)
-        }
-        rewrite_count = rewrite_count + 1
-        idx += 6
+        idx += consumed_len
         continue
       }
       None => ()

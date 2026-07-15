@@ -19888,6 +19888,55 @@ test "DAEO selected cleanup sinks the final three-producer sibling result" {
 }
 
 ///|
+test "DAEO selected cleanup sinks a block result through two pure call arguments" {
+  let target = @lib.LocalIdx::new(3U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(20U))]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+  ]
+  let local_gets = [1, 1, 0, 1]
+  let local_sets = [0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_selected_block_result_transport(
+      body,
+      0,
+      3,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ],
+      local_gets,
+      local_sets,
+      local_tees,
+      None,
+    ) {
+    Some((value, 6)) => value
+    Some((_, consumed)) =>
+      fail("expected six consumed instructions, got \{consumed}")
+    None => fail("expected block-result call-argument sinking")
+  }
+  @debug.assert_eq(local_gets, [1, 1, 0, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    producer,
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup sinks a terminal block result through a zero unary call" {
   let target = @lib.LocalIdx::new(7U)
   let producer = @lib.Instruction::block(
@@ -19917,7 +19966,7 @@ test "DAEO selected cleanup sinks a terminal block result through a zero unary c
   let local_sets = [0, 0, 0, 0, 0, 0, 0, 1]
   let local_tees = [0, 0, 0, 0, 0, 0, 0, 0]
   let rewritten = match
-    run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_unary_call(
+    run_hot_pipeline_dae_try_sink_selected_block_result_transport(
       body,
       0,
       7,
@@ -19927,7 +19976,9 @@ test "DAEO selected cleanup sinks a terminal block result through a zero unary c
       local_tees,
       None,
     ) {
-    Some(value) => value
+    Some((value, 7)) => value
+    Some((_, consumed)) =>
+      fail("expected seven consumed instructions, got \{consumed}")
     None => fail("expected terminal block-result unary-call sinking")
   }
   @debug.assert_eq(local_gets, [0, 0, 0, 0, 0, 0, 0, 0])
@@ -19970,7 +20021,7 @@ test "DAEO selected cleanup sinks a terminal block result through a zero struct 
   let local_sets = [0, 0, 0, 0, 0, 0, 0, 1]
   let local_tees = [0, 0, 0, 0, 0, 0, 0, 0]
   let rewritten = match
-    run_hot_pipeline_dae_try_sink_terminal_block_result_through_zero_struct_arg(
+    run_hot_pipeline_dae_try_sink_selected_block_result_transport(
       body,
       0,
       7,
@@ -19980,7 +20031,9 @@ test "DAEO selected cleanup sinks a terminal block result through a zero struct 
       local_tees,
       None,
     ) {
-    Some(value) => value
+    Some((value, 6)) => value
+    Some((_, consumed)) =>
+      fail("expected six consumed instructions, got \{consumed}")
     None => fail("expected terminal block-result sinking")
   }
   @debug.assert_eq(local_gets, [0, 0, 0, 0, 0, 0, 0, 0])
