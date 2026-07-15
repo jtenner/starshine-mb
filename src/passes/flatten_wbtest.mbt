@@ -6012,3 +6012,30 @@ test "flatten label branch cache records each exact targeting node once" {
   @debug.assert_eq(branches[try_label], [table_id])
   @debug.assert_eq(branches[block_label], [branch_id])
 }
+
+///|
+test "flatten replaces one region root without rebuilding its siblings" {
+  let func = @ir.HotFunc::new()
+  let value = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let sibling = @ir.hot_build_nop(func)
+  @ir.hot_root_append(func, value)
+  @ir.hot_root_append(func, sibling)
+  let local_id = @ir.hot_append_body_local(func, @lib.ValType::i32())
+  let replacement = @ir.hot_build_local_set(func, local_id, value)
+  let revision = @ir.hot_revision_current(func)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(
+    flatten_set_region_root(ctx, func, @ir.HotRegionRef::root(), 0, replacement),
+    value,
+  )
+  @debug.assert_eq(@ir.hot_root_get(func, 0), replacement)
+  @debug.assert_eq(@ir.hot_root_get(func, 1), sibling)
+  @debug.assert_eq(@ir.hot_child_get(func, replacement, 0), value)
+  @debug.assert_eq(@ir.hot_revision_current(func), revision + 1)
+}

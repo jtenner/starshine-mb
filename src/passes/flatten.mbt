@@ -223,6 +223,22 @@ fn flatten_build_node_use_counts(func : @ir.HotFunc) -> @ir.HotNodeUseCounts {
 }
 
 ///|
+fn flatten_set_region_root(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  root_idx : Int,
+  replacement_id : Int,
+) -> Int {
+  let previous_id = @ir.hot_region_get(func, region_ref, root_idx)
+  if previous_id != replacement_id {
+    ignore(@ir.hot_region_set(func, region_ref, root_idx, replacement_id))
+    pass_mark_mutated(ctx, func)
+  }
+  previous_id
+}
+
+///|
 fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
   let branch_nodes : Array[Array[Int]] = []
   for label_idx = 0; label_idx < func.labels.length(); label_idx = label_idx + 1 {
@@ -744,9 +760,13 @@ fn flatten_try_route_multivalue_block(
         for slot = 0; slot < result_types.length(); slot = slot + 1 {
           let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
           ignore(
-            pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
+            flatten_set_region_root(
+              ctx,
+              func,
+              body_ref,
+              tail_start + slot,
               @ir.hot_build_local_set(func, locals[slot], value_id),
-            ]),
+            ),
           )
         }
       }
@@ -857,9 +877,13 @@ fn flatten_try_route_multivalue_if(
               tail_start + slot,
             )
             ignore(
-              pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
+              flatten_set_region_root(
+                ctx,
+                func,
+                region_ref,
+                tail_start + slot,
                 @ir.hot_build_local_set(func, locals[slot], value_id),
-              ]),
+              ),
             )
           }
         }
@@ -2454,9 +2478,13 @@ fn flatten_try_route_multivalue_try(
         for slot = 0; slot < result_types.length(); slot = slot + 1 {
           let value_id = @ir.hot_region_get(func, region_ref, tail_start + slot)
           ignore(
-            pass_splice_region(ctx, func, region_ref, tail_start + slot, 1, [
+            flatten_set_region_root(
+              ctx,
+              func,
+              region_ref,
+              tail_start + slot,
               @ir.hot_build_local_set(func, locals[slot], value_id),
-            ]),
+            ),
           )
         }
       }
@@ -2523,9 +2551,13 @@ fn flatten_try_route_payloadless_multivalue_loop(
       for slot = 0; slot < result_types.length(); slot = slot + 1 {
         let value_id = @ir.hot_region_get(func, body_ref, tail_start + slot)
         ignore(
-          pass_splice_region(ctx, func, body_ref, tail_start + slot, 1, [
+          flatten_set_region_root(
+            ctx,
+            func,
+            body_ref,
+            tail_start + slot,
             @ir.hot_build_local_set(func, locals[slot], value_id),
-          ]),
+          ),
         )
       }
     }
@@ -2829,9 +2861,13 @@ fn flatten_try_route_scalar_block(
   }
   if tail_has_fallthrough_value {
     ignore(
-      pass_splice_region(ctx, func, body_ref, body_count - 1, 1, [
+      flatten_set_region_root(
+        ctx,
+        func,
+        body_ref,
+        body_count - 1,
         @ir.hot_build_local_set(func, local_id, tail_id),
-      ]),
+      ),
     )
   }
   @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
@@ -3599,9 +3635,13 @@ fn flatten_try_route_scalar_loop(
   }
   let local_id = @ir.hot_append_body_local(func, result_types[0])
   ignore(
-    pass_splice_region(ctx, func, body_ref, body_count - 1, 1, [
+    flatten_set_region_root(
+      ctx,
+      func,
+      body_ref,
+      body_count - 1,
       @ir.hot_build_local_set(func, local_id, tail_id),
-    ]),
+    ),
   )
   @ir.hot_control_result_type_set(func, loop_id, @ir.hot_type_void(func))
   Some(local_id)
@@ -3749,9 +3789,13 @@ fn flatten_try_route_scalar_try(
       continue
     }
     ignore(
-      pass_splice_region(ctx, func, region_ref, tail_index, 1, [
+      flatten_set_region_root(
+        ctx,
+        func,
+        region_ref,
+        tail_index,
         @ir.hot_build_local_set(func, local_id, tail_id),
-      ]),
+      ),
     )
   }
   @ir.hot_control_result_type_set(func, try_id, @ir.hot_type_void(func))
@@ -3823,16 +3867,24 @@ fn flatten_try_route_scalar_if(
   }
   if then_has_fallthrough_value {
     ignore(
-      pass_splice_region(ctx, func, then_ref, then_count - 1, 1, [
+      flatten_set_region_root(
+        ctx,
+        func,
+        then_ref,
+        then_count - 1,
         @ir.hot_build_local_set(func, local_id, then_tail),
-      ]),
+      ),
     )
   }
   if else_has_fallthrough_value {
     ignore(
-      pass_splice_region(ctx, func, else_ref, else_count - 1, 1, [
+      flatten_set_region_root(
+        ctx,
+        func,
+        else_ref,
+        else_count - 1,
         @ir.hot_build_local_set(func, local_id, else_tail),
-      ]),
+      ),
     )
   }
   @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
