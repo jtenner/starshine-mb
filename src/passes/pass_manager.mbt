@@ -60509,11 +60509,26 @@ fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
 }
 
 ///|
-fn run_hot_pipeline_dae_validate_or_rollback(
+fn run_hot_pipeline_dae_validate_selected_def_or_rollback(
   original : @lib.Module,
   candidate : @lib.Module,
+  def_idx : Int,
 ) -> (@lib.Module, Bool) {
-  match @validate.validate_module(candidate) {
+  let candidate_func = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs.get(def_idx) {
+        Some(func) => func
+        None => return (original, false)
+      }
+    None => return (original, false)
+  }
+  let func_idx = @lib.FuncIdx::new(
+    (dae_imported_func_count(candidate) + def_idx).reinterpret_as_uint(),
+  )
+  match
+    @validate.validate_defined_func_against_module(
+      candidate, func_idx, candidate_func,
+    ) {
     Ok(_) => (candidate, true)
     Err(_) => (original, false)
   }
@@ -60656,8 +60671,8 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
         continue
       }
     }
-    let (retained_coalesced, coalesce_valid) = run_hot_pipeline_dae_validate_or_rollback(
-      current, coalesced,
+    let (retained_coalesced, coalesce_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      current, coalesced, def_idx,
     )
     if !coalesce_valid {
       coalesce_rolled_back_defs.push(def_idx)
@@ -60691,8 +60706,8 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
         continue
       }
     }
-    let (retained_vacuumed, vacuum_valid) = run_hot_pipeline_dae_validate_or_rollback(
-      current, vacuumed,
+    let (retained_vacuumed, vacuum_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      current, vacuumed, def_idx,
     )
     if !vacuum_valid {
       coalesce_only_defs.push(def_idx)
