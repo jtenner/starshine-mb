@@ -1204,7 +1204,40 @@ fn hot_lower_impl_emit_instruction(
       if catch_region == HOT_NONE_NODE {
         abort("hot lower synthetic catch-all try requires a catch region")
       }
+      let body_ref = hot_region_body_ref(func, id)
       let label_id = hot_control_node_label(func, id)
+      if !effects_may_throw(effects_for_region(func, body_ref)) {
+        if hot_lower_impl_label_is_used(func, label_id) {
+          let body_stack = hot_lower_impl_push_label(
+            label_frames, label_stack_head, label_id,
+          )
+          let body = hot_lower_impl_region_body(
+            func,
+            func.children[node.child_base],
+            use_def,
+            label_frames,
+            body_stack,
+            extra_locals,
+            options,
+          )
+          hot_lower_impl_pop_label(label_frames, body_stack)
+          out.push(Instruction::block(BlockType::void_(), Expr::new(body)))
+        } else {
+          for
+            instr in hot_lower_impl_region_body(
+              func,
+              func.children[node.child_base],
+              use_def,
+              label_frames,
+              label_stack_head,
+              extra_locals,
+              options,
+            ) {
+            out.push(instr)
+          }
+        }
+        return
+      }
       let try_stack = hot_lower_impl_push_label(
         label_frames, label_stack_head, label_id,
       )

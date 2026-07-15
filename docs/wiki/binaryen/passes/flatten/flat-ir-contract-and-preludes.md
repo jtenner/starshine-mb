@@ -403,7 +403,7 @@ So the real flatten contract includes:
 
 A future port that skips this step would not be faithfully implementing the source contract.
 
-Starshine now makes the missing prerequisites executable as `flatten_eh_repair_requirement(...)`: legacy `Catch`/`CatchAll` require typed catch-payload tracking, while `Rethrow`/`Delegate` require exceptional-transfer repair. The classifier is used by the whole-function fail-closed gate; it is not a repair implementation. Current lib/HOT lift-lower has no first-class Binaryen-style typed catch-payload `Pop`, so entry extraction, exact local typing, nested-catch exclusion, and old-position replacement remain blocked.
+Starshine now makes the missing prerequisites executable as `flatten_eh_repair_requirement(...)`: legacy `Catch`/`CatchAll` require typed catch-payload tracking, while `Rethrow`/`Delegate` require exceptional-transfer repair. The classifier is used by the whole-function fail-closed gate; it is not a repair implementation. Current lib/HOT lift-lower has no first-class Binaryen-style typed catch-payload `Pop`, so entry extraction, exact local typing, nested-catch exclusion, and old-position replacement remain blocked. For the narrower synthetic resultless catch-all representation, lowering now proves whether the try body may throw: a nonthrowing body omits the dead handler and lowers directly, retaining only a void block when the try label is targeted, while a possibly throwing body keeps the nested `try_table` bridge. This removes cleanup-only EH scaffolding without weakening the typed-catch or nested-pop gates.
 
 ## Unsupported and surprising boundaries
 
