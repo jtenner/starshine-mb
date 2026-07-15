@@ -6450,20 +6450,36 @@ fn flatten_try_route_scalar_br_if(
 }
 
 ///|
+fn flatten_record_unique_br_table_target(
+  targets : Array[Int],
+  seen : @bitset.BitSet,
+  target : Int,
+) -> Bool {
+  if target < 0 || target >= seen.length() || seen[target] {
+    return false
+  }
+  seen[target] = true
+  targets.push(target)
+  true
+}
+
+///|
 fn flatten_unique_br_table_targets(
   func : @ir.HotFunc,
   table_id : Int,
 ) -> Array[Int] {
   let unique : Array[Int] = []
+  let seen = @bitset.BitSet::new(func.labels.length())
   for target in @ir.hot_branch_table_targets(func, table_id) {
-    if !unique.contains(target) {
-      unique.push(target)
-    }
+    ignore(flatten_record_unique_br_table_target(unique, seen, target))
   }
-  let default_target = @ir.hot_branch_table_default_target(func, table_id)
-  if !unique.contains(default_target) {
-    unique.push(default_target)
-  }
+  ignore(
+    flatten_record_unique_br_table_target(
+      unique,
+      seen,
+      @ir.hot_branch_table_default_target(func, table_id),
+    ),
+  )
   unique
 }
 

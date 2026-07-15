@@ -7356,3 +7356,20 @@ test "flatten sequenced roots track only pre-mutation shared nodes" {
     "Unreachable",
   )
 }
+
+///|
+test "flatten unique table target marks preserve first source order" {
+  let targets : Array[Int] = []
+  let seen = @bitset.BitSet::new(8)
+  assert_true(flatten_record_unique_br_table_target(targets, seen, 5))
+  assert_false(flatten_record_unique_br_table_target(targets, seen, 5))
+  assert_true(flatten_record_unique_br_table_target(targets, seen, 2))
+  assert_true(flatten_record_unique_br_table_target(targets, seen, 7))
+  assert_false(flatten_record_unique_br_table_target(targets, seen, 2))
+  assert_false(flatten_record_unique_br_table_target(targets, seen, -1))
+  assert_false(flatten_record_unique_br_table_target(targets, seen, 8))
+  @debug.assert_eq(targets, [5, 2, 7])
+  assert_true(seen[5])
+  assert_true(seen[2])
+  assert_true(seen[7])
+}
