@@ -227,6 +227,7 @@ priv struct FlattenRewriteState {
   use_def : @ir.HotUseDef
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
+  scalar_try_supported : Array[Bool?]
   mut rewrites_started : Bool
 }
 
@@ -245,6 +246,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     use_def: @ir.use_def_build_node_uses(func),
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
+    scalar_try_supported: Array::make(@ir.hot_node_count(func), None),
     rewrites_started: false,
   }
 }
@@ -1172,6 +1174,7 @@ fn flatten_try_table_dead_suffix_call_argument_root_is_supported(
         | Some(@lib.I32Mul)
         | Some(@lib.I32And)
         | Some(@lib.I32Or)
+        | Some(@lib.I32Xor)
         | Some(@lib.I32DivS) => true
         _ => false
       }
@@ -3480,6 +3483,36 @@ fn flatten_legacy_try_has_deferred_eh_repair(
 
 ///|
 fn flatten_scalar_legacy_try_is_supported(
+  func : @ir.HotFunc,
+  try_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  if try_id < 0 || try_id >= @ir.hot_node_count(func) {
+    return false
+  }
+  match state {
+    Some(state) =>
+      match state.scalar_try_supported[try_id] {
+        Some(supported) => return supported
+        None if state.rewrites_started => return false
+        None => ()
+      }
+    None => ()
+  }
+  let supported = flatten_scalar_legacy_try_is_supported_uncached(
+    func,
+    try_id,
+    state~,
+  )
+  match state {
+    Some(state) => state.scalar_try_supported[try_id] = Some(supported)
+    None => ()
+  }
+  supported
+}
+
+///|
+fn flatten_scalar_legacy_try_is_supported_uncached(
   func : @ir.HotFunc,
   try_id : Int,
   state? : FlattenRewriteState? = None,
