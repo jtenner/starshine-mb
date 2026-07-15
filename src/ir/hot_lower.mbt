@@ -1194,6 +1194,65 @@ fn hot_lower_impl_emit_instruction(
         hot_lower_impl_pop_label(label_frames, next_stack)
       }
     }
+    HotOp::Try => {
+      if hot_node_result_arity(func, id) != 0 {
+        abort(
+          "hot lower only supports resultless synthetic catch-all try nodes",
+        )
+      }
+      let catch_region = func.children[node.child_base + 1]
+      if catch_region == HOT_NONE_NODE {
+        abort("hot lower synthetic catch-all try requires a catch region")
+      }
+      let label_id = hot_control_node_label(func, id)
+      let try_stack = hot_lower_impl_push_label(
+        label_frames, label_stack_head, label_id,
+      )
+      let handler_label = func.labels.length() + label_frames.active.length()
+      let handler_stack = hot_lower_impl_push_label(
+        label_frames, try_stack, handler_label,
+      )
+      let table_label = func.labels.length() + label_frames.active.length()
+      let table_stack = hot_lower_impl_push_label(
+        label_frames, handler_stack, table_label,
+      )
+      let body = hot_lower_impl_region_body(
+        func,
+        func.children[node.child_base],
+        use_def,
+        label_frames,
+        table_stack,
+        extra_locals,
+        options,
+      )
+      hot_lower_impl_pop_label(label_frames, table_stack)
+      hot_lower_impl_pop_label(label_frames, handler_stack)
+      let catch_body = hot_lower_impl_region_body(
+        func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
+      )
+      hot_lower_impl_pop_label(label_frames, try_stack)
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new(
+            [
+              Instruction::block(
+                BlockType::void_(),
+                Expr::new([
+                  Instruction::try_table(
+                    BlockType::void_(),
+                    [Catch::all(LabelIdx::new(1U))],
+                    Expr::new(body),
+                  ),
+                  Instruction::br(LabelIdx::new(1U)),
+                ]),
+              ),
+              ..catch_body,
+            ],
+          ),
+        ),
+      )
+    }
     HotOp::TryTable => {
       let label_id = hot_control_node_label(func, id)
       let next_stack = if label_id >= 0 {

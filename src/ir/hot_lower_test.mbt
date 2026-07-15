@@ -4504,3 +4504,58 @@ test "hot lower drops partially dead multi-result roots after mutation" {
     ]),
   )
 }
+
+///|
+test "hot lower bridges a resultless synthetic catch-all try through try_table" {
+  let hot = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let try_id = hot_build_try(
+    hot,
+    @lib.BlockType::void_(),
+    [hot_build_local_set(hot, 0, hot_build_const_i32(hot, @lib.I32(1)))],
+    catch_body=Some([
+      hot_build_local_set(hot, 0, hot_build_const_i32(hot, @lib.I32(2))),
+    ]),
+  )
+  hot_root_append(hot, try_id)
+
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(_, body) = lowered
+  @debug.assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::try_table(
+                @lib.BlockType::void_(),
+                [@lib.Catch::all(@lib.LabelIdx::new(1U))],
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(1)),
+                  @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                ]),
+              ),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ]),
+          ),
+          @lib.Instruction::i32_const(@lib.I32(2)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
