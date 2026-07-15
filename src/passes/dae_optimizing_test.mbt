@@ -14566,6 +14566,136 @@ test "dae-optimizing nested heap-store-optimization only rewrites touched functi
 }
 
 ///|
+fn dae_test_grouped_signature_rewrite_module(
+  keep_old_type_live : Bool,
+) -> @lib.Module {
+  let target_type = @lib.TypeIdx::new(1U)
+  let run_type = @lib.TypeIdx::new(2U)
+  let target_ref = @lib.RefType::new(true, @lib.HeapType::new(target_type))
+  let mut mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([
+          @lib.SubType::comp_type(@lib.CompType::struct_([])),
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ]),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([target_type, run_type]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  if keep_old_type_live {
+    mod_ = mod_.with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(target_ref, @lib.Limits::i32(0U, None)),
+          Some(@lib.Expr::new([@lib.Instruction::ref_null_type(target_ref)])),
+        ),
+      ]),
+    )
+  }
+  mod_
+}
+
+///|
+test "dae-optimizing rewrites an unreferenced grouped function signature in place" {
+  let target_type = @lib.TypeIdx::new(1U)
+  let optimized = match
+    run_hot_pipeline(
+      dae_test_grouped_signature_rewrite_module(false),
+      HotPipelineOptions::new(),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected grouped signature rewrite success, got \{err}")
+  }
+  match (optimized.type_sec, optimized.func_sec) {
+    (Some(type_sec), Some(@lib.FuncSec(type_idxs))) => {
+      assert_eq(type_idxs[0], target_type)
+      let @lib.TypeSec(rec_types) = type_sec
+      @debug.assert_eq(rec_types.length(), 2)
+      match rec_types[0] {
+        @lib.GroupRecType(group) =>
+          match group[1].get_comptype() {
+            @lib.FuncCompType(params, results) => {
+              @debug.assert_eq(params, [@lib.ValType::i32()])
+              @debug.assert_eq(results, [@lib.ValType::i32()])
+            }
+            _ => fail("expected rewritten grouped function type")
+          }
+        _ => fail("expected grouped type entry")
+      }
+    }
+    _ => fail("expected rewritten type and function sections")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected grouped signature output to validate, got \{err}")
+  }
+}
+
+///|
+test "dae-optimizing keeps a referenced grouped function type immutable" {
+  let target_type = @lib.TypeIdx::new(1U)
+  let optimized = match
+    run_hot_pipeline(
+      dae_test_grouped_signature_rewrite_module(true),
+      HotPipelineOptions::new(),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected referenced grouped signature rewrite success, got \{err}")
+  }
+  match (optimized.type_sec, optimized.func_sec) {
+    (Some(@lib.TypeSec(rec_types)), Some(@lib.FuncSec(type_idxs))) => {
+      assert_not_eq(type_idxs[0], target_type)
+      @debug.assert_eq(rec_types.length(), 3)
+    }
+    _ => fail("expected rewritten type and function sections")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected referenced grouped signature output to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "dae-optimizing preserves grouped function results while removing params" {
   let target_type = @lib.TypeIdx::new(1U)
   let caller_type = @lib.TypeIdx::new(3U)
