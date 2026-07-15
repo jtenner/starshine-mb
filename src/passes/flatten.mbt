@@ -260,6 +260,7 @@ priv struct FlattenPreMutationNodeIndex {
   loop_nodes : Array[Int]
   try_nodes : Array[Int]
   branch_payload_nodes : Array[Int]
+  eh_repair_requirement : FlattenEhRepairRequirement
 }
 
 ///|
@@ -275,6 +276,7 @@ fn flatten_build_pre_mutation_node_index(
   let loop_nodes : Array[Int] = []
   let try_nodes : Array[Int] = []
   let branch_payload_nodes : Array[Int] = []
+  let eh_repair_requirement = FlattenEhRepairRequirement::empty()
   let record = fn(label_id : Int, node_id : Int) {
     flatten_record_label_branch_node(
       branch_nodes, last_recorded_node, label_id, node_id,
@@ -302,8 +304,11 @@ fn flatten_build_pre_mutation_node_index(
       @ir.HotOp::BrOnNull
       | @ir.HotOp::BrOnNonNull
       | @ir.HotOp::BrOnCast
-      | @ir.HotOp::BrOnCastFail
-      | @ir.HotOp::Delegate => record(node.imm0, node_id)
+      | @ir.HotOp::BrOnCastFail => record(node.imm0, node_id)
+      @ir.HotOp::Delegate => {
+        record(node.imm0, node_id)
+        eh_repair_requirement.needs_exceptional_transfer_repair = true
+      }
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
@@ -316,6 +321,10 @@ fn flatten_build_pre_mutation_node_index(
           record(label_id, node_id)
         }
       }
+      @ir.HotOp::Catch | @ir.HotOp::CatchAll =>
+        eh_repair_requirement.needs_catch_payload_tracking = true
+      @ir.HotOp::Rethrow =>
+        eh_repair_requirement.needs_exceptional_transfer_repair = true
       _ => ()
     }
   }
@@ -324,6 +333,7 @@ fn flatten_build_pre_mutation_node_index(
     loop_nodes,
     try_nodes,
     branch_payload_nodes,
+    eh_repair_requirement,
   }
 }
 
@@ -592,7 +602,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     terminal_payloads: [],
     sequenced_root_holders: [],
     sequenced_root_nodes: [],
-    eh_repair_requirement: flatten_eh_repair_requirement(func),
+    eh_repair_requirement: node_index.eh_repair_requirement,
     label_used,
     label_branch_nodes,
     loop_nodes: node_index.loop_nodes,

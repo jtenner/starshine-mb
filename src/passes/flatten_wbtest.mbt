@@ -6050,6 +6050,44 @@ test "flatten lightweight use counts match exact pre-mutation ownership" {
 }
 
 ///|
+test "flatten pre-mutation node index shares EH prerequisite classification" {
+  let func = @ir.HotFunc::new()
+  let catch_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::catch_(),
+    @ir.hot_type_void(func),
+  )
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+  )
+  @ir.hot_root_append(func, catch_id)
+  @ir.hot_root_append(func, rethrow_id)
+  for i = 0; i < 256; i = i + 1 {
+    @ir.hot_root_append(func, @ir.hot_build_nop(func))
+  }
+  let index = flatten_build_pre_mutation_node_index(func)
+  @debug.assert_eq(
+    index.eh_repair_requirement.needs_catch_payload_tracking,
+    true,
+  )
+  @debug.assert_eq(
+    index.eh_repair_requirement.needs_exceptional_transfer_repair,
+    true,
+  )
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(
+    state.eh_repair_requirement.needs_catch_payload_tracking,
+    index.eh_repair_requirement.needs_catch_payload_tracking,
+  )
+  @debug.assert_eq(
+    state.eh_repair_requirement.needs_exceptional_transfer_repair,
+    index.eh_repair_requirement.needs_exceptional_transfer_repair,
+  )
+}
+
+///|
 test "flatten admission node index shares the exact live-node scan" {
   let func = @ir.HotFunc::new()
   let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
