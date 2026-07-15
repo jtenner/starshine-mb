@@ -19333,3 +19333,43 @@ test "DAEO selected cleanup tees value-block readbacks" {
     @lib.Instruction::drop(),
   ])
 }
+
+///|
+test "DAEO selected cleanup forwards one-use immutable parameter copies" {
+  let source = @lib.LocalIdx::new(0U)
+  let target = @lib.LocalIdx::new(2U)
+  let body = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  let local_gets = [1, 0, 1]
+  let local_sets = [0, 0, 1]
+  let local_tees = [0, 0, 0]
+  let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+    body,
+    1,
+    [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+    local_gets,
+    local_sets,
+    local_tees,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(local_gets, [1, 0, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(source),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+}

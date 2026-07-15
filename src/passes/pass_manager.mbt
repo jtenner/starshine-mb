@@ -60830,6 +60830,208 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks(
 }
 
 ///|
+fn run_hot_pipeline_dae_replace_local_get(
+  instr : @lib.Instruction,
+  target : @lib.LocalIdx,
+  source : @lib.LocalIdx,
+) -> (@lib.Instruction, Int) {
+  match instr {
+    @lib.LocalGet(idx) if idx == target =>
+      (@lib.Instruction::local_get(source), 1)
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_replace_local_gets(
+        body, target, source,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_replace_local_gets(
+        body, target, source,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_replace_local_gets(
+        body, target, source,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        count,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_count) = run_hot_pipeline_dae_replace_local_gets(
+        then_body, target, source,
+      )
+      let mut count = then_count
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (rewritten, else_count) = run_hot_pipeline_dae_replace_local_gets(
+            body, target, source,
+          )
+          count = count + else_count
+          Some(rewritten)
+        }
+        None => None
+      }
+      (@lib.Instruction::if_(block_type, rewritten_then, rewritten_else), count)
+    }
+    _ => (instr, 0)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_replace_local_gets(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+  source : @lib.LocalIdx,
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut count = 0
+  for instr in instrs {
+    let (next, next_count) = run_hot_pipeline_dae_replace_local_get(
+      instr, target, source,
+    )
+    rewritten.push(next)
+    count = count + next_count
+  }
+  (rewritten, count)
+}
+
+///|
+fn run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
+  instr : @lib.Instruction,
+  param_count : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (@lib.Instruction, Int) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+        body, param_count, local_types, local_gets, local_sets, local_tees,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+        body, param_count, local_types, local_gets, local_sets, local_tees,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+        body, param_count, local_types, local_gets, local_sets, local_tees,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        count,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+        then_body, param_count, local_types, local_gets, local_sets, local_tees,
+      )
+      let mut count = then_count
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (rewritten, else_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+            body, param_count, local_types, local_gets, local_sets, local_tees,
+          )
+          count = count + else_count
+          Some(rewritten)
+        }
+        None => None
+      }
+      (@lib.Instruction::if_(block_type, rewritten_then, rewritten_else), count)
+    }
+    _ => (instr, 0)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(source_raw) as source),
+          @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+        ) => {
+          let source_idx = source_raw.reinterpret_as_int()
+          let target_idx = target_raw.reinterpret_as_int()
+          if source_idx >= 0 &&
+            source_idx < param_count &&
+            target_idx >= param_count &&
+            target_idx < local_types.length() &&
+            source_idx < local_types.length() &&
+            local_types[source_idx] == local_types[target_idx] &&
+            local_sets[source_idx] == 0 &&
+            local_tees[source_idx] == 0 &&
+            local_gets[target_idx] == 1 &&
+            local_sets[target_idx] == 1 &&
+            local_tees[target_idx] == 0 {
+            let suffix : Array[@lib.Instruction] = []
+            for suffix_idx = idx + 2
+                suffix_idx < instrs.length()
+                suffix_idx = suffix_idx + 1 {
+              suffix.push(instrs[suffix_idx])
+            }
+            let (forwarded_suffix, replacement_count) = run_hot_pipeline_dae_replace_local_gets(
+              suffix, target, source,
+            )
+            if replacement_count == 1 {
+              local_gets[target_idx] = 0
+              local_sets[target_idx] = 0
+              let (final_suffix, nested_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+                forwarded_suffix, param_count, local_types, local_gets, local_sets,
+                local_tees,
+              )
+              for suffix_instr in final_suffix {
+                rewritten.push(suffix_instr)
+              }
+              return (rewritten, rewrite_count + nested_count + 1)
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    let (next, nested_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copy_instr(
+      instrs[idx],
+      param_count,
+      local_types,
+      local_gets,
+      local_sets,
+      local_tees,
+    )
+    rewritten.push(next)
+    rewrite_count = rewrite_count + nested_count
+    idx += 1
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
   instrs : Array[@lib.Instruction],
   local_gets : Array[Int],
@@ -60969,6 +61171,18 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   run_hot_pipeline_raw_collect_local_ref_counts(
     body, local_gets, local_sets, local_tees,
   )
+  let local_types = params.copy()
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    local_types.push(locals.get(local_idx))
+  }
+  let (forwarded_body, _) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+    body,
+    params.length(),
+    local_types,
+    local_gets,
+    local_sets,
+    local_tees,
+  )
   let mut removed_tee_count = 0
   for local_idx = 0; local_idx < total_local_count; local_idx = local_idx + 1 {
     if local_gets[local_idx] == 0 {
@@ -60993,7 +61207,7 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
     }
   }
   let remapped_body = run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
-    body, local_gets, local_remap,
+    forwarded_body, local_gets, local_remap,
   )
   let (readback_body, _) = run_hot_pipeline_dae_tee_struct_get_readbacks(
     remapped_body,
