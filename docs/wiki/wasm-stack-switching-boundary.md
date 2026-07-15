@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - raw/wasm/2026-06-05-stack-switching-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/stack-switching/blob/main/proposals/stack-switching/Explainer.md
   - wasm-feature-status-and-proposal-boundaries.md
   - wast/exception-tag-authoring.md
   - wast/tail-call-authoring.md
@@ -36,7 +37,7 @@ Use this page when a Starshine or WebAssembly claim mentions **Stack Switching**
 
 For beginners: ordinary WebAssembly calls run on one current call stack. Tail calls, branches, throws, and `try_table` change control flow, but they do not create a first-class suspended stack. The Stack Switching proposal adds typed continuations so Wasm code can suspend one stack, resume another, and route control through typed handlers. That is a Core-module proposal surface, not a JavaScript Promise wrapper and not the same as Starshine's current stack-polymorphic unreachable-code validation.
 
-The current source bridge is [`raw/wasm/2026-06-05-stack-switching-boundary-refresh.md`](raw/wasm/2026-06-05-stack-switching-boundary-refresh.md). It rechecked the current WebAssembly proposals tracker, the Stack Switching proposal repository and explainer, readable WasmFX typed-continuation mirrors, current Starshine core/WAST/binary/validation/generator sources, and nearby wiki pages.
+The official WebAssembly proposals tracker, Stack Switching proposal repository and explainer, current Starshine core/WAST/binary/validation/generator sources, and nearby wiki pages establish this boundary.
 
 ## Current Status Rule
 
@@ -107,7 +108,7 @@ Do **not** start by adding a pass-only exception or treating Binaryen Stack Swit
 
 ## Source Map
 
-- Current source bridge: [`raw/wasm/2026-06-05-stack-switching-boundary-refresh.md`](raw/wasm/2026-06-05-stack-switching-boundary-refresh.md)
+- Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/stack-switching/blob/main/proposals/stack-switching/Explainer.md>
 - Shared feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - JSPI boundary: [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md)
 - Exception-tag authoring: [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md)

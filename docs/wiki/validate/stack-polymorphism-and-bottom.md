@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
-  - ../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
+  - ../wasm-relaxed-dead-code-validation-boundary.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/typecheck_negative_tests.mbt
@@ -31,7 +31,7 @@ Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/v
 
 Official WebAssembly validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests support the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
 
-The 2026-06-05 Relaxed Dead Code Validation bridge, [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), adds an important proposal boundary: active Phase-2 Relaxed Dead Code Validation is a future validator-policy relaxation, not the current Core/Starshine bottom model. Use [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) when a fixture or external tool result depends on skipping stack-dependent checks in dead code beyond ordinary bottom synthesis.
+The focused [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) page adds an important proposal boundary: active Phase-2 Relaxed Dead Code Validation is a future validator-policy relaxation, not the current Core/Starshine bottom model. Use [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) when a fixture or external tool result depends on skipping stack-dependent checks in dead code beyond ordinary bottom synthesis.
 
 ## Beginner Model
 
@@ -174,7 +174,7 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 
 ## Sources
 
-- Relaxed Dead Code Validation proposal boundary: [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md)
+- Relaxed Dead Code Validation proposal boundary: [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) and its cited official proposal sources
 - Runtime trap execution/host boundary: [`runtime-trap-semantics.md`](runtime-trap-semantics.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>
 - Starshine implementation and tests: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

@@ -3,7 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../../src/lib/types.mbt
   - ../../src/wast/struct_atomic_get_surface_test.mbt
@@ -31,7 +32,7 @@ Use this page when a claim mentions **Shared-Everything Threads**, **shared GC h
 
 For beginners: WebAssembly linear memory is a byte array. WebAssembly GC adds typed heap objects such as structs and arrays. Shared-Everything Threads is about making those **typed heap objects** safely shareable between agents. That is why a `struct.atomic.get` claim belongs with GC aggregate/type/effect reasoning, not with the selected-memory `MemArg` rule used by linear-memory atomics.
 
-The retained [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md), the active proposals tracker, the Shared-Everything Threads overview, and current Starshine source establish that Shared-Everything Threads is **active Phase 1 proposal evidence**, not stable Core WebAssembly 3.0.
+The active proposals tracker, the Shared-Everything Threads overview, and current Starshine source establish that Shared-Everything Threads is **active Phase 1 proposal evidence**, not stable Core WebAssembly 3.0.
 
 ## Boundary Table
 
@@ -109,7 +110,7 @@ Current order spellings are canonicalized to `seq_cst` and `acq_rel`. The parser
 
 ## Source Map
 
-- Focused boundary refresh: [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md)
+- Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md>
 - Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Linear-memory Threads boundary: [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md)
 - Linear-memory atomic WAST authoring: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md)

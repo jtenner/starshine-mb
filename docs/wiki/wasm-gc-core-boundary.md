@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
-  - raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
+  - wasm-shared-everything-threads-boundary.md
   - wasm-more-array-constructors-boundary.md
   - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
+  - ../wasm-multi-memory-boundary.md
   - https://webassembly.github.io/spec/core/syntax/types.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md
@@ -167,7 +167,7 @@ Use this checklist for passes, generators, binary roundtrips, and validator chan
 
 ## Sources
 
-- Multi-memory selected-resource source bridge: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
+- Multi-memory selected-resource boundary: [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md) and its cited official Core sources
 - Current Core/status sources: [types](https://webassembly.github.io/spec/core/syntax/types.html), [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html), and [finished proposals](https://github.com/WebAssembly/proposals/blob/main/finished-proposals.md)
 - Resource-section validation contract: [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/syntax/types.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/modules.html>

@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/relaxed-dead-code-validation/blob/main/proposals/relaxed-dead-code-validation/Overview.md
+  - https://webassembly.github.io/spec/core/appendix/algorithm.html
   - ../../src/validate/typecheck.mbt
   - ../../src/validate/typecheck_negative_tests.mbt
   - ../../src/validate/validate.mbt
@@ -27,7 +29,7 @@ Use this page when a claim mentions **Relaxed Dead Code Validation**, dead-code 
 
 Relaxed Dead Code Validation is an active WebAssembly proposal about **validation policy inside syntactically dead code**. It is not an optimizer pass and it does not add new instructions. Its goal is to make dead instruction sequences easier to validate by skipping stack-dependent type-system constraints after code is already known not to execute, while keeping syntax and stack-independent checks such as local-index bounds.
 
-The current source bridge is [`raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md). It checked the official WebAssembly proposals tracker, the proposal repository overview and push/pop refinement, the current Core 3.0 validation algorithm, and current Starshine typechecker/tests.
+The official WebAssembly proposals tracker, proposal overview and push/pop refinement, current Core 3.0 validation algorithm, and current Starshine typechecker/tests establish this boundary.
 
 Current Starshine implements the **Core/Starshine stack-polymorphism model** documented in [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md), not the relaxed proposal. Missing operands below an unreachable frame can be synthesized as `BotValType`, but concrete values pushed after the terminal point are still real stack entries and still participate in end-stack checks.
 
@@ -105,7 +107,7 @@ Avoid:
 
 ## Sources
 
-- Focused source bridge: [`raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md)
+- Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/relaxed-dead-code-validation/blob/main/proposals/relaxed-dead-code-validation/Overview.md>, <https://github.com/WebAssembly/relaxed-dead-code-validation/blob/main/proposals/relaxed-dead-code-validation/Push-Pop.md>
 - Current Core/Starshine stack-polymorphism guide: [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
 - Current typechecker: [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt)

@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
-  - raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
+  - https://webassembly.github.io/spec/core/syntax/modules.html
+  - https://webassembly.github.io/spec/core/binary/instructions.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
   - validate/memory-table-address-widths.md
   - ../src/lib/types.mbt
   - ../src/lib/eq.mbt
@@ -36,7 +38,7 @@ Use this page when a fixture, validator change, generator, binary codec change, 
 
 For beginners: a WebAssembly module can define or import more than one linear memory. Without multi-memory, examples often pretend there is only memory `0`. With multi-memory, an instruction such as `memory.copy` can say “copy from memory `1` into memory `0`,” and a load/store memarg can select a nonzero memory. That selected memory is an ordinary part of the Core module model, not a Binaryen-only pass trick.
 
-The current source bridge is [`raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md). It rechecked current WebAssembly Core 3.0 text, binary, validation, and module pages; historical multi-memory proposal context; and current Starshine core, binary, WAST, validator, generator, and pass evidence.
+Official Core 3.0 text, binary, validation, and module pages, together with current Starshine core, binary, WAST, validator, generator, and pass evidence, establish this boundary. Historical multi-memory proposal pages provide origin/context only.
 
 ## Status Rule
 
@@ -140,7 +142,6 @@ When changing selected-memory behavior:
 
 ## Sources
 
-- Current multi-memory source bridge: [`raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md)
 - Memory64/table64 Core boundary: [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md)
 - WAST selected-memory boundaries: [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>

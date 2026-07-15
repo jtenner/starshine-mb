@@ -4,7 +4,8 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
-  - raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
+  - https://github.com/WebAssembly/proposals
+  - https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md
   - raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
@@ -34,7 +35,7 @@ Use this page when a fixture, external tool, proposal note, or future Starshine 
 
 For beginners: ordinary WebAssembly atomic memory operations behave like synchronized memory accesses. A relaxed-atomics proposal tries to expose weaker ordering choices that can be faster on some hardware while still being explicit about what ordering is promised. That is a memory-model feature, so optimizer and validator work must be careful: changing an ordering byte is not just changing syntax.
 
-The current source bridge is [`raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md). It rechecked the official active proposals tracker, the Relaxed Atomics proposal repository and overview, and current Starshine code. The durable conclusion is simple: **current Starshine has ordinary linear-memory atomics and shared-GC atomic-get order spellings, but no documented relaxed-atomics support.**
+The official active proposals tracker, the Relaxed Atomics proposal overview, and current Starshine code establish the boundary: **current Starshine has ordinary linear-memory atomics and shared-GC atomic-get order spellings, but no documented relaxed-atomics support.**
 
 ## What The Proposal Adds
 
@@ -102,7 +103,7 @@ After implementation, signoff should include:
 
 ## Sources
 
-- Focused source bridge: [`raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md)
+- Official proposal sources: <https://github.com/WebAssembly/proposals>, <https://github.com/WebAssembly/relaxed-atomics/blob/main/proposals/relaxed-atomics/Overview.md>
 - Shared Core/proposal status bridge: [`raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md)
 - Current ordinary atomics evidence: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md), and the historical June shared-memory/fence bridges.
 - Shared-GC atomic-get evidence: [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md)

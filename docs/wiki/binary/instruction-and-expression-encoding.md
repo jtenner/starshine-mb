@@ -4,10 +4,10 @@ status: supported
 last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-10-wide-arithmetic-opcode-reconciliation.md
-  - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
+  - ../wasm-multi-memory-boundary.md
   - ../wasm-memory-control-boundary.md
   - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
-  - ../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
+  - ../wasm-relaxed-atomics-boundary.md
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - https://webassembly.github.io/spec/core/binary/instructions.html
@@ -221,8 +221,8 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 
 ## Sources
 
-- Multi-memory Core boundary refresh: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
-- Relaxed Atomics boundary refresh: [`../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md), [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md)
+- Multi-memory Core boundary: [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md) and its cited official Core sources
+- Relaxed Atomics boundary: [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md) and its cited official proposal sources
 - SIMD lane-immediate validation: [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Official WebAssembly 3.0 sources: [binary instructions](https://webassembly.github.io/spec/core/binary/instructions.html), [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [binary values](https://webassembly.github.io/spec/core/binary/values.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
