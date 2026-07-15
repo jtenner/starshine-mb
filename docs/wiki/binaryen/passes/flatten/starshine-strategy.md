@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
@@ -299,9 +300,9 @@ That is another reason to document the pass as a structural root rather than a o
 
 ## Latest measured movement and blocker
 
-The 2026-07-15 iteration widened only the internal legacy-try table dead-suffix call proof. Three commits admitted one owned nested call argument at progressively richer exact tree depths. A fixed detached-baseline matrix changed `126/129` functions current versus `0/129` at baseline, while the alternate-unary and structured-control boundaries remained unchanged. The change therefore moves transformation coverage, but it does not establish public pass readiness.
+The latest 2026-07-15 iteration added a narrow internal output bridge for resultless synthetic catch-all `Try`, replaced bounded call-tree recognizers with recursive exclusive ownership, and reused recognized suffix results. Recursive and direct-subtract call probes moved from deferred to Flat, lowerable output; the existing branch-free try probe moved from Flat-but-unlowerable to valid encoded wasm.
 
-No Starshine byte or generated-runtime claim is available for these shapes: current HOT lowering cannot emit the synthetic legacy `Try`, and the representable lifted WAT form correctly activates the catch-payload repair gate. Native pass-only timing also remains far outside target (`9,592.5 us` current versus `551 us` baseline and `334 us` Binaryen v130 on 120 candidate-dense functions). The public removed status, absent compare profile/matrix, EH bridge, and performance blocker all remain explicit. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
+This clears the old blanket Starshine output-measurement blocker only for the synthetic catch-all subset. On the matched three-probe matrix, current direct output is 12 bytes smaller than Binaryen, but current cleanup is 19 bytes larger, so the remaining cleanup neighborhood is size-losing. Native pass-only timing improved by 78.18% from `16,880 us` to `3,682.5 us`, yet remains `13.84x` Binaryen's `266.05 us`. Public removed status, absent profile/four-lane matrix, typed catch/pop repair, broader behavior, cleanup parity, and performance remain explicit blockers. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
 
 ## What Starshine does **not** have yet
 

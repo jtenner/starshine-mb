@@ -3,6 +3,7 @@ kind: workflow
 status: planned
 last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -33,7 +34,7 @@ bun fuzz compare-pass --list-passes
 
 ## Internal impact evidence is not public fuzz signoff
 
-The 2026-07-15 fixed internal HOT matrix measured `126/129` newly transformed functions for three nested dead-call argument families. It did not expose `flatten`, did not add a GenValid profile, and did not run any of the four public compare lanes. Actual Starshine encoded/runtime comparison was blocked by the legacy-try lower/repair representation gap, and candidate-dense pass-local timing remained above target. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
+The latest 2026-07-15 internal matrix adds actual Starshine lowering, encoding, validation, execution, and cleanup evidence for three synthetic resultless catch-all probes. It still does not expose `flatten`, add a GenValid profile, or run any of the four public compare lanes. Cleanup remains 19 aggregate bytes larger than Binaryen after the matched neighborhood, candidate-dense pass-local time remains `13.84x` Binaryen, and typed catch/pop repair remains gated. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
 
 ## Future executable lane
 

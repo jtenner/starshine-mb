@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
@@ -244,11 +245,11 @@ Starshine implements only the first internal transform slices today; the public 
 | Old registry-map batch status | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains documented as removed until implementation lands. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | Tracks the remaining source refresh, control/EH implementation, public wiring, profile, closeout, and aggressive-neighborhood proof. |
 
-## Latest internal call-tree slice
+## Latest internal output and call-tree slice
 
-Commits `18a868a5d`, `9c6d614c9`, and `40d4fad8c` add one verifier-backed positive each for resultless dead calls with one multiply child, two multiply children, and a bounded deeper two-multiply argument. The collectors first record the complete immediate argument vector and then append nested descendants in operand order. Every call, argument, intermediate binary, and leaf must be distinct and one-use before deletion.
+Commits `b789c2ff7`, `a2ce97352`, and `7af372b56` add one behavioral test each for resultless synthetic catch-all `Try` lowering, recursive owned call-argument trees, and direct subtraction plus ownership-result reuse. The recursive collector records all immediate arguments before descendants, preserves left-to-right traversal, has no tree-depth cap, and requires every call, argument, intermediate, and leaf to be distinct and one-use before deletion.
 
-A fixed baseline/current HOT matrix now transforms `126/129` functions versus `0/129` at the iteration start. Alternate `i32.ctz` arguments and structured suffix controls remain whole-function fail-closed. The matrix also exposed two closeout blockers: synthetic legacy-try HOT cannot lower for actual Starshine byte/runtime measurement, and current native pass-only candidate-dense time is `9,592.5 us` versus Binaryen v130's `334 us`. See the [pinned impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
+A detached-baseline matrix now proves actual current Starshine lowering, encoding, validation, execution, and cleanup for three synthetic catch-all probes. Direct output totals 12 bytes less than Binaryen on that narrow matrix, but matched cleanup leaves Starshine 19 bytes larger, so cleanup remains a size-losing parity gap. Refreshed candidate-dense pass-only timing improved from `16,880 us` baseline to `3,682.5 us` current, versus `266.05 us` for Binaryen v130. See the [pinned impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
 
 ## What a faithful Starshine test ladder should start with
 

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
@@ -352,9 +353,9 @@ Again, flatten prefers a simple explicit representation over a clever compact on
 
 ## Owned dead-call argument trees after unconditional table transfer
 
-Starshine's internal legacy-try table route now recognizes three nested resultless-call argument families beyond shallow rich arguments: one multiply child, two multiply children, and one bounded deeper two-multiply subtree plus a direct constant. The proof remains structural and count-independent for surrounding immediate constants. It records every immediate call argument first, then nested descendants in source operand order, and requires complete distinct one-use ownership before deleting the suffix.
+Starshine's internal legacy-try table route now uses one recursive resultless direct-call argument collector instead of bounded one-multiply, two-multiply, and deeper special cases. It records every immediate call argument first, then recursively records supported unary, conversion, and binary descendants in source operand order without a tree-depth cap. Every node must remain live, scalar, distinct, and one-use before complete suffix deletion; direct `i32.sub` joins the established top-level root roster.
 
-This is not an extension of generic purity or effect analysis. Binaryen v130 keeps the unreachable suffix in Flat IR order; Starshine deletes it only because the preceding `br_table` is unconditional and no deleted node can be reached or shared. Alternate opcodes, repeated descendants, more than one nested rich argument, result calls, indirect/reference calls, and structured suffix roots remain gated. The fixed matrix and measurement limitations are recorded in [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
+This is not generic purity or effect analysis. Binaryen v130 keeps the unreachable suffix in Flat IR order; Starshine deletes it only because the preceding `br_table` is unconditional and no deleted node can execute or be shared. Alternate unary/conversion opcodes, repeated descendants, result calls, indirect/reference calls, and structured suffix roots remain gated. Actual current output is now measurable through the resultless catch-all bridge, but matched cleanup remains 19 aggregate bytes larger than Binaryen and candidate-dense timing remains outside target. See [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
 
 ## The placeholder `unreachable` rule
 

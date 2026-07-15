@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-mixed-loop-if-table-refresh.md
@@ -128,6 +129,8 @@ The exact current local surfaces are:
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
 
 Read this as a deliberately internal partial implementation, not as public pass availability or parity evidence.
+
+The latest internal bridge can lower Starshine's existing **resultless synthetic catch-all** `Try` representation through nested blocks and `try_table`, so that narrow subset now has encoded-size, validation, and runtime evidence. It does not represent typed catch payloads, nested-pop repair, `rethrow`, or `delegate`. The matched three-probe cleanup neighborhood remains 19 bytes larger than Binaryen, current pass-local time remains `13.84x` Binaryen, and no GenValid/four-lane public matrix exists. Those are still hard public-readiness blockers; see the [consolidated impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
 
 ## First decision: local Flat IR contract
 

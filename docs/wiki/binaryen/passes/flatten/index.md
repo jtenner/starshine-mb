@@ -3,6 +3,7 @@ kind: entity
 status: working
 last_reviewed: 2026-07-15
 sources:
+  - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-break-refresh.md
@@ -252,11 +253,11 @@ That is much closer to the real pass than “flatten removes nesting.”
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Future implementation-readiness bridge: analyzer-first Flat IR classification, narrow first mutating slice, tee and branch-payload follow-ups, EH and unsupported-family gates, downstream cluster validation, and the criteria for moving `flatten` out of the removed-name registry.
 
-## 2026-07-15 nested call-argument iteration
+## 2026-07-15 internal output and recursive-ownership iteration
 
-Three internal commits admitted complete owned resultless-call suffixes whose single rich argument is a one-multiply add/sub tree, a two-multiply add/sub tree, or the bounded deeper two-multiply-plus-constant tree. On the fixed internal corpus, transformed coverage moved from `0/129` functions at baseline `515d01be6` to `126/129` after `40d4fad8c`; three alternate-opcode or structured functions remained fail-closed. This is coverage movement, not a test-count claim.
+Three internal commits added resultless synthetic catch-all `Try` lowering, replaced six bounded call-argument recognizers with one recursive distinct one-use collector, admitted direct subtraction roots, and reused multi-root ownership results. On the three-probe detached-baseline matrix, the bridge shape was already Flat but unlowerable at baseline, while recursive and direct-subtract call suffixes moved from unchanged/non-Flat to changed/Flat. Current Starshine now lowers, encodes, validates, and executes all three probes.
 
-Actual Starshine encoded bytes and generated-runtime results remain unavailable because synthetic legacy `Try` HOT cannot lower, while lifted WAT catch representation intentionally triggers the EH-repair gate. Binaryen reference artifacts grew from `4,031` input bytes to `7,128` direct-flatten bytes and `5,967` cleanup bytes. Native pass-only timing on 120 candidate-dense functions measured `551 us` at the fail-closed baseline, `9,592.5 us` current, and `334 us` for Binaryen v130, so performance is an explicit public-exposure blocker. Full evidence and per-item measurements are in [`../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md).
+The matched byte matrix totals `204` input bytes, `263` current Starshine direct bytes, `255` Starshine cleanup bytes, `275` Binaryen direct bytes, and `236` Binaryen cleanup bytes. Starshine is smaller before cleanup but remains 19 bytes larger afterwards, so cleanup is a size-losing parity gap rather than a win. Refreshed native pass-only timing improved from `16,880 us` baseline to `3,682.5 us` current, but Binaryen v130 measured `266.05 us`; performance remains outside the `<=2x` target. Full evidence is in [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md).
 
 ## Current maintenance rule
 
@@ -269,7 +270,8 @@ Actual Starshine encoded bytes and generated-runtime results remain unavailable 
 
 ## Sources
 
-- Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp)
+- [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md)
+- [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
 - [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
 - [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)
 - [`../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md`](../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md)

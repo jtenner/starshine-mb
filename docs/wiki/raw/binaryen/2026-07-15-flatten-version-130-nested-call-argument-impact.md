@@ -1,5 +1,7 @@
 # Binaryen v130 `flatten`: nested dead-call arguments and iteration impact
 
+> Historical iteration report. Its statement that synthetic legacy `Try` output is unrepresentable was superseded later on 2026-07-15 by the narrow resultless catch-all bridge and consolidated measurements in [`2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](./2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md). Typed catches, payload repair, nested-pop repair, `rethrow`, and `delegate` remain unsupported.
+
 ## Scope
 
 This note pins the 2026-07-15 internal-only iteration that widened Starshine's exact legacy-try `br_table` dead-suffix proof for three resultless direct-call argument trees:
