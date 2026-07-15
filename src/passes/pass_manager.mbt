@@ -60593,6 +60593,19 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return mod_
   }
+  let vacuum_descriptor = match
+    run_hot_pipeline_dae_nested_cleanup_descriptor("vacuum") {
+    Ok(descriptor) => descriptor
+    Err(_) => {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "post-component-cleanup-rollback",
+        payload="reason=vacuum-descriptor defs=\{defs.to_string()}",
+      )
+      return mod_
+    }
+  }
   let touched = Array::make(dae_defined_func_count(mod_), false)
   for def_idx in defs {
     if def_idx < 0 || def_idx >= touched.length() {
@@ -60619,9 +60632,12 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       return mod_
     }
   }
-  let accepted_defs : Array[Int] = []
-  let rolled_back_defs : Array[Int] = []
-  let non_improving_defs : Array[Int] = []
+  let coalesce_only_defs : Array[Int] = []
+  let vacuum_defs : Array[Int] = []
+  let coalesce_rolled_back_defs : Array[Int] = []
+  let vacuum_rolled_back_defs : Array[Int] = []
+  let coalesce_non_improving_defs : Array[Int] = []
+  let vacuum_non_improving_defs : Array[Int] = []
   let small_local_defs : Array[Int] = []
   for def_idx in defs {
     let @lib.Func(locals, _) = funcs[def_idx]
@@ -60636,54 +60652,117 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
       run_hot_pipeline_apply_coalesce_locals_to_touched(isolated, selected) {
       Ok(next) => next
       Err(_) => {
-        rolled_back_defs.push(def_idx)
+        coalesce_rolled_back_defs.push(def_idx)
         continue
       }
     }
-    let (retained, accepted) = run_hot_pipeline_dae_validate_or_rollback(
+    let (retained_coalesced, coalesce_valid) = run_hot_pipeline_dae_validate_or_rollback(
       current, coalesced,
     )
-    if !accepted {
-      rolled_back_defs.push(def_idx)
+    if !coalesce_valid {
+      coalesce_rolled_back_defs.push(def_idx)
       continue
     }
-    let candidate_size = match run_hot_pipeline_dae_encoded_size(retained) {
+    let coalesced_size = match
+      run_hot_pipeline_dae_encoded_size(retained_coalesced) {
       Some(size) => size
       None => {
-        rolled_back_defs.push(def_idx)
+        coalesce_rolled_back_defs.push(def_idx)
         continue
       }
     }
-    if candidate_size < current_size {
-      current = retained
-      current_size = candidate_size
-      accepted_defs.push(def_idx)
+    if coalesced_size >= current_size {
+      coalesce_non_improving_defs.push(def_idx)
+      continue
+    }
+    current = retained_coalesced
+    current_size = coalesced_size
+    let vacuum_isolated = run_hot_pipeline_dae_clone_cleanup_defs(current, [
+      def_idx,
+    ])
+    let vacuumed = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        vacuum_isolated, vacuum_descriptor, selected, options,
+      ) {
+      Ok(next) => next
+      Err(_) => {
+        coalesce_only_defs.push(def_idx)
+        vacuum_rolled_back_defs.push(def_idx)
+        continue
+      }
+    }
+    let (retained_vacuumed, vacuum_valid) = run_hot_pipeline_dae_validate_or_rollback(
+      current, vacuumed,
+    )
+    if !vacuum_valid {
+      coalesce_only_defs.push(def_idx)
+      vacuum_rolled_back_defs.push(def_idx)
+      continue
+    }
+    let vacuumed_size = match
+      run_hot_pipeline_dae_encoded_size(retained_vacuumed) {
+      Some(size) => size
+      None => {
+        coalesce_only_defs.push(def_idx)
+        vacuum_rolled_back_defs.push(def_idx)
+        continue
+      }
+    }
+    if vacuumed_size < current_size {
+      current = retained_vacuumed
+      current_size = vacuumed_size
+      vacuum_defs.push(def_idx)
     } else {
-      non_improving_defs.push(def_idx)
+      coalesce_only_defs.push(def_idx)
+      vacuum_non_improving_defs.push(def_idx)
     }
   }
-  if accepted_defs.length() > 0 {
+  if vacuum_defs.length() > 0 {
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
       "post-component-cleanup",
-      payload="defs=\{accepted_defs.to_string()} passes=[coalesce-locals]",
+      payload="defs=\{vacuum_defs.to_string()} passes=[coalesce-locals, vacuum]",
     )
   }
-  if rolled_back_defs.length() > 0 {
+  if coalesce_only_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup",
+      payload="defs=\{coalesce_only_defs.to_string()} passes=[coalesce-locals]",
+    )
+  }
+  if coalesce_rolled_back_defs.length() > 0 {
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
       "post-component-cleanup-rollback",
-      payload="reason=validation-pass-or-encode defs=\{rolled_back_defs.to_string()}",
+      payload="reason=coalesce-validation-pass-or-encode defs=\{coalesce_rolled_back_defs.to_string()}",
     )
   }
-  if non_improving_defs.length() > 0 {
+  if vacuum_rolled_back_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-rollback",
+      payload="reason=vacuum-validation-pass-or-encode defs=\{vacuum_rolled_back_defs.to_string()}",
+    )
+  }
+  if coalesce_non_improving_defs.length() > 0 {
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
       "post-component-cleanup-skip",
-      payload="reason=non-improving-encoded-size defs=\{non_improving_defs.to_string()}",
+      payload="reason=non-improving-coalesce-encoded-size defs=\{coalesce_non_improving_defs.to_string()}",
+    )
+  }
+  if vacuum_non_improving_defs.length() > 0 {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "post-component-cleanup-skip",
+      payload="reason=non-improving-vacuum-encoded-size defs=\{vacuum_non_improving_defs.to_string()}",
     )
   }
   if small_local_defs.length() > 0 {
