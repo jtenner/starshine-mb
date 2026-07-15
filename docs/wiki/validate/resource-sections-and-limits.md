@@ -17,7 +17,7 @@ sources:
   - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
-  - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
+  - https://webassembly.github.io/spec/core/valid/modules.html
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/invalid_fuzzer.mbt

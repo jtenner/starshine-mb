@@ -13,7 +13,7 @@ sources:
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
-  - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
+  - https://webassembly.github.io/spec/core/valid/modules.html
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt

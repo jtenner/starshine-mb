@@ -25,7 +25,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
-  - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
+  - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt

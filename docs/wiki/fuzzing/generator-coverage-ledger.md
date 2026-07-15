@@ -18,7 +18,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
-  - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
+  - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md

@@ -14,9 +14,9 @@ sources:
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
-  - ../raw/wasm/2026-05-13-ref-func-declaration-sources.md
+  - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
-  - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
+  - https://webassembly.github.io/spec/core/valid/index.html
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
@@ -28,7 +28,7 @@ sources:
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
-  - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
+  - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
@@ -241,8 +241,8 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Current `ref.func` / start `refs` source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md)
 - Superseded historical `ref.func` / start refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
-- Earlier `ref.func` snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
-- Diagnostics/repro snapshot: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)
+- Core `ref.func` membership rule: [module validation](https://webassembly.github.io/spec/core/valid/modules.html)
+- Official validation algorithm: [validation overview](https://webassembly.github.io/spec/core/valid/index.html) and [algorithm appendix](https://webassembly.github.io/spec/core/appendix/algorithm.html)
 - Scalar numeric snapshots: [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md), [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
 - GC aggregate snapshot: [`../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md`](../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md)
 - Table64 instruction-width correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)

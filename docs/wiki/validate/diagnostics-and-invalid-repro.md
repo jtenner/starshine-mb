@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
-  - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
+  - https://webassembly.github.io/spec/core/valid/index.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
@@ -41,7 +41,7 @@ Starshine's validator has two related but separate contracts:
 1. **Semantic validation:** decide whether a WebAssembly module is valid under the official context-and-stack validation model.
 2. **Diagnostic and repro surface:** explain where a rejection belongs, preserve enough metadata to replay it, and keep invalid-fuzz failures stable as the validator grows.
 
-The official WebAssembly validation sources checked on 2026-05-19 define the semantic rules but do not prescribe a diagnostic taxonomy. Starshine's taxonomy is therefore local and repository-owned: [`ValidationIssue`](../../../src/validate/validate.mbt#L13-L29) names the public issue variants, [`ValidationDiagnostic`](../../../src/validate/validate.mbt#L32-L43) pairs an issue with an optional absolute `FuncIdx`, and [`validation_issue_family(...)`](../../../src/validate/invalid_fuzzer.mbt#L21-L41) maps those issues to stable invalid-fuzz families. The primary-source and local-code manifest for this page is [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md).
+The official WebAssembly validation sources checked on 2026-05-19 define the semantic rules but do not prescribe a diagnostic taxonomy. Starshine's taxonomy is therefore local and repository-owned: [`ValidationIssue`](../../../src/validate/validate.mbt#L13-L29) names the public issue variants, [`ValidationDiagnostic`](../../../src/validate/validate.mbt#L32-L43) pairs an issue with an optional absolute `FuncIdx`, and [`validation_issue_family(...)`](../../../src/validate/invalid_fuzzer.mbt#L21-L41) maps those issues to stable invalid-fuzz families. The official validation overview, module rules, and instruction rules are the external sources; the local code links below define Starshine's diagnostic taxonomy and repro contract.
 
 Use this page as the focused companion to [`module-validation-phases.md`](module-validation-phases.md). The phase page answers "what does the validator check, and in what order?" This page answers "what user-visible family should the failure report, and how do I produce a stable repro?"
 
@@ -181,7 +181,7 @@ When changing validator diagnostics or invalid repros:
 
 ## Sources
 
-- Source manifest: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md)
+- Official validation model: [overview](https://webassembly.github.io/spec/core/valid/index.html), [modules](https://webassembly.github.io/spec/core/valid/modules.html), and [instructions](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Validator phase map and official model: [`./module-validation-phases.md`](module-validation-phases.md), [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [instruction validation](https://webassembly.github.io/spec/core/valid/instructions.html)
 - Diagnostic implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
 - AST invalid generation: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)

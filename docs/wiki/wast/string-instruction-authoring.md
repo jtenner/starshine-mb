@@ -7,7 +7,7 @@ sources:
   - ../raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-string-instruction-sources.md
-  - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
+  - https://webassembly.github.io/spec/core/binary/modules.html
   - ../strings/string-const-surface.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt

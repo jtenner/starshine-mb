@@ -6,7 +6,7 @@ sources:
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/research/0052-2026-03-22-string-const-surface.md
-  - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
+  - https://webassembly.github.io/spec/core/binary/modules.html
   - ../binary/type-table-memory-global-tag-sections.md
   - ../binary/module-section-map.md
   - ../wast/string-instruction-authoring.md
@@ -52,6 +52,6 @@ related:
 - Archived research doc: [`../raw/research/0052-2026-03-22-string-const-surface.md`](../raw/research/0052-2026-03-22-string-const-surface.md)
 - JS String Builtins boundary refresh: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
 - Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
-- Earlier binary section caveat and module-order refresh: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../binary/module-section-map.md`](../binary/module-section-map.md)
+- Core binary section boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../binary/module-section-map.md`](../binary/module-section-map.md)
 - WAST string instruction companion: [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md)
 - Constant-expression validator companion: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
