@@ -1338,6 +1338,62 @@ fn flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, root_id) != 1 {
+    return false
+  }
+  let outer_id = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, outer_id).op {
+    @ir.HotOp::Binary => ()
+    _ => return false
+  }
+  match @ir.hot_node_exact_instr(func, outer_id) {
+    Some(@lib.I32Add) | Some(@lib.I32Sub) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, outer_id) != 2 {
+    return false
+  }
+  let left_id = @ir.hot_child_get(func, outer_id, 0)
+  let right_id = @ir.hot_child_get(func, outer_id, 1)
+  if left_id == right_id {
+    return false
+  }
+  for multiply_id in [left_id, right_id] {
+    match @ir.hot_node_get(func, multiply_id).op {
+      @ir.HotOp::Binary => ()
+      _ => return false
+    }
+    if @ir.hot_node_exact_instr(func, multiply_id) !=
+      Some(@lib.Instruction::i32_mul()) ||
+      @ir.hot_child_count(func, multiply_id) != 2 {
+      return false
+    }
+    let multiply_left = @ir.hot_child_get(func, multiply_id, 0)
+    let multiply_right = @ir.hot_child_get(func, multiply_id, 1)
+    if multiply_left == multiply_right {
+      return false
+    }
+    match
+      (
+        @ir.hot_node_get(func, multiply_left).op,
+        @ir.hot_node_get(func, multiply_right).op,
+      ) {
+      (@ir.HotOp::Const, @ir.HotOp::Const) => ()
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
 fn flatten_try_table_dead_suffix_call_argument_is_sequence_member(
   func : @ir.HotFunc,
   argument_id : Int,
@@ -1377,7 +1433,10 @@ fn flatten_try_table_dead_suffix_root_is_direct_sequence_member(
 ) -> Bool {
   if flatten_try_table_dead_suffix_root_direct_i32_binary_instr(func, root_id)
     is Some(_) ||
-    flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(func, root_id) {
+    flatten_try_table_dead_suffix_root_is_one_multiply_child_drop(func, root_id) ||
+    flatten_try_table_dead_suffix_root_is_two_multiply_children_drop(
+      func, root_id,
+    ) {
     return true
   }
   match @ir.hot_node_get(func, root_id).op {

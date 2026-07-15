@@ -1796,7 +1796,7 @@ test "flatten keeps repeated descendants inside an add-of-two-multiplies suffix 
 }
 
 ///|
-test "flatten keeps two add-of-two-multiplies suffix roots unsupported" {
+test "flatten recognizes two add-of-two-multiplies suffix roots" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -1849,7 +1849,7 @@ test "flatten keeps two add-of-two-multiplies suffix roots unsupported" {
     drops[1],
   ])
   @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
-  assert_false(
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
@@ -2314,7 +2314,7 @@ test "flatten keeps a deeper subtract-of-two-multiplies suffix unsupported" {
 }
 
 ///|
-test "flatten keeps two subtract-of-two-multiplies suffix roots unsupported" {
+test "flatten recognizes two subtract-of-two-multiplies suffix roots" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
@@ -2344,7 +2344,7 @@ test "flatten keeps two subtract-of-two-multiplies suffix roots unsupported" {
     drops[0],
     drops[1],
   ])
-  assert_false(
+  assert_true(
     flatten_try_terminal_br_table_targets_label(
       func, table_id, label_id, 1, false,
     ),
@@ -4396,7 +4396,122 @@ test "flatten recognizes an extend-nested-submul-and try-table suffix sequence" 
 }
 
 ///|
-test "flatten keeps a sequence with an add-of-two-multiplies root unsupported" {
+fn flatten_wbtest_build_two_multiply_children_drop(
+  func : @ir.HotFunc,
+  outer_instr : @lib.Instruction,
+  base : Int,
+) -> Array[Int] {
+  let left = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_mul(),
+    base,
+    base + 1,
+  )
+  let right = flatten_test_build_direct_binary(
+    func,
+    @lib.Instruction::i32_mul(),
+    base + 2,
+    base + 3,
+  )
+  let outer = @ir.hot_build_binary(func, @lib.ValType::i32(), left[0], right[0])
+  @ir.hot_node_exact_instr_set(func, outer, outer_instr)
+  [
+    @ir.hot_build_drop(func, outer),
+    outer,
+    left[0],
+    right[0],
+    left[1],
+    left[2],
+    right[1],
+    right[2],
+  ]
+}
+
+///|
+fn flatten_wbtest_recognize_sequence_with_two_multiply_children_drop(
+  subtract_tree : Bool,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let roots = if subtract_tree {
+    [
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i64_extend_i32s(),
+        9,
+        @lib.ValType::i64(),
+        true,
+      ),
+      flatten_wbtest_build_two_multiply_children_drop(
+        func,
+        @lib.Instruction::i32_sub(),
+        10,
+      ),
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_and(),
+        14,
+        15,
+      ),
+    ]
+  } else {
+    [
+      flatten_test_build_direct_binary_drop(
+        func,
+        @lib.Instruction::i32_add(),
+        9,
+        10,
+      ),
+      flatten_wbtest_build_two_multiply_children_drop(
+        func,
+        @lib.Instruction::i32_add(),
+        11,
+      ),
+      flatten_wbtest_build_direct_unary_drop(
+        func,
+        @lib.Instruction::i32_clz(),
+        15,
+        @lib.ValType::i32(),
+        false,
+      ),
+    ]
+  }
+  let body : Array[Int] = [table_id]
+  let expected : Array[Int] = []
+  for root in roots {
+    body.push(root[0])
+    for node_id in root {
+      expected.push(node_id)
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, body)
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some(expected),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-tworichadd-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_two_multiply_children_drop(false)
+}
+
+///|
+test "flatten recognizes an extend-tworichsub-and try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_two_multiply_children_drop(true)
+}
+
+///|
+test "flatten keeps a sequence with a deeper two-rich-child root unsupported" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -4408,24 +4523,24 @@ test "flatten keeps a sequence with an add-of-two-multiplies root unsupported" {
     9,
     10,
   )
-  let left = flatten_test_build_direct_binary(
+  let rich = flatten_wbtest_build_two_multiply_children_drop(
     func,
-    @lib.Instruction::i32_mul(),
+    @lib.Instruction::i32_add(),
     11,
-    12,
   )
-  let right = flatten_test_build_direct_binary(
+  let outer_const = @ir.hot_build_const_i32(func, @lib.I32(15))
+  let deeper = @ir.hot_build_binary(
     func,
-    @lib.Instruction::i32_mul(),
-    13,
-    14,
+    @lib.ValType::i32(),
+    rich[1],
+    outer_const,
   )
-  let outer = @ir.hot_build_binary(func, @lib.ValType::i32(), left[0], right[0])
-  @ir.hot_node_exact_instr_set(func, outer, @lib.Instruction::i32_add())
+  @ir.hot_node_exact_instr_set(func, deeper, @lib.Instruction::i32_add())
+  @ir.hot_delete_node(func, rich[0])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     direct[0],
-    @ir.hot_build_drop(func, outer),
+    @ir.hot_build_drop(func, deeper),
   ])
   assert_false(
     flatten_try_terminal_br_table_targets_label(
