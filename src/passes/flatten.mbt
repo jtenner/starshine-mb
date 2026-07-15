@@ -289,6 +289,106 @@ fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
 }
 
 ///|
+priv struct FlattenBrIfFlowEntry {
+  branch_id : Int
+  flow : Array[Int]?
+}
+
+///|
+fn FlattenBrIfFlowEntry::new(
+  branch_id : Int,
+  flow : Array[Int]?,
+) -> FlattenBrIfFlowEntry {
+  { branch_id, flow }
+}
+
+///|
+priv struct FlattenScalarBrIfFlowEntry {
+  branch_id : Int
+  value_id : Int
+  sites : Array[Int]
+}
+
+///|
+fn FlattenScalarBrIfFlowEntry::new(
+  branch_id : Int,
+  value_id : Int,
+  sites : Array[Int],
+) -> FlattenScalarBrIfFlowEntry {
+  { branch_id, value_id, sites }
+}
+
+///|
+priv struct FlattenScalarFlowReplacementEntry {
+  value_id : Int
+  replacement_id : Int
+}
+
+///|
+fn FlattenScalarFlowReplacementEntry::new(
+  value_id : Int,
+  replacement_id : Int,
+) -> FlattenScalarFlowReplacementEntry {
+  { value_id, replacement_id }
+}
+
+///|
+fn flatten_br_if_flow_entry_index(
+  entries : Array[FlattenBrIfFlowEntry],
+  branch_id : Int,
+) -> Int {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].branch_id == branch_id {
+      return index
+    }
+  }
+  -1
+}
+
+///|
+fn flatten_scalar_br_if_flow_entry_index(
+  entries : Array[FlattenScalarBrIfFlowEntry],
+  branch_id : Int,
+) -> Int {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].branch_id == branch_id {
+      return index
+    }
+  }
+  -1
+}
+
+///|
+fn flatten_scalar_flow_replacement(
+  entries : Array[FlattenScalarFlowReplacementEntry],
+  value_id : Int,
+) -> Int {
+  for entry in entries {
+    if entry.value_id == value_id {
+      return entry.replacement_id
+    }
+  }
+  -1
+}
+
+///|
+fn flatten_scalar_flow_replacement_set(
+  entries : Array[FlattenScalarFlowReplacementEntry],
+  value_id : Int,
+  replacement_id : Int,
+) -> Unit {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].value_id == value_id {
+      entries[index] = FlattenScalarFlowReplacementEntry::new(
+        value_id, replacement_id,
+      )
+      return
+    }
+  }
+  entries.push(FlattenScalarFlowReplacementEntry::new(value_id, replacement_id))
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -298,13 +398,10 @@ priv struct FlattenRewriteState {
   label_used : @bitset.BitSet
   label_branch_nodes : Array[Array[Int]]
   use_def : @ir.HotNodeUseCounts
-  tuple_br_if_flow_cached : Array[Bool]
-  tuple_br_if_flows : Array[Array[Int]?]
-  multivalue_br_if_flow_cached : Array[Bool]
-  multivalue_br_if_flows : Array[Array[Int]?]
-  scalar_br_if_flow_values : Array[Int]
-  scalar_br_if_flow_sites : Array[Array[Int]?]
-  scalar_flow_replacements : Array[Int]
+  tuple_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
+  multivalue_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
+  scalar_br_if_flow_entries : Array[FlattenScalarBrIfFlowEntry]
+  scalar_flow_replacement_entries : Array[FlattenScalarFlowReplacementEntry]
   dead_suffix_nodes : Array[Array[Int]?]
   dead_suffix_regions : Array[@ir.HotRegionRef?]
   terminal_table_labels : Array[Int]
@@ -337,13 +434,10 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     label_used,
     label_branch_nodes,
     use_def: flatten_build_node_use_counts(func),
-    tuple_br_if_flow_cached: Array::make(@ir.hot_node_count(func), false),
-    tuple_br_if_flows: Array::make(@ir.hot_node_count(func), None),
-    multivalue_br_if_flow_cached: Array::make(@ir.hot_node_count(func), false),
-    multivalue_br_if_flows: Array::make(@ir.hot_node_count(func), None),
-    scalar_br_if_flow_values: Array::make(@ir.hot_node_count(func), -1),
-    scalar_br_if_flow_sites: Array::make(@ir.hot_node_count(func), None),
-    scalar_flow_replacements: Array::make(@ir.hot_node_count(func), -1),
+    tuple_br_if_flow_entries: [],
+    multivalue_br_if_flow_entries: [],
+    scalar_br_if_flow_entries: [],
+    scalar_flow_replacement_entries: [],
     dead_suffix_nodes: Array::make(@ir.hot_node_count(func), None),
     dead_suffix_regions: Array::make(@ir.hot_node_count(func), None),
     terminal_table_labels: Array::make(@ir.hot_node_count(func), -1),
@@ -4318,14 +4412,16 @@ fn flatten_scalar_br_if_flow_sites(
 ) -> Array[Int]? {
   let cached_sites = match state {
     Some(state) => {
-      if branch_id < 0 || branch_id >= state.scalar_br_if_flow_sites.length() {
-        return None
-      }
-      if state.scalar_br_if_flow_values[branch_id] >= 0 {
-        if state.scalar_br_if_flow_values[branch_id] != value_id {
+      let entry_index = flatten_scalar_br_if_flow_entry_index(
+        state.scalar_br_if_flow_entries,
+        branch_id,
+      )
+      if entry_index >= 0 {
+        let entry = state.scalar_br_if_flow_entries[entry_index]
+        if entry.value_id != value_id {
           return None
         }
-        state.scalar_br_if_flow_sites[branch_id]
+        Some(entry.sites)
       } else {
         if state.rewrites_started {
           return None
@@ -4334,10 +4430,10 @@ fn flatten_scalar_br_if_flow_sites(
           func, branch_id, value_id,
         )
         match sites {
-          Some(_) => {
-            state.scalar_br_if_flow_values[branch_id] = value_id
-            state.scalar_br_if_flow_sites[branch_id] = sites
-          }
+          Some(sites) =>
+            state.scalar_br_if_flow_entries.push(
+              FlattenScalarBrIfFlowEntry::new(branch_id, value_id, sites),
+            )
           None => ()
         }
         sites
@@ -4359,21 +4455,27 @@ fn flatten_rewrite_scalar_br_if_flow_sites(
   branch_id : Int,
   value_id : Int,
 ) -> Array[Int]? {
-  if !state.rewrites_started ||
-    branch_id < 0 ||
-    branch_id >= state.scalar_br_if_flow_values.length() ||
-    state.scalar_br_if_flow_values[branch_id] < 0 {
+  if !state.rewrites_started {
     return None
   }
-  let cached_value = state.scalar_br_if_flow_values[branch_id]
+  let entry_index = flatten_scalar_br_if_flow_entry_index(
+    state.scalar_br_if_flow_entries,
+    branch_id,
+  )
+  if entry_index < 0 {
+    return None
+  }
+  let cached_value = state.scalar_br_if_flow_entries[entry_index].value_id
   if @ir.hot_child_count(func, branch_id) < 1 {
     return None
   }
   let current_value = @ir.hot_child_get(func, branch_id, 0)
   if current_value != cached_value {
-    if cached_value < 0 ||
-      cached_value >= state.scalar_flow_replacements.length() ||
-      state.scalar_flow_replacements[cached_value] != current_value {
+    if flatten_scalar_flow_replacement(
+        state.scalar_flow_replacement_entries,
+        cached_value,
+      ) !=
+      current_value {
       return None
     }
     return Some([])
@@ -4681,11 +4783,12 @@ fn flatten_multivalue_br_if_flow_span(
   }
   let cached_flow = match state {
     Some(state) => {
-      if branch_id < 0 || branch_id >= state.multivalue_br_if_flows.length() {
-        return None
-      }
-      if state.multivalue_br_if_flow_cached[branch_id] {
-        state.multivalue_br_if_flows[branch_id]
+      let entry_index = flatten_br_if_flow_entry_index(
+        state.multivalue_br_if_flow_entries,
+        branch_id,
+      )
+      if entry_index >= 0 {
+        state.multivalue_br_if_flow_entries[entry_index].flow
       } else {
         if state.rewrites_started {
           return None
@@ -4693,8 +4796,9 @@ fn flatten_multivalue_br_if_flow_span(
         let flow = flatten_locate_reachable_multivalue_br_if_flow_span(
           func, branch_id, payload_count,
         )
-        state.multivalue_br_if_flow_cached[branch_id] = true
-        state.multivalue_br_if_flows[branch_id] = flow
+        state.multivalue_br_if_flow_entries.push(
+          FlattenBrIfFlowEntry::new(branch_id, flow),
+        )
         flow
       }
     }
@@ -4723,9 +4827,11 @@ fn flatten_rewrite_multivalue_br_if_flow_span(
   payload_count : Int,
 ) -> Array[Int]? {
   if !state.rewrites_started ||
-    branch_id < 0 ||
-    branch_id >= state.multivalue_br_if_flow_cached.length() ||
-    !state.multivalue_br_if_flow_cached[branch_id] {
+    flatten_br_if_flow_entry_index(
+      state.multivalue_br_if_flow_entries,
+      branch_id,
+    ) <
+    0 {
     return None
   }
   flatten_multivalue_br_if_flow_span(
@@ -4864,11 +4970,12 @@ fn flatten_multivalue_tuple_br_if_flow(
   }
   let cached_flow = match state {
     Some(state) => {
-      if branch_id < 0 || branch_id >= state.tuple_br_if_flows.length() {
-        return None
-      }
-      if state.tuple_br_if_flow_cached[branch_id] {
-        state.tuple_br_if_flows[branch_id]
+      let entry_index = flatten_br_if_flow_entry_index(
+        state.tuple_br_if_flow_entries,
+        branch_id,
+      )
+      if entry_index >= 0 {
+        state.tuple_br_if_flow_entries[entry_index].flow
       } else {
         if state.rewrites_started {
           return None
@@ -4876,8 +4983,9 @@ fn flatten_multivalue_tuple_br_if_flow(
         let flow = flatten_locate_reachable_tuple_br_if_flow(
           func, branch_id, tuple_id, payload_count,
         )
-        state.tuple_br_if_flow_cached[branch_id] = true
-        state.tuple_br_if_flows[branch_id] = flow
+        state.tuple_br_if_flow_entries.push(
+          FlattenBrIfFlowEntry::new(branch_id, flow),
+        )
         flow
       }
     }
@@ -4920,9 +5028,8 @@ fn flatten_rewrite_multivalue_tuple_br_if_flow(
   target_types : Array[@lib.ValType],
 ) -> Array[Int]? {
   if !state.rewrites_started ||
-    branch_id < 0 ||
-    branch_id >= state.tuple_br_if_flow_cached.length() ||
-    !state.tuple_br_if_flow_cached[branch_id] {
+    flatten_br_if_flow_entry_index(state.tuple_br_if_flow_entries, branch_id) <
+    0 {
     return None
   }
   flatten_multivalue_tuple_br_if_flow(
@@ -5525,8 +5632,12 @@ fn flatten_replace_cached_flowing_value_uses(
       @ir.hot_child_set(func, parent_id, slot, replacement)
     }
   }
-  if value_id >= 0 && value_id < state.scalar_flow_replacements.length() {
-    state.scalar_flow_replacements[value_id] = replacement
+  if value_id >= 0 {
+    flatten_scalar_flow_replacement_set(
+      state.scalar_flow_replacement_entries,
+      value_id,
+      replacement,
+    )
   }
   true
 }
