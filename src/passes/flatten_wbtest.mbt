@@ -4159,7 +4159,80 @@ test "flatten recognizes an extend-callarg-and try-table suffix sequence" {
 }
 
 ///|
-test "flatten keeps a sequence with an add-argument call unsupported" {
+fn flatten_wbtest_recognize_sequence_with_binary_argument_call(
+  argument_instr : @lib.Instruction,
+  right_value : Int,
+) -> Unit raise {
+  let func = @ir.HotFunc::new()
+  let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
+  let try_id = fixture[0]
+  let label_id = fixture[1]
+  let table_id = fixture[2]
+  let first = flatten_test_build_direct_binary_drop(
+    func,
+    @lib.Instruction::i32_add(),
+    9,
+    10,
+  )
+  let argument = flatten_test_build_direct_binary(
+    func, argument_instr, 11, right_value,
+  )
+  let call = @ir.hot_build_call(func, 99, [], [argument[0]])
+  let last = flatten_wbtest_build_direct_unary_drop(
+    func,
+    @lib.Instruction::i32_clz(),
+    13,
+    @lib.ValType::i32(),
+    false,
+  )
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    table_id,
+    first[0],
+    call,
+    last[0],
+  ])
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      first[0],
+      first[1],
+      first[2],
+      first[3],
+      call,
+      argument[0],
+      argument[1],
+      argument[2],
+      last[0],
+      last[1],
+      last[2],
+    ]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten recognizes an add-calladd-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_binary_argument_call(
+    @lib.Instruction::i32_add(),
+    12,
+  )
+}
+
+///|
+test "flatten recognizes an add-calldivzero-clz try-table suffix sequence" {
+  flatten_wbtest_recognize_sequence_with_binary_argument_call(
+    @lib.Instruction::i32_div_s(),
+    0,
+  )
+}
+
+///|
+test "flatten keeps a sequence with a unary-argument call unsupported" {
   let func = @ir.HotFunc::new()
   let fixture = flatten_test_build_scalar_try_table_suffix_fixture(func)
   let try_id = fixture[0]
@@ -4171,13 +4244,10 @@ test "flatten keeps a sequence with an add-argument call unsupported" {
     9,
     10,
   )
-  let argument = flatten_test_build_direct_binary(
-    func,
-    @lib.Instruction::i32_add(),
-    11,
-    12,
-  )
-  let call = @ir.hot_build_call(func, 99, [], [argument[0]])
+  let input = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let argument = @ir.hot_build_unary(func, @lib.ValType::i32(), input)
+  @ir.hot_node_exact_instr_set(func, argument, @lib.Instruction::i32_clz())
+  let call = @ir.hot_build_call(func, 99, [], [argument])
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id,
     add[0],
