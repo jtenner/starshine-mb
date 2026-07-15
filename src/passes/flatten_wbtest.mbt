@@ -6050,6 +6050,48 @@ test "flatten lightweight use counts match exact pre-mutation ownership" {
 }
 
 ///|
+test "flatten admission node index shares the exact live-node scan" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let branch_id = @ir.hot_build_br(func, label_id)
+  let branch_if_id = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+  )
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id, label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+  )
+  let loop_id = @ir.hot_build_loop(func, @lib.BlockType::void_(), [])
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(func)],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, block_id), [
+    branch_id, branch_if_id, table_id, loop_id, try_id,
+  ])
+  for i = 0; i < 256; i = i + 1 {
+    @ir.hot_root_append(func, @ir.hot_build_nop(func))
+  }
+  @ir.hot_root_append(func, block_id)
+  let index = flatten_build_pre_mutation_node_index(func)
+  @debug.assert_eq(index.label_branch_nodes[label_id], [
+    branch_id, branch_if_id, table_id,
+  ])
+  @debug.assert_eq(index.loop_nodes, [loop_id])
+  @debug.assert_eq(index.try_nodes, [try_id])
+  @debug.assert_eq(index.branch_payload_nodes, [
+    branch_id, branch_if_id, table_id,
+  ])
+}
+
+///|
 test "flatten branch index deduplicates only the current node target" {
   let branch_nodes : Array[Array[Int]] = [[], []]
   let last_recorded_node = [-1, -1]

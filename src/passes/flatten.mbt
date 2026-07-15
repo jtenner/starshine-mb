@@ -255,13 +255,26 @@ fn flatten_record_label_branch_node(
 }
 
 ///|
-fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
+priv struct FlattenPreMutationNodeIndex {
+  label_branch_nodes : Array[Array[Int]]
+  loop_nodes : Array[Int]
+  try_nodes : Array[Int]
+  branch_payload_nodes : Array[Int]
+}
+
+///|
+fn flatten_build_pre_mutation_node_index(
+  func : @ir.HotFunc,
+) -> FlattenPreMutationNodeIndex {
   let branch_nodes : Array[Array[Int]] = []
   let last_recorded_node : Array[Int] = []
   for label_idx = 0; label_idx < func.labels.length(); label_idx = label_idx + 1 {
     branch_nodes.push([])
     last_recorded_node.push(-1)
   }
+  let loop_nodes : Array[Int] = []
+  let try_nodes : Array[Int] = []
+  let branch_payload_nodes : Array[Int] = []
   let record = fn(label_id : Int, node_id : Int) {
     flatten_record_label_branch_node(
       branch_nodes, last_recorded_node, label_id, node_id,
@@ -273,19 +286,24 @@ fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
     }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
-      @ir.HotOp::Br
-      | @ir.HotOp::BrIf
-      | @ir.HotOp::BrOnNull
-      | @ir.HotOp::BrOnNonNull
-      | @ir.HotOp::BrOnCast
-      | @ir.HotOp::BrOnCastFail
-      | @ir.HotOp::Delegate => record(node.imm0, node_id)
+      @ir.HotOp::Loop => loop_nodes.push(node_id)
+      @ir.HotOp::Try => try_nodes.push(node_id)
+      @ir.HotOp::Br | @ir.HotOp::BrIf => {
+        branch_payload_nodes.push(node_id)
+        record(node.imm0, node_id)
+      }
       @ir.HotOp::BrTable => {
+        branch_payload_nodes.push(node_id)
         record(@ir.hot_branch_table_default_target(func, node.imm0), node_id)
         for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
           record(label_id, node_id)
         }
       }
+      @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate => record(node.imm0, node_id)
       @ir.HotOp::TryTable => {
         let info = @ir.hot_catch_info_get(func, node.imm1)
         for catch_ in info.catches {
@@ -301,7 +319,17 @@ fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
       _ => ()
     }
   }
-  branch_nodes
+  {
+    label_branch_nodes: branch_nodes,
+    loop_nodes,
+    try_nodes,
+    branch_payload_nodes,
+  }
+}
+
+///|
+fn flatten_build_label_branch_nodes(func : @ir.HotFunc) -> Array[Array[Int]] {
+  flatten_build_pre_mutation_node_index(func).label_branch_nodes
 }
 
 ///|
@@ -529,6 +557,9 @@ priv struct FlattenRewriteState {
   eh_repair_requirement : FlattenEhRepairRequirement
   label_used : @bitset.BitSet
   label_branch_nodes : Array[Array[Int]]
+  loop_nodes : Array[Int]
+  try_nodes : Array[Int]
+  branch_payload_nodes : Array[Int]
   use_def : @ir.HotNodeUseCounts
   use_count_node_limit : Int
   tuple_br_if_flow_entries : Array[FlattenBrIfFlowEntry]
@@ -548,7 +579,8 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
     label_temps.push([])
   }
-  let label_branch_nodes = flatten_build_label_branch_nodes(func)
+  let node_index = flatten_build_pre_mutation_node_index(func)
+  let label_branch_nodes = node_index.label_branch_nodes
   let label_used = @bitset.BitSet::new(func.labels.length())
   for label_id = 0
       label_id < label_branch_nodes.length()
@@ -563,6 +595,9 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     eh_repair_requirement: flatten_eh_repair_requirement(func),
     label_used,
     label_branch_nodes,
+    loop_nodes: node_index.loop_nodes,
+    try_nodes: node_index.try_nodes,
+    branch_payload_nodes: node_index.branch_payload_nodes,
     use_def: flatten_build_node_use_counts(func),
     use_count_node_limit: @ir.hot_node_count(func),
     tuple_br_if_flow_entries: [],
@@ -7000,13 +7035,9 @@ fn flatten_has_deferred_inputful_loop(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
 ) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+  for node_id in state.loop_nodes {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
-    }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Loop => ()
-      _ => continue
     }
     let label_id = @ir.hot_control_node_label(func, node_id)
     if @ir.hot_label_branch_arity(func, label_id) > 0 &&
@@ -7022,31 +7053,22 @@ fn flatten_has_deferred_legacy_try(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
 ) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+  for node_id in state.try_nodes {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Try => {
-        let result_arity = @ir.hot_node_result_arity(func, node_id)
-        if result_arity == 1 &&
-          !flatten_scalar_legacy_try_is_supported(
-            func,
-            node_id,
-            state=Some(state),
-          ) {
-          return true
-        }
-        if result_arity > 1 &&
-          !flatten_multivalue_legacy_try_is_supported(
-            func,
-            node_id,
-            state=Some(state),
-          ) {
-          return true
-        }
-      }
-      _ => ()
+    let result_arity = @ir.hot_node_result_arity(func, node_id)
+    if result_arity == 1 &&
+      !flatten_scalar_legacy_try_is_supported(func, node_id, state=Some(state)) {
+      return true
+    }
+    if result_arity > 1 &&
+      !flatten_multivalue_legacy_try_is_supported(
+        func,
+        node_id,
+        state=Some(state),
+      ) {
+      return true
     }
   }
   false
@@ -7057,7 +7079,11 @@ fn flatten_has_deferred_rich_branch_payload(
   func : @ir.HotFunc,
   state? : FlattenRewriteState? = None,
 ) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+  let branch_nodes = match state {
+    Some(state) => state.branch_payload_nodes
+    None => flatten_build_pre_mutation_node_index(func).branch_payload_nodes
+  }
+  for node_id in branch_nodes {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
