@@ -1247,6 +1247,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_drop_const_then_unreachable = suffix_count == 2
       let mut exact_unreachable_then_drop_const = suffix_count == 2
       let mut exact_add_drop_then_unreachable = suffix_count == 2
+      let mut exact_unreachable_then_add_drop = suffix_count == 2
       let mut exact_two_direct_add_drops = suffix_count == 2
       let mut exact_two_direct_multiply_drops = suffix_count == 2
       for suffix_idx = root_idx + 1
@@ -1282,6 +1283,7 @@ fn flatten_try_table_dead_suffix_nodes(
           }
           if !root_is_unreachable {
             exact_unreachable_then_drop_const = false
+            exact_unreachable_then_add_drop = false
           }
           if !flatten_try_table_dead_suffix_root_is_direct_drop_i32_add_consts(
               func, root_id,
@@ -1296,6 +1298,11 @@ fn flatten_try_table_dead_suffix_nodes(
           if !root_is_direct_drop_const {
             exact_unreachable_then_drop_const = false
           }
+          if !flatten_try_table_dead_suffix_root_is_direct_drop_i32_add_consts(
+              func, root_id,
+            ) {
+            exact_unreachable_then_add_drop = false
+          }
         }
       }
       if !all_unreachable &&
@@ -1303,6 +1310,7 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_drop_const_then_unreachable &&
         !exact_unreachable_then_drop_const &&
         !exact_add_drop_then_unreachable &&
+        !exact_unreachable_then_add_drop &&
         !exact_two_direct_add_drops &&
         !exact_two_direct_multiply_drops {
         return None
