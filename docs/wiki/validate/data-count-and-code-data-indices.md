@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
+  - https://webassembly.github.io/spec/core/binary/modules.html
   - ../../../src/lib/types.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/typecheck.mbt
@@ -31,7 +31,7 @@ Data-count is easy to misread because it has two different jobs:
 1. **Count equality:** when the data-count section is present, its count must equal the number of data segments.
 2. **Early availability for code validation:** when a code body contains a data-index instruction, the binary module needs a data-count section before the code section so validators can know the data-index range before the later data section is decoded.
 
-The official Core 3.0 binary-module rule is broader than its bulk-memory explanation, which still talks about `memory.init` / `data.drop`: **any data index in the code section** requires data-count. In Starshine's core instruction model, the four code-section data-index carriers are `MemoryInit`, `DataDrop`, `ArrayNewData`, and `ArrayInitData` in [`src/lib/types.mbt`](../../../src/lib/types.mbt). The older and broader data-segment refresh remains [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md).
+The official Core 3.0 binary-module rule is broader than its bulk-memory explanation, which still talks about `memory.init` / `data.drop`: **any data index in the code section** requires data-count. In Starshine's core instruction model, the four code-section data-index carriers are `MemoryInit`, `DataDrop`, `ArrayNewData`, and `ArrayInitData` in [`src/lib/types.mbt`](../../../src/lib/types.mbt). The current official binary-module and instruction-validation pages, reviewed on 2026-07-14, remain the primary evidence for this distinction.
 
 ## Beginner Model
 
@@ -140,7 +140,7 @@ When data sections, data-count, or data-index instructions change:
 ## Source Map
 
 - Official binary-module and instruction-validation sources: <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
-- Broader data/data-count source refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
+- Official data/data-count sources: <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Binary segment map: [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md)
 - Data WAST authoring: [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md)
 - Runtime memory instruction authoring: [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md)

@@ -1,12 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
-  - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
+  - https://webassembly.github.io/spec/core/valid/matching.html
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -210,7 +210,7 @@ Useful related signoff pages:
 - memory64/table64 Core/status bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Constant-expression contract: [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Validator resource-section contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
-- Current import/export matching source bridge: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
+- Import/export matching contract: [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), <https://webassembly.github.io/spec/core/valid/matching.html>
 - Linear-memory Threads/shared-memory boundary: [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md), [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
 - Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
 - Core binary/module rules: [binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [abstract modules](https://webassembly.github.io/spec/core/syntax/modules.html), and [module validation](https://webassembly.github.io/spec/core/valid/modules.html)

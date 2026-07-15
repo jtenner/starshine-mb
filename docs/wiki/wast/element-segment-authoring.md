@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
-  - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
+  - https://webassembly.github.io/spec/core/text/modules.html
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -45,13 +45,13 @@ There are two independent questions to keep separate:
 1. **Mode:** active, passive, or declarative.
 2. **Payload kind:** a legacy function-index list, a `funcref` expression list, or an explicitly typed reference-expression list.
 
-Official WebAssembly models both axes. Starshine's core, binary, validator, and generator layers can represent the full matrix, but the current WAST text path loses one important bit: parsed `(elem declare func ...)` source has no explicit mode field in the WAST AST, so lowering treats it like a passive segment. The 2026-06-04 current refresh records that the official text grammar remains broader than Starshine here: official `declare` can pair with a general typed element list, while local text currently recognizes only the narrow `declare func` branch and still does not preserve declarative mode through lowering. See [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md).
+Official WebAssembly models both axes. Starshine's core, binary, validator, and generator layers can represent the full matrix, but the current WAST text path loses one important bit: parsed `(elem declare func ...)` source has no explicit mode field in the WAST AST, so lowering treats it like a passive segment. The current Core 3.0 text, syntax, binary, and module-validation pages remain broader than Starshine here: official `declare` can pair with a general typed element list, while local text currently recognizes only the narrow `declare func` branch and still does not preserve declarative mode through lowering.
 
 ## Layer Contract
 
 | Layer | Code / source | What it proves | Caveat |
 | --- | --- | --- | --- |
-| Official text/syntax/validation | WebAssembly 3.0 text, syntax, binary, and validation pages captured in the 2026-06-04 raw refresh | Element segments have active/passive/declarative modes; payloads are reference expressions; function-index lists abbreviate `ref.func` payloads; active offsets and element expressions are constant-expression contexts; current official `declare` text can carry typed `(item ...)` element lists. | The official text grammar is broader than Starshine WAST in this snapshot. |
+| Official text/syntax/validation | Current WebAssembly 3.0 text, syntax, binary, and validation pages, reviewed on 2026-07-14 | Element segments have active/passive/declarative modes; payloads are reference expressions; function-index lists abbreviate `ref.func` payloads; active offsets and element expressions are constant-expression contexts; current official `declare` text can carry typed `(item ...)` element lists. | The official text grammar is broader than Starshine WAST in this snapshot. |
 | Starshine core model | [`ElemMode`](../../../src/lib/types.mbt) and [`ElemKind`](../../../src/lib/types.mbt) | Core modules can carry `Passive`, `Active(TableIdx, Expr)`, `Declarative`, `FuncsElemKind`, `FuncExprsElemKind`, and `TypedExprsElemKind`. | Core support does not automatically imply text support. |
 | Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Binary headers `0` through `7` roundtrip the full mode/kind family, including declarative typed-expression segments. | Byte-level roundtrip does not prove source-id or text-printer fidelity. |
 | WAST parse/print/lower | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | WAST can author common active/passive function-list and typed-expression segments, table element abbreviations, and passive typed empty fixtures. | [`ElemSegment`](../../../src/wast/parser.mbt) has no mode field; `(elem declare func ...)` parses but lowers/prints as passive. Typed declarative text is not a proven text surface today. |
@@ -213,7 +213,7 @@ A faithful text fix should be test-first:
 
 ## Source Map
 
-- Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
+- Official element-segment sources: <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
 - Aggregate/initializer boundary: [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - WAST parser AST and element parser: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)

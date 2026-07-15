@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-10-constant-expression-array-constructor-reconciliation.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
-  - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
+  - https://webassembly.github.io/spec/core/binary/modules.html
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -39,7 +39,7 @@ Use this page when writing or reviewing WAST module fields that introduce **data
 
 This page owns the text shapes, Starshine WAST parser/lowerer behavior, data-count interactions, and rewrite checklist for `(data ...)` fields. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for the runtime stack effects and traps of `memory.init` / `data.drop`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for load/store `offset=` and `align=` immediates, and [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for `(memory ...)` declarations. The binary section and on-wire header map remains [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
 
-The current data/data-count source refresh is [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md). It rechecks the official WebAssembly 3.0 pages dated 2026-06-03 plus Starshine WAST parser, lowerer, printer, core model, binary codec, validator, generator, and WAST arbitrary evidence. The active-proposal routing bridge for numeric data payload syntax is [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md).
+The current evidence is the official WebAssembly 3.0 text, syntax, binary, module-validation, and instruction-validation pages, now dated 2026-07-10, together with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, generator, and WAST arbitrary surfaces. The active-proposal routing bridge for numeric data payload syntax is [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md).
 
 ## Beginner Model
 
@@ -201,7 +201,7 @@ When a pass, fixture generator, or printer changes data segments:
 ## Sources
 
 - Active numeric data-payload proposal routing: [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md)
-- Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
+- Official data/data-count sources: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Focused data-count/data-index guide: [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Aggregate/initializer boundary: [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>

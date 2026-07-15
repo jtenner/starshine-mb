@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
-  - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
-  - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
+  - https://webassembly.github.io/spec/core/valid/matching.html
+  - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/match.mbt
   - ../../../src/validate/env.mbt
@@ -39,7 +39,7 @@ Use this page when changing or debugging the boundary where a module names value
 - [`ExportSec`](../../../src/lib/types.mbt) entries declare a public name and an [`ExternIdx`](../../../src/lib/types.mbt) that points into one of Starshine's function, table, memory, global, or tag index spaces.
 - [`src/validate/match.mbt`](../../../src/validate/match.mbt) implements the reusable WebAssembly matching relation for external types and their component limits, globals, memories, tables, tags, and functions.
 
-The current focused source manifest is [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md). It rechecks the Core 3.0 matching, type-validity, module-validation, runtime-instantiation, and abstract module pages against Starshine's validator, matching helper, invalid-fuzzer families, binary codec, core model, and WAST lowering. The 2026-06-04 exception refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) updates the tag-import nuance: Starshine still rejects resultful tag imports locally, but current Core 3.0's tagtype validity is broader and leaves the empty-result requirement to exception instruction use sites.
+The current evidence is the Core 3.0 matching, type-validity, module-validation, runtime-instantiation, and abstract module pages, reviewed on 2026-07-14, against Starshine's validator, matching helper, invalid-fuzzer families, binary codec, core model, and WAST lowering. Current Core tagtype validity remains broader than Starshine's local resultful-tag import rule and leaves the empty-result requirement to exception instruction use sites.
 
 Keep one distinction visible: **module validation is not host instantiation**. Starshine validates that import declarations are well typed and that exports point at real module items. A future linker or embedding API still needs to match host-provided external values against those import declarations.
 
@@ -170,8 +170,8 @@ When a pass, generator, or fixture changes import/export structure:
 
 ## Sources
 
-- Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
-- Current source manifest: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
+- Official tag/import sources: <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
+- Official import/export matching sources: <https://webassembly.github.io/spec/core/valid/matching.html>, <https://webassembly.github.io/spec/core/valid/types.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/exec/modules.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>
 - Module-validation phase and official model: [`module-validation-phases.md`](module-validation-phases.md), [WebAssembly 3.0 module validation](https://webassembly.github.io/spec/core/valid/modules.html), and [runtime instantiation](https://webassembly.github.io/spec/core/exec/modules.html)
 - Resource-section validation contract: [`resource-sections-and-limits.md`](resource-sections-and-limits.md)
 - Validation implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
