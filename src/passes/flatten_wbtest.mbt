@@ -6230,3 +6230,80 @@ test "flatten rewrite multivalue try proof uses the pre-mutation branch index" {
     ),
   )
 }
+
+///|
+test "flatten rewrite multivalue try flow uses pre-mutation ownership counts" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let result_types = [i32_type, i64_type]
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, result_types),
+  )
+  let body_first = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let body_second = @ir.hot_build_const_i64(func, @lib.I64(10L))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_first, body_second],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      result_types,
+    ),
+  )
+  let first_payload = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let second_payload = @ir.hot_build_const_i64(func, @lib.I64(8L))
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [
+    first_payload, second_payload,
+  ])
+  let branch = @ir.hot_build_br_if(
+    func,
+    @ir.hot_control_node_label(func, try_id),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[tuple_id, tuple_id],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    branch,
+    @ir.hot_build_drop(func, tuple_id),
+    @ir.hot_build_drop(func, tuple_id),
+    body_first,
+    body_second,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id, try_id]))
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_try_br_if_flow_is_exact(
+      func,
+      try_id,
+      branch,
+      result_types,
+      state=Some(state),
+    )
+    is Some(_),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, tuple_id))
+  assert_true(
+    flatten_multivalue_try_br_if_flow_is_exact(
+      func, try_id, branch, result_types,
+    )
+    is None,
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_multivalue_try_br_if_flow_is_exact(
+      func, state, try_id, branch, result_types,
+    )
+    is Some(_),
+  )
+}

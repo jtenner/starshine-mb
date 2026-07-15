@@ -2100,6 +2100,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
   try_id : Int,
   branch_id : Int,
   result_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   let payload_count = result_types.length()
   let branch = @ir.hot_node_get(func, branch_id)
@@ -2133,9 +2134,12 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
       return None
     }
   }
-  let use_def = @ir.use_def_build_node_uses(func)
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
+  }
   if tuple_id >= 0 {
-    if @ir.node_use_count(use_def, tuple_id) != payload_count * 2 {
+    if @ir.hot_node_use_count(use_counts, tuple_id) != payload_count * 2 {
       return None
     }
     for slot = 0; slot < payload_count; slot = slot + 1 {
@@ -2156,7 +2160,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
     for slot = 0; slot < payload_count; slot = slot + 1 {
       let payload_id = @ir.hot_child_get(func, branch_id, slot)
       if payloads.contains(payload_id) ||
-        @ir.node_use_count(use_def, payload_id) != 2 {
+        @ir.hot_node_use_count(use_counts, payload_id) != 2 {
         return None
       }
       payloads.push(payload_id)
@@ -2200,7 +2204,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
         if tuple_id >= 0 {
           if !flatten_multivalue_tuple_br_if_consumer_matches_lane(
               func,
-              use_def,
+              use_counts,
               consumer_id,
               tuple_id,
               result_types[payload_count - 1 - offset],
@@ -2208,7 +2212,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
             return None
           }
         } else if !flatten_multivalue_loop_br_if_consumer_matches_payload(
-            func, use_def, consumer_id, expected_payload,
+            func, use_counts, consumer_id, expected_payload,
           ) {
           return None
         }
@@ -2217,6 +2221,26 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
     }
   }
   None
+}
+
+///|
+fn flatten_rewrite_multivalue_try_br_if_flow_is_exact(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  try_id : Int,
+  branch_id : Int,
+  result_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if !state.rewrites_started {
+    return None
+  }
+  flatten_multivalue_try_br_if_flow_is_exact(
+    func,
+    try_id,
+    branch_id,
+    result_types,
+    state=Some(state),
+  )
 }
 
 ///|
@@ -2272,7 +2296,11 @@ fn flatten_multivalue_legacy_try_label_uses_are_supported(
           continue
         }
         if flatten_multivalue_try_br_if_flow_is_exact(
-            func, try_id, node_id, result_types,
+            func,
+            try_id,
+            node_id,
+            result_types,
+            state~,
           )
           is None {
           return false
@@ -3001,7 +3029,7 @@ fn flatten_loop_backedges_are_supported(
 ///|
 fn flatten_multivalue_loop_br_if_consumer_matches_payload(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_counts : @ir.HotNodeUseCounts,
   consumer_id : Int,
   payload_id : Int,
 ) -> Bool {
@@ -3015,7 +3043,7 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
     return true
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
-  if @ir.node_use_count(use_def, consumed_id) != 1 ||
+  if @ir.hot_node_use_count(use_counts, consumed_id) != 1 ||
     @ir.hot_child_count(func, consumed_id) == 0 ||
     @ir.hot_child_get(func, consumed_id, 0) != payload_id {
     return false
@@ -3045,7 +3073,7 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
 ///|
 fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
   func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
+  use_counts : @ir.HotNodeUseCounts,
   consumer_id : Int,
   tuple_id : Int,
   lane_type : @lib.ValType,
@@ -3060,7 +3088,7 @@ fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
     return true
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
-  if @ir.node_use_count(use_def, consumed_id) != 1 ||
+  if @ir.hot_node_use_count(use_counts, consumed_id) != 1 ||
     @ir.hot_child_count(func, consumed_id) == 0 ||
     @ir.hot_child_get(func, consumed_id, 0) != tuple_id {
     return false
@@ -3116,6 +3144,7 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
   loop_id : Int,
   branch_id : Int,
   param_types : Array[@lib.ValType],
+  use_counts? : @ir.HotNodeUseCounts? = None,
 ) -> Array[Int]? {
   let payload_count = param_types.length()
   if payload_count <= 1 ||
@@ -3151,7 +3180,10 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
   if branch_root < 0 || branch_root + payload_count >= root_count {
     return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
+  let counts = match use_counts {
+    Some(counts) => counts
+    None => flatten_build_node_use_counts(func)
+  }
   for offset = 0; offset < payload_count; offset = offset + 1 {
     let consumer_id = @ir.hot_region_get(
       func,
@@ -3160,7 +3192,7 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
     )
     if !flatten_multivalue_tuple_br_if_consumer_matches_lane(
         func,
-        use_def,
+        counts,
         consumer_id,
         tuple_id,
         param_types[payload_count - 1 - offset],
@@ -3168,7 +3200,7 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
       return None
     }
   }
-  if @ir.node_use_count(use_def, tuple_id) != payload_count * 2 {
+  if @ir.hot_node_use_count(counts, tuple_id) != payload_count * 2 {
     return None
   }
   for slot = 0; slot < payload_count; slot = slot + 1 {
@@ -3196,7 +3228,7 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
 ) -> Bool {
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   let root_count = @ir.hot_region_root_count(func, body_ref)
-  let use_def = @ir.use_def_build(func)
+  let use_counts = flatten_build_node_use_counts(func)
   for branch_id = 0
       branch_id < @ir.hot_node_count(func)
       branch_id = branch_id + 1 {
@@ -3216,7 +3248,11 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
       None => return false
     }
     if flatten_multivalue_tuple_loop_br_if_flow(
-        func, loop_id, branch_id, param_types,
+        func,
+        loop_id,
+        branch_id,
+        param_types,
+        use_counts=Some(use_counts),
       )
       is Some(_) {
       continue
@@ -3237,7 +3273,7 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
     for slot = 0; slot < payload_count; slot = slot + 1 {
       let payload_id = @ir.hot_child_get(func, branch_id, slot)
       if payloads.contains(payload_id) ||
-        @ir.node_use_count(use_def, payload_id) != 2 {
+        @ir.hot_node_use_count(use_counts, payload_id) != 2 {
         return false
       }
       payloads.push(payload_id)
@@ -3250,7 +3286,7 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
       )
       if !flatten_multivalue_loop_br_if_consumer_matches_payload(
           func,
-          use_def,
+          use_counts,
           consumer_id,
           payloads[payload_count - 1 - offset],
         ) {
@@ -4933,8 +4969,8 @@ fn flatten_try_route_multivalue_br_if(
         return false
       }
       let flow = match
-        flatten_multivalue_try_br_if_flow_is_exact(
-          func, try_id, node_id, target_types,
+        flatten_rewrite_multivalue_try_br_if_flow_is_exact(
+          func, state, try_id, node_id, target_types,
         ) {
         Some(flow) => flow
         None => return false
