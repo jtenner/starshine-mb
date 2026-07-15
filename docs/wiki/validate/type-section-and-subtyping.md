@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
-  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
@@ -36,7 +35,7 @@ The type section is the root of Starshine's module type context. It defines ever
 
 Use this page for the **validator** contract: what `validate_typesec(...)` accepts, what it normalizes, and what later phases may rely on. Use [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for text syntax, `(rec ...)` authoring, type-use abbreviations, parser/lowerer behavior, and flat-index examples before validation. Use [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) for binary section ids, `TypeSec(Array[RecType])`, and whole-module remap obligations.
 
-The current source bridge is [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md). It rechecks the current WebAssembly Core 3.0 type syntax, text type-use rules, binary type encoding, validation, matching, and module-validation sources dated 2026-06-03 plus Starshine validator/proof-helper evidence. The older bridge [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md) remains useful provenance for the original validator audit. One extra consumer rule follows from the same bridge: module-level function signatures live in `FuncSec(Array[TypeIdx])`, so any `RecIdx` seen while validating a recursive group is temporary and must be normalized before later phases or module-level caches use it.
+The current source bridge is [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md). It rechecks the current WebAssembly Core 3.0 type syntax, text type-use rules, binary type encoding, validation, matching, and module-validation sources dated 2026-06-03 plus Starshine validator/proof-helper evidence. One extra consumer rule follows from the same bridge: module-level function signatures live in `FuncSec(Array[TypeIdx])`, so any `RecIdx` seen while validating a recursive group is temporary and must be normalized before later phases or module-level caches use it.
 
 ## Beginner Model
 
@@ -192,7 +191,6 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 ## Sources
 
 - Current source bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
-- Older type-section source bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Older WAST type-use and subtype source bridge: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
 - Current custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Current custom-descriptor status bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)

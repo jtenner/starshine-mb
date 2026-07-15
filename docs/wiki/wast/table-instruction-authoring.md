@@ -5,7 +5,6 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -61,7 +60,7 @@ The main invariant for authors is: **do not infer core or binary immediate order
 
 ## Instruction Families And Stack Shapes
 
-The official validation model uses a selected table's reference type `rt` and address type `at`. For ordinary table32 fixtures, `at` is `i32`. For table64, `at` should be `i64`, but see the local caveat below. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) corrected the earlier shorthand that treated local `table.fill` as fully address-width-aware; the 2026-06-04 refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) confirms the official Core 3.0 pages dated 2026-06-03 still use the same table address-width matrix and records the current Starshine code-map anchors.
+The official validation model uses a selected table's reference type `rt` and address type `at`. For ordinary table32 fixtures, `at` is `i32`. For table64, `at` should be `i64`, but see the local caveat below. The 2026-06-04 refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) confirms the official Core 3.0 pages dated 2026-06-03 still use the same table address-width matrix and records the current Starshine code-map anchors.
 
 | WAST instruction | Text immediates | Stack before | Stack after | Starshine notes |
 | --- | --- | --- | --- | --- |
@@ -170,7 +169,6 @@ When a pass or generator change touches table instructions, use this checklist:
 ## Source Map
 
 - Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
-- Targeted table64 / `table.fill` validation correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - WAST opcode vocabulary and parser: [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer and lowerer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core instruction model: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

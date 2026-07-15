@@ -7,7 +7,6 @@ sources:
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
-  - ../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/decode.mbt

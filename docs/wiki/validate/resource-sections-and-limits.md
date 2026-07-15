@@ -12,7 +12,6 @@ sources:
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
-  - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../../../src/validate/validate.mbt

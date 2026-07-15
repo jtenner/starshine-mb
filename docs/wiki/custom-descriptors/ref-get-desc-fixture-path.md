@@ -5,7 +5,6 @@ last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
-  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md
   - ../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md
   - ../raw/research/0024-2026-03-22-wast-struct-get-surface.md

@@ -6,7 +6,6 @@ sources:
   - ../raw/research/0062-2026-03-24-pass-porting-checklist.md
   - ../../../src/passes/registry_test.mbt
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
-  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/validate.mbt

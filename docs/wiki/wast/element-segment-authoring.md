@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
-  - ../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -46,7 +45,7 @@ There are two independent questions to keep separate:
 1. **Mode:** active, passive, or declarative.
 2. **Payload kind:** a legacy function-index list, a `funcref` expression list, or an explicitly typed reference-expression list.
 
-Official WebAssembly models both axes. Starshine's core, binary, validator, and generator layers can represent the full matrix, but the current WAST text path loses one important bit: parsed `(elem declare func ...)` source has no explicit mode field in the WAST AST, so lowering treats it like a passive segment. The 2026-06-04 current refresh records that the official text grammar remains broader than Starshine here: official `declare` can pair with a general typed element list, while local text currently recognizes only the narrow `declare func` branch and still does not preserve declarative mode through lowering. See [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md); the older 2026-05-20 refresh remains supporting provenance.
+Official WebAssembly models both axes. Starshine's core, binary, validator, and generator layers can represent the full matrix, but the current WAST text path loses one important bit: parsed `(elem declare func ...)` source has no explicit mode field in the WAST AST, so lowering treats it like a passive segment. The 2026-06-04 current refresh records that the official text grammar remains broader than Starshine here: official `declare` can pair with a general typed element list, while local text currently recognizes only the narrow `declare func` branch and still does not preserve declarative mode through lowering. See [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md).
 
 ## Layer Contract
 
@@ -215,7 +214,6 @@ A faithful text fix should be test-first:
 ## Source Map
 
 - Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
-- Earlier focused source refresh: [`../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md`](../raw/wasm/2026-05-20-wast-element-segment-source-refresh.md)
 - Aggregate/initializer boundary: [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - WAST parser AST and element parser: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)
