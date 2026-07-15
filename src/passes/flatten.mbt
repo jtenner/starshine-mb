@@ -1015,6 +1015,59 @@ fn flatten_try_table_dead_suffix_root_nodes(
           }
           match instr {
             @lib.I32Add => {
+              let both_children_are_binary = match
+                (
+                  @ir.hot_node_get(func, left_id).op,
+                  @ir.hot_node_get(func, right_id).op,
+                ) {
+                (@ir.HotOp::Binary, @ir.HotOp::Binary) => true
+                _ => false
+              }
+              if both_children_are_binary &&
+                @ir.hot_node_exact_instr(func, left_id) ==
+                Some(@lib.Instruction::i32_mul()) &&
+                @ir.hot_node_exact_instr(func, right_id) ==
+                Some(@lib.Instruction::i32_mul()) &&
+                @ir.hot_child_count(func, left_id) == 2 &&
+                @ir.hot_child_count(func, right_id) == 2 {
+                let left_multiply_left = @ir.hot_child_get(func, left_id, 0)
+                let left_multiply_right = @ir.hot_child_get(func, left_id, 1)
+                let right_multiply_left = @ir.hot_child_get(func, right_id, 0)
+                let right_multiply_right = @ir.hot_child_get(func, right_id, 1)
+                let nested_nodes = [
+                  root_id, value_id, left_id, right_id, left_multiply_left, left_multiply_right,
+                  right_multiply_left, right_multiply_right,
+                ]
+                for outer = 0; outer < nested_nodes.length(); outer = outer + 1 {
+                  for inner = outer + 1
+                      inner < nested_nodes.length()
+                      inner = inner + 1 {
+                    if nested_nodes[outer] == nested_nodes[inner] {
+                      return None
+                    }
+                  }
+                }
+                for
+                  leaf_id in [
+                    left_multiply_left, left_multiply_right, right_multiply_left,
+                    right_multiply_right,
+                  ] {
+                  match @ir.hot_node_get(func, leaf_id).op {
+                    @ir.HotOp::Const => ()
+                    _ => return None
+                  }
+                }
+                for
+                  owned_id in [
+                    left_id, right_id, left_multiply_left, left_multiply_right, right_multiply_left,
+                    right_multiply_right,
+                  ] {
+                  if @ir.node_use_count(use_def, owned_id) != 1 {
+                    return None
+                  }
+                }
+                return Some(nested_nodes)
+              }
               let multiply_id = match
                 (
                   @ir.hot_node_get(func, left_id).op,

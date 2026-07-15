@@ -1554,6 +1554,270 @@ test "flatten keeps repeated nested multiply-add descendants unsupported" {
 }
 
 ///|
+test "flatten recognizes one exclusively owned add-of-two-multiplies drop try-table suffix" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let left_left = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let left_right = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let left_multiply = @ir.hot_build_binary(
+    func, i32_type, left_left, left_right,
+  )
+  @ir.hot_node_exact_instr_set(func, left_multiply, @lib.Instruction::i32_mul())
+  let right_left = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let right_right = @ir.hot_build_const_i32(func, @lib.I32(12))
+  let right_multiply = @ir.hot_build_binary(
+    func, i32_type, right_left, right_right,
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    right_multiply,
+    @lib.Instruction::i32_mul(),
+  )
+  let add = @ir.hot_build_binary(func, i32_type, left_multiply, right_multiply)
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  let dead_drop = @ir.hot_build_drop(func, add)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [table_id, dead_drop])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  @debug.assert_eq(
+    flatten_try_table_dead_suffix_nodes(func, body_ref, table_id),
+    Some([
+      dead_drop, add, left_multiply, right_multiply, left_left, left_right, right_left,
+      right_right,
+    ]),
+  )
+  assert_true(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps an add-of-two-multiplies suffix unsupported when the multiply trees share a descendant" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let shared = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let left_multiply = @ir.hot_build_binary(
+    func,
+    i32_type,
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+  )
+  @ir.hot_node_exact_instr_set(func, left_multiply, @lib.Instruction::i32_mul())
+  let right_multiply = @ir.hot_build_binary(
+    func,
+    i32_type,
+    shared,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    right_multiply,
+    @lib.Instruction::i32_mul(),
+  )
+  let add = @ir.hot_build_binary(func, i32_type, left_multiply, right_multiply)
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, add),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps repeated descendants inside an add-of-two-multiplies suffix unsupported" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let repeated = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let left_multiply = @ir.hot_build_binary(func, i32_type, repeated, repeated)
+  @ir.hot_node_exact_instr_set(func, left_multiply, @lib.Instruction::i32_mul())
+  let right_multiply = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    right_multiply,
+    @lib.Instruction::i32_mul(),
+  )
+  let add = @ir.hot_build_binary(func, i32_type, left_multiply, right_multiply)
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, add),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps two add-of-two-multiplies suffix roots unsupported" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let drops : Array[Int] = []
+  for base in [9, 13] {
+    let left_multiply = @ir.hot_build_binary(
+      func,
+      i32_type,
+      @ir.hot_build_const_i32(func, @lib.I32(base)),
+      @ir.hot_build_const_i32(func, @lib.I32(base + 1)),
+    )
+    @ir.hot_node_exact_instr_set(
+      func,
+      left_multiply,
+      @lib.Instruction::i32_mul(),
+    )
+    let right_multiply = @ir.hot_build_binary(
+      func,
+      i32_type,
+      @ir.hot_build_const_i32(func, @lib.I32(base + 2)),
+      @ir.hot_build_const_i32(func, @lib.I32(base + 3)),
+    )
+    @ir.hot_node_exact_instr_set(
+      func,
+      right_multiply,
+      @lib.Instruction::i32_mul(),
+    )
+    let add = @ir.hot_build_binary(
+      func, i32_type, left_multiply, right_multiply,
+    )
+    @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+    drops.push(@ir.hot_build_drop(func, add))
+  }
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    drops[0],
+    drops[1],
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
+test "flatten keeps subtract-of-two-multiplies suffix unsupported" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(2))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let table_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let left_multiply = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(9)),
+    @ir.hot_build_const_i32(func, @lib.I32(10)),
+  )
+  @ir.hot_node_exact_instr_set(func, left_multiply, @lib.Instruction::i32_mul())
+  let right_multiply = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(11)),
+    @ir.hot_build_const_i32(func, @lib.I32(12)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    right_multiply,
+    @lib.Instruction::i32_mul(),
+  )
+  let subtract = @ir.hot_build_binary(
+    func, i32_type, left_multiply, right_multiply,
+  )
+  @ir.hot_node_exact_instr_set(func, subtract, @lib.Instruction::i32_sub())
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
+    table_id,
+    @ir.hot_build_drop(func, subtract),
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
+  assert_false(
+    flatten_try_terminal_br_table_targets_label(
+      func, table_id, label_id, 1, false,
+    ),
+  )
+}
+
+///|
 test "flatten recognizes one exclusively owned pure binary drop try-table suffix" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
