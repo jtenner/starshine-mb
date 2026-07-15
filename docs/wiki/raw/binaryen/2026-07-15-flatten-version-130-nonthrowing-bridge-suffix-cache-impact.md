@@ -9,9 +9,11 @@ This note records the bounded internal-only iteration that:
 3. admits direct `i32.mul` and `i32.and` resultless-call argument roots after unconditional legacy-try `br_table` transfer;
 4. replaces repeated suffix use-def construction with one run-wide snapshot and admission-time cache of exact owned nodes plus owner region;
 5. truncates an admitted terminal-table suffix without rebuilding the region holder's child span;
-6. keeps scalar branch-target rewrite checks on the immutable pre-mutation branch index rather than rebuilding a live-node index after rewriting starts.
+6. keeps scalar branch-target rewrite checks on the immutable pre-mutation branch index rather than rebuilding a live-node index after rewriting starts;
+7. threads that same exact branch population through multivalue block/if target support, recursive table checks, deferred admission, and mutation-time routing;
+8. resolves each admitted `br_table` target's complete typed local vector once and reuses it for every payload lane.
 
-The public registry, dispatcher, CLI execution path, preset scheduler, compare allowlist, and flatten API snapshots remain unchanged. The latest iteration adds only the public HOT mutation `hot_region_truncate_suffix(...)` to `src/ir/pkg.generated.mbti`. `flatten` is still public-removed.
+The public registry, dispatcher, CLI execution path, preset scheduler, compare allowlist, and flatten API snapshots remain unchanged. Across the iterations recorded here, the only `.mbti` addition is the public HOT mutation `hot_region_truncate_suffix(...)` in `src/ir/pkg.generated.mbti`; the newest multivalue changes add no API. `flatten` is still public-removed.
 
 ## Pinned source and commits
 
@@ -24,6 +26,7 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Current lightweight-analysis/batch-mutation iteration: `b610394b4` (`perf: use lightweight flatten ownership counts`) and `56908b781` (`perf: batch flatten detached suffix deletion`).
 - Current branch-index/in-place-tail iteration: `c6181e26d` (`perf: index flatten branch targets once`) and `0a415161f` (`perf: replace flatten value tails in place`).
 - Current suffix-truncation/proof-boundary iteration: `13fe7b744` (`perf: truncate flatten dead suffixes in place`) and `9acdac744` (`fix: keep flatten scalar routing on pre-mutation proofs`).
+- Current multivalue-index/table-vector iteration: `9aa7499e9` (`perf: index flatten multivalue target branches`) and `710cdc910` (`perf: resolve flatten table target vectors once`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -61,6 +64,11 @@ The suffix-truncation/proof-boundary follow-up added exactly one red-first invar
 - `body region suffix truncation preserves the existing child span` failed because `hot_region_truncate_suffix` was unbound. The new HOT mutation detaches an ordered suffix by reducing the existing holder span, preserves the prefix and child-storage count, returns detached roots in order, and advances the revision once. Flatten uses it before the existing exact distinct-node tombstone. Focused region-edit tests pass `4/4`;
 - `flatten rewrite scalar target proof uses the pre-mutation branch index` failed because `flatten_rewrite_target_can_route_scalar_branches` was unbound. The rewrite-only helper consumes `FlattenRewriteState.label_branch_nodes` for scalar `br`, `br_if`, and `br_table` routing, so post-snapshot live nodes cannot widen mutation-time admission. Private flatten moved to `147/147`.
 
+The multivalue-index/table-vector follow-up also added exactly one red-first invariant per code commit:
+
+- `flatten rewrite multivalue target proof uses the pre-mutation branch index` failed because the support function had no `state` parameter and `flatten_rewrite_multivalue_branch_target_is_supported` was unbound. The implemented path uses the immutable label branch population during recursive target support, deferred rich-payload admission, and rewrite-time `br`, `br_if`, and `br_table` checks. A malformed post-snapshot branch can make the uncached proof fail but cannot widen the rewrite proof. Private flatten moved to `148/148`;
+- `flatten resolves each br_table target local vector once` failed because `flatten_rewrite_br_table_target_locals` was unbound. The helper preflights every target kind and existing vector type without mutation, requires the rewrite boundary, resolves each unique target vector once, and reuses the exact vectors on repeated calls without adding locals. Private flatten moved to `149/149`.
+
 ## Ownership and mutation safety
 
 `FlattenRewriteState` now owns:
@@ -71,7 +79,9 @@ The suffix-truncation/proof-boundary follow-up added exactly one red-first invar
 - one exact terminal-table support record keyed by table node, try label, payload arity, and mixed-target policy;
 - a `rewrites_started` boundary.
 
-Admission computes and caches the complete distinct one-use proof. The lightweight count builder traverses only the reachable root graph, so detached-but-live stale parents cannot inflate ownership counts; focused comparison locks agreement with full use-def. Rewrite consumes only a suffix cache entry whose table id and owner region match and a terminal-table proof whose table, label, payload arity, and mixed-target policy match exactly. After the exact same-region suffix roots are detached, one batch mutation tombstones the complete cached distinct node vector and invalidates the HOT revision once. Suffix detachment now truncates the holder's existing child span instead of allocating a replacement span. Scalar mutation-time target checks consume the cached exact branch-node population; they do not discover nodes allocated after the admission snapshot. If mutation has started and any required proof is absent, the corresponding check fails closed. This prevents a stale, partial, or post-snapshot fact from widening ownership or target support after structural edits.
+Admission computes and caches the complete distinct one-use proof. The lightweight count builder traverses only the reachable root graph, so detached-but-live stale parents cannot inflate ownership counts; focused comparison locks agreement with full use-def. Rewrite consumes only a suffix cache entry whose table id and owner region match and a terminal-table proof whose table, label, payload arity, and mixed-target policy match exactly. After the exact same-region suffix roots are detached, one batch mutation tombstones the complete cached distinct node vector and invalidates the HOT revision once. Suffix detachment now truncates the holder's existing child span instead of allocating a replacement span. Scalar and multivalue mutation-time target checks consume the cached exact branch-node population; they do not discover nodes allocated after the admission snapshot. Recursive multivalue table support receives the same snapshot rather than falling back to a live-node scan.
+
+After every target/type/control family has passed admission, table routing performs one additional nonmutating preflight over all unique targets and any existing label-temp vectors. Only then does it allocate missing block/if/try vectors, while loop vectors must already match exactly. The resulting vector array is reused for every payload lane and on repeated resolution. If mutation has started and any required proof is absent, or any target vector is inconsistent, the corresponding check fails closed. This prevents a stale, partial, or post-snapshot fact from widening ownership, target support, or local-channel construction after structural edits.
 
 ## Refreshed output matrix
 
@@ -142,7 +152,11 @@ The next iteration profiled before each slice. In the pre-code-1 admission sampl
 
 On one same-session reconstructed 120-function chain, the median moved from the pre-iteration `1,197.5 us` (`1,120..1,432`) to `1,092.5 us` (`1,057..1,135`) after the branch index, then `1,030 us` (`1,005..1,064`) after in-place value tails: a `13.99%` total reduction. On the exact candidate shape, code 1 measured `1,052.5 us` (`1,001..1,111`), while code 2 measured `1,033.5 us` (`969..1,122`) with a noisier `1,047 us` rerun (`997..1,536`). The prior stable checkpoint remains `970.5 us`; all samples remain outside the maximum acceptable `2x` threshold.
 
-The suffix-truncation iteration reconstructed the same three-family, 120-function native-release chain from clean `1f1a2dfd0`. Clean HEAD measured `1,116.5 us` (`1,060..1,377`); `13fe7b744` measured `1,053.5 us` (`1,030..1,070`), a `5.64%` reduction from avoiding holder-span rebuilds during terminal suffix removal. The proof-boundary commit did not produce a measurable timing win: exact-candidate samples were `1,173 us` (`1,087..1,415`) and `1,202.5 us` (`1,064..1,572`), with a same-session `1,191.5 us` sample versus code 1 at `1,133.5 us`; a branch-index-heavy probe was similarly noisy and slower. Classify `9acdac744` as failure-atomic proof reuse and scan-removal, not a measured performance win. Relative to Binaryen v130's `266.05 us`, the best current-iteration sample is still `3.96x`, and the prior stable `970.5 us` checkpoint is `3.65x`. Performance remains a hard blocker for public exposure.
+The suffix-truncation iteration reconstructed the same three-family, 120-function native-release chain from clean `1f1a2dfd0`. Clean HEAD measured `1,116.5 us` (`1,060..1,377`); `13fe7b744` measured `1,053.5 us` (`1,030..1,070`), a `5.64%` reduction from avoiding holder-span rebuilds during terminal suffix removal. The proof-boundary commit did not produce a measurable timing win: exact-candidate samples were `1,173 us` (`1,087..1,415`) and `1,202.5 us` (`1,064..1,572`), with a same-session `1,191.5 us` sample versus code 1 at `1,133.5 us`; a branch-index-heavy probe was similarly noisy and slower. Classify `9acdac744` as failure-atomic proof reuse and scan-removal, not a measured performance win. Relative to Binaryen v130's `266.05 us`, the best current-iteration sample is still `3.96x`, and the prior stable `970.5 us` checkpoint is `3.65x`.
+
+The multivalue branch-index slice used 120 independently lifted two-lane block-branch functions with 256 extra roots to magnify whole-live-node target scans. In the clearer same-session ordering, clean code-1 baseline `9aa7499e9^` measured `5,581.5 us` (`5,183..7,300`) and `9aa7499e9` measured `5,099 us` (`4,711..6,343`), an `8.64%` reduction. An earlier ordering measured `5,323.5 -> 5,199 us` (`2.34%`). The representative scalar terminal-table fixture moved only `2,939 -> 2,904.5 us`, which is noise-level and expected because it does not exercise multivalue target scanning.
+
+The table-vector slice used 120 two-target, four-payload-lane functions with 256 extra roots. Code 1 and code 2 measured `7,848.5` versus `7,767.5 us` in one order, then `8,324` versus `8,619 us` in reversed order. Classify `710cdc910` as bounded repeated-resolution removal and stable failure-atomic local-vector reuse, not a measured speed win. The prior stable `970.5 us` representative candidate checkpoint remains `3.65x` Binaryen v130. Performance remains a hard blocker for public exposure.
 
 ## Validation
 
@@ -169,10 +183,12 @@ The branch-index/in-place-tail iteration passes focused flatten `245/245`, priva
 
 The suffix-truncation/proof-boundary iteration passes focused region editing `4/4`, focused flatten `245/245`, private flatten `147/147`, passes `5,722/5,722`, the full suite `9,183/9,183`, `moon info`, targeted formatting, and `git diff --check`. The reviewed `src/ir/pkg.generated.mbti` diff adds only `hot_region_truncate_suffix`; no pass, CLI, compare, or preset API changed. Repository-wide `moon fmt --check` remains blocked only by the pre-existing `moon.mod` syntax disagreement.
 
+The multivalue-index/table-vector iteration passes focused flatten `245/245`, private flatten `149/149`, passes `5,724/5,724`, the full suite `9,185/9,185`, `moon info`, targeted formatting, and `git diff --check`. No `.mbti`, registry, dispatcher, CLI, compare/API, or preset surface changed. The pinned owner hash was rechecked after both commits and remained `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`. Neither commit admits a new semantic family, so no additional Binaryen probe was required.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
-- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, and exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, in-place value-tail replacement, and in-place suffix truncation reduce repeated immutable scans and region rebuilds. The latest measured code-1 delta is `1,116.5 -> 1,053.5 us` (`5.64%`); the prior stable representative median remains `970.5 us`. The proof-boundary code-2 timing was noisy and not a measured win. All samples remain well outside the `<=2x` Binaryen target.
+- **Performance movement:** run-wide suffix, EH, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, duplicate-router removal, lightweight reachable ownership counts, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, and one-time table target-vector resolution reduce repeated immutable scans, region rebuilds, and local-vector checks. The latest measured multivalue-index delta is `5,581.5 -> 5,099 us` (`8.64%`) on its target-heavy fixture; the prior stable representative median remains `970.5 us`. Scalar proof-boundary and table-vector timings were noisy and are not measured wins. All samples remain well outside the `<=2x` Binaryen target.
 - **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
@@ -182,7 +198,7 @@ The suffix-truncation/proof-boundary iteration passes focused region editing `4/
 
 ## Next work
 
-1. continue profiling the remaining rewrite and admission work after exact branch-use indexing, in-place tail replacement, and suffix truncation, especially target-copy/local construction, recursive region traversal, multivalue full-node scans, and any remaining uncached support retries;
+1. continue profiling the remaining rewrite and admission work after scalar/multivalue exact branch-use indexing, in-place tail replacement, suffix truncation, and one-time target-vector resolution, especially target-copy/local construction itself, recursive region traversal, remaining multivalue use-def/site builds, and any uncached support retries;
 2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
 3. extend HOT mutation with a verified control-plus-owned-label deletion operation before admitting structured suffix roots; the detached-node batch API still intentionally does not remove label metadata;
 4. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.
