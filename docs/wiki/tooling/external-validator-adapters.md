@@ -1,11 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - ../binaryen/release-horizon-and-oracles.md
-  - ../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md
-  - ../raw/validation/2026-06-04-external-validator-surface-split.md
+  - https://github.com/bytecodealliance/wasm-tools/blob/main/README.md
+  - https://github.com/WebAssembly/wabt/blob/main/docs/wabt.md#wasm-validate
+  - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
+  - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt-options.h
   - ../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md
   - ../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
   - ../../../src/cmd/fuzz_harness.mbt
@@ -35,7 +37,7 @@ Starshine has three related but separate external-validator surfaces:
 
 Do not merge those concepts. Classified command-harness adapters answer “how do validators classify these bytes by stage?” The legacy helper answers “did the selected boolean adapters agree with Starshine for this generated case?” Compare-pass answers “did a Starshine pass match the Binaryen pass oracle after the input and output were independently valid?”
 
-The current source bridges are [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) and [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md). They rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code. The Binaryen oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds current guidance for classifying older `wasm-opt` `br_on*` / descriptor-branch assertion crashes as tool/oracle failures. Feature-status dashboards are a separate evidence kind: the current [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md) confirms that browser/runtime support tables can guide engine repro choices but cannot replace exact external-validator command evidence; the 2026-06-05 dashboard note remains historical detail.
+The adapter implementation and tests below, together with the official `wasm-tools`, WABT, and Binaryen command sources listed in this page's metadata, establish the current command surfaces. The Binaryen oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds current guidance for classifying older `wasm-opt` `br_on*` / descriptor-branch assertion crashes as tool/oracle failures. Feature-status dashboards are a separate evidence kind: the current [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md) confirms that browser/runtime support tables can guide engine repro choices but cannot replace exact external-validator command evidence; the 2026-06-05 dashboard note remains historical detail.
 
 ## Beginner Model
 
@@ -165,7 +167,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 ## Sources
 
 - Binaryen BrOn assertion / oracle boundary: [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md)
-- Current source bridges: [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md), [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md)
+- Official command surfaces: [`wasm-tools` README](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md), [WABT `wasm-validate`](https://github.com/WebAssembly/wabt/blob/main/docs/wabt.md#wasm-validate), and [Binaryen `wasm-opt`](https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp)
 - Current Core/proposal/dashboard recheck: [`../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md`](../raw/wasm/2026-07-10-webassembly-core3-proposal-dashboard-recheck.md); historical feature-dashboard routing: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md); shared vocabulary: [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md)
 - Adapter implementation: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Adapter and classifier tests: [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt)

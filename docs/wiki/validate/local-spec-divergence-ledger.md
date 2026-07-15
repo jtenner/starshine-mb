@@ -1,13 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-14
 sources:
   - ../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md
   - ../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
-  - ../raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
@@ -44,7 +43,7 @@ related:
 
 Use this page when a validation test, invalid-fuzzer case, generator fixture, binary fixture, optimizer pass, or wiki page asks: **"Is this current WebAssembly, current Starshine, or a known local split?"**
 
-The focused validator pages remain the source of truth for each rule. This ledger is the navigation layer that keeps the current local/spec splits visible in one place. It is grounded in the source bridge [`../raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md`](../raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md), which rechecked the current WebAssembly Core 3.0 validation pages plus Starshine's validator implementation and the existing raw source manifests.
+The focused validator pages remain the source of truth for each rule. This ledger is the navigation layer that keeps the current local/spec splits visible in one place. Its rows cite the focused current-source pages and Starshine's validator implementation.
 
 A **local/spec divergence** here means one of three things:
 
@@ -95,7 +94,6 @@ When one of these rows changes:
 
 ## Sources
 
-- Source bridge for this ledger: [`../raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md`](../raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md)
 - Core validator phase map: [`module-validation-phases.md`](module-validation-phases.md)
 - Current `ref.func` / start source correction: [`../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md`](../raw/wasm/2026-07-10-ref-func-start-refs-source-correction.md). The earlier 2026-06-04 refresh is superseded for its start-membership claim.
 - Current tail-call result/table64 reconciliation: [`../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md`](../raw/wasm/2026-07-11-tail-call-result-and-table64-reconciliation.md)

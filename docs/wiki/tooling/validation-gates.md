@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-14
 sources:
   - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
@@ -9,8 +9,6 @@ sources:
   - https://docs.moonbitlang.com/en/latest/language/verification.html
   - https://moonbitlang.github.io/moon/commands.html
   - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
-  - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
-  - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
   - ../../README.md
   - ../../../AGENTS.md
   - ../../../package.json
@@ -187,8 +185,7 @@ Practical rules:
 
 - Official MoonBit [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html), [formal verification](https://docs.moonbitlang.com/en/latest/language/verification.html), and [command manual](https://moonbitlang.github.io/moon/commands.html)
 - Current tracing and validation trace benchmark source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
-- Previous validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
-- wasm-tools validate feature defaults: [`../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md`](../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md)
+- Official wasm-tools README: [validation examples](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#examples) and [proposal feature defaults](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#webassembly-proposals)
 - Repo validation rules: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)
 - Self-optimized artifact lane: [`../../../scripts/self-opt.ts`](../../../scripts/self-opt.ts), [`../../../scripts/lib/self-opt-task.ts`](../../../scripts/lib/self-opt-task.ts), [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs), [`../../../scripts/lib/run-self-optimized-spec-suite.mjs`](../../../scripts/lib/run-self-optimized-spec-suite.mjs), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)

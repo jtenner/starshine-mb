@@ -25,7 +25,6 @@ sources:
   - ../../../.github/workflows/node-wasm-tests.yml
   - ../../../.github/workflows/fuzz.yml
   - ../../../.github/workflows/readme-api-sync.yml
-  - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
 related:
   - ./wasi-runner-and-preview-boundary.md
   - ./validation-gates.md

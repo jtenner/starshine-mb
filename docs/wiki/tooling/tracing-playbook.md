@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-14
 sources:
   - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
-  - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
   - ../raw/research/0001-2026-03-10-tracing.md
   - ../../../src/cmd/cmd.mbt
   - ../../../src/passes/perf.mbt
@@ -117,7 +116,6 @@ When tracing changes:
 ## Sources
 
 - Current source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
-- Previous validation benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
 - Archived tracing research: [`../raw/research/0001-2026-03-10-tracing.md`](../raw/research/0001-2026-03-10-tracing.md)
 - Runtime command tracing: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - Optimizer perf tracing: [`../../../src/passes/perf.mbt`](../../../src/passes/perf.mbt), [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
