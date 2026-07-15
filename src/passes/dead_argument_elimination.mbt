@@ -12085,6 +12085,144 @@ fn dae_try_rewrite_verified_uniform_const_candidate(
 }
 
 ///|
+fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
+  mod_ : @lib.Module,
+  caller_defs : Array[Int],
+  imported : Int,
+  defined : Int,
+  total : Int,
+  type_indices : Array[@lib.TypeIdx],
+  boundary_facts : DaeCallBoundaryFacts,
+) -> DaePassResult {
+  if caller_defs.length() == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let candidates = Array::make(defined, false)
+  for caller_def in caller_defs {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    let callees : Array[Int] = []
+    dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
+    for callee_def in callees {
+      if callee_def >= 0 && callee_def < candidates.length() {
+        candidates[callee_def] = true
+      }
+    }
+  }
+  for callee_def = 0
+      callee_def < candidates.length()
+      callee_def = callee_def + 1 {
+    if !candidates[callee_def] {
+      continue
+    }
+    let callee_abs = imported + callee_def
+    if callee_abs < 0 ||
+      callee_abs >= total ||
+      boundary_facts.escaped[callee_abs] ||
+      boundary_facts.tail_calls[callee_abs] ||
+      boundary_facts.direct_calls[callee_abs] <= 0 {
+      continue
+    }
+    let func_type = match
+      dae_resolve_func_type(mod_, type_indices, callee_abs) {
+      Some(func_type) => func_type
+      None => continue
+    }
+    let @lib.FuncType(params, results) = func_type
+    if params.length() == 0 {
+      continue
+    }
+    let @lib.Func(locals, _) = funcs[callee_def]
+    let local_use = dae_local_use_for_callee(
+      funcs[callee_def],
+      params.length() + locals.length(),
+      callee_abs,
+      params.length(),
+    )
+    let uniform = match
+      dae_collect_uniform_const_actuals_from_boundary_facts(
+        mod_,
+        callee_abs,
+        params.length(),
+        type_indices,
+        boundary_facts,
+      ) {
+      Some(values) => values
+      None => continue
+    }
+    let final_param = params.length() - 1
+    if local_use.writes[final_param] {
+      continue
+    }
+    let expected = match uniform[final_param] {
+      Some(@lib.RefNull(_) as value) => value
+      _ => continue
+    }
+    let rewrite_caller = fn(caller_func, _) {
+      let @lib.Func(locals, @lib.Expr(body)) = caller_func
+      let (rewritten_body, calls_rewritten, ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+        body,
+        callee_abs,
+        [expected],
+      )
+      if !ok {
+        return {
+          func: caller_func,
+          calls_rewritten: 0,
+          changed: false,
+          ok: false,
+        }
+      }
+      if calls_rewritten > 0 {
+        {
+          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
+          calls_rewritten,
+          changed: true,
+          ok: true,
+        }
+      } else {
+        { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+      }
+    }
+    let application = dae_apply_direct_caller_scope_rewrite(
+      funcs,
+      boundary_facts.direct_callers[callee_abs],
+      rewrite_caller,
+    )
+    let remove = Array::make(params.length(), false)
+    remove[final_param] = true
+    let const_params : Array[@lib.Instruction?] = Array::make(
+      params.length(),
+      None,
+    )
+    const_params[final_param] = Some(expected)
+    let result = dae_apply_removed_param_candidate_after_caller_scope(
+      mod_,
+      callee_def,
+      params,
+      results,
+      remove,
+      const_params,
+      local_use,
+      Array::make(params.length(), false),
+      application,
+      boundary_facts.direct_calls[callee_abs],
+    )
+    if result.changed {
+      return result
+    }
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_instruction_observability_evidence_is_consistent(
   evidence : DaeInstructionObservabilityEvidence,
 ) -> Bool {
@@ -30074,9 +30212,42 @@ fn dae_run_forwarded_param_component_transaction(
   let nodes = dae_collect_forwarded_param_component(
     current, cycle_defs, type_indices, boundary_facts,
   )
-  dae_apply_forwarded_param_component_transaction(
-    current, touched, nodes, boundary_facts,
+  let application = match
+    dae_apply_forwarded_param_component_transaction(
+      current, touched, nodes, boundary_facts,
+    ) {
+    Some(application) => application
+    None => return None
+  }
+  let rewritten_type_indices = dae_collect_func_type_indices(
+    application.mod_out,
   )
+  let uniform_ref_null = dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
+    application.mod_out,
+    application.defs,
+    dae_imported_func_count(application.mod_out),
+    dae_defined_func_count(application.mod_out),
+    total,
+    rewritten_type_indices,
+    boundary_facts,
+  )
+  if !uniform_ref_null.changed {
+    return Some(application)
+  }
+  let combined_touched = application.touched.copy()
+  for def_idx = 0
+      def_idx < uniform_ref_null.touched.length()
+      def_idx = def_idx + 1 {
+    if uniform_ref_null.touched[def_idx] && def_idx < combined_touched.length() {
+      combined_touched[def_idx] = true
+    }
+  }
+  Some({
+    mod_out: uniform_ref_null.mod_out,
+    touched: combined_touched,
+    defs: application.defs,
+    param_count: application.param_count,
+  })
 }
 
 ///|

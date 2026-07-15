@@ -19335,6 +19335,44 @@ test "DAEO selected cleanup tees value-block readbacks" {
 }
 
 ///|
+test "DAEO selected callers expose a uniform ref-null callee candidate" {
+  let source =
+    #|(module
+    #|  (type $items (array i32))
+    #|  (func $callee (param (ref null $items)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null
+    #|    if (result i32)
+    #|      i32.const 11
+    #|    else
+    #|      i32.const 22
+    #|    end)
+    #|  (func $caller (export "caller") (result i32)
+    #|    ref.null $items
+    #|    call $callee))
+  let parsed = match pass_test_run_pipeline(source, []) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected uniform ref-null fixture parse, got \{err}")
+  }
+  let snapshot = dae_collect_module_boundary_snapshot(parsed)
+  let result = dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
+    parsed,
+    [1],
+    snapshot.imported,
+    snapshot.defined,
+    snapshot.total,
+    snapshot.type_indices,
+    snapshot.boundary_facts,
+  )
+  assert_true(result.changed)
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, _)) => @debug.assert_eq(params.length(), 0)
+    None => fail("expected rewritten callee signature")
+  }
+}
+
+///|
 test "DAEO selected cleanup collapses in-order two-field aggregate spills" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
