@@ -6488,6 +6488,27 @@ test "flatten rewrite multivalue loop proof uses the pre-mutation branch index" 
 }
 
 ///|
+test "flatten inputful loop support freezes the exact admission result" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32) (result i32))) (func call 1 loop $loop (type $carrier) drop i32.const 7 end drop) (func (result i32) i32.const 1))",
+  )
+  let loop_id = @ir.hot_child_get(func, @ir.hot_root_get(func, 0), 0)
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  let state = FlattenRewriteState::new(func)
+  @debug.assert_eq(state.inputful_loop_support_entries.length(), 0)
+  assert_true(
+    flatten_inputful_loop_is_supported(func, loop_id, state=Some(state)),
+  )
+  @debug.assert_eq(state.inputful_loop_support_entries.length(), 1)
+  @ir.hot_root_append(func, @ir.hot_build_br(func, label_id))
+  assert_false(flatten_inputful_loop_is_supported(func, loop_id))
+  state.rewrites_started = true
+  assert_true(
+    flatten_inputful_loop_is_supported(func, loop_id, state=Some(state)),
+  )
+}
+
+///|
 test "flatten rewrite tuple loop entry proof uses pre-mutation ownership counts" {
   let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
   let func = pass_test_lift_first_func(

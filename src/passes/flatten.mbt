@@ -439,6 +439,20 @@ fn FlattenScalarTryEntry::new(
 }
 
 ///|
+priv struct FlattenInputfulLoopSupportEntry {
+  loop_id : Int
+  supported : Bool
+}
+
+///|
+fn FlattenInputfulLoopSupportEntry::new(
+  loop_id : Int,
+  supported : Bool,
+) -> FlattenInputfulLoopSupportEntry {
+  { loop_id, supported }
+}
+
+///|
 fn flatten_dead_suffix_entry_index(
   entries : Array[FlattenDeadSuffixEntry],
   table_id : Int,
@@ -478,6 +492,19 @@ fn flatten_scalar_try_entry_index(
 }
 
 ///|
+fn flatten_inputful_loop_support_entry_index(
+  entries : Array[FlattenInputfulLoopSupportEntry],
+  loop_id : Int,
+) -> Int {
+  for index = 0; index < entries.length(); index = index + 1 {
+    if entries[index].loop_id == loop_id {
+      return index
+    }
+  }
+  -1
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -495,6 +522,7 @@ priv struct FlattenRewriteState {
   dead_suffix_entries : Array[FlattenDeadSuffixEntry]
   terminal_table_entries : Array[FlattenTerminalTableEntry]
   scalar_try_entries : Array[FlattenScalarTryEntry]
+  inputful_loop_support_entries : Array[FlattenInputfulLoopSupportEntry]
   mut rewrites_started : Bool
 }
 
@@ -528,6 +556,7 @@ fn FlattenRewriteState::new(func : @ir.HotFunc) -> FlattenRewriteState {
     dead_suffix_entries: [],
     terminal_table_entries: [],
     scalar_try_entries: [],
+    inputful_loop_support_entries: [],
     rewrites_started: false,
   }
 }
@@ -3726,6 +3755,38 @@ fn flatten_rewrite_inputful_loop_tuple_entry_values(
 
 ///|
 fn flatten_inputful_loop_is_supported(
+  func : @ir.HotFunc,
+  loop_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  match state {
+    Some(state) => {
+      let entry_index = flatten_inputful_loop_support_entry_index(
+        state.inputful_loop_support_entries,
+        loop_id,
+      )
+      if entry_index >= 0 {
+        return state.inputful_loop_support_entries[entry_index].supported
+      }
+      if state.rewrites_started {
+        return false
+      }
+      let supported = flatten_inputful_loop_is_supported_uncached(
+        func,
+        loop_id,
+        state=Some(state),
+      )
+      state.inputful_loop_support_entries.push(
+        FlattenInputfulLoopSupportEntry::new(loop_id, supported),
+      )
+      supported
+    }
+    None => flatten_inputful_loop_is_supported_uncached(func, loop_id)
+  }
+}
+
+///|
+fn flatten_inputful_loop_is_supported_uncached(
   func : @ir.HotFunc,
   loop_id : Int,
   state? : FlattenRewriteState? = None,
