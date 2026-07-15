@@ -6117,3 +6117,39 @@ test "flatten rewrite multivalue target proof uses the pre-mutation branch index
   )
   assert_true(@ir.hot_node_is_live(func, rogue))
 }
+
+///|
+test "flatten resolves each br_table target local vector once" {
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32 i64) (block (result i32 i64) (block (result i32 i64) (br_table 0 1 (i32.const 7) (i64.const 9) (i32.const 0)))) return))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let outer_id = @ir.hot_child_get(func, return_id, 0)
+  let inner_id = @ir.hot_region_get(
+    func,
+    @ir.hot_region_body_ref(func, outer_id),
+    0,
+  )
+  let targets = [
+    @ir.hot_control_node_label(func, inner_id),
+    @ir.hot_control_node_label(func, outer_id),
+  ]
+  let target_types = @ir.hot_type_results(
+    func,
+    @ir.hot_label_result_type(func, targets[0]),
+  )
+  let state = FlattenRewriteState::new(func)
+  state.rewrites_started = true
+  let local_count = @ir.hot_local_count(func)
+  let first = flatten_rewrite_br_table_target_locals(
+    func, state, targets, target_types,
+  ).unwrap()
+  @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
+  @debug.assert_eq(first[0], state.label_temps[targets[0]])
+  @debug.assert_eq(first[1], state.label_temps[targets[1]])
+  let second = flatten_rewrite_br_table_target_locals(
+    func, state, targets, target_types,
+  ).unwrap()
+  @debug.assert_eq(second, first)
+  @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
+}

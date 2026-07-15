@@ -5210,6 +5210,51 @@ fn flatten_unique_br_table_targets(
 }
 
 ///|
+fn flatten_rewrite_br_table_target_locals(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  targets : Array[Int],
+  payload_types : Array[@lib.ValType],
+) -> Array[Array[Int]]? {
+  if !state.rewrites_started || payload_types.is_empty() {
+    return None
+  }
+  for target in targets {
+    if target < 0 || target >= state.label_temps.length() {
+      return None
+    }
+    let locals = state.label_temps[target]
+    match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::LoopLabel =>
+        if !flatten_label_temps_match_types(func, state, target, payload_types) {
+          return None
+        }
+      @ir.HotLabelKind::BlockLabel
+      | @ir.HotLabelKind::IfLabel
+      | @ir.HotLabelKind::TryLabel =>
+        if !locals.is_empty() &&
+          !flatten_label_temps_match_types(func, state, target, payload_types) {
+          return None
+        }
+      _ => return None
+    }
+  }
+  let resolved : Array[Array[Int]] = []
+  for target in targets {
+    let locals = match @ir.hot_label_kind(func, target) {
+      @ir.HotLabelKind::LoopLabel => state.label_temps[target]
+      _ =>
+        match flatten_ensure_label_temps(func, state, target, payload_types) {
+          Some(locals) => locals
+          None => return None
+        }
+    }
+    resolved.push(locals)
+  }
+  Some(resolved)
+}
+
+///|
 fn flatten_tuple_mixed_try_table_is_supported(
   func : @ir.HotFunc,
   table_id : Int,
@@ -5376,6 +5421,11 @@ fn flatten_try_route_br_table(
       _ => return false
     }
   }
+  let target_locals = match
+    flatten_rewrite_br_table_target_locals(func, state, targets, payload_types) {
+    Some(target_locals) => target_locals
+    None => return false
+  }
   let value_locals : Array[Int] = []
   for slot = 0; slot < payload_count; slot = slot + 1 {
     let value_id = match tuple_values {
@@ -5409,20 +5459,14 @@ fn flatten_try_route_br_table(
     }
     _ => ()
   }
-  for target in targets {
+  for target_slot = 0
+      target_slot < target_locals.length()
+      target_slot = target_slot + 1 {
     for slot = 0; slot < payload_count; slot = slot + 1 {
-      let target_local = match @ir.hot_label_kind(func, target) {
-        @ir.HotLabelKind::LoopLabel => state.label_temps[target][slot]
-        _ =>
-          match flatten_ensure_label_temps(func, state, target, payload_types) {
-            Some(locals) => locals[slot]
-            None => return false
-          }
-      }
       preludes.push(
         @ir.hot_build_local_set(
           func,
-          target_local,
+          target_locals[target_slot][slot],
           @ir.hot_build_local_get(func, value_locals[slot]),
         ),
       )
