@@ -13,14 +13,13 @@ sources:
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - https://webassembly.github.io/spec/core/binary/instructions.html
   - https://webassembly.github.io/spec/core/binary/modules.html
   - https://webassembly.github.io/spec/core/binary/values.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
-  - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt

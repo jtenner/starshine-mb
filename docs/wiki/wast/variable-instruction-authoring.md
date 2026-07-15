@@ -4,7 +4,6 @@ status: supported
 last_reviewed: 2026-07-10
 sources:
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
-  - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -37,7 +36,7 @@ Use this page when writing, reducing, or widening WAST fixtures that read or wri
 - global instructions: `global.get` and `global.set`;
 - nearby constant-expression use of immutable `global.get` in Starshine.
 
-These instructions look simple, but they connect several layers: WAST `$` identifiers, core numeric index spaces, binary opcode immediates, validator stack effects, constant-expression phase context, name-section metadata, and mutating-pass repair. The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-variable-instruction-sources.md`](../raw/wasm/2026-05-19-wast-variable-instruction-sources.md); the current context-sensitive `global.get` initializer refresh is [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md).
+These instructions look simple, but they connect several layers: WAST `$` identifiers, core numeric index spaces, binary opcode immediates, validator stack effects, constant-expression phase context, name-section metadata, and mutating-pass repair. The current context-sensitive `global.get` initializer refresh is [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md); the local parser, lowerer, printer, codec, validator, and generator sources cited below ground the remaining variable-instruction layer map.
 
 ## Beginner Mental Model
 
@@ -169,7 +168,6 @@ Useful validation lanes are ordinary `moon test` for local parser/lowerer/typech
 ## Sources
 
 - Current constant-expression refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
-- Source manifest: [`../raw/wasm/2026-05-19-wast-variable-instruction-sources.md`](../raw/wasm/2026-05-19-wast-variable-instruction-sources.md)
 - Official WebAssembly text instructions: <https://webassembly.github.io/spec/core/text/instructions.html>
 - Official WebAssembly syntax instructions: <https://webassembly.github.io/spec/core/syntax/instructions.html>
 - Official WebAssembly binary instructions: <https://webassembly.github.io/spec/core/binary/instructions.html>

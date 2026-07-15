@@ -7,7 +7,7 @@ sources:
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
-  - raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
+  - raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - wast/atomic-memory-instruction-authoring.md
   - validate/resource-sections-and-limits.md
   - wast/resource-declaration-authoring.md
@@ -159,7 +159,7 @@ When touching shared memory or ordinary atomics:
 - Historical shared-memory source bridge: [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
 - Historical fence/unshared-memory reconciliation: [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)
 - Active proposal routing: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
-- Atomic source manifest: [`raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](raw/wasm/2026-05-20-atomic-memory-instruction-sources.md)
+- Current linear-memory atomic validation reconciliation: [`raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md)
 - Living companion pages: [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md)
 - WebAssembly Threads proposal and draft: <https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md>, <https://webassembly.github.io/threads/core/syntax/types.html#memory-types>, <https://webassembly.github.io/threads/core/binary/types.html#memory-types>, <https://webassembly.github.io/threads/core/valid/types.html#memory-types>, <https://webassembly.github.io/threads/core/syntax/instructions.html>, <https://webassembly.github.io/threads/core/valid/instructions.html>, <https://webassembly.github.io/threads/core/exec/instructions.html>
 - Starshine code: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt), [`../../src/validate/typecheck_negative_tests.mbt`](../../src/validate/typecheck_negative_tests.mbt), [`../../src/validate/invalid_fuzzer.mbt`](../../src/validate/invalid_fuzzer.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

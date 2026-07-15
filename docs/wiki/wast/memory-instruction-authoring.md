@@ -10,7 +10,7 @@ sources:
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
-  - ../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
+  - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -213,6 +213,6 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 - Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
 - Memory Control boundary refresh: [`../raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](../raw/wasm/2026-06-05-memory-control-boundary-refresh.md), [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md)
 - Memory64 bulk-memory refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
-- Atomic companion manifest: [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md), [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md)
+- Current linear-memory atomic validation reconciliation: [`../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md`](../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md); detailed local authoring guidance: [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
 - Starshine implementation: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

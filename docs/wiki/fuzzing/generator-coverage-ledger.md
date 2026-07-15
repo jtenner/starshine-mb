@@ -13,7 +13,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
-  - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md

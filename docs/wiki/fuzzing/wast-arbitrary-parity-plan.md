@@ -22,7 +22,7 @@ sources:
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
-  - ../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
+  - ../raw/wasm/2026-07-10-linear-atomics-unshared-validation-reconciliation.md
 related:
   - ../wast/control-flow-authoring.md
   - ../wast/parametric-instruction-authoring.md

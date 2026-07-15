@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
+  - ../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
   - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
@@ -30,7 +30,7 @@ related:
 # Starshine port readiness and validation for `signature-pruning`
 
 Use this page as the implementation bridge between Binaryen's source-backed `signature-pruning` contract and Starshine's current boundary-only status.
-The 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md) supersedes the older current-main freshness claim without changing the source-backed port boundary; the 2026-05-20 call-ref refresh in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md) narrows the local `call_ref` fixture guidance below.
+The 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md) supersedes the older current-main freshness claim without changing the source-backed port boundary; the retained typed-function-reference boundary refresh in [`../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md) narrows the local `call_ref` fixture guidance below.
 The pass is still unimplemented locally; this page exists so a future port starts with the right module/type rewrite shape instead of a misleading HOT peephole.
 
 ## Current local decision

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-11
 sources:
-  - ../../../raw/wasm/2026-05-20-call-ref-source-refresh.md
+  - ../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
   - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
@@ -38,7 +38,7 @@ related:
 
 # Starshine Strategy For `signature-pruning`
 
-Use this page together with the retained 2026-04-24 source follow-up in [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md), the 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), the 2026-05-20 call-ref source refresh in [`../../../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../../../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the retained 2026-04-24 source follow-up in [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md), the 2026-07-11 `version_130` / current-main recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), the typed-function-reference boundary refresh in [`../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../../../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status

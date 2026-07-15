@@ -11,7 +11,7 @@ sources:
   - https://webassembly.github.io/spec/core/valid/modules.html
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
-  - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
+  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt

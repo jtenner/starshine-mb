@@ -12,7 +12,7 @@ sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
-  - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
+  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - https://webassembly.github.io/spec/core/text/modules.html
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
@@ -20,7 +20,7 @@ sources:
   - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
-  - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
+  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../../README.md
 related:
   - ../wasm-typed-function-references-boundary.md

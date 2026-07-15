@@ -18,7 +18,7 @@ sources:
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - https://webassembly.github.io/spec/core/valid/index.html
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
-  - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md

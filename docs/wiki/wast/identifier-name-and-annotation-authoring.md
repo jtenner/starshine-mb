@@ -6,7 +6,7 @@ sources:
   - ../raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
-  - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
+  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
   - ../raw/wasm/2026-05-20-name-section-label-subsection-correction.md
   - ../../../src/wast/parser.mbt
