@@ -6307,3 +6307,49 @@ test "flatten rewrite multivalue try flow uses pre-mutation ownership counts" {
     is Some(_),
   )
 }
+
+///|
+test "flatten rewrite region tail tuple proof uses pre-mutation ownership counts" {
+  let result_types = [@lib.ValType::i32(), @lib.ValType::i64()]
+  let func = @ir.HotFunc::new()
+  let first = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let second = @ir.hot_build_const_i64(func, @lib.I64(9L))
+  let tuple_id = @ir.hot_build_tuple_make(func, result_types, [first, second])
+  let block_id = @ir.hot_build_block(func, @lib.BlockType::void_(), [tuple_id])
+  @ir.hot_control_result_type_set(
+    func,
+    block_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      result_types,
+    ),
+  )
+  @ir.hot_root_append(func, block_id)
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let state = FlattenRewriteState::new(func)
+  assert_true(
+    flatten_multivalue_region_tail_tuple_make_values(
+      func,
+      body_ref,
+      result_types,
+      state=Some(state),
+    )
+    is Some(_),
+  )
+  @ir.hot_root_append(func, @ir.hot_build_drop(func, tuple_id))
+  assert_true(
+    flatten_multivalue_region_tail_tuple_make_values(
+      func, body_ref, result_types,
+    )
+    is None,
+  )
+  state.rewrites_started = true
+  assert_true(
+    flatten_rewrite_multivalue_region_tail_tuple_make_values(
+      func, state, body_ref, result_types,
+    )
+    is Some(_),
+  )
+}

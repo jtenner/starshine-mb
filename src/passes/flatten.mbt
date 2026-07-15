@@ -539,6 +539,7 @@ fn flatten_multivalue_region_tail_tuple_make_values(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if result_types.length() <= 1 || root_count == 0 {
@@ -555,17 +556,11 @@ fn flatten_multivalue_region_tail_tuple_make_values(
     @ir.hot_child_count(func, tuple_id) != result_types.length() {
     return None
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
-  if sites.length() != 1 {
-    return None
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
   }
-  let site = sites[0]
-  match site.kind {
-    @ir.HotUseSlotKind::RootUseSlot => ()
-    _ => return None
-  }
-  if site.user != region_ref.holder || site.slot != tail_index {
+  if @ir.hot_node_use_count(use_counts, tuple_id) != 1 {
     return None
   }
   let values : Array[Int] = []
@@ -586,10 +581,29 @@ fn flatten_multivalue_region_tail_tuple_make_values(
 }
 
 ///|
+fn flatten_rewrite_multivalue_region_tail_tuple_make_values(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+  region_ref : @ir.HotRegionRef,
+  result_types : Array[@lib.ValType],
+) -> Array[Int]? {
+  if !state.rewrites_started {
+    return None
+  }
+  flatten_multivalue_region_tail_tuple_make_values(
+    func,
+    region_ref,
+    result_types,
+    state=Some(state),
+  )
+}
+
+///|
 fn flatten_multivalue_region_tail_tuple_make_has_supported_origins(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   result_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if result_types.length() <= 1 || root_count == 0 {
@@ -606,17 +620,11 @@ fn flatten_multivalue_region_tail_tuple_make_has_supported_origins(
     @ir.hot_child_count(func, tuple_id) != result_types.length() {
     return false
   }
-  let use_def = @ir.use_def_build_node_uses(func)
-  let sites = @ir.node_use_sites_borrowed(use_def, tuple_id)
-  if sites.length() != 1 {
-    return false
+  let use_counts = match state {
+    Some(state) => state.use_def
+    None => flatten_build_node_use_counts(func)
   }
-  let site = sites[0]
-  match site.kind {
-    @ir.HotUseSlotKind::RootUseSlot => ()
-    _ => return false
-  }
-  if site.user != region_ref.holder || site.slot != tail_index {
+  if @ir.hot_node_use_count(use_counts, tuple_id) != 1 {
     return false
   }
   for slot = 0; slot < result_types.length(); slot = slot + 1 {
@@ -731,8 +739,8 @@ fn flatten_try_route_multivalue_block(
       return Some(locals)
     }
   }
-  let tuple_values = flatten_multivalue_region_tail_tuple_make_values(
-    func, body_ref, result_types,
+  let tuple_values = flatten_rewrite_multivalue_region_tail_tuple_make_values(
+    func, state, body_ref, result_types,
   )
   if !flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) &&
     tuple_values is None {
@@ -822,8 +830,8 @@ fn flatten_try_route_multivalue_if(
     if !flatten_multivalue_region_tail_matches_types(
         func, region_ref, result_types,
       ) &&
-      flatten_multivalue_region_tail_tuple_make_values(
-        func, region_ref, result_types,
+      flatten_rewrite_multivalue_region_tail_tuple_make_values(
+        func, state, region_ref, result_types,
       )
       is None {
       return None
@@ -849,8 +857,8 @@ fn flatten_try_route_multivalue_if(
       continue
     }
     match
-      flatten_multivalue_region_tail_tuple_make_values(
-        func, region_ref, result_types,
+      flatten_rewrite_multivalue_region_tail_tuple_make_values(
+        func, state, region_ref, result_types,
       ) {
       Some(values) =>
         flatten_replace_multivalue_tuple_make_tail(
@@ -2438,7 +2446,10 @@ fn flatten_multivalue_legacy_try_is_supported(
       continue
     }
     if flatten_multivalue_region_tail_tuple_make_has_supported_origins(
-        func, region_ref, result_types,
+        func,
+        region_ref,
+        result_types,
+        state~,
       ) {
       continue
     }
@@ -2494,8 +2505,8 @@ fn flatten_try_route_multivalue_try(
       continue
     }
     match
-      flatten_multivalue_region_tail_tuple_make_values(
-        func, region_ref, result_types,
+      flatten_rewrite_multivalue_region_tail_tuple_make_values(
+        func, state, region_ref, result_types,
       ) {
       Some(values) =>
         flatten_replace_multivalue_tuple_make_tail(
@@ -2551,8 +2562,8 @@ fn flatten_try_route_payloadless_multivalue_loop(
   }
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
-  let tuple_values = flatten_multivalue_region_tail_tuple_make_values(
-    func, body_ref, result_types,
+  let tuple_values = flatten_rewrite_multivalue_region_tail_tuple_make_values(
+    func, state, body_ref, result_types,
   )
   if !flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) &&
     tuple_values is None {
@@ -3303,11 +3314,15 @@ fn flatten_inputful_multivalue_loop_tail_is_supported(
   loop_id : Int,
   label_id : Int,
   result_types : Array[@lib.ValType],
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let body_ref = @ir.hot_region_body_ref(func, loop_id)
   if flatten_multivalue_region_tail_matches_types(func, body_ref, result_types) ||
     flatten_multivalue_region_tail_tuple_make_has_supported_origins(
-      func, body_ref, result_types,
+      func,
+      body_ref,
+      result_types,
+      state~,
     ) {
     return true
   }
@@ -3432,6 +3447,7 @@ fn flatten_inputful_loop_tuple_entry_values(
 fn flatten_inputful_loop_is_supported(
   func : @ir.HotFunc,
   loop_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Bool {
   let loop_node = @ir.hot_node_get(func, loop_id)
   match loop_node.op {
@@ -3502,7 +3518,11 @@ fn flatten_inputful_loop_is_supported(
     flatten_multivalue_control_has_exclusive_region_tail_span(func, loop_id)
   ) &&
   flatten_inputful_multivalue_loop_tail_is_supported(
-    func, loop_id, label_id, result_types,
+    func,
+    loop_id,
+    label_id,
+    result_types,
+    state~,
   )
 }
 
@@ -4550,7 +4570,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
               nested_label,
             ) &&
             (
-              flatten_inputful_loop_is_supported(func, nested_id) ||
+              flatten_inputful_loop_is_supported(func, nested_id, state~) ||
               @ir.hot_label_branch_arity(func, nested_label) == 0
             )
           }
@@ -4561,7 +4581,7 @@ fn flatten_multivalue_branch_target_is_supported_with_table(
               @ir.hot_node_get(func, admitted_table_id).imm0,
               nested_label,
             ) &&
-            flatten_multivalue_legacy_try_is_supported(func, nested_id)
+            flatten_multivalue_legacy_try_is_supported(func, nested_id, state~)
           }
           _ => false
         }
@@ -5818,7 +5838,7 @@ fn flatten_rewrite_node_operands(
     @ir.HotOp::Loop => {
       let label_id = @ir.hot_control_node_label(func, node_id)
       let input_count = @ir.hot_label_branch_arity(func, label_id)
-      if flatten_inputful_loop_is_supported(func, node_id) {
+      if flatten_inputful_loop_is_supported(func, node_id, state=Some(state)) {
         for slot = 0; slot < input_count; slot = slot + 1 {
           let entry_id = @ir.hot_child_get(func, node_id, slot)
           if flatten_rewrite_node_operands(
@@ -6012,7 +6032,10 @@ fn flatten_scalar_branch_payload_has_supported_origin(
 }
 
 ///|
-fn flatten_has_deferred_inputful_loop(func : @ir.HotFunc) -> Bool {
+fn flatten_has_deferred_inputful_loop(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -6023,7 +6046,7 @@ fn flatten_has_deferred_inputful_loop(func : @ir.HotFunc) -> Bool {
     }
     let label_id = @ir.hot_control_node_label(func, node_id)
     if @ir.hot_label_branch_arity(func, label_id) > 0 &&
-      !flatten_inputful_loop_is_supported(func, node_id) {
+      !flatten_inputful_loop_is_supported(func, node_id, state=Some(state)) {
       return true
     }
   }
@@ -6315,7 +6338,7 @@ fn flatten_run_admission(
   if analysis.eh_repair_requirement.needs_exceptional_transfer_repair {
     return FlattenRunAdmission::DeferredExceptionalTransferRepair
   }
-  if flatten_has_deferred_inputful_loop(func) {
+  if flatten_has_deferred_inputful_loop(func, analysis) {
     return FlattenRunAdmission::DeferredInputfulLoop
   }
   if flatten_has_deferred_legacy_try(func, analysis) {
