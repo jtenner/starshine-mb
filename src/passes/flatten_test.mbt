@@ -19240,3 +19240,101 @@ test "flatten removes a dropconst-unreachable-divzero-call0 suffix sequence afte
 test "flatten removes a submul-dropconst-and suffix sequence after a scalar legacy try table" {
   flatten_test_remove_sequence_with_direct_drop_const(true)
 }
+
+///|
+test "flatten emits valid wasm after removing a recursively owned call argument suffix" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(15))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let first_mul = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(func, first_mul, @lib.Instruction::i32_mul())
+  let second_mul = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(4)),
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+  )
+  @ir.hot_node_exact_instr_set(func, second_mul, @lib.Instruction::i32_mul())
+  let add = @ir.hot_build_binary(func, i32_type, first_mul, second_mul)
+  @ir.hot_node_exact_instr_set(func, add, @lib.Instruction::i32_add())
+  let argument = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(50)),
+    add,
+  )
+  @ir.hot_node_exact_instr_set(func, argument, @lib.Instruction::i32_sub())
+  let dead_call = @ir.hot_build_call(func, 0, [], [argument])
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch_id, dead_call])
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_false(@ir.hot_node_is_live(func, dead_call))
+  assert_false(@ir.hot_node_is_live(func, argument))
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected recursive call suffix output to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([i32_type], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [i32_type])),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("sink"),
+          @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  assert_false(
+    module_.pretty_print_func(@lib.FuncIdx::new(1U)).contains("call"),
+  )
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
