@@ -1211,7 +1211,11 @@ fn flatten_try_table_dead_suffix_call_two_rich_argument_nodes(
     (@ir.HotOp::Binary, @ir.HotOp::Unary)
     | (@ir.HotOp::Unary, @ir.HotOp::Binary)
     | (@ir.HotOp::Binary, @ir.HotOp::Convert)
-    | (@ir.HotOp::Convert, @ir.HotOp::Binary) => ()
+    | (@ir.HotOp::Convert, @ir.HotOp::Binary)
+    | (@ir.HotOp::Unary, @ir.HotOp::Unary)
+    | (@ir.HotOp::Unary, @ir.HotOp::Convert)
+    | (@ir.HotOp::Convert, @ir.HotOp::Unary)
+    | (@ir.HotOp::Convert, @ir.HotOp::Convert) => ()
     (@ir.HotOp::Binary, @ir.HotOp::Binary) =>
       match
         (

@@ -17829,6 +17829,169 @@ test "flatten removes an extend-calldivadd-unreachable suffix sequence after a s
 }
 
 ///|
+fn flatten_test_remove_sequence_with_two_unary_or_conversion_arguments(
+  first_conversion : Bool,
+  second_conversion : Bool,
+) -> Unit raise {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(15))]),
+  )
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [label_id],
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let first = if first_conversion {
+    flatten_test_build_owned_unary_drop_root(
+      func,
+      @lib.Instruction::i64_extend_i32s(),
+      9,
+      @lib.ValType::i64(),
+      true,
+    )
+  } else {
+    flatten_test_build_owned_binary_drop_root(
+      func,
+      @lib.Instruction::i32_add(),
+      9,
+      10,
+    )
+  }
+  let first_argument = flatten_test_build_owned_unary_drop_root(
+    func,
+    if first_conversion {
+      @lib.Instruction::i64_extend_i32s()
+    } else {
+      @lib.Instruction::i32_clz()
+    },
+    11,
+    if first_conversion {
+      @lib.ValType::i64()
+    } else {
+      i32_type
+    },
+    first_conversion,
+  )
+  let second_argument = flatten_test_build_owned_unary_drop_root(
+    func,
+    if second_conversion {
+      @lib.Instruction::i64_extend_i32s()
+    } else {
+      @lib.Instruction::i32_clz()
+    },
+    12,
+    if second_conversion {
+      @lib.ValType::i64()
+    } else {
+      i32_type
+    },
+    second_conversion,
+  )
+  let call = @ir.hot_build_call(func, 99, [], [
+    first_argument[1],
+    second_argument[1],
+  ])
+  let last = if first_conversion {
+    [@ir.hot_build_unreachable(func)]
+  } else {
+    flatten_test_build_owned_binary_drop_root(
+      func,
+      @lib.Instruction::i32_div_s(),
+      13,
+      0,
+    )
+  }
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch_id,
+    first[0],
+    call,
+    last[0],
+  ])
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_delete_node(func, first_argument[0])
+  @ir.hot_delete_node(func, second_argument[0])
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let owned_nodes : Array[Int] = [call]
+  for rich in [first_argument, second_argument] {
+    for node_idx = 1; node_idx < rich.length(); node_idx = node_idx + 1 {
+      owned_nodes.push(rich[node_idx])
+    }
+  }
+  for root in [first, last] {
+    for node_id in root {
+      owned_nodes.push(node_id)
+    }
+  }
+  for node_id in owned_nodes {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, label_id), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      body_ref,
+      @ir.hot_region_root_count(func, body_ref) - 1,
+    ),
+    branch_id,
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected unary/conversion pair call sequence to verify, got \{err}")
+  }
+}
+
+///|
+test "flatten removes an add-callclzextend-divzero suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_unary_or_conversion_arguments(
+    false, true,
+  )
+}
+
+///|
+test "flatten removes an extend-callextendclz-unreachable suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_unary_or_conversion_arguments(
+    true, false,
+  )
+}
+
+///|
+test "flatten removes an add-callclzclz-divzero suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_unary_or_conversion_arguments(
+    false, false,
+  )
+}
+
+///|
+test "flatten removes an extend-callextendextend-unreachable suffix sequence after a scalar legacy try table" {
+  flatten_test_remove_sequence_with_two_unary_or_conversion_arguments(
+    true, true,
+  )
+}
+
+///|
 fn flatten_test_remove_sequence_with_binary_and_constant_arguments(
   rich_first : Bool,
 ) -> Unit raise {
