@@ -60811,6 +60811,101 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    if idx + 18 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+          instrs[idx + 6],
+          instrs[idx + 7],
+          instrs[idx + 8],
+          instrs[idx + 9],
+          instrs[idx + 10],
+          instrs[idx + 11],
+          instrs[idx + 12],
+          instrs[idx + 13],
+          instrs[idx + 14],
+          instrs[idx + 15],
+          instrs[idx + 16],
+          instrs[idx + 17],
+          instrs[idx + 18],
+        ) {
+        (
+          @lib.LocalGet(first_arg0),
+          @lib.LocalGet(first_arg1),
+          @lib.Call(first_producer),
+          @lib.LocalSet(@lib.LocalIdx(first_raw) as first),
+          @lib.LocalGet(second_arg0),
+          @lib.LocalGet(second_arg1),
+          @lib.Call(second_producer),
+          @lib.LocalSet(@lib.LocalIdx(second_raw) as second),
+          @lib.LocalGet(consumer_arg0),
+          @lib.LocalGet(consumer_arg1),
+          @lib.LocalGet(consumer_arg2),
+          @lib.LocalGet(consumer_arg3),
+          @lib.LocalGet(third_arg0),
+          @lib.LocalGet(third_arg1),
+          @lib.Call(third_producer),
+          @lib.LocalGet(second_readback),
+          @lib.LocalGet(first_readback),
+          @lib.Call(consumer),
+          @lib.Br(label),
+        ) if first == first_readback &&
+          second == second_readback &&
+          first != second &&
+          first_arg0 == second_arg0 &&
+          first_arg0 == third_arg0 &&
+          first_arg1 == second_arg1 &&
+          first_arg1 == third_arg1 &&
+          first_producer == second_producer &&
+          first_producer == third_producer => {
+          let first_idx = first_raw.reinterpret_as_int()
+          let second_idx = second_raw.reinterpret_as_int()
+          if first_idx >= 0 &&
+            second_idx >= 0 &&
+            first_idx < local_gets.length() &&
+            second_idx < local_gets.length() &&
+            first_idx < local_sets.length() &&
+            second_idx < local_sets.length() &&
+            first_idx < local_tees.length() &&
+            second_idx < local_tees.length() &&
+            local_gets[first_idx] == 1 &&
+            local_sets[first_idx] == 1 &&
+            local_tees[first_idx] == 0 &&
+            local_gets[second_idx] == 1 &&
+            local_sets[second_idx] == 1 &&
+            local_tees[second_idx] == 0 {
+            local_gets[first_idx] = 0
+            local_sets[first_idx] = 0
+            local_gets[second_idx] = 0
+            local_sets[second_idx] = 0
+            rewritten.push(@lib.Instruction::local_get(consumer_arg0))
+            rewritten.push(@lib.Instruction::local_get(consumer_arg1))
+            rewritten.push(@lib.Instruction::local_get(consumer_arg2))
+            rewritten.push(@lib.Instruction::local_get(consumer_arg3))
+            rewritten.push(@lib.Instruction::local_get(first_arg0))
+            rewritten.push(@lib.Instruction::local_get(first_arg1))
+            rewritten.push(@lib.Instruction::call(first_producer))
+            rewritten.push(@lib.Instruction::local_get(second_arg0))
+            rewritten.push(@lib.Instruction::local_get(second_arg1))
+            rewritten.push(@lib.Instruction::call(second_producer))
+            rewritten.push(@lib.Instruction::local_get(third_arg0))
+            rewritten.push(@lib.Instruction::local_get(third_arg1))
+            rewritten.push(@lib.Instruction::call(third_producer))
+            rewritten.push(@lib.Instruction::call(consumer))
+            rewritten.push(@lib.Instruction::br(label))
+            rewrite_count = rewrite_count + 1
+            idx += 19
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
     if idx + 13 < instrs.length() {
       match
         (

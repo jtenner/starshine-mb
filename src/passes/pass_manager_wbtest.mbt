@@ -20393,6 +20393,59 @@ test "DAEO selected readback traversal sinks the first two-producer result" {
 }
 
 ///|
+test "DAEO selected readback traversal sinks two three-producer results" {
+  let first = @lib.LocalIdx::new(7U)
+  let second = @lib.LocalIdx::new(8U)
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+  ]
+  let local_gets = [1, 1, 1, 1, 0, 3, 3, 1, 1]
+  let local_sets = [0, 0, 0, 0, 0, 0, 0, 1, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(
+    body, local_gets, local_sets, local_tees,
+  )
+  assert_eq(count, 1)
+  @debug.assert_eq(local_gets, [1, 1, 1, 1, 0, 3, 3, 0, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup forwards reordered four-field aggregate leader" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
