@@ -7373,3 +7373,17 @@ test "flatten unique table target marks preserve first source order" {
   assert_true(seen[2])
   assert_true(seen[7])
 }
+
+///|
+test "flatten terminal payload cache keeps sparse entries sorted" {
+  let payloads : Array[Int] = []
+  assert_true(flatten_terminal_payload_record(payloads, 19))
+  assert_true(flatten_terminal_payload_record(payloads, 4))
+  assert_true(flatten_terminal_payload_record(payloads, 12))
+  assert_false(flatten_terminal_payload_record(payloads, 4))
+  @debug.assert_eq(payloads, [4, 12, 19])
+  assert_true(flatten_terminal_payload_contains(payloads, 4))
+  assert_true(flatten_terminal_payload_contains(payloads, 12))
+  assert_true(flatten_terminal_payload_contains(payloads, 19))
+  assert_false(flatten_terminal_payload_contains(payloads, 7))
+}

@@ -780,6 +780,49 @@ fn flatten_inputful_loop_support_entry_set(
 }
 
 ///|
+fn flatten_terminal_payload_lower_bound(
+  payloads : Array[Int],
+  node_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = payloads.length()
+  while low < high {
+    let middle = low + (high - low) / 2
+    if payloads[middle] < node_id {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
+fn flatten_terminal_payload_contains(
+  payloads : Array[Int],
+  node_id : Int,
+) -> Bool {
+  let index = flatten_terminal_payload_lower_bound(payloads, node_id)
+  index < payloads.length() && payloads[index] == node_id
+}
+
+///|
+fn flatten_terminal_payload_record(
+  payloads : Array[Int],
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 {
+    return false
+  }
+  let index = flatten_terminal_payload_lower_bound(payloads, node_id)
+  if index < payloads.length() && payloads[index] == node_id {
+    return false
+  }
+  payloads.insert(index, node_id)
+  true
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -3402,7 +3445,8 @@ fn flatten_try_route_scalar_block(
     return None
   }
   let mut tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
-  if body_count >= 2 && state.terminal_payloads.contains(tail_id) {
+  if body_count >= 2 &&
+    flatten_terminal_payload_contains(state.terminal_payloads, tail_id) {
     let branch_id = @ir.hot_region_get(func, body_ref, body_count - 2)
     if flatten_terminal_branch_targets_label(func, branch_id, label_id, false) {
       ignore(pass_splice_region(ctx, func, body_ref, body_count - 1, 1, []))
@@ -6731,7 +6775,7 @@ fn flatten_try_route_br_table(
       None => @ir.hot_child_get(func, node_id, slot)
     }
     preludes.push(@ir.hot_build_local_set(func, value_locals[slot], value_id))
-    state.terminal_payloads.push(value_id)
+    ignore(flatten_terminal_payload_record(state.terminal_payloads, value_id))
   }
   let suffix_nodes = flatten_try_table_dead_suffix_nodes(
     func,
@@ -6933,7 +6977,7 @@ fn flatten_rewrite_region_operands(
       state.sequenced_root_holders.push(region_ref.holder)
       state.sequenced_root_nodes.push(node_id)
     }
-    if state.terminal_payloads.contains(node_id) {
+    if flatten_terminal_payload_contains(state.terminal_payloads, node_id) {
       ignore(pass_splice_region(ctx, func, region_ref, root_idx, 1, []))
       changed = true
       idx = root_idx
