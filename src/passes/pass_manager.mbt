@@ -61867,6 +61867,130 @@ fn run_hot_pipeline_dae_try_sink_one_use_call_result_through_pure_args(
       _ => ()
     }
   }
+  if instrs[idx] is @lib.If(_, _, _) &&
+    idx + 27 < instrs.length() &&
+    instrs[idx + 1] is @lib.LocalSet(_) {
+    match
+      (
+        instrs[idx],
+        instrs[idx + 1],
+        instrs[idx + 2],
+        instrs[idx + 3],
+        instrs[idx + 4],
+        instrs[idx + 5],
+        instrs[idx + 6],
+        instrs[idx + 7],
+        instrs[idx + 8],
+        instrs[idx + 9],
+        instrs[idx + 10],
+        instrs[idx + 11],
+        instrs[idx + 12],
+        instrs[idx + 13],
+        instrs[idx + 14],
+        instrs[idx + 15],
+        instrs[idx + 16],
+        instrs[idx + 17],
+        instrs[idx + 18],
+        instrs[idx + 19],
+        instrs[idx + 20],
+        instrs[idx + 21],
+        instrs[idx + 22],
+        instrs[idx + 23],
+        instrs[idx + 24],
+        instrs[idx + 25],
+        instrs[idx + 26],
+        instrs[idx + 27],
+      ) {
+      (
+        @lib.If(_, _, _) as selector_producer,
+        @lib.LocalSet(selector),
+        @lib.LocalGet(side_arg0),
+        @lib.LocalGet(side_arg1),
+        @lib.Call(side_prefix),
+        @lib.Call(side_call),
+        @lib.LocalSet(side_result),
+        @lib.LocalGet(prefix_arg0),
+        @lib.LocalGet(selector_readback),
+        @lib.LocalGet(prefix_arg2),
+        @lib.LocalGet(prefix_arg3),
+        @lib.Call(prefix_call),
+        @lib.LocalGet(producer_arg0),
+        @lib.LocalGet(side_readback),
+        @lib.LocalGet(producer_arg2),
+        @lib.Call(producer),
+        @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+        @lib.LocalGet(@lib.LocalIdx(consumer_arg0_raw) as consumer_arg0),
+        @lib.LocalGet(@lib.LocalIdx(consumer_arg1_raw) as consumer_arg1),
+        @lib.LocalGet(@lib.LocalIdx(consumer_arg2_raw) as consumer_arg2),
+        @lib.LocalGet(readback),
+        @lib.LocalGet(_),
+        @lib.Call(_),
+        @lib.Drop,
+        @lib.I32Const(@lib.I32(1)),
+        @lib.LocalGet(_),
+        @lib.StructNew(_),
+        @lib.Return,
+      ) if selector == selector_readback &&
+        side_result == side_readback &&
+        target == readback => {
+        let target_idx = target_raw.reinterpret_as_int()
+        let consumer_arg0_idx = consumer_arg0_raw.reinterpret_as_int()
+        let consumer_arg1_idx = consumer_arg1_raw.reinterpret_as_int()
+        let consumer_arg2_idx = consumer_arg2_raw.reinterpret_as_int()
+        if target_idx < 0 ||
+          target_idx >= local_gets.length() ||
+          local_gets[target_idx] != 1 ||
+          local_sets[target_idx] != 1 ||
+          local_tees[target_idx] != 0 ||
+          consumer_arg0_idx < 0 ||
+          consumer_arg1_idx < 0 ||
+          consumer_arg2_idx < 0 ||
+          consumer_arg0_idx >= local_sets.length() ||
+          consumer_arg1_idx >= local_sets.length() ||
+          consumer_arg2_idx >= local_sets.length() ||
+          consumer_arg0_idx >= local_tees.length() ||
+          consumer_arg1_idx >= local_tees.length() ||
+          consumer_arg2_idx >= local_tees.length() ||
+          local_sets[consumer_arg0_idx] != 0 ||
+          local_sets[consumer_arg1_idx] != 0 ||
+          local_sets[consumer_arg2_idx] != 0 ||
+          local_tees[consumer_arg0_idx] != 0 ||
+          local_tees[consumer_arg1_idx] != 0 ||
+          local_tees[consumer_arg2_idx] != 0 {
+          return None
+        }
+        local_gets[target_idx] = 0
+        local_sets[target_idx] = 0
+        return Some(
+          (
+            [
+              selector_producer,
+              @lib.Instruction::local_set(selector),
+              @lib.Instruction::local_get(side_arg0),
+              @lib.Instruction::local_get(side_arg1),
+              @lib.Instruction::call(side_prefix),
+              @lib.Instruction::call(side_call),
+              @lib.Instruction::local_set(side_result),
+              @lib.Instruction::local_get(consumer_arg0),
+              @lib.Instruction::local_get(consumer_arg1),
+              @lib.Instruction::local_get(consumer_arg2),
+              @lib.Instruction::local_get(prefix_arg0),
+              @lib.Instruction::local_get(selector),
+              @lib.Instruction::local_get(prefix_arg2),
+              @lib.Instruction::local_get(prefix_arg3),
+              @lib.Instruction::call(prefix_call),
+              @lib.Instruction::local_get(producer_arg0),
+              @lib.Instruction::local_get(side_result),
+              @lib.Instruction::local_get(producer_arg2),
+              @lib.Instruction::call(producer),
+            ],
+            21,
+          ),
+        )
+      }
+      _ => ()
+    }
+  }
   if !(instrs[idx + 1] is @lib.I32Const(_)) {
     return None
   }
