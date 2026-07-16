@@ -41,11 +41,12 @@ pub fn HotLowerOptions::new(
 priv struct HotLowerLabelFrames {
   active : Array[LabelId]
   depths : Array[Int]
+  legacy_rethrow_locals : Array[LocalIdx]
 }
 
 ///|
 fn hot_lower_impl_new_label_frames() -> HotLowerLabelFrames {
-  { active: [], depths: [] }
+  { active: [], depths: [], legacy_rethrow_locals: [] }
 }
 
 ///|
@@ -453,6 +454,27 @@ fn hot_lower_impl_catch_payload_prefix(
     })
   }
   out
+}
+
+///|
+fn hot_lower_impl_direct_block_rethrow_count(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> Int {
+  let mut count = 0
+  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+    let node_id = hot_region_get(func, region_ref, slot)
+    match hot_query_op(func, node_id) {
+      HotOp::Rethrow => count += 1
+      HotOp::Block =>
+        count += hot_lower_impl_direct_block_rethrow_count(
+          func,
+          hot_region_body_ref(func, node_id),
+        )
+      _ => ()
+    }
+  }
+  count
 }
 
 ///|
@@ -1136,6 +1158,18 @@ fn hot_lower_impl_emit_instruction(
         Instruction::throw_(TagIdx::new(node.imm0.reinterpret_as_uint())),
       )
     HotOp::ThrowRef => out.push(Instruction::throw_ref())
+    HotOp::Rethrow => {
+      if node.imm0 != 0 || label_frames.legacy_rethrow_locals.is_empty() {
+        abort("hot lower legacy rethrow requires the direct active catch")
+      }
+      out.push(
+        Instruction::local_get(
+          label_frames.legacy_rethrow_locals[label_frames.legacy_rethrow_locals.length() -
+          1],
+        ),
+      )
+      out.push(Instruction::throw_ref())
+    }
     HotOp::Block =>
       out.push(
         Instruction::block(
@@ -1247,8 +1281,33 @@ fn hot_lower_impl_emit_instruction(
       let catch_payloads = hot_lower_impl_catch_payload_prefix(
         func, catch_region,
       )
+      let rethrow_count = hot_lower_impl_direct_block_rethrow_count(
+        func,
+        hot_region_body_ref(func, catch_region),
+      )
+      if rethrow_count > 1 {
+        abort(
+          "hot lower legacy try currently supports one direct catch rethrow",
+        )
+      }
+      if rethrow_count > 0 && !catch_payloads.is_empty() {
+        abort("hot lower direct catch rethrow currently requires catch-all")
+      }
+      let rethrow_local = if rethrow_count == 1 {
+        Some(
+          hot_lower_impl_alloc_scratch_local(
+            func,
+            extra_locals,
+            ValType::ref_null_exn(),
+          ),
+        )
+      } else {
+        None
+      }
       if catch_payloads.length() > 2 {
-        abort("hot lower typed legacy try currently supports at most two payload lanes")
+        abort(
+          "hot lower typed legacy try currently supports at most two payload lanes",
+        )
       }
       if catch_payloads.length() == 2 {
         let first_tag = catch_payloads[0].tag_idx
@@ -1312,52 +1371,62 @@ fn hot_lower_impl_emit_instruction(
       )
       hot_lower_impl_pop_label(label_frames, table_stack)
       hot_lower_impl_pop_label(label_frames, handler_stack)
+      match rethrow_local {
+        Some(local_idx) => label_frames.legacy_rethrow_locals.push(local_idx)
+        None => ()
+      }
       let catch_body = hot_lower_impl_region_body(
         func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
       )
+      match rethrow_local {
+        Some(_) => ignore(label_frames.legacy_rethrow_locals.pop())
+        None => ()
+      }
       hot_lower_impl_pop_label(label_frames, try_stack)
-      let handler_type = match catch_payloads {
-        [] => BlockType::void_()
-        [payload] => BlockType::val_type(payload.val_type)
-        _ => {
-          let payload_types : Array[ValType] = []
-          for payload in catch_payloads {
-            payload_types.push(payload.val_type)
+      let handler_type = match rethrow_local {
+        Some(_) => BlockType::val_type(ValType::ref_null_exn())
+        None =>
+          match catch_payloads {
+            [] => BlockType::void_()
+            [payload] => BlockType::val_type(payload.val_type)
+            _ => {
+              let payload_types : Array[ValType] = []
+              for payload in catch_payloads {
+                payload_types.push(payload.val_type)
+              }
+              match hot_lower_impl_result_only_block_type(func, payload_types) {
+                Some(block_type) => block_type
+                None =>
+                  abort(
+                    "hot lower typed legacy try requires an existing result-only multivalue handler type",
+                  )
+              }
+            }
           }
-          match hot_lower_impl_result_only_block_type(func, payload_types) {
-            Some(block_type) => block_type
-            None =>
-              abort(
-                "hot lower typed legacy try requires an existing result-only multivalue handler type",
-              )
+      }
+      let catches = match rethrow_local {
+        Some(_) => [Catch::all_ref(LabelIdx::new(0U))]
+        None =>
+          match catch_payloads {
+            [] => [Catch::all(LabelIdx::new(0U))]
+            [payload, ..] => [Catch::new(payload.tag_idx, LabelIdx::new(0U))]
           }
-        }
       }
-      let catches = match catch_payloads {
-        [] => [Catch::all(LabelIdx::new(0U))]
-        [payload, ..] => [Catch::new(payload.tag_idx, LabelIdx::new(0U))]
-      }
-      out.push(
+      let handler_body : Array[Instruction] = [
         Instruction::block(
-          BlockType::void_(),
-          Expr::new(
-            [
-              Instruction::block(
-                handler_type,
-                Expr::new([
-                  Instruction::try_table(
-                    BlockType::void_(),
-                    catches,
-                    Expr::new(body),
-                  ),
-                  Instruction::br(LabelIdx::new(1U)),
-                ]),
-              ),
-              ..catch_body,
-            ],
-          ),
+          handler_type,
+          Expr::new([
+            Instruction::try_table(BlockType::void_(), catches, Expr::new(body)),
+            Instruction::br(LabelIdx::new(1U)),
+          ]),
         ),
-      )
+      ]
+      match rethrow_local {
+        Some(local_idx) => handler_body.push(Instruction::local_set(local_idx))
+        None => ()
+      }
+      handler_body.append(catch_body)
+      out.push(Instruction::block(BlockType::void_(), Expr::new(handler_body)))
     }
     HotOp::TryTable => {
       let label_id = hot_control_node_label(func, id)

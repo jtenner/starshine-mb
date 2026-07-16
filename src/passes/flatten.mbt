@@ -8874,6 +8874,71 @@ priv enum FlattenRunAdmission {
 }
 
 ///|
+fn flatten_direct_catch_all_rethrow_is_supported(
+  func : @ir.HotFunc,
+  rethrow_id : Int,
+  state : FlattenRewriteState,
+) -> Bool {
+  let rethrow = @ir.hot_node_get(func, rethrow_id)
+  match rethrow.op {
+    @ir.HotOp::Rethrow => ()
+    _ => return false
+  }
+  if rethrow.imm0 != 0 || !flatten_ensure_direct_parent(func, state) {
+    return false
+  }
+  let mut current = rethrow_id
+  let mut parent = state.direct_parent[current]
+  while parent >= 0 {
+    match @ir.hot_node_get(func, parent).op {
+      @ir.HotOp::Block => {
+        current = parent
+        parent = state.direct_parent[current]
+      }
+      _ => break
+    }
+  }
+  if parent < 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, parent).op {
+    @ir.HotOp::Try => ()
+    _ => return false
+  }
+  let catch_ref = match @ir.hot_region_catch_ref(func, parent) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  for idx = 0; idx < @ir.hot_region_root_count(func, catch_ref); idx = idx + 1 {
+    if @ir.hot_region_get(func, catch_ref, idx) == current {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn flatten_exceptional_transfers_are_supported(
+  func : @ir.HotFunc,
+  state : FlattenRewriteState,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Rethrow =>
+        if !flatten_direct_catch_all_rethrow_is_supported(func, node_id, state) {
+          return false
+        }
+      @ir.HotOp::Delegate => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn flatten_run_admission(
   func : @ir.HotFunc,
   report : FlattenFlatnessReport,
@@ -8893,7 +8958,10 @@ fn flatten_run_admission(
     analysis.eh_repair_requirement.needs_catch_payload_tracking = false
   }
   if analysis.eh_repair_requirement.needs_exceptional_transfer_repair {
-    return FlattenRunAdmission::DeferredExceptionalTransferRepair
+    if !flatten_exceptional_transfers_are_supported(func, analysis) {
+      return FlattenRunAdmission::DeferredExceptionalTransferRepair
+    }
+    analysis.eh_repair_requirement.needs_exceptional_transfer_repair = false
   }
   if flatten_has_deferred_inputful_loop(func, analysis) {
     return FlattenRunAdmission::DeferredInputfulLoop
