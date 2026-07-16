@@ -8887,7 +8887,10 @@ fn flatten_run_admission(
     return FlattenRunAdmission::UpstreamHardUnsupported
   }
   if analysis.eh_repair_requirement.needs_catch_payload_tracking {
-    return FlattenRunAdmission::DeferredCatchPayloadRepair
+    if !@ir.hot_scalar_catch_payloads_repairable(func) {
+      return FlattenRunAdmission::DeferredCatchPayloadRepair
+    }
+    analysis.eh_repair_requirement.needs_catch_payload_tracking = false
   }
   if analysis.eh_repair_requirement.needs_exceptional_transfer_repair {
     return FlattenRunAdmission::DeferredExceptionalTransferRepair
@@ -8906,9 +8909,10 @@ fn flatten_run_admission(
 
 ///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
-  let state = FlattenRewriteState::new(func)
-  let before = state.flatness_report
-  match flatten_run_admission(func, before, state=Some(state)) {
+  let admission_state = FlattenRewriteState::new(func)
+  let before = admission_state.flatness_report
+  let needs_catch_payload_repair = admission_state.eh_repair_requirement.needs_catch_payload_tracking
+  match flatten_run_admission(func, before, state=Some(admission_state)) {
     FlattenRunAdmission::Admitted => ()
     FlattenRunAdmission::UpstreamHardUnsupported
     | FlattenRunAdmission::DeferredCatchPayloadRepair
@@ -8918,13 +8922,20 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     | FlattenRunAdmission::DeferredBranchPayload =>
       return HotPassResult::unchanged()
   }
+  let mut state = admission_state
+  let mut changed = false
+  if needs_catch_payload_repair {
+    if !@ir.hot_repair_scalar_catch_payloads(func) {
+      return HotPassResult::unchanged()
+    }
+    state = FlattenRewriteState::new(func)
+    state.eh_repair_requirement.needs_catch_payload_tracking = false
+    changed = true
+  }
   state.rewrites_started = true
-  let mut changed = flatten_rewrite_region_operands(
-    ctx,
-    func,
-    state,
-    @ir.HotRegionRef::root(),
-  )
+  if flatten_rewrite_region_operands(ctx, func, state, @ir.HotRegionRef::root()) {
+    changed = true
+  }
   if flatten_materialize_scalar_body_result(ctx, func, state) {
     changed = true
   }

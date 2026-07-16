@@ -146,6 +146,92 @@ test "flatten intentionally gates missing legacy EH repair before any mutation" 
 }
 
 ///|
+test "flatten repairs one scalar typed catch payload before nested block flattening" {
+  let func = @ir.HotFunc::new()
+  let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let payload = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let payload_drop = @ir.hot_build_drop(func, payload)
+  let branch = @ir.hot_build_br(func, @ir.hot_control_node_label(func, outer))
+  let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    payload_drop, branch,
+  ])
+  let nested = @ir.hot_build_block(func, @lib.BlockType::void_(), [inner])
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ]),
+    ],
+    catch_body=Some([payload, nested]),
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+    try_id,
+  ])
+  @ir.hot_root_append(func, outer)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    _ => fail("expected scalar catch repair admission")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 1)
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 0), payload)
+  let capture = @ir.hot_region_get(func, catch_ref, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, capture).op.to_string(), "LocalSet")
+  @debug.assert_eq(@ir.hot_child_get(func, capture, 0), payload)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 2), nested)
+  let replacement = @ir.hot_child_get(func, payload_drop, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, replacement).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, replacement).imm0, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, branch).imm0,
+    @ir.hot_control_node_label(func, outer),
+  )
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired flatten HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten extracts direct try target ancestry in structural order" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
