@@ -532,12 +532,12 @@ Binaryen v130 represents a legacy catch payload as a typed `Pop` expression and 
 - `hot_build_catch_payload(...)` creates one childless scalar `HotOp::Catch` value carrying its tag and exact type;
 - every payload lane must be an ordered leading root of exactly one legacy catch region;
 - HOT lowering treats those roots as values already present on the exception-handler stack and emits no standalone instruction for them;
-- the first bounded lowerer supports one scalar lane by targeting a matching typed handler block from `try_table`;
+- the bounded lowerer supports one scalar lane or exactly two same-tag scalar lanes by targeting a matching scalar or existing result-only multivalue handler block from `try_table`;
 - normal completion branches over the handler, while exceptional transfer enters the handler with the payload.
 
-This representation now supports one bounded Binaryen-equivalent entry extraction family without manufacturing a fake lib `Pop`. `hot_scalar_catch_payloads_repairable(...)` preflights the whole function, and `hot_repair_scalar_catch_payloads(...)` captures one scalar first-descendant payload use into an exact typed local at catch entry and replaces the old position with `local.get`. The proof requires one marker/lane, exact root-plus-nested use ownership, exclusive first-descendant ancestry, and no loop, nested try/catch path, catch-all marker, sharing, or outside use. Internal flatten performs that transaction before ordinary rewrites and rebuilds its immutable analysis state afterwards.
+This representation now supports two bounded Binaryen-equivalent entry extraction families without manufacturing a fake lib `Pop`. The scalar APIs retain the original one-marker first-descendant contract. `hot_ordered_catch_payloads_repairable(...)` and `hot_repair_ordered_catch_payloads(...)` additionally admit exactly two same-tag markers when one exclusive direct block chain ends in ordered lane-zero/lane-one unary use roots. Locals retain source lane order; capture roots run in reverse stack order; exact old positions become matching local reads. Internal flatten performs the complete transaction before ordinary rewrites and rebuilds its immutable analysis state afterwards.
 
-Ordered multivalue payloads, a second lane, non-first-descendant or repeated uses, nested catches, loops/multiple execution, catch-all payloads, `Rethrow`, and `Delegate` remain separately deferred. Any such shape keeps the complete function unchanged before unrelated flatten mutation.
+A partial lane, mixed tag, third lane, non-first-descendant or repeated use, broader independent lane path, nested catch, loop/multiple execution, catch-all payload, sharing/outside ownership, `Rethrow`, and `Delegate` remain separately deferred. Any such shape keeps the complete function unchanged before unrelated flatten mutation.
 
 ## Unsupported and surprising boundaries
 
