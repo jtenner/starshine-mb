@@ -8951,21 +8951,44 @@ fn flatten_direct_delegate_is_supported(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  let mut delegated_try = -1
-  for try_id in state.try_nodes {
-    let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
-      Some(catch_ref) => catch_ref
-      None => continue
-    }
-    if @ir.hot_region_root_count(func, catch_ref) == 1 &&
-      @ir.hot_region_get(func, catch_ref, 0) == delegate_id {
-      if delegated_try >= 0 {
-        return false
+  let mut catch_root = delegate_id
+  let mut catch_parent = state.direct_parent[catch_root]
+  while catch_parent >= 0 {
+    match @ir.hot_node_get(func, catch_parent).op {
+      @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, catch_parent) != 0 {
+          return false
+        }
+        let block_label = @ir.hot_control_node_label(func, catch_parent)
+        if block_label < 0 || !state.label_branch_nodes[block_label].is_empty() {
+          return false
+        }
+        let block_body = @ir.hot_region_body_ref(func, catch_parent)
+        if @ir.hot_region_root_count(func, block_body) != 1 ||
+          @ir.hot_region_get(func, block_body, 0) != catch_root {
+          return false
+        }
+        catch_root = catch_parent
+        catch_parent = state.direct_parent[catch_root]
       }
-      delegated_try = try_id
+      _ => break
     }
   }
-  if delegated_try < 0 || @ir.hot_node_result_arity(func, delegated_try) != 0 {
+  if catch_parent < 0 {
+    return false
+  }
+  let delegated_try = catch_parent
+  match @ir.hot_node_get(func, delegated_try).op {
+    @ir.HotOp::Try => ()
+    _ => return false
+  }
+  let catch_ref = match @ir.hot_region_catch_ref(func, delegated_try) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, catch_ref) != 1 ||
+    @ir.hot_region_get(func, catch_ref, 0) != catch_root ||
+    @ir.hot_node_result_arity(func, delegated_try) != 0 {
     return false
   }
   let delegated_label = @ir.hot_control_node_label(func, delegated_try)

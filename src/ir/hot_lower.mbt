@@ -500,12 +500,29 @@ fn hot_lower_impl_direct_delegate_target(
   if hot_region_root_count(func, region_ref) != 1 {
     return None
   }
-  let root_id = hot_region_get(func, region_ref, 0)
-  let root = hot_node_get(func, root_id)
-  match root.op {
-    HotOp::Delegate => Some(root.imm0)
-    _ => None
+  let mut root_id = hot_region_get(func, region_ref, 0)
+  while true {
+    let root = hot_node_get(func, root_id)
+    match root.op {
+      HotOp::Delegate => return Some(root.imm0)
+      HotOp::Block => {
+        if hot_node_result_arity(func, root_id) != 0 {
+          return None
+        }
+        let label_id = hot_control_node_label(func, root_id)
+        if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
+          return None
+        }
+        let body_ref = hot_region_body_ref(func, root_id)
+        if hot_region_root_count(func, body_ref) != 1 {
+          return None
+        }
+        root_id = hot_region_get(func, body_ref, 0)
+      }
+      _ => return None
+    }
   }
+  None
 }
 
 ///|
