@@ -30592,6 +30592,7 @@ fn dae_apply_forwarded_param_scc_transaction(
 fn dae_collect_forwarded_param_cycle_defs(
   current : @lib.Module,
   touched : Array[Bool],
+  preferred_defs? : Array[Int] = [],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
@@ -30602,20 +30603,26 @@ fn dae_collect_forwarded_param_cycle_defs(
   let call_facts = dae_collect_current_call_facts(current, total)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
   let type_indices = dae_collect_func_type_indices(current)
-  let mut seed_def = 0
-  while seed_def < defined {
-    if !touched[seed_def] {
-      seed_def += 1
-      continue
+  let seed_defs : Array[Int] = []
+  for preferred_def in preferred_defs {
+    if preferred_def >= 0 &&
+      preferred_def < defined &&
+      touched[preferred_def] &&
+      !seed_defs.contains(preferred_def) {
+      seed_defs.push(preferred_def)
     }
+  }
+  for seed_def = 0; seed_def < defined; seed_def = seed_def + 1 {
+    if touched[seed_def] && !seed_defs.contains(seed_def) {
+      seed_defs.push(seed_def)
+    }
+  }
+  for seed_def in seed_defs {
     let callee_abs = imported + seed_def
     let params = match
       dae_resolve_func_type(current, type_indices, callee_abs) {
       Some(@lib.FuncType(params, _)) => params
-      None => {
-        seed_def += 1
-        continue
-      }
+      None => continue
     }
     let mut seed_param = 0
     while seed_param < params.length() {
@@ -30644,7 +30651,6 @@ fn dae_collect_forwarded_param_cycle_defs(
       }
       seed_param += 1
     }
-    seed_def += 1
   }
   []
 }

@@ -14180,3 +14180,29 @@ test "dae raw cleanup strips empty zero-result try_tables even with catches" {
     None => fail("expected rewritten code section")
   }
 }
+
+///|
+test "dae forwarded-cycle collection prioritizes explicitly selected definitions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $early_a (param i32)
+      #|    local.get 0
+      #|    call $early_b)
+      #|  (func $early_b (param i32)
+      #|    local.get 0
+      #|    call $early_a)
+      #|  (func $selected_a (param i32)
+      #|    local.get 0
+      #|    call $selected_b)
+      #|  (func $selected_b (param i32)
+      #|    local.get 0
+      #|    call $selected_a))
+    ),
+  )
+  let touched = Array::make(4, true)
+  let cycle_defs = dae_collect_forwarded_param_cycle_defs(mod_, touched, preferred_defs=[
+    2, 3,
+  ])
+  @debug.assert_eq(cycle_defs, [2, 3])
+}

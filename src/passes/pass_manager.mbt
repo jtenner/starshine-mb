@@ -66566,15 +66566,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     None => ()
   }
   let mut forwarded_scc_seeds = core_touched.copy()
+  let forwarded_cycle_preferred_defs : Array[Int] = []
   match broad_adjacent.candidate {
     Some(candidate) => {
       forwarded_scc_seeds[candidate.first_def] = true
       forwarded_scc_seeds[candidate.second_def] = true
+      forwarded_cycle_preferred_defs.push(candidate.first_def)
+      forwarded_cycle_preferred_defs.push(candidate.second_def)
     }
     None => ()
   }
   let forwarded_cycle_defs = dae_collect_forwarded_param_cycle_defs(
-    core_mod, forwarded_scc_seeds,
+    core_mod,
+    forwarded_scc_seeds,
+    preferred_defs=forwarded_cycle_preferred_defs,
   )
   let mut post_component_cleanup_defs : Array[Int] = []
   if forwarded_cycle_defs.length() > 1 {
