@@ -4089,6 +4089,19 @@ fn flatten_loop_backedges_are_supported(
 }
 
 ///|
+fn flatten_false_flow_binary_right_operand_is_supported(
+  func : @ir.HotFunc,
+  use_counts : @ir.HotNodeUseCounts,
+  operand_id : Int,
+) -> Bool {
+  flatten_node_is_simple_operand(func, operand_id) ||
+  (
+    @ir.hot_node_use_count(use_counts, operand_id) == 1 &&
+    flatten_scalar_branch_payload_has_supported_origin(func, operand_id)
+  )
+}
+
+///|
 fn flatten_multivalue_loop_br_if_consumer_matches_payload(
   func : @ir.HotFunc,
   use_counts : @ir.HotNodeUseCounts,
@@ -4113,8 +4126,9 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
     @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => {
       let payload_is_left = @ir.hot_child_get(func, consumed_id, 0) ==
         payload_id &&
-        flatten_node_is_simple_operand(
+        flatten_false_flow_binary_right_operand_is_supported(
           func,
+          use_counts,
           @ir.hot_child_get(func, consumed_id, 1),
         )
       let payload_is_right = @ir.hot_child_get(func, consumed_id, 1) ==
