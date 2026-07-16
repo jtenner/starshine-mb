@@ -4358,20 +4358,46 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
     Some(counts) => counts
     None => flatten_build_node_use_counts(func)
   }
+  let mut rich_left_id = -1
+  let mut rich_binary_id = -1
   for offset = 0; offset < payload_count; offset = offset + 1 {
     let consumer_id = @ir.hot_region_get(
       func,
       body_ref,
       branch_root + 1 + offset,
     )
+    let allow_rich_left = offset == payload_count - 1
     if !flatten_multivalue_tuple_br_if_consumer_matches_lane(
         func,
         counts,
         consumer_id,
         tuple_id,
         param_types[payload_count - 1 - offset],
+        allow_rich_left~,
       ) {
       return None
+    }
+    if allow_rich_left {
+      let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+      match @ir.hot_node_get(func, consumed_id).op {
+        @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 &&
+          @ir.hot_child_get(func, consumed_id, 1) == tuple_id => {
+          let left_id = @ir.hot_child_get(func, consumed_id, 0)
+          if !flatten_node_is_simple_operand(func, left_id) {
+            for slot = 0; slot < payload_count; slot = slot + 1 {
+              if !flatten_node_is_simple_operand(
+                  func,
+                  @ir.hot_child_get(func, tuple_id, slot),
+                ) {
+                return None
+              }
+            }
+            rich_left_id = left_id
+            rich_binary_id = consumed_id
+          }
+        }
+        _ => ()
+      }
     }
   }
   if @ir.hot_node_use_count(counts, tuple_id) != payload_count * 2 {
@@ -4391,7 +4417,7 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
       return None
     }
   }
-  Some([tuple_id, branch_root])
+  Some([tuple_id, branch_root, rich_left_id, rich_binary_id])
 }
 
 ///|
@@ -7148,6 +7174,28 @@ fn flatten_try_route_scalar_br_if(
       )
       match tuple_flow {
         Some(flow) => {
+          if flow[2] >= 0 {
+            let rich_left_type = match
+              flatten_single_result_type(
+                func,
+                @ir.hot_node_get(func, flow[2]).ty,
+              ) {
+              Some(rich_left_type) => rich_left_type
+              None => return false
+            }
+            let rich_left_local = @ir.hot_append_body_local(
+              func, rich_left_type,
+            )
+            preludes.push(
+              @ir.hot_build_local_set(func, rich_left_local, flow[2]),
+            )
+            @ir.hot_child_set(
+              func,
+              flow[3],
+              0,
+              @ir.hot_build_local_get(func, rich_left_local),
+            )
+          }
           for slot = 0; slot < payload_count; slot = slot + 1 {
             preludes.push(
               @ir.hot_build_local_set(
