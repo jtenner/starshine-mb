@@ -20536,6 +20536,61 @@ test "DAEO selected readback traversal sinks one-argument block carriers" {
 }
 
 ///|
+test "DAEO selected readback traversal sinks terminal four-argument block carriers" {
+  let target = @lib.LocalIdx::new(5U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(20U))]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ]
+  let local_gets = [0, 1, 1, 1, 1, 1]
+  let local_sets = [0, 0, 0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_remapped_terminal_four_arg_block_carrier(
+      body,
+      0,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ],
+      local_gets,
+      local_sets,
+      local_tees,
+    ) {
+    Some((value, 9)) => value
+    Some((_, consumed)) =>
+      fail("expected nine consumed instructions, got \{consumed}")
+    None => fail("expected terminal four-argument block-carrier sinking")
+  }
+  @debug.assert_eq(local_gets, [0, 1, 1, 1, 1, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    producer,
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup forwards reordered four-field aggregate leader" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)

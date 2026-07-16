@@ -60802,6 +60802,96 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
+// Binaryen's terminal dispatch blocks place four caller-local arguments before
+// an exact one-use block result. The local reads are nontrapping and direct
+// calls cannot observe them; producer-local writes remain an explicit bailout.
+fn run_hot_pipeline_dae_try_sink_remapped_terminal_four_arg_block_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 8 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+    ) {
+    (
+      @lib.Block(@lib.ValTypeBlockType(result_type), @lib.Expr(producer_body)) as producer,
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(@lib.LocalIdx(first_raw) as first),
+      @lib.LocalGet(@lib.LocalIdx(second_raw) as second),
+      @lib.LocalGet(@lib.LocalIdx(third_raw) as third),
+      @lib.LocalGet(@lib.LocalIdx(fourth_raw) as fourth),
+      @lib.LocalGet(readback),
+      @lib.Call(consumer),
+      @lib.Br(label),
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      let moved_indices = [
+        first_raw.reinterpret_as_int(),
+        second_raw.reinterpret_as_int(),
+        third_raw.reinterpret_as_int(),
+        fourth_raw.reinterpret_as_int(),
+      ]
+      if target_idx < 0 ||
+        target_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      for moved_idx in moved_indices {
+        if moved_idx < 0 ||
+          moved_idx == target_idx ||
+          moved_idx >= local_gets.length() ||
+          moved_idx >= local_sets.length() ||
+          moved_idx >= local_tees.length() ||
+          (
+            (local_sets[moved_idx] > 0 || local_tees[moved_idx] > 0) &&
+            run_hot_pipeline_raw_branch_writes_local(producer_body, moved_idx)
+          ) {
+          return None
+        }
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(first),
+            @lib.Instruction::local_get(second),
+            @lib.Instruction::local_get(third),
+            @lib.Instruction::local_get(fourth),
+            producer,
+            @lib.Instruction::call(consumer),
+            @lib.Instruction::br(label),
+          ],
+          9,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 // Binaryen's filtered SimplifyLocals replay carries an exact one-use block
 // result through one pure caller-local argument. Moving only the local read
 // before the complete block preserves every effect and trap in the producer.
@@ -60941,6 +61031,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_sink_remapped_terminal_four_arg_block_carrier(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
