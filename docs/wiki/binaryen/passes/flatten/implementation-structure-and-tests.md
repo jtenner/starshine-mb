@@ -517,6 +517,14 @@ Commit `9ee7b710e` changes `src/ir/hot_query.mbt`, `src/ir/hot_lower.mbt`, `src/
 
 Final evidence is HOT query `11/11`, HOT lower `90/90`, focused flatten `263/263`, whitebox flatten `217/217`, passes `5,810/5,810`, and full `9,280/9,280`. The `.mbti` change is generic IR query surface, not a public flatten descriptor or execution route.
 
+## Latest interleaved-group and no-work-forest implementation slices
+
+Commit `41b16db02` changes `src/ir/hot_mutate.mbt` and `src/passes/flatten_wbtest.mbt`. `hot_grouped_catch_payload_repairs(...)` now scans final-region roots forward while matching the next ordered lane, preserving unrelated roots between matched lanes. The red-first three-lane fixture remained `DeferredCatchPayloadRepair` at `217/218`, then locked source-order locals, reverse captures, retained inner/outer gaps, wrapper identity, HOT verification, lowering, and validation at `218/218`.
+
+Commit `4c6a1de9b` changes `src/ir/hot_query.mbt`, `src/ir/hot_query_test.mbt`, `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, `src/passes/flatten_wbtest.mbt`, and `src/ir/pkg.generated.mbti`. The generic `hot_region_is_strict_no_work_forest(...)` applies the exact one-root block-chain proof independently to every region root. Flatten admission and delegate lowering call that same query. The red-first delegate fixture was deferred at `218/219`, then passed at `219/219`; the query suite is `12/12` and rejects executable roots, used labels, value blocks, loops, and nested tries.
+
+Final passes are `5,812/5,812` and full is `9,283/9,283`. The `.mbti` adds only the generic forest query; no flatten descriptor, dispatcher, CLI, compare/API, profile, preset, or scheduler surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

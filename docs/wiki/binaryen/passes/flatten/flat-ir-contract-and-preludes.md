@@ -639,6 +639,14 @@ Constant-selected catch-side delegate ifs now ask one shared HOT query whether t
 
 Final HOT lower is `90/90`, focused flatten `263/263`, passes `5,810/5,810`, and full `9,280/9,280`. The only API snapshot change is the generic no-work region query; flatten remains public-removed.
 
+## Interleaved grouped payload roots and no-work forests
+
+Grouped catch repair now permits unrelated final-region roots between exact source-ordered lane roots inside one retained nested block chain. This does not move executable roots or payload consumers: only handler-entry values are captured into locals, exact old payload positions become local reads, and every skipped root stays in its original region order. Later direct/interleaved lane roots continue under the same whole-function ownership transaction.
+
+Catch-side constant-selected delegate ifs now use a shared no-work forest query. Each unselected-region root must independently be a childless `nop` or a resultless unused-label single-root block chain ending empty or in `nop`. HOT retains the representation; lowering omits it only after the same proof. Executable roots, used labels, value results, loops, nested tries, and all other region shapes remain deferred.
+
+The red-first transitions are `217/218 -> 218/218` and `218/219 -> 219/219`; final HOT query is `12/12`, HOT lower `90/90`, passes `5,812/5,812`, and full `9,283/9,283`.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

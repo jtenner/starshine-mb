@@ -176,6 +176,14 @@ Red-first whitebox moved `215/216 -> 216/216` and `216/217 -> 217/217`; final va
 
 The future negative corpus must retain reverse/ambiguous/partial/mixed-tag grouped payloads, repeated/shared/outside uses, selected-arm lanes, nested typed catches, loops/multiple execution, catch-all extraction, and delegate opposites containing executable work, used labels, value results, multiple roots, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, or non-active targets.
 
+## Interleaved grouped lanes and no-work forests remain outside public fuzzing
+
+Commits `41b16db02` and `4c6a1de9b` add two more internal-only positive families. A future EH aggregate now needs grouped payload lanes with unrelated roots between exact final-region lane roots, followed by later direct/interleaved lanes. It also needs constant-selected delegate catch-if opposites containing multiple independent childless-`nop` or strict no-work block-chain roots.
+
+Red-first whitebox moved `217/218 -> 218/218` and `218/219 -> 219/219`; final HOT query is `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,812/5,812`, and full `9,283/9,283`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
+
+The future negative corpus must retain reverse/ambiguous/partial/mixed grouped lanes, repeated/shared/outside uses, selected-arm lanes, nested typed catches, loops/multiple execution, catch-all extraction, and delegate forests containing executable roots, used labels, value results, multi-root blocks, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, or non-active targets.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

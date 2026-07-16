@@ -544,6 +544,14 @@ Commit `9ee7b710e` makes empty, childless-`nop`, and strict resultless unused-la
 
 Whitebox moved `215/216 -> 216/216 -> 216/217 -> 217/217`; passes are `5,810/5,810` and full is `9,280/9,280`. The generic HOT query appears in `src/ir/pkg.generated.mbti`, but every public flatten execution surface remains removed. The durable performance checkpoint remains `970.5 us` / `3.65x` Binaryen.
 
+## Latest grouped-lane and delegate-forest decisions
+
+Commit `41b16db02` broadens only the source-ordered matching inside an already retained grouped block chain. Unrelated roots may be skipped between exact lane roots in the group's final region; payload captures still occur in reverse handler-stack order into source-order locals, and every skipped root, wrapper, later direct lane, and later catch root remains structurally present.
+
+Commit `4c6a1de9b` broadens only the proven no-work representation of an unselected catch-side delegate arm. Multiple independent roots are accepted when each root is exactly a childless `nop` or a resultless unused-label single-root block chain ending empty or in `nop`. Admission and lowering share one generic forest proof, so executable opposite work cannot be erased by representation lowering.
+
+Whitebox is `219/219`, HOT query `12/12`, HOT lower `90/90`, passes `5,812/5,812`, and full `9,283/9,283`. The durable performance gate, broader behavior closure, aggregate/four-lane/neighborhood evidence, and all public admission work remain open.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

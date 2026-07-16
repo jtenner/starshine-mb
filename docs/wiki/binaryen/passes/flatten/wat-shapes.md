@@ -1254,6 +1254,38 @@ Every block is resultless, single-root, and unused as a label; the terminal body
 
 Final passes are `5,810/5,810` and full is `9,280/9,280`; public flatten remains removed.
 
+## Shape 31: interleaved grouped lanes and multi-root no-work delegate arms
+
+A retained grouped catch block may contain unrelated roots between exact ordered payload uses:
+
+```wat
+(catch $tag
+  (pop i32)
+  (pop f32)
+  (pop i64)
+  (block
+    (drop (pop i32))
+    (nop)
+    (drop (pop f32)))
+  (nop)
+  (drop (pop i64)))
+```
+
+Starshine captures `i64`, `f32`, then `i32` from the handler stack into source-ordered locals, replaces only the exact payload positions, and retains both unrelated `nop` roots and the block wrapper. The fixture moved `217/218 -> 218/218`.
+
+An unselected constant-selected delegate arm may now be a forest of independent no-work roots:
+
+```wat
+(if (i32.const 1)
+  (then (delegate $outer))
+  (else
+    (nop)
+    (block (block))
+    (block (block (nop)))))
+```
+
+Every root must independently be childless `nop` or a resultless unused-label single-root block chain ending empty or in `nop`. Admission and lowering share the proof; the HOT forest remains represented while encoded output omits it. The fixture moved `218/219 -> 219/219`. Executable roots, used labels, value results, loops, nested tries, missing else regions, and effectful selectors remain deferred.
+
 ## Bottom line
 
 The simplest pattern summary is:

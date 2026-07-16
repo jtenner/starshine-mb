@@ -593,6 +593,12 @@ Red-first whitebox moved `215/216 -> 216/216` and `216/217 -> 217/217`. Final va
 
 All broader payload, exceptional-transfer, structured/EH, aggregate, four-lane, ordered-neighborhood, performance, docs-closeout, and public-admission gates remain open.
 
+## 2026-07-16 interleaved grouped lanes and no-work delegate forests
+
+Commits `41b16db02` and `4c6a1de9b` complete the next bounded internal iteration. Grouped same-tag catch repair now scans a retained block chain's final region forward, so unrelated roots may remain between exact ordered lane roots before later direct/interleaved lanes continue outside the group. Constant-selected catch-side delegate ifs now admit a multi-root unselected forest only when every root independently proves childless `nop` or a resultless unused-label single-root block chain ending empty or in `nop`; admission and HOT lowering share `hot_region_is_strict_no_work_forest(...)`.
+
+Red-first whitebox moved `217/218 -> 218/218` and `218/219 -> 219/219`. Final validation is HOT query `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,812/5,812`, full `9,283/9,283`, `moon fmt`, `git diff --check`, and green `moon info` with 11 existing warnings. The only `.mbti` addition is the generic HOT forest query. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130, and every public flatten surface remains removed.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

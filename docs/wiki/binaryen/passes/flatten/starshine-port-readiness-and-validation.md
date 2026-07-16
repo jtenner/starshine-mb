@@ -458,6 +458,14 @@ Final evidence is HOT query `11/11`, HOT lower `90/90`, focused flatten `263/263
 
 Readiness remains blocked by partial/mixed/repeated/shared/outside and broader nested catch-payload repair; typed and nonzero exceptional composition outside the admitted exact subsets; delegate populations outside direct, strict catch-block, exact selected-if with proven no-work opposites, and strict outer ancestry; richer mixed/shared/nested control and EH closure; the flatten aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
 
+## Latest readiness movement: interleaved grouped lanes and no-work forests
+
+Commit `41b16db02` supersedes the contiguous-final-region requirement for one exact grouped payload subset. The retained nested block group's final region may contain unrelated roots between forward source-ordered lane roots; each selected lane still proves exact entry-plus-old-position ownership and first-child ancestry, skipped roots remain in place, and later direct/interleaved lanes continue under the existing whole-function transaction.
+
+Commit `4c6a1de9b` supersedes the single-root opposite-region requirement for exact constant-selected catch-side delegate ifs. The unselected region may contain any number of independent roots only when each is a childless `nop` or a resultless unused-label single-root block chain ending empty or in `nop`. Admission and HOT lowering share the same generic forest proof. Executable roots, used labels, value results, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, and non-active targets remain deferred.
+
+Red-first whitebox moved `217/218 -> 218/218` and `218/219 -> 219/219`; final HOT query is `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,812/5,812`, and full `9,283/9,283`. This does not close broader catch/EH/control, aggregate, four-lane, neighborhood, performance, docs-closeout, or public-admission gates.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?
