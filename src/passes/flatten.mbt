@@ -3212,6 +3212,7 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
         } else {
           @ir.hot_child_get(func, branch_id, payload_count - 1 - offset)
         }
+        let allow_rich_left = offset == payload_count - 1
         if tuple_id >= 0 {
           if !flatten_multivalue_tuple_br_if_consumer_matches_lane(
               func,
@@ -3219,11 +3220,33 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
               consumer_id,
               tuple_id,
               result_types[payload_count - 1 - offset],
+              allow_rich_left~,
             ) {
             return None
           }
+          if allow_rich_left {
+            let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+            match @ir.hot_node_get(func, consumed_id).op {
+              @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 &&
+                @ir.hot_child_get(func, consumed_id, 1) == tuple_id => {
+                let left_id = @ir.hot_child_get(func, consumed_id, 0)
+                if !flatten_node_is_simple_operand(func, left_id) {
+                  for slot = 0; slot < payload_count; slot = slot + 1 {
+                    if !flatten_node_is_simple_operand(
+                        func,
+                        @ir.hot_child_get(func, tuple_id, slot),
+                      ) {
+                      return None
+                    }
+                  }
+                  rich_left_id = left_id
+                  rich_binary_id = consumed_id
+                }
+              }
+              _ => ()
+            }
+          }
         } else {
-          let allow_rich_left = offset == payload_count - 1
           if !flatten_multivalue_loop_br_if_consumer_matches_payload(
               func,
               use_counts,
@@ -4205,6 +4228,7 @@ fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
   consumer_id : Int,
   tuple_id : Int,
   lane_type : @lib.ValType,
+  allow_rich_left? : Bool = false,
 ) -> Bool {
   let consumer = @ir.hot_node_get(func, consumer_id)
   match consumer.op {
@@ -4228,10 +4252,15 @@ fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
           use_counts,
           @ir.hot_child_get(func, consumed_id, 1),
         )
+      let left_id = @ir.hot_child_get(func, consumed_id, 0)
       let tuple_is_right = @ir.hot_child_get(func, consumed_id, 1) == tuple_id &&
-        flatten_node_is_simple_operand(
-          func,
-          @ir.hot_child_get(func, consumed_id, 0),
+        (
+          flatten_node_is_simple_operand(func, left_id) ||
+          (
+            allow_rich_left &&
+            @ir.hot_node_use_count(use_counts, left_id) == 1 &&
+            flatten_scalar_branch_payload_has_supported_origin(func, left_id)
+          )
         )
       (tuple_is_left || tuple_is_right) &&
       @ir.hot_node_exact_instr(func, consumed_id) is Some(_) &&
