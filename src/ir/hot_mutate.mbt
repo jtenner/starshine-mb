@@ -234,7 +234,6 @@ fn hot_catch_payload_lane_repair(
   root_id : NodeId,
   root_user : NodeId,
   root_slot : Int,
-  require_unary_path : Bool,
 ) -> HotCatchPayloadLaneRepair? {
   let payload = hot_node_get(func, payload_id)
   let payload_types = hot_type_results(func, payload.ty)
@@ -286,8 +285,7 @@ fn hot_catch_payload_lane_repair(
       }
       HotOp::Loop | HotOp::Try | HotOp::TryTable => return None
       _ => {
-        if node.child_count == 0 ||
-          (require_unary_path && node.child_count != 1) {
+        if node.child_count == 0 {
           return None
         }
         parent_id = current
@@ -351,7 +349,6 @@ fn hot_scalar_catch_payload_first_descendant_repair(
     hot_region_get(func, catch_ref, 1),
     catch_ref.holder,
     1,
-    false,
   )
 }
 
@@ -429,7 +426,6 @@ fn hot_ordered_catch_payload_repair(
         hot_region_get(func, final_ref, slot),
         final_ref.holder,
         slot,
-        true,
       ) {
       Some(plan) => plan
       None => return None
