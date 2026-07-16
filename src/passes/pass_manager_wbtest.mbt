@@ -21039,6 +21039,108 @@ test "DAEO selected forwarding traversal tees i64-to-i32 readbacks" {
 }
 
 ///|
+test "DAEO selected readback traversal delays immutable selectors past side calls" {
+  let source = @lib.LocalIdx::new(0U)
+  let selector = @lib.LocalIdx::new(1U)
+  let side_result = @lib.LocalIdx::new(2U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i32()),
+            @lib.Mut::const_(),
+          ),
+        ]),
+      ),
+    ),
+  ])
+  let selector_producer = @lib.Instruction::if_(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@lib.Instruction::i32_const(@lib.I32(12))],
+    Some([@lib.Instruction::i32_const(@lib.I32(13))]),
+  )
+  let body = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(254)),
+    @lib.Instruction::i32_eq(),
+    selector_producer,
+    @lib.Instruction::local_set(selector),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::local_set(side_result),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+    @lib.Instruction::local_get(selector),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(22U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(11U)),
+    @lib.Instruction::local_get(side_result),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(12U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(23U)),
+  ]
+  let local_gets = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  let local_sets = [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+    body,
+    local_gets,
+    local_sets,
+    local_tees,
+    [
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      ),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ],
+    type_sec=Some(type_sec),
+  )
+  assert_eq(rewrite_count, 1)
+  @debug.assert_eq(local_gets, [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+  @debug.assert_eq(local_sets, [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::local_set(side_result),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(6U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(254)),
+    @lib.Instruction::i32_eq(),
+    selector_producer,
+    @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(22U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(11U)),
+    @lib.Instruction::local_get(side_result),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(12U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(23U)),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal sinks block results through composite call arguments" {
   let aggregate = @lib.LocalIdx::new(0U)
   let target = @lib.LocalIdx::new(1U)

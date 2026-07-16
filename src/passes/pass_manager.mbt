@@ -61961,6 +61961,190 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_block_carrier(
 }
 
 ///|
+fn run_hot_pipeline_dae_struct_field_is_immutable(
+  type_sec : @lib.TypeSec?,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+) -> Bool {
+  let target = match type_idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    @lib.RecIdx(_) => return false
+  }
+  let @lib.U32(field_raw) = field_idx
+  let field = field_raw.reinterpret_as_int()
+  let rec_types = match type_sec {
+    Some(@lib.TypeSec(rec_types)) => rec_types
+    None => return false
+  }
+  let mut flat = 0
+  for rec_type in rec_types {
+    match rec_type {
+      @lib.SingleRecType(subtype) => {
+        if flat == target {
+          return match subtype.get_comptype() {
+            @lib.StructCompType(fields) =>
+              match fields.get(field) {
+                Some(field_type) => !field_type.is_mutable()
+                None => false
+              }
+            _ => false
+          }
+        }
+        flat = flat + 1
+      }
+      @lib.GroupRecType(subtypes) =>
+        for subtype in subtypes {
+          if flat == target {
+            return match subtype.get_comptype() {
+              @lib.StructCompType(fields) =>
+                match fields.get(field) {
+                  Some(field_type) => !field_type.is_mutable()
+                  None => false
+                }
+              _ => false
+            }
+          }
+          flat = flat + 1
+        }
+    }
+  }
+  false
+}
+
+///|
+// Binaryen v130 delays a constant-arm selector across the sibling side call
+// because its only heap read is from an immutable struct field. Exact counts,
+// non-null source typing, and field mutability evidence keep the reordering
+// local while deleting the one-use selector carrier.
+fn run_hot_pipeline_dae_try_delay_immutable_selector_past_side_call(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  type_sec : @lib.TypeSec?,
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 22 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+      instrs[idx + 11],
+      instrs[idx + 12],
+      instrs[idx + 13],
+      instrs[idx + 14],
+      instrs[idx + 15],
+      instrs[idx + 16],
+      instrs[idx + 17],
+      instrs[idx + 18],
+      instrs[idx + 19],
+      instrs[idx + 20],
+      instrs[idx + 21],
+      instrs[idx + 22],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw) as source),
+      @lib.StructGet(struct_type, field),
+      @lib.I32Const(selector_tag),
+      @lib.I32Eq,
+      @lib.If(
+        @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
+        [@lib.I32Const(_)],
+        Some([@lib.I32Const(_)])
+      ) as selector_producer,
+      @lib.LocalSet(@lib.LocalIdx(selector_raw) as selector),
+      @lib.LocalGet(side_arg0),
+      @lib.LocalGet(side_arg1),
+      @lib.Call(side_prefix),
+      @lib.Call(side_call),
+      @lib.LocalSet(side_result),
+      @lib.LocalGet(consumer_arg0),
+      @lib.LocalGet(consumer_arg1),
+      @lib.LocalGet(consumer_arg2),
+      @lib.LocalGet(prefix_arg0),
+      @lib.LocalGet(selector_readback),
+      @lib.LocalGet(prefix_arg2),
+      @lib.LocalGet(prefix_arg3),
+      @lib.Call(prefix_call),
+      @lib.LocalGet(producer_arg0),
+      @lib.LocalGet(side_readback),
+      @lib.LocalGet(producer_arg2),
+      @lib.Call(producer),
+    ) if selector == selector_readback && side_result == side_readback => {
+      let source_idx = source_raw.reinterpret_as_int()
+      let selector_idx = selector_raw.reinterpret_as_int()
+      if source_idx < 0 ||
+        selector_idx < 0 ||
+        source_idx == selector_idx ||
+        source_idx >= local_types.length() ||
+        selector_idx >= local_types.length() ||
+        selector_idx >= local_gets.length() ||
+        selector_idx >= local_sets.length() ||
+        selector_idx >= local_tees.length() ||
+        local_types[selector_idx] != @lib.ValType::i32() ||
+        local_gets[selector_idx] != 1 ||
+        local_sets[selector_idx] != 1 ||
+        local_tees[selector_idx] != 0 ||
+        !run_hot_pipeline_dae_struct_field_is_immutable(
+          type_sec, struct_type, field,
+        ) {
+        return None
+      }
+      let source_nonnull = match local_types[source_idx] {
+        @lib.RefTypeValType(ref_type) => ref_type.is_non_nullable()
+        _ => false
+      }
+      if !source_nonnull {
+        return None
+      }
+      local_gets[selector_idx] = 0
+      local_sets[selector_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(side_arg0),
+            @lib.Instruction::local_get(side_arg1),
+            @lib.Instruction::call(side_prefix),
+            @lib.Instruction::call(side_call),
+            @lib.Instruction::local_set(side_result),
+            @lib.Instruction::local_get(consumer_arg0),
+            @lib.Instruction::local_get(consumer_arg1),
+            @lib.Instruction::local_get(consumer_arg2),
+            @lib.Instruction::local_get(prefix_arg0),
+            @lib.Instruction::local_get(source),
+            @lib.Instruction::struct_get(struct_type, field),
+            @lib.Instruction::i32_const(selector_tag),
+            @lib.Instruction::i32_eq(),
+            selector_producer,
+            @lib.Instruction::local_get(prefix_arg2),
+            @lib.Instruction::local_get(prefix_arg3),
+            @lib.Instruction::call(prefix_call),
+            @lib.Instruction::local_get(producer_arg0),
+            @lib.Instruction::local_get(side_result),
+            @lib.Instruction::local_get(producer_arg2),
+            @lib.Instruction::call(producer),
+          ],
+          23,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   instrs : Array[@lib.Instruction],
   local_gets : Array[Int],
@@ -61973,6 +62157,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_delay_immutable_selector_past_side_call(
+        instrs, idx, local_types, local_gets, local_sets, local_tees, type_sec,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_reread_receiver_before_spilled_field(
         instrs, idx, local_gets, local_sets, local_tees,
