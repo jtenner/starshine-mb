@@ -61502,6 +61502,104 @@ fn run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
 }
 
 ///|
+// Binaryen v130 SimplifyLocals sinks an exact one-use block result into the
+// final argument of a four-argument call after a nontrapping aggregate read and
+// empty GC constructors. The aggregate is non-null and producer-local writes
+// remain an explicit bailout, matching the direct artifact's evaluated shape.
+fn run_hot_pipeline_dae_try_sink_remapped_composite_call_arg_block_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  type_sec? : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 9 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+    ) {
+    (
+      @lib.Block(block_type, @lib.Expr(producer_body)) as producer,
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(struct_type, field),
+      @lib.ArrayNewFixed(array_type, @lib.U32(0U)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.StructNew(wrapper_type),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(readback),
+      @lib.Call(consumer),
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      let result_type = match
+        run_hot_pipeline_dae_zero_param_single_block_result_type(
+          block_type, type_sec,
+        ) {
+        Some(result_type) => result_type
+        None => return None
+      }
+      let aggregate_nonnull = if aggregate_idx >= 0 &&
+        aggregate_idx < local_types.length() {
+        match local_types[aggregate_idx] {
+          @lib.RefTypeValType(ref_type) => ref_type.is_non_nullable()
+          _ => false
+        }
+      } else {
+        false
+      }
+      if target_idx < 0 ||
+        aggregate_idx < 0 ||
+        target_idx == aggregate_idx ||
+        target_idx >= local_types.length() ||
+        aggregate_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 ||
+        !aggregate_nonnull ||
+        run_hot_pipeline_raw_branch_writes_local(producer_body, aggregate_idx) {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(aggregate),
+            @lib.Instruction::struct_get(struct_type, field),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(0U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::struct_new(wrapper_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            producer,
+            @lib.Instruction::call(consumer),
+          ],
+          10,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 // A terminal wrapper call consumes a pure leading zero and an exact one-use
 // block result. Hoisting only the constant keeps producer effects and traps in
 // place while deleting the set/readback carrier before construction/return.
@@ -61750,6 +61848,26 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     match
       run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_dae_try_sink_remapped_composite_call_arg_block_carrier(
+        instrs,
+        idx,
+        local_types,
+        local_gets,
+        local_sets,
+        local_tees,
+        type_sec~,
       ) {
       Some((replacement, consumed_len)) => {
         for instr in replacement {

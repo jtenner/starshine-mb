@@ -21039,6 +21039,57 @@ test "DAEO selected forwarding traversal tees i64-to-i32 readbacks" {
 }
 
 ///|
+test "DAEO selected readback traversal sinks block results through composite call arguments" {
+  let aggregate = @lib.LocalIdx::new(0U)
+  let target = @lib.LocalIdx::new(1U)
+  let result_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(4U))),
+  )
+  let aggregate_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(5U))),
+  )
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(result_type),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(20U))]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(5U), @lib.U32(0U)),
+    @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(6U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(7U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+  ]
+  let local_gets = [1, 1]
+  let local_sets = [0, 1]
+  let local_tees = [0, 0]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+    body,
+    local_gets,
+    local_sets,
+    local_tees,
+    [aggregate_type, result_type],
+  )
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(local_gets, [1, 0])
+  @debug.assert_eq(local_sets, [0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(5U), @lib.U32(0U)),
+    @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(6U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(7U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    producer,
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal sinks terminal call block carriers" {
   let target = @lib.LocalIdx::new(1U)
   let producer = @lib.Instruction::block(
