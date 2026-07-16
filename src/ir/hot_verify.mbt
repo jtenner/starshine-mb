@@ -349,11 +349,13 @@ fn hot_verify_catch_payload_layout(
 ) -> Result[Unit, HotVerifyError] {
   let admitted = Array::make(func.nodes.length(), false)
   for try_id = 0; try_id < func.nodes.length(); try_id = try_id + 1 {
-    if !hot_node_is_live(func, try_id) || hot_query_op(func, try_id) != HotOp::Try {
+    if !hot_node_is_live(func, try_id) ||
+      hot_query_op(func, try_id) != HotOp::Try {
       continue
     }
     let catch_region = hot_child_get(func, try_id, 1)
-    if catch_region == HOT_NONE_NODE || !hot_verify_region_holder(func, catch_region) {
+    if catch_region == HOT_NONE_NODE ||
+      !hot_verify_region_holder(func, catch_region) {
       continue
     }
     let catch_ref = hot_region_body_ref(func, catch_region)
@@ -365,8 +367,7 @@ fn hot_verify_catch_payload_layout(
         if saw_non_payload {
           return Err(
             HotVerifyError::InvalidCatchPayload(
-              root_id,
-              "typed catch payload must precede every catch-body root",
+              root_id, "typed catch payload must precede every catch-body root",
             ),
           )
         }
@@ -374,24 +375,21 @@ fn hot_verify_catch_payload_layout(
         if node.child_count != 0 || hot_node_result_arity(func, root_id) != 1 {
           return Err(
             HotVerifyError::InvalidCatchPayload(
-              root_id,
-              "typed catch payload must be a childless scalar value",
+              root_id, "typed catch payload must be a childless scalar value",
             ),
           )
         }
         if tag >= 0 && tag != node.imm0 {
           return Err(
             HotVerifyError::InvalidCatchPayload(
-              root_id,
-              "one catch region cannot mix payload tags",
+              root_id, "one catch region cannot mix payload tags",
             ),
           )
         }
         if admitted[root_id] {
           return Err(
             HotVerifyError::InvalidCatchPayload(
-              root_id,
-              "typed catch payload must have one catch-region entry owner",
+              root_id, "typed catch payload must have one catch-region entry owner",
             ),
           )
         }
@@ -408,8 +406,7 @@ fn hot_verify_catch_payload_layout(
       !admitted[node_id] {
       return Err(
         HotVerifyError::InvalidCatchPayload(
-          node_id,
-          "typed catch payload must be a leading legacy catch-region root",
+          node_id, "typed catch payload must be a leading legacy catch-region root",
         ),
       )
     }

@@ -423,6 +423,39 @@ fn hot_lower_impl_try_catches(
 }
 
 ///|
+priv struct HotLowerCatchPayload {
+  tag_idx : TagIdx
+  val_type : ValType
+}
+
+///|
+fn hot_lower_impl_catch_payload_prefix(
+  func : HotFunc,
+  region_id : NodeId,
+) -> Array[HotLowerCatchPayload] {
+  let out : Array[HotLowerCatchPayload] = []
+  if region_id == HOT_NONE_NODE {
+    return out
+  }
+  let region_ref = hot_region_body_ref(func, region_id)
+  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+    let node_id = hot_region_get(func, region_ref, slot)
+    if hot_query_op(func, node_id) != HotOp::Catch {
+      break
+    }
+    let types = hot_type_results(func, hot_node_type(func, node_id))
+    if types.length() != 1 {
+      abort("hot lower typed catch payload requires one scalar result")
+    }
+    out.push({
+      tag_idx: hot_catch_payload_tag(func, node_id),
+      val_type: types[0],
+    })
+  }
+  out
+}
+
+///|
 fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
@@ -444,6 +477,10 @@ fn hot_lower_impl_body_items(
   let node = hot_node_get(func, id)
   let body_base = if node.op == HotOp::Loop {
     hot_label_branch_arity(func, label_id)
+  } else if node.op == HotOp::Block &&
+    label_id >= 0 &&
+    hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
+    hot_lower_impl_catch_payload_prefix(func, id).length()
   } else {
     0
   }
@@ -917,6 +954,7 @@ fn hot_lower_impl_emit_instruction(
   let node = hot_node_get(func, id)
   match node.op {
     HotOp::Nop => out.push(Instruction::nop())
+    HotOp::Catch => ()
     HotOp::Unreachable => out.push(Instruction::unreachable_())
     HotOp::Const | HotOp::RefNull => hot_lower_impl_const(func, id, out)
     HotOp::LocalGet =>
@@ -1206,6 +1244,12 @@ fn hot_lower_impl_emit_instruction(
       }
       let body_ref = hot_region_body_ref(func, id)
       let label_id = hot_control_node_label(func, id)
+      let catch_payloads = hot_lower_impl_catch_payload_prefix(
+        func, catch_region,
+      )
+      if catch_payloads.length() > 1 {
+        abort("hot lower typed legacy try currently supports one payload lane")
+      }
       if !effects_may_throw(effects_for_region(func, body_ref)) {
         if hot_lower_impl_label_is_used(func, label_id) {
           let body_stack = hot_lower_impl_push_label(
@@ -1264,17 +1308,33 @@ fn hot_lower_impl_emit_instruction(
         func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
       )
       hot_lower_impl_pop_label(label_frames, try_stack)
+      let handler_type = match catch_payloads {
+        [] => BlockType::void_()
+        [payload] => BlockType::val_type(payload.val_type)
+        _ =>
+          abort(
+            "hot lower typed legacy try payload arity changed after preflight",
+          )
+      }
+      let catches = match catch_payloads {
+        [] => [Catch::all(LabelIdx::new(0U))]
+        [payload] => [Catch::new(payload.tag_idx, LabelIdx::new(0U))]
+        _ =>
+          abort(
+            "hot lower typed legacy try payload arity changed after preflight",
+          )
+      }
       out.push(
         Instruction::block(
           BlockType::void_(),
           Expr::new(
             [
               Instruction::block(
-                BlockType::void_(),
+                handler_type,
                 Expr::new([
                   Instruction::try_table(
                     BlockType::void_(),
-                    [Catch::all(LabelIdx::new(1U))],
+                    catches,
                     Expr::new(body),
                   ),
                   Instruction::br(LabelIdx::new(1U)),

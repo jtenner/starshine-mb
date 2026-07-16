@@ -4534,7 +4534,7 @@ test "hot lower bridges a resultless synthetic catch-all try through try_table" 
             @lib.Expr::new([
               @lib.Instruction::try_table(
                 @lib.BlockType::void_(),
-                [@lib.Catch::all(@lib.LabelIdx::new(1U))],
+                [@lib.Catch::all(@lib.LabelIdx::new(0U))],
                 @lib.Expr::new([
                   @lib.Instruction::call(@lib.FuncIdx::new(0U)),
                   @lib.Instruction::i32_const(@lib.I32(1)),
@@ -4557,6 +4557,73 @@ test "hot lower bridges a resultless synthetic catch-all try through try_table" 
       ]),
     )
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower consumes one typed catch payload from a try_table handler entry" {
+  let hot = HotFunc::new()
+  let payload = hot_build_catch_payload(
+    hot,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let try_id = hot_build_try(
+    hot,
+    @lib.BlockType::void_(),
+    [
+      hot_build_throw(hot, @lib.TagIdx::new(0U), [
+        hot_build_const_i32(hot, @lib.I32(7)),
+      ]),
+    ],
+    catch_body=Some([payload, hot_build_drop(hot, payload)]),
+  )
+  hot_root_append(hot, try_id)
+
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(_, body) = lowered
+  @debug.assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::try_table(
+                @lib.BlockType::void_(),
+                [@lib.Catch::new(@lib.TagIdx::new(0U), @lib.LabelIdx::new(0U))],
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32(7)),
+                  @lib.Instruction::throw_(@lib.TagIdx::new(0U)),
+                ]),
+              ),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ]),
+          ),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
   match @validate.validate_module(module_) {
     Ok(_) => ()
