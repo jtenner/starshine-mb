@@ -8952,6 +8952,47 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
+fn flatten_rethrow_targeted_if_opposite_plain_exit_is_supported(
+  func : @ir.HotFunc,
+  if_id : Int,
+  current : Int,
+  state : FlattenRewriteState,
+) -> Bool {
+  let label_id = @ir.hot_control_node_label(func, if_id)
+  if label_id < 0 || state.label_branch_nodes[label_id].length() != 1 {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  if @ir.hot_region_root_count(func, then_ref) != 1 ||
+    @ir.hot_region_root_count(func, else_ref) != 1 {
+    return false
+  }
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  let else_root = @ir.hot_region_get(func, else_ref, 0)
+  let opposite_root = if then_root == current && else_root != current {
+    else_root
+  } else if else_root == current && then_root != current {
+    then_root
+  } else {
+    return false
+  }
+  if state.direct_parent[opposite_root] != if_id ||
+    state.label_branch_nodes[label_id][0] != opposite_root {
+    return false
+  }
+  let branch = @ir.hot_node_get(func, opposite_root)
+  match branch.op {
+    @ir.HotOp::Br =>
+      branch.imm0 == label_id && @ir.hot_child_count(func, opposite_root) == 0
+    _ => false
+  }
+}
+
+///|
 fn flatten_rethrow_catch_root_through_strict_ancestry(
   func : @ir.HotFunc,
   root_id : Int,
@@ -8982,7 +9023,13 @@ fn flatten_rethrow_catch_root_through_strict_ancestry(
           return -1
         }
         let label_id = @ir.hot_control_node_label(func, parent)
-        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+        if label_id < 0 ||
+          (
+            !state.label_branch_nodes[label_id].is_empty() &&
+            !flatten_rethrow_targeted_if_opposite_plain_exit_is_supported(
+              func, parent, current, state,
+            )
+          ) {
           return -1
         }
         let then_ref = @ir.hot_region_then_ref(func, parent)
