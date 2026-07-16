@@ -9315,21 +9315,28 @@ fn flatten_strict_constant_selected_if_root(
     Some(else_ref) => else_ref
     None => return None
   }
-  if @ir.hot_region_root_count(func, then_ref) != 1 ||
-    @ir.hot_region_root_count(func, else_ref) != 1 {
+  let selected_ref = if selected_then { then_ref } else { else_ref }
+  let opposite_ref = if selected_then { else_ref } else { then_ref }
+  if @ir.hot_region_root_count(func, selected_ref) != 1 {
     return None
   }
-  let then_root = @ir.hot_region_get(func, then_ref, 0)
-  let else_root = @ir.hot_region_get(func, else_ref, 0)
-  let selected_root = if selected_then { then_root } else { else_root }
-  let opposite_root = if selected_then { else_root } else { then_root }
-  if state.direct_parent[selected_root] != if_id ||
-    state.direct_parent[opposite_root] != if_id {
+  let selected_root = @ir.hot_region_get(func, selected_ref, 0)
+  if state.direct_parent[selected_root] != if_id {
     return None
   }
-  match @ir.hot_node_get(func, opposite_root).op {
-    @ir.HotOp::Nop if @ir.hot_child_count(func, opposite_root) == 0 =>
-      Some(selected_root)
+  match @ir.hot_region_root_count(func, opposite_ref) {
+    0 => Some(selected_root)
+    1 => {
+      let opposite_root = @ir.hot_region_get(func, opposite_ref, 0)
+      if state.direct_parent[opposite_root] != if_id {
+        return None
+      }
+      match @ir.hot_node_get(func, opposite_root).op {
+        @ir.HotOp::Nop if @ir.hot_child_count(func, opposite_root) == 0 =>
+          Some(selected_root)
+        _ => None
+      }
+    }
     _ => None
   }
 }

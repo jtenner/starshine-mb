@@ -542,17 +542,22 @@ fn hot_lower_impl_strict_selected_delegate_if_root(
     Some(else_ref) => else_ref
     None => return None
   }
-  if hot_region_root_count(func, then_ref) != 1 ||
-    hot_region_root_count(func, else_ref) != 1 {
+  let selected_ref = if selected_then { then_ref } else { else_ref }
+  let opposite_ref = if selected_then { else_ref } else { then_ref }
+  if hot_region_root_count(func, selected_ref) != 1 {
     return None
   }
-  let then_root = hot_region_get(func, then_ref, 0)
-  let else_root = hot_region_get(func, else_ref, 0)
-  let selected_root = if selected_then { then_root } else { else_root }
-  let opposite_root = if selected_then { else_root } else { then_root }
-  match hot_node_get(func, opposite_root).op {
-    HotOp::Nop if hot_child_count(func, opposite_root) == 0 =>
-      Some(selected_root)
+  let selected_root = hot_region_get(func, selected_ref, 0)
+  match hot_region_root_count(func, opposite_ref) {
+    0 => Some(selected_root)
+    1 => {
+      let opposite_root = hot_region_get(func, opposite_ref, 0)
+      match hot_node_get(func, opposite_root).op {
+        HotOp::Nop if hot_child_count(func, opposite_root) == 0 =>
+          Some(selected_root)
+        _ => None
+      }
+    }
     _ => None
   }
 }
