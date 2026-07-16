@@ -21039,6 +21039,59 @@ test "DAEO selected forwarding traversal tees i64-to-i32 readbacks" {
 }
 
 ///|
+test "DAEO selected compaction reuses a consumed call argument slot for a block result" {
+  let source = @lib.LocalIdx::new(0U)
+  let target = @lib.LocalIdx::new(128U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  let body = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(9))]),
+    ),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::return_(),
+  ]
+  let local_gets = Array::make(129, 0)
+  let local_sets = Array::make(129, 0)
+  let local_tees = Array::make(129, 0)
+  let slot_reuse = Array::make(129, -1)
+  run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
+    body,
+    local_gets,
+    local_sets,
+    local_tees,
+    Array::make(129, @lib.ValType::i32()),
+    mod_,
+    dae_collect_func_type_indices(mod_),
+    0,
+    slot_reuse,
+  )
+  assert_eq(local_gets[0], 1)
+  assert_eq(local_gets[128], 1)
+  assert_eq(local_sets[128], 1)
+  assert_eq(local_tees[128], 0)
+  assert_eq(slot_reuse[128], 0)
+}
+
+///|
 test "DAEO selected readback traversal delays immutable selectors past side calls" {
   let source = @lib.LocalIdx::new(0U)
   let selector = @lib.LocalIdx::new(1U)

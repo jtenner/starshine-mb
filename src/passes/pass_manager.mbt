@@ -64375,6 +64375,177 @@ fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
 }
 
 ///|
+fn run_hot_pipeline_dae_collect_consumed_call_slot_reuse_at(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  local_types : Array[@lib.ValType],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  entry_stack_values : Int,
+  slot_reuse : Array[Int],
+) -> Unit {
+  if entry_stack_values < 0 ||
+    call_idx + 1 >= instrs.length() ||
+    !(instrs[instrs.length() - 1] is @lib.Return) {
+    return
+  }
+  match (instrs[call_idx], instrs[call_idx + 1]) {
+    (@lib.Call(producer), @lib.LocalSet(@lib.LocalIdx(target_raw))) => {
+      let target_idx = target_raw.reinterpret_as_int()
+      if target_idx < 128 || target_idx >= slot_reuse.length() {
+        return
+      }
+      let @lib.FuncType(params, results) = match
+        dae_resolve_func_type(
+          mod_,
+          func_type_indices,
+          dae_func_idx_slot(producer),
+        ) {
+        Some(func_type) => func_type
+        None => return
+      }
+      let result_type = match results {
+        [result_type] => result_type
+        _ => return
+      }
+      if params.length() == 0 {
+        return
+      }
+      let evidence = match
+        dae_callsite_value_slice_evidence(
+          instrs,
+          call_idx,
+          params.length(),
+          entry_stack_values,
+          mod_,
+          func_type_indices,
+        ) {
+        Some(evidence) => evidence
+        None => return
+      }
+      let source_instr_idx = match
+        dae_value_slice_single_instruction_index(evidence.slices[0]) {
+        Some(idx) => idx
+        None => return
+      }
+      let source_idx = match instrs[source_instr_idx] {
+        @lib.LocalGet(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
+        _ => return
+      }
+      if source_idx < 0 ||
+        target_idx <= source_idx ||
+        source_idx >= local_types.length() ||
+        target_idx >= local_types.length() ||
+        params[0] != local_types[source_idx] ||
+        result_type != local_types[target_idx] ||
+        local_types[source_idx] != local_types[target_idx] {
+        return
+      }
+      let suffix : Array[@lib.Instruction] = []
+      for suffix_idx = call_idx + 2
+          suffix_idx < instrs.length()
+          suffix_idx = suffix_idx + 1 {
+        suffix.push(instrs[suffix_idx])
+      }
+      if !run_hot_pipeline_raw_instrs_reference_local(suffix, source_idx) {
+        slot_reuse[target_idx] = source_idx
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+// Collect the selected-function local counts and exact terminal call-result slot
+// reuse evidence in one body walk. Full callsite value-slice attribution proves
+// the source is the complete first argument before the result overwrites its
+// slot, and the containing region returns before that source can rejoin.
+fn run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  local_types : Array[@lib.ValType],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  entry_stack_values : Int,
+  slot_reuse : Array[Int],
+) -> Unit {
+  let mut instr_idx = 0
+  while instr_idx < instrs.length() {
+    if instr_idx + 1 < instrs.length() {
+      match (instrs[instr_idx], instrs[instr_idx + 1]) {
+        (@lib.Call(_), @lib.LocalSet(@lib.LocalIdx(target_raw))) if target_raw.reinterpret_as_int() >=
+          128 =>
+          run_hot_pipeline_dae_collect_consumed_call_slot_reuse_at(
+            instrs, instr_idx, local_types, mod_, func_type_indices, entry_stack_values,
+            slot_reuse,
+          )
+        _ => ()
+      }
+    }
+    match instrs[instr_idx] {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        if local_idx >= 0 && local_idx < local_gets.length() {
+          local_gets[local_idx] = local_gets[local_idx] + 1
+        }
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        if local_idx >= 0 && local_idx < local_sets.length() {
+          local_sets[local_idx] = local_sets[local_idx] + 1
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        if local_idx >= 0 && local_idx < local_tees.length() {
+          local_tees[local_idx] = local_tees[local_idx] + 1
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
+          body,
+          local_gets,
+          local_sets,
+          local_tees,
+          local_types,
+          mod_,
+          func_type_indices,
+          match dae_control_entry_stack_values(block_type, mod_) {
+            Some(count) => count
+            None => -1
+          },
+          slot_reuse,
+        )
+      @lib.If(block_type, then_body, else_body) => {
+        let child_entry_stack_values = match
+          dae_control_entry_stack_values(block_type, mod_) {
+          Some(count) => count
+          None => -1
+        }
+        run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
+          then_body, local_gets, local_sets, local_tees, local_types, mod_, func_type_indices,
+          child_entry_stack_values, slot_reuse,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
+              body, local_gets, local_sets, local_tees, local_types, mod_, func_type_indices,
+              child_entry_stack_values, slot_reuse,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    instr_idx += 1
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -64418,13 +64589,16 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   let local_gets : Array[Int] = Array::make(total_local_count, 0)
   let local_sets : Array[Int] = Array::make(total_local_count, 0)
   let local_tees : Array[Int] = Array::make(total_local_count, 0)
-  run_hot_pipeline_raw_collect_local_ref_counts(
-    body, local_gets, local_sets, local_tees,
-  )
   let local_types = params.copy()
   for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
     local_types.push(locals.get(local_idx))
   }
+  let slot_reuse : Array[Int] = Array::make(total_local_count, -1)
+  let func_type_indices = dae_collect_func_type_indices(mod_)
+  run_hot_pipeline_dae_collect_local_counts_and_consumed_call_slot_reuse(
+    body, local_gets, local_sets, local_tees, local_types, mod_, func_type_indices,
+    0, slot_reuse,
+  )
   let (forwarded_body, _) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
     body,
     params.length(),
@@ -64459,7 +64633,18 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
   let remapped_local_types = params.copy()
   for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
     let local_id = params.length() + local_idx
-    if local_gets[local_id] > 0 || local_sets[local_id] > 0 {
+    let reuse_source = slot_reuse[local_id]
+    if reuse_source >= 0 &&
+      reuse_source < local_id &&
+      local_gets[local_id] == 1 &&
+      local_sets[local_id] == 1 &&
+      local_tees[local_id] == 0 &&
+      local_remap[reuse_source] >= 0 {
+      let mapped_source = local_remap[reuse_source]
+      local_remap[local_id] = mapped_source
+      remapped_gets[mapped_source] = remapped_gets[mapped_source] + 1
+      remapped_sets[mapped_source] = remapped_sets[mapped_source] + 1
+    } else if local_gets[local_id] > 0 || local_sets[local_id] > 0 {
       local_remap[local_id] = remapped_gets.length()
       let retained_type = locals.get(local_idx)
       compacted_local_types.push(retained_type)
