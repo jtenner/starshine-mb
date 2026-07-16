@@ -1169,6 +1169,36 @@ Every block is resultless, single-root, directly owned, and has an unused label.
 
 Final passes are `5,804/5,804` and full is `9,274/9,274`; public flatten remains removed.
 
+## Shape 28: typed rethrow block chains and selected delegate catch-if chains
+
+A repaired typed catch may keep its sole depth-zero rethrow under strict resultless blocks:
+
+```wat
+(catch $tag
+  ;; repaired scalar payload captures and uses
+  (block
+    (block
+      (rethrow 0))))
+```
+
+Every block has one root, an unused label, direct ownership, and no result. The handler remains `[lane0, ..., laneN, exnref]`; lowering stores `exnref` first, captures payloads in reverse stack order into source-order locals, preserves `rethrow 0`, and emits `throw_ref`. The two-lane fixture moved `211/212 -> 212/212`.
+
+A legacy delegate catch representation may also follow an always-selected if chain:
+
+```wat
+;; HOT catch representation only
+(if (i32.const 0)
+  (then (nop))
+  (else
+    (if (i32.const 1)
+      (then (delegate $outer))
+      (else (nop)))))
+```
+
+Each if is resultless and untargeted, has one root per arm, uses an exact constant selector, and has a childless `nop` in the unselected arm. HOT retains the representation and exact delegate target; lowering recognizes the same proof and transparently propagates to `$outer`, so the representational if shells do not appear in encoded output. The fixture moved `212/213 -> 213/213`.
+
+Final passes are `5,806/5,806` and full is `9,276/9,276`; public flatten remains removed. Non-strict typed wrappers and nonconstant/effectful/targeted/richer catch-if delegate representations remain deferred.
+
 ## Bottom line
 
 The simplest pattern summary is:

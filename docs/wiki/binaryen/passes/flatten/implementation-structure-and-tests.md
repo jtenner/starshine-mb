@@ -493,6 +493,14 @@ Commit `374040a26` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbte
 
 Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `211/211`, passes `5,804/5,804`, and full `9,274/9,274`. No `.mbti` or public flatten surface changed.
 
+## Latest typed-wrapper and selected-delegate implementation slices
+
+Commit `b7b85a8bf` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. `flatten_typed_catch_root_owns_strict_rethrow(...)` walks only resultless unused-label single-root blocks from a catch root to the exact `Rethrow(0)`, while `flatten_typed_catch_owns_strict_rethrow(...)` retains the leading same-tag scalar marker vector, one-rethrow population, and whole-function repair ownership checks. The red-first two-lane fixture returned `DeferredExceptionalTransferRepair` at `211/212`; it is green at `212/212`, verifies HOT, preserves the wrapper and immediate, lowers through `catch_ref`/`throw_ref`, and validates.
+
+Commit `3595d6563` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and `src/passes/flatten_wbtest.mbt`. Flatten admission and HOT lowering each recognize the same exact catch-side selected-if shell: resultless, unused label, exact constant `i32` selector, one root in each arm, selected-arm continuation, and childless opposite `nop`. The two-if then/else fixture was red at `212/213`, then green at `213/213`; the HOT representation retains the if chain and delegate target, while lowering treats the proven shell as transparent propagation and validates the module.
+
+Final evidence is IR `327/327`, focused flatten `263/263`, whitebox flatten `213/213`, passes `5,806/5,806`, and full `9,276/9,276`. `moon fmt` and `moon info` are green with the 11 existing warnings. No `.mbti` or public flatten surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

@@ -615,6 +615,14 @@ The targeted resultless catch-if exit may now be wrapped by any positive strict 
 
 The red-first whitebox states were `209/210` and `210/211`; final whitebox is `211/211`, with HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,804/5,804`, and full `9,274/9,274`.
 
+## Typed rethrow block shells and selected delegate if shells
+
+The exact typed catch route now permits strict block ancestry between the repaired catch roots and its sole depth-zero rethrow. These blocks do not migrate payload or exception work: each is resultless, single-root, directly owned, and unused as a branch target. The payload-vector handler still captures the top exception reference first, then consumes payload values in reverse handler-stack order into source-order locals, while `Rethrow(0)` and every wrapper remain unchanged through flatten.
+
+Catch-side delegate ifs use a different rule because the catch region is a representation of legacy `Try::delegateTarget`, not a general executable handler. Starshine treats an if shell as transparent only when an exact `i32.const` selects the unique arm continuing toward the delegate, the other sole root is a childless `nop`, the if is resultless and untargeted, and the complete chain reaches the original active target. Admission and lowering share the same restriction. Rich/effectful selectors or nontrivial opposite arms are not discarded; they remain whole-function deferred.
+
+The red-first whitebox states were `211/212` and `212/213`; final whitebox is `213/213`, with IR `327/327`, focused flatten `263/263`, passes `5,806/5,806`, and full `9,276/9,276`.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

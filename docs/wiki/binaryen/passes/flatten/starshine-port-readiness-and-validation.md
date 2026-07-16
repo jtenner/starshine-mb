@@ -428,6 +428,16 @@ Red-first whitebox moved `209/210 -> 210/210` and `210/211 -> 211/211`. Final ev
 
 Readiness remains blocked by broader catch-payload policy/repair and typed composition; broader exceptional transfer, delegate, structured-control, mixed/shared/nested EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered optimizer-neighborhood signoff; performance requalification; docs/readiness closeout; and only then public admission.
 
+## Latest readiness movement: typed rethrow block chains and selected catch-if delegates
+
+Commit `b7b85a8bf` supersedes the direct-only typed-rethrow ancestry ceiling for one strict wrapper subset. After complete whole-function repair of a positive same-tag scalar payload vector, the catch may own exactly one `Rethrow(0)` through any positive chain of resultless unused-label single-root blocks. Every child is directly owned, every wrapper label is unused, and the rethrow immediate remains zero. The validating two-lane fixture retains source-order `i32`/`f32` locals, reverse payload captures after the top exception-reference capture, the complete block shell, and `catch_ref`/`throw_ref` lowering.
+
+Commit `3595d6563` supersedes the catch-side block-only delegate representation boundary for one exact selected-if subset. Each catch-side if is resultless, has an unused label and exactly one root per arm, selects its delegate-containing arm with an exact `i32.const`, and contains a childless `nop` as the opposite root. Admission and HOT lowering share this proof and may follow any positive then/else-selected chain before transparent propagation to the exact active outer target. Nonconstant or effectful conditions, targeted/used labels, missing else arms, multi-root/value-carrying controls, non-nop opposite arms, loops, nested tries, mixed catch populations, and non-active targets remain deferred.
+
+Red-first whitebox moved `211/212 -> 212/212` and `212/213 -> 213/213`. Final evidence is IR `327/327`, focused flatten `263/263`, whitebox flatten `213/213`, passes `5,806/5,806`, full `9,276/9,276`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti`, profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen.
+
+Readiness remains blocked by broader payload policy and repair; typed exceptional composition outside the exact positive payload-vector/one-depth-zero-rethrow/direct-or-strict-unused-block-chain subset; broader rethrow ancestry and value/control ownership; delegate populations outside direct, strict catch-block, exact constant-selected catch-if, and strict outer block/if chains; richer mixed/shared/nested control and EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

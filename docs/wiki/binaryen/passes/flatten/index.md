@@ -565,6 +565,16 @@ The targeted catch-if opposite exit may now sit under any positive strict chain 
 
 Broader payload/typed-rethrow composition, non-strict or value-carrying wrappers, richer mixed/shared/nested control and EH, the flatten aggregate, four-lane and ordered-neighborhood evidence, performance requalification, docs closeout, and final public admission remain open.
 
+## 2026-07-16 typed block-chain rethrows and selected catch-if delegates
+
+Commits `b7b85a8bf` and `3595d6563` complete the next bounded internal iteration. A whole-function-repairable same-tag scalar payload vector with exactly one `Rethrow(0)` may now own that rethrow through any positive strict chain of resultless unused-label single-root blocks. The rethrow immediate, wrapper ownership, source-order locals, reverse handler-stack payload captures, `catch_ref`, and `throw_ref` lowering remain exact.
+
+A resultless outer-target delegate may now use a catch-side selected-if representation in addition to the admitted direct or strict block-chain forms. Every if is resultless and unused as a label, has exactly one root per arm, uses an exact `i32.const` selector, and has a childless `nop` in the unselected arm; admission and lowering follow the selected arm through any positive chain and transparently preserve the original delegate target. Nonconstant/effectful, targeted, value-carrying, multi-root, missing-else, or non-nop-opposite catch ifs remain deferred before mutation.
+
+Red-first whitebox moved `211/212 -> 212/212` and `212/213 -> 213/213`. Final validation is IR `327/327`, focused flatten `263/263`, whitebox flatten `213/213`, passes `5,806/5,806`, full `9,276/9,276`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API allowlist, GenValid profile, preset, scheduler, or neighborhood-ready surface changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen v130 remains the durable checkpoint.
+
+Broader catch-payload repair, typed composition outside the exact strict-block depth-zero subset, nonconstant or otherwise non-strict catch-side delegate representations, richer mixed/shared/nested control and EH, the flatten aggregate, four-lane and ordered-neighborhood evidence, performance requalification, docs closeout, and final public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

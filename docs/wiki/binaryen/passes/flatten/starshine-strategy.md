@@ -520,6 +520,14 @@ Commit `374040a26` generalizes only the number of exact block shells around the 
 
 Whitebox moved `209/210 -> 210/210 -> 210/211 -> 211/211`. Final passes are `5,804/5,804` and full is `9,274/9,274`; HOT mutation, HOT lower, IR, and focused flatten are `16/16`, `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at `970.5 us` / `3.65x`.
 
+## Latest typed-wrapper and selected-delegate decisions
+
+Commit `b7b85a8bf` generalizes only the ancestry of the exact typed depth-zero rethrow route. A positive repaired same-tag scalar payload vector may own its sole `Rethrow(0)` through strict resultless unused-label single-root blocks. Handler stack order, source-order locals, rethrow depth, and one-transfer population remain unchanged; value-carrying, targeted, used-label, multi-root, if, loop, try-like, or otherwise non-strict typed wrappers stay closed.
+
+Commit `3595d6563` adds one catch-side delegate representation without treating arbitrary catch control as transparent. A chain of resultless unused-label ifs may represent the delegate only when each selector is an exact `i32.const`, each arm has one root, the selected arm continues toward the delegate, and the opposite arm is a childless `nop`. Admission and lowering use the same proof before transparent propagation to the exact active target. Rich/effectful selectors, targeted or value-carrying ifs, richer opposite arms, loops, nested tries, and mixed/used-label/non-active populations stay closed.
+
+Whitebox moved `211/212 -> 212/212 -> 212/213 -> 213/213`. Final passes are `5,806/5,806` and full is `9,276/9,276`; IR and focused flatten remain `327/327` and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at `970.5 us` / `3.65x`.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
