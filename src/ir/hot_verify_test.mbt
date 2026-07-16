@@ -93,3 +93,65 @@ test "hot verify control reports invalid branch targets and payload arity" {
     other => fail("expected invalid branch arity, got \{other}")
   }
 }
+
+///|
+test "hot verify requires typed catch payloads as an ordered catch-region prefix" {
+  let valid = HotFunc::new()
+  let payload = hot_build_catch_payload(
+    valid,
+    @lib.TagIdx::new(3U),
+    @lib.ValType::i32(),
+  )
+  let consume = hot_build_drop(valid, payload)
+  let try_id = hot_build_try(
+    valid,
+    @lib.BlockType::void_(),
+    [hot_build_nop(valid)],
+    catch_body=Some([payload, consume]),
+  )
+  hot_root_append(valid, try_id)
+  @debug.assert_eq(hot_catch_payload_tag(valid, payload), @lib.TagIdx::new(3U))
+  @debug.assert_eq(hot_type_results(valid, hot_node_type(valid, payload)), [
+    @lib.ValType::i32(),
+  ])
+  match hot_verify_control(valid) {
+    Ok(_) => ()
+    Err(err) => fail(err.to_string())
+  }
+
+  let outside = HotFunc::new()
+  let outside_payload = hot_build_catch_payload(
+    outside,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  hot_root_append(outside, outside_payload)
+  match hot_verify_control(outside) {
+    Err(HotVerifyError::InvalidCatchPayload(node_id, _)) =>
+      @debug.assert_eq(node_id, outside_payload)
+    other => fail("expected outside catch payload rejection, got \{other}")
+  }
+
+  let late = HotFunc::new()
+  let late_payload = hot_build_catch_payload(
+    late,
+    @lib.TagIdx::new(1U),
+    @lib.ValType::i32(),
+  )
+  let late_try = hot_build_try(
+    late,
+    @lib.BlockType::void_(),
+    [hot_build_nop(late)],
+    catch_body=Some([
+      hot_build_nop(late),
+      late_payload,
+      hot_build_drop(late, late_payload),
+    ]),
+  )
+  hot_root_append(late, late_try)
+  match hot_verify_control(late) {
+    Err(HotVerifyError::InvalidCatchPayload(node_id, _)) =>
+      @debug.assert_eq(node_id, late_payload)
+    other => fail("expected late catch payload rejection, got \{other}")
+  }
+}

@@ -727,6 +727,22 @@ pub fn hot_build_throw(
 }
 
 ///|
+/// Represent one legacy catch payload lane at catch-region entry. Ordered
+/// payload lanes must appear as the catch region's leading roots.
+pub fn hot_build_catch_payload(
+  func : HotFunc,
+  tag_idx : TagIdx,
+  val_type : ValType,
+) -> NodeId {
+  hot_build_node(
+    func,
+    HotOp::Catch,
+    hot_type_intern_value(func, val_type),
+    imm0=hot_builder_tag_idx_raw(tag_idx),
+  )
+}
+
+///|
 pub fn hot_build_throw_ref(func : HotFunc, exnref : NodeId) -> NodeId {
   hot_build_node1(func, HotOp::ThrowRef, hot_type_void(func), exnref)
 }

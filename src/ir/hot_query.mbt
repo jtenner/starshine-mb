@@ -127,6 +127,15 @@ pub fn hot_node_kind_is_exception(func : HotFunc, node_id : NodeId) -> Bool {
 }
 
 ///|
+pub fn hot_catch_payload_tag(func : HotFunc, node_id : NodeId) -> TagIdx {
+  let node = hot_node_get(func, node_id)
+  if node.op != HotOp::Catch {
+    abort("hot_catch_payload_tag requires a typed catch payload node")
+  }
+  TagIdx::new(node.imm0.reinterpret_as_uint())
+}
+
+///|
 pub fn hot_node_kind_is_simd(func : HotFunc, node_id : NodeId) -> Bool {
   hot_query_op(func, node_id) == HotOp::Simd
 }

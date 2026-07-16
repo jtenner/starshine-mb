@@ -103,7 +103,8 @@ pub fn hot_default_flags_for_op(op : HotOp) -> UInt {
       HOT_FLAG_THROWS |
       HOT_FLAG_HAS_EXCEPTIONAL_SUCC |
       HOT_FLAG_TERMINATOR
-    HotOp::Delegate | HotOp::Catch | HotOp::CatchAll => 0U
+    HotOp::Catch => HOT_FLAG_VALUE
+    HotOp::Delegate | HotOp::CatchAll => 0U
     HotOp::Atomic | HotOp::Simd => 0U
   }
 }

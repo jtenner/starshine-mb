@@ -237,6 +237,8 @@ pub fn hot_build_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Array[@lib.
 
 pub fn hot_build_call_ref(HotFunc, @lib.TypeIdx, Array[@lib.ValType], Array[Int], Int) -> Int
 
+pub fn hot_build_catch_payload(HotFunc, @lib.TagIdx, @lib.ValType) -> Int
+
 pub fn hot_build_compare(HotFunc, Int, Int) -> Int
 
 pub fn hot_build_const_f32(HotFunc, @lib.F32) -> Int
@@ -320,6 +322,8 @@ pub fn hot_build_unreachable(HotFunc) -> Int
 pub fn hot_call_sig_get(HotFunc, Int) -> HotCallSig
 
 pub fn hot_catch_info_get(HotFunc, Int) -> HotCatchInfo
+
+pub fn hot_catch_payload_tag(HotFunc, Int) -> @lib.TagIdx
 
 pub fn hot_child_count(HotFunc, Int) -> Int
 
@@ -1529,6 +1533,7 @@ pub enum HotVerifyError {
   InvalidSideTableRef(Int, HotSideTableKind, Int)
   InvalidControlChildCount(Int, Int, Int)
   InvalidControlChild(Int, Int, Int)
+  InvalidCatchPayload(Int, String)
   InvalidBranchTarget(Int, Int)
   InvalidBranchArity(Int, Int, Int, Int)
   InvalidCfgEntry(Int)
