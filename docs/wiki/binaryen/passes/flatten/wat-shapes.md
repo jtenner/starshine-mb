@@ -749,7 +749,7 @@ The exact output is verbose, but the key source-backed facts are:
 
 - without that repair step, the resulting EH structure would be invalid
 - a pinned Binaryen v130 direct probe stages `(pop i32)` into a fresh local before the original drop
-- Starshine does not yet represent that typed payload `pop`; `Catch`/`CatchAll` therefore select `DeferredCatchPayloadRepair` before any operand or local mutation, while `Rethrow`/`Delegate` select the separate `DeferredExceptionalTransferRepair` gate
+- Starshine represents bounded typed payload reads as ordered HOT catch-entry values: exact scalar and ordered two-lane repairs are admitted, while unsupported `Catch`/`CatchAll` populations select `DeferredCatchPayloadRepair`; exceptional transfer separately admits only the direct rethrow/delegate subsets in Shape 19, with broader populations selecting `DeferredExceptionalTransferRepair`
 
 ## Shape 14: real control effects become preludes plus placeholder `unreachable`
 
@@ -904,7 +904,33 @@ catch body:  nested blocks containing drop(local.get $payload0)
              then drop(local.get $payload1)
 ```
 
-The whole function is preflighted before mutation. The scalar marker keeps its exact entry-root plus first-descendant nested-use proof. The two-lane subset requires same-tag markers, one exclusive direct block chain, and ordered unary lane-use roots; locals retain source order while captures run in reverse stack order. Partial/mixed-tag/third-lane, non-first-descendant/repeated, broader independent path, loop, nested catch, catch-all, shared, or outside-use shapes reject. The source-backed positives preserve the following branch target and validate after lowering. `rethrow` and `delegate` remain separately gated.
+The whole function is preflighted before mutation. The scalar marker keeps its exact entry-root plus first-descendant nested-use proof. The two-lane subset requires same-tag markers, one exclusive direct block chain, and ordered unary lane-use roots; locals retain source order while captures run in reverse stack order. Partial/mixed-tag/third-lane, non-first-descendant/repeated, broader independent path, loop, nested catch, catch-all payload, shared, or outside-use shapes reject. The source-backed positives preserve the following branch target and validate after lowering.
+
+## Shape 19: direct legacy exceptional transfers preserve the active owner
+
+The exact admitted catch-all rethrow shape is:
+
+```text
+try body:   throw $tag
+catch body: block { rich ordinary work; rethrow 0 }
+```
+
+Flatten may sequence the rich work, but the rethrow depth remains zero. Lowering uses a modern `catch_all_ref` handler, captures the non-null exception reference into one nullable `exnref` local, and emits `local.get` followed by `throw_ref`. Nonzero depth, typed payload plus rethrow, nested-catch ownership, and non-direct ancestry reject before mutation.
+
+The exact admitted delegate shape is:
+
+```text
+outer try catch-all
+  body: block {
+    inner resultless try
+      body: rich work; throw $tag
+      delegate: outer-try-label
+  }
+```
+
+The delegate target remains the exact outer try label through flatten. Because Binaryen v130 stores delegation on `Try::delegateTarget` and flatten does not rewrite it, modern lowering removes only the inner legacy handler shell and lets the exception propagate to the already-active outer handler. The inner try label must be unused. Non-direct targets, value-carrying delegated tries, mixed catch/delegate regions, and broader nested populations reject.
+
+Red-first whitebox counts move `188/189 -> 189/189` and `189/190 -> 190/190`; both lowered modules validate. No public flatten surface is enabled by these internal shapes.
 
 ## Bottom line
 

@@ -72,7 +72,13 @@ The mixed-forest suffix iteration remains internal too. Commit `04cc07657` adds 
 
 Commits `43ea95972` and `49079c0dc` extend the whole-function scalar transaction to one exact ordered two-lane same-tag family and admit it internally. Preflight requires one exclusive direct block chain, ordered final-region unary lane uses, exact entry-plus-old-position ownership, and no partial/mixed-tag/third lane, loop, nested exceptional control, sharing, outside use, or catch-all marker. Lane locals retain source order; entry captures consume the handler stack in reverse order; flatten rebuilds its proof state before ordinary rewrites. Final validation is HOT mutation `16/16`, IR `326/326`, focused flatten `263/263`, whitebox flatten `188/188`, passes `5,781/5,781`, and full `9,250/9,250`.
 
-This is still not a public fuzz lane. No flatten aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, or public pass surface was added. A future EH profile must still cover non-first-descendant/repeated use, broader independent lane paths, three-or-more lanes, nested catches, loop/multiple-execution rejection, sharing/outside ownership, catch-all boundaries, `rethrow`, and `delegate`. No compare lane is authorized while those broad families remain deferred and public pass execution remains removed.
+This is still not a public fuzz lane. No flatten aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, or public pass surface was added. A future EH profile must still cover non-first-descendant/repeated use, broader independent lane paths, three-or-more lanes, nested catches, loop/multiple-execution rejection, sharing/outside ownership, and catch-all payload boundaries.
+
+## Direct rethrow and delegate subsets remain outside public fuzzing
+
+Commits `d76a91b3f` and `7bfb10372` admit one depth-zero direct catch-all rethrow and one direct outer-target resultless delegate. The rethrow lowers through `catch_all_ref`, a captured exception-reference local, and `throw_ref`. The delegate keeps its exact target label through flatten and lowers as transparent propagation only while the outer target is active and the inner label is unused. Red-first whitebox counts move `188/189 -> 189/189` and `189/190 -> 190/190`; final validation includes HOT lower `89/89`, whitebox flatten `190/190`, focused flatten `263/263`, passes `5,783/5,783`, and full `9,252/9,252`.
+
+A future flatten EH aggregate must generate both admitted shapes and rejected nonzero/non-direct/nested/typed-mixed exceptional transfers. No compare lane is authorized while broader EH/control families remain deferred and public pass execution remains removed.
 
 ## Future executable lane
 
