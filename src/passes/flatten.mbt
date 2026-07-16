@@ -8952,10 +8952,44 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
-fn flatten_typed_catch_owns_direct_rethrow(
+fn flatten_typed_catch_root_owns_strict_rethrow(
+  func : @ir.HotFunc,
+  root_id : Int,
+  rethrow_id : Int,
+  state : FlattenRewriteState,
+) -> Bool {
+  let mut current = root_id
+  while current != rethrow_id {
+    match @ir.hot_node_get(func, current).op {
+      @ir.HotOp::Block => ()
+      _ => return false
+    }
+    if @ir.hot_node_result_arity(func, current) != 0 {
+      return false
+    }
+    let label_id = @ir.hot_control_node_label(func, current)
+    if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+      return false
+    }
+    let body_ref = @ir.hot_region_body_ref(func, current)
+    if @ir.hot_region_root_count(func, body_ref) != 1 {
+      return false
+    }
+    let child = @ir.hot_region_get(func, body_ref, 0)
+    if state.direct_parent[child] != current {
+      return false
+    }
+    current = child
+  }
+  true
+}
+
+///|
+fn flatten_typed_catch_owns_strict_rethrow(
   func : @ir.HotFunc,
   try_id : Int,
   rethrow_id : Int,
+  state : FlattenRewriteState,
 ) -> Bool {
   let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
     Some(catch_ref) => catch_ref
@@ -8993,13 +9027,20 @@ fn flatten_typed_catch_owns_direct_rethrow(
     let candidate = @ir.hot_region_get(func, catch_ref, idx)
     match @ir.hot_node_get(func, candidate).op {
       @ir.HotOp::Catch | @ir.HotOp::CatchAll => return false
-      @ir.HotOp::Rethrow => {
-        if candidate != rethrow_id || saw_rethrow {
-          return false
-        }
-        saw_rethrow = true
-      }
       _ => ()
+    }
+    if flatten_typed_catch_root_owns_strict_rethrow(
+        func, candidate, rethrow_id, state,
+      ) {
+      if saw_rethrow {
+        return false
+      }
+      saw_rethrow = true
+    } else {
+      match @ir.hot_node_get(func, candidate).op {
+        @ir.HotOp::Rethrow => return false
+        _ => ()
+      }
     }
   }
   saw_rethrow
@@ -9234,10 +9275,7 @@ fn flatten_direct_catch_all_rethrow_is_supported(
     _ => return false
   }
   flatten_markerless_catch_owns_root(func, parent, current) ||
-  (
-    current == rethrow_id &&
-    flatten_typed_catch_owns_direct_rethrow(func, parent, rethrow_id)
-  )
+  flatten_typed_catch_owns_strict_rethrow(func, parent, rethrow_id, state)
 }
 
 ///|
