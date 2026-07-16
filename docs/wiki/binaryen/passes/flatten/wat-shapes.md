@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-16
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
@@ -715,7 +715,7 @@ When the restored lane is the right child, one source-representable rich left ma
     (local.get $lane0)))
 ```
 
-This exact shape is admitted for legacy tries and inputful loops with independently scalar lanes or one exclusively owned repeated `TupleMake` whose components are simple. Source stack order permits one rich left before all payloads, so it pairs only with lane zero after higher lanes are consumed in reverse order. Pinned Binaryen v130 probes place the call before payload values and `br_if`, while the binary remains after the branch. Loop admission additionally freezes the exact branch root and rich-left/binary identities before entry-channel mutation. Multiple or non-lane-zero rich lefts and rich payload origins combined with pre-branch left work remain fail-closed.
+This exact shape is admitted for legacy tries and inputful loops with independently scalar lanes or one exclusively owned repeated `TupleMake`. Legacy-try payload vectors remain simple; inputful-loop vectors may contain at most one supported rich payload origin. Source stack order permits one rich left before all payloads, so it pairs only with lane zero after higher lanes are consumed in reverse order. Pinned Binaryen v130 probes place `call $left` before a rich payload call, the remaining payloads, and `br_if`, while the binary remains after the branch. Loop admission freezes the exact branch root and rich-left/binary identities before entry-channel mutation; tuple rewrite inserts the left store before child-generated payload preludes and deletes the shell only after complete replacement. More than one rich payload, the legacy-try rich-payload counterpart, and multiple or non-lane-zero rich lefts remain fail-closed.
 
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 

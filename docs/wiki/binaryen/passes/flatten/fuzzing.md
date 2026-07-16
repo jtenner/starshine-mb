@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: planned
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-16
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
@@ -53,6 +53,8 @@ The rich-right binary-flow iteration remains internal as well. Commits `5c4a664d
 The rich-left binary-flow iteration remains internal too. Commits `e5c2a91ea` and `d0a53acf9` admit one exact one-use pre-branch rich left for independently scalar and exclusively tuple-made legacy-try lanes when the complete payload vector is simple and the binary consumes lane zero after higher lanes. Pinned-v130 probes place the rich left call before payload calls and `br_if`, with the binary remaining after the not-taken branch. Focused flatten is `251/251`, private flatten `186/186`, passes `5,767/5,767`, and full suite `9,228/9,228`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, or preset surface was added, so no public compare lane is authorized.
 
 The inputful-loop rich-left iteration remains internal too. Commits `843614438` and `35ac3740a` admit the exact independently scalar and exclusively tuple-made loop counterparts when one rich left precedes a complete simple payload vector and feeds lane zero's immediate false-path binary. Focused flatten is `253/253`, private flatten `186/186`, passes `5,769/5,769`, and full suite `9,230/9,230`. The pinned-v130 loop probe confirms pre-branch left placement and post-branch binary execution. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, or preset surface was added.
+
+The inputful-loop rich-payload iteration remains internal too. Commits `3cb5577ad` and `c5a0a738a` admit at most one supported rich payload origin alongside the existing pre-branch rich left, first for independently scalar lanes and then for one exclusively owned repeated `TupleMake`. The tuple route corrects prelude order so left work precedes child-generated payload work. Focused flatten is `255/255`, private flatten `186/186`, passes `5,771/5,771`, and full suite `9,232/9,232`. The pinned-v130 probe confirms left, rich payload, remaining payload, condition, branch, and false-path binary order. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, or preset surface was added.
 
 ## Future executable lane
 
