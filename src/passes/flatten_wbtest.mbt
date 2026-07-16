@@ -1565,6 +1565,150 @@ test "flatten repairs grouped and direct ordered catch payload roots" {
 }
 
 ///|
+test "flatten repairs grouped catch payloads across an interleaved inner root" {
+  let func = @ir.HotFunc::new()
+  ignore(
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [],
+      [@lib.ValType::i32(), @lib.ValType::f32(), @lib.ValType::i64()],
+    ),
+  )
+  let first = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let second = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::f32(),
+  )
+  let third = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i64(),
+  )
+  let first_drop = @ir.hot_build_drop(func, first)
+  let inner_gap = @ir.hot_build_nop(func)
+  let second_drop = @ir.hot_build_drop(func, second)
+  let grouped_inner = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    first_drop, inner_gap, second_drop,
+  ])
+  let grouped_outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    grouped_inner,
+  ])
+  let outer_gap = @ir.hot_build_nop(func)
+  let third_drop = @ir.hot_build_drop(func, third)
+  let later_root = @ir.hot_build_nop(func)
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+        @ir.hot_build_const_f32(func, @lib.F32(3.5)),
+        @ir.hot_build_const_i64(func, @lib.I64(9L)),
+      ]),
+    ],
+    catch_body=Some([
+      first, second, third, grouped_outer, outer_gap, third_drop, later_root,
+    ]),
+  )
+  @ir.hot_root_append(func, try_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredCatchPayloadRepair =>
+      fail("interleaved grouped catch payload roots remained deferred")
+    _ =>
+      fail("interleaved grouped catch payload roots failed an unrelated gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 3)
+  @debug.assert_eq(@ir.hot_local_type(func, 0), Some(@lib.ValType::i32()))
+  @debug.assert_eq(@ir.hot_local_type(func, 1), Some(@lib.ValType::f32()))
+  @debug.assert_eq(@ir.hot_local_type(func, 2), Some(@lib.ValType::i64()))
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 10)
+  let third_capture = @ir.hot_region_get(func, catch_ref, 3)
+  let second_capture = @ir.hot_region_get(func, catch_ref, 4)
+  let first_capture = @ir.hot_region_get(func, catch_ref, 5)
+  @debug.assert_eq(@ir.hot_node_get(func, third_capture).imm0, 2)
+  @debug.assert_eq(@ir.hot_child_get(func, third_capture, 0), third)
+  @debug.assert_eq(@ir.hot_node_get(func, second_capture).imm0, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, second_capture, 0), second)
+  @debug.assert_eq(@ir.hot_node_get(func, first_capture).imm0, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, first_capture, 0), first)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 6), grouped_outer)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 7), outer_gap)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 8), third_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 9), later_root)
+  let grouped_ref = @ir.hot_region_body_ref(func, grouped_inner)
+  @debug.assert_eq(@ir.hot_region_root_count(func, grouped_ref), 3)
+  @debug.assert_eq(@ir.hot_region_get(func, grouped_ref, 0), first_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, grouped_ref, 1), inner_gap)
+  @debug.assert_eq(@ir.hot_region_get(func, grouped_ref, 2), second_drop)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_drop, 0)).imm0,
+    0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_drop, 0)).imm0,
+    1,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, third_drop, 0)).imm0,
+    2,
+  )
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected interleaved grouped catch repair to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::f32(), @lib.ValType::i64()],
+              [],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::i32(),
+              @lib.ValType::f32(),
+              @lib.ValType::i64(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten preserves direct catch-all rethrow through nested block lowering" {
   let func = @ir.HotFunc::new()
   let rich_drop = flatten_test_build_rich_drop(func)

@@ -396,26 +396,27 @@ fn hot_grouped_catch_payload_repairs(
       continue
     }
     let repairs : Array[HotCatchPayloadLaneRepair] = []
-    let remaining = payloads.length() - payload_start
-    let candidate_count = if root_count < remaining {
-      root_count
-    } else {
-      remaining
-    }
-    for offset = 0; offset < candidate_count; offset = offset + 1 {
+    let mut lane_slot = payload_start
+    let mut root_slot = 0
+    while lane_slot < payloads.length() && root_slot < root_count {
+      let candidate_slot = root_slot
+      root_slot += 1
       match
         hot_catch_payload_lane_repair(
           func,
           use_def,
           catch_ref,
-          payload_start + offset,
-          payloads[payload_start + offset],
-          hot_region_get(func, body_ref, offset),
+          lane_slot,
+          payloads[lane_slot],
+          hot_region_get(func, body_ref, candidate_slot),
           body_ref.holder,
-          offset,
+          candidate_slot,
         ) {
-        Some(repair) => repairs.push(repair)
-        None => break
+        Some(repair) => {
+          repairs.push(repair)
+          lane_slot += 1
+        }
+        None => ()
       }
     }
     return if repairs.is_empty() { None } else { Some(repairs) }
