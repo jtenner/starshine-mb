@@ -60802,6 +60802,75 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
+// Binaryen's filtered SimplifyLocals replay carries an exact one-use block
+// result through one pure caller-local argument. Moving only the local read
+// before the complete block preserves every effect and trap in the producer.
+fn run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 4 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+    ) {
+    (
+      @lib.Block(@lib.ValTypeBlockType(result_type), @lib.Expr(producer_body)) as producer,
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(@lib.LocalIdx(argument_raw) as argument),
+      @lib.LocalGet(readback),
+      @lib.Call(consumer),
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      let argument_idx = argument_raw.reinterpret_as_int()
+      if target_idx < 0 ||
+        argument_idx < 0 ||
+        target_idx == argument_idx ||
+        target_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        argument_idx >= local_gets.length() ||
+        argument_idx >= local_sets.length() ||
+        argument_idx >= local_tees.length() ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 ||
+        (
+          (local_sets[argument_idx] > 0 || local_tees[argument_idx] > 0) &&
+          run_hot_pipeline_raw_branch_writes_local(producer_body, argument_idx)
+        ) {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(argument),
+            producer,
+            @lib.Instruction::call(consumer),
+          ],
+          5,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_try_sink_remapped_terminal_block_carrier(
   instrs : Array[@lib.Instruction],
   idx : Int,
@@ -60872,6 +60941,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_sink_remapped_terminal_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
