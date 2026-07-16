@@ -358,6 +358,10 @@ The latest allocation-focused iteration combines run-wide immutable indexes with
 
 Private flatten reaches `182/182`, focused flatten `245/245`, passes `5,757/5,757`, full `9,218/9,218`, and green `moon info`. Native-release micro medians improve ancestry `76.22%`, table targets `96.88%`, type results `73.33%`, target-local preflight `11.69%`, and prelude-heavy traversal `9.68%`; the reconstructed representative moves directionally `1,001.5 -> 989.5 us` with overlapping ranges. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes. The durable `970.5 us` / `3.65x` gate remains unrequalified.
 
+The latest exact two-code iteration removes two additional identity scans without widening behavior. `4a03de7f3` sorts sparse shared-root `(holder, node)` pairs and binary-searches them during terminal placeholder placement. `aa295d38b` uses a temporary node mark set for distinct multivalue `br_if` payload collection and payload-root exclusion during false-flow discovery. Exact source order, duplicate rejection, frozen shared-root ownership, rewrite-created-id exclusion, cached false-flow parent/start identity, and current-structure checks remain mandatory.
+
+Private flatten reaches `184/184`, focused flatten `245/245`, passes `5,759/5,759`, full `9,220/9,220`, and green `moon info`. At 512 candidates, targeted medians improve sequenced-root lookup `31,569 -> 2,664 us` and payload distinctness `64,554 -> 2,757 us`. These are internal owner wins, not recovery of the representative contract; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

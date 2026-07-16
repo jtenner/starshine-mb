@@ -657,6 +657,12 @@ The allocation/index follow-up leaves every WAT shape above unchanged. Table tar
 
 Private flatten reaches `182/182`, and the owner microbenchmarks improve ancestry `76.22%`, table targets `96.88%`, type results `73.33%`, target-local preflight `11.69%`, and prelude-heavy traversal `9.68%`. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Latest sequenced-root and multivalue-payload lookup detail
+
+Commits `4a03de7f3` and `aa295d38b` leave every WAT shape above unchanged. Shared terminal roots still avoid duplicate emission only when the frozen pre-mutation use count proves multiple owners in the same exact holder; sorted pair storage and binary membership change only lookup. Multivalue `br_if` payloads still preserve source order and exact cached false-flow placement; a temporary mark set now rejects repeated payload ids and identifies payload roots without scanning the growing vector.
+
+The red-first invariants lock exact mixed-order holder/node pairs, cross-pair absence, payload mark population, and duplicate payload rejection. At 512 candidates, targeted medians improve sequenced-root lookup `91.56%` and payload distinctness `95.73%`. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

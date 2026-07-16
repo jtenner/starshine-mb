@@ -374,6 +374,12 @@ The current allocation-focused iteration keeps behavior unchanged while moving r
 
 Five red-first invariants move private flatten from `177/177` to `182/182` and lock frozen target order, post-boundary cache rejection, lazy parent construction, reusable depth buffers, dense type-result reuse, and target-local failure atomicity. Native-release micro medians improve ancestry queries `185,000 -> 44,000 us` (`76.22%`), cached table targets `32,000 -> 1,000 us` (`96.88%`), repeated type results `15,000 -> 4,000 us` (`73.33%`), target-local preflight `77,000 -> 68,000 us` (`11.69%`), and the root-heavy prelude reconstruction `31,000 -> 28,000 us` (`9.68%`) while retaining 100 depth buffers instead of creating 100,000 empty root buffers. The reconstructed 120-function representative is nonregressing and directionally improves `1,001.5 -> 989.5 us` (`1.20%`, overlapping ranges). Focused flatten is `245/245`, passes are `5,757/5,757`, the full suite is `9,218/9,218`, and `moon info` is green with 11 existing warnings. No `.mbti`, semantic family, output shape, registry, dispatcher, CLI, compare/API, generator, or preset surface changed; the durable `970.5 us` / `3.65x` public gate remains unrequalified.
 
+## 2026-07-15 sequenced-root and multivalue-payload lookup follow-up
+
+Commits `4a03de7f3` and `aa295d38b` complete the current exact two-code internal iteration without widening behavior. Shared terminal-root deduplication now stores exact holder/node pairs in lexicographic order and uses binary membership; multivalue `br_if` false-flow discovery marks exact payload ids once, preserves source order, rejects duplicates, and tests payload roots in constant time. Frozen pre-mutation ownership, rewrite-created-id rejection, cached parent/start identity, current-structure checks, and post-boundary failure behavior remain unchanged.
+
+The two red-first invariants fail on missing helpers before implementation and move private flatten to `184/184`. At 512 candidates, targeted lookup medians improve `31,569 -> 2,664 us` for sequenced roots and `64,554 -> 2,757 us` for payload distinctness. Focused flatten is `245/245`, passes are `5,759/5,759`, the full suite is `9,220/9,220`, and `moon info` is green with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed; every public-readiness blocker remains open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

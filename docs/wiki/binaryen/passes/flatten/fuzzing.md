@@ -42,6 +42,8 @@ The table-target/terminal-payload iteration remains internal as well. Commits `b
 
 The immutable-index/reusable-scratch follow-up is internal as well. It adds no generator, allowlist, descriptor, dispatcher, CLI execution, or compare surface. Private flatten is `182/182`, focused flatten `245/245`, passes `5,757/5,757`, and the full suite `9,218/9,218`. Targeted native-release measurements improve cached ancestry, table-target, type-result, target-local, and prelude-heavy owners, and the reconstructed representative is nonregressing, but none of this creates a public parity lane or requalifies the durable `3.65x` Binaryen checkpoint.
 
+The sequenced-root/multivalue-payload lookup follow-up remains internal too. Commits `4a03de7f3` and `aa295d38b` sort exact shared-root holder/node pairs for binary membership and mark exact multivalue `br_if` payload ids for duplicate/root checks. Private flatten is `184/184`, focused flatten `245/245`, passes `5,759/5,759`, and the full suite `9,220/9,220`; no generator, allowlist, descriptor, dispatcher, CLI execution, compare/API, or preset surface was added. The 512-candidate lookup reductions (`91.56%` and `95.73%`) are owner-specific and do not authorize a public compare lane or replace the durable `970.5 us` / `3.65x` gate.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

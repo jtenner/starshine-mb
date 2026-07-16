@@ -437,6 +437,12 @@ The allocation/index follow-up changes storage, not Flat IR semantics. A `br_tab
 
 Dead-suffix and loop-entry visitation reuse node-generation marks. Duplicate ownership scans are removed only where exact use counts are complete: a repeated reachable acyclic owned node would necessarily raise its root/child use count, and a repeated conditional payload would exceed the exact branch-plus-consumer count. Table target-local allocation still performs all-target nonmutating preflight first, but rewrite now reads `state.label_temps[target]` directly instead of creating `Array[Array[Int]]`. Type-result vectors are cached per run and scalar type checks avoid array creation entirely. Target, type, label, ownership, EH, effect, trap, deletion, current-structure, and failure-atomicity rules are unchanged.
 
+### Shared-root and multivalue-flow lookup remain exact
+
+Commits `4a03de7f3` and `aa295d38b` remove two more linear identity scans without changing Flat IR. Shared terminal roots remain a sparse set of exact `(region holder, node id)` pairs admitted only by the frozen pre-mutation use count; the pairs are now lexicographically sorted and binary-searchable when deciding whether a terminal effect was already sequenced. Rewrite-created ids still cannot enter that proof. Distinct multivalue `br_if` payload ids retain source order but use one temporary node mark set for duplicate rejection and payload-root exclusion during reachable false-flow discovery; cached parent/start slots and current-structure checks remain authoritative.
+
+The red-first invariants lock mixed-order pair insertion, duplicate and cross-pair rejection, exact payload mark population, and duplicate payload rejection. At 512 candidates, the targeted lookup reconstructions improve sequenced-root membership `31,569 -> 2,664 us` (`91.56%`) and payload distinctness `64,554 -> 2,757 us` (`95.73%`). These are owner-specific internal results, not representative-gate requalification or semantic admission.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

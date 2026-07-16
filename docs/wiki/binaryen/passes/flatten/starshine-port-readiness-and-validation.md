@@ -176,6 +176,10 @@ The immutable-index/reusable-scratch iteration also leaves the hold point unchan
 
 Private flatten is `182/182`, focused flatten `245/245`, passes `5,757/5,757`, the full suite `9,218/9,218`, and `moon info` is green with 11 existing warnings. The reconstructed representative is nonregressing (`1,001.5 -> 989.5 us`, overlapping), while owner microbenchmarks improve `9.68%` to `96.88%`. No readiness predicate changed: public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the unrequalified `970.5 us` / `3.65x` gate remain blocked.
 
+The sequenced-root/multivalue-payload lookup iteration also leaves the hold point unchanged. `4a03de7f3` keeps sparse exact `(holder, node)` identities sorted and binary-searchable while preserving the pre-mutation shared-root and rewrite-created-id boundaries. `aa295d38b` marks exact multivalue `br_if` payload ids once for duplicate rejection and root exclusion while retaining source order plus the cached false-flow parent/start proof. Their red-first invariants move private flatten to `184/184`; focused flatten is `245/245`, passes are `5,759/5,759`, the full suite is `9,220/9,220`, and `moon info` is green with 11 existing warnings.
+
+The targeted 512-candidate medians improve sequenced-root lookup `91.56%` and payload distinctness `95.73%`, but no representative measurement or public contract was requalified. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the durable `970.5 us` / `3.65x` gate remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

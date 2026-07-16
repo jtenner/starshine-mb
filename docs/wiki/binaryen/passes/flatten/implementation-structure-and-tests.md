@@ -325,6 +325,10 @@ The allocation/index follow-up adds five private invariants and no new WAT famil
 
 The red-first file moves from `177/177` to `182/182`; focused flatten remains `245/245`. Targeted medians improve ancestry `76.22%`, table-target lookup `96.88%`, type-result lookup `73.33%`, target-local preflight `11.69%`, and root-heavy traversal `9.68%`. The reconstructed representative moves directionally `1,001.5 -> 989.5 us` with overlapping ranges. Passes are `5,757/5,757`, the full suite is `9,218/9,218`, `moon info` reports 11 existing warnings and no errors, the native release CLI builds, and no `.mbti` or public surface changes.
 
+The next exact two-code iteration adds commits `4a03de7f3` and `aa295d38b` without widening behavior. The first keeps shared sequenced-root holder/node pairs sparse, sorted, and binary-searchable; its red-first invariant rejects duplicate and cross-pair matches while preserving exact mixed-order insertion. The second collects distinct multivalue `br_if` payload ids with a temporary mark set, preserves source order, rejects repeated ids, and reuses marked membership for root exclusion while leaving cached false-flow parent/slot checks unchanged.
+
+The exact 512-candidate reconstructions improve sequenced-root lookup `31,569 -> 2,664 us` (`91.56%`) and multivalue payload distinctness `64,554 -> 2,757 us` (`95.73%`). Final validation is private flatten `184/184`, focused flatten `245/245`, passes `5,759/5,759`, full suite `9,220/9,220`, and green `moon info` with 11 existing warnings. No `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:
