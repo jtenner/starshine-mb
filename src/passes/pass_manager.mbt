@@ -60802,6 +60802,114 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
+// A two-result producer can feed paired struct stores without a temporary for
+// the first result. Hoisting only the first receiver's nontrapping local read
+// leaves producer effects, traps, result order, and the second spill unchanged.
+fn run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  expected_producer_calls : Int,
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 9 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+    ) {
+    (
+      @lib.Block(@lib.TypeIdxBlockType(_), @lib.Expr(producer_body)) as producer,
+      @lib.LocalSet(@lib.LocalIdx(second_raw) as second),
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(@lib.LocalIdx(first_object_raw) as first_object),
+      @lib.LocalGet(target_readback),
+      @lib.StructSet(first_type, first_field),
+      @lib.LocalGet(second_object),
+      @lib.LocalGet(second_readback),
+      @lib.StructSet(second_type, second_field),
+      @lib.I32Const(@lib.I32(0)),
+    ) if target == target_readback && second == second_readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      let second_idx = second_raw.reinterpret_as_int()
+      let first_object_idx = first_object_raw.reinterpret_as_int()
+      if run_hot_pipeline_raw_count_call_like(producer_body) !=
+        expected_producer_calls ||
+        target_idx < 0 ||
+        second_idx < 0 ||
+        first_object_idx < 0 ||
+        target_idx == second_idx ||
+        target_idx == first_object_idx ||
+        second_idx == first_object_idx ||
+        target_idx >= local_types.length() ||
+        second_idx >= local_types.length() ||
+        first_object_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        second_idx >= local_gets.length() ||
+        second_idx >= local_sets.length() ||
+        second_idx >= local_tees.length() ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 ||
+        local_gets[second_idx] != 1 ||
+        local_sets[second_idx] != 1 ||
+        local_tees[second_idx] != 0 ||
+        run_hot_pipeline_raw_branch_writes_local(
+          producer_body, first_object_idx,
+        ) {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(first_object),
+            producer,
+            @lib.Instruction::local_set(second),
+            @lib.Instruction::struct_set(first_type, first_field),
+            @lib.Instruction::local_get(second_object),
+            @lib.Instruction::local_get(second),
+            @lib.Instruction::struct_set(second_type, second_field),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+          ],
+          10,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
+    instrs, idx, local_types, local_gets, local_sets, local_tees, 2,
+  )
+}
+
+///|
 // An exact `block (result T) { local.get; br 0 }` snapshots no state beyond the
 // caller local. Across a direct-call-only prefix, reading that same local at the
 // one use preserves value, call effects, traps, and control while removing the
@@ -61125,6 +61233,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_forward_remapped_identity_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
