@@ -459,7 +459,11 @@ The proof still requires one immediate directly dropped, single-use, same-typed 
 
 Commits `5c4a664dd` and `a4055b7a9` extend only the payload-left orientation. The right operand may be one exact one-use supported scalar origin. Postorder operand flattening then inserts that operand's `local.set` after the payload-free `br_if` and before the binary consumer. This is valid for the shared exact legacy-try and inputful-loop consumer helper because the right operand is evaluated only on the not-taken path in the source stack order.
 
-The payload-right orientation remains stricter: its left operand must be Flat-IR-simple. A rich left operand would have source evaluation obligations before the branch, so treating it as an ordinary false-path prelude would reorder effects or traps. Exact branch-plus-consumer ownership, complete tuple coverage, result typing, direct-drop placement, current structure, and the pre-mutation proof boundary remain unchanged.
+### One exact rich left operand remains before the conditional branch
+
+Commits `e5c2a91ea` and `d0a53acf9` implement the source-order proof that the payload-right orientation requires. For an independently scalar vector, or one exclusively owned repeated `TupleMake` with simple components, exactly one one-use rich left operand may precede the complete payload vector. Because the branch consumes the top payload vector and false flow consumes lanes in reverse order, that pre-branch value can pair only with lane zero after all higher lanes have been consumed. Rewrite emits its `local.set` before payload staging and `br_if`, replaces the binary's left child with the matching read, and leaves the binary itself after the branch.
+
+Pinned Binaryen v130 probes show the same order: rich left call, payload calls, condition, `br_if`, higher-lane consumption, then the lane-zero binary. Multiple or non-lane-zero rich lefts, rich payload origins combined with pre-branch left work, and inputful-loop rich-left routing remain gated. Exact branch-plus-consumer ownership, complete tuple coverage, result typing, direct-drop placement, current structure, and the pre-mutation proof boundary remain unchanged.
 
 ## The placeholder `unreachable` rule
 
