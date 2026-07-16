@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { availableParallelism } from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -27,6 +28,14 @@ export type ValidateTraceBenchmarkOptions = {
 export type ValidateSelfOptDeps = {
   runSelfOptCheck?: typeof runSelfOptCheck;
 };
+
+const MAX_FULL_TEST_JOBS = 16;
+
+// Keep the full validation lane parallel without spawning more MoonBit workers
+// than the host can use or the suite can sustain in memory.
+export function moonTestJobsForParallelism(parallelism: number): number {
+  return Math.min(MAX_FULL_TEST_JOBS, Math.max(1, Math.floor(parallelism)));
+}
 
 // Parse top-level validation defaults and enforce the requested MoonBit target.
 export function parseValidateFullArgs(argv: string[]): FullOptions {
@@ -194,7 +203,8 @@ export function runValidateFull(options: FullOptions): void {
   runOrThrow(options.moonBin, ["info"], { cwd: repoRoot });
   runOrThrow(options.moonBin, ["fmt"], { cwd: repoRoot });
   runOrThrow(options.moonBin, ["check", "--target", options.target], { cwd: repoRoot });
-  runOrThrow(options.moonBin, ["test", "--target", options.target], { cwd: repoRoot });
+  const testJobs = moonTestJobsForParallelism(availableParallelism());
+  runOrThrow(options.moonBin, ["test", "--target", options.target, "--jobs", String(testJobs)], { cwd: repoRoot });
   const fuzzArgs = ["--suite", "all", "--profile", options.profile, "--target", options.target, "--moon", options.moonBin];
   if (options.seed !== null) {
     fuzzArgs.push("--seed", options.seed);

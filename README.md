@@ -201,6 +201,8 @@ Run the full project checks (same as CI defaults):
 bun validate full --profile ci --target wasm-gc
 ```
 
+The validation runner parallelizes MoonBit tests to the available CPU count (capped at 16 workers).
+
 Run the minimum local quality gate used by this repo:
 
 ```bash

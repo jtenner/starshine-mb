@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
-import { runValidateSelfOptFull, runValidateSelfOptSmoke } from "./validate-task";
+import {
+  moonTestJobsForParallelism,
+  runValidateSelfOptFull,
+  runValidateSelfOptSmoke,
+} from "./validate-task";
+
+describe("validate test parallelism", () => {
+  test("uses available CPUs without exceeding the safe full-suite cap", () => {
+    expect(moonTestJobsForParallelism(0)).toBe(1);
+    expect(moonTestJobsForParallelism(4)).toBe(4);
+    expect(moonTestJobsForParallelism(64)).toBe(16);
+  });
+});
 
 describe("validate self-opt lanes", () => {
   test("smoke lane keeps the fast default self-optimized artifact check", async () => {
