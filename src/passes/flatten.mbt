@@ -3269,7 +3269,9 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
                     payloads.push(@ir.hot_child_get(func, branch_id, slot))
                   }
                   if !flatten_rich_left_payload_vector_is_supported(
-                      func, payloads,
+                      func,
+                      payloads,
+                      allow_multiple=true,
                     ) {
                     return None
                   }
@@ -4161,6 +4163,7 @@ fn flatten_false_flow_binary_right_operand_is_supported(
 fn flatten_rich_left_payload_vector_is_supported(
   func : @ir.HotFunc,
   payloads : Array[Int],
+  allow_multiple? : Bool = false,
 ) -> Bool {
   let mut rich_payload_count = 0
   for payload_id in payloads {
@@ -4171,7 +4174,7 @@ fn flatten_rich_left_payload_vector_is_supported(
       return false
     }
     rich_payload_count = rich_payload_count + 1
-    if rich_payload_count > 1 {
+    if rich_payload_count > 1 && !allow_multiple {
       return false
     }
   }
@@ -4523,7 +4526,11 @@ fn flatten_multivalue_loop_br_if_flow(
           @ir.hot_child_get(func, consumed_id, 1) == payload_id => {
           let left_id = @ir.hot_child_get(func, consumed_id, 0)
           if !flatten_node_is_simple_operand(func, left_id) {
-            if !flatten_rich_left_payload_vector_is_supported(func, payloads) {
+            if !flatten_rich_left_payload_vector_is_supported(
+                func,
+                payloads,
+                allow_multiple=true,
+              ) {
               return None
             }
             rich_left_id = left_id

@@ -4,6 +4,69 @@ fn flatten_test_classify(text : String) -> FlattenFlatnessReport {
 }
 
 ///|
+fn flatten_test_assert_rich_left_payload_order(
+  func : @ir.HotFunc,
+  ctx : HotPassContext,
+  region_ref : @ir.HotRegionRef,
+  rich_left : Int,
+  rich_payloads : Array[Int],
+  branch : Int,
+  binary : Int,
+) -> Unit raise {
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let mut left_set_root = -1
+  let payload_set_roots = Array::make(rich_payloads.length(), -1)
+  let mut branch_root = -1
+  let mut binary_set_root = -1
+  for root_idx = 0
+      root_idx < @ir.hot_region_root_count(func, region_ref)
+      root_idx = root_idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, root_idx)
+    if root_id == branch {
+      branch_root = root_idx
+      continue
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 => {
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        if value_id == rich_left {
+          left_set_root = root_idx
+        } else if value_id == binary {
+          binary_set_root = root_idx
+        } else {
+          for slot = 0; slot < rich_payloads.length(); slot = slot + 1 {
+            if value_id == rich_payloads[slot] {
+              payload_set_roots[slot] = root_idx
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(left_set_root >= 0)
+  assert_true(branch_root >= 0)
+  assert_true(binary_set_root >= 0)
+  let mut previous_root = left_set_root
+  for payload_root in payload_set_roots {
+    assert_true(payload_root > previous_root)
+    previous_root = payload_root
+  }
+  assert_true(previous_root < branch_root)
+  assert_true(branch_root < binary_set_root)
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, rich_left), 1)
+  for payload in rich_payloads {
+    @debug.assert_eq(@ir.node_use_count(use_def, payload), 1)
+  }
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected ordered rich-payload flow to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten classifier accepts explicit returns with simple operands" {
   let report = flatten_test_classify(
     "(module (func (param i32) (result i32) local.get 0 return))",
@@ -7612,6 +7675,113 @@ test "flatten preserves rich left binary false flow with one rich scalar try pay
     Err(err) =>
       fail("expected rich-payload scalar try flow to verify, got \{err}")
   }
+}
+
+///|
+test "flatten preserves rich left flow with two rich independently scalar try and loop payloads" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let try_func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    try_func,
+    @ir.hot_type_intern_results(try_func, [i32_type, i64_type]),
+  )
+  let try_first_fallback = @ir.hot_build_const_i32(try_func, @lib.I32(9))
+  let try_second_fallback = @ir.hot_build_const_i64(try_func, @lib.I64(10L))
+  let try_id = @ir.hot_build_try(
+    try_func,
+    @lib.BlockType::void_(),
+    [try_first_fallback, try_second_fallback],
+    catch_body=Some([
+      @ir.hot_build_const_i32(try_func, @lib.I32(11)),
+      @ir.hot_build_const_i64(try_func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    try_func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      try_func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let try_first_payload = @ir.hot_build_call(try_func, 97, [i32_type], [])
+  let try_second_payload = @ir.hot_build_call(try_func, 96, [i64_type], [])
+  let try_condition = @ir.hot_build_const_i32(try_func, @lib.I32(0))
+  let try_branch = @ir.hot_build_br_if(
+    try_func,
+    @ir.hot_control_node_label(try_func, try_id),
+    try_condition,
+    values=[try_first_payload, try_second_payload],
+  )
+  let try_second_drop = @ir.hot_build_drop(try_func, try_second_payload)
+  let try_left = @ir.hot_build_call(try_func, 98, [i32_type], [])
+  let try_binary = @ir.hot_build_binary(
+    try_func, i32_type, try_left, try_first_payload,
+  )
+  @ir.hot_node_exact_instr_set(
+    try_func,
+    try_binary,
+    @lib.Instruction::i32_sub(),
+  )
+  let try_first_drop = @ir.hot_build_drop(try_func, try_binary)
+  let try_body_ref = @ir.hot_region_body_ref(try_func, try_id)
+  @ir.hot_region_replace_body(try_func, try_body_ref, [
+    try_branch, try_second_drop, try_first_drop, try_first_fallback, try_second_fallback,
+  ])
+  @ir.hot_root_append(
+    try_func,
+    @ir.hot_build_return(try_func, [try_id, try_id]),
+  )
+  let try_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(try_ctx, try_func), HotPassResult::changed())
+  flatten_test_assert_rich_left_payload_order(
+    try_func,
+    try_ctx,
+    try_body_ref,
+    try_left,
+    [try_first_payload, try_second_payload],
+    try_branch,
+    try_binary,
+  )
+
+  let loop_func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 4 call 5 call 6 call 3 br_if $loop drop i32.sub drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 0) (func (result i32) i32.const 20) (func (result i32) i32.const 7) (func (result i64) i64.const 9))",
+  )
+  let loop_return = @ir.hot_root_get(loop_func, 0)
+  let loop_id = @ir.hot_child_get(loop_func, loop_return, 0)
+  let loop_body_ref = @ir.hot_region_body_ref(loop_func, loop_id)
+  let loop_branch = @ir.hot_region_get(loop_func, loop_body_ref, 2)
+  let loop_first_payload = @ir.hot_child_get(loop_func, loop_branch, 0)
+  let loop_second_payload = @ir.hot_child_get(loop_func, loop_branch, 1)
+  let loop_first_drop = @ir.hot_region_get(loop_func, loop_body_ref, 4)
+  let loop_binary = @ir.hot_child_get(loop_func, loop_first_drop, 0)
+  let loop_left = @ir.hot_child_get(loop_func, loop_binary, 0)
+  let loop_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(loop_ctx, loop_func), HotPassResult::changed())
+  flatten_test_assert_rich_left_payload_order(
+    loop_func,
+    loop_ctx,
+    loop_body_ref,
+    loop_left,
+    [loop_first_payload, loop_second_payload],
+    loop_branch,
+    loop_binary,
+  )
 }
 
 ///|
