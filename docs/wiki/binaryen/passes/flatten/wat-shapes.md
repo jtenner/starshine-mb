@@ -932,6 +932,12 @@ The delegate target remains the exact outer try label through flatten. Because B
 
 Red-first whitebox counts move `188/189 -> 189/189` and `189/190 -> 190/190`; both lowered modules validate. No public flatten surface is enabled by these internal shapes.
 
+## Latest catch-all rethrow breadth
+
+The earlier one-rethrow shape is now a subset. One active catch may contain any positive number of depth-zero rethrows under direct blocks; the handler still captures one exception reference through `catch_all_ref`, and every rethrow emits `local.get` plus `throw_ref` from that shared local. An admitted rethrow path may also cross one resultless, untargeted `if` arm. Lowering inspects then/else regions, not the condition, and does not enter loops or nested tries.
+
+The two red-first fixtures failed at whitebox `192/193` on the old lowering ceiling and `193/194` on the old ancestry gate. Final whitebox is `194/194`; both lowered modules validate. Nonzero depth, typed catch/rethrow composition, loop or nested-catch ownership, nested-if chains, value-carrying or targeted ifs, and broader delegate shapes remain fail-closed before mutation.
+
 ## Bottom line
 
 The simplest pattern summary is:

@@ -474,6 +474,12 @@ Commits `82c4c260c` and `95f71db1e` supersede two boundaries from the earlier tw
 
 The red-first three-lane and nested-if fixtures moved whitebox flatten `190/191 -> 191/191` and `191/192 -> 192/192`. Final validation is IR `326/326`, focused flatten `263/263`, whitebox flatten `192/192`, passes `5,785/5,785`, full `9,254/9,254`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public pass surface changed. Partial/mixed-tag vectors, then/else paths, other non-first-descendant or repeated uses, nested catches, loops/multiple execution, sharing/outside ownership, catch-all extraction, broader exceptional transfer/control closure, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
 
+## 2026-07-16 multiple and nested-if catch rethrows
+
+Commits `3c819922c` and `41533e603` supersede the earlier one-rethrow and direct-block-only boundaries. Any positive population of depth-zero rethrows under one active catch now shares one captured exception-reference local; every admitted node must independently resolve through strict direct ancestry to that same owning catch. The ancestry may contain direct blocks and at most one resultless, untargeted `if` arm. Lowering discovers rethrows through block bodies and then/else regions, never through an `if` condition, loop, or nested try/catch region, and emits one `catch_all_ref` capture plus one `throw_ref` use per rethrow.
+
+The red-first whitebox states were `192/193`, where lowering aborted above one rethrow, and `193/194`, where admission rejected the nested-if arm. Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `194/194`, passes `5,787/5,787`, full `9,256/9,256`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public flatten surface changed. Nonzero depth, typed-payload composition, loops, nested catches, nested-if chains, value-carrying or targeted ifs, broader delegate populations, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

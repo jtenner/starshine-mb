@@ -86,6 +86,12 @@ Commits `d76a91b3f` and `7bfb10372` admit one depth-zero direct catch-all rethro
 
 A future flatten EH aggregate must generate both admitted shapes and rejected nonzero/non-direct/nested/typed-mixed exceptional transfers. No compare lane is authorized while broader EH/control families remain deferred and public pass execution remains removed.
 
+## Multiple and nested-if rethrow breadth remains outside public fuzzing
+
+Commits `3c819922c` and `41533e603` supersede the earlier one-rethrow and direct-block-only limits. One active catch may now lower any positive admitted depth-zero rethrow population through one `catch_all_ref` capture and repeated `throw_ref` uses. One path may cross at most one resultless, untargeted if arm; lowering scans then/else regions but excludes conditions, loops, and nested tries. Red-first whitebox counts moved `192/193 -> 193/193` and `193/194 -> 194/194`; final HOT lower is `89/89`, focused flatten `263/263`, passes `5,787/5,787`, and full `9,256/9,256`.
+
+This still creates no public fuzz lane. A future flatten EH aggregate must generate positive rethrow populations, direct block and single-if-arm ancestry, and rejected nonzero, typed-composed, loop, nested-catch, nested-if, value-carrying-if, targeted-if, and broader delegate populations. No profile, generator test, allowlist, registry, dispatcher, CLI execution, compare/API, preset, or scheduler surface changed.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

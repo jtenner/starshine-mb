@@ -313,6 +313,12 @@ Pinned Binaryen v130 source proves that `Flatten.cpp` does not transform `rethro
 
 The red-first whitebox fixtures moved `188/189 -> 189/189` and `189/190 -> 190/190`. Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `190/190`, passes `5,783/5,783`, full `9,252/9,252`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` changed. The flatten aggregate, four-lane matrix, ordered neighborhood, performance requalification, broader EH/control closure, and public admission remain blocked; the durable representative remains `970.5 us` / `3.65x` Binaryen and was not remeasured.
 
+## Latest multiple and nested-if rethrow breadth
+
+Commits `3c819922c` and `41533e603` supersede the earlier single-rethrow and strict block-only statements above. One active catch may own any positive number of admitted depth-zero rethrows; lowering allocates one nullable `exnref` scratch local, captures the handler exception once through `catch_all_ref`, and reuses that local for every `throw_ref`. Admission still proves each rethrow separately against the same active catch.
+
+One ancestry path may additionally cross at most one resultless `if` arm whose label has no users. Direct blocks may appear on either side of that if. Lowering visits then/else regions but not the condition, and it still does not enter loops or nested try/catch regions. Red-first whitebox results were `192/193` and `193/194`; final whitebox is `194/194`, HOT lower `89/89`, focused flatten `263/263`, IR `326/326`, passes `5,787/5,787`, and full `9,256/9,256`. No public surface or `.mbti` changed, and the durable `970.5 us` / `3.65x` performance checkpoint remains unrequalified.
+
 ## Downstream validation lanes
 
 Once direct reduced tests are green, validate the cluster role that makes `flatten` worth porting:

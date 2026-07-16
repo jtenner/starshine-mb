@@ -444,6 +444,12 @@ Commit `d76a91b3f` admits one depth-zero catch-all rethrow under a direct block 
 
 The red-first whitebox fixtures failed at `188/189` and `189/190` on exceptional-transfer admission, then passed. Final evidence is HOT lower `89/89`, whitebox flatten `190/190`, focused flatten `263/263`, IR `326/326`, passes `5,783/5,783`, full `9,252/9,252`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` or public surface changed. Nonzero or non-direct rethrows, typed catch plus rethrow, nested-catch ownership, non-direct/value-carrying/mixed delegates, used inner labels, and broader exceptional populations remain deferred.
 
+## Latest multiple and nested-if rethrow decisions
+
+Commits `3c819922c` and `41533e603` widen only the already admitted catch-all depth-zero rethrow family. A single active catch may now capture its exception once and serve any positive direct rethrow population. Every rethrow still independently proves depth zero and exact owning-catch ancestry before mutation, so sharing the lowering local does not weaken admission.
+
+The direct ancestry may include blocks and one resultless `if` arm with an unused label. Lowering searches then/else regions but not the condition and does not recurse into loops or nested tries. The two red-first whitebox states were `192/193` and `193/194`; final validation reaches whitebox `194/194`, HOT lower `89/89`, focused flatten `263/263`, IR `326/326`, passes `5,787/5,787`, and full `9,256/9,256`. No `.mbti`, registry, dispatcher, CLI, compare/API, profile, preset, scheduler, or public pass surface changed. The prior one-rethrow and block-only claims are retained above as superseded chronology.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
