@@ -8994,9 +8994,15 @@ fn flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
         return false
       }
       let condition = @ir.hot_child_get(func, opposite_root, 0)
-      flatten_node_is_simple_operand(func, condition) &&
       flatten_single_result_type(func, @ir.hot_node_get(func, condition).ty) ==
-      Some(@lib.ValType::i32())
+      Some(@lib.ValType::i32()) &&
+      (
+        flatten_node_is_simple_operand(func, condition) ||
+        (
+          @ir.hot_node_use_count(state.use_def, condition) == 1 &&
+          flatten_scalar_branch_payload_has_supported_origin(func, condition)
+        )
+      )
     }
     _ => false
   }
