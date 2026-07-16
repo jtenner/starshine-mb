@@ -8676,6 +8676,129 @@ test "flatten preserves rich left binary false flow with one rich tuple try payl
 }
 
 ///|
+test "flatten preserves rich left flow with two rich tuple-made try and loop payloads" {
+  let i32_type = @lib.ValType::i32()
+  let try_func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(
+    try_func,
+    @ir.hot_type_intern_results(try_func, [i32_type, i32_type]),
+  )
+  let try_first_fallback = @ir.hot_build_const_i32(try_func, @lib.I32(9))
+  let try_second_fallback = @ir.hot_build_const_i32(try_func, @lib.I32(10))
+  let try_id = @ir.hot_build_try(
+    try_func,
+    @lib.BlockType::void_(),
+    [try_first_fallback, try_second_fallback],
+    catch_body=Some([
+      @ir.hot_build_const_i32(try_func, @lib.I32(11)),
+      @ir.hot_build_const_i32(try_func, @lib.I32(12)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    try_func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      try_func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i32_type],
+    ),
+  )
+  let try_first_payload = @ir.hot_build_call(try_func, 97, [i32_type], [])
+  let try_second_payload = @ir.hot_build_call(try_func, 96, [i32_type], [])
+  let try_condition = @ir.hot_build_const_i32(try_func, @lib.I32(0))
+  let try_branch = @ir.hot_build_br_if(
+    try_func,
+    @ir.hot_control_node_label(try_func, try_id),
+    try_condition,
+    values=[try_first_payload, try_second_payload],
+  )
+  let try_second_drop = @ir.hot_build_drop(try_func, try_second_payload)
+  let try_left = @ir.hot_build_call(try_func, 98, [i32_type], [])
+  let try_binary = @ir.hot_build_binary(
+    try_func, i32_type, try_left, try_first_payload,
+  )
+  @ir.hot_node_exact_instr_set(
+    try_func,
+    try_binary,
+    @lib.Instruction::i32_sub(),
+  )
+  let try_first_drop = @ir.hot_build_drop(try_func, try_binary)
+  let try_tuple = @ir.hot_build_tuple_make(try_func, [i32_type, i32_type], [
+    try_first_payload, try_second_payload,
+  ])
+  @ir.hot_child_set(try_func, try_branch, 0, try_tuple)
+  @ir.hot_child_set(try_func, try_branch, 1, try_tuple)
+  @ir.hot_child_set(try_func, try_second_drop, 0, try_tuple)
+  @ir.hot_child_set(try_func, try_binary, 1, try_tuple)
+  let try_body_ref = @ir.hot_region_body_ref(try_func, try_id)
+  @ir.hot_region_replace_body(try_func, try_body_ref, [
+    try_branch, try_second_drop, try_first_drop, try_first_fallback, try_second_fallback,
+  ])
+  @ir.hot_root_append(
+    try_func,
+    @ir.hot_build_return(try_func, [try_id, try_id]),
+  )
+  let try_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(try_ctx, try_func), HotPassResult::changed())
+  assert_false(@ir.hot_node_is_live(try_func, try_tuple))
+  flatten_test_assert_rich_left_payload_order(
+    try_func,
+    try_ctx,
+    try_body_ref,
+    try_left,
+    [try_first_payload, try_second_payload],
+    try_branch,
+    try_binary,
+  )
+
+  let loop_func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i32) (result i32 i32))) (func (result i32 i32) call 1 call 2 loop $loop (type $carrier) drop drop call 4 call 5 call 6 call 3 br_if $loop drop i32.sub drop i32.const 11 i32.const 13 end return) (func (result i32) i32.const 1) (func (result i32) i32.const 2) (func (result i32) i32.const 0) (func (result i32) i32.const 20) (func (result i32) i32.const 7) (func (result i32) i32.const 9))",
+  )
+  let loop_return = @ir.hot_root_get(loop_func, 0)
+  let loop_id = @ir.hot_child_get(loop_func, loop_return, 0)
+  let loop_body_ref = @ir.hot_region_body_ref(loop_func, loop_id)
+  let loop_branch = @ir.hot_region_get(loop_func, loop_body_ref, 2)
+  let loop_first_payload = @ir.hot_child_get(loop_func, loop_branch, 0)
+  let loop_second_payload = @ir.hot_child_get(loop_func, loop_branch, 1)
+  let loop_second_drop = @ir.hot_region_get(loop_func, loop_body_ref, 3)
+  let loop_first_drop = @ir.hot_region_get(loop_func, loop_body_ref, 4)
+  let loop_binary = @ir.hot_child_get(loop_func, loop_first_drop, 0)
+  let loop_left = @ir.hot_child_get(loop_func, loop_binary, 0)
+  let loop_tuple = @ir.hot_build_tuple_make(loop_func, [i32_type, i32_type], [
+    loop_first_payload, loop_second_payload,
+  ])
+  @ir.hot_child_set(loop_func, loop_branch, 0, loop_tuple)
+  @ir.hot_child_set(loop_func, loop_branch, 1, loop_tuple)
+  @ir.hot_child_set(loop_func, loop_second_drop, 0, loop_tuple)
+  @ir.hot_child_set(loop_func, loop_binary, 1, loop_tuple)
+  let loop_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(loop_ctx, loop_func), HotPassResult::changed())
+  assert_false(@ir.hot_node_is_live(loop_func, loop_tuple))
+  flatten_test_assert_rich_left_payload_order(
+    loop_func,
+    loop_ctx,
+    loop_body_ref,
+    loop_left,
+    [loop_first_payload, loop_second_payload],
+    loop_branch,
+    loop_binary,
+  )
+}
+
+///|
 test "flatten routes one repeated-target tuple-made br_table to a legacy try" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

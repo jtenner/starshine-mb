@@ -3236,7 +3236,9 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
                     payloads.push(@ir.hot_child_get(func, tuple_id, slot))
                   }
                   if !flatten_rich_left_payload_vector_is_supported(
-                      func, payloads,
+                      func,
+                      payloads,
+                      allow_multiple=true,
                     ) {
                     return None
                   }
@@ -4414,7 +4416,11 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
             for slot = 0; slot < payload_count; slot = slot + 1 {
               payloads.push(@ir.hot_child_get(func, tuple_id, slot))
             }
-            if !flatten_rich_left_payload_vector_is_supported(func, payloads) {
+            if !flatten_rich_left_payload_vector_is_supported(
+                func,
+                payloads,
+                allow_multiple=true,
+              ) {
               return None
             }
             rich_left_id = left_id
