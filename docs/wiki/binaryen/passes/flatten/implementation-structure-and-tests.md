@@ -469,6 +469,14 @@ Commit `1fc7c6077` extends that same helper through exact selected resultless un
 
 Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `203/203`, passes `5,796/5,796`, and full `9,266/9,266`. No `.mbti` changed. Typed markers, value-carrying or targeted controls, multi-root selected paths, loops, nested try-body rethrows, broader exceptional ownership, and every public pass surface remain excluded.
 
+## Latest rich-condition and interleaved-lane implementation slices
+
+Commit `61fb9919b` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. `flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(...)` now accepts the existing simple scalar `i32` condition or one exact one-use supported scalar `i32` origin from `FlattenRewriteState.use_def`. The whitebox fixture proves ordinary recursive flattening keeps the resulting `local.set` and `local.get` inside the opposite arm, immediately before the original payloadless `br_if`, without changing its target or the selected rethrow ancestry. It was red at `205/206` with `DeferredExceptionalTransferRepair` and is green at `206/206`.
+
+Commit `1fb8f64ec` changes `src/ir/hot_mutate.mbt` and `src/passes/flatten_wbtest.mbt`. The direct-root branch of `hot_ordered_catch_payload_repair(...)` now scans forward from the first post-marker root and selects each lane's exact independently owned first-child path in source order, skipping unrelated roots. The common single-root block-chain route remains exact. The new two-lane fixture inserts an unrelated `nop` between lane roots, was red at `206/207` with `DeferredCatchPayloadRepair`, and is green at `207/207`; it locks reverse handler-stack captures, source-ordered locals, preserved gap/later roots, HOT verification, lowering, and module validation.
+
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `207/207`, passes `5,800/5,800`, full `9,270/9,270`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` changed. Public registry, dispatcher, CLI execution, compare/API, GenValid profile, preset, scheduler, and exact-neighborhood readiness remain absent.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

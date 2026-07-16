@@ -128,7 +128,13 @@ Commits `c90bed031` and `8529deb42` admit strict nonzero-rethrow ancestry throug
 
 Red-first whitebox moved `203/204 -> 204/204` and `204/205 -> 205/205`; final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,798/5,798`, and full `9,268/9,268`. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
 
-A future EH aggregate should generate both then- and else-selected forms, the plain and simple-conditional opposite exits, and strict mixes with existing untargeted blocks/ifs at every catch depth. It must also reject multiple/outside label users, payload-carrying exits, rich/non-`i32` conditions, same-arm targeting, multi-root/value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ownership. No compare lane is authorized yet.
+A future EH aggregate should generate both then- and else-selected forms, the plain and simple-conditional opposite exits, and strict mixes with existing untargeted blocks/ifs at every catch depth. It must also reject multiple/outside label users, payload-carrying exits, same-arm targeting, multi-root/value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ownership. The blanket rich-condition negative is superseded only by the exact one-use supported scalar `i32` family below. No compare lane is authorized yet.
+
+## Rich targeted conditions and interleaved catch roots remain outside public fuzzing
+
+Commits `61fb9919b` and `1fb8f64ec` add two more internal-only positive families. The targeted-if profile surface now needs a payloadless opposite-arm `br_if` with one one-use supported rich scalar `i32` condition, while retaining negatives for shared, control, tee, non-`i32`, payload-bearing, outside-user, and broader targeted forms. The catch profile surface now needs ordered same-tag independently owned direct-root lanes with unrelated roots before or between lane roots, while retaining reverse/ambiguous order, partial/mixed lanes, non-first-descendant/repeated/shared/outside use, selected-arm, loop, nested-catch, and catch-all negatives.
+
+Red-first whitebox moved `205/206 -> 206/206` and `206/207 -> 207/207`; final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,800/5,800`, and full `9,270/9,270`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added. The durable performance checkpoint remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
 
 ## Future executable lane
 

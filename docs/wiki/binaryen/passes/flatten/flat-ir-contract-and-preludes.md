@@ -583,7 +583,21 @@ The strict nonzero-rethrow owner walk now permits one targeted resultless `if` f
 
 This is an ownership and preservation proof. Flatten leaves the branch target, optional condition child, if result arity, selected-arm structure, rethrow immediate, and active catch slot unchanged. The plain and conditional red-first fixtures moved whitebox `203/204 -> 204/204` and `204/205 -> 205/205`; both lowered modules validate through the existing exact outer `catch_all_ref` capture and `throw_ref` use.
 
-The earlier blanket targeted-if exclusion is superseded only for this opposite-arm payloadless exit family. Multiple/outside label users, payload-bearing branches, rich/non-`i32` conditions, same-arm users, missing or multi-root opposite arms, value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ancestry still reject before mutation.
+The earlier blanket targeted-if exclusion is superseded only for this opposite-arm payloadless exit family. Multiple/outside label users, payload-bearing branches, same-arm users, missing or multi-root opposite arms, value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ancestry still reject before mutation. The blanket rich-condition exclusion is superseded only by the exact one-use supported scalar `i32` condition below.
+
+## Rich opposite-arm conditions remain arm-local preludes
+
+A targeted resultless catch-if may now preserve a payloadless opposite-arm `br_if` whose condition is one exact one-use supported scalar `i32` origin. This uses the ordinary Flat IR rule rather than a special exceptional rewrite: the rich condition becomes a `local.set` immediately before the branch in that same arm, and the branch condition becomes the matching `local.get`. Work does not migrate before the owning `if` or into the selected rethrow arm.
+
+The exact proof therefore composes two contracts: exceptional ancestry proves the sole label user, direct opposite-arm ownership, selected rethrow/nested-try arm, depth, and catch slot before mutation; ordinary operand flattening proves scalar/defaultable non-control origin, one use, and arm-local prelude placement. Shared, control, tee, non-`i32`, or otherwise unsupported conditions remain deferred.
+
+## Interleaved direct catch roots retain ordered stack capture
+
+The ordered catch transaction now permits unrelated direct roots before or between independently owned lane roots. It still scans lanes in source order and selects only a root whose exact first-child path owns the matching marker's second and only use. Captures remain source-ordered locals emitted in reverse handler-stack order; skipped roots and all later roots retain identity.
+
+This does not change Binaryen v130's first-descendant policy into arbitrary payload motion. Reverse or ambiguous lane order, missing/partial lanes, non-first-descendant or repeated use, selected-arm paths, loops, nested catches, mixed tags, sharing/outside ownership, and catch-all extraction still fail before any local or root mutation.
+
+The red-first whitebox states were `205/206` and `206/207`; final whitebox is `207/207`, with HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,800/5,800`, and full `9,270/9,270`.
 
 ## Unsupported and surprising boundaries
 

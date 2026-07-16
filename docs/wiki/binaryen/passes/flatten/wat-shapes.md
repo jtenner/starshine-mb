@@ -1073,7 +1073,38 @@ The conditional counterpart is also admitted when the opposite sole root is payl
 
 Both arms must contain exactly one root. The selected arm exclusively owns the current rethrow or nested try. The opposite branch is the label's only indexed user, is directly owned by the if, and keeps the same target. For `br_if`, the condition node also remains unchanged. Flatten preserves the rethrow immediate and the existing exact target-catch `exnref` slot; lowering still emits `catch_all_ref` plus `throw_ref`.
 
-The plain fixture moved whitebox `203/204 -> 204/204`; the conditional fixture moved `204/205 -> 205/205`; both lowered modules validate. Multiple label users, payload values, rich/non-`i32` conditions, branches outside the sole opposite arm, multi-root/value-carrying/multivalue wrappers, loops, typed composition, and broader targeted ownership remain fail-closed.
+The plain fixture moved whitebox `203/204 -> 204/204`; the conditional fixture moved `204/205 -> 205/205`; both lowered modules validate. Multiple label users, payload values, branches outside the sole opposite arm, multi-root/value-carrying/multivalue wrappers, loops, typed composition, and broader targeted ownership remain fail-closed. The rich-condition boundary is superseded only by Shape 25's exact one-use supported scalar `i32` condition.
+
+## Shape 25: rich targeted conditions and interleaved catch lane roots
+
+The conditional targeted-if shape may now use one rich scalar `i32` condition:
+
+```wat
+(if $exit (i32.const 1)
+  (then
+    ;; stays in this arm
+    (local.set $cond (i32.add (i32.const 2) (i32.const 3)))
+    (br_if $exit (local.get $cond)))
+  (else
+    (rethrow 1)))
+```
+
+The input HOT contains the rich `i32.add` directly under `br_if`. Admission requires exactly one immutable use and a supported non-control, non-tee scalar origin. Ordinary flattening inserts the local-set prelude in the same opposite arm; it does not move the condition before the `if`, change the target, or disturb the selected rethrow arm. The behavior fixture moved whitebox `205/206 -> 206/206`.
+
+Ordered catch lanes may also have unrelated direct roots between their use roots:
+
+```text
+catch roots:
+  Catch(lane0), Catch(lane1),
+  drop(add(lane0, 3)),
+  nop,                         ;; unrelated preserved gap
+  if(lane1) { nop } else { nop },
+  nop                          ;; later root preserved
+```
+
+Starshine finds lane zero and lane one only in forward source order, captures handler values into source-ordered locals in reverse stack order, replaces the exact first-child positions, and leaves both unrelated roots unchanged. The behavior fixture moved `206/207 -> 207/207`. Reverse or ambiguous lane order, missing/partial lanes, repeated/shared/outside use, non-first-descendant paths, selected-arm payloads, loops, nested catches, mixed tags, and catch-all extraction remain fail-closed.
+
+Final passes are `5,800/5,800` and full is `9,270/9,270`; public flatten remains removed.
 
 ## Bottom line
 

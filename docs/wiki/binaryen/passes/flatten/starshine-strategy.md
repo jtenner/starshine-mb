@@ -494,7 +494,15 @@ Commits `c90bed031` and `8529deb42` supersede the blanket targeted-if rethrow bl
 
 The strategy is preservation, not branch rewriting: target identity, condition identity, selected-arm ownership, rethrow depth, and the exact target-catch exception slot stay unchanged. Whitebox moved `203/204 -> 204/204 -> 204/205 -> 205/205`; final passes are `5,798/5,798` and full `9,268/9,268`. No `.mbti` or public surface changed, and performance remains unrequalified at the durable `970.5 us` / `3.65x` checkpoint.
 
-Multiple label users, payload-carrying exits, rich or non-`i32` conditional operands, target users outside the sole opposite arm, multi-root/value-carrying/multivalue wrappers, loops, typed composition, nested try-body transfers, and broader targeted ancestry remain open. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring.
+Multiple label users, payload-carrying exits, target users outside the sole opposite arm, multi-root/value-carrying/multivalue wrappers, loops, typed composition, nested try-body transfers, and broader targeted ancestry remain open. The blanket rich-condition blocker is superseded only by the exact one-use supported scalar `i32` condition below; shared, control, tee, non-`i32`, and otherwise unsupported conditions remain open. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring.
+
+## Latest rich targeted-condition and interleaved-lane decisions
+
+Commit `61fb9919b` keeps the targeted-if strategy preservation-oriented while allowing ordinary flatten work inside the opposite arm. A payloadless opposite-arm `br_if` may own one rich scalar `i32` condition only when the immutable pre-mutation use count is exactly one and the origin is a supported non-control, non-tee scalar value. The condition is materialized immediately before that branch in its arm; the branch target, selected-arm ownership, rethrow depth, and target-catch exception slot are not generalized.
+
+Commit `1fb8f64ec` broadens the Starshine catch-entry bridge without changing its stack order. Ordered same-tag markers may map to later independently owned direct roots with unrelated roots interleaved. The planner consumes lane roots only in forward source order, each lane keeps exact entry-plus-old-position ownership and first-child ancestry, and entry captures still execute in reverse handler-stack order. This is not non-first-descendant or repeated-use repair; reverse/ambiguous order, partial/mixed lanes, selected-arm payloads, loops, nested catches, sharing/outside ownership, and catch-all extraction remain closed.
+
+Whitebox moved `205/206 -> 206/206 -> 206/207 -> 207/207`. Final passes are `5,800/5,800` and full is `9,270/9,270`; HOT mutation, HOT lower, IR, and focused flatten remain `16/16`, `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at the durable `970.5 us` / `3.65x` checkpoint.
 
 ## Validation plan for the eventual port
 
