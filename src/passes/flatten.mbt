@@ -8952,7 +8952,7 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
-fn flatten_rethrow_targeted_if_opposite_plain_exit_is_supported(
+fn flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
   func : @ir.HotFunc,
   if_id : Int,
   current : Int,
@@ -8988,6 +8988,16 @@ fn flatten_rethrow_targeted_if_opposite_plain_exit_is_supported(
   match branch.op {
     @ir.HotOp::Br =>
       branch.imm0 == label_id && @ir.hot_child_count(func, opposite_root) == 0
+    @ir.HotOp::BrIf => {
+      if branch.imm0 != label_id ||
+        @ir.hot_child_count(func, opposite_root) != 1 {
+        return false
+      }
+      let condition = @ir.hot_child_get(func, opposite_root, 0)
+      flatten_node_is_simple_operand(func, condition) &&
+      flatten_single_result_type(func, @ir.hot_node_get(func, condition).ty) ==
+      Some(@lib.ValType::i32())
+    }
     _ => false
   }
 }
@@ -9026,7 +9036,7 @@ fn flatten_rethrow_catch_root_through_strict_ancestry(
         if label_id < 0 ||
           (
             !state.label_branch_nodes[label_id].is_empty() &&
-            !flatten_rethrow_targeted_if_opposite_plain_exit_is_supported(
+            !flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
               func, parent, current, state,
             )
           ) {
