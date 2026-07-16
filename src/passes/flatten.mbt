@@ -8952,7 +8952,7 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
-fn flatten_scalar_typed_catch_owns_direct_rethrow(
+fn flatten_typed_catch_owns_direct_rethrow(
   func : @ir.HotFunc,
   try_id : Int,
   rethrow_id : Int,
@@ -8965,18 +8965,31 @@ fn flatten_scalar_typed_catch_owns_direct_rethrow(
   if root_count < 3 {
     return false
   }
-  let payload_id = @ir.hot_region_get(func, catch_ref, 0)
-  let payload = @ir.hot_node_get(func, payload_id)
-  match payload.op {
-    @ir.HotOp::Catch => ()
-    _ => return false
+  let mut payload_count = 0
+  let mut payload_tag = -1
+  while payload_count < root_count {
+    let payload_id = @ir.hot_region_get(func, catch_ref, payload_count)
+    let payload = @ir.hot_node_get(func, payload_id)
+    match payload.op {
+      @ir.HotOp::Catch => ()
+      _ => break
+    }
+    if @ir.hot_child_count(func, payload_id) != 0 ||
+      flatten_type_results(func, payload.ty).length() != 1 {
+      return false
+    }
+    if payload_count == 0 {
+      payload_tag = payload.imm0
+    } else if payload.imm0 != payload_tag {
+      return false
+    }
+    payload_count += 1
   }
-  if @ir.hot_child_count(func, payload_id) != 0 ||
-    flatten_type_results(func, payload.ty).length() != 1 {
+  if payload_count == 0 || root_count < payload_count + 2 {
     return false
   }
   let mut saw_rethrow = false
-  for idx = 1; idx < root_count; idx = idx + 1 {
+  for idx = payload_count; idx < root_count; idx = idx + 1 {
     let candidate = @ir.hot_region_get(func, catch_ref, idx)
     match @ir.hot_node_get(func, candidate).op {
       @ir.HotOp::Catch | @ir.HotOp::CatchAll => return false
@@ -9220,7 +9233,7 @@ fn flatten_direct_catch_all_rethrow_is_supported(
   flatten_markerless_catch_owns_root(func, parent, current) ||
   (
     current == rethrow_id &&
-    flatten_scalar_typed_catch_owns_direct_rethrow(func, parent, rethrow_id)
+    flatten_typed_catch_owns_direct_rethrow(func, parent, rethrow_id)
   )
 }
 

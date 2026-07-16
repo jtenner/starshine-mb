@@ -1393,12 +1393,8 @@ fn hot_lower_impl_emit_instruction(
         hot_region_body_ref(func, catch_region),
         0,
       )
-      if rethrow_count > 0 &&
-        !catch_payloads.is_empty() &&
-        (rethrow_count != 1 || catch_payloads.length() != 1) {
-        abort(
-          "hot lower typed direct catch rethrow requires one scalar payload and one rethrow",
-        )
+      if rethrow_count > 0 && !catch_payloads.is_empty() && rethrow_count != 1 {
+        abort("hot lower typed direct catch rethrow requires one rethrow")
       }
       let rethrow_local = if rethrow_count > 0 {
         Some(
@@ -1483,21 +1479,21 @@ fn hot_lower_impl_emit_instruction(
         Some(_) =>
           match catch_payloads {
             [] => BlockType::val_type(ValType::ref_null_exn())
-            [payload] => {
-              let handler_results = [payload.val_type, ValType::ref_null_exn()]
+            [_, ..] => {
+              let handler_results : Array[ValType] = []
+              for lane in catch_payloads {
+                handler_results.push(lane.val_type)
+              }
+              handler_results.push(ValType::ref_null_exn())
               match
                 hot_lower_impl_result_only_block_type(func, handler_results) {
                 Some(block_type) => block_type
                 None =>
                   abort(
-                    "hot lower typed direct catch rethrow requires an existing payload-plus-exnref handler type",
+                    "hot lower typed direct catch rethrow requires an existing payload-vector-plus-exnref handler type",
                   )
               }
             }
-            _ =>
-              abort(
-                "hot lower typed direct catch rethrow requires one scalar payload",
-              )
           }
         None =>
           match catch_payloads {
@@ -1522,11 +1518,7 @@ fn hot_lower_impl_emit_instruction(
         Some(_) =>
           match catch_payloads {
             [] => [Catch::all_ref(LabelIdx::new(0U))]
-            [payload] => [Catch::ref_(payload.tag_idx, LabelIdx::new(0U))]
-            _ =>
-              abort(
-                "hot lower typed direct catch rethrow requires one scalar payload",
-              )
+            [payload, ..] => [Catch::ref_(payload.tag_idx, LabelIdx::new(0U))]
           }
         None =>
           match catch_payloads {
