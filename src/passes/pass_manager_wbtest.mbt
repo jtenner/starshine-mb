@@ -20591,6 +20591,48 @@ test "DAEO selected readback traversal sinks terminal four-argument block carrie
 }
 
 ///|
+test "DAEO selected readback traversal rereads reordered aggregate fields without a spill" {
+  let aggregate = @lib.LocalIdx::new(0U)
+  let spill = @lib.LocalIdx::new(1U)
+  let body = [
+    @lib.Instruction::local_tee(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::local_set(spill),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(2U)),
+    @lib.Instruction::local_get(spill),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(3U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ]
+  let local_gets = [2, 1]
+  let local_sets = [0, 1]
+  let local_tees = [1, 0]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+    body,
+    local_gets,
+    local_sets,
+    local_tees,
+    [
+      @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+      @lib.ValType::i32(),
+    ],
+  )
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(local_gets, [2, 0])
+  @debug.assert_eq(local_sets, [0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_tee(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(2U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::local_get(aggregate),
+    @lib.Instruction::struct_get(@lib.TypeIdx::new(0U), @lib.U32(3U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal forwards two-call pair-store carriers" {
   let second = @lib.LocalIdx::new(3U)
   let target = @lib.LocalIdx::new(4U)

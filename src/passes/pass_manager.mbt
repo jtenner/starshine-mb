@@ -60802,6 +60802,84 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
+// A single aggregate value can be reread to preserve the exact field-result
+// order without spilling the first field. Struct reads are pure, and the same
+// aggregate is tested before any intervening effect or control instruction.
+fn run_hot_pipeline_dae_try_reread_reordered_aggregate_fields(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 8 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+    ) {
+    (
+      @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(struct_type, first_field),
+      @lib.LocalSet(@lib.LocalIdx(spill_raw) as spill),
+      @lib.LocalGet(second_aggregate),
+      @lib.StructGet(second_type, second_field),
+      @lib.LocalGet(spill_readback),
+      @lib.LocalGet(third_aggregate),
+      @lib.StructGet(third_type, third_field),
+      @lib.Br(label),
+    ) if aggregate == second_aggregate &&
+      aggregate == third_aggregate &&
+      spill == spill_readback &&
+      struct_type == second_type &&
+      struct_type == third_type => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      let spill_idx = spill_raw.reinterpret_as_int()
+      if aggregate_idx < 0 ||
+        spill_idx < 0 ||
+        aggregate_idx == spill_idx ||
+        aggregate_idx >= local_gets.length() ||
+        aggregate_idx >= local_sets.length() ||
+        aggregate_idx >= local_tees.length() ||
+        spill_idx >= local_gets.length() ||
+        spill_idx >= local_sets.length() ||
+        spill_idx >= local_tees.length() ||
+        local_gets[spill_idx] != 1 ||
+        local_sets[spill_idx] != 1 ||
+        local_tees[spill_idx] != 0 {
+        return None
+      }
+      local_gets[spill_idx] = 0
+      local_sets[spill_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_tee(aggregate),
+            @lib.Instruction::struct_get(struct_type, second_field),
+            @lib.Instruction::local_get(aggregate),
+            @lib.Instruction::struct_get(struct_type, first_field),
+            @lib.Instruction::local_get(aggregate),
+            @lib.Instruction::struct_get(struct_type, third_field),
+            @lib.Instruction::br(label),
+          ],
+          9,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 // A two-result producer can feed paired struct stores without a temporary for
 // the first result. Hoisting only the first receiver's nontrapping local read
 // leaves producer effects, traps, result order, and the second spill unchanged.
@@ -61319,6 +61397,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_reread_reordered_aggregate_fields(
+        instrs, idx, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
