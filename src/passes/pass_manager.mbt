@@ -66398,7 +66398,12 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
   let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
-  let result = dae_run_core(mod_, options.trace, perf=options.perf)
+  let result = dae_run_core(
+    mod_,
+    options.trace,
+    optimize=true,
+    perf=options.perf,
+  )
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
   let mut core_mod = result.mod_out
   let mut core_touched = result.touched

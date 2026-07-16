@@ -6362,7 +6362,50 @@ test "dead-argument-elimination reuses converged simple function signatures" {
 }
 
 ///|
-test "dae-optimizing can recover a later exact-literal candidate after the eight core iterations" {
+test "plain DAE processes profitable independent boundaries beyond eight rewrites" {
+  let source =
+    #|(module
+    #|  (func $g0 (param i32 i32) local.get 0 drop)
+    #|  (func $g1 (param i32 i32) local.get 0 drop)
+    #|  (func $g2 (param i32 i32) local.get 0 drop)
+    #|  (func $g3 (param i32 i32) local.get 0 drop)
+    #|  (func $g4 (param i32 i32) local.get 0 drop)
+    #|  (func $g5 (param i32 i32) local.get 0 drop)
+    #|  (func $g6 (param i32 i32) local.get 0 drop)
+    #|  (func $g7 (param i32 i32) local.get 0 drop)
+    #|  (func $g8 (param i32 i32) local.get 0 drop)
+    #|  (func (export "run1")
+    #|    i32.const 0 i32.const 10 call $g0
+    #|    i32.const 1 i32.const 11 call $g1
+    #|    i32.const 2 i32.const 12 call $g2
+    #|    i32.const 3 i32.const 13 call $g3
+    #|    i32.const 4 i32.const 14 call $g4
+    #|    i32.const 5 i32.const 15 call $g5
+    #|    i32.const 6 i32.const 16 call $g6
+    #|    i32.const 7 i32.const 17 call $g7
+    #|    i32.const 8 i32.const 18 call $g8)
+    #|  (func (export "run2")
+    #|    i32.const 20 i32.const 30 call $g0
+    #|    i32.const 21 i32.const 31 call $g1
+    #|    i32.const 22 i32.const 32 call $g2
+    #|    i32.const 23 i32.const 33 call $g3
+    #|    i32.const 24 i32.const 34 call $g4
+    #|    i32.const 25 i32.const 35 call $g5
+    #|    i32.const 26 i32.const 36 call $g6
+    #|    i32.const 27 i32.const 37 call $g7
+    #|    i32.const 28 i32.const 38 call $g8))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  for def_idx = 0; def_idx < 9; def_idx = def_idx + 1 {
+    @debug.assert_eq(dae_test_func_params(optimized, def_idx).length(), 1)
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected fully converged plain DAE output, got \{err}")
+  }
+}
+
+///|
+test "dae-optimizing core converges beyond the former eight-rewrite cap" {
   let source =
     #|(module
     #|  (func $g0 (param i32 i32)
@@ -6447,7 +6490,7 @@ test "dae-optimizing can recover a later exact-literal candidate after the eight
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
   @debug.assert_eq(dae_test_func_params(optimized, 7).length(), 0)
-  @debug.assert_eq(dae_test_func_params(optimized, 8).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 8).length(), 0)
   @debug.assert_eq(dae_test_func_params(optimized, 9).length(), 2)
   let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
     Ok(trace) => trace
@@ -6468,14 +6511,13 @@ test "dae-optimizing can recover a later exact-literal candidate after the eight
     "pass[dae-optimizing]:core iter=2 primary_def=2", "pass[dae-optimizing]:core iter=3 primary_def=3",
     "pass[dae-optimizing]:core iter=4 primary_def=4", "pass[dae-optimizing]:core iter=5 primary_def=5",
     "pass[dae-optimizing]:core iter=6 primary_def=6", "pass[dae-optimizing]:core iter=7 primary_def=7",
+    "pass[dae-optimizing]:core iter=8 primary_def=8", "pass[dae-optimizing]:core iter=9 primary_def=9",
   ])
-  @debug.assert_eq(reverse_trace, [
-    "pass[dae-optimizing]:reverse-exact-literal iter=0 primary_def=9",
-  ])
+  @debug.assert_eq(reverse_trace, [])
 }
 
 ///|
-test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
+test "dae-optimizing converges before the reverse exact-literal wrapper lane" {
   let source =
     #|(module
     #|  (func $g0 (param i32 i32)
@@ -6565,10 +6607,7 @@ test "dae-optimizing can chase a later exact-literal forwarding-wrapper chain" {
       reverse_trace.push(line)
     }
   }
-  @debug.assert_eq(reverse_trace, [
-    "pass[dae-optimizing]:reverse-exact-literal iter=0 primary_def=10", "pass[dae-optimizing]:reverse-exact-literal iter=1 primary_def=9",
-    "pass[dae-optimizing]:reverse-exact-literal iter=2 primary_def=8",
-  ])
+  @debug.assert_eq(reverse_trace, [])
   @debug.assert_eq(dae_test_func_params(optimized, 8).length(), 2)
   @debug.assert_eq(dae_test_func_params(optimized, 9).length(), 2)
   @debug.assert_eq(dae_test_func_params(optimized, 10).length(), 2)
@@ -6796,10 +6835,10 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   let chain2 = optimized.pretty_print_defined_func(41U)
   assert_false(chain2.contains("local.set"), msg=chain2)
   let @lib.Func(target_locals, _) = dae_test_defined_func(optimized, target_def)
-  @debug.assert_eq(target_locals.length(), 0)
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
+  assert_true(target_locals.length() == 0, msg=target)
   assert_false(target.contains("if"), msg=target)
   assert_false(target.contains("local.get"), msg=target)
   assert_true(
@@ -6810,9 +6849,8 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   )
   for
     expected in [
-      "pass[dae-optimizing]:low-exact-result-worklist iter=0 primary_def=165", "pass[dae-optimizing]:low-exact-result-worklist iter=1 primary_def=164",
-      "pass[dae-optimizing]:low-exact-result-worklist iter=2 primary_def=39", "pass[dae-optimizing]:low-exact-result-worklist iter=3 primary_def=42",
-      "pass[dae-optimizing]:low-exact-result-worklist iter=4 primary_def=43",
+      "pass[dae-optimizing]:direct-gc-batch wave=0 first_def=37", "pass[dae-optimizing]:direct-gc-batch wave=1 first_def=164",
+      "pass[dae-optimizing]:direct-gc-batch wave=2 first_def=39", "pass[dae-optimizing]:direct-gc-batch wave=3 first_def=42",
     ] {
     assert_true(chain_trace.contains(expected), msg=chain_trace.to_string())
   }
@@ -6871,7 +6909,7 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
     }
     assert_true(
       trace.contains(
-        "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_def} primary_def=\{boundary_def + 1}",
+        "pass[dae-optimizing]:core iter=8 primary_def=\{boundary_def + 1}",
       ),
       msg=trace.to_string(),
     )
@@ -14053,7 +14091,7 @@ test "dae-optimizing traces large touched set nested cleanup skip" {
   }
   assert_true(
     trace.contains(
-      "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set touched=9",
+      "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set touched=10",
     ),
     msg=trace.to_string(),
   )
@@ -15954,12 +15992,15 @@ test "dae-optimizing converges through an unread callee before a computed cycle 
   )
   @debug.assert_eq(dae_test_func_params(optimized, 7007).length(), 1)
   for def_idx in [7004, 7005, 7006] {
-    @debug.assert_eq(dae_test_func_params(optimized, def_idx).length(), 1)
+    assert_true(
+      dae_test_func_params(optimized, def_idx).length() == 1,
+      msg=trace.to_string(),
+    )
   }
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=[7007] cycle_defs=[7004, 7005, 7006]",
+        "pass[dae-optimizing]:forwarded-param-component-transaction defs=[7005, 7004, 7006] params=3",
       )
     }),
     msg=trace.to_string(),
