@@ -548,9 +548,7 @@ fn hot_lower_impl_strict_selected_delegate_if_root(
     return None
   }
   let selected_root = hot_region_get(func, selected_ref, 0)
-  if !hot_region_is_strict_no_work_block_chain(func, opposite_ref, fn(
-      label_id,
-    ) {
+  if !hot_region_is_strict_no_work_forest(func, opposite_ref, fn(label_id) {
       hot_lower_impl_label_is_used(func, label_id)
     }) {
     return None

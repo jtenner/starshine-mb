@@ -202,6 +202,40 @@ pub fn hot_region_single_live_root(
 }
 
 ///|
+fn hot_root_is_strict_no_work_block_chain(
+  func : HotFunc,
+  root_id : NodeId,
+  label_is_used : (LabelId) -> Bool,
+) -> Bool {
+  let mut current = root_id
+  while true {
+    if current < 0 || !hot_node_is_live(func, current) {
+      return false
+    }
+    match hot_query_op(func, current) {
+      HotOp::Nop => return hot_child_count(func, current) == 0
+      HotOp::Block => {
+        if hot_node_result_arity(func, current) != 0 {
+          return false
+        }
+        let label_id = hot_control_node_label(func, current)
+        if label_id < 0 || label_is_used(label_id) {
+          return false
+        }
+        let body_ref = hot_region_body_ref(func, current)
+        match hot_region_root_count(func, body_ref) {
+          0 => return true
+          1 => current = hot_region_get(func, body_ref, 0)
+          _ => return false
+        }
+      }
+      _ => return false
+    }
+  }
+  false
+}
+
+///|
 /// Prove that a region is empty or contains only an unused-label resultless
 /// single-root block chain ending in an empty body or one childless `nop`.
 pub fn hot_region_is_strict_no_work_block_chain(
@@ -209,33 +243,36 @@ pub fn hot_region_is_strict_no_work_block_chain(
   region_ref : HotRegionRef,
   label_is_used : (LabelId) -> Bool,
 ) -> Bool {
-  let mut current_ref = region_ref
-  while true {
-    match hot_region_root_count(func, current_ref) {
-      0 => return true
-      1 => ()
-      _ => return false
-    }
-    let root_id = hot_region_get(func, current_ref, 0)
-    if root_id < 0 || !hot_node_is_live(func, root_id) {
+  match hot_region_root_count(func, region_ref) {
+    0 => true
+    1 =>
+      hot_root_is_strict_no_work_block_chain(
+        func,
+        hot_region_get(func, region_ref, 0),
+        label_is_used,
+      )
+    _ => false
+  }
+}
+
+///|
+/// Prove that every root in a region independently forms an unused-label
+/// resultless block chain ending empty or in one childless `nop`.
+pub fn hot_region_is_strict_no_work_forest(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  label_is_used : (LabelId) -> Bool,
+) -> Bool {
+  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+    if !hot_root_is_strict_no_work_block_chain(
+        func,
+        hot_region_get(func, region_ref, slot),
+        label_is_used,
+      ) {
       return false
     }
-    match hot_query_op(func, root_id) {
-      HotOp::Nop => return hot_child_count(func, root_id) == 0
-      HotOp::Block => {
-        if hot_node_result_arity(func, root_id) != 0 {
-          return false
-        }
-        let label_id = hot_control_node_label(func, root_id)
-        if label_id < 0 || label_is_used(label_id) {
-          return false
-        }
-        current_ref = hot_region_body_ref(func, root_id)
-      }
-      _ => return false
-    }
   }
-  false
+  true
 }
 
 ///|

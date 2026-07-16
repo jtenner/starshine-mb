@@ -197,6 +197,90 @@ test "single-root wrapper queries peel canonical block wrappers" {
 }
 
 ///|
+test "strict no-work forest queries accept independent chains only" {
+  let func = HotFunc::new()
+  let empty_chain = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_block(func, @lib.BlockType::void_(), []),
+  ])
+  let nop_chain = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_block(func, @lib.BlockType::void_(), [hot_build_nop(func)]),
+  ])
+  let positive = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_nop(func),
+    empty_chain,
+    nop_chain,
+  ])
+  let executable = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1))),
+  ])
+  let used = hot_build_block(func, @lib.BlockType::void_(), [])
+  let used_holder = hot_build_block(func, @lib.BlockType::void_(), [used])
+  let value_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [hot_build_const_i32(func, @lib.I32(1))],
+  )
+  let value_holder = hot_build_block(func, @lib.BlockType::void_(), [
+    value_block,
+  ])
+  let loop_holder = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_loop(func, @lib.BlockType::void_(), [hot_build_nop(func)]),
+  ])
+  let try_holder = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_try(
+      func,
+      @lib.BlockType::void_(),
+      [hot_build_nop(func)],
+      catch_body=Some([hot_build_nop(func)]),
+    ),
+  ])
+  let used_label = hot_control_node_label(func, used)
+
+  assert_true(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, positive),
+      fn(_) { false },
+    ),
+  )
+  assert_false(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, executable),
+      fn(_) { false },
+    ),
+  )
+  assert_false(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, used_holder),
+      fn(label_id) { label_id == used_label },
+    ),
+  )
+  assert_false(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, value_holder),
+      fn(_) { false },
+    ),
+  )
+  assert_false(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, loop_holder),
+      fn(_) { false },
+    ),
+  )
+  assert_false(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, try_holder),
+      fn(_) { false },
+    ),
+  )
+}
+
+///|
 test "holder and single-if queries expose canonical lifted control entry points" {
   let func = hot_lift_body(
     @lib.Expr::new([
