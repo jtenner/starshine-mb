@@ -21001,6 +21001,44 @@ test "DAEO selected readback traversal stores first one-call pair results in pro
 }
 
 ///|
+test "DAEO selected forwarding traversal tees i64-to-i32 readbacks" {
+  let target = @lib.LocalIdx::new(0U)
+  let body = [
+    @lib.Instruction::i64_const(@lib.I64(7L)),
+    @lib.Instruction::i32_wrap_i64(),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+  ]
+  let local_gets = [2]
+  let local_sets = [1]
+  let local_tees = [0]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
+    body,
+    0,
+    [@lib.ValType::i32()],
+    local_gets,
+    local_sets,
+    local_tees,
+    None,
+  )
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(local_gets, [1])
+  @debug.assert_eq(local_sets, [0])
+  @debug.assert_eq(local_tees, [1])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i64_const(@lib.I64(7L)),
+    @lib.Instruction::i32_wrap_i64(),
+    @lib.Instruction::local_tee(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal sinks terminal call block carriers" {
   let target = @lib.LocalIdx::new(1U)
   let producer = @lib.Instruction::block(

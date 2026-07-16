@@ -63497,6 +63497,34 @@ fn run_hot_pipeline_dae_forward_one_use_immutable_param_copies(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (
+          @lib.I32WrapI64,
+          @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+          @lib.LocalGet(readback),
+        ) if target == readback => {
+          let target_idx = target_raw.reinterpret_as_int()
+          if target_idx >= 0 &&
+            target_idx < local_gets.length() &&
+            target_idx < local_sets.length() &&
+            target_idx < local_tees.length() &&
+            local_gets[target_idx] >= 1 &&
+            local_sets[target_idx] == 1 &&
+            local_tees[target_idx] == 0 {
+            local_gets[target_idx] = local_gets[target_idx] - 1
+            local_sets[target_idx] = 0
+            local_tees[target_idx] = 1
+            rewritten.push(@lib.Instruction::i32_wrap_i64())
+            rewritten.push(@lib.Instruction::local_tee(target))
+            rewrite_count = rewrite_count + 1
+            idx += 3
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
     match
       run_hot_pipeline_dae_try_sink_selected_block_result_transport(
         instrs, idx, param_count, local_types, local_gets, local_sets, local_tees,
