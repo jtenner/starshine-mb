@@ -115,6 +115,134 @@ fn dae_test_many_i32_const_drops(count : Int) -> String {
 }
 
 ///|
+fn dae_test_instr_matches(
+  instr : @lib.Instruction,
+  predicate : (@lib.Instruction) -> Bool,
+) -> Bool {
+  if predicate(instr) {
+    return true
+  }
+  match instr {
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_test_instrs_match(body, predicate)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_test_instrs_match(then_body, predicate) ||
+      dae_test_instrs_match(else_body, predicate)
+    @lib.If(_, then_body, None) => dae_test_instrs_match(then_body, predicate)
+    _ => false
+  }
+}
+
+///|
+fn dae_test_instrs_match(
+  instrs : Array[@lib.Instruction],
+  predicate : (@lib.Instruction) -> Bool,
+) -> Bool {
+  instrs.any(fn(instr) { dae_test_instr_matches(instr, predicate) })
+}
+
+///|
+fn dae_test_instrs_have_direct_call(
+  instrs : Array[@lib.Instruction],
+  target : @lib.FuncIdx,
+) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.Call(idx) => idx == target
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_local_get(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.LocalGet(idx) => idx == target
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_i32_const(
+  instrs : Array[@lib.Instruction],
+  expected : Int,
+) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.I32Const(@lib.I32(value)) => value == expected
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_struct_new_default(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.StructNewDefault(_) => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_direct_return_call(
+  instrs : Array[@lib.Instruction],
+  target : @lib.FuncIdx,
+) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.ReturnCall(idx) => idx == target
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_any_call(instrs : Array[@lib.Instruction]) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_unreachable(instrs : Array[@lib.Instruction]) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.Unreachable => true
+      _ => false
+    }
+  })
+}
+
+///|
+fn dae_test_instrs_have_i32_div_s(instrs : Array[@lib.Instruction]) -> Bool {
+  dae_test_instrs_match(instrs, fn(instr) {
+    match instr {
+      @lib.I32DivS => true
+      _ => false
+    }
+  })
+}
+
+///|
 fn dae_test_instr_references_local(
   instr : @lib.Instruction,
   target_local : @lib.LocalIdx,
@@ -415,10 +543,14 @@ test "dead-argument-elimination removes a private unused scalar parameter at dir
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
   let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
   @debug.assert_eq(callee_locals.length(), 0)
-  let caller = optimized.pretty_print_defined_func(1U)
-  assert_true(caller.contains("(call (Func 0))"), msg=caller)
-  assert_true(caller.contains("local.get (Local 0)"), msg=caller)
-  assert_false(caller.contains("i32.const I32(20)"), msg=caller)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_true(
+    dae_test_instrs_have_direct_call(caller_body, @lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  assert_false(dae_test_instrs_have_i32_const(caller_body, 20))
 }
 
 ///|
@@ -435,10 +567,14 @@ test "dae alias removes a private unused scalar parameter at direct calls" {
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
   let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
   @debug.assert_eq(callee_locals.length(), 0)
-  let caller = optimized.pretty_print_defined_func(1U)
-  assert_true(caller.contains("(call (Func 0))"), msg=caller)
-  assert_true(caller.contains("local.get (Local 0)"), msg=caller)
-  assert_false(caller.contains("i32.const I32(20)"), msg=caller)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_true(
+    dae_test_instrs_have_direct_call(caller_body, @lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  assert_false(dae_test_instrs_have_i32_const(caller_body, 20))
 }
 
 ///|
@@ -462,9 +598,9 @@ test "dead-argument-elimination trims unreachable tail debris from coverage-shap
     #|  (start $main)
     #|  (export "main" (func $main)))
   let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
-  let pretty = optimized.pretty_print_defined_func(0U)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_false(pretty.contains("call"), msg=pretty)
+  let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(optimized, 0)
+  assert_true(dae_test_instrs_have_unreachable(body))
+  assert_false(dae_test_instrs_have_any_call(body))
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -491,10 +627,10 @@ test "dead-argument-elimination preserves trapping prefixes before unreachable c
     #|    call $f))
   let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
-  let pretty = optimized.pretty_print_defined_func(0U)
-  assert_true(pretty.contains("i32.div_s"), msg=pretty)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(optimized, 0)
+  assert_true(dae_test_instrs_have_i32_div_s(body))
+  assert_true(dae_test_instrs_have_unreachable(body))
+  assert_false(dae_test_instrs_have_i32_const(body, 9))
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -518,14 +654,18 @@ test "dead-argument-elimination repairs direct return_call sites when removing a
     #|    return_call $f))
   let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
-  let entry = optimized.pretty_print_defined_func(0U)
-  let other = optimized.pretty_print_defined_func(2U)
-  assert_true(entry.contains("return_call"), msg=entry)
-  assert_true(other.contains("return_call"), msg=other)
-  assert_false(entry.contains("i32.const I32(31)"), msg=entry)
-  assert_false(other.contains("i32.const I32(32)"), msg=other)
-  assert_true(entry.contains("i32.const I32(41)"), msg=entry)
-  assert_true(other.contains("i32.const I32(42)"), msg=other)
+  let @lib.Func(_, @lib.Expr(entry_body)) = dae_test_defined_func(optimized, 0)
+  let @lib.Func(_, @lib.Expr(other_body)) = dae_test_defined_func(optimized, 2)
+  assert_true(
+    dae_test_instrs_have_direct_return_call(entry_body, @lib.FuncIdx::new(1U)),
+  )
+  assert_true(
+    dae_test_instrs_have_direct_return_call(other_body, @lib.FuncIdx::new(1U)),
+  )
+  assert_false(dae_test_instrs_have_i32_const(entry_body, 31))
+  assert_false(dae_test_instrs_have_i32_const(other_body, 32))
+  assert_true(dae_test_instrs_have_i32_const(entry_body, 41))
+  assert_true(dae_test_instrs_have_i32_const(other_body, 42))
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) => fail("expected return_call DAE output to validate, got \{err}")
@@ -1120,12 +1260,12 @@ test "dae-optimizing folds exact non-null ref.is_null and then removes the dead 
     #|    call $f))
   let optimized = dae_test_run(source, pass_name="dae-optimizing")
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
-  let helper = optimized.pretty_print_defined_func(1U)
-  assert_true(helper.contains("i32.const I32(0)"), msg=helper)
-  let entry = optimized.pretty_print_defined_func(0U)
-  let other = optimized.pretty_print_defined_func(2U)
-  assert_false(entry.contains("struct.new_default"), msg=entry)
-  assert_false(other.contains("struct.new_default"), msg=other)
+  let @lib.Func(_, @lib.Expr(helper_body)) = dae_test_defined_func(optimized, 1)
+  let @lib.Func(_, @lib.Expr(entry_body)) = dae_test_defined_func(optimized, 0)
+  let @lib.Func(_, @lib.Expr(other_body)) = dae_test_defined_func(optimized, 2)
+  assert_true(dae_test_instrs_have_i32_const(helper_body, 0))
+  assert_false(dae_test_instrs_have_struct_new_default(entry_body))
+  assert_false(dae_test_instrs_have_struct_new_default(other_body))
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
@@ -5797,10 +5937,14 @@ test "dae-optimizing removes a private unused scalar parameter at direct calls" 
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
   let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
   @debug.assert_eq(callee_locals.length(), 0)
-  let caller = optimized.pretty_print_defined_func(1U)
-  assert_true(caller.contains("(call (Func 0))"), msg=caller)
-  assert_true(caller.contains("local.get (Local 0)"), msg=caller)
-  assert_false(caller.contains("i32.const I32(20)"), msg=caller)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_true(
+    dae_test_instrs_have_direct_call(caller_body, @lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  assert_false(dae_test_instrs_have_i32_const(caller_body, 20))
 }
 
 ///|
