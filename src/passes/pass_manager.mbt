@@ -60802,6 +60802,100 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
+// An exact `block (result T) { local.get; br 0 }` snapshots no state beyond the
+// caller local. Across a direct-call-only prefix, reading that same local at the
+// one use preserves value, call effects, traps, and control while removing the
+// redundant result carrier.
+fn run_hot_pipeline_dae_try_forward_remapped_identity_block_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 11 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+      instrs[idx + 11],
+    ) {
+    (
+      @lib.Block(
+        @lib.ValTypeBlockType(result_type),
+        @lib.Expr(
+          [
+            @lib.LocalGet(@lib.LocalIdx(source_raw) as source),
+            @lib.Br(@lib.LabelIdx(0U)),
+          ]
+        )
+      ),
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(first_prefix),
+      @lib.LocalGet(second_prefix),
+      @lib.I32Const(prefix_const),
+      @lib.LocalGet(third_prefix),
+      @lib.Call(prefix_call),
+      @lib.LocalGet(readback),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(producer_arg),
+      @lib.Call(producer),
+      @lib.Call(consumer),
+    ) if target == readback => {
+      let source_idx = source_raw.reinterpret_as_int()
+      let target_idx = target_raw.reinterpret_as_int()
+      if source_idx < 0 ||
+        target_idx < 0 ||
+        source_idx == target_idx ||
+        source_idx >= local_types.length() ||
+        target_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        local_types[source_idx] != result_type ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(first_prefix),
+            @lib.Instruction::local_get(second_prefix),
+            @lib.Instruction::i32_const(prefix_const),
+            @lib.Instruction::local_get(third_prefix),
+            @lib.Instruction::call(prefix_call),
+            @lib.Instruction::local_get(source),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::local_get(producer_arg),
+            @lib.Instruction::call(producer),
+            @lib.Instruction::call(consumer),
+          ],
+          12,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 // Binaryen's terminal dispatch blocks place four caller-local arguments before
 // an exact one-use block result. The local reads are nontrapping and direct
 // calls cannot observe them; producer-local writes remain an explicit bailout.
@@ -61031,6 +61125,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_forward_remapped_identity_block_carrier(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_sink_remapped_terminal_four_arg_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,

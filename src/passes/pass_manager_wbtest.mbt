@@ -20591,6 +20591,71 @@ test "DAEO selected readback traversal sinks terminal four-argument block carrie
 }
 
 ///|
+test "DAEO selected readback traversal forwards identity blocks across call prefixes" {
+  let source = @lib.LocalIdx::new(1U)
+  let target = @lib.LocalIdx::new(5U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(source),
+      @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    ]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::i32_const(@lib.I32(61)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(22U)),
+  ]
+  let local_gets = [0, 1, 1, 2, 1, 1]
+  let local_sets = [0, 0, 0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_forward_remapped_identity_block_carrier(
+      body,
+      0,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ],
+      local_gets,
+      local_sets,
+      local_tees,
+    ) {
+    Some((value, 12)) => value
+    Some((_, consumed)) =>
+      fail("expected twelve consumed instructions, got \{consumed}")
+    None => fail("expected identity block-carrier forwarding")
+  }
+  @debug.assert_eq(local_gets, [0, 1, 1, 2, 1, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::i32_const(@lib.I32(61)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(22U)),
+  ])
+}
+
+///|
 test "DAEO selected cleanup forwards reordered four-field aggregate leader" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
