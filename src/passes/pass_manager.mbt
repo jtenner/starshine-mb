@@ -66578,27 +66578,27 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   }
   let processed_forwarded_cycle_defs : Array[Int] = []
   let post_component_cleanup_defs : Array[Int] = []
-  let mut forwarded_cycle_round = 0
-  while forwarded_cycle_round < 8 {
-    let forwarded_cycle_defs = dae_collect_forwarded_param_cycle_defs(
+  while true {
+    let forwarded_cycle_batches = dae_collect_forwarded_param_cycle_batches(
       core_mod,
       forwarded_scc_seeds,
       preferred_defs=forwarded_cycle_preferred_defs,
       excluded_defs=processed_forwarded_cycle_defs,
+      limit=forwarded_scc_seeds.length(),
     )
     forwarded_cycle_preferred_defs.clear()
-    if forwarded_cycle_defs.length() < 2 {
+    if forwarded_cycle_batches.length() == 0 {
       break
     }
-    for def_idx in forwarded_cycle_defs {
-      if !processed_forwarded_cycle_defs.contains(def_idx) {
-        processed_forwarded_cycle_defs.push(def_idx)
-      }
-    }
     let scc_cleanup_touched = Array::make(forwarded_scc_seeds.length(), false)
-    for def_idx in forwarded_cycle_defs {
-      forwarded_scc_seeds[def_idx] = true
-      scc_cleanup_touched[def_idx] = true
+    for forwarded_cycle_defs in forwarded_cycle_batches {
+      for def_idx in forwarded_cycle_defs {
+        if !processed_forwarded_cycle_defs.contains(def_idx) {
+          processed_forwarded_cycle_defs.push(def_idx)
+        }
+        forwarded_scc_seeds[def_idx] = true
+        scc_cleanup_touched[def_idx] = true
+      }
     }
     core_mod = match
       run_hot_pipeline_apply_hot_pass_to_touched(
@@ -66610,43 +66610,44 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       Ok(next) => next
       Err(err) => return Err("DAE forwarded SCC precompute: \{err}")
     }
-    (options.trace)(
-      "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=\{forwarded_cycle_defs.to_string()}",
-    )
-    match
-      dae_run_forwarded_param_dead_callee_convergence(
-        core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
-      ) {
-      Some(application) => {
-        core_mod = application.mod_out
-        core_touched = application.touched
-        forwarded_scc_seeds = application.touched.copy()
-        (options.trace)(
-          "pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=\{application.sink_defs.to_string()} cycle_defs=\{application.cycle_defs.to_string()}",
-        )
-      }
-      None => ()
-    }
-    match
-      dae_run_forwarded_param_component_transaction(
-        core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
-      ) {
-      Some(application) => {
-        core_mod = application.mod_out
-        core_touched = application.touched
-        forwarded_scc_seeds = application.touched.copy()
-        for def_idx in application.defs {
-          if !post_component_cleanup_defs.contains(def_idx) {
-            post_component_cleanup_defs.push(def_idx)
-          }
+    for forwarded_cycle_defs in forwarded_cycle_batches {
+      (options.trace)(
+        "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=\{forwarded_cycle_defs.to_string()}",
+      )
+      match
+        dae_run_forwarded_param_dead_callee_convergence(
+          core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
+        ) {
+        Some(application) => {
+          core_mod = application.mod_out
+          core_touched = application.touched
+          forwarded_scc_seeds = application.touched.copy()
+          (options.trace)(
+            "pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=\{application.sink_defs.to_string()} cycle_defs=\{application.cycle_defs.to_string()}",
+          )
         }
-        (options.trace)(
-          "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
-        )
+        None => ()
       }
-      None => ()
+      match
+        dae_run_forwarded_param_component_transaction(
+          core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
+        ) {
+        Some(application) => {
+          core_mod = application.mod_out
+          core_touched = application.touched
+          forwarded_scc_seeds = application.touched.copy()
+          for def_idx in application.defs {
+            if !post_component_cleanup_defs.contains(def_idx) {
+              post_component_cleanup_defs.push(def_idx)
+            }
+          }
+          (options.trace)(
+            "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
+          )
+        }
+        None => ()
+      }
     }
-    forwarded_cycle_round += 1
   }
   core_mod = run_hot_pipeline_apply_dae_post_component_cleanup(
     core_mod, post_component_cleanup_defs, options,

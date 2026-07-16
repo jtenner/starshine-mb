@@ -38,40 +38,44 @@ pass[dae-optimizing]:forwarded-param-component-transaction defs=[7008, 7007, 701
 Priority restores the selected component, but Binaryen does not stop after one forwarding cycle. Starshine's collector still returned only one cycle, so other touched cycles never received the optimizing-only precompute replay. The follow-up:
 
 - lets cycle discovery exclude already processed component definitions;
-- iterates over at most eight distinct touched cycles;
-- runs the existing `precompute-propagate-prefix` on each discovered cycle;
+- collects all currently visible distinct cycles from one call-boundary/type snapshot instead of rebuilding whole-module facts once per cycle;
+- runs one `precompute-propagate-prefix` batch over the union of each discovery round;
+- repeats batch rounds until no new nonoverlapping cycle remains, removing the arbitrary eight-cycle stop;
 - preserves the existing dead-callee and forwarding-component transactions where their complete safety proofs succeed;
 - unions changed component definitions for the existing bounded post-component cleanup.
 
-A strengthened white-box test proves that, after the preferred later cycle is excluded, discovery advances to the earlier independent cycle. On the self-host artifact the selected `7007`/`7008`/`7010` component is processed first, followed by seven distinct cycle neighborhoods beginning at definitions `5167`, `5736`, `5743`, `5772`, `5861`, `6883`, and `7147`. The additional prefix replays are productive even when a component signature transaction is not.
+A strengthened white-box test proves preferred ordering plus independent-cycle continuation. A red-first public regression constructs nine touched forwarding-only cycles; the old eight-cycle stop left the ninth pair parameterized, while the retained implementation removes all eighteen parameters. On the self-host artifact the selected `7007`/`7008`/`7010` component is processed first, followed by eleven distinct cycle neighborhoods. The final batched-round output is byte-identical to the slower per-cycle unbounded probe, proving that batching changes scheduling cost rather than retained behavior.
 
 ## Artifact result
 
 Input: `.tmp/daeo-scheduled-current-artifact-20260713/cmd-stripped.wasm`.
 
-Current output: `.tmp/daeo-multi-cycle2-20260716/out.wasm`.
+Current output: `.tmp/daeo-final-behavior-20260716/out.wasm`.
 
 - validates with `wasm-tools --features all`;
-- raw size: `3208138` bytes, `4468` bytes smaller than checkpoint `1629` and `1988` smaller than the priority-only slice;
-- Binaryen-v130 canonical size: `3270309` bytes, `4749` bytes smaller than checkpoint `1629` and `2159` smaller than the priority-only slice;
+- raw size: `3207779` bytes, `4827` bytes smaller than checkpoint `1629` and `359` smaller than the eight-cycle slice;
+- Binaryen-v130 canonical size: `3269948` bytes, `5110` bytes smaller than checkpoint `1629` and `361` smaller than the eight-cycle slice;
+- raw SHA-256: `19b3afee6ff45a7c6b03003c6e7f556306467ce8a8623ab7aaffaf8d8aa5ed53`;
+- canonical SHA-256: `127d3872bce6750b94788295ca7d1fd2c0866c11320e85c7414a6d8df10341a2`;
 - Binaryen-v130 canonical reference: `3262456` bytes;
-- remaining canonical gap: `+7853` bytes, down from `+12602`;
-- code-section gap: `+8982` bytes, partly offset by a `-1136` type-section delta;
-- traced DAEO time: `45137707us`.
+- remaining canonical gap: `+7492` bytes, down from `+12602`;
+- code-section gap: `+8621` bytes, partly offset by a `-1136` type-section delta;
+- traced DAEO time: `51903360us`.
 
-This clears the user's 10KB size boundary with source-backed convergence behavior rather than an artifact-local shape rule. It is not parity or performance closeout. The leading positive body owners remain Func `8429 +1299`, Func `9347 +1258`, Func `8187 +1241`, Func `41 +1219`, and Func `7556 +1126`. Repeated per-cycle discovery and lowering also makes runtime worse; the next slice should batch the same distinct-cycle precompute set without changing output.
+This clears the user's 10KB size boundary with source-backed convergence behavior rather than an artifact-local shape rule. It is not parity or performance closeout. The leading positive body owners remain Func `8429 +1299`, Func `9347 +1258`, Func `8187 +1241`, Func `41 +1219`, and Func `7556 +1126`. The all-cycle behavior is now complete for the current snapshot, but runtime remains severely over target; further work should retain this output while replacing repeated large-module setup and transaction scans.
 
 ## Validation
 
 - red first, priority: `dead_argument_elimination_wbtest.mbt` failed because the cycle collector had no `preferred_defs` contract;
 - red first, convergence: the strengthened white-box test returned the excluded selected cycle instead of the next independent cycle;
+- red first, cap removal: the nine-cycle public fixture left the ninth pair parameterized after eight component transactions;
 - focused white-box: `208/208` passed;
-- focused DAEO: `331/331` passed;
+- focused DAEO: `332/332` passed;
 - `moon info`: passed with pre-existing warnings;
 - `moon fmt`: passed; `moon.mod` was restored to the repository spelling;
-- full Moon: `8876/8876` passed;
-- native release build passed;
+- full Moon: `8877/8877` passed;
+- native release build passed; final binary SHA-256 `7aeb0295c535c0eecef1c588ea665973c752e2c4e06b76733cea4ebe67dcc880`;
 - dedicated DAEO GenValid smoke: `1000/1000` normalized, zero failures;
 - regular GenValid smoke: `1000/1000` normalized, zero failures.
 
-Both `1000`-case smokes were rerun after the multi-cycle follow-up and remained fully normalized with zero failures.
+Both `1000`-case smokes were rerun after the final batched-round convergence follow-up and remained fully normalized with zero failures.

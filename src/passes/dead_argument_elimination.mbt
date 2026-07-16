@@ -30589,21 +30589,16 @@ fn dae_apply_forwarded_param_scc_transaction(
 }
 
 ///|
-fn dae_collect_forwarded_param_cycle_defs(
+fn dae_collect_forwarded_param_cycle_defs_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
-  preferred_defs? : Array[Int] = [],
-  excluded_defs? : Array[Int] = [],
+  preferred_defs : Array[Int],
+  excluded_defs : Array[Int],
+  imported : Int,
+  defined : Int,
+  type_indices : Array[@lib.TypeIdx],
+  boundary_facts : DaeCallBoundaryFacts,
 ) -> Array[Int] {
-  let imported = dae_imported_func_count(current)
-  let defined = dae_defined_func_count(current)
-  if defined == 0 || touched.length() != defined {
-    return []
-  }
-  let total = imported + defined
-  let call_facts = dae_collect_current_call_facts(current, total)
-  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
-  let type_indices = dae_collect_func_type_indices(current)
   let seed_defs : Array[Int] = []
   for preferred_def in preferred_defs {
     if preferred_def >= 0 &&
@@ -30658,6 +30653,45 @@ fn dae_collect_forwarded_param_cycle_defs(
     }
   }
   []
+}
+
+///|
+fn dae_collect_forwarded_param_cycle_batches(
+  current : @lib.Module,
+  touched : Array[Bool],
+  preferred_defs? : Array[Int] = [],
+  excluded_defs? : Array[Int] = [],
+  limit? : Int = 8,
+) -> Array[Array[Int]] {
+  let imported = dae_imported_func_count(current)
+  let defined = dae_defined_func_count(current)
+  if defined == 0 || touched.length() != defined || limit <= 0 {
+    return []
+  }
+  let total = imported + defined
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let type_indices = dae_collect_func_type_indices(current)
+  let batches : Array[Array[Int]] = []
+  let processed_defs = excluded_defs.copy()
+  let ordered_preferred_defs = preferred_defs.copy()
+  while batches.length() < limit {
+    let defs = dae_collect_forwarded_param_cycle_defs_with_facts(
+      current, touched, ordered_preferred_defs, processed_defs, imported, defined,
+      type_indices, boundary_facts,
+    )
+    ordered_preferred_defs.clear()
+    if defs.length() < 2 {
+      break
+    }
+    batches.push(defs)
+    for def_idx in defs {
+      if !processed_defs.contains(def_idx) {
+        processed_defs.push(def_idx)
+      }
+    }
+  }
+  batches
 }
 
 ///|

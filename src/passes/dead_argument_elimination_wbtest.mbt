@@ -14201,12 +14201,11 @@ test "dae forwarded-cycle collection prioritizes explicitly selected definitions
     ),
   )
   let touched = Array::make(4, true)
-  let cycle_defs = dae_collect_forwarded_param_cycle_defs(mod_, touched, preferred_defs=[
-    2, 3,
-  ])
-  @debug.assert_eq(cycle_defs, [2, 3])
-  let next_cycle_defs = dae_collect_forwarded_param_cycle_defs(
-    mod_, touched, excluded_defs=cycle_defs,
+  let cycle_batches = dae_collect_forwarded_param_cycle_batches(
+    mod_,
+    touched,
+    preferred_defs=[2, 3],
+    limit=2,
   )
-  @debug.assert_eq(next_cycle_defs, [0, 1])
+  @debug.assert_eq(cycle_batches, [[2, 3], [0, 1]])
 }

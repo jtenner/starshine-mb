@@ -16391,6 +16391,29 @@ test "dae-optimizing removes an exact unanchored forwarding-only cycle" {
 }
 
 ///|
+test "dae-optimizing converges all touched forwarding-only cycles" {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for cycle_idx = 0; cycle_idx < 9; cycle_idx = cycle_idx + 1 {
+    out.write_string(
+      "  (func $a\{cycle_idx} (param i32 i32) local.get 0 call $b\{cycle_idx})\n",
+    )
+    out.write_string(
+      "  (func $b\{cycle_idx} (param i32) local.get 0 i32.const 9 call $a\{cycle_idx})\n",
+    )
+  }
+  out.write_string(")\n")
+  let (optimized, trace) = dae_test_run_with_perf_trace(out.to_string())
+  for def_idx = 0; def_idx < 18; def_idx = def_idx + 1 {
+    @debug.assert_eq(
+      dae_test_func_params(optimized, def_idx).length(),
+      0,
+      msg=trace.to_string(),
+    )
+  }
+}
+
+///|
 test "dae-optimizing rejects an escaped forwarded-parameter cycle transaction" {
   let source =
     #|(module
