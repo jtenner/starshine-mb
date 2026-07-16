@@ -378,6 +378,10 @@ The latest exact two-code iteration implements the source-order counterpart for 
 
 Final validation is focused flatten `251/251`, private flatten `186/186`, passes `5,767/5,767`, full `9,228/9,228`, and green `moon info`. Pinned-v130 probes support pre-branch left-call placement and post-branch binary execution. No public surface or performance gate changed; richer rich-left families, typed EH/pop, exceptional transfer, structured label-owner deletion, broader mixed/shared/nested control, generator/signoff, neighborhood proof, and public admission remain the higher-priority work.
 
+The latest exact two-code iteration extends rich-left behavior to inputful multivalue loops. Commit `843614438` adds an exact independently scalar loop-flow proof that freezes branch-root and rich-left/binary identities, requires a complete simple payload vector, and stages the rich left before payload locals and `br_if`. Commit `35ac3740a` adds the same rule for one exclusively owned repeated `TupleMake`, preserving component order and deleting the tuple only after complete replacement. Pinned Binaryen v130 output places the left call before the payload vector and branch and keeps the binary after the branch.
+
+Validation reaches focused flatten `253/253`, private flatten `186/186`, passes `5,769/5,769`, full `9,230/9,230`, and green `moon info`. No `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, preset, or performance surface changed. Multiple/non-lane-zero rich lefts, rich payload origins combined with pre-branch left work, typed EH, exceptional transfer, structured label-owner deletion, broader control, signoff, neighborhood, performance, and public admission remain open.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

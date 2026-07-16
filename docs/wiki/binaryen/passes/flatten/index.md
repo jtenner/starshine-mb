@@ -402,7 +402,13 @@ The two red-first legacy-try fixtures failed unchanged at `247/248` and `248/249
 
 Commits `e5c2a91ea` and `d0a53acf9` admit the exact source-stack counterpart for independently scalar and exclusively tuple-made legacy-try flow. One one-use rich left operand may be evaluated before the complete simple payload vector and `br_if`; because branch payloads occupy the top of the stack, that rich left can pair only with lane zero after higher lanes are consumed in reverse order. Rewrite materializes the rich left before payload staging, leaves the binary after the not-taken branch, and preserves exact direct-drop, type, opcode, ownership, and mutation-boundary proof.
 
-The red-first fixtures failed unchanged at `249/250` and `250/251`. Pinned Binaryen v130 probes place the left call before payload calls and `br_if`, then retain the binary after the branch. Final validation is focused flatten `251/251`, private flatten `186/186`, passes `5,767/5,767`, full suite `9,228/9,228`, and green `moon info` with 11 existing warnings. Multiple or non-lane-zero rich lefts, rich payload origins combined with pre-branch left work, and inputful-loop rich-left routing remain gated. No public surface or performance gate changed.
+The red-first fixtures failed unchanged at `249/250` and `250/251`. Pinned Binaryen v130 probes place the left call before payload calls and `br_if`, then retain the binary after the branch. Final validation is focused flatten `251/251`, private flatten `186/186`, passes `5,767/5,767`, full suite `9,228/9,228`, and green `moon info` with 11 existing warnings. Multiple or non-lane-zero rich lefts and rich payload origins combined with pre-branch left work remain gated. No public surface or performance gate changed.
+
+## 2026-07-15 inputful-loop rich-left binary-flow follow-up
+
+Commits `843614438` and `35ac3740a` extend that exact source-stack rule to inputful multivalue loops. Independently scalar payloads and one exclusively owned repeated `TupleMake` may retain one one-use rich left before a complete simple payload vector; the value still pairs only with lane zero after higher lanes are consumed in reverse order. Admission freezes the exact branch root, rich-left node, binary node, payload types, ownership, and current structure before mutation. Rewrite stages the rich left before payload locals and `br_if`, replaces only the binary left child, preserves the binary on the not-taken path, and deletes a tuple shell only after complete replacement.
+
+The red-first focused counts moved `251/252 -> 252/252` and `252/253 -> 253/253`. Private flatten remains `186/186`, passes are `5,769/5,769`, full suite is `9,230/9,230`, and `moon info` is green with 11 existing warnings. A fresh pinned-v130 loop probe places `call $left` before the payload vector and branch and keeps `i32.sub` afterwards. Public wiring and the durable `970.5 us` / `3.65x` performance checkpoint remain unchanged.
 
 ## Current maintenance rule
 

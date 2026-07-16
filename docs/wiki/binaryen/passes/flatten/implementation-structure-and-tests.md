@@ -361,6 +361,12 @@ A future implementation should start with reduced shape tests before broad artif
 
 After those are green, use the pass workflow from `AGENTS.md`: compare direct `--pass flatten` behavior against Binaryen where supported, then replay the saved `-O4z` slot and nested aggressive reruns. The more detailed first-slice plan and removal-from-registry gates are now in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
+## Latest inputful-loop rich-left behavior iteration
+
+Commits `843614438` and `35ac3740a` add one red-first behavior test each for independently scalar and exclusively tuple-made inputful-loop flow. The scalar helper now returns exact branch-root, rich-left, and binary identities after proving every payload is simple, defaultable, type-matched, supported, and exactly branch-plus-consumer owned. The tuple helper returns the same identities alongside the tuple/root pair and additionally requires every ordered component to be simple and the tuple to own every branch and consumer slot.
+
+Rewrite materializes the rich left before payload-local writes and `br_if`, changes only the binary's left child to a local read, and leaves the binary on the false path. The tuple shell is deleted only after every branch and consumer use is replaced. Red-first focused counts move `251/252 -> 252/252` and `252/253 -> 253/253`; private flatten remains `186/186`, passes reach `5,769/5,769`, full reaches `9,230/9,230`, and `moon info` is green. No `.mbti` or public pass surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:
