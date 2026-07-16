@@ -1335,15 +1335,10 @@ fn hot_lower_impl_emit_instruction(
         func,
         hot_region_body_ref(func, catch_region),
       )
-      if rethrow_count > 1 {
-        abort(
-          "hot lower legacy try currently supports one direct catch rethrow",
-        )
-      }
       if rethrow_count > 0 && !catch_payloads.is_empty() {
         abort("hot lower direct catch rethrow currently requires catch-all")
       }
-      let rethrow_local = if rethrow_count == 1 {
+      let rethrow_local = if rethrow_count > 0 {
         Some(
           hot_lower_impl_alloc_scratch_local(
             func,
