@@ -60802,6 +60802,72 @@ fn run_hot_pipeline_dae_readback_producer_can_tee(
 }
 
 ///|
+// A receiver read can move before its own pure field projection, allowing the
+// projected call argument to remain on the stack instead of using a spill.
+fn run_hot_pipeline_dae_try_reread_receiver_before_spilled_field(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 5 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(struct_type, field),
+      @lib.LocalSet(@lib.LocalIdx(spill_raw) as spill),
+      @lib.LocalGet(second_aggregate),
+      @lib.LocalGet(spill_readback),
+      @lib.Call(consumer),
+    ) if aggregate == second_aggregate && spill == spill_readback => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      let spill_idx = spill_raw.reinterpret_as_int()
+      if aggregate_idx < 0 ||
+        spill_idx < 0 ||
+        aggregate_idx == spill_idx ||
+        aggregate_idx >= local_gets.length() ||
+        aggregate_idx >= local_sets.length() ||
+        aggregate_idx >= local_tees.length() ||
+        spill_idx >= local_gets.length() ||
+        spill_idx >= local_sets.length() ||
+        spill_idx >= local_tees.length() ||
+        local_gets[spill_idx] < 1 ||
+        local_sets[spill_idx] != 1 ||
+        local_tees[spill_idx] != 0 {
+        return None
+      }
+      local_gets[spill_idx] = local_gets[spill_idx] - 1
+      local_sets[spill_idx] = 0
+      local_tees[spill_idx] = 1
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(aggregate),
+            @lib.Instruction::local_get(aggregate),
+            @lib.Instruction::struct_get(struct_type, field),
+            @lib.Instruction::local_tee(spill),
+            @lib.Instruction::call(consumer),
+          ],
+          6,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 // A single aggregate value can be reread to preserve the exact field-result
 // order without spilling the first field. Struct reads are pure, and the same
 // aggregate is tested before any intervening effect or control instruction.
@@ -61397,6 +61463,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   let mut rewrite_count = 0
   let mut idx = 0
   while idx < instrs.length() {
+    match
+      run_hot_pipeline_dae_try_reread_receiver_before_spilled_field(
+        instrs, idx, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
     match
       run_hot_pipeline_dae_try_reread_reordered_aggregate_fields(
         instrs, idx, local_gets, local_sets, local_tees,
