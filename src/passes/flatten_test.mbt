@@ -15317,7 +15317,7 @@ test "flatten removes one owned structured loop suffix after a scalar legacy try
 }
 
 ///|
-test "flatten removes an owned mixed structured forest after a scalar legacy try table" {
+test "flatten removes an owned scalar and structured forest after a scalar legacy try table" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
@@ -15336,6 +15336,9 @@ test "flatten removes an owned mixed structured forest after a scalar legacy try
     @ir.hot_build_const_i32(func, @lib.I32(0)),
     values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
   )
+
+  let scalar_const = @ir.hot_build_const_i32(func, @lib.I32(6))
+  let scalar_drop = @ir.hot_build_drop(func, scalar_const)
 
   let block_const = @ir.hot_build_const_i32(func, @lib.I32(8))
   let block_drop = @ir.hot_build_drop(func, block_const)
@@ -15366,10 +15369,11 @@ test "flatten removes an owned mixed structured forest after a scalar legacy try
   let loop_drop = @ir.hot_build_drop(func, loop_const)
   let dead_loop = @ir.hot_build_loop(func, @lib.BlockType::void_(), [loop_drop])
   let loop_label = @ir.hot_control_node_label(func, dead_loop)
+  let dead_unreachable = @ir.hot_build_unreachable(func)
 
   let body_ref = @ir.hot_region_body_ref(func, try_id)
   @ir.hot_region_replace_body(func, body_ref, [
-    branch_id, dead_block, dead_if, dead_loop,
+    branch_id, scalar_drop, dead_block, dead_if, dead_loop, dead_unreachable,
   ])
   @ir.hot_delete_node(func, body_fallback)
   @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
@@ -15384,8 +15388,9 @@ test "flatten removes an owned mixed structured forest after a scalar legacy try
   @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
   for
     node_id in [
-      block_const, block_drop, dead_block, condition, then_const, then_drop, then_holder,
-      else_const, else_drop, else_holder, dead_if, loop_const, loop_drop, dead_loop,
+      scalar_const, scalar_drop, block_const, block_drop, dead_block, condition,
+      then_const, then_drop, then_holder, else_const, else_drop, else_holder, dead_if,
+      loop_const, loop_drop, dead_loop, dead_unreachable,
     ] {
     assert_false(@ir.hot_node_is_live(func, node_id))
   }
@@ -15399,7 +15404,7 @@ test "flatten removes an owned mixed structured forest after a scalar legacy try
   match pass_verify_before_after(ctx, func) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected structured-forest try table routing to verify, got \{err}")
+      fail("expected mixed-forest try table routing to verify, got \{err}")
   }
 }
 

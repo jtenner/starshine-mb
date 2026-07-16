@@ -3048,6 +3048,9 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_unreachable_then_add_drop = suffix_count == 2
       let mut all_direct_sequence_roots = true
       let mut all_structured_control_roots = true
+      let mut all_supported_roots = true
+      let mut saw_structured_control_root = false
+      let mut saw_ordinary_root = false
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -3059,6 +3062,9 @@ fn flatten_try_table_dead_suffix_nodes(
           state~,
         )
         recognized_suffix_roots.push(recognized_root)
+        if recognized_root is None {
+          all_supported_roots = false
+        }
         let root_is_unreachable = match @ir.hot_node_get(func, root_id).op {
           @ir.HotOp::Unreachable => true
           _ => false
@@ -3093,8 +3099,11 @@ fn flatten_try_table_dead_suffix_nodes(
             recognized_root is Some(_)
           _ => false
         }
-        if !root_is_structured_control {
+        if root_is_structured_control {
+          saw_structured_control_root = true
+        } else {
           all_structured_control_roots = false
+          saw_ordinary_root = true
         }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
@@ -3120,6 +3129,9 @@ fn flatten_try_table_dead_suffix_nodes(
           }
         }
       }
+      let mixed_supported_forest = all_supported_roots &&
+        saw_structured_control_root &&
+        saw_ordinary_root
       if !all_unreachable &&
         !all_direct_drop_consts &&
         !exact_drop_const_then_unreachable &&
@@ -3127,7 +3139,8 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_add_drop_then_unreachable &&
         !exact_unreachable_then_add_drop &&
         !all_direct_sequence_roots &&
-        !all_structured_control_roots {
+        !all_structured_control_roots &&
+        !mixed_supported_forest {
         return None
       }
     }
@@ -8010,19 +8023,8 @@ fn flatten_try_route_br_table(
           root_idx + 1,
         )
         pass_mark_mutated(ctx, func)
-        let mut structured_forest = !detached_roots.is_empty()
-        for detached_root in detached_roots {
-          match @ir.hot_node_get(func, detached_root).op {
-            @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Loop => ()
-            _ => structured_forest = false
-          }
-        }
-        if structured_forest {
-          if !@ir.hot_delete_detached_control_forest(func, detached_roots) {
-            abort("flatten structured suffix deletion violated admission proof")
-          }
-        } else {
-          @ir.hot_delete_detached_nodes(func, nodes)
+        if !@ir.hot_delete_detached_forest(func, detached_roots) {
+          abort("flatten suffix forest deletion violated admission proof")
         }
         break
       }
