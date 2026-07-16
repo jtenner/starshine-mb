@@ -4156,6 +4156,27 @@ fn flatten_false_flow_binary_right_operand_is_supported(
 }
 
 ///|
+fn flatten_rich_left_payload_vector_is_supported(
+  func : @ir.HotFunc,
+  payloads : Array[Int],
+) -> Bool {
+  let mut rich_payload_count = 0
+  for payload_id in payloads {
+    if flatten_node_is_simple_operand(func, payload_id) {
+      continue
+    }
+    if !flatten_scalar_branch_payload_has_supported_origin(func, payload_id) {
+      return false
+    }
+    rich_payload_count = rich_payload_count + 1
+    if rich_payload_count > 1 {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn flatten_multivalue_loop_br_if_consumer_matches_payload(
   func : @ir.HotFunc,
   use_counts : @ir.HotNodeUseCounts,
@@ -4501,10 +4522,8 @@ fn flatten_multivalue_loop_br_if_flow(
           @ir.hot_child_get(func, consumed_id, 1) == payload_id => {
           let left_id = @ir.hot_child_get(func, consumed_id, 0)
           if !flatten_node_is_simple_operand(func, left_id) {
-            for payload in payloads {
-              if !flatten_node_is_simple_operand(func, payload) {
-                return None
-              }
+            if !flatten_rich_left_payload_vector_is_supported(func, payloads) {
+              return None
             }
             rich_left_id = left_id
             rich_binary_id = consumed_id

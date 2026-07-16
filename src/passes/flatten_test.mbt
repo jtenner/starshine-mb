@@ -13029,6 +13029,76 @@ test "flatten preserves rich left binary false flow from scalar inputful loop la
 }
 
 ///|
+test "flatten preserves rich left binary false flow with one rich scalar loop payload" {
+  let func = pass_test_lift_first_func(
+    "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (param i32 i64) (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 4 call 5 local.get 1 call 3 br_if $loop drop i32.sub drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 0) (func (result i32) i32.const 20) (func (result i32) i32.const 7))",
+  )
+  let return_id = @ir.hot_root_get(func, 0)
+  let loop_id = @ir.hot_child_get(func, return_id, 0)
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let branch = @ir.hot_region_get(func, body_ref, 2)
+  let first_payload = @ir.hot_child_get(func, branch, 0)
+  let second_payload = @ir.hot_child_get(func, branch, 1)
+  let second_drop = @ir.hot_region_get(func, body_ref, 3)
+  let first_drop = @ir.hot_region_get(func, body_ref, 4)
+  let first_binary = @ir.hot_child_get(func, first_drop, 0)
+  let first_left = @ir.hot_child_get(func, first_binary, 0)
+  match @ir.hot_node_get(func, first_payload).op {
+    @ir.HotOp::Call => ()
+    _ => fail("expected the first loop payload to be a rich call origin")
+  }
+  @debug.assert_eq(@ir.hot_child_get(func, first_binary, 1), first_payload)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 12)
+  let first_left_set = @ir.hot_region_get(func, body_ref, 2)
+  let first_payload_set = @ir.hot_region_get(func, body_ref, 3)
+  let second_payload_set = @ir.hot_region_get(func, body_ref, 4)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 6), branch)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 7), second_drop)
+  let first_binary_set = @ir.hot_region_get(func, body_ref, 8)
+  @debug.assert_eq(@ir.hot_region_get(func, body_ref, 9), first_drop)
+  @debug.assert_eq(@ir.hot_child_get(func, first_left_set, 0), first_left)
+  @debug.assert_eq(@ir.hot_child_get(func, first_payload_set, 0), first_payload)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, second_payload_set, 0),
+    second_payload,
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, first_binary_set, 0), first_binary)
+  let first_entry_local = @ir.hot_node_get(func, first_payload_set).imm0
+  let second_entry_local = @ir.hot_node_get(func, second_payload_set).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_drop, 0)).imm0,
+    second_entry_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_binary, 0)).imm0,
+    @ir.hot_node_get(func, first_left_set).imm0,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_binary, 1)).imm0,
+    first_entry_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_left), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rich-payload scalar loop flow to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten preserves rich left binary false flow from tuple-made inputful loop lanes" {
   let func = pass_test_lift_first_func(
     "(module (type $carrier (func (param i32 i64) (result i32 i64))) (func (param i32 i64) (result i32 i64) call 1 call 2 loop $loop (type $carrier) drop drop call 4 local.get 0 local.get 1 call 3 br_if $loop drop i32.sub drop i32.const 11 i64.const 13 end return) (func (result i32) i32.const 1) (func (result i64) i64.const 2) (func (result i32) i32.const 0) (func (result i32) i32.const 20))",
