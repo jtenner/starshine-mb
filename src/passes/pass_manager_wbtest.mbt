@@ -20724,6 +20724,50 @@ test "DAEO selected readback traversal forwards one-call pair-store carriers" {
 }
 
 ///|
+test "DAEO selected readback traversal sinks terminal call block carriers" {
+  let target = @lib.LocalIdx::new(1U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(20U))]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ]
+  let local_gets = [0, 1]
+  let local_sets = [0, 1]
+  let local_tees = [0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
+      body,
+      0,
+      [@lib.ValType::i32(), @lib.ValType::i32()],
+      local_gets,
+      local_sets,
+      local_tees,
+    ) {
+    Some((value, 7)) => value
+    Some((_, consumed)) =>
+      fail("expected seven consumed instructions, got \{consumed}")
+    None => fail("expected terminal call block-carrier sinking")
+  }
+  @debug.assert_eq(local_gets, [0, 0])
+  @debug.assert_eq(local_sets, [0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    producer,
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal forwards identity blocks across call prefixes" {
   let source = @lib.LocalIdx::new(1U)
   let target = @lib.LocalIdx::new(5U)

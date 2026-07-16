@@ -61177,6 +61177,71 @@ fn run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
 }
 
 ///|
+// A terminal wrapper call consumes a pure leading zero and an exact one-use
+// block result. Hoisting only the constant keeps producer effects and traps in
+// place while deleting the set/readback carrier before construction/return.
+fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 6 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+    ) {
+    (
+      @lib.Block(@lib.ValTypeBlockType(result_type), _) as producer,
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(readback),
+      @lib.Call(wrapper),
+      @lib.StructNew(struct_type),
+      @lib.Return,
+    ) if target == readback => {
+      let target_idx = target_raw.reinterpret_as_int()
+      if target_idx < 0 ||
+        target_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            producer,
+            @lib.Instruction::call(wrapper),
+            @lib.Instruction::struct_new(struct_type),
+            @lib.Instruction::return_(),
+          ],
+          7,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_try_sink_remapped_terminal_block_carrier(
   instrs : Array[@lib.Instruction],
   idx : Int,
@@ -61305,6 +61370,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     }
     match
       run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
       ) {
       Some((replacement, consumed_len)) => {
