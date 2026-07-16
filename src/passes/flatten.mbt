@@ -5657,6 +5657,31 @@ fn flatten_rewrite_target_can_route_scalar_branches(
 }
 
 ///|
+fn flatten_collect_distinct_branch_payloads(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  payload_count : Int,
+  seen : @bitset.BitSet,
+) -> Array[Int]? {
+  if payload_count <= 0 ||
+    branch_id < 0 ||
+    !@ir.hot_node_is_live(func, branch_id) ||
+    @ir.hot_child_count(func, branch_id) < payload_count {
+    return None
+  }
+  let payloads : Array[Int] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    let payload_id = @ir.hot_child_get(func, branch_id, slot)
+    if payload_id < 0 || payload_id >= seen.length() || seen[payload_id] {
+      return None
+    }
+    seen[payload_id] = true
+    payloads.push(payload_id)
+  }
+  Some(payloads)
+}
+
+///|
 fn flatten_multivalue_br_if_cached_flow_is_current(
   func : @ir.HotFunc,
   branch_id : Int,
@@ -5672,14 +5697,20 @@ fn flatten_multivalue_br_if_cached_flow_is_current(
     flow[1] + payload_count > @ir.hot_child_count(func, flow[0]) {
     return false
   }
-  let payloads : Array[Int] = []
+  let payloads = match
+    flatten_collect_distinct_branch_payloads(
+      func,
+      branch_id,
+      payload_count,
+      @bitset.BitSet::new(@ir.hot_node_count(func)),
+    ) {
+    Some(payloads) => payloads
+    None => return false
+  }
   for slot = 0; slot < payload_count; slot = slot + 1 {
-    let payload_id = @ir.hot_child_get(func, branch_id, slot)
-    if payloads.contains(payload_id) ||
-      @ir.hot_child_get(func, flow[0], flow[1] + slot) != payload_id {
+    if @ir.hot_child_get(func, flow[0], flow[1] + slot) != payloads[slot] {
       return false
     }
-    payloads.push(payload_id)
   }
   true
 }
@@ -5690,19 +5721,19 @@ fn flatten_locate_reachable_multivalue_br_if_flow_span(
   branch_id : Int,
   payload_count : Int,
 ) -> Array[Int]? {
-  let payloads : Array[Int] = []
-  for slot = 0; slot < payload_count; slot = slot + 1 {
-    let payload_id = @ir.hot_child_get(func, branch_id, slot)
-    if payloads.contains(payload_id) {
-      return None
-    }
-    payloads.push(payload_id)
+  let payload_seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let payloads = match
+    flatten_collect_distinct_branch_payloads(
+      func, branch_id, payload_count, payload_seen,
+    ) {
+    Some(payloads) => payloads
+    None => return None
   }
   let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   let worklist : Array[Int] = []
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     let root_id = @ir.hot_root_get(func, root_idx)
-    if payloads.contains(root_id) {
+    if root_id >= 0 && root_id < payload_seen.length() && payload_seen[root_id] {
       return None
     }
     if @ir.hot_node_is_live(func, root_id) && !seen[root_id] {

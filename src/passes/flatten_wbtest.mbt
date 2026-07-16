@@ -7389,6 +7389,43 @@ test "flatten sequenced root cache keeps sparse pairs sorted" {
 }
 
 ///|
+test "flatten multivalue flow payload marks preserve exact distinct ids" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let first = @ir.hot_build_const_i32(func, @lib.I32(7))
+  let second = @ir.hot_build_const_i64(func, @lib.I64(9L))
+  let distinct = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[first, second],
+  )
+  let distinct_seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+  @debug.assert_eq(
+    flatten_collect_distinct_branch_payloads(func, distinct, 2, distinct_seen),
+    Some([first, second]),
+  )
+  assert_true(distinct_seen[first])
+  assert_true(distinct_seen[second])
+  let duplicate = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[first, first],
+  )
+  let duplicate_seen = @bitset.BitSet::new(@ir.hot_node_count(func))
+  assert_true(
+    flatten_collect_distinct_branch_payloads(func, duplicate, 2, duplicate_seen)
+    is None,
+  )
+}
+
+///|
 test "flatten unique table target marks preserve first source order" {
   let targets : Array[Int] = []
   let seen = @bitset.BitSet::new(8)
