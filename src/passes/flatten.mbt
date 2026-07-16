@@ -4405,13 +4405,12 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
           @ir.hot_child_get(func, consumed_id, 1) == tuple_id => {
           let left_id = @ir.hot_child_get(func, consumed_id, 0)
           if !flatten_node_is_simple_operand(func, left_id) {
+            let payloads : Array[Int] = []
             for slot = 0; slot < payload_count; slot = slot + 1 {
-              if !flatten_node_is_simple_operand(
-                  func,
-                  @ir.hot_child_get(func, tuple_id, slot),
-                ) {
-                return None
-              }
+              payloads.push(@ir.hot_child_get(func, tuple_id, slot))
+            }
+            if !flatten_rich_left_payload_vector_is_supported(func, payloads) {
+              return None
             }
             rich_left_id = left_id
             rich_binary_id = consumed_id
@@ -7205,7 +7204,8 @@ fn flatten_try_route_scalar_br_if(
             let rich_left_local = @ir.hot_append_body_local(
               func, rich_left_type,
             )
-            preludes.push(
+            preludes.insert(
+              0,
               @ir.hot_build_local_set(func, rich_left_local, flow[2]),
             )
             @ir.hot_child_set(
