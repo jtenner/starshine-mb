@@ -374,9 +374,9 @@ fn hot_ordered_catch_payload_repair(
     }
   }
 
-  let mut final_ref = catch_ref
-  let mut final_start_slot = payloads.length()
+  let lanes : Array[HotCatchPayloadLaneRepair] = []
   if catch_root_count == payloads.length() + 1 {
+    let mut final_ref = catch_ref
     let mut current = hot_region_get(func, catch_ref, payloads.length())
     let mut expected_user = catch_ref.holder
     let mut expected_slot = payloads.length()
@@ -413,31 +413,58 @@ fn hot_ordered_catch_payload_repair(
         return None
       }
       final_ref = body_ref
-      final_start_slot = 0
       break
     }
-  } else if catch_root_count < payloads.length() * 2 {
-    return None
-  }
-
-  let lanes : Array[HotCatchPayloadLaneRepair] = []
-  for slot = 0; slot < payloads.length(); slot = slot + 1 {
-    let root_slot = final_start_slot + slot
-    let lane = match
-      hot_catch_payload_lane_repair(
-        func,
-        use_def,
-        catch_ref,
-        slot,
-        payloads[slot],
-        hot_region_get(func, final_ref, root_slot),
-        final_ref.holder,
-        root_slot,
-      ) {
-      Some(plan) => plan
-      None => return None
+    for slot = 0; slot < payloads.length(); slot = slot + 1 {
+      let lane = match
+        hot_catch_payload_lane_repair(
+          func,
+          use_def,
+          catch_ref,
+          slot,
+          payloads[slot],
+          hot_region_get(func, final_ref, slot),
+          final_ref.holder,
+          slot,
+        ) {
+        Some(plan) => plan
+        None => return None
+      }
+      lanes.push(lane)
     }
-    lanes.push(lane)
+  } else {
+    if catch_root_count < payloads.length() * 2 {
+      return None
+    }
+    let mut root_slot = payloads.length()
+    for slot = 0; slot < payloads.length(); slot = slot + 1 {
+      let mut lane : HotCatchPayloadLaneRepair? = None
+      while root_slot < catch_root_count {
+        let candidate_slot = root_slot
+        root_slot += 1
+        match
+          hot_catch_payload_lane_repair(
+            func,
+            use_def,
+            catch_ref,
+            slot,
+            payloads[slot],
+            hot_region_get(func, catch_ref, candidate_slot),
+            catch_ref.holder,
+            candidate_slot,
+          ) {
+          Some(plan) => {
+            lane = Some(plan)
+            break
+          }
+          None => ()
+        }
+      }
+      match lane {
+        Some(plan) => lanes.push(plan)
+        None => return None
+      }
+    }
   }
   Some({ catch_ref, lanes })
 }
