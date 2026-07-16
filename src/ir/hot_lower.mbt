@@ -513,6 +513,51 @@ fn hot_lower_impl_catch_rethrow_count(
 }
 
 ///|
+fn hot_lower_impl_strict_selected_delegate_if_root(
+  func : HotFunc,
+  if_id : NodeId,
+) -> NodeId? {
+  match hot_node_get(func, if_id).op {
+    HotOp::If => ()
+    _ => return None
+  }
+  if hot_node_result_arity(func, if_id) != 0 {
+    return None
+  }
+  let label_id = hot_control_node_label(func, if_id)
+  if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
+    return None
+  }
+  let condition = hot_child_get(func, if_id, 0)
+  let selected_then = match hot_node_get(func, condition).op {
+    HotOp::Const =>
+      match hot_const_get(func, hot_node_get(func, condition).imm0) {
+        HotConstPayload::I32Const(@lib.I32(raw)) => raw != 0
+        _ => return None
+      }
+    _ => return None
+  }
+  let then_ref = hot_region_then_ref(func, if_id)
+  let else_ref = match hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return None
+  }
+  if hot_region_root_count(func, then_ref) != 1 ||
+    hot_region_root_count(func, else_ref) != 1 {
+    return None
+  }
+  let then_root = hot_region_get(func, then_ref, 0)
+  let else_root = hot_region_get(func, else_ref, 0)
+  let selected_root = if selected_then { then_root } else { else_root }
+  let opposite_root = if selected_then { else_root } else { then_root }
+  match hot_node_get(func, opposite_root).op {
+    HotOp::Nop if hot_child_count(func, opposite_root) == 0 =>
+      Some(selected_root)
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_direct_delegate_target(
   func : HotFunc,
   region_id : NodeId,
@@ -543,6 +588,11 @@ fn hot_lower_impl_direct_delegate_target(
         }
         root_id = hot_region_get(func, body_ref, 0)
       }
+      HotOp::If =>
+        match hot_lower_impl_strict_selected_delegate_if_root(func, root_id) {
+          Some(selected_root) => root_id = selected_root
+          None => return None
+        }
       _ => return None
     }
   }

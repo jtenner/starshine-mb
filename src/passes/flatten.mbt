@@ -9279,6 +9279,56 @@ fn flatten_direct_catch_all_rethrow_is_supported(
 }
 
 ///|
+fn flatten_strict_selected_delegate_if_root(
+  func : @ir.HotFunc,
+  if_id : Int,
+  state : FlattenRewriteState,
+) -> Int? {
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  if @ir.hot_node_result_arity(func, if_id) != 0 {
+    return None
+  }
+  let label_id = @ir.hot_control_node_label(func, if_id)
+  if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+    return None
+  }
+  let condition = @ir.hot_child_get(func, if_id, 0)
+  let selected_then = match @ir.hot_node_get(func, condition).op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, @ir.hot_node_get(func, condition).imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(raw)) => raw != 0
+        _ => return None
+      }
+    _ => return None
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return None
+  }
+  if @ir.hot_region_root_count(func, then_ref) != 1 ||
+    @ir.hot_region_root_count(func, else_ref) != 1 {
+    return None
+  }
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  let else_root = @ir.hot_region_get(func, else_ref, 0)
+  let selected_root = if selected_then { then_root } else { else_root }
+  let opposite_root = if selected_then { else_root } else { then_root }
+  if state.direct_parent[selected_root] != if_id ||
+    state.direct_parent[opposite_root] != if_id {
+    return None
+  }
+  match @ir.hot_node_get(func, opposite_root).op {
+    @ir.HotOp::Nop if @ir.hot_child_count(func, opposite_root) == 0 =>
+      Some(selected_root)
+    _ => None
+  }
+}
+
+///|
 fn flatten_direct_delegate_is_supported(
   func : @ir.HotFunc,
   delegate_id : Int,
@@ -9321,6 +9371,15 @@ fn flatten_direct_delegate_is_supported(
         catch_root = catch_parent
         catch_parent = state.direct_parent[catch_root]
       }
+      @ir.HotOp::If =>
+        match
+          flatten_strict_selected_delegate_if_root(func, catch_parent, state) {
+          Some(selected_root) if selected_root == catch_root => {
+            catch_root = catch_parent
+            catch_parent = state.direct_parent[catch_root]
+          }
+          _ => return false
+        }
       _ => break
     }
   }
