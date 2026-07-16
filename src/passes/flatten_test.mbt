@@ -7160,6 +7160,119 @@ test "flatten preserves exact binary false flow from scalar multivalue try lanes
 }
 
 ///|
+test "flatten preserves reversed binary false flow from scalar multivalue try lanes" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[i32_type, i64_type]),
+  )
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i64_type]),
+  )
+  let body_first_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let body_second_fallback = @ir.hot_build_const_i64(func, @lib.I64(10L))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_first_fallback, body_second_fallback],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let first_payload = @ir.hot_build_local_get(func, 0)
+  let second_payload = @ir.hot_build_local_get(func, 1)
+  let condition = @ir.hot_build_binary(
+    func,
+    i32_type,
+    @ir.hot_build_const_i32(func, @lib.I32(5)),
+    @ir.hot_build_const_i32(func, @lib.I32(6)),
+  )
+  @ir.hot_node_exact_instr_set(func, condition, @lib.Instruction::i32_sub())
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch = @ir.hot_build_br_if(func, label_id, condition, values=[
+    first_payload, second_payload,
+  ])
+  let second_left = @ir.hot_build_const_i64(func, @lib.I64(42L))
+  let second_binary = @ir.hot_build_binary(
+    func, i64_type, second_left, second_payload,
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    second_binary,
+    @lib.Instruction::i64_div_s(),
+  )
+  let first_left = @ir.hot_build_const_i32(func, @lib.I32(20))
+  let first_binary = @ir.hot_build_binary(
+    func, i32_type, first_left, first_payload,
+  )
+  @ir.hot_node_exact_instr_set(func, first_binary, @lib.Instruction::i32_sub())
+  let second_drop = @ir.hot_build_drop(func, second_binary)
+  let first_drop = @ir.hot_build_drop(func, first_binary)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch, second_drop, first_drop, body_first_fallback, body_second_fallback,
+  ])
+  let return_id = @ir.hot_build_return(func, [try_id, try_id])
+  @ir.hot_root_append(func, return_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 10)
+  let first_local = @ir.hot_node_get(
+      func,
+      @ir.hot_region_get(func, body_ref, 0),
+    ).imm0
+  let second_local = @ir.hot_node_get(
+      func,
+      @ir.hot_region_get(func, body_ref, 1),
+    ).imm0
+  @debug.assert_eq(@ir.hot_child_get(func, second_binary, 0), second_left)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, second_binary, 1)).imm0,
+    second_local,
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, first_binary, 0), first_left)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_binary, 1)).imm0,
+    first_local,
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, second_binary),
+    Some(@lib.Instruction::i64_div_s()),
+  )
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, first_binary),
+    Some(@lib.Instruction::i32_sub()),
+  )
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected reversed scalar-lane multivalue try binary flow to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten routes one tuple-made multivalue br_if to its legacy try result vector" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

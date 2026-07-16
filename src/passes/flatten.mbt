@@ -4106,16 +4106,24 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
   }
   let consumed = @ir.hot_node_get(func, consumed_id)
   if @ir.hot_node_use_count(use_counts, consumed_id) != 1 ||
-    @ir.hot_child_count(func, consumed_id) == 0 ||
-    @ir.hot_child_get(func, consumed_id, 0) != payload_id {
+    @ir.hot_child_count(func, consumed_id) == 0 {
     return false
   }
   match consumed.op {
     @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => {
-      if !flatten_node_is_simple_operand(
+      let payload_is_left = @ir.hot_child_get(func, consumed_id, 0) ==
+        payload_id &&
+        flatten_node_is_simple_operand(
           func,
           @ir.hot_child_get(func, consumed_id, 1),
-        ) {
+        )
+      let payload_is_right = @ir.hot_child_get(func, consumed_id, 1) ==
+        payload_id &&
+        flatten_node_is_simple_operand(
+          func,
+          @ir.hot_child_get(func, consumed_id, 0),
+        )
+      if !payload_is_left && !payload_is_right {
         return false
       }
       match
@@ -4133,6 +4141,7 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
     }
     @ir.HotOp::Unary | @ir.HotOp::Convert =>
       @ir.hot_child_count(func, consumed_id) == 1 &&
+      @ir.hot_child_get(func, consumed_id, 0) == payload_id &&
       @ir.hot_node_exact_instr(func, consumed_id) is Some(_)
     _ => false
   }
@@ -4193,14 +4202,21 @@ fn flatten_replace_multivalue_loop_br_if_consumer_payload(
     )
     return true
   }
-  if @ir.hot_child_count(func, consumed_id) == 0 ||
-    @ir.hot_child_get(func, consumed_id, 0) != payload_id {
+  if @ir.hot_child_count(func, consumed_id) == 0 {
+    return false
+  }
+  let payload_slot = if @ir.hot_child_get(func, consumed_id, 0) == payload_id {
+    0
+  } else if @ir.hot_child_count(func, consumed_id) == 2 &&
+    @ir.hot_child_get(func, consumed_id, 1) == payload_id {
+    1
+  } else {
     return false
   }
   @ir.hot_child_set(
     func,
     consumed_id,
-    0,
+    payload_slot,
     @ir.hot_build_local_get(func, local_id),
   )
   true
