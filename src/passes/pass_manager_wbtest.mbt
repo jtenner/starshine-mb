@@ -20904,6 +20904,103 @@ test "DAEO selected readback traversal reverses two-call pair-store results" {
 }
 
 ///|
+test "DAEO selected readback traversal stores first one-call pair results in producers" {
+  let aggregate = @lib.LocalIdx::new(2U)
+  let second = @lib.LocalIdx::new(3U)
+  let first = @lib.LocalIdx::new(4U)
+  let first_object = @lib.LocalIdx::new(5U)
+  let second_object = @lib.LocalIdx::new(6U)
+  let source_type = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::abs(@lib.AbsHeapType::any()),
+  )
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), ref_type]),
+      ),
+    ),
+  ])
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::type_idx(source_type),
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::local_tee(aggregate),
+          @lib.Instruction::struct_get(@lib.TypeIdx::new(2U), @lib.U32(0U)),
+          @lib.Instruction::local_get(aggregate),
+          @lib.Instruction::struct_get(@lib.TypeIdx::new(2U), @lib.U32(1U)),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ],
+        Some([@lib.Instruction::br(@lib.LabelIdx::new(3U))]),
+      ),
+      @lib.Instruction::unreachable_(),
+    ]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::local_set(first),
+    @lib.Instruction::local_get(first_object),
+    @lib.Instruction::local_get(first),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(3U), @lib.U32(0U)),
+    @lib.Instruction::local_get(second_object),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(4U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+  ]
+  let local_gets = [0, 0, 1, 1, 1, 1, 1]
+  let local_sets = [0, 0, 0, 1, 1, 0, 0]
+  let local_tees = [0, 0, 1, 0, 0, 0, 0]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+    body,
+    local_gets,
+    local_sets,
+    local_tees,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      ref_type,
+      ref_type,
+      @lib.ValType::i32(),
+      ref_type,
+      ref_type,
+    ],
+    type_sec=Some(type_sec),
+  )
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(local_gets, [0, 0, 1, 0, 0, 1, 1])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(second_object),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(ref_type),
+      @lib.Expr::new([
+        @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_tee(aggregate),
+            @lib.Instruction::local_get(first_object),
+            @lib.Instruction::local_get(aggregate),
+            @lib.Instruction::struct_get(@lib.TypeIdx::new(2U), @lib.U32(0U)),
+            @lib.Instruction::struct_set(@lib.TypeIdx::new(3U), @lib.U32(0U)),
+            @lib.Instruction::struct_get(@lib.TypeIdx::new(2U), @lib.U32(1U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+          ],
+          Some([@lib.Instruction::br(@lib.LabelIdx::new(3U))]),
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+    ),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(4U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal sinks terminal call block carriers" {
   let target = @lib.LocalIdx::new(1U)
   let producer = @lib.Instruction::block(

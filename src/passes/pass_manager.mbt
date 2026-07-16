@@ -61234,9 +61234,17 @@ fn run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
   local_gets : Array[Int],
   local_sets : Array[Int],
   local_tees : Array[Int],
+  type_sec? : @lib.TypeSec? = None,
 ) -> (Array[@lib.Instruction], Int)? {
   run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
-    instrs, idx, local_types, local_gets, local_sets, local_tees, 1,
+    instrs,
+    idx,
+    local_types,
+    local_gets,
+    local_sets,
+    local_tees,
+    1,
+    type_sec~,
   )
 }
 
@@ -61693,7 +61701,13 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     }
     match
       run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
-        instrs, idx, local_types, local_gets, local_sets, local_tees,
+        instrs,
+        idx,
+        local_types,
+        local_gets,
+        local_sets,
+        local_tees,
+        type_sec~,
       ) {
       Some((replacement, consumed_len)) => {
         for instr in replacement {
