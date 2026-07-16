@@ -664,6 +664,146 @@ test "flatten preserves a typed payload vector with a block-wrapped rethrow" {
 }
 
 ///|
+test "flatten preserves a typed payload vector with a selected catch-if rethrow chain" {
+  let func = @ir.HotFunc::new()
+  ignore(
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [],
+      [@lib.ValType::i32(), @lib.ValType::f32(), @lib.ValType::ref_null_exn()],
+    ),
+  )
+  let first = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let second = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::f32(),
+  )
+  let first_drop = @ir.hot_build_drop(func, first)
+  let second_drop = @ir.hot_build_drop(func, second)
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=0,
+    children=[],
+  )
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [rethrow_id],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    [@ir.hot_build_nop(func)],
+    else_body=Some([inner_if]),
+  )
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+        @ir.hot_build_const_f32(func, @lib.F32(3.5)),
+      ]),
+    ],
+    catch_body=Some([first, second, first_drop, second_drop, outer_if]),
+  )
+  @ir.hot_root_append(func, try_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredCatchPayloadRepair =>
+      fail("selected typed rethrow remained deferred for catch payload repair")
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("selected typed rethrow remained deferred for exceptional transfer")
+    _ => fail("selected typed rethrow failed an unrelated flatten gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 2)
+  @debug.assert_eq(@ir.hot_local_type(func, 0), Some(@lib.ValType::i32()))
+  @debug.assert_eq(@ir.hot_local_type(func, 1), Some(@lib.ValType::f32()))
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 7)
+  let second_capture = @ir.hot_region_get(func, catch_ref, 2)
+  let first_capture = @ir.hot_region_get(func, catch_ref, 3)
+  @debug.assert_eq(@ir.hot_node_get(func, second_capture).imm0, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, second_capture, 0), second)
+  @debug.assert_eq(@ir.hot_node_get(func, first_capture).imm0, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, first_capture, 0), first)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 4), first_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 5), second_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 6), outer_if)
+  @debug.assert_eq(
+    @ir.hot_region_get(
+      func,
+      @ir.hot_region_else_ref(func, outer_if).unwrap(),
+      0,
+    ),
+    inner_if,
+  )
+  @debug.assert_eq(
+    @ir.hot_region_get(func, @ir.hot_region_then_ref(func, inner_if), 0),
+    rethrow_id,
+  )
+  @debug.assert_eq(@ir.hot_node_get(func, rethrow_id).imm0, 0)
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected selected typed rethrow HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::f32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::i32(),
+              @lib.ValType::f32(),
+              @lib.ValType::ref_null_exn(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("catch_ref"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("throw_ref"), msg=pretty)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten repairs ordered two-lane typed catch payloads before nested blocks" {
   let func = @ir.HotFunc::new()
   ignore(

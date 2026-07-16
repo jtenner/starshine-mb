@@ -8961,25 +8961,31 @@ fn flatten_typed_catch_root_owns_strict_rethrow(
   let mut current = root_id
   while current != rethrow_id {
     match @ir.hot_node_get(func, current).op {
-      @ir.HotOp::Block => ()
+      @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, current) != 0 {
+          return false
+        }
+        let label_id = @ir.hot_control_node_label(func, current)
+        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+          return false
+        }
+        let body_ref = @ir.hot_region_body_ref(func, current)
+        if @ir.hot_region_root_count(func, body_ref) != 1 {
+          return false
+        }
+        let child = @ir.hot_region_get(func, body_ref, 0)
+        if state.direct_parent[child] != current {
+          return false
+        }
+        current = child
+      }
+      @ir.HotOp::If =>
+        match flatten_strict_constant_selected_if_root(func, current, state) {
+          Some(selected_root) => current = selected_root
+          None => return false
+        }
       _ => return false
     }
-    if @ir.hot_node_result_arity(func, current) != 0 {
-      return false
-    }
-    let label_id = @ir.hot_control_node_label(func, current)
-    if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
-      return false
-    }
-    let body_ref = @ir.hot_region_body_ref(func, current)
-    if @ir.hot_region_root_count(func, body_ref) != 1 {
-      return false
-    }
-    let child = @ir.hot_region_get(func, body_ref, 0)
-    if state.direct_parent[child] != current {
-      return false
-    }
-    current = child
   }
   true
 }
@@ -9279,7 +9285,7 @@ fn flatten_direct_catch_all_rethrow_is_supported(
 }
 
 ///|
-fn flatten_strict_selected_delegate_if_root(
+fn flatten_strict_constant_selected_if_root(
   func : @ir.HotFunc,
   if_id : Int,
   state : FlattenRewriteState,
@@ -9373,7 +9379,7 @@ fn flatten_direct_delegate_is_supported(
       }
       @ir.HotOp::If =>
         match
-          flatten_strict_selected_delegate_if_root(func, catch_parent, state) {
+          flatten_strict_constant_selected_if_root(func, catch_parent, state) {
           Some(selected_root) if selected_root == catch_root => {
             catch_root = catch_parent
             catch_parent = state.direct_parent[catch_root]
