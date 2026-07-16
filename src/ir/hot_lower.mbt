@@ -41,7 +41,7 @@ pub fn HotLowerOptions::new(
 priv struct HotLowerLabelFrames {
   active : Array[LabelId]
   depths : Array[Int]
-  legacy_rethrow_locals : Array[LocalIdx]
+  legacy_rethrow_locals : Array[LocalIdx?]
 }
 
 ///|
@@ -457,28 +457,52 @@ fn hot_lower_impl_catch_payload_prefix(
 }
 
 ///|
-fn hot_lower_impl_direct_rethrow_count(
+fn hot_lower_impl_catch_rethrow_count(
   func : HotFunc,
   region_ref : HotRegionRef,
+  target_depth : Int,
 ) -> Int {
   let mut count = 0
   for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
     let node_id = hot_region_get(func, region_ref, slot)
     match hot_query_op(func, node_id) {
-      HotOp::Rethrow => count += 1
+      HotOp::Rethrow =>
+        if hot_node_get(func, node_id).imm0 == target_depth {
+          count += 1
+        }
       HotOp::Block =>
-        count += hot_lower_impl_direct_rethrow_count(
+        count += hot_lower_impl_catch_rethrow_count(
           func,
           hot_region_body_ref(func, node_id),
+          target_depth,
         )
       HotOp::If => {
-        count += hot_lower_impl_direct_rethrow_count(
+        count += hot_lower_impl_catch_rethrow_count(
           func,
           hot_region_then_ref(func, node_id),
+          target_depth,
         )
         match hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            count += hot_lower_impl_direct_rethrow_count(func, else_ref)
+            count += hot_lower_impl_catch_rethrow_count(
+              func, else_ref, target_depth,
+            )
+          None => ()
+        }
+      }
+      HotOp::Try => {
+        count += hot_lower_impl_catch_rethrow_count(
+          func,
+          hot_region_body_ref(func, node_id),
+          target_depth,
+        )
+        match hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            count += hot_lower_impl_catch_rethrow_count(
+              func,
+              catch_ref,
+              target_depth + 1,
+            )
           None => ()
         }
       }
@@ -1207,15 +1231,20 @@ fn hot_lower_impl_emit_instruction(
       )
     HotOp::ThrowRef => out.push(Instruction::throw_ref())
     HotOp::Rethrow => {
-      if node.imm0 != 0 || label_frames.legacy_rethrow_locals.is_empty() {
-        abort("hot lower legacy rethrow requires the direct active catch")
+      let slot = label_frames.legacy_rethrow_locals.length() - 1 - node.imm0
+      let local_idx = if slot < 0 ||
+        slot >= label_frames.legacy_rethrow_locals.length() {
+        abort("hot lower legacy rethrow requires an active catch at its depth")
+      } else {
+        match label_frames.legacy_rethrow_locals[slot] {
+          Some(local_idx) => local_idx
+          None =>
+            abort(
+              "hot lower legacy rethrow requires its target catch exception reference",
+            )
+        }
       }
-      out.push(
-        Instruction::local_get(
-          label_frames.legacy_rethrow_locals[label_frames.legacy_rethrow_locals.length() -
-          1],
-        ),
-      )
+      out.push(Instruction::local_get(local_idx))
       out.push(Instruction::throw_ref())
     }
     HotOp::Block =>
@@ -1359,9 +1388,10 @@ fn hot_lower_impl_emit_instruction(
       let catch_payloads = hot_lower_impl_catch_payload_prefix(
         func, catch_region,
       )
-      let rethrow_count = hot_lower_impl_direct_rethrow_count(
+      let rethrow_count = hot_lower_impl_catch_rethrow_count(
         func,
         hot_region_body_ref(func, catch_region),
+        0,
       )
       if rethrow_count > 0 && !catch_payloads.is_empty() {
         abort("hot lower direct catch rethrow currently requires catch-all")
@@ -1439,17 +1469,11 @@ fn hot_lower_impl_emit_instruction(
       )
       hot_lower_impl_pop_label(label_frames, table_stack)
       hot_lower_impl_pop_label(label_frames, handler_stack)
-      match rethrow_local {
-        Some(local_idx) => label_frames.legacy_rethrow_locals.push(local_idx)
-        None => ()
-      }
+      label_frames.legacy_rethrow_locals.push(rethrow_local)
       let catch_body = hot_lower_impl_region_body(
         func, catch_region, use_def, label_frames, try_stack, extra_locals, options,
       )
-      match rethrow_local {
-        Some(_) => ignore(label_frames.legacy_rethrow_locals.pop())
-        None => ()
-      }
+      ignore(label_frames.legacy_rethrow_locals.pop())
       hot_lower_impl_pop_label(label_frames, try_stack)
       let handler_type = match rethrow_local {
         Some(_) => BlockType::val_type(ValType::ref_null_exn())

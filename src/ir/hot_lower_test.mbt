@@ -4632,6 +4632,54 @@ test "hot lower consumes one typed catch payload from a try_table handler entry"
 }
 
 ///|
+test "hot lower preserves a depth-one rethrow through a nested catch" {
+  let hot = HotFunc::new()
+  let rethrow_id = hot_build_node(
+    hot,
+    HotOp::rethrow(),
+    hot_type_void(hot),
+    imm0=1,
+    children=[],
+  )
+  let inner_try = hot_build_try(
+    hot,
+    @lib.BlockType::void_(),
+    [hot_build_throw(hot, @lib.TagIdx::new(1U), [])],
+    catch_body=Some([rethrow_id]),
+  )
+  let outer_try = hot_build_try(
+    hot,
+    @lib.BlockType::void_(),
+    [hot_build_throw(hot, @lib.TagIdx::new(0U), [])],
+    catch_body=Some([inner_try]),
+  )
+  hot_root_append(hot, outer_try)
+
+  let lowered = hot_lower_func(hot)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(
+      @lib.TagSec::new([
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(hot_lower_test_count_substring(pretty, "catch_all_ref"), 1)
+  @debug.assert_eq(hot_lower_test_count_substring(pretty, "throw_ref"), 1)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower elides a nonthrowing synthetic catch-all bridge" {
   let hot = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let try_id = hot_build_try(
