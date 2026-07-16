@@ -488,6 +488,14 @@ Commits `70280e159` and `1fc7c6077` supersede only the prior blanket block/if-wr
 
 Whitebox moved `201/202 -> 202/202` for blocks and `202/203 -> 203/203` for mixed block/if ancestry. Final passes are `5,796/5,796` and full `9,266/9,266`; no `.mbti` or public surface changed. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring. Typed composition, loops, nested try-body transfers, targeted/value-carrying controls, multi-root ownership, and broader exceptional populations remain open.
 
+## Latest exact targeted catch-if ancestry decision
+
+Commits `c90bed031` and `8529deb42` supersede the blanket targeted-if rethrow blocker only for one strict opposite-arm exit shape. Between markerless resultless catch-all owners, a targeted resultless `if` may remain on the nonzero-rethrow ancestry when each arm has exactly one root, exactly one selected arm owns the current rethrow or nested try, and the only indexed user of the if label is the sole opposite-arm root. That user may be a payloadless `br`, or a payloadless `br_if` whose one condition is already-simple scalar `i32`.
+
+The strategy is preservation, not branch rewriting: target identity, condition identity, selected-arm ownership, rethrow depth, and the exact target-catch exception slot stay unchanged. Whitebox moved `203/204 -> 204/204 -> 204/205 -> 205/205`; final passes are `5,798/5,798` and full `9,268/9,268`. No `.mbti` or public surface changed, and performance remains unrequalified at the durable `970.5 us` / `3.65x` checkpoint.
+
+Multiple label users, payload-carrying exits, rich or non-`i32` conditional operands, target users outside the sole opposite arm, multi-root/value-carrying/multivalue wrappers, loops, typed composition, nested try-body transfers, and broader targeted ancestry remain open. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

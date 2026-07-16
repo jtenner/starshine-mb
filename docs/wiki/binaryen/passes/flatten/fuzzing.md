@@ -122,6 +122,14 @@ Commits `70280e159` and `1fc7c6077` admit positive nonzero rethrow depth through
 
 This still creates no aggregate or public compare lane. A future EH profile must generate direct and strict wrapped catch-all depth chains separately, including then- and else-selected if paths and mixed control sequences, while rejecting typed markers, targeted/value-carrying/multi-root wrappers, loops, nested try-body rethrows, mixed transfers, and broader nested ownership. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
 
+## Exact targeted catch-if exits remain outside public fuzzing
+
+Commits `c90bed031` and `8529deb42` admit strict nonzero-rethrow ancestry through one targeted resultless catch-if subset. Both arms have exactly one root; one selected arm owns the current rethrow or nested try; the sole opposite-arm root is also the label's only indexed user. The target user may be one payloadless `br`, or one payloadless `br_if` whose sole condition is already-simple scalar `i32`. Target, condition, rethrow depth, and exact target-catch lowering slot remain unchanged.
+
+Red-first whitebox moved `203/204 -> 204/204` and `204/205 -> 205/205`; final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,798/5,798`, and full `9,268/9,268`. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
+
+A future EH aggregate should generate both then- and else-selected forms, the plain and simple-conditional opposite exits, and strict mixes with existing untargeted blocks/ifs at every catch depth. It must also reject multiple/outside label users, payload-carrying exits, rich/non-`i32` conditions, same-arm targeting, multi-root/value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ownership. No compare lane is authorized yet.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

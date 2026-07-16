@@ -390,6 +390,14 @@ Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused
 
 Readiness remains blocked by broader partial/mixed/non-first/repeated/shared/nested/loop/catch-all payload populations; broader independent lane composition beyond the exact common-block and first-N direct-root layouts; typed-composed rethrows, loop or nested-try-body rethrows, targeted/multivalue/broader value-control rethrows, value-carrying/targeted/multi-root wrapper ancestry, and broader nested exceptional ownership; non-strict, loop, nested-try, mixed/value-carrying/used-label/non-active delegate populations; richer mixed/shared/nested structured and EH closure; a flatten-specific aggregate and explicit prebuilt-native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
 
+## Latest readiness movement: exact opposite-arm targeted catch-if exits
+
+Commits `c90bed031` and `8529deb42` admit two bounded positive nonzero-rethrow ancestry families without weakening the existing strict owner walk. A resultless targeted `if` must have exactly one root in each arm, own the current rethrow or nested try in exactly one selected arm, and have exactly one indexed label user that is the sole root of the opposite arm. Code 1 admits only a payloadless plain `br` to the if's own label. Code 2 admits only a payloadless `br_if` to that label whose one condition is already Flat-IR-simple and exactly scalar `i32`. The target branch and optional condition remain unchanged; no label arity, rethrow depth, catch slot, or wrapper result changes.
+
+Red-first whitebox moved `203/204 -> 204/204` for the plain branch and `204/205 -> 205/205` for the conditional branch. Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,798/5,798`, full `9,268/9,268`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti`, profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen remains the durable checkpoint.
+
+The blanket targeted-if blocker in earlier sections is superseded only for these exact opposite-arm payloadless exits. Multiple or outside label users, payload-carrying branches, rich/non-`i32` `br_if` conditions, same-arm target users, missing or multi-root opposite arms, value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ownership remain open. Every other readiness gate remains unchanged.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

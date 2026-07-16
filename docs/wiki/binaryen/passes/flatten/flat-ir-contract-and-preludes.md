@@ -577,6 +577,14 @@ Positive nonzero depth may now cross resultless unused-label controls between ca
 
 This is ownership proof, not prelude migration across EH boundaries. Flatten does not move the rethrow, alter its depth, or synthesize a different exception path. Targeted, value-carrying, multi-root, loop, typed-marker, nested try-body, and mixed exceptional populations remain deferred. Red-first whitebox moved `201/202 -> 202/202` and `202/203 -> 203/203`; final passes are `5,796/5,796`, full is `9,266/9,266`, and public flatten remains removed.
 
+## Exact targeted catch-if ancestry preserves branch semantics
+
+The strict nonzero-rethrow owner walk now permits one targeted resultless `if` family without treating its branch as a prelude or payload channel. The selected arm must own the current rethrow or nested try as its only root; the opposite arm must also have exactly one root, and that root must be the if label's only indexed user. The admitted opposite root is either a payloadless plain `br` to the if's own label or a payloadless `br_if` to that label whose one condition is already a Flat-IR-simple scalar `i32`.
+
+This is an ownership and preservation proof. Flatten leaves the branch target, optional condition child, if result arity, selected-arm structure, rethrow immediate, and active catch slot unchanged. The plain and conditional red-first fixtures moved whitebox `203/204 -> 204/204` and `204/205 -> 205/205`; both lowered modules validate through the existing exact outer `catch_all_ref` capture and `throw_ref` use.
+
+The earlier blanket targeted-if exclusion is superseded only for this opposite-arm payloadless exit family. Multiple/outside label users, payload-bearing branches, rich/non-`i32` conditions, same-arm users, missing or multi-root opposite arms, value-carrying/multivalue wrappers, loops, typed composition, nested try-body rethrows, and broader targeted ancestry still reject before mutation.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

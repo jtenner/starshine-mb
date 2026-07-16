@@ -345,6 +345,14 @@ The next exact two-code iteration adds commits `e5c2a91ea` and `d0a53acf9`. The 
 
 The red-first focused fixtures fail unchanged at `249/250` and `250/251`, then pass at `251/251`. Private flatten remains `186/186`, passes reach `5,767/5,767`, full reaches `9,228/9,228`, and `moon info` is green with 11 existing warnings. Pinned-v130 independently scalar and tuple-oriented probes confirm pre-branch left-call placement and post-branch binary execution. No `.mbti`, public registry, dispatcher, CLI execution, compare/API, generator, preset, or performance surface changed.
 
+## Latest exact targeted catch-if ancestry slices
+
+Commit `c90bed031` adds `flatten preserves a depth-one rethrow through a plain-targeted catch if wrapper`. The fixture was red at whitebox `203/204` because the if label had a user and admission returned `DeferredExceptionalTransferRepair`. The new proof requires one root per arm, exact selected-arm ownership of the current rethrow/nested try, one indexed label user, and a directly owned opposite-arm payloadless `br` to the if's own label. It is green at `204/204`, preserves the target and `imm0 = 1`, verifies HOT, lowers, and validates.
+
+Commit `8529deb42` adds the conditional counterpart. The fixture was red at `204/205`; admission now accepts the sole opposite-arm root only when it is a payloadless `br_if` to the same label and its one condition is already-simple scalar `i32`. The condition node, target, selected arm, and rethrow depth retain identity. Whitebox is green at `205/205`, with validating `catch_all_ref`, `br_if`, and `throw_ref` output.
+
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,798/5,798`, full `9,268/9,268`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` changed. Public registry, dispatcher, CLI execution, compare/API, GenValid profile, preset, scheduler, and exact-neighborhood readiness remain absent. The older targeted-if blocker is retained as chronology but superseded only for these exact opposite-arm payloadless plain/conditional exits.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

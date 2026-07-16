@@ -1044,6 +1044,37 @@ Every wrapper is resultless and untargeted. A block contains the current root as
 
 Block-only ancestry moved whitebox `201/202 -> 202/202`; mixed block/if ancestry moved `202/203 -> 203/203`. Typed markers, targeted or value-carrying controls, multi-root selected paths, loops, nested try-body rethrows, and mixed exceptional populations remain fail-closed.
 
+## Shape 24: nonzero rethrow may cross one exact targeted catch-if exit
+
+The strict wrapper shape may now preserve a target on the opposite arm:
+
+```wat
+(try
+  (do ...)
+  (catch_all
+    (if $exit (i32.const 1)
+      (then
+        ;; selected sole root
+        (rethrow 1))
+      (else
+        ;; opposite sole root
+        (br $exit)))))
+```
+
+The conditional counterpart is also admitted when the opposite sole root is payloadless and its condition is already a simple scalar `i32`:
+
+```wat
+(if $exit (i32.const 1)
+  (then
+    (br_if $exit (i32.const 0)))
+  (else
+    (rethrow 1)))
+```
+
+Both arms must contain exactly one root. The selected arm exclusively owns the current rethrow or nested try. The opposite branch is the label's only indexed user, is directly owned by the if, and keeps the same target. For `br_if`, the condition node also remains unchanged. Flatten preserves the rethrow immediate and the existing exact target-catch `exnref` slot; lowering still emits `catch_all_ref` plus `throw_ref`.
+
+The plain fixture moved whitebox `203/204 -> 204/204`; the conditional fixture moved `204/205 -> 205/205`; both lowered modules validate. Multiple label users, payload values, rich/non-`i32` conditions, branches outside the sole opposite arm, multi-root/value-carrying/multivalue wrappers, loops, typed composition, and broader targeted ownership remain fail-closed.
+
 ## Bottom line
 
 The simplest pattern summary is:

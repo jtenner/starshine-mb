@@ -531,6 +531,14 @@ The block-only fixture was red at whitebox `201/202` with `DeferredExceptionalTr
 
 Typed-composed rethrows, loops, nested try-body rethrows, targeted or value-carrying wrappers, broader nested exceptional ownership, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
 
+## 2026-07-16 exact targeted catch-if ancestry
+
+Commits `c90bed031` and `8529deb42` supersede the blanket targeted-if blocker only for one strict opposite-arm exit family. Between markerless resultless catch-all owners, a resultless `if` may own the current rethrow or nested try as the sole root of one selected arm while the opposite arm has exactly one root and exactly one indexed user of the if label. That opposite root may be a payloadless plain `br` to the if label, or a payloadless `br_if` to the same label whose sole condition is an already-simple scalar `i32`. The branch target, conditional child, rethrow immediate, selected-arm ownership, and exact target-catch lowering slot remain unchanged.
+
+The plain-target fixture was red at whitebox `203/204` with `DeferredExceptionalTransferRepair`, then green at `204/204`. The conditional-target fixture was red at `204/205`, then green at `205/205`. Final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `205/205`, passes `5,798/5,798`, full `9,268/9,268`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public pass surface changed; performance was not remeasured, so `970.5 us` / `3.65x` Binaryen v130 remains the durable checkpoint.
+
+This does not admit multiple label users, payload-carrying exits, rich or non-`i32` conditional operands, branches outside the sole opposite arm, multi-root arms, value-carrying wrappers, loops, typed composition, nested try-body transfers, or broader targeted ancestry. The flatten-specific aggregate, four-lane matrix, ordered neighborhood, performance requalification, docs closeout, and public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)
