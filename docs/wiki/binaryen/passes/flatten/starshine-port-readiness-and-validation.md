@@ -184,6 +184,10 @@ The multivalue flow-index iteration also leaves the hold point unchanged. `f1dc5
 
 The targeted 512-candidate medians improve `97.92%` and `97.71%`, but no representative measurement or public contract was requalified. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the durable `970.5 us` / `3.65x` gate remain blocked.
 
+The reversed-binary feature iteration narrows one documented control-flow gap. Independently scalar and exclusively tuple-made multivalue `br_if` false flow now accepts the restored payload as the right operand of an immediate same-typed binary when the left operand is simple. Commits `2ae0a6adb` and `d64535310` preserve one evaluation before the condition, direct false-path placement, exact one-use or tuple-complete ownership, opcode/type checks, and slot-local replacement. Focused flatten reaches `247/247`; passes reach `5,763/5,763`; full reaches `9,224/9,224`.
+
+This does not change the hold point. Typed catch payload/pop repair, `rethrow`/`delegate`, verified structured control-plus-owned-label deletion, broader shared/nested/mixed control flow, the flatten aggregate, four-lane signoff, ordered neighborhood, and public admission remain blocked. Future iterations should continue closing behavior families before revisiting small pass-local timing owners.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”

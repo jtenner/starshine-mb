@@ -669,6 +669,19 @@ Commits `f1dc57565` and `24b909b2d` leave every WAT shape above unchanged. Disti
 
 The red-first invariants lock sparse source positions, duplicate payload/slot rejection, bounds rejection, and first-position order. At 512 candidates, targeted medians improve non-tuple flow indexing `97.92%` and tuple slot distinctness `97.71%`. Exact payload counts, branch-slot coverage/exclusion, one non-branch parent, contiguous order, cached parent/start/current-slot checks, types, ownership, EH, effects, traps, deletion, and post-boundary failure behavior are unchanged. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Reversed binary false-flow operands
+
+The immediate multivalue false-path binary families above now admit the restored lane on either side:
+
+```wat
+(i32.sub
+  (i32.const 20)
+  (local.get $restoredLane)
+)
+```
+
+The same exact rule applies when HOT repeats one exclusively owned `TupleMake` across the branch payload slots and immediate consumers. The opposite operand must already be Flat-IR-simple; the binary must be single-use, exact, same-typed, immediately dropped, and remain after the conditional branch. Only the payload child is replaced. Rich siblings, nested or delayed consumers, sharing, mixed tuple/scalar ownership, and type-changing binaries remain fail-closed.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

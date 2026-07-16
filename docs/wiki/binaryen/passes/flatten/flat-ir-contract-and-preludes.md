@@ -449,6 +449,12 @@ Commits `f1dc57565` and `24b909b2d` change only query-local lookup inside the ex
 
 The semantic boundary is unchanged: each distinct payload still needs exactly the branch use plus one non-branch use; branch slots remain excluded from the false-flow parent; all false-flow lanes still share one parent and contiguous source order; tuple sites still require complete branch-slot coverage, exact total site count, and one non-branch parent; cached parent/start identity, current child slots, ownership, and post-mutation missing-proof rejection remain mandatory. The 512-candidate lookup reconstructions improve `97.92%` and `97.71%`, but they admit no new Flat-IR or WAT shape.
 
+### Reversed multivalue binary consumers stay on the false path
+
+Commits `2ae0a6adb` and `d64535310` extend the exact immediate binary-consumer family without changing prelude order. For independently scalar lanes, or one exclusively owned repeated `TupleMake`, a false-path binary may now contain the restored lane in child zero **or child one** when the opposite child is already Flat-IR-simple. Only the matching payload slot becomes a local read. The simple sibling and exact binary opcode remain in place after `br_if`, so effects and traps are not hoisted onto the taken path.
+
+The proof still requires one immediate directly dropped, single-use, same-typed binary per lane; exact branch-plus-consumer ownership; complete tuple branch-slot and consumer coverage; defaultable lane types; and the pre-mutation admission boundary. Rich siblings, type-changing results, nesting, sharing, delayed consumers, and repair-sensitive EH remain gated.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

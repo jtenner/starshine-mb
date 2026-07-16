@@ -366,6 +366,10 @@ The latest exact two-code iteration removes two remaining quadratic multivalue f
 
 Private flatten reaches `186/186`, focused flatten `245/245`, passes `5,761/5,761`, full `9,222/9,222`, and green `moon info`. At 512 candidates, targeted medians improve non-tuple edge lookup `1,878 -> 39 us` and tuple slot distinctness `59,644 -> 1,368 us`. These are internal owner wins, not recovery of the representative contract; no `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
 
+The latest exact two-code iteration prioritizes feature breadth over micro-performance. `2ae0a6adb` admits independently scalar multivalue conditional lanes in either binary operand position when the other operand is simple; `d64535310` admits the same rule for one exclusively owned repeated `TupleMake`. Both retain payload-before-condition evaluation, payload-free branching, binaries after the not-taken branch, exact same-type and ownership proof, and failure atomicity. Focused flatten is `247/247`, private flatten `186/186`, passes `5,763/5,763`, and full `9,224/9,224`.
+
+No public surface or performance gate changed. The strategy from this point is explicitly behavior-first: implement typed EH/pop and exceptional transfer capabilities, structured label-owner deletion, and remaining mixed/shared/nested control families before spending iterations on millisecond-scale lookup or allocation tuning.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

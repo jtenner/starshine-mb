@@ -42,7 +42,9 @@ This note records the bounded internal-only iteration that:
 36. keeps sparse shared-root holder/node pairs in lexicographic order and replaces terminal-placeholder linear membership with binary lookup;
 37. marks exact multivalue `br_if` payload ids once for source-ordered duplicate rejection and constant-time payload-root exclusion during false-flow discovery;
 38. maps each distinct non-tuple multivalue `br_if` payload node id to its exact source slot once, replacing the reachable child-edge-to-every-payload scan with direct indexed count/parent updates;
-39. marks tuple-made false-flow child slots once per exact non-branch parent, replacing growing-vector duplicate scans while retaining ordered slots for the final contiguous-span proof.
+39. marks tuple-made false-flow child slots once per exact non-branch parent, replacing growing-vector duplicate scans while retaining ordered slots for the final contiguous-span proof;
+40. admits an independently scalar multivalue `br_if` false-flow lane as either child of one immediate directly dropped same-typed binary when the opposite child is Flat-IR-simple;
+41. admits the same exact reversed binary-child rule for one exclusively owned repeated `TupleMake`, preserving complete branch-slot plus consumer ownership.
 
 The public registry, dispatcher, CLI execution path, preset scheduler, compare allowlist, and flatten API snapshots remain unchanged. Across the iterations recorded here, the only `.mbti` addition is the public HOT mutation `hot_region_truncate_suffix(...)` in `src/ir/pkg.generated.mbti`; the newest multivalue changes add no API. `flatten` is still public-removed.
 
@@ -75,6 +77,7 @@ The public registry, dispatcher, CLI execution path, preset scheduler, compare a
 - Allocation/index iteration: `a08af563b` (`perf: reuse flatten indexes and rewrite scratch`), with maintained skipped sequenced-root measurement surface `02f402a19` and documentation corrections in `59f05ff97` / `7a11ab789`.
 - Current sequenced-root/multivalue-payload iteration: `4a03de7f3` (`perf: binary-search flatten sequenced roots`) and `aa295d38b` (`perf: mark flatten multivalue flow payloads`).
 - Current multivalue flow-index iteration: `f1dc57565` (`perf: index flatten multivalue flow payload slots`) and `24b909b2d` (`perf: mark flatten tuple flow slots`).
+- Current behavior-first reversed-binary iteration: `2ae0a6adb` (`feat: route reversed flatten multivalue flow binaries`) and `d64535310` (`feat: route reversed flatten tuple flow binaries`).
 - Captured owner: `.tmp/binaryen-v130/Flatten.cpp`.
 - Owner SHA-256: `5b8836c46490095e98ba8202f866b153cfacc6f9c24ac498b703702adc3455b6`.
 - Oracle: `/mise/http-tarballs/78d28b82d329cecc96d14b1872ee2a890d09be4705c634ffb04ebf8c592c1e48/binaryen-version_130/bin/wasm-opt`.
@@ -197,6 +200,11 @@ The multivalue flow-index iteration again added exactly one red-first invariant 
 - `flatten multivalue flow payload slots preserve exact source positions` failed because `flatten_collect_distinct_branch_payload_slots` was unbound. Sparse payload ids now map to exact source slots, unrelated ids remain absent, duplicate payloads reject, and reachable flow discovery updates the corresponding count/parent directly;
 - `flatten tuple flow slot marks preserve exact first positions` failed because `flatten_record_distinct_flow_slot` was unbound. The mark helper preserves first encounter order, rejects duplicates and invalid slots, and lets tuple flow retain its ordered vector for the final sorted contiguous-span proof.
 
+The behavior-first reversed-binary iteration added exactly one red-first behavior test per commit:
+
+- `flatten preserves reversed binary false flow from scalar multivalue try lanes` failed unchanged at `245/246`; independently scalar lanes now accept the payload in either binary child slot when the opposite operand is simple, and rewrite replaces only that exact child;
+- `flatten preserves reversed binary false flow from tuple-made multivalue try lanes` failed unchanged at `246/247`; an exclusively owned repeated `TupleMake` now accepts the same rule while retaining complete branch-slot and immediate-consumer ownership.
+
 ## Ownership and mutation safety
 
 `FlattenRewriteState` now owns:
@@ -234,6 +242,8 @@ Unique table-target collection remains separate from semantic admission. A tempo
 Shared-root pair sorting and multivalue payload marks are likewise lookup aids, not admission facts. A sequenced-root entry still requires the frozen pre-mutation reachable count to prove multiple owners, binds one exact region holder plus node id, and excludes rewrite-created ids. Payload marks exist only for one current branch query: they preserve slot order, reject repeated ids, and accelerate root exclusion; exact branch arity, cached false-flow parent/start, current child slots, use counts, target types, and mutation-boundary rules still decide support.
 
 The newer payload-slot and tuple-slot indexes remain query-local lookup aids too. Distinct non-tuple payload ids map to their exact branch slots so each reachable edge can update one lane's total count and unique non-branch parent/slot directly. Tuple flow marks are allocated only after the first non-branch parent is fixed and reject any repeated child slot. Neither index replaces exact total site counts, branch-slot coverage/exclusion, one-parent ownership, ordered contiguous flow, cached parent/start validation, current-slot checks, types, use counts, EH, effects, traps, or the pre-mutation rewrite boundary.
+
+Reversed binary flow changes the admitted consumer shape, not its proof boundary. A non-tuple payload still has exactly the branch use plus one immediate consumer, and a tuple still owns exactly every branch payload slot plus one immediate consumer per lane. The consumer remains a directly dropped, single-use, same-typed binary with an exact payload child and a Flat-IR-simple opposite child. Rewrite updates only the discovered payload slot, leaves the simple sibling and opcode in place after `br_if`, and therefore does not hoist false-path effects or traps. Rich opposite operands, type changes, sharing, nesting, delayed consumers, mixed tuple/scalar ownership, and repair-sensitive EH remain rejection.
 
 ## Refreshed output matrix
 
@@ -352,6 +362,8 @@ The sequenced-root/multivalue-payload iteration profiled both exact lookup owner
 
 The multivalue flow-index iteration profiled both remaining exact quadratic lookup owners before changing them. For 32 complete reachable edge scans per sample, direct non-tuple payload-slot indexing improves the median from `495 -> 20 us` at 256 payloads (`95.96%`) and `1,878 -> 39 us` at 512 payloads (`97.92%`). For 2,048 tuple false-flow slot collections, exact slot marks improve `16,426 -> 749 us` at 256 slots (`95.44%`) and `59,644 -> 1,368 us` at 512 slots (`97.71%`). These local-only reconstructions measure the exact nested scans but do not recover or requalify the original representative harness. The maintained skipped sequenced-root fixture was not touched or reused and remains explicitly stale.
 
+The reversed-binary iteration intentionally made no timing claim. It follows the updated feature-first priority: close semantic/control families before spending further effort on millisecond-scale micro-optimization. The durable `970.5 us` / `3.65x` checkpoint remains unrequalified rather than being replaced by a new small-owner benchmark.
+
 ## Validation
 
 - HOT-lower focused file: `88/88`.
@@ -413,11 +425,13 @@ The sequenced-root/multivalue-payload iteration passes focused flatten `245/245`
 
 The multivalue flow-index iteration passes focused flatten `245/245`, private flatten `186/186`, passes `5,761/5,761`, the full suite `9,222/9,222`, and `moon info` with 11 existing warnings and 0 errors. Targeted formatting, `git diff --check`, pinned-owner verification, and public-wiring absence checks pass. Both red-first failures were the expected unbound helper errors. No `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed, so no new Binaryen probe was required.
 
+The reversed-binary behavior iteration passes focused flatten `247/247`, private flatten `186/186`, passes `5,763/5,763`, the full suite `9,224/9,224`, and `moon info` with 11 existing warnings and 0 errors. Both red-first fixtures failed because `flatten_run` returned unchanged. Targeted formatting, `git diff --check`, pinned-owner verification, and public-wiring absence checks pass. Fresh v130 runs of the existing multivalue/tuple binary probes and the scalar reversed-binary probe confirm the source rule: payload or tuple extraction precedes the condition, `br_if` becomes payload-free, and the binary stays after the branch with its simple opposite operand unchanged.
+
 ## Classification and remaining blockers
 
 - **Measured Starshine win:** nonthrowing synthetic catch-all bridge/control/local output is 24 aggregate bytes smaller than Binaryen after matched cleanup, with deterministic runtime agreement.
 - **Performance movement:** run-wide suffix, EH prerequisite, Flat IR classification, effective-terminal, scalar-try, label-use, exact terminal-table, scalar/multivalue exact branch-target caches, constant-time branch-user append, shared admission rosters, dedicated postorder branch dispatch, lightweight reachable ownership counts, shared-root-only sequence storage, binary shared-root pair lookup, single-target direct staging, cached inputful-loop support, batched detached deletion, in-place value-tail replacement, in-place suffix truncation, flat pooled table targets, lazy structural parents, reusable generation marks, depth-indexed prelude buffers, direct target-local retrieval, dense lazy type-result caching, marked multivalue payload distinctness/root exclusion, direct payload-slot indexing, marked tuple flow-slot distinctness, exact legacy-try/inputful-loop branch indexing, region-tail/tuple-entry/tuple-branch count proof, cached conditional-flow sites, sparse proof storage, sparse binary lookup, and binary terminal-payload membership reduce repeated immutable scans, generic router attempts, redundant one-target local copies, region rebuilds, full use-def/use-site allocation, quadratic target deduplication, nested payload-edge and flow-slot scans, linear payload/cache/pair scans, nested result-vector allocation, unconditional root bookkeeping, and per-root/per-query scratch allocation. The newest 512-candidate owner medians improve non-tuple flow indexing `97.92%` and tuple slot distinctness `97.71%`. The prior stable representative median remains `970.5 us`, outside the `<=2x` Binaryen target, and has not been requalified.
-- **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary.
+- **Behavior movement:** direct `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` call roots now use the same recursive complete-ownership proof; `i32.rotl` remains the tested outside-roster boundary. Independently scalar and exclusively tuple-made multivalue conditional lanes may now occupy either side of one immediate same-typed binary with a simple opposite operand while keeping that binary on the false path.
 - **Validation failure:** none observed.
 - **True semantic mismatch:** none observed in the measured probes.
 - **Durable representation gate:** `Catch`/`CatchAll` now select `DeferredCatchPayloadRepair`, while `Rethrow`/`Delegate` select `DeferredExceptionalTransferRepair`, before any mutation. This closes a partial-mutation hole but does not implement EH repair.
@@ -426,7 +440,7 @@ The multivalue flow-index iteration passes focused flatten `245/245`, private fl
 
 ## Next work
 
-1. profile one remaining exact run-wide owner before changing it, preferably target-local copy construction or another measured rewrite owner now that both non-tuple child-edge lookup and tuple flow-slot distinctness are indexed. The skipped maintained fixture at `src/passes_perf_long/flatten_sequenced_root_perf_test.mbt` still records the old linear baseline and must be deliberately updated or reclassified before reuse; do not silently present it as current implementation timing. Retain exact pre-mutation identity, cached parent/start/current-slot checks, and post-boundary failure behavior, and do not replace the `970.5 us` gate unless the original measurement contract is recovered or explicitly requalified;
-2. investigate typed catch payload representation and nested-pop repair as a lib/HOT capability slice, retaining whole-function failure atomicity;
-3. extend HOT mutation with a verified control-plus-owned-label deletion operation before admitting structured suffix roots; the detached-node batch API still intentionally does not remove label metadata;
-4. add a flatten-specific GenValid aggregate only after the admitted public surface and failure contract are stable enough to compare honestly.
+1. continue behavior-first implementation: prefer a complete typed catch-payload/nested-pop capability slice, `rethrow`/`delegate` repair, verified structured control-plus-owned-label deletion, or another bounded source-backed mixed/shared/nested control family;
+2. retain whole-function pre-mutation failure atomicity and direct v130 probes for every semantic/output family; do not weaken ownership, type, effect, trap, label, or current-structure gates to widen coverage;
+3. defer millisecond-scale micro-optimization unless a measured pass-local regression or the final public `<=2x` gate requires it. The maintained skipped sequenced-root fixture still encodes the old linear baseline and must be deliberately updated or reclassified before any reuse; the durable `970.5 us` checkpoint remains unrequalified;
+4. add the flatten-specific GenValid aggregate, four-lane signoff, ordered neighborhood proof, final docs closeout, and only then public registry/dispatcher/CLI/compare/API/preset wiring.

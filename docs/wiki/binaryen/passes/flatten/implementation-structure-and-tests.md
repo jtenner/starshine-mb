@@ -333,6 +333,10 @@ The next exact two-code iteration adds commits `f1dc57565` and `24b909b2d` witho
 
 At 512 candidates, the targeted native-release reconstructions improve non-tuple flow indexing `1,878 -> 39 us` (`97.92%`) and tuple slot distinctness `59,644 -> 1,368 us` (`97.71%`). Final validation is private flatten `186/186`, focused flatten `245/245`, passes `5,761/5,761`, full suite `9,222/9,222`, and green `moon info` with 11 existing warnings. No `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed.
 
+The next exact two-code iteration adds commits `2ae0a6adb` and `d64535310`. The first admits independently scalar multivalue `br_if` lanes as either operand of one immediate directly dropped same-typed binary when the opposite operand is Flat-IR-simple; its red-first legacy-try fixture failed unchanged at `245/246`. The second applies the same exact child-slot rule to an exclusively owned repeated `TupleMake`; its fixture failed unchanged at `246/247`. Slot-aware rewrite changes only the payload child and leaves the binary, simple sibling, opcode, and false-path placement intact.
+
+Validation is focused flatten `247/247`, private flatten `186/186`, passes `5,763/5,763`, full suite `9,224/9,224`, and green `moon info` with 11 existing warnings. Fresh pinned-v130 multivalue-tuple/left-lane and scalar-reversed probes support the combined source rule. No `.mbti` or public surface changed. Remaining work is feature-first: typed EH/pop repair, exceptional transfer, structured control-plus-label deletion, broader mixed/shared flow, then generator/signoff/neighborhood/public admission. Millisecond-scale micro-optimization is not a priority while those families remain open.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

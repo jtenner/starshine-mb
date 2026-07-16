@@ -386,6 +386,12 @@ Commits `f1dc57565` and `24b909b2d` complete the next exact two-code internal it
 
 The red-first invariants move private flatten to `186/186`. At 512 candidates, targeted medians improve non-tuple flow indexing `1,878 -> 39 us` (`97.92%`) and tuple flow-slot distinctness `59,644 -> 1,368 us` (`97.71%`). Focused flatten is `245/245`, passes are `5,761/5,761`, the full suite is `9,222/9,222`, and `moon info` is green with 11 existing warnings. No semantic family, output shape, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The maintained skipped sequenced-root fixture remains an explicitly stale old-linear baseline and was not reused. Every public-readiness blocker remains open.
 
+## 2026-07-15 reversed multivalue binary-flow follow-up
+
+Commits `2ae0a6adb` and `d64535310` return the internal iteration order to behavior breadth. Independently scalar and exclusively tuple-made multivalue `br_if` lanes may now remain the **right** operand of one immediate directly dropped same-typed binary when the left operand is already Flat-IR-simple. Payload/tuple work still executes before the condition; the binary remains after the branch on the not-taken path; exact one-use/complete tuple ownership, lane type, opcode, immediate placement, and current mutation proof remain mandatory.
+
+Both red-first fixtures failed because the function remained unchanged, then passed after slot-aware matching and replacement. Focused flatten is `247/247`, private flatten `186/186`, passes `5,763/5,763`, the full suite `9,224/9,224`, and `moon info` is green with 11 existing warnings. Fresh pinned-v130 probes reconfirm tuple extraction plus false-path binary placement and the simple-left/payload-right scalar rule. Rich opposite operands, mixed tuple/scalar ownership, shared/nested/non-immediate flow, typed catches, `rethrow`, `delegate`, structured label-owner deletion, the aggregate/four-lane matrix, neighborhood proof, and public wiring remain open. No new performance claim was made; future iterations prioritize missing feature families before micro-optimization.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.
