@@ -114,7 +114,13 @@ A future EH aggregate must now generate both admitted common-block and first-N d
 
 Commits `1ac52d9fa` and `23f9ba164` add internal lowering and admission for any positive rethrow depth through an exact direct chain of markerless resultless catch-all owners. HOT lower moves `89/90 -> 90/90`; whitebox flatten moves `200/201 -> 201/201`; final IR is `327/327`, passes `5,794/5,794`, and full `9,264/9,264`.
 
-This still creates no aggregate or public compare lane. A future EH profile must generate admitted direct catch-all depth chains separately from rejected typed markers, block/if wrappers between catch owners, loops, value results, nested try-body rethrows, mixed transfers, and broader nested ownership. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
+At that checkpoint this still created no aggregate or public compare lane. The blanket block/if-wrapper negative is superseded by the next section; typed markers, loops, value results, nested try-body rethrows, mixed transfers, and broader nested ownership remain negative families.
+
+## Strict nested-catch block/if wrappers remain outside public fuzzing
+
+Commits `70280e159` and `1fc7c6077` admit positive nonzero rethrow depth through strict resultless unused-label single-root block ancestry and then through arbitrary strict mixed block/selected-if ancestry between markerless resultless catch-all owners. Whitebox moves `201/202 -> 202/202 -> 202/203 -> 203/203`; final passes are `5,796/5,796` and full is `9,266/9,266`.
+
+This still creates no aggregate or public compare lane. A future EH profile must generate direct and strict wrapped catch-all depth chains separately, including then- and else-selected if paths and mixed control sequences, while rejecting typed markers, targeted/value-carrying/multi-root wrappers, loops, nested try-body rethrows, mixed transfers, and broader nested ownership. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
 
 ## Future executable lane
 

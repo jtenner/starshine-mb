@@ -451,7 +451,15 @@ Commit `1ac52d9fa` changes `src/ir/hot_lower.mbt` and `src/ir/hot_lower_test.mbt
 
 Commit `23f9ba164` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. `flatten_markerless_catch_owns_root(...)` proves that a resultless try has no typed catch markers and directly owns the expected catch root. Nonzero admission walks exactly `depth + 1` direct catch owners; every owner must be a markerless resultless catch-all try. The depth-two behavior fixture was red at whitebox `200/201`, then green at `201/201`, preserved `imm0 = 2`, verified HOT, lowered, and validated.
 
-Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,794/5,794`, and full `9,264/9,264`. No `.mbti` changed. The direct nested-catch chain is internal only; typed catches, block/if wrappers between catch owners, loops, value results, rethrows in nested try bodies, broader exceptional ownership, and every public pass surface remain excluded.
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,794/5,794`, and full `9,264/9,264`. No `.mbti` changed. At that checkpoint the direct nested-catch chain was internal only and block/if wrappers remained excluded; the next slices supersede only that wrapper boundary.
+
+## Latest strict nested-catch control-ancestry slices
+
+Commit `70280e159` adds `flatten_rethrow_catch_root_through_strict_ancestry(...)` and the red-first `flatten preserves a depth-one rethrow through strict catch block wrappers` fixture. Before implementation, whitebox was `201/202` and admission returned `DeferredExceptionalTransferRepair`. The helper now walks resultless unused-label single-root blocks before matching each exact markerless resultless catch owner; the fixture is green at `202/202`, preserves `imm0 = 1`, verifies HOT, lowers, and validates.
+
+Commit `1fc7c6077` extends that same helper through exact selected resultless unused-label `if` arms and adds a mixed block/if fixture. The selected arm must contain the current root as its sole root and the other arm must not share it. The fixture was red at `202/203`, then green at `203/203`, with validating `catch_all_ref`, `if`, and `throw_ref` output.
+
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `203/203`, passes `5,796/5,796`, and full `9,266/9,266`. No `.mbti` changed. Typed markers, value-carrying or targeted controls, multi-root selected paths, loops, nested try-body rethrows, broader exceptional ownership, and every public pass surface remain excluded.
 
 ## Non-goals to keep explicit
 

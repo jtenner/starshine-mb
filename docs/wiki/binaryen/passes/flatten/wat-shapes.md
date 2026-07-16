@@ -915,7 +915,7 @@ try body:   throw $tag
 catch body: block { rich ordinary work; rethrow 0 }
 ```
 
-Flatten may sequence the rich work, but the rethrow depth remains zero. Lowering uses a modern `catch_all_ref` handler, captures the non-null exception reference into one nullable `exnref` local, and emits `local.get` followed by `throw_ref`. Nonzero depth, typed payload plus rethrow, nested-catch ownership, and non-direct ancestry reject before mutation.
+Flatten may sequence the rich work, but the rethrow depth remains zero in this shape. Lowering uses a modern `catch_all_ref` handler, captures the non-null exception reference into one nullable `exnref` local, and emits `local.get` followed by `throw_ref`. At that checkpoint nonzero depth, nested-catch ownership, and non-direct ancestry rejected before mutation; Shapes 22 and 23 supersede those blanket boundaries, while typed payload plus rethrow remains open.
 
 The exact admitted delegate shape is:
 
@@ -1023,7 +1023,26 @@ outer catch-all:
 
 The outer handler captures its exception through `catch_all_ref`. The middle and inner catches still occupy active catch slots even though they do not need captured locals. `rethrow 2` indexes the outer slot and lowers to `local.get` plus `throw_ref`. Flatten preserves the depth immediate.
 
-Every owner must be a markerless resultless catch-all try, and each nested try must be a direct root of the enclosing catch. Blocks or ifs between catch owners, typed payload markers, loops, value results, nested try-body rethrows, and mixed exceptional populations remain fail-closed. The lower test moved `89/90 -> 90/90`; the depth-two flatten fixture moved whitebox `200/201 -> 201/201`; both lowered modules validate.
+At that checkpoint, every owner had to be a markerless resultless catch-all try and each nested try had to be a direct root of the enclosing catch. The lower test moved `89/90 -> 90/90`; the depth-two flatten fixture moved whitebox `200/201 -> 201/201`; both lowered modules validate.
+
+## Shape 23: nonzero rethrow may cross strict block/if catch wrappers
+
+The direct-root restriction is now superseded for an exact strict control ancestry:
+
+```text
+outer catch-all:
+  if void, unused label, selected arm only
+    block void, unused label, sole root
+      inner resultless try
+        inner catch-all:
+          block void, unused label, sole root
+            if void, unused label, selected arm only
+              rethrow 1
+```
+
+Every wrapper is resultless and untargeted. A block contains the current root as its only body root. An `if` contains it as the sole root of exactly one arm and does not share it with the opposite arm. Any strict block/if mix may occur before the next markerless resultless catch-all owner. Flatten preserves the rethrow immediate; lowering still reads the exact outer captured `exnref` and emits `throw_ref`.
+
+Block-only ancestry moved whitebox `201/202 -> 202/202`; mixed block/if ancestry moved `202/203 -> 203/203`. Typed markers, targeted or value-carrying controls, multi-root selected paths, loops, nested try-body rethrows, and mixed exceptional populations remain fail-closed.
 
 ## Bottom line
 

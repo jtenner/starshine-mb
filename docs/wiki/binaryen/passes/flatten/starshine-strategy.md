@@ -478,9 +478,15 @@ Whitebox moved `198/199 -> 199/199` and `199/200 -> 200/200`; final passes are `
 
 Commits `1ac52d9fa` and `23f9ba164` supersede the blanket nonzero-depth and nested-catch blockers only for an exact direct catch-all chain. Lowering now models every active catch position explicitly, including catches that do not need their own exception local. A target catch captures its exception through `catch_all_ref`; a nested `Rethrow(depth)` reads that exact outer slot and emits `throw_ref`.
 
-Flatten admission allows any positive depth when the rethrow is a direct root of a markerless resultless catch-all try and every next owner is itself a direct root of the next enclosing markerless resultless catch-all. It preserves the immediate and refuses typed markers, value-carrying tries, blocks or ifs between catch owners, loops, nested try-body rethrows, or mixed transfer populations.
+At that checkpoint, flatten admission allowed any positive depth only when the rethrow and every next owner were direct markerless resultless catch-all roots. It preserved the immediate and refused typed markers, value-carrying tries, wrappers between owners, loops, nested try-body rethrows, or mixed transfer populations.
 
-The red-first sequence is HOT lower `89/90 -> 90/90`, then whitebox flatten `200/201 -> 201/201`. Final passes are `5,794/5,794` and full `9,264/9,264`; no `.mbti` or public surface changed. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring.
+The red-first sequence was HOT lower `89/90 -> 90/90`, then whitebox flatten `200/201 -> 201/201`. Final passes were `5,794/5,794` and full `9,264/9,264`; no `.mbti` or public surface changed.
+
+## Latest strict nested-catch wrapper decision
+
+Commits `70280e159` and `1fc7c6077` supersede only the prior blanket block/if-wrapper boundary. Between every pair of markerless resultless catch-all owners, positive-depth rethrow admission may now cross an arbitrary strict direct mix of resultless unused-label single-root blocks and selected `if` arms. The selected path must own the current root exactly once; the depth immediate and exact lowering slot remain unchanged.
+
+Whitebox moved `201/202 -> 202/202` for blocks and `202/203 -> 203/203` for mixed block/if ancestry. Final passes are `5,796/5,796` and full `9,266/9,266`; no `.mbti` or public surface changed. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring. Typed composition, loops, nested try-body transfers, targeted/value-carrying controls, multi-root ownership, and broader exceptional populations remain open.
 
 ## Validation plan for the eventual port
 

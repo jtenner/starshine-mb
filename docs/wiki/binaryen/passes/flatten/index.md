@@ -521,7 +521,15 @@ Commits `1ac52d9fa` and `23f9ba164` narrow the exceptional-transfer gap again. H
 
 The red-first lowering fixture failed at `89/90` on the direct-catch guard, then passed `90/90`. The red-first depth-two flatten fixture failed at whitebox `200/201` with `DeferredExceptionalTransferRepair`, then passed `201/201`. Final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,794/5,794`, full `9,264/9,264`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public surface changed.
 
-This supersedes the blanket nonzero-depth and nested-catch rethrow blockers only for that exact direct markerless resultless catch-all chain. Typed composition, blocks/ifs between catch owners, loops, rethrows in nested try bodies, value-carrying owners, broader nested exceptional populations, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
+At that checkpoint, this superseded the blanket nonzero-depth and nested-catch rethrow blockers only for the exact direct markerless resultless catch-all chain. The block/if-wrapper boundary is superseded by the next iteration; the other listed gates remain.
+
+## 2026-07-16 strict block/if ancestry between nested catch owners
+
+Commits `70280e159` and `1fc7c6077` extend positive nonzero rethrow depth through an arbitrary strict direct mix of resultless unused-label single-root blocks and selected `if` arms between each pair of markerless resultless catch-all owners. Each selected control path must own the current root exactly once; targeted, value-carrying, multi-root, loop, typed-marker, try-body, and mixed exceptional populations remain rejected before mutation. The rethrow depth immediate and existing exact active-catch lowering slot are unchanged.
+
+The block-only fixture was red at whitebox `201/202` with `DeferredExceptionalTransferRepair`, then green at `202/202`. The mixed block/if fixture was red at `202/203`, then green at `203/203`. Final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `203/203`, passes `5,796/5,796`, full `9,266/9,266`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public pass surface changed; performance was not remeasured, so `970.5 us` / `3.65x` Binaryen v130 remains the durable checkpoint.
+
+Typed-composed rethrows, loops, nested try-body rethrows, targeted or value-carrying wrappers, broader nested exceptional ownership, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
 
 ## Sources
 
