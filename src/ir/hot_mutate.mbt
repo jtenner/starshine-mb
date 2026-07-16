@@ -201,12 +201,17 @@ pub fn hot_append_body_local(func : HotFunc, ty : ValType) -> LocalId {
 }
 
 ///|
-priv struct HotScalarCatchPayloadRepair {
-  catch_ref : HotRegionRef
+priv struct HotCatchPayloadLaneRepair {
   payload_id : NodeId
   parent_id : NodeId
   parent_slot : Int
   val_type : ValType
+}
+
+///|
+priv struct HotCatchPayloadRepair {
+  catch_ref : HotRegionRef
+  lanes : Array[HotCatchPayloadLaneRepair]
 }
 
 ///|
@@ -220,16 +225,17 @@ fn hot_catch_payload_site_matches(
 }
 
 ///|
-fn hot_scalar_catch_payload_first_descendant_repair(
+fn hot_catch_payload_lane_repair(
   func : HotFunc,
   use_def : HotUseDef,
   catch_ref : HotRegionRef,
+  entry_slot : Int,
   payload_id : NodeId,
-) -> HotScalarCatchPayloadRepair? {
-  if hot_region_root_count(func, catch_ref) < 2 ||
-    hot_region_get(func, catch_ref, 0) != payload_id {
-    return None
-  }
+  root_id : NodeId,
+  root_user : NodeId,
+  root_slot : Int,
+  require_unary_path : Bool,
+) -> HotCatchPayloadLaneRepair? {
   let payload = hot_node_get(func, payload_id)
   let payload_types = hot_type_results(func, payload.ty)
   if payload.op != HotOp::Catch ||
@@ -238,9 +244,9 @@ fn hot_scalar_catch_payload_first_descendant_repair(
     return None
   }
 
-  let mut current = hot_region_get(func, catch_ref, 1)
-  let mut expected_user = catch_ref.holder
-  let mut expected_slot = 1
+  let mut current = root_id
+  let mut expected_user = root_user
+  let mut expected_slot = root_slot
   let mut expected_kind = HotUseSlotKind::RootUseSlot
   let mut parent_id = HOT_NONE_NODE
   let mut parent_slot = -1
@@ -272,7 +278,8 @@ fn hot_scalar_catch_payload_first_descendant_repair(
       }
       HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable => return None
       _ => {
-        if node.child_count == 0 {
+        if node.child_count == 0 ||
+          (require_unary_path && node.child_count != 1) {
           return None
         }
         parent_id = current
@@ -298,7 +305,7 @@ fn hot_scalar_catch_payload_first_descendant_repair(
     if hot_catch_payload_site_matches(
         site,
         catch_ref.holder,
-        0,
+        entry_slot,
         HotUseSlotKind::RootUseSlot,
       ) {
       saw_entry = true
@@ -313,21 +320,134 @@ fn hot_scalar_catch_payload_first_descendant_repair(
   if !saw_entry || !saw_nested {
     return None
   }
-  Some({
-    catch_ref,
-    payload_id,
-    parent_id,
-    parent_slot,
-    val_type: payload_types[0],
-  })
+  Some({ payload_id, parent_id, parent_slot, val_type: payload_types[0] })
 }
 
 ///|
-fn hot_scalar_catch_payload_repair_plan(
+fn hot_scalar_catch_payload_first_descendant_repair(
   func : HotFunc,
-) -> Array[HotScalarCatchPayloadRepair]? {
+  use_def : HotUseDef,
+  catch_ref : HotRegionRef,
+  payload_id : NodeId,
+) -> HotCatchPayloadLaneRepair? {
+  if hot_region_root_count(func, catch_ref) < 2 ||
+    hot_region_get(func, catch_ref, 0) != payload_id {
+    return None
+  }
+  hot_catch_payload_lane_repair(
+    func,
+    use_def,
+    catch_ref,
+    0,
+    payload_id,
+    hot_region_get(func, catch_ref, 1),
+    catch_ref.holder,
+    1,
+    false,
+  )
+}
+
+///|
+fn hot_two_lane_catch_payload_repair(
+  func : HotFunc,
+  use_def : HotUseDef,
+  catch_ref : HotRegionRef,
+  first : NodeId,
+  second : NodeId,
+) -> HotCatchPayloadRepair? {
+  if hot_region_root_count(func, catch_ref) != 3 ||
+    hot_region_get(func, catch_ref, 0) != first ||
+    hot_region_get(func, catch_ref, 1) != second {
+    return None
+  }
+  let first_node = hot_node_get(func, first)
+  let second_node = hot_node_get(func, second)
+  if first_node.op != HotOp::Catch ||
+    second_node.op != HotOp::Catch ||
+    first_node.imm0 != second_node.imm0 {
+    return None
+  }
+
+  let mut current = hot_region_get(func, catch_ref, 2)
+  let mut expected_user = catch_ref.holder
+  let mut expected_slot = 2
+  let mut final_ref = catch_ref
+  while true {
+    if current < 0 || !hot_node_is_live(func, current) {
+      return None
+    }
+    let sites = node_use_sites_borrowed(use_def, current)
+    if sites.length() != 1 ||
+      !hot_catch_payload_site_matches(
+        sites[0],
+        expected_user,
+        expected_slot,
+        HotUseSlotKind::RootUseSlot,
+      ) {
+      return None
+    }
+    if hot_node_get(func, current).op != HotOp::Block {
+      return None
+    }
+    let body_ref = hot_region_body_ref(func, current)
+    let root_count = hot_region_root_count(func, body_ref)
+    if root_count == 0 {
+      return None
+    }
+    let first_root = hot_region_get(func, body_ref, 0)
+    if root_count == 1 && hot_node_get(func, first_root).op == HotOp::Block {
+      expected_user = current
+      expected_slot = 0
+      current = first_root
+      continue
+    }
+    if root_count < 2 {
+      return None
+    }
+    final_ref = body_ref
+    break
+  }
+
+  let first_plan = match
+    hot_catch_payload_lane_repair(
+      func,
+      use_def,
+      catch_ref,
+      0,
+      first,
+      hot_region_get(func, final_ref, 0),
+      final_ref.holder,
+      0,
+      true,
+    ) {
+    Some(plan) => plan
+    None => return None
+  }
+  let second_plan = match
+    hot_catch_payload_lane_repair(
+      func,
+      use_def,
+      catch_ref,
+      1,
+      second,
+      hot_region_get(func, final_ref, 1),
+      final_ref.holder,
+      1,
+      true,
+    ) {
+    Some(plan) => plan
+    None => return None
+  }
+  Some({ catch_ref, lanes: [first_plan, second_plan] })
+}
+
+///|
+fn hot_catch_payload_repair_plan(
+  func : HotFunc,
+  max_lanes : Int,
+) -> Array[HotCatchPayloadRepair]? {
   let use_def = use_def_build_node_uses(func)
-  let plans : Array[HotScalarCatchPayloadRepair] = []
+  let plans : Array[HotCatchPayloadRepair] = []
   let mut payload_count = 0
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) {
@@ -339,6 +459,7 @@ fn hot_scalar_catch_payload_repair_plan(
       _ => ()
     }
   }
+  let mut planned_payloads = 0
   for try_id = 0; try_id < hot_node_count(func); try_id = try_id + 1 {
     if !hot_node_is_live(func, try_id) ||
       hot_node_get(func, try_id).op != HotOp::Try {
@@ -348,37 +469,88 @@ fn hot_scalar_catch_payload_repair_plan(
       Some(catch_ref) => catch_ref
       None => continue
     }
-    if hot_region_root_count(func, catch_ref) == 0 {
+    let root_count = hot_region_root_count(func, catch_ref)
+    let mut lane_count = 0
+    while lane_count < root_count &&
+          hot_node_get(func, hot_region_get(func, catch_ref, lane_count)).op ==
+          HotOp::Catch {
+      lane_count += 1
+    }
+    if lane_count == 0 {
       continue
     }
-    let payload_id = hot_region_get(func, catch_ref, 0)
-    if hot_node_get(func, payload_id).op != HotOp::Catch {
-      continue
-    }
-    if hot_region_root_count(func, catch_ref) > 1 &&
-      hot_node_get(func, hot_region_get(func, catch_ref, 1)).op == HotOp::Catch {
+    if lane_count > max_lanes || lane_count > 2 {
       return None
     }
-    let plan = match
-      hot_scalar_catch_payload_first_descendant_repair(
-        func, use_def, catch_ref, payload_id,
-      ) {
-      Some(plan) => plan
-      None => return None
+    if lane_count == 1 {
+      let payload_id = hot_region_get(func, catch_ref, 0)
+      let lane = match
+        hot_scalar_catch_payload_first_descendant_repair(
+          func, use_def, catch_ref, payload_id,
+        ) {
+        Some(lane) => lane
+        None => return None
+      }
+      plans.push({ catch_ref, lanes: [lane] })
+      planned_payloads += 1
+    } else {
+      let plan = match
+        hot_two_lane_catch_payload_repair(
+          func,
+          use_def,
+          catch_ref,
+          hot_region_get(func, catch_ref, 0),
+          hot_region_get(func, catch_ref, 1),
+        ) {
+        Some(plan) => plan
+        None => return None
+      }
+      plans.push(plan)
+      planned_payloads += 2
     }
-    plans.push(plan)
   }
-  if plans.length() != payload_count {
+  if planned_payloads != payload_count {
     return None
   }
   Some(plans)
 }
 
 ///|
+fn hot_repair_catch_payloads(func : HotFunc, max_lanes : Int) -> Bool {
+  let plans = match hot_catch_payload_repair_plan(func, max_lanes) {
+    Some(plans) => plans
+    None => return false
+  }
+  if plans.is_empty() {
+    return false
+  }
+  for plan in plans {
+    let captures : Array[NodeId] = []
+    for lane in plan.lanes {
+      let local_id = hot_append_body_local(func, lane.val_type)
+      captures.push(hot_build_local_set(func, local_id, lane.payload_id))
+      let replacement = hot_build_local_get(func, local_id)
+      hot_child_set(func, lane.parent_id, lane.parent_slot, replacement)
+    }
+    let stack_ordered_captures : Array[NodeId] = []
+    for idx = captures.length() - 1; idx >= 0; idx = idx - 1 {
+      stack_ordered_captures.push(captures[idx])
+    }
+    hot_region_insert(
+      func,
+      plan.catch_ref,
+      plan.lanes.length(),
+      stack_ordered_captures,
+    )
+  }
+  true
+}
+
+///|
 /// Report whether every typed legacy catch payload in the function can be
 /// captured exactly once on its catch region's first-descendant line.
 pub fn hot_scalar_catch_payloads_repairable(func : HotFunc) -> Bool {
-  hot_scalar_catch_payload_repair_plan(func) is Some(_)
+  hot_catch_payload_repair_plan(func, 1) is Some(_)
 }
 
 ///|
@@ -388,21 +560,24 @@ pub fn hot_scalar_catch_payloads_repairable(func : HotFunc) -> Bool {
 /// mutation; unsupported multiple payloads, nested catches, loops, sharing, or
 /// outside uses leave the function unchanged.
 pub fn hot_repair_scalar_catch_payloads(func : HotFunc) -> Bool {
-  let plans = match hot_scalar_catch_payload_repair_plan(func) {
-    Some(plans) => plans
-    None => return false
-  }
-  if plans.is_empty() {
-    return false
-  }
-  for plan in plans {
-    let local_id = hot_append_body_local(func, plan.val_type)
-    let capture = hot_build_local_set(func, local_id, plan.payload_id)
-    let replacement = hot_build_local_get(func, local_id)
-    hot_child_set(func, plan.parent_id, plan.parent_slot, replacement)
-    hot_region_insert(func, plan.catch_ref, 1, [capture])
-  }
-  true
+  hot_repair_catch_payloads(func, 1)
+}
+
+///|
+/// Report whether every typed legacy catch payload is either the exact scalar
+/// first-descendant family or one ordered two-lane family under an exclusive
+/// direct block chain. Catch-all markers, loops, nested catches, sharing,
+/// outside uses, a partial lane, or a third lane reject the complete function.
+pub fn hot_ordered_catch_payloads_repairable(func : HotFunc) -> Bool {
+  hot_catch_payload_repair_plan(func, 2) is Some(_)
+}
+
+///|
+/// Capture exact scalar or ordered two-lane legacy catch payloads atomically.
+/// Lane locals retain source order; entry captures consume the handler stack in
+/// reverse lane order before exact old-position reads replace both payload uses.
+pub fn hot_repair_ordered_catch_payloads(func : HotFunc) -> Bool {
+  hot_repair_catch_payloads(func, 2)
 }
 
 ///|

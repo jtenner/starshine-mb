@@ -543,6 +543,8 @@ pub fn hot_node_use_counts_build(HotFunc) -> HotNodeUseCounts
 
 pub fn hot_nodes_match_simple_value(HotFunc, Int, Int) -> Bool
 
+pub fn hot_ordered_catch_payloads_repairable(HotFunc) -> Bool
+
 pub fn hot_param_count(HotFunc) -> Int
 
 pub fn hot_pass_invalidates(HotPassDescriptor) -> Array[HotAnalysis]
@@ -612,6 +614,8 @@ pub fn hot_region_split_trailing_plain_br_target(HotFunc, HotRegionRef) -> (Arra
 pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
 
 pub fn hot_region_truncate_suffix(HotFunc, HotRegionRef, Int) -> Array[Int]
+
+pub fn hot_repair_ordered_catch_payloads(HotFunc) -> Bool
 
 pub fn hot_repair_scalar_catch_payloads(HotFunc) -> Bool
 

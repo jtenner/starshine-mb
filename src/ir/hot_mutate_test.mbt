@@ -483,6 +483,114 @@ test "scalar catch payload repair captures the first descendant atomically" {
 }
 
 ///|
+test "ordered two-lane catch repair captures payloads atomically" {
+  let func = HotFunc::new()
+  let first = hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let second = hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::f32(),
+  )
+  let first_drop = hot_build_drop(func, first)
+  let second_drop = hot_build_drop(func, second)
+  let inner = hot_build_block(func, @lib.BlockType::void_(), [
+    first_drop, second_drop,
+  ])
+  let outer = hot_build_block(func, @lib.BlockType::void_(), [inner])
+  let try_id = hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [hot_build_nop(func)],
+    catch_body=Some([first, second, outer]),
+  )
+  hot_root_append(func, try_id)
+
+  assert_false(hot_scalar_catch_payloads_repairable(func))
+  assert_true(hot_ordered_catch_payloads_repairable(func))
+  assert_true(hot_repair_ordered_catch_payloads(func))
+  @debug.assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_local_type(func, 0), Some(@lib.ValType::i32()))
+  @debug.assert_eq(hot_local_type(func, 1), Some(@lib.ValType::f32()))
+  let catch_ref = hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(hot_region_root_count(func, catch_ref), 5)
+  @debug.assert_eq(hot_region_get(func, catch_ref, 0), first)
+  @debug.assert_eq(hot_region_get(func, catch_ref, 1), second)
+  let second_capture = hot_region_get(func, catch_ref, 2)
+  let first_capture = hot_region_get(func, catch_ref, 3)
+  @debug.assert_eq(
+    hot_node_get(func, second_capture).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(hot_node_get(func, second_capture).imm0, 1)
+  @debug.assert_eq(hot_child_get(func, second_capture, 0), second)
+  @debug.assert_eq(hot_node_get(func, first_capture).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, first_capture).imm0, 0)
+  @debug.assert_eq(hot_child_get(func, first_capture, 0), first)
+  @debug.assert_eq(hot_region_get(func, catch_ref, 4), outer)
+  let first_get = hot_child_get(func, first_drop, 0)
+  let second_get = hot_child_get(func, second_drop, 0)
+  @debug.assert_eq(hot_node_get(func, first_get).op.to_string(), "LocalGet")
+  @debug.assert_eq(hot_node_get(func, first_get).imm0, 0)
+  @debug.assert_eq(hot_node_get(func, second_get).op.to_string(), "LocalGet")
+  @debug.assert_eq(hot_node_get(func, second_get).imm0, 1)
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected ordered catch repair to verify, got \{err}")
+  }
+}
+
+///|
+test "ordered two-lane catch repair rejects a partial lane without mutation" {
+  let func = HotFunc::new()
+  let first = hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let second = hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::f32(),
+  )
+  let first_drop = hot_build_drop(func, first)
+  let second_drop = hot_build_drop(func, second)
+  let inner = hot_build_block(func, @lib.BlockType::void_(), [
+    first_drop, second_drop,
+  ])
+  let outer = hot_build_block(func, @lib.BlockType::void_(), [inner])
+  let try_id = hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [hot_build_nop(func)],
+    catch_body=Some([first, second, outer]),
+  )
+  hot_root_append(func, try_id)
+  let outside_drop = hot_build_drop(func, second)
+  hot_root_append(func, outside_drop)
+  let revision = hot_revision_current(func)
+  let node_count = hot_node_count(func)
+  let local_count = hot_local_count(func)
+  let root_count = hot_root_count(func)
+  let catch_ref = hot_region_catch_ref(func, try_id).unwrap()
+  let catch_root_count = hot_region_root_count(func, catch_ref)
+
+  assert_false(hot_ordered_catch_payloads_repairable(func))
+  assert_false(hot_repair_ordered_catch_payloads(func))
+  @debug.assert_eq(hot_revision_current(func), revision)
+  @debug.assert_eq(hot_node_count(func), node_count)
+  @debug.assert_eq(hot_local_count(func), local_count)
+  @debug.assert_eq(hot_root_count(func), root_count)
+  @debug.assert_eq(hot_region_root_count(func, catch_ref), catch_root_count)
+  @debug.assert_eq(hot_child_get(func, first_drop, 0), first)
+  @debug.assert_eq(hot_child_get(func, second_drop, 0), second)
+  @debug.assert_eq(hot_child_get(func, outside_drop, 0), second)
+}
+
+///|
 test "appended body locals lower in append order" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   ignore(hot_append_body_local(func, @lib.ValType::f32()))
