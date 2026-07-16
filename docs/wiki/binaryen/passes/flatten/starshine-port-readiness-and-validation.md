@@ -448,6 +448,16 @@ Final evidence is HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, wh
 
 Readiness remains blocked by broader catch-payload policy/repair; typed composition outside the exact repaired scalar-vector/one-depth-zero-rethrow/direct-or-strict-block-or-exact-selected-if subset; broader rethrow/delegate ownership and structured EH; the flatten aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
 
+## Latest readiness movement: grouped catch roots and no-work delegate blocks
+
+Commit `62992d7c5` admits one exact mixed ordered catch-payload layout that was previously deferred. A positive prefix of remaining same-tag lanes may be owned by the first roots of a retained nested block chain, and later lanes may continue in direct or interleaved catch roots. The red-first `i32`/`f32` grouped plus direct `i64` fixture returned `DeferredCatchPayloadRepair` at `215/216`; after implementation it passes `216/216`, retains both block shells and every later root, preserves source-order locals and reverse captures, lowers, and validates. Reverse/ambiguous grouping, partial or mixed-tag populations, repeated/shared/outside uses, selected-arm lanes, loops, nested catches, and catch-all extraction remain deferred.
+
+Commit `9ee7b710e` extends only the no-work side of the existing exact constant-selected catch-if delegate representation. A present unselected region may be empty, contain one childless `nop`, or contain a positive strict chain of resultless unused-label single-root blocks ending in either representation. `hot_region_is_strict_no_work_block_chain(...)` is the shared admission/lowering proof. The red-first fixture returned `DeferredExceptionalTransferRepair` at `216/217`; after implementation it passes `217/217`, retains the HOT shells and target, lowers without representational ifs, and validates. Any executable opposite root, used label, value result, multi-root body, loop, nested try, missing else, nonconstant/effectful selector, mixed catch, or non-active target remains deferred.
+
+Final evidence is HOT query `11/11`, HOT lower `90/90`, focused flatten `263/263`, whitebox flatten `217/217`, passes `5,810/5,810`, full `9,280/9,280`, `moon fmt`, `git diff --check`, and `moon info` with 11 existing warnings. The `.mbti` addition is generic HOT query surface only. No flatten profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen remains the durable checkpoint.
+
+Readiness remains blocked by partial/mixed/repeated/shared/outside and broader nested catch-payload repair; typed and nonzero exceptional composition outside the admitted exact subsets; delegate populations outside direct, strict catch-block, exact selected-if with proven no-work opposites, and strict outer ancestry; richer mixed/shared/nested control and EH closure; the flatten aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

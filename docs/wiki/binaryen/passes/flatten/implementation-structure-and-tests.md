@@ -509,6 +509,14 @@ Commit `dc3cdb597` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and
 
 Final evidence is HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,808/5,808`, and full `9,278/9,278`. `moon fmt` and `moon info` are green with 11 existing warnings. No `.mbti` or public flatten surface changed.
 
+## Latest grouped-payload and no-work-block implementation slices
+
+Commit `62992d7c5` changes `src/ir/hot_mutate.mbt` and `src/passes/flatten_wbtest.mbt`. `hot_grouped_catch_payload_repairs(...)` follows an exact owned block chain to a final region, collects the longest positive ordered prefix of remaining payload lanes that satisfy the existing lane-use proof, and lets the outer planner continue with later direct/interleaved roots. The test was red at `215/216` with `DeferredCatchPayloadRepair`, then green at `216/216`; wrapper identity, later roots, local order, capture order, lowering, and validation are locked.
+
+Commit `9ee7b710e` changes `src/ir/hot_query.mbt`, `src/ir/hot_lower.mbt`, `src/passes/flatten.mbt`, `src/passes/flatten_wbtest.mbt`, and `src/ir/pkg.generated.mbti`. The new generic `hot_region_is_strict_no_work_block_chain(...)` accepts only an empty region or a resultless unused-label single-root block chain ending empty or in one childless `nop`. Flatten admission and delegate lowering both call that query with their exact label-use view. The test was red at `216/217` with `DeferredExceptionalTransferRepair`, then green at `217/217`; HOT retains the representational shells while lowering removes only the proven no-work path.
+
+Final evidence is HOT query `11/11`, HOT lower `90/90`, focused flatten `263/263`, whitebox flatten `217/217`, passes `5,810/5,810`, and full `9,280/9,280`. The `.mbti` change is generic IR query surface, not a public flatten descriptor or execution route.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

@@ -631,6 +631,14 @@ Catch-side delegate ifs use the same empty-or-childless-`nop` no-work rule in ad
 
 The red-first whitebox states were `213/214` and `214/215`; final whitebox is `215/215`, with HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,808/5,808`, and full `9,278/9,278`.
 
+## Grouped catch-lane repair and shared no-work region proof
+
+Ordered catch repair now supports one further composition without changing prelude or handler order. A retained nested block chain may own the next positive group of same-tag payload lanes, after which later lanes may continue in direct or interleaved catch roots. The repair transaction still allocates locals in lane source order, emits entry captures in reverse handler-stack order, replaces only exact old payload positions, and leaves every wrapper and unrelated root in place. The red-first three-lane fixture moved `215/216 -> 216/216`.
+
+Constant-selected catch-side delegate ifs now ask one shared HOT query whether the unselected region is semantically no-work. The accepted grammar is: empty; one childless `nop`; or a positive chain of resultless unused-label single-root blocks ending in either. Because admission and lowering use the same query, transparent delegate lowering cannot erase executable work. Missing else regions, nonconstant/effectful selectors, used labels, value-carrying or multi-root blocks, loops, nested tries, and richer terminal roots remain deferred. The fixture moved `216/217 -> 217/217`.
+
+Final HOT lower is `90/90`, focused flatten `263/263`, passes `5,810/5,810`, and full `9,280/9,280`. The only API snapshot change is the generic no-work region query; flatten remains public-removed.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

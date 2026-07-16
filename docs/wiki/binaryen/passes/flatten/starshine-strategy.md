@@ -536,6 +536,14 @@ Commit `dc3cdb597` applies the same no-work arm policy to catch-side delegate if
 
 Whitebox moved `213/214 -> 214/214 -> 214/215 -> 215/215`. Final passes are `5,808/5,808` and full is `9,278/9,278`; HOT lower, IR, and focused flatten are `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at `970.5 us` / `3.65x`.
 
+## Latest grouped catch-root and no-work delegate decisions
+
+Commit `62992d7c5` supersedes one narrow composition blocker: an ordered same-tag payload vector may combine a positive group under a retained nested block chain with later direct or interleaved roots. This remains a whole-function transaction. The group must consume the next source-ordered lanes through the existing exact first-child and entry-plus-old-position ownership proof; a partial group or any later unrepaired lane rejects before local or node mutation.
+
+Commit `9ee7b710e` makes empty, childless-`nop`, and strict resultless unused-label block-chain opposites one explicit no-work policy for constant-selected catch-side delegate ifs. Admission and HOT lowering use the same generic region query. This is not general dead-code elimination: any executable root, value result, used label, multiple root, loop, nested try, missing else, or nonconstant/effectful selector keeps the complete function deferred.
+
+Whitebox moved `215/216 -> 216/216 -> 216/217 -> 217/217`; passes are `5,810/5,810` and full is `9,280/9,280`. The generic HOT query appears in `src/ir/pkg.generated.mbti`, but every public flatten execution surface remains removed. The durable performance checkpoint remains `970.5 us` / `3.65x` Binaryen.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

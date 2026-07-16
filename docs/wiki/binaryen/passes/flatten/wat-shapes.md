@@ -1220,6 +1220,40 @@ The same exact shell may represent a delegate catch path. Admission and lowering
 
 Final passes are `5,808/5,808` and full is `9,278/9,278`; public flatten remains removed.
 
+## Shape 30: grouped catch lanes and no-work opposite block chains
+
+A repaired payload vector may combine grouped and direct roots:
+
+```wat
+(catch $tag
+  (pop i32)
+  (pop f32)
+  (pop i64)
+  (block
+    (block
+      (drop (pop i32))
+      (drop (pop f32))))
+  (drop (pop i64))
+  (nop))
+```
+
+The HOT markers model the ordered handler payload lanes. Starshine may capture the first two lanes from the retained nested block group and the third from the following direct root. Locals remain `i32`, `f32`, `i64` in source order; catch-entry stores consume `i64`, `f32`, `i32` in reverse stack order. Reverse/ambiguous groups, partial lanes, mixed tags, repeated/shared/outside use, loops, and selected-arm paths remain deferred. The fixture moved `215/216 -> 216/216`.
+
+A selected delegate path may have a structurally nonempty but semantically no-work opposite arm:
+
+```wat
+(if (i32.const 1)
+  (then (delegate $outer))
+  (else
+    (block
+      (block
+        (nop)))))
+```
+
+Every block is resultless, single-root, and unused as a label; the terminal body is empty or one childless `nop`. Admission and lowering use the same proof, retain the HOT representation and exact target, and omit the representational if/block chain from encoded output. Executable roots, used labels, value results, multiple roots, loops, nested tries, missing else regions, and nonconstant/effectful selectors remain deferred. The fixture moved `216/217 -> 217/217`.
+
+Final passes are `5,810/5,810` and full is `9,280/9,280`; public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:

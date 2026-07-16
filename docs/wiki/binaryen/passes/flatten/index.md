@@ -583,6 +583,16 @@ The same empty-or-childless-`nop` opposite-arm proof now applies to the already 
 
 All aggregate, four-lane, ordered-neighborhood, broader behavior, performance, docs-closeout, and public-admission gates remain open.
 
+## 2026-07-16 grouped catch roots and no-work delegate block chains
+
+Commits `62992d7c5` and `9ee7b710e` complete the next bounded internal iteration. Ordered same-tag catch repair may now compose a positive lane group under one nested block chain with later direct or interleaved lane roots. The three-lane fixture groups `i32` and `f32` uses under retained nested blocks, leaves the `i64` use direct, preserves later roots, allocates locals in source order, inserts captures in reverse handler-stack order, lowers, and validates. This supersedes the blanket grouped-plus-direct composition blocker only for ordered positive groups with the existing exact first-child and ownership proof.
+
+Catch-side constant-selected delegate ifs now accept an unselected region formed by any positive strict chain of resultless unused-label single-root blocks ending in an empty body or one childless `nop`. Admission and HOT lowering call the same generic no-work region proof, so neither path can discard executable opposite work. Missing else regions, used labels, value results, multiple roots, other operations, loops, nested tries, nonconstant/effectful selectors, mixed catches, and non-active targets remain deferred.
+
+Red-first whitebox moved `215/216 -> 216/216` and `216/217 -> 217/217`. Final validation is HOT query `11/11`, HOT lower `90/90`, focused flatten `263/263`, passes `5,810/5,810`, full `9,280/9,280`, `moon fmt`, `git diff --check`, and green `moon info` with 11 existing warnings. The only `.mbti` change is the generic HOT no-work query; no public flatten registry, dispatcher, CLI execution, compare/API allowlist, GenValid profile, preset, scheduler, or neighborhood-ready surface changed. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+All broader payload, exceptional-transfer, structured/EH, aggregate, four-lane, ordered-neighborhood, performance, docs-closeout, and public-admission gates remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

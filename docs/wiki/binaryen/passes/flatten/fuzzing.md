@@ -168,6 +168,14 @@ Red-first whitebox moved `213/214 -> 214/214` and `214/215 -> 215/215`; final va
 
 The future negative corpus must retain mixed tags, multiple/nonzero/nested typed rethrows, nonconstant/effectful selectors, missing else regions, executable opposite roots other than the admitted childless `nop`, targeted/used labels, value results, loops, nested tries, mixed catches, non-active targets, and all broader catch/control ownership failures.
 
+## Grouped catch roots and no-work delegate blocks remain outside public fuzzing
+
+Commits `62992d7c5` and `9ee7b710e` add two internal-only positive families. A future EH aggregate now needs ordered same-tag vectors that combine positive lane groups under nested block chains with later direct/interleaved lane roots. It also needs constant-selected delegate catch-if chains whose unselected regions are empty, childless `nop`, or strict resultless unused-label single-root block chains ending in either representation.
+
+Red-first whitebox moved `215/216 -> 216/216` and `216/217 -> 217/217`; final validation is HOT query `11/11`, HOT lower `90/90`, focused flatten `263/263`, passes `5,810/5,810`, and full `9,280/9,280`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public flatten surface was added. The `.mbti` addition is a generic HOT query only. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+The future negative corpus must retain reverse/ambiguous/partial/mixed-tag grouped payloads, repeated/shared/outside uses, selected-arm lanes, nested typed catches, loops/multiple execution, catch-all extraction, and delegate opposites containing executable work, used labels, value results, multiple roots, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, or non-active targets.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.
