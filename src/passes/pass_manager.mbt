@@ -60741,23 +60741,39 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_instr(
   local_sets : Array[Int],
   local_tees : Array[Int],
   local_types : Array[@lib.ValType],
+  type_sec? : @lib.TypeSec? = None,
 ) -> (@lib.Instruction, Int) {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-        body, local_gets, local_sets, local_tees, local_types,
+        body,
+        local_gets,
+        local_sets,
+        local_tees,
+        local_types,
+        type_sec~,
       )
       (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-        body, local_gets, local_sets, local_tees, local_types,
+        body,
+        local_gets,
+        local_sets,
+        local_tees,
+        local_types,
+        type_sec~,
       )
       (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (rewritten, count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-        body, local_gets, local_sets, local_tees, local_types,
+        body,
+        local_gets,
+        local_sets,
+        local_tees,
+        local_types,
+        type_sec~,
       )
       (
         @lib.Instruction::try_table(
@@ -60770,13 +60786,23 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_instr(
     }
     @lib.If(block_type, then_body, else_body) => {
       let (rewritten_then, then_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-        then_body, local_gets, local_sets, local_tees, local_types,
+        then_body,
+        local_gets,
+        local_sets,
+        local_tees,
+        local_types,
+        type_sec~,
       )
       let mut count = then_count
       let rewritten_else = match else_body {
         Some(body) => {
           let (rewritten, else_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-            body, local_gets, local_sets, local_tees, local_types,
+            body,
+            local_gets,
+            local_sets,
+            local_tees,
+            local_types,
+            type_sec~,
           )
           count = count + else_count
           Some(rewritten)
@@ -60946,6 +60972,96 @@ fn run_hot_pipeline_dae_try_reread_reordered_aggregate_fields(
 }
 
 ///|
+fn run_hot_pipeline_dae_try_store_first_terminal_pair_result_arm(
+  arm : Array[@lib.Instruction],
+  first_object : @lib.LocalIdx,
+  store_type : @lib.TypeIdx,
+  store_field : @lib.U32,
+) -> Array[@lib.Instruction]? {
+  if arm.length() < 5 {
+    return None
+  }
+  let start = arm.length() - 5
+  match
+    (arm[start], arm[start + 1], arm[start + 2], arm[start + 3], arm[start + 4]) {
+    (
+      @lib.LocalTee(@lib.LocalIdx(aggregate_raw) as aggregate),
+      @lib.StructGet(first_type, first_field),
+      @lib.LocalGet(second_aggregate),
+      @lib.StructGet(second_type, second_field),
+      @lib.Br(@lib.LabelIdx(1U)),
+    ) if aggregate == second_aggregate && first_type == second_type => {
+      let aggregate_idx = aggregate_raw.reinterpret_as_int()
+      if aggregate_idx < 0 {
+        return None
+      }
+      let rewritten : Array[@lib.Instruction] = []
+      for idx = 0; idx < start; idx = idx + 1 {
+        rewritten.push(arm[idx])
+      }
+      rewritten.push(@lib.Instruction::local_tee(aggregate))
+      rewritten.push(@lib.Instruction::local_get(first_object))
+      rewritten.push(@lib.Instruction::local_get(aggregate))
+      rewritten.push(@lib.Instruction::struct_get(first_type, first_field))
+      rewritten.push(@lib.Instruction::struct_set(store_type, store_field))
+      rewritten.push(@lib.Instruction::struct_get(second_type, second_field))
+      rewritten.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+      Some(rewritten)
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_try_store_first_terminal_pair_result_producer(
+  producer_body : Array[@lib.Instruction],
+  first_object : @lib.LocalIdx,
+  store_type : @lib.TypeIdx,
+  store_field : @lib.U32,
+) -> Array[@lib.Instruction]? {
+  if producer_body.length() < 2 ||
+    !(producer_body[producer_body.length() - 1] is @lib.Unreachable) {
+    return None
+  }
+  let if_idx = producer_body.length() - 2
+  match producer_body[if_idx] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
+      let rewritten_then = run_hot_pipeline_dae_try_store_first_terminal_pair_result_arm(
+        then_body, first_object, store_type, store_field,
+      )
+      let rewritten_else = run_hot_pipeline_dae_try_store_first_terminal_pair_result_arm(
+        else_body, first_object, store_type, store_field,
+      )
+      if (rewritten_then is Some(_)) == (rewritten_else is Some(_)) {
+        return None
+      }
+      let rewritten : Array[@lib.Instruction] = []
+      for idx = 0; idx < if_idx; idx = idx + 1 {
+        rewritten.push(producer_body[idx])
+      }
+      rewritten.push(
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          match rewritten_then {
+            Some(body) => body
+            None => then_body
+          },
+          Some(
+            match rewritten_else {
+              Some(body) => body
+              None => else_body
+            },
+          ),
+        ),
+      )
+      rewritten.push(@lib.Instruction::unreachable_())
+      Some(rewritten)
+    }
+    _ => None
+  }
+}
+
+///|
 // A two-result producer can feed paired struct stores without a temporary for
 // the first result. Hoisting only the first receiver's nontrapping local read
 // leaves producer effects, traps, result order, and the second spill unchanged.
@@ -60957,6 +61073,7 @@ fn run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
   local_sets : Array[Int],
   local_tees : Array[Int],
   expected_producer_calls : Int,
+  type_sec? : @lib.TypeSec? = None,
 ) -> (Array[@lib.Instruction], Int)? {
   if idx + 9 >= instrs.length() {
     return None
@@ -60975,13 +61092,13 @@ fn run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
       instrs[idx + 9],
     ) {
     (
-      @lib.Block(@lib.TypeIdxBlockType(_), @lib.Expr(producer_body)) as producer,
+      @lib.Block(@lib.TypeIdxBlockType(source_type), @lib.Expr(producer_body)) as producer,
       @lib.LocalSet(@lib.LocalIdx(second_raw) as second),
       @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
       @lib.LocalGet(@lib.LocalIdx(first_object_raw) as first_object),
       @lib.LocalGet(target_readback),
       @lib.StructSet(first_type, first_field),
-      @lib.LocalGet(second_object),
+      @lib.LocalGet(@lib.LocalIdx(second_object_raw) as second_object),
       @lib.LocalGet(second_readback),
       @lib.StructSet(second_type, second_field),
       @lib.I32Const(@lib.I32(0)),
@@ -61017,23 +61134,71 @@ fn run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
         ) {
         return None
       }
+      let second_object_idx = second_object_raw.reinterpret_as_int()
+      let stored_first = match type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, source_type) {
+            Some(@lib.FuncType([], [first_result, second_result])) if local_types[target_idx] ==
+              first_result &&
+              local_types[second_idx] == second_result &&
+              second_object_idx >= 0 &&
+              second_object_idx < local_types.length() &&
+              second_object_idx != target_idx &&
+              second_object_idx != second_idx &&
+              second_object_idx != first_object_idx &&
+              !run_hot_pipeline_raw_branch_writes_local(
+                producer_body, second_object_idx,
+              ) =>
+              match
+                run_hot_pipeline_dae_try_store_first_terminal_pair_result_producer(
+                  producer_body, first_object, first_type, first_field,
+                ) {
+                Some(rewritten_producer) =>
+                  Some((second_result, rewritten_producer))
+                None => None
+              }
+            _ => None
+          }
+        None => None
+      }
       local_gets[target_idx] = 0
       local_sets[target_idx] = 0
-      Some(
-        (
-          [
-            @lib.Instruction::local_get(first_object),
-            producer,
-            @lib.Instruction::local_set(second),
-            @lib.Instruction::struct_set(first_type, first_field),
-            @lib.Instruction::local_get(second_object),
-            @lib.Instruction::local_get(second),
-            @lib.Instruction::struct_set(second_type, second_field),
-            @lib.Instruction::i32_const(@lib.I32(0)),
-          ],
-          10,
-        ),
-      )
+      match stored_first {
+        Some((second_result, rewritten_producer)) => {
+          local_gets[second_idx] = 0
+          local_sets[second_idx] = 0
+          Some(
+            (
+              [
+                @lib.Instruction::local_get(second_object),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(second_result),
+                  @lib.Expr::new(rewritten_producer),
+                ),
+                @lib.Instruction::struct_set(second_type, second_field),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+              ],
+              10,
+            ),
+          )
+        }
+        None =>
+          Some(
+            (
+              [
+                @lib.Instruction::local_get(first_object),
+                producer,
+                @lib.Instruction::local_set(second),
+                @lib.Instruction::struct_set(first_type, first_field),
+                @lib.Instruction::local_get(second_object),
+                @lib.Instruction::local_get(second),
+                @lib.Instruction::struct_set(second_type, second_field),
+                @lib.Instruction::i32_const(@lib.I32(0)),
+              ],
+              10,
+            ),
+          )
+      }
     }
     _ => None
   }
@@ -61047,9 +61212,17 @@ fn run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
   local_gets : Array[Int],
   local_sets : Array[Int],
   local_tees : Array[Int],
+  type_sec? : @lib.TypeSec? = None,
 ) -> (Array[@lib.Instruction], Int)? {
   run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
-    instrs, idx, local_types, local_gets, local_sets, local_tees, 2,
+    instrs,
+    idx,
+    local_types,
+    local_gets,
+    local_sets,
+    local_tees,
+    2,
+    type_sec~,
   )
 }
 
@@ -61331,6 +61504,7 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
   local_gets : Array[Int],
   local_sets : Array[Int],
   local_tees : Array[Int],
+  type_sec? : @lib.TypeSec? = None,
 ) -> (Array[@lib.Instruction], Int, Int)? {
   if idx + 6 >= instrs.length() {
     return None
@@ -61367,7 +61541,12 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
         return None
       }
       let (rewritten_producer_body, nested_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-        producer_body, local_gets, local_sets, local_tees, local_types,
+        producer_body,
+        local_gets,
+        local_sets,
+        local_tees,
+        local_types,
+        type_sec~,
       )
       local_gets[target_idx] = 0
       local_sets[target_idx] = 0
@@ -61458,6 +61637,7 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   local_sets : Array[Int],
   local_tees : Array[Int],
   local_types : Array[@lib.ValType],
+  type_sec? : @lib.TypeSec? = None,
 ) -> (Array[@lib.Instruction], Int) {
   let rewritten : Array[@lib.Instruction] = []
   let mut rewrite_count = 0
@@ -61493,7 +61673,13 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     }
     match
       run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
-        instrs, idx, local_types, local_gets, local_sets, local_tees,
+        instrs,
+        idx,
+        local_types,
+        local_gets,
+        local_sets,
+        local_tees,
+        type_sec~,
       ) {
       Some((replacement, consumed_len)) => {
         for instr in replacement {
@@ -61563,7 +61749,13 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     }
     match
       run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
-        instrs, idx, local_types, local_gets, local_sets, local_tees,
+        instrs,
+        idx,
+        local_types,
+        local_gets,
+        local_sets,
+        local_tees,
+        type_sec~,
       ) {
       Some((replacement, consumed_len, nested_count)) => {
         for instr in replacement {
@@ -61908,6 +62100,7 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
       local_sets,
       local_tees,
       local_types,
+      type_sec~,
     )
     rewritten.push(next)
     rewrite_count = rewrite_count + nested_count
@@ -63660,7 +63853,12 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
     forwarded_body, local_gets, local_remap,
   )
   let (readback_body, _) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
-    remapped_body, remapped_gets, remapped_sets, remapped_tees, remapped_local_types,
+    remapped_body,
+    remapped_gets,
+    remapped_sets,
+    remapped_tees,
+    remapped_local_types,
+    type_sec=mod_.type_sec,
   )
   let next_func = @lib.Func::new(
     @lib.Locals::from_types(compacted_local_types),
