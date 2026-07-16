@@ -398,6 +398,68 @@ test "flatten preserves direct catch-all rethrow through nested block lowering" 
 }
 
 ///|
+test "flatten preserves direct delegate target through nested block lowering" {
+  let func = @ir.HotFunc::new()
+  let outer = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let target = @ir.hot_control_node_label(func, outer)
+  let delegate_id = @ir.hot_build_delegate(func, target)
+  let rich_drop = flatten_test_build_rich_drop(func)
+  let inner = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [rich_drop[1], @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [])],
+    catch_body=Some([delegate_id]),
+  )
+  let nested = @ir.hot_build_block(func, @lib.BlockType::void_(), [inner])
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+    nested,
+  ])
+  @ir.hot_root_append(func, outer)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    _ => fail("expected direct delegate admission")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_get(func, delegate_id).imm0, target)
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected delegate flatten HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("catch_all"), msg=pretty)
+  assert_true(pretty.contains("throw"), msg=pretty)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten extracts direct try target ancestry in structural order" {
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(

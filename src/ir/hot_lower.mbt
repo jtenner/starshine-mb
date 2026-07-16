@@ -478,6 +478,26 @@ fn hot_lower_impl_direct_block_rethrow_count(
 }
 
 ///|
+fn hot_lower_impl_direct_delegate_target(
+  func : HotFunc,
+  region_id : NodeId,
+) -> LabelId? {
+  if region_id == HOT_NONE_NODE {
+    return None
+  }
+  let region_ref = hot_region_body_ref(func, region_id)
+  if hot_region_root_count(func, region_ref) != 1 {
+    return None
+  }
+  let root_id = hot_region_get(func, region_ref, 0)
+  let root = hot_node_get(func, root_id)
+  match root.op {
+    HotOp::Delegate => Some(root.imm0)
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_body_items(
   func : HotFunc,
   id : NodeId,
@@ -1278,6 +1298,36 @@ fn hot_lower_impl_emit_instruction(
       }
       let body_ref = hot_region_body_ref(func, id)
       let label_id = hot_control_node_label(func, id)
+      match hot_lower_impl_direct_delegate_target(func, catch_region) {
+        Some(target_label) => {
+          if target_label < 0 ||
+            hot_label_owner(func, target_label) == id ||
+            hot_lower_impl_label_is_used(func, label_id) {
+            abort(
+              "hot lower direct delegate requires an unused inner try label and outer target",
+            )
+          }
+          ignore(
+            hot_lower_impl_label_depth(
+              label_frames, label_stack_head, target_label,
+            ),
+          )
+          for
+            instr in hot_lower_impl_region_body(
+              func,
+              func.children[node.child_base],
+              use_def,
+              label_frames,
+              label_stack_head,
+              extra_locals,
+              options,
+            ) {
+            out.push(instr)
+          }
+          return
+        }
+        None => ()
+      }
       let catch_payloads = hot_lower_impl_catch_payload_prefix(
         func, catch_region,
       )

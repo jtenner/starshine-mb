@@ -8918,6 +8918,74 @@ fn flatten_direct_catch_all_rethrow_is_supported(
 }
 
 ///|
+fn flatten_direct_delegate_is_supported(
+  func : @ir.HotFunc,
+  delegate_id : Int,
+  state : FlattenRewriteState,
+) -> Bool {
+  let delegate = @ir.hot_node_get(func, delegate_id)
+  match delegate.op {
+    @ir.HotOp::Delegate => ()
+    _ => return false
+  }
+  if !flatten_ensure_direct_parent(func, state) {
+    return false
+  }
+  let target_try = @ir.hot_label_owner(func, delegate.imm0)
+  if target_try < 0 ||
+    @ir.hot_control_node_label(func, target_try) != delegate.imm0 {
+    return false
+  }
+  match @ir.hot_node_get(func, target_try).op {
+    @ir.HotOp::Try => ()
+    _ => return false
+  }
+  let mut delegated_try = -1
+  for try_id in state.try_nodes {
+    let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+      Some(catch_ref) => catch_ref
+      None => continue
+    }
+    if @ir.hot_region_root_count(func, catch_ref) == 1 &&
+      @ir.hot_region_get(func, catch_ref, 0) == delegate_id {
+      if delegated_try >= 0 {
+        return false
+      }
+      delegated_try = try_id
+    }
+  }
+  if delegated_try < 0 || @ir.hot_node_result_arity(func, delegated_try) != 0 {
+    return false
+  }
+  let delegated_label = @ir.hot_control_node_label(func, delegated_try)
+  if delegated_label < 0 ||
+    !state.label_branch_nodes[delegated_label].is_empty() {
+    return false
+  }
+  let mut current = delegated_try
+  let mut parent = state.direct_parent[current]
+  while parent >= 0 {
+    match @ir.hot_node_get(func, parent).op {
+      @ir.HotOp::Block => {
+        current = parent
+        parent = state.direct_parent[current]
+      }
+      _ => break
+    }
+  }
+  if parent != target_try {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, target_try)
+  for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+    if @ir.hot_region_get(func, body_ref, idx) == current {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn flatten_exceptional_transfers_are_supported(
   func : @ir.HotFunc,
   state : FlattenRewriteState,
@@ -8931,7 +8999,10 @@ fn flatten_exceptional_transfers_are_supported(
         if !flatten_direct_catch_all_rethrow_is_supported(func, node_id, state) {
           return false
         }
-      @ir.HotOp::Delegate => return false
+      @ir.HotOp::Delegate =>
+        if !flatten_direct_delegate_is_supported(func, node_id, state) {
+          return false
+        }
       _ => ()
     }
   }
