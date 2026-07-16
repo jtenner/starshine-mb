@@ -15190,6 +15190,79 @@ test "flatten removes one owned structured block suffix after a scalar legacy tr
 }
 
 ///|
+test "flatten removes one owned structured if suffix after a scalar legacy try table" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(11))]),
+  )
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [try_label],
+    try_label,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let dead_condition = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let dead_then_const = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let dead_then_drop = @ir.hot_build_drop(func, dead_then_const)
+  let dead_else_const = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let dead_else_drop = @ir.hot_build_drop(func, dead_else_const)
+  let dead_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    dead_condition,
+    [dead_then_drop],
+    else_body=Some([dead_else_drop]),
+  )
+  let dead_if_label = @ir.hot_control_node_label(func, dead_if)
+  let dead_then_holder = @ir.hot_region_then_ref(func, dead_if).holder
+  let dead_then_label = @ir.hot_control_node_label(func, dead_then_holder)
+  let dead_else_holder = @ir.hot_region_else_ref(func, dead_if).unwrap().holder
+  let dead_else_label = @ir.hot_control_node_label(func, dead_else_holder)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch_id, dead_if])
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  for
+    node_id in [
+      dead_if, dead_condition, dead_then_holder, dead_then_drop, dead_then_const,
+      dead_else_holder, dead_else_drop, dead_else_const,
+    ] {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  for label_id in [dead_if_label, dead_then_label, dead_else_label] {
+    assert_false(@ir.hot_label_is_live(func, label_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, try_label), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected structured-if-suffix try table routing to verify, got \{err}",
+      )
+  }
+}
+
+///|
 test "flatten removes an unreachable-only suffix after a tuple-made legacy try table" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

@@ -2335,34 +2335,11 @@ fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
 }
 
 ///|
-fn flatten_try_table_dead_suffix_structured_block_is_supported(
+fn flatten_try_table_dead_suffix_drop_const_is_supported(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
-  block_id : Int,
-  state? : FlattenRewriteState? = None,
+  drop_id : Int,
 ) -> Bool {
-  match @ir.hot_node_get(func, block_id).op {
-    @ir.HotOp::Block => ()
-    _ => return false
-  }
-  if @ir.hot_node_result_arity(func, block_id) != 0 ||
-    @ir.hot_child_count(func, block_id) != 1 ||
-    @ir.hot_node_use_count(use_def, block_id) != 1 {
-    return false
-  }
-  let label_id = @ir.hot_control_node_label(func, block_id)
-  if !@ir.hot_label_is_live(func, label_id) ||
-    @ir.hot_label_owner(func, label_id) != block_id {
-    return false
-  }
-  let branch_nodes = match state {
-    Some(state) => state.label_branch_nodes[label_id]
-    None => flatten_build_label_branch_nodes(func)[label_id]
-  }
-  if !branch_nodes.is_empty() {
-    return false
-  }
-  let drop_id = @ir.hot_child_get(func, block_id, 0)
   match @ir.hot_node_get(func, drop_id).op {
     @ir.HotOp::Drop => ()
     _ => return false
@@ -2379,6 +2356,143 @@ fn flatten_try_table_dead_suffix_structured_block_is_supported(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_control_label_is_unreferenced(
+  func : @ir.HotFunc,
+  node_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  if !@ir.hot_label_is_live(func, label_id) ||
+    @ir.hot_label_owner(func, label_id) != node_id {
+    return false
+  }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  branch_nodes.is_empty()
+}
+
+///|
+fn flatten_try_table_dead_suffix_structured_block_is_supported(
+  func : @ir.HotFunc,
+  use_def : @ir.HotNodeUseCounts,
+  block_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, block_id) != 0 ||
+    @ir.hot_child_count(func, block_id) != 1 ||
+    @ir.hot_node_use_count(use_def, block_id) != 1 {
+    return false
+  }
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  match @ir.hot_label_kind(func, label_id) {
+    @ir.HotLabelKind::BlockLabel => ()
+    _ => return false
+  }
+  if !flatten_try_table_dead_suffix_control_label_is_unreferenced(
+      func,
+      block_id,
+      state~,
+    ) {
+    return false
+  }
+  flatten_try_table_dead_suffix_drop_const_is_supported(
+    func,
+    use_def,
+    @ir.hot_child_get(func, block_id, 0),
+  )
+}
+
+///|
+fn flatten_try_table_dead_suffix_if_region_is_supported(
+  func : @ir.HotFunc,
+  use_def : @ir.HotNodeUseCounts,
+  region : @ir.HotRegionRef,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  let holder = region.holder
+  match @ir.hot_node_get(func, holder).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, holder) != 0 ||
+    @ir.hot_node_use_count(use_def, holder) != 1 ||
+    @ir.hot_region_root_count(func, region) != 1 ||
+    !flatten_try_table_dead_suffix_control_label_is_unreferenced(
+      func,
+      holder,
+      state~,
+    ) {
+    return false
+  }
+  match @ir.hot_label_kind(func, @ir.hot_control_node_label(func, holder)) {
+    @ir.HotLabelKind::RegionLabel => ()
+    _ => return false
+  }
+  flatten_try_table_dead_suffix_drop_const_is_supported(
+    func,
+    use_def,
+    @ir.hot_region_get(func, region, 0),
+  )
+}
+
+///|
+fn flatten_try_table_dead_suffix_structured_if_is_supported(
+  func : @ir.HotFunc,
+  use_def : @ir.HotNodeUseCounts,
+  if_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, if_id) != 0 ||
+    @ir.hot_child_count(func, if_id) != 3 ||
+    @ir.hot_node_use_count(use_def, if_id) != 1 ||
+    !flatten_try_table_dead_suffix_control_label_is_unreferenced(
+      func,
+      if_id,
+      state~,
+    ) {
+    return false
+  }
+  match @ir.hot_label_kind(func, @ir.hot_control_node_label(func, if_id)) {
+    @ir.HotLabelKind::IfLabel => ()
+    _ => return false
+  }
+  let condition_id = @ir.hot_child_get(func, if_id, 0)
+  match @ir.hot_node_get(func, condition_id).op {
+    @ir.HotOp::Const => ()
+    _ => return false
+  }
+  if @ir.hot_node_use_count(use_def, condition_id) != 1 ||
+    !flatten_try_table_dead_suffix_if_region_is_supported(
+      func,
+      use_def,
+      @ir.hot_region_then_ref(func, if_id),
+      state~,
+    ) {
+    return false
+  }
+  match @ir.hot_region_else_ref(func, if_id) {
+    Some(region) =>
+      flatten_try_table_dead_suffix_if_region_is_supported(
+        func,
+        use_def,
+        region,
+        state~,
+      )
+    None => false
+  }
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
@@ -2388,6 +2502,17 @@ fn flatten_try_table_dead_suffix_root_nodes(
   match @ir.hot_node_get(func, root_id).op {
     @ir.HotOp::Block =>
       if flatten_try_table_dead_suffix_structured_block_is_supported(
+          func,
+          use_def,
+          root_id,
+          state~,
+        ) {
+        Some([root_id])
+      } else {
+        None
+      }
+    @ir.HotOp::If =>
+      if flatten_try_table_dead_suffix_structured_if_is_supported(
           func,
           use_def,
           root_id,
@@ -7829,7 +7954,7 @@ fn flatten_try_route_br_table(
         pass_mark_mutated(ctx, func)
         let structured_root = if detached_roots.length() == 1 {
           match @ir.hot_node_get(func, detached_roots[0]).op {
-            @ir.HotOp::Block => true
+            @ir.HotOp::Block | @ir.HotOp::If => true
             _ => false
           }
         } else {
