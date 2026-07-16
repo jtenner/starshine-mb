@@ -11377,3 +11377,182 @@ test "flatten prepares table target locals without an outer resolved vector" {
   )
   @debug.assert_eq(@ir.hot_local_count(func), local_count + 4)
 }
+
+///|
+test "flatten preserves a typed catch rethrow through a targeted resultless if" {
+  let func = @ir.HotFunc::new()
+  ignore(
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [],
+      [@lib.ValType::i32(), @lib.ValType::ref_null_exn()],
+    ),
+  )
+  let payload = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let payload_drop = @ir.hot_build_drop(func, payload)
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=0,
+    children=[],
+  )
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [rethrow_id],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  let opposite_exit = @ir.hot_build_br(func, if_label)
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_else_ref(func, if_id).unwrap(),
+    [opposite_exit],
+  )
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(func, @lib.I32(11)),
+      ]),
+    ],
+    catch_body=Some([payload, payload_drop, if_id]),
+  )
+  @ir.hot_root_append(func, try_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let preflight = FlattenRewriteState::new(func)
+  assert_true(flatten_ensure_direct_parent(func, preflight))
+  assert_true(
+    flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
+      func, if_id, rethrow_id, preflight,
+    ),
+  )
+  assert_true(
+    flatten_typed_catch_owns_strict_rethrow(func, try_id, rethrow_id, preflight),
+  )
+  assert_true(
+    flatten_direct_catch_all_rethrow_is_supported(func, rethrow_id, preflight),
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("targeted typed rethrow remained deferred")
+    _ => fail("targeted typed rethrow failed an unrelated gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_get(func, rethrow_id).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, opposite_exit).imm0, if_label)
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected targeted typed rethrow HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::i32(),
+              @lib.ValType::ref_null_exn(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("catch_ref"), msg=pretty)
+  assert_true(pretty.contains("throw_ref"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+
+  let invalid = @ir.HotFunc::new()
+  let invalid_payload = @ir.hot_build_catch_payload(
+    invalid,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let invalid_payload_drop = @ir.hot_build_drop(invalid, invalid_payload)
+  let invalid_rethrow = @ir.hot_build_node(
+    invalid,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(invalid),
+    imm0=1,
+    children=[],
+  )
+  let invalid_if = @ir.hot_build_if(
+    invalid,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(invalid, @lib.I32(1)),
+    [invalid_rethrow],
+    else_body=Some([@ir.hot_build_nop(invalid)]),
+  )
+  let invalid_label = @ir.hot_control_node_label(invalid, invalid_if)
+  let invalid_exit = @ir.hot_build_br(invalid, invalid_label)
+  @ir.hot_region_replace_body(
+    invalid,
+    @ir.hot_region_else_ref(invalid, invalid_if).unwrap(),
+    [invalid_exit],
+  )
+  let invalid_rich = flatten_test_build_rich_drop(invalid)
+  let invalid_try = @ir.hot_build_try(
+    invalid,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_nop(invalid)],
+    catch_body=Some([invalid_payload, invalid_payload_drop, invalid_if]),
+  )
+  @ir.hot_root_append(invalid, invalid_rich[1])
+  @ir.hot_root_append(invalid, invalid_try)
+  match flatten_run_admission(invalid, flatten_classify_hot(invalid)) {
+    FlattenRunAdmission::DeferredExceptionalTransferRepair => ()
+    _ => fail("nonzero targeted typed rethrow should defer the whole function")
+  }
+  let invalid_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(
+    flatten_run(invalid_ctx, invalid),
+    HotPassResult::unchanged(),
+  )
+  @debug.assert_eq(@ir.hot_local_count(invalid), 0)
+  @debug.assert_eq(
+    @ir.hot_child_get(invalid, invalid_rich[1], 0),
+    invalid_rich[0],
+  )
+  @debug.assert_eq(@ir.hot_node_get(invalid, invalid_rethrow).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(invalid, invalid_exit).imm0, invalid_label)
+}
