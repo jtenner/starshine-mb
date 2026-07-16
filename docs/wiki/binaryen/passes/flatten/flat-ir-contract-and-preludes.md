@@ -599,6 +599,14 @@ This does not change Binaryen v130's first-descendant policy into arbitrary payl
 
 The red-first whitebox states were `205/206` and `206/207`; final whitebox is `207/207`, with HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,800/5,800`, and full `9,270/9,270`.
 
+## Latest targeted-wrapper and typed-handler prelude consequences
+
+The exact targeted-if exit may now be nested under one resultless unused-label single-root block. This does not move condition work across either control boundary: a rich scalar `br_if` condition is still converted into a local-set prelude immediately before the branch in the block body, and only the matching local read remains as the branch child. The if and block labels, selected rethrow ancestry, and catch-depth slot stay frozen by the pre-mutation index.
+
+One exact typed catch may now combine scalar payload repair with one direct `Rethrow(0)`. Its handler channel is explicitly `[payload, exnref]`; `catch_ref` leaves the exception reference on top, so lowering stores that value first and then executes the repaired catch-entry payload capture. Validation against distinct `i32` and nullable-exnref locals proves that order. This is not general typed EH flattening: additional payload lanes, rethrows, wrappers, depths, or nested composition remain gated.
+
+The red-first whitebox states were `207/208` and `208/209`; final whitebox is `209/209`, with HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,802/5,802`, and full `9,272/9,272`.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

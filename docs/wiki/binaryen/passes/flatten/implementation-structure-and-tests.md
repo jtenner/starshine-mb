@@ -477,6 +477,14 @@ Commit `1fb8f64ec` changes `src/ir/hot_mutate.mbt` and `src/passes/flatten_wbtes
 
 Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `207/207`, passes `5,800/5,800`, full `9,270/9,270`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` changed. Public registry, dispatcher, CLI execution, compare/API, GenValid profile, preset, scheduler, and exact-neighborhood readiness remain absent.
 
+## Latest block-wrapped-target and typed-rethrow implementation slices
+
+Commit `404252e63` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. `flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(...)` now unwraps at most one exact resultless unused-label single-root block in the opposite arm before checking the existing payloadless branch. The whitebox test combines that wrapper with a one-use rich `i32.add` condition and proves its local-set/local-get prelude remains inside the block. It was red at `207/208` with `DeferredExceptionalTransferRepair` and is green at `208/208`.
+
+Commit `a24539c99` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and `src/passes/flatten_wbtest.mbt`. Admission recognizes one leading childless scalar typed payload marker plus one direct `Rethrow(0)` root only after the existing whole-function catch repair succeeds. Lowering selects `catch_ref`, requires an existing payload-plus-exnref handler type, stores the top exception reference before catch-body payload capture, and keeps markerless rethrows on `catch_all_ref`. Distinct local types plus module validation lock the handler stack order. The fixture was red at `208/209` with `DeferredExceptionalTransferRepair` and is green at `209/209`.
+
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `209/209`, passes `5,802/5,802`, full `9,272/9,272`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` changed. Public registry, dispatcher, CLI execution, compare/API, GenValid profile, preset, scheduler, and exact-neighborhood readiness remain absent.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

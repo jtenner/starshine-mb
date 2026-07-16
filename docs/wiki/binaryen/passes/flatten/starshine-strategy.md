@@ -504,6 +504,14 @@ Commit `1fb8f64ec` broadens the Starshine catch-entry bridge without changing it
 
 Whitebox moved `205/206 -> 206/206 -> 206/207 -> 207/207`. Final passes are `5,800/5,800` and full is `9,270/9,270`; HOT mutation, HOT lower, IR, and focused flatten remain `16/16`, `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at the durable `970.5 us` / `3.65x` checkpoint.
 
+## Latest block-wrapped-target and scalar typed-rethrow decisions
+
+Commit `404252e63` extends the targeted-if strategy by one structural shell, not by relaxing target ownership. The sole opposite-arm exit may sit inside one resultless unused-label single-root block. The if label still has one user, the block label has none, the selected arm still owns the current rethrow/nested try exactly, and any rich scalar condition is still materialized immediately before the payloadless branch in that block.
+
+Commit `a24539c99` adds one exact typed exceptional composition. One scalar payload marker and one direct depth-zero rethrow may share a catch only after catch-payload repair has complete whole-function proof. The lowering strategy is `catch_ref` into an existing `[payload, exnref]` handler channel, then exnref capture followed by the repaired payload capture. Markerless catches retain `catch_all_ref`; multiple payloads/rethrows and broader typed ownership remain closed.
+
+Whitebox moved `207/208 -> 208/208 -> 208/209 -> 209/209`. Final passes are `5,802/5,802` and full is `9,272/9,272`; HOT mutation, HOT lower, IR, and focused flatten are `16/16`, `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at the durable `970.5 us` / `3.65x` checkpoint.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

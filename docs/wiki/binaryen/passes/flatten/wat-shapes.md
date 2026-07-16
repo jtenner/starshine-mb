@@ -1106,6 +1106,40 @@ Starshine finds lane zero and lane one only in forward source order, captures ha
 
 Final passes are `5,800/5,800` and full is `9,270/9,270`; public flatten remains removed.
 
+## Shape 26: block-wrapped targeted exits and scalar typed rethrows
+
+The exact targeted-if opposite exit may sit under one unused-label resultless block:
+
+```wat
+(if $exit (i32.const 1)
+  (then
+    (block
+      (local.set $cond (i32.add (i32.const 2) (i32.const 3)))
+      (br_if $exit (local.get $cond))))
+  (else
+    (rethrow 1)))
+```
+
+The block has one root before ordinary flattening, its own label has no users, and the branch remains the if label's only user. The rich condition stays in the block body. Multi-root, targeted, value-carrying, or repeated block chains remain fail-closed for this targeted-if subset.
+
+One exact typed catch may also preserve a direct rethrow:
+
+```wat
+(try
+  (do
+    (i32.const 7)
+    (throw $tag))
+  (catch $tag
+    ;; payload is captured to an i32 local
+    (drop (local.get $payload))
+    ;; catch_ref also supplies the exception reference
+    (throw_ref (local.get $exn))))
+```
+
+Starshine's internal lowering uses `catch_ref` with a `[i32, exnref]` handler type, stores `exnref` first, then captures the scalar payload, and lowers `Rethrow(0)` through `throw_ref`. The validating fixture moved whitebox `208/209 -> 209/209`. Multiple payloads/rethrows, non-direct or nonzero typed rethrows, and broader typed composition remain deferred.
+
+Final passes are `5,802/5,802` and full is `9,272/9,272`; public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:

@@ -136,6 +136,14 @@ Commits `61fb9919b` and `1fb8f64ec` add two more internal-only positive families
 
 Red-first whitebox moved `205/206 -> 206/206` and `206/207 -> 207/207`; final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,800/5,800`, and full `9,270/9,270`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added. The durable performance checkpoint remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
 
+## Block-wrapped targeted exits and scalar typed rethrows remain outside public fuzzing
+
+Commits `404252e63` and `a24539c99` add two internal-only positive families. A future EH aggregate now needs targeted catch-if opposite exits under one exact resultless unused-label single-root block, including arm-local rich scalar `i32` conditions. It also needs one scalar typed catch whose repaired payload and direct `Rethrow(0)` lower through `catch_ref`, payload-plus-exnref handler results, and `throw_ref`.
+
+Red-first whitebox moved `207/208 -> 208/208` and `208/209 -> 209/209`; final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,802/5,802`, and full `9,272/9,272`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added. The durable performance checkpoint remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+The future negative corpus must retain multi-root/targeted/value-carrying block wrappers, multiple or outside label users, broader targeted ancestry, multiple payload lanes or typed rethrows, non-direct/nonzero/wrapped/nested/loop typed transfers, missing payload-plus-exnref handler types, and all broader catch/control ownership failures.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

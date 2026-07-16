@@ -547,6 +547,16 @@ The red-first whitebox states were `205/206`, returning `DeferredExceptionalTran
 
 Broader catch-payload composition, partial/mixed tags, non-first-descendant or repeated uses, reverse or ambiguous lane order, selected-arm payloads, nested typed catches, loops/multiple execution, sharing/outside ownership, catch-all extraction, typed-composed or loop/nested-try-body rethrows, targeted wrappers outside the admitted opposite-arm exits, richer structured/EH closure, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
 
+## 2026-07-16 block-wrapped targeted exits and scalar typed rethrows
+
+Commits `404252e63` and `a24539c99` complete the next exact two-code internal iteration. The targeted resultless catch-if proof now admits one exact resultless unused-label single-root block around the sole opposite-arm payloadless `br` or `br_if`. A rich scalar `i32` condition remains arm-local: flatten inserts its `local.set` immediately before the branch inside that block, preserves the matching `local.get`, and does not change the if target, selected rethrow ancestry, rethrow depth, or target-catch slot.
+
+The blanket typed-composed-rethrow blocker is also superseded for one exact scalar direct family. A typed catch may have one leading childless scalar payload marker, one whole-function-repairable first-descendant use, and exactly one direct depth-zero rethrow root. Lowering uses `catch_ref` with an existing `[payload, exnref]` handler result type, stores the top `exnref` first, then lets the repaired catch body capture the payload before `throw_ref`. Multiple payload lanes, multiple typed rethrows, non-direct/nonzero typed rethrows, and broader typed composition remain deferred.
+
+Red-first whitebox moved `207/208 -> 208/208` and `208/209 -> 209/209`. Final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `209/209`, passes `5,802/5,802`, full `9,272/9,272`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen v130 remains the durable checkpoint.
+
+All broader catch-payload, exceptional-transfer, rich/mixed/shared/nested control and EH closure, aggregate/four-lane/neighborhood, performance, docs-closeout, and final public-admission gates remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)
