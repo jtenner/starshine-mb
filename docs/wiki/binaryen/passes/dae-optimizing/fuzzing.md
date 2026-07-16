@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-16
 sources:
+  - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
   - ../../../raw/research/1627-2026-07-16-daeo-consumed-call-argument-slot-checkpoint.md
   - ../../../raw/research/1626-2026-07-16-daeo-immutable-selector-blocker-checkpoint.md
   - ../../../raw/research/1625-2026-07-16-daeo-terminal-call-argument-final-matrix.md
@@ -94,6 +95,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1628`](../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md) records the post-convergence checkpoint with explicit native Starshine and Binaryen v130: dedicated `.tmp/pass-fuzz-daeo-final-dedicated-10000-20260716` and regular `.tmp/pass-fuzz-daeo-final-regular-10000-20260716` each compare `10000/10000`, normalize all `10000`, and have zero mismatches or validation/generator/property/command failures under both DAE cleanup normalizers. Optimize, shrink, and O4z still run DAEO exactly once and emit the same valid 38-byte dedicated-profile output. This is fresh generated and scheduling evidence, not full closeout: wasm-smith and random-all were not refreshed, and the direct artifact remains size- and performance-red.
 
 Research note [`1568`](../../../raw/research/1568-2026-07-13-daeo-fresh-dedicated-and-regular-compare.md) records post-tuple-cleanup evidence from native commit `cf08ff06f`:
 
