@@ -4395,6 +4395,103 @@ fn flatten_multivalue_tuple_loop_br_if_flow(
 }
 
 ///|
+fn flatten_multivalue_loop_br_if_flow(
+  func : @ir.HotFunc,
+  loop_id : Int,
+  branch_id : Int,
+  param_types : Array[@lib.ValType],
+  use_counts? : @ir.HotNodeUseCounts? = None,
+  state? : FlattenRewriteState? = None,
+) -> Array[Int]? {
+  let payload_count = param_types.length()
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  let branch = @ir.hot_node_get(func, branch_id)
+  match branch.op {
+    @ir.HotOp::BrIf if branch.imm0 == label_id &&
+      payload_count > 1 &&
+      @ir.hot_child_count(func, branch_id) == payload_count + 1 => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, loop_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  let mut branch_root = -1
+  for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
+    if @ir.hot_region_get(func, body_ref, root_idx) == branch_id {
+      if branch_root >= 0 {
+        return None
+      }
+      branch_root = root_idx
+    }
+  }
+  if branch_root < 0 || branch_root + payload_count >= root_count {
+    return None
+  }
+  let counts = match use_counts {
+    Some(counts) => counts
+    None => flatten_build_node_use_counts(func)
+  }
+  let payloads : Array[Int] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    let payload_id = @ir.hot_child_get(func, branch_id, slot)
+    let payload_types = flatten_type_results(
+      func,
+      @ir.hot_node_get(func, payload_id).ty,
+      state~,
+    )
+    // One branch edge plus one exact consumer is the complete ownership
+    // population; a repeated lane would make the count exceed two.
+    if @ir.hot_node_use_count(counts, payload_id) != 2 ||
+      payload_types.length() != 1 ||
+      payload_types[0] != param_types[slot] ||
+      !flatten_value_type_is_defaultable(param_types[slot]) ||
+      !flatten_scalar_branch_payload_has_supported_origin(func, payload_id) {
+      return None
+    }
+    payloads.push(payload_id)
+  }
+  let mut rich_left_id = -1
+  let mut rich_binary_id = -1
+  for offset = 0; offset < payload_count; offset = offset + 1 {
+    let consumer_id = @ir.hot_region_get(
+      func,
+      body_ref,
+      branch_root + 1 + offset,
+    )
+    let payload_id = payloads[payload_count - 1 - offset]
+    let allow_rich_left = offset == payload_count - 1
+    if !flatten_multivalue_loop_br_if_consumer_matches_payload(
+        func,
+        counts,
+        consumer_id,
+        payload_id,
+        allow_rich_left~,
+      ) {
+      return None
+    }
+    if allow_rich_left {
+      let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+      match @ir.hot_node_get(func, consumed_id).op {
+        @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 &&
+          @ir.hot_child_get(func, consumed_id, 1) == payload_id => {
+          let left_id = @ir.hot_child_get(func, consumed_id, 0)
+          if !flatten_node_is_simple_operand(func, left_id) {
+            for payload in payloads {
+              if !flatten_node_is_simple_operand(func, payload) {
+                return None
+              }
+            }
+            rich_left_id = left_id
+            rich_binary_id = consumed_id
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  Some([branch_root, rich_left_id, rich_binary_id])
+}
+
+///|
 fn flatten_multivalue_loop_br_if_flows_are_exact(
   func : @ir.HotFunc,
   loop_id : Int,
@@ -4402,8 +4499,6 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
   payload_count : Int,
   state? : FlattenRewriteState? = None,
 ) -> Bool {
-  let body_ref = @ir.hot_region_body_ref(func, loop_id)
-  let root_count = @ir.hot_region_root_count(func, body_ref)
   let use_counts = match state {
     Some(state) => state.use_def
     None => flatten_build_node_use_counts(func)
@@ -4436,42 +4531,16 @@ fn flatten_multivalue_loop_br_if_flows_are_exact(
       is Some(_) {
       continue
     }
-    let mut branch_root = -1
-    for root_idx = 0; root_idx < root_count; root_idx = root_idx + 1 {
-      if @ir.hot_region_get(func, body_ref, root_idx) == branch_id {
-        if branch_root >= 0 {
-          return false
-        }
-        branch_root = root_idx
-      }
-    }
-    if branch_root < 0 || branch_root + payload_count >= root_count {
-      return false
-    }
-    let payloads : Array[Int] = []
-    for slot = 0; slot < payload_count; slot = slot + 1 {
-      let payload_id = @ir.hot_child_get(func, branch_id, slot)
-      // One branch edge plus one exact consumer is the complete ownership
-      // population; a repeated lane would make the count exceed two.
-      if @ir.hot_node_use_count(use_counts, payload_id) != 2 {
-        return false
-      }
-      payloads.push(payload_id)
-    }
-    for offset = 0; offset < payload_count; offset = offset + 1 {
-      let consumer_id = @ir.hot_region_get(
+    if flatten_multivalue_loop_br_if_flow(
         func,
-        body_ref,
-        branch_root + 1 + offset,
+        loop_id,
+        branch_id,
+        param_types,
+        use_counts=Some(use_counts),
+        state~,
       )
-      if !flatten_multivalue_loop_br_if_consumer_matches_payload(
-          func,
-          use_counts,
-          consumer_id,
-          payloads[payload_count - 1 - offset],
-        ) {
-        return false
-      }
+      is None {
+      return false
     }
   }
   true
@@ -7113,6 +7182,35 @@ fn flatten_try_route_scalar_br_if(
           return true
         }
         None => ()
+      }
+      if payload_count > 1 {
+        let flow = match
+          flatten_multivalue_loop_br_if_flow(
+            func,
+            @ir.hot_label_owner(func, label_id),
+            node_id,
+            param_types,
+            use_counts=Some(state.use_def),
+            state=Some(state),
+          ) {
+          Some(flow) => flow
+          None => return false
+        }
+        if flow[1] >= 0 {
+          let rich_left_type = match
+            flatten_single_result_type(func, @ir.hot_node_get(func, flow[1]).ty) {
+            Some(rich_left_type) => rich_left_type
+            None => return false
+          }
+          let rich_left_local = @ir.hot_append_body_local(func, rich_left_type)
+          preludes.push(@ir.hot_build_local_set(func, rich_left_local, flow[1]))
+          @ir.hot_child_set(
+            func,
+            flow[2],
+            0,
+            @ir.hot_build_local_get(func, rich_left_local),
+          )
+        }
       }
       for slot = 0; slot < payload_count; slot = slot + 1 {
         let payload_id = @ir.hot_child_get(func, node_id, slot)
