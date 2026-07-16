@@ -2493,6 +2493,42 @@ fn flatten_try_table_dead_suffix_structured_if_is_supported(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_structured_loop_is_supported(
+  func : @ir.HotFunc,
+  use_def : @ir.HotNodeUseCounts,
+  loop_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, loop_id) != 0 ||
+    @ir.hot_child_count(func, loop_id) != 1 ||
+    @ir.hot_node_use_count(use_def, loop_id) != 1 ||
+    !flatten_try_table_dead_suffix_control_label_is_unreferenced(
+      func,
+      loop_id,
+      state~,
+    ) {
+    return false
+  }
+  let label_id = @ir.hot_control_node_label(func, loop_id)
+  match @ir.hot_label_kind(func, label_id) {
+    @ir.HotLabelKind::LoopLabel => ()
+    _ => return false
+  }
+  if @ir.hot_label_branch_arity(func, label_id) != 0 {
+    return false
+  }
+  flatten_try_table_dead_suffix_drop_const_is_supported(
+    func,
+    use_def,
+    @ir.hot_child_get(func, loop_id, 0),
+  )
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
@@ -2513,6 +2549,17 @@ fn flatten_try_table_dead_suffix_root_nodes(
       }
     @ir.HotOp::If =>
       if flatten_try_table_dead_suffix_structured_if_is_supported(
+          func,
+          use_def,
+          root_id,
+          state~,
+        ) {
+        Some([root_id])
+      } else {
+        None
+      }
+    @ir.HotOp::Loop =>
+      if flatten_try_table_dead_suffix_structured_loop_is_supported(
           func,
           use_def,
           root_id,
@@ -7954,7 +8001,7 @@ fn flatten_try_route_br_table(
         pass_mark_mutated(ctx, func)
         let structured_root = if detached_roots.length() == 1 {
           match @ir.hot_node_get(func, detached_roots[0]).op {
-            @ir.HotOp::Block | @ir.HotOp::If => true
+            @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Loop => true
             _ => false
           }
         } else {
