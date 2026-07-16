@@ -535,7 +535,9 @@ Binaryen v130 represents a legacy catch payload as a typed `Pop` expression and 
 - the first bounded lowerer supports one scalar lane by targeting a matching typed handler block from `try_table`;
 - normal completion branches over the handler, while exceptional transfer enters the handler with the payload.
 
-This representation can support Binaryen-equivalent entry extraction without manufacturing a fake lib `Pop`. It does **not** yet implement flatten's payload-to-local rewrite or nested-pop repair. The remaining repair must preserve exact lane order and types, move each payload evaluation to catch entry once, replace only the old nested use, skip nested catches, reject loops or multiple-execution shapes as upstream does, and remain whole-function fail-closed before mutation. `Rethrow` and `Delegate` remain separately deferred.
+This representation now supports one bounded Binaryen-equivalent entry extraction family without manufacturing a fake lib `Pop`. `hot_scalar_catch_payloads_repairable(...)` preflights the whole function, and `hot_repair_scalar_catch_payloads(...)` captures one scalar first-descendant payload use into an exact typed local at catch entry and replaces the old position with `local.get`. The proof requires one marker/lane, exact root-plus-nested use ownership, exclusive first-descendant ancestry, and no loop, nested try/catch path, catch-all marker, sharing, or outside use. Internal flatten performs that transaction before ordinary rewrites and rebuilds its immutable analysis state afterwards.
+
+Ordered multivalue payloads, a second lane, non-first-descendant or repeated uses, nested catches, loops/multiple execution, catch-all payloads, `Rethrow`, and `Delegate` remain separately deferred. Any such shape keeps the complete function unchanged before unrelated flatten mutation.
 
 ## Unsupported and surprising boundaries
 
