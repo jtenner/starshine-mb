@@ -3231,13 +3231,14 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
                 @ir.hot_child_get(func, consumed_id, 1) == tuple_id => {
                 let left_id = @ir.hot_child_get(func, consumed_id, 0)
                 if !flatten_node_is_simple_operand(func, left_id) {
+                  let payloads : Array[Int] = []
                   for slot = 0; slot < payload_count; slot = slot + 1 {
-                    if !flatten_node_is_simple_operand(
-                        func,
-                        @ir.hot_child_get(func, tuple_id, slot),
-                      ) {
-                      return None
-                    }
+                    payloads.push(@ir.hot_child_get(func, tuple_id, slot))
+                  }
+                  if !flatten_rich_left_payload_vector_is_supported(
+                      func, payloads,
+                    ) {
+                    return None
                   }
                   rich_left_id = left_id
                   rich_binary_id = consumed_id
