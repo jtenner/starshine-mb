@@ -351,6 +351,8 @@ pub fn hot_delete_detached_control_forest(HotFunc, Array[Int]) -> Bool
 
 pub fn hot_delete_detached_control_subtree(HotFunc, Int) -> Bool
 
+pub fn hot_delete_detached_forest(HotFunc, Array[Int]) -> Bool
+
 pub fn hot_delete_detached_node(HotFunc, Int) -> Unit
 
 pub fn hot_delete_detached_nodes(HotFunc, Array[Int]) -> Unit

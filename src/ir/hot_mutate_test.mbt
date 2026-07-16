@@ -259,6 +259,56 @@ test "detached structured subtree deletion removes owned labels atomically" {
 }
 
 ///|
+test "detached mixed forest deletion owns ordinary nodes and structured labels atomically" {
+  let func = HotFunc::new()
+  let scalar_const = hot_build_const_i32(func, @lib.I32(1))
+  let scalar_drop = hot_build_drop(func, scalar_const)
+  let block_const = hot_build_const_i32(func, @lib.I32(2))
+  let block_drop = hot_build_drop(func, block_const)
+  let block_id = hot_build_block(func, @lib.BlockType::void_(), [block_drop])
+  let block_label = hot_control_node_label(func, block_id)
+  let dead_unreachable = hot_build_unreachable(func)
+  let survivor = hot_build_nop(func)
+  hot_root_append(func, survivor)
+
+  let rev0 = hot_revision_current(func)
+  assert_true(
+    hot_delete_detached_forest(func, [scalar_drop, block_id, dead_unreachable]),
+  )
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  for
+    node_id in [
+      scalar_const, scalar_drop, block_const, block_drop, block_id, dead_unreachable,
+    ] {
+    assert_false(hot_node_is_live(func, node_id))
+  }
+  assert_false(hot_label_is_live(func, block_label))
+  assert_true(hot_node_is_live(func, survivor))
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected mixed forest deletion to verify, got \{err}")
+  }
+
+  let blocked = HotFunc::new()
+  let blocked_const = hot_build_const_i32(blocked, @lib.I32(3))
+  let blocked_drop = hot_build_drop(blocked, blocked_const)
+  let blocked_loop = hot_build_loop(blocked, @lib.BlockType::void_(), [
+    hot_build_nop(blocked),
+  ])
+  let blocked_label = hot_control_node_label(blocked, blocked_loop)
+  hot_root_append(blocked, hot_build_br(blocked, blocked_label))
+  let blocked_revision = hot_revision_current(blocked)
+  assert_false(
+    hot_delete_detached_forest(blocked, [blocked_drop, blocked_loop]),
+  )
+  @debug.assert_eq(hot_revision_current(blocked), blocked_revision)
+  assert_true(hot_node_is_live(blocked, blocked_const))
+  assert_true(hot_node_is_live(blocked, blocked_drop))
+  assert_true(hot_node_is_live(blocked, blocked_loop))
+  assert_true(hot_label_is_live(blocked, blocked_label))
+}
+
+///|
 test "detached structured forest deletion preflights every tree before one mutation" {
   let func = HotFunc::new()
   let block_const = hot_build_const_i32(func, @lib.I32(1))

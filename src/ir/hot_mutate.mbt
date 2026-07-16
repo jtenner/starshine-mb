@@ -1053,13 +1053,13 @@ fn hot_mutate_node_is_control(node : HotNode) -> Bool {
 }
 
 ///|
-/// Delete exact detached structured trees and all labels they own.
+/// Delete an exact detached forest and all labels its controls own.
 ///
 /// The operation fails without mutation when the roots are empty, duplicate,
-/// overlapping, or non-control; when any descendant graph is shared or cyclic;
-/// when any node is still rooted or owned by another live node; or when any
-/// outside branch/catch targets an owned label.
-pub fn hot_delete_detached_control_forest(
+/// or overlapping; when any descendant graph is shared or cyclic; when any node
+/// is still rooted or owned by another live node; when control-label ownership
+/// is incomplete; or when any outside branch/catch targets an owned label.
+pub fn hot_delete_detached_forest(
   func : HotFunc,
   root_ids : Array[NodeId],
 ) -> Bool {
@@ -1075,8 +1075,7 @@ pub fn hot_delete_detached_control_forest(
     if root_id < 0 ||
       root_id >= node_count ||
       root_marks[root_id] ||
-      !hot_node_is_live(func, root_id) ||
-      !hot_mutate_node_is_control(hot_node_get(func, root_id)) {
+      !hot_node_is_live(func, root_id) {
       return false
     }
     root_marks[root_id] = true
@@ -1191,6 +1190,27 @@ pub fn hot_delete_detached_control_forest(
   }
   hot_revision_bump(func)
   true
+}
+
+///|
+/// Delete exact detached structured trees and all labels they own.
+pub fn hot_delete_detached_control_forest(
+  func : HotFunc,
+  root_ids : Array[NodeId],
+) -> Bool {
+  if root_ids.is_empty() {
+    return false
+  }
+  let node_count = hot_node_count(func)
+  for root_id in root_ids {
+    if root_id < 0 ||
+      root_id >= node_count ||
+      !hot_node_is_live(func, root_id) ||
+      !hot_mutate_node_is_control(hot_node_get(func, root_id)) {
+      return false
+    }
+  }
+  hot_delete_detached_forest(func, root_ids)
 }
 
 ///|
