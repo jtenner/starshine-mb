@@ -1053,22 +1053,35 @@ fn hot_mutate_node_is_control(node : HotNode) -> Bool {
 }
 
 ///|
-/// Delete one exact detached structured subtree and all labels it owns.
+/// Delete exact detached structured trees and all labels they own.
 ///
-/// The operation fails without mutation when the root is not control, the
-/// descendant graph is shared or cyclic, any node is still rooted or owned by
-/// another live node, or any outside branch/catch targets an owned label.
-pub fn hot_delete_detached_control_subtree(
+/// The operation fails without mutation when the roots are empty, duplicate,
+/// overlapping, or non-control; when any descendant graph is shared or cyclic;
+/// when any node is still rooted or owned by another live node; or when any
+/// outside branch/catch targets an owned label.
+pub fn hot_delete_detached_control_forest(
   func : HotFunc,
-  root_id : NodeId,
+  root_ids : Array[NodeId],
 ) -> Bool {
-  if !hot_node_is_live(func, root_id) ||
-    !hot_mutate_node_is_control(hot_node_get(func, root_id)) {
+  if root_ids.is_empty() {
     return false
   }
-  let node_marks = @bitset.BitSet::new(hot_node_count(func))
+  let node_count = hot_node_count(func)
+  let root_marks = @bitset.BitSet::new(node_count)
+  let node_marks = @bitset.BitSet::new(node_count)
   let nodes : Array[NodeId] = []
-  let pending : Array[NodeId] = [root_id]
+  let pending : Array[NodeId] = []
+  for root_id in root_ids {
+    if root_id < 0 ||
+      root_id >= node_count ||
+      root_marks[root_id] ||
+      !hot_node_is_live(func, root_id) ||
+      !hot_mutate_node_is_control(hot_node_get(func, root_id)) {
+      return false
+    }
+    root_marks[root_id] = true
+    pending.push(root_id)
+  }
   while !pending.is_empty() {
     let node_id = pending.pop().unwrap()
     if !hot_node_is_live(func, node_id) {
@@ -1088,7 +1101,7 @@ pub fn hot_delete_detached_control_subtree(
     }
   }
 
-  let incoming = Array::make(hot_node_count(func), 0)
+  let incoming = Array::make(node_count, 0)
   for node_id in nodes {
     let node = hot_node_get(func, node_id)
     for slot = 0; slot < node.child_count; slot = slot + 1 {
@@ -1102,11 +1115,13 @@ pub fn hot_delete_detached_control_subtree(
       }
     }
   }
-  if incoming[root_id] != 0 {
-    return false
+  for root_id in root_ids {
+    if incoming[root_id] != 0 {
+      return false
+    }
   }
   for node_id in nodes {
-    if node_id != root_id && incoming[node_id] != 1 {
+    if !root_marks[node_id] && incoming[node_id] != 1 {
       return false
     }
   }
@@ -1115,7 +1130,7 @@ pub fn hot_delete_detached_control_subtree(
       return false
     }
   }
-  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) || node_marks[node_id] {
       continue
     }
@@ -1131,8 +1146,11 @@ pub fn hot_delete_detached_control_subtree(
   let label_marks = @bitset.BitSet::new(func.labels.length())
   let labels : Array[LabelId] = []
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
-    if hot_label_is_live(func, label_id) &&
-      node_marks[hot_label_owner(func, label_id)] {
+    if !hot_label_is_live(func, label_id) {
+      continue
+    }
+    let owner = hot_label_owner(func, label_id)
+    if owner >= 0 && owner < node_count && node_marks[owner] {
       label_marks[label_id] = true
       labels.push(label_id)
     }
@@ -1156,7 +1174,7 @@ pub fn hot_delete_detached_control_subtree(
       return false
     }
   }
-  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if hot_node_is_live(func, node_id) &&
       !node_marks[node_id] &&
       hot_mutate_node_targets_marked_label(func, node_id, label_marks) {
@@ -1173,6 +1191,15 @@ pub fn hot_delete_detached_control_subtree(
   }
   hot_revision_bump(func)
   true
+}
+
+///|
+/// Delete one exact detached structured subtree and all labels it owns.
+pub fn hot_delete_detached_control_subtree(
+  func : HotFunc,
+  root_id : NodeId,
+) -> Bool {
+  hot_delete_detached_control_forest(func, [root_id])
 }
 
 ///|

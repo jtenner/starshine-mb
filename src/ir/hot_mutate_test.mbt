@@ -259,6 +259,81 @@ test "detached structured subtree deletion removes owned labels atomically" {
 }
 
 ///|
+test "detached structured forest deletion preflights every tree before one mutation" {
+  let func = HotFunc::new()
+  let block_const = hot_build_const_i32(func, @lib.I32(1))
+  let block_drop = hot_build_drop(func, block_const)
+  let block_id = hot_build_block(func, @lib.BlockType::void_(), [block_drop])
+  let block_label = hot_control_node_label(func, block_id)
+
+  let condition = hot_build_const_i32(func, @lib.I32(1))
+  let then_const = hot_build_const_i32(func, @lib.I32(2))
+  let then_drop = hot_build_drop(func, then_const)
+  let else_const = hot_build_const_i32(func, @lib.I32(3))
+  let else_drop = hot_build_drop(func, else_const)
+  let if_id = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    condition,
+    [then_drop],
+    else_body=Some([else_drop]),
+  )
+  let if_label = hot_control_node_label(func, if_id)
+  let then_holder = hot_region_then_ref(func, if_id).holder
+  let then_label = hot_control_node_label(func, then_holder)
+  let else_holder = hot_region_else_ref(func, if_id).unwrap().holder
+  let else_label = hot_control_node_label(func, else_holder)
+
+  let loop_const = hot_build_const_i32(func, @lib.I32(4))
+  let loop_drop = hot_build_drop(func, loop_const)
+  let loop_id = hot_build_loop(func, @lib.BlockType::void_(), [loop_drop])
+  let loop_label = hot_control_node_label(func, loop_id)
+  let survivor = hot_build_nop(func)
+  hot_root_append(func, survivor)
+
+  let rev0 = hot_revision_current(func)
+  assert_true(
+    hot_delete_detached_control_forest(func, [block_id, if_id, loop_id]),
+  )
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  for
+    node_id in [
+      block_const, block_drop, block_id, condition, then_const, then_drop, then_holder,
+      else_const, else_drop, else_holder, if_id, loop_const, loop_drop, loop_id,
+    ] {
+    assert_false(hot_node_is_live(func, node_id))
+  }
+  for label_id in [block_label, if_label, then_label, else_label, loop_label] {
+    assert_false(hot_label_is_live(func, label_id))
+  }
+  assert_true(hot_node_is_live(func, survivor))
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected structured forest deletion to verify, got \{err}")
+  }
+
+  let blocked = HotFunc::new()
+  let first = hot_build_block(blocked, @lib.BlockType::void_(), [
+    hot_build_nop(blocked),
+  ])
+  let second = hot_build_loop(blocked, @lib.BlockType::void_(), [
+    hot_build_nop(blocked),
+  ])
+  let second_label = hot_control_node_label(blocked, second)
+  hot_root_append(blocked, hot_build_br(blocked, second_label))
+  let blocked_revision = hot_revision_current(blocked)
+  assert_false(hot_delete_detached_control_forest(blocked, [first, second]))
+  @debug.assert_eq(hot_revision_current(blocked), blocked_revision)
+  assert_true(hot_node_is_live(blocked, first))
+  assert_true(hot_node_is_live(blocked, second))
+  assert_true(
+    hot_label_is_live(blocked, hot_control_node_label(blocked, first)),
+  )
+  assert_true(hot_label_is_live(blocked, second_label))
+}
+
+///|
 test "label owner helper rehomes built control labels to replacement node ids" {
   let func = HotFunc::new()
   let temp_block = hot_build_block(func, @lib.BlockType::void_(), [

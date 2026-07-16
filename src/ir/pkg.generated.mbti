@@ -347,6 +347,8 @@ pub fn hot_debug_dump_core(HotFunc) -> String
 
 pub fn hot_default_flags_for_op(HotOp) -> UInt
 
+pub fn hot_delete_detached_control_forest(HotFunc, Array[Int]) -> Bool
+
 pub fn hot_delete_detached_control_subtree(HotFunc, Int) -> Bool
 
 pub fn hot_delete_detached_node(HotFunc, Int) -> Unit
