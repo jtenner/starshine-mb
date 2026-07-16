@@ -15136,6 +15136,60 @@ test "flatten scalarizes one exclusively tuple-made legacy try table into inputf
 }
 
 ///|
+test "flatten removes one owned structured block suffix after a scalar legacy try table" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(11))]),
+  )
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [try_label],
+    try_label,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let dead_const = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let dead_drop = @ir.hot_build_drop(func, dead_const)
+  let dead_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    dead_drop,
+  ])
+  let dead_label = @ir.hot_control_node_label(func, dead_block)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [branch_id, dead_block])
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_false(@ir.hot_node_is_live(func, dead_block))
+  assert_false(@ir.hot_node_is_live(func, dead_drop))
+  assert_false(@ir.hot_node_is_live(func, dead_const))
+  assert_false(@ir.hot_label_is_live(func, dead_label))
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, try_label), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected structured-suffix try table routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten removes an unreachable-only suffix after a tuple-made legacy try table" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

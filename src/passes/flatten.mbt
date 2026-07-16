@@ -2335,12 +2335,68 @@ fn flatten_try_table_dead_suffix_call_owned_argument_nodes(
 }
 
 ///|
+fn flatten_try_table_dead_suffix_structured_block_is_supported(
+  func : @ir.HotFunc,
+  use_def : @ir.HotNodeUseCounts,
+  block_id : Int,
+  state? : FlattenRewriteState? = None,
+) -> Bool {
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, block_id) != 0 ||
+    @ir.hot_child_count(func, block_id) != 1 ||
+    @ir.hot_node_use_count(use_def, block_id) != 1 {
+    return false
+  }
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  if !@ir.hot_label_is_live(func, label_id) ||
+    @ir.hot_label_owner(func, label_id) != block_id {
+    return false
+  }
+  let branch_nodes = match state {
+    Some(state) => state.label_branch_nodes[label_id]
+    None => flatten_build_label_branch_nodes(func)[label_id]
+  }
+  if !branch_nodes.is_empty() {
+    return false
+  }
+  let drop_id = @ir.hot_child_get(func, block_id, 0)
+  match @ir.hot_node_get(func, drop_id).op {
+    @ir.HotOp::Drop => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, drop_id) != 1 ||
+    @ir.hot_node_use_count(use_def, drop_id) != 1 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, drop_id, 0)
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Const => @ir.hot_node_use_count(use_def, value_id) == 1
+    _ => false
+  }
+}
+
+///|
 fn flatten_try_table_dead_suffix_root_nodes(
   func : @ir.HotFunc,
   use_def : @ir.HotNodeUseCounts,
   root_id : Int,
+  state? : FlattenRewriteState? = None,
 ) -> Array[Int]? {
   match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Block =>
+      if flatten_try_table_dead_suffix_structured_block_is_supported(
+          func,
+          use_def,
+          root_id,
+          state~,
+        ) {
+        Some([root_id])
+      } else {
+        None
+      }
     @ir.HotOp::Unreachable => Some([root_id])
     @ir.HotOp::Call =>
       flatten_try_table_dead_suffix_call_owned_argument_nodes(
@@ -2824,7 +2880,10 @@ fn flatten_try_table_dead_suffix_nodes(
           suffix_idx = suffix_idx + 1 {
         let root_id = @ir.hot_region_get(func, region_ref, suffix_idx)
         let recognized_root = flatten_try_table_dead_suffix_root_nodes(
-          func, use_def, root_id,
+          func,
+          use_def,
+          root_id,
+          state~,
         )
         recognized_suffix_roots.push(recognized_root)
         let root_is_unreachable = match @ir.hot_node_get(func, root_id).op {
@@ -2896,7 +2955,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let recognized_root = if suffix_count > 1 {
         recognized_suffix_roots[suffix_idx - root_idx - 1]
       } else {
-        flatten_try_table_dead_suffix_root_nodes(func, use_def, root_id)
+        flatten_try_table_dead_suffix_root_nodes(func, use_def, root_id, state~)
       }
       let root_nodes = match recognized_root {
         Some(root_nodes) => root_nodes
@@ -7762,9 +7821,27 @@ fn flatten_try_route_br_table(
           root_idx + 1 >= root_count {
           continue
         }
-        ignore(@ir.hot_region_truncate_suffix(func, owner_region, root_idx + 1))
+        let detached_roots = @ir.hot_region_truncate_suffix(
+          func,
+          owner_region,
+          root_idx + 1,
+        )
         pass_mark_mutated(ctx, func)
-        @ir.hot_delete_detached_nodes(func, nodes)
+        let structured_root = if detached_roots.length() == 1 {
+          match @ir.hot_node_get(func, detached_roots[0]).op {
+            @ir.HotOp::Block => true
+            _ => false
+          }
+        } else {
+          false
+        }
+        if structured_root {
+          if !@ir.hot_delete_detached_control_subtree(func, detached_roots[0]) {
+            abort("flatten structured suffix deletion violated admission proof")
+          }
+        } else {
+          @ir.hot_delete_detached_nodes(func, nodes)
+        }
         break
       }
     }

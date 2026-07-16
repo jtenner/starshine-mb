@@ -2611,7 +2611,7 @@ test "flatten keeps a bitwise-and try-table suffix gated when one operand is sha
 }
 
 ///|
-test "flatten keeps structured dead suffix roots gated until label-owner deletion is representable" {
+test "flatten keeps externally targeted structured dead suffix roots gated" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new()
   let try_id = @ir.hot_build_try(
@@ -2633,9 +2633,11 @@ test "flatten keeps structured dead suffix roots gated until label-owner deletio
   let dead_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
     dead_drop,
   ])
+  let dead_label = @ir.hot_control_node_label(func, dead_block)
   @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, try_id), [
     table_id, dead_block,
   ])
+  @ir.hot_root_append(func, @ir.hot_build_br(func, dead_label))
   @ir.hot_root_append(func, @ir.hot_build_drop(func, try_id))
   assert_false(
     flatten_try_terminal_br_table_targets_label(
