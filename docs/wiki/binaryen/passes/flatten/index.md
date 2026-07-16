@@ -468,6 +468,12 @@ A depth-zero catch-all `rethrow` under a strict direct block ancestry is admitte
 
 The red-first whitebox counts moved `188/189 -> 189/189` and `189/190 -> 190/190`. Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `190/190`, passes `5,783/5,783`, full `9,252/9,252`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public pass surface changed. The flatten aggregate, four-lane matrix, ordered neighborhood, performance requalification, broader EH/control closure, and public admission remain blocked.
 
+## 2026-07-16 arbitrary ordered catch lanes and if-condition repair
+
+Commits `82c4c260c` and `95f71db1e` supersede two boundaries from the earlier two-lane section. Ordered same-tag payload repair now accepts any positive lane count under the same complete leading-marker, exclusive direct-block-chain, ordered unary-use, and exact ownership proof. Locals retain source order; captures consume the handler stack in reverse order; lowering uses an existing result-only multivalue handler type of matching arity. The scalar first-descendant walk also follows an `if` condition, matching pinned Binaryen v130 `EHUtils::getFirstPop(...)`, while still refusing either arm.
+
+The red-first three-lane and nested-if fixtures moved whitebox flatten `190/191 -> 191/191` and `191/192 -> 192/192`. Final validation is IR `326/326`, focused flatten `263/263`, whitebox flatten `192/192`, passes `5,785/5,785`, full `9,254/9,254`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public pass surface changed. Partial/mixed-tag vectors, then/else paths, other non-first-descendant or repeated uses, nested catches, loops/multiple execution, sharing/outside ownership, catch-all extraction, broader exceptional transfer/control closure, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.
