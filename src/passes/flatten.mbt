@@ -8928,6 +8928,30 @@ fn flatten_direct_rethrow_value_if_is_supported(
 }
 
 ///|
+fn flatten_markerless_catch_owns_root(
+  func : @ir.HotFunc,
+  try_id : Int,
+  root_id : Int,
+) -> Bool {
+  let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  let mut owns_root = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, catch_ref); idx = idx + 1 {
+    let candidate = @ir.hot_region_get(func, catch_ref, idx)
+    match @ir.hot_node_get(func, candidate).op {
+      @ir.HotOp::Catch | @ir.HotOp::CatchAll => return false
+      _ => ()
+    }
+    if candidate == root_id {
+      owns_root = true
+    }
+  }
+  owns_root
+}
+
+///|
 fn flatten_direct_catch_all_rethrow_is_supported(
   func : @ir.HotFunc,
   rethrow_id : Int,
@@ -8938,7 +8962,30 @@ fn flatten_direct_catch_all_rethrow_is_supported(
     @ir.HotOp::Rethrow => ()
     _ => return false
   }
-  if rethrow.imm0 != 0 || !flatten_ensure_direct_parent(func, state) {
+  if rethrow.imm0 < 0 || !flatten_ensure_direct_parent(func, state) {
+    return false
+  }
+  if rethrow.imm0 > 0 {
+    let mut current = rethrow_id
+    let mut owner = state.direct_parent[current]
+    for depth = 0; depth <= rethrow.imm0; depth = depth + 1 {
+      if owner < 0 {
+        return false
+      }
+      match @ir.hot_node_get(func, owner).op {
+        @ir.HotOp::Try => ()
+        _ => return false
+      }
+      if @ir.hot_node_result_arity(func, owner) != 0 ||
+        !flatten_markerless_catch_owns_root(func, owner, current) {
+        return false
+      }
+      if depth == rethrow.imm0 {
+        return true
+      }
+      current = owner
+      owner = state.direct_parent[current]
+    }
     return false
   }
   let mut current = rethrow_id
@@ -8978,16 +9025,7 @@ fn flatten_direct_catch_all_rethrow_is_supported(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  let catch_ref = match @ir.hot_region_catch_ref(func, parent) {
-    Some(catch_ref) => catch_ref
-    None => return false
-  }
-  for idx = 0; idx < @ir.hot_region_root_count(func, catch_ref); idx = idx + 1 {
-    if @ir.hot_region_get(func, catch_ref, idx) == current {
-      return true
-    }
-  }
-  false
+  flatten_markerless_catch_owns_root(func, parent, current)
 }
 
 ///|
