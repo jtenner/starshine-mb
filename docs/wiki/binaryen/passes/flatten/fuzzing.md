@@ -88,9 +88,13 @@ A future flatten EH aggregate must generate both admitted shapes and rejected no
 
 ## Multiple and nested-if rethrow breadth remains outside public fuzzing
 
-Commits `3c819922c` and `41533e603` supersede the earlier one-rethrow and direct-block-only limits. One active catch may now lower any positive admitted depth-zero rethrow population through one `catch_all_ref` capture and repeated `throw_ref` uses. One path may cross at most one resultless, untargeted if arm; lowering scans then/else regions but excludes conditions, loops, and nested tries. Red-first whitebox counts moved `192/193 -> 193/193` and `193/194 -> 194/194`; final HOT lower is `89/89`, focused flatten `263/263`, passes `5,787/5,787`, and full `9,256/9,256`.
+Commits `3c819922c` and `41533e603` superseded the earlier one-rethrow and direct-block-only limits. One active catch could lower any positive admitted depth-zero rethrow population through one `catch_all_ref` capture and repeated `throw_ref` uses. At that checkpoint, one path could cross at most one resultless, untargeted if arm; lowering scanned then/else regions but excluded conditions, loops, and nested tries. Red-first whitebox counts moved `192/193 -> 193/193` and `193/194 -> 194/194`; HOT lower was `89/89`, focused flatten `263/263`, passes `5,787/5,787`, and full `9,256/9,256`.
 
-This still creates no public fuzz lane. A future flatten EH aggregate must generate positive rethrow populations, direct block and single-if-arm ancestry, and rejected nonzero, typed-composed, loop, nested-catch, nested-if, value-carrying-if, targeted-if, and broader delegate populations. No profile, generator test, allowlist, registry, dispatcher, CLI execution, compare/API, preset, or scheduler surface changed.
+## Strict rethrow and delegate ancestry remains outside public fuzzing
+
+Commits `9c237165d` and `88197c97e` supersede the single-if rethrow ceiling and the direct-catch-root delegate boundary. Depth-zero rethrows may now cross arbitrary strict direct chains of resultless untargeted if arms and blocks. A resultless delegated try may have a sole catch root formed by a strict direct chain of resultless single-root unused-label blocks ending in the delegate. Red-first whitebox counts moved `194/195 -> 195/195` and `195/196 -> 196/196`; final HOT lower is `89/89`, focused flatten `263/263`, passes `5,789/5,789`, and full `9,258/9,258`.
+
+This still creates no public fuzz lane. A future flatten EH aggregate must generate positive rethrow populations and arbitrary direct block/if chains, direct and catch-block-chain delegates, plus rejected nonzero, typed-composed, loop, nested-catch/nested-try, value-carrying-if, targeted-if, if/loop/mixed catch ancestry, value-carrying delegate, and used-label populations. No profile, generator test, allowlist, registry, dispatcher, CLI execution, compare/API, preset, or scheduler surface changed.
 
 ## Future executable lane
 
