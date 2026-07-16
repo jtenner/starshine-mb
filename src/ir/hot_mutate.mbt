@@ -276,7 +276,15 @@ fn hot_catch_payload_lane_repair(
         expected_kind = HotUseSlotKind::RootUseSlot
         current = hot_region_get(func, body_ref, 0)
       }
-      HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable => return None
+      HotOp::If => {
+        parent_id = current
+        parent_slot = 0
+        expected_user = current
+        expected_slot = 0
+        expected_kind = HotUseSlotKind::ChildUseSlot
+        current = hot_child_get(func, current, 0)
+      }
+      HotOp::Loop | HotOp::Try | HotOp::TryTable => return None
       _ => {
         if node.child_count == 0 ||
           (require_unary_path && node.child_count != 1) {
