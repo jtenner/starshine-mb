@@ -438,6 +438,16 @@ Red-first whitebox moved `211/212 -> 212/212` and `212/213 -> 213/213`. Final ev
 
 Readiness remains blocked by broader payload policy and repair; typed exceptional composition outside the exact positive payload-vector/one-depth-zero-rethrow/direct-or-strict-unused-block-chain subset; broader rethrow ancestry and value/control ownership; delegate populations outside direct, strict catch-block, exact constant-selected catch-if, and strict outer block/if chains; richer mixed/shared/nested control and EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
 
+## Latest readiness movement: selected typed rethrows and empty delegate arms
+
+Commit `de138eb24` reuses the exact constant-selected catch-if proof for the typed depth-zero rethrow family. A repaired positive same-tag scalar payload vector may own its sole `Rethrow(0)` through any positive selected-if chain, including strict block/if mixes. Every if remains resultless, unused as a label, exactly selected by `i32.const`, and directly owned; the unselected region is either empty or contains one childless `nop`. Handler stack order, source-order locals, the rethrow immediate, `catch_ref`, and `throw_ref` remain unchanged. The new two-lane fixture was red at whitebox `213/214` with `DeferredExceptionalTransferRepair`, then green at `214/214` and validating.
+
+Commit `dc3cdb597` admits the empty unselected-region representation for catch-side delegate ifs. A present but empty arm is treated as the same no-work representation as the previously admitted childless `nop`; admission and lowering share the exact empty-or-`nop` proof and do not discard executable work. The two-level then/else-selected fixture was red at `214/215`, then green at `215/215`, retained the target and empty HOT regions, lowered transparently, and validated.
+
+Final evidence is HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `215/215`, passes `5,808/5,808`, full `9,278/9,278`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti`, registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen remains the durable checkpoint.
+
+Readiness remains blocked by broader catch-payload policy/repair; typed composition outside the exact repaired scalar-vector/one-depth-zero-rethrow/direct-or-strict-block-or-exact-selected-if subset; broader rethrow/delegate ownership and structured EH; the flatten aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

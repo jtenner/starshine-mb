@@ -575,6 +575,14 @@ Red-first whitebox moved `211/212 -> 212/212` and `212/213 -> 213/213`. Final va
 
 Broader catch-payload repair, typed composition outside the exact strict-block depth-zero subset, nonconstant or otherwise non-strict catch-side delegate representations, richer mixed/shared/nested control and EH, the flatten aggregate, four-lane and ordered-neighborhood evidence, performance requalification, docs closeout, and final public admission remain open.
 
+## 2026-07-16 selected typed rethrows and empty delegate arms
+
+Commits `de138eb24` and `dc3cdb597` complete the next bounded internal iteration. A whole-function-repairable same-tag scalar payload vector with one `Rethrow(0)` may now retain that rethrow through any positive exact constant-selected catch-if chain, including mixed strict block/if ancestry. Every if is resultless and unused as a label, has a present else region, one selected root, an exact `i32.const` selector, and either an empty unselected region or one childless `nop`; source-order locals, reverse handler-stack payload captures, `catch_ref`, `throw_ref`, and the rethrow immediate remain exact.
+
+The same empty-or-childless-`nop` opposite-arm proof now applies to the already admitted catch-side delegate representation in both admission and HOT lowering. The selected delegate target remains exact and active; missing else regions, executable opposite work, nonconstant/effectful selectors, targeted/used labels, value results, loops, nested tries, mixed catches, and non-active targets remain deferred before mutation. Red-first whitebox moved `213/214 -> 214/214` and `214/215 -> 215/215`. Final validation is HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,808/5,808`, full `9,278/9,278`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public pass surface changed; performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+All aggregate, four-lane, ordered-neighborhood, broader behavior, performance, docs-closeout, and public-admission gates remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

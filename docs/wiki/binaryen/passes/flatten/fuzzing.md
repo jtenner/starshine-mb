@@ -160,6 +160,14 @@ Red-first whitebox moved `211/212 -> 212/212` and `212/213 -> 213/213`; final va
 
 The future negative corpus must retain value-carrying, targeted, used-label, multi-root, if/loop/try-like, or otherwise non-strict typed wrappers; multiple/nonzero/nested typed rethrows; and delegate catch-if shapes with nonconstant or rich/effectful selectors, missing else arms, richer opposite roots, targeted/used labels, value results, loops, nested tries, mixed catches, or non-active targets.
 
+## Selected typed rethrows and empty delegate arms remain outside public fuzzing
+
+Commits `de138eb24` and `dc3cdb597` add two internal-only positive families. A future EH aggregate now needs repaired same-tag scalar payload vectors whose sole `Rethrow(0)` follows exact constant-selected resultless unused-label if chains, including empty or childless-`nop` unselected regions. It also needs delegate catch-if chains with the same empty-or-`nop` representation and exact active target.
+
+Red-first whitebox moved `213/214 -> 214/214` and `214/215 -> 215/215`; final validation is HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,808/5,808`, and full `9,278/9,278`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+The future negative corpus must retain mixed tags, multiple/nonzero/nested typed rethrows, nonconstant/effectful selectors, missing else regions, executable opposite roots other than the admitted childless `nop`, targeted/used labels, value results, loops, nested tries, mixed catches, non-active targets, and all broader catch/control ownership failures.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

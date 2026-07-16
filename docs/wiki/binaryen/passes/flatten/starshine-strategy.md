@@ -528,6 +528,14 @@ Commit `3595d6563` adds one catch-side delegate representation without treating 
 
 Whitebox moved `211/212 -> 212/212 -> 212/213 -> 213/213`. Final passes are `5,806/5,806` and full is `9,276/9,276`; IR and focused flatten remain `327/327` and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at `970.5 us` / `3.65x`.
 
+## Latest selected-if typed-rethrow and empty delegate-arm decisions
+
+Commit `de138eb24` generalizes only the ancestry of the exact typed depth-zero rethrow route. A repaired same-tag scalar payload vector may own its sole `Rethrow(0)` through strict resultless unused-label blocks and exact constant-selected resultless unused-label ifs. Each selected side has one directly owned continuation root; each unselected side is empty or one childless `nop`. The handler channel, exnref-first capture, reverse payload capture into source-order locals, and rethrow immediate do not change.
+
+Commit `dc3cdb597` applies the same no-work arm policy to catch-side delegate ifs. A present empty arm and a childless `nop` arm are equivalent representations only under the exact constant selector and one-selected-root proof. Missing else regions and every arm containing executable work remain deferred, so transparent lowering cannot discard behavior.
+
+Whitebox moved `213/214 -> 214/214 -> 214/215 -> 215/215`. Final passes are `5,808/5,808` and full is `9,278/9,278`; HOT lower, IR, and focused flatten are `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at `970.5 us` / `3.65x`.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

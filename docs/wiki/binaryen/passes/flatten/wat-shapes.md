@@ -1199,6 +1199,27 @@ Each if is resultless and untargeted, has one root per arm, uses an exact consta
 
 Final passes are `5,806/5,806` and full is `9,276/9,276`; public flatten remains removed. Non-strict typed wrappers and nonconstant/effectful/targeted/richer catch-if delegate representations remain deferred.
 
+## Shape 29: selected typed rethrows and empty delegate opposite arms
+
+A repaired typed payload vector may keep its sole rethrow under exact selected-if shells:
+
+```wat
+(catch $tag
+  ;; repaired payload captures and uses
+  (if (i32.const 0)
+    (then)
+    (else
+      (if (i32.const 1)
+        (then (rethrow 0))
+        (else (nop))))))
+```
+
+Each if is resultless and untargeted, the selected arm contains exactly one continuation root, and the unselected arm is either empty or one childless `nop`. The handler remains `[lane0, ..., laneN, exnref]`; lowering stores `exnref` first, captures payloads in reverse stack order into source-order locals, preserves `rethrow 0`, and emits `throw_ref`. The fixture moved whitebox `213/214 -> 214/214`.
+
+The same exact shell may represent a delegate catch path. Admission and lowering follow only the constant-selected root and accept an explicitly empty opposite arm without manufacturing or deleting work. The delegate fixture moved `214/215 -> 215/215`, retained the original target and empty HOT regions, and lowered without encoded ifs. Missing else regions, nonconstant/effectful selectors, executable opposite roots, targeted/value-carrying/multi-root controls, loops, nested tries, mixed catches, and non-active targets remain deferred.
+
+Final passes are `5,808/5,808` and full is `9,278/9,278`; public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:

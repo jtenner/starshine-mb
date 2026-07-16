@@ -501,6 +501,14 @@ Commit `3595d6563` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and
 
 Final evidence is IR `327/327`, focused flatten `263/263`, whitebox flatten `213/213`, passes `5,806/5,806`, and full `9,276/9,276`. `moon fmt` and `moon info` are green with the 11 existing warnings. No `.mbti` or public flatten surface changed.
 
+## Latest selected-if typed-rethrow and empty-arm delegate slices
+
+Commit `de138eb24` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. The exact constant-selected resultless unused-label if proof is now shared by typed rethrow ancestry and delegate catch representation. The typed fixture combines repaired `i32`/`f32` payload lanes with a two-level then/else-selected chain ending in `Rethrow(0)`; it was red at `213/214`, then locked source-order locals, reverse captures, wrapper/root identity, HOT verification, `catch_ref`/`throw_ref`, and module validation at `214/214`.
+
+Commit `dc3cdb597` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and `src/passes/flatten_wbtest.mbt`. The selected side must still contain exactly one continuation root. The unselected side may now be explicitly empty or contain the prior childless `nop`; an absent else region is still rejected. Admission checks direct ownership, while lowering applies the same empty-or-`nop` semantic proof before transparent delegate propagation. The two-if fixture was red at `214/215`, then green at `215/215` and validating.
+
+Final evidence is HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,808/5,808`, and full `9,278/9,278`. `moon fmt` and `moon info` are green with 11 existing warnings. No `.mbti` or public flatten surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

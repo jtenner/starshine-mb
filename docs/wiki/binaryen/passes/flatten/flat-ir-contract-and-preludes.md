@@ -623,6 +623,14 @@ Catch-side delegate ifs use a different rule because the catch region is a repre
 
 The red-first whitebox states were `211/212` and `212/213`; final whitebox is `213/213`, with IR `327/327`, focused flatten `263/263`, passes `5,806/5,806`, and full `9,276/9,276`.
 
+## Selected typed rethrow if shells and empty delegate arms
+
+The exact typed catch route now permits constant-selected if shells in addition to strict block shells. These ifs do not move payload or exception work: each is resultless and untargeted, an exact `i32.const` selects one directly owned continuation root, and the unselected region is either explicitly empty or contains one childless `nop`. The repaired payload vector still captures `exnref` first and payload lanes in reverse stack order into source-order locals; `Rethrow(0)` remains unchanged until `throw_ref` lowering.
+
+Catch-side delegate ifs use the same empty-or-childless-`nop` no-work rule in admission and lowering. A present empty else/then region is not the same as a missing else region: the former proves an explicit no-op arm under the constant selector, while the latter remains unsupported. Rich/effectful selectors or any executable opposite root remain deferred so lowering cannot erase observable work.
+
+The red-first whitebox states were `213/214` and `214/215`; final whitebox is `215/215`, with HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,808/5,808`, and full `9,278/9,278`.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`
