@@ -547,6 +547,14 @@ This representation supports two source-backed Binaryen-equivalent entry extract
 
 A partial lane vector, mixed tag, then/else path, other non-first-descendant or repeated use, broader independent lane path, nested catch, loop/multiple execution, catch-all payload extraction, and sharing/outside ownership remain separately deferred. Direct exceptional transfer now handles any positive depth-zero catch-all rethrow population under one active catch through arbitrary strict direct resultless untargeted block/if ancestry, plus an outer-target resultless delegate whose sole catch representation is either direct or a strict direct resultless single-root unused-label block chain. Nonzero depth, typed composition, loops, nested catches or nested tries, value-carrying or targeted ifs, and non-block/mixed/value-carrying/used-label/nested delegate populations keep the complete function unchanged before unrelated flatten mutation.
 
+## First-child EH repair and active delegate ancestry
+
+The ordered catch transaction now mirrors Binaryen v130's first-descendant walk more closely. After the leading same-tag payload markers and exclusive direct block chain are proven, each lane may descend through child zero of a non-control expression even when that expression has later children. Repair changes only the exact payload child to a local read; later children remain in place and ordinary flattening may independently spill the containing expression. Non-first children, repeated/shared/outside uses, loops, nested tries, try tables, mixed tags, and partial vectors still reject before mutation.
+
+Delegation has two separately proven strict chains. Inside the delegated try's catch representation, only resultless single-root unused-label blocks may wrap the delegate. Outside the delegated try, resultless untargeted single-root blocks and if arms may connect it to the exact active target. Lowering preserves the outer controls and removes only the semantically empty catch wrappers and obsolete inner handler shell. Conditions, loops, value-carrying or targeted controls, nested tries, mixed catches, used labels, and non-active targets remain excluded.
+
+These slices are covered by red-first whitebox transitions `196/197 -> 197/197` and `197/198 -> 198/198`; no public flatten or `.mbti` surface changed.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

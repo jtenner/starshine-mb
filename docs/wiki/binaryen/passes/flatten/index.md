@@ -497,6 +497,14 @@ Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, 
   - “which owner/test/helper surfaces prove that behavior?”
   - “which feature shapes are still unsupported or only selectively supported?”
 
+## 2026-07-16 strict outer delegate and first-child catch-lane breadth
+
+Commits `0800efc79` and `57013d100` add two bounded internal EH families. A resultless delegated try may now reach its exact active outer target through an arbitrary strict direct chain of resultless untargeted single-root blocks and if arms, while retaining the existing direct or strict catch-block-chain delegate representation. Ordered same-tag catch payload lanes may now follow the first child of a binary or other non-control expression instead of being limited to unary paths; later children retain their identity. Both routes preserve whole-function pre-mutation failure atomicity and keep loops, nested tries/catches, value-carrying or targeted controls, mixed tags/catches, sharing, used labels, non-active targets, and non-first-descendant uses gated.
+
+Red-first whitebox counts moved `196/197 -> 197/197` and `197/198 -> 198/198`. Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `198/198`, passes `5,791/5,791`, full `9,260/9,260`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public flatten surface changed; the durable performance checkpoint remains `970.5 us`, `3.65x` Binaryen v130.
+
+This supersedes the prior direct-outer delegate boundary and ordered-unary-lane blocker. Broader catch ownership, exceptional transfer, rich/mixed/shared/nested control and EH closure, a flatten aggregate, the four-lane matrix, ordered-neighborhood proof, performance requalification, and final public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

@@ -352,6 +352,14 @@ Do not move `flatten` out of removed status until all of these are true:
 - the tracker records whether the port is partial or parity-complete;
 - the active backlog has either a completed slice or no stale `flatten` TODOs.
 
+## Latest readiness movement: outer delegate chains and first-child lane composition
+
+The current internal admission now preserves a delegated inner try through any strict direct outer sequence of resultless untargeted single-root blocks and if arms to the exact active target. The catch side remains either direct or the already admitted strict resultless unused-label block chain. Separately, ordered same-tag catch payload lanes follow Binaryen v130's first-child rule through non-control expressions with additional later children; the old ordered-unary restriction is superseded.
+
+The two red-first whitebox cases moved `196/197 -> 197/197` and `197/198 -> 198/198`. Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,791/5,791`, full `9,260/9,260`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti`, registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed.
+
+Readiness is therefore still blocked by partial/mixed-tag, non-first-descendant/repeated/shared/outside, nested-catch, loop/multiple-execution, and catch-all payload populations; nonzero/typed-composed/loop/nested-catch/nested-try/value-carrying/targeted rethrows; non-strict, loop, nested-try, mixed/value-carrying/used-label/non-active delegate populations; broader structured/EH closure; the flatten aggregate and four-lane matrix; ordered-neighborhood evidence; and performance requalification from the durable `970.5 us` / `3.65x` checkpoint.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

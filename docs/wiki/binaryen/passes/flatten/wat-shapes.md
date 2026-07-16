@@ -938,6 +938,45 @@ The earlier one-rethrow and one-if shapes are now subsets. One active catch may 
 
 The historical red fixtures failed at whitebox `192/193` on the old lowering ceiling and `193/194` on the first if-arm gate. Commit `9c237165d` adds a two-if interleaved-block chain that failed at `194/195` under the old single-if ceiling and then passed. Commit `88197c97e` adds a delegated try whose sole catch representation is a two-block chain ending in the delegate; it failed at `195/196` before admission and lowering learned the exact chain. Final whitebox is `196/196`; HOT lower is `89/89`; both new lowered modules validate. Nonzero depth, typed catch/rethrow composition, loop or nested-catch/nested-try ownership, value-carrying or targeted ifs, and non-block/mixed/value-carrying/used-label delegate shapes remain fail-closed before mutation.
 
+## Shape 20: strict outer delegate controls and first-child catch lanes
+
+A delegated inner try may now sit under a strict resultless block/if path inside the active target try:
+
+```wat
+(try $outer
+  (do
+    (block
+      (if (i32.const 1)
+        (then
+          (block
+            ;; resultless delegated inner try
+          )
+        )
+      )
+    )
+  )
+  (catch_all ...)
+)
+```
+
+The selected block/if path must be single-root, every wrapper label must be unused, and the exact outer target must already be active. Flatten preserves the outer controls and only removes the obsolete delegated handler shell. The delegate's own catch representation may still be direct or a strict unused-label resultless block chain.
+
+Ordered typed catch lanes may also use the payload as the first child of a larger expression:
+
+```wat
+(catch $tag
+  ;; HOT entry markers for lane 0 and lane 1
+  (block
+    (drop (i32.add (pop i32) (i32.const 3)))
+    (drop (i32.add (pop i32) (i32.const 4)))
+  )
+)
+```
+
+Starshine captures the lanes into locals in source order, replaces only the exact first-child payload positions, and leaves the right constants intact. This follows v130 `getFirstPop(...)`; it does not admit second-child payloads, repeated/shared/outside uses, loops, nested tries/catches, mixed tags, or partial lane vectors.
+
+The two red-first fixtures finish at whitebox `198/198`, and both lowered modules validate. Public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:

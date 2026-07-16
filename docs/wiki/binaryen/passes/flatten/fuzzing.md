@@ -96,6 +96,12 @@ Commits `9c237165d` and `88197c97e` supersede the single-if rethrow ceiling and 
 
 This still creates no public fuzz lane. A future flatten EH aggregate must generate positive rethrow populations and arbitrary direct block/if chains, direct and catch-block-chain delegates, plus rejected nonzero, typed-composed, loop, nested-catch/nested-try, value-carrying-if, targeted-if, if/loop/mixed catch ancestry, value-carrying delegate, and used-label populations. No profile, generator test, allowlist, registry, dispatcher, CLI execution, compare/API, preset, or scheduler surface changed.
 
+## Strict outer delegates and first-child catch lanes remain outside public fuzzing
+
+Commits `0800efc79` and `57013d100` supersede the direct-outer delegate boundary and ordered-unary catch-lane blocker. The delegate fixture combines a strict catch-block chain with a strict resultless untargeted outer block/if chain to the exact active target. The catch-lane fixture uses two ordered same-tag payloads as the first children of binary expressions and proves the later operands remain unchanged. Red-first whitebox counts move `196/197 -> 197/197` and `197/198 -> 198/198`; final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,791/5,791`, and full `9,260/9,260`.
+
+This still creates no aggregate or public compare lane. A future EH profile must include admitted ordered first-child expression paths and strict catch/outer delegate chains, plus rejected non-first-descendant/repeated/shared/outside/mixed-tag/partial payloads; loop, nested-catch, nested-try, value-carrying, targeted, used-label, mixed-catch, non-active-target, nonzero, and typed-composed exceptional transfers. No profile, generator test, allowlist, registry, dispatcher, CLI execution, compare/API, preset, or scheduler surface changed.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

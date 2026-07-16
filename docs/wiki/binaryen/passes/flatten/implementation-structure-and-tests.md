@@ -429,6 +429,14 @@ Final evidence is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, wh
 
 The generic API red-first test failed on the unbound symbol, then passes HOT mutation `13/13` and IR `321/321`. The mixed `drop(const) + block + if + loop + unreachable` fixture failed unchanged at `262/263`, then passes `263/263`; private flatten is `186/186`, passes `5,779/5,779`, full `9,243/9,243`, and `moon info` is green with 11 existing warnings. Fresh pinned Binaryen v130 retains that ordered mixed suffix under direct flatten at `76` bytes; matched `--vacuum --dce` removes it at `63` bytes. Nonconstant/effectful conditions, partial or richer arms, inputful/value loops, loop-target users/backedges, try-like roots, sharing, and external label users remain pre-mutation fail-closed.
 
+## Latest outer-delegate and first-child catch-lane slices
+
+Commit `0800efc79` adds `flatten preserves a delegate through strict outer block and if ancestry`. It combines the existing catch-block-chain delegate representation with an outer block/if chain, failed admission at whitebox `196/197`, and then passed `197/197`. `flatten_direct_delegate_is_supported(...)` now requires each outer block/if wrapper to be resultless, untargeted, single-root on the selected path, and directly connected to the exact active target. Lowering preserves the surrounding if/block structure while transparently removing only the obsolete delegated handler shell.
+
+Commit `57013d100` adds `flatten repairs ordered catch payloads through first-child binary paths`. It failed at `197/198` because ordered lanes stopped at a two-child binary. The HOT catch transaction now follows child zero of any non-control expression, matching pinned `getFirstPop(...)`; the test proves both right operands remain unchanged, repair locals retain source order, and lowering validates. Loop, try, try-table, sharing, mixed-tag, partial-lane, non-first-descendant, and outside-use rejection remains unchanged.
+
+Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `198/198`, passes `5,791/5,791`, and full `9,260/9,260`. No `.mbti` or public pass surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

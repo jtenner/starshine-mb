@@ -458,6 +458,14 @@ Commit `88197c97e` widens only the delegated try's catch representation. The cat
 
 Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `196/196`, passes `5,789/5,789`, full `9,258/9,258`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen remains the durable checkpoint.
 
+## Latest strict outer delegate and first-child catch-lane decisions
+
+Commit `0800efc79` supersedes the direct-outer delegate boundary. Internal flatten now proves an arbitrary strict direct outer block/if chain from the resultless delegated try to the exact active target. Every wrapper is resultless, has no label users, owns the selected path as one direct root, and remains structurally present after lowering. The catch representation remains direct or the admitted strict resultless unused-label block chain.
+
+Commit `57013d100` supersedes the ordered-unary catch-lane ceiling. Every ordered same-tag lane may follow the exact first child through a non-control expression with later children, matching Binaryen v130 `EHUtils::getFirstPop(...)`; exact entry/old-position ownership, direct block-chain ancestry, source lane order, reverse stack capture order, and whole-function atomicity remain mandatory.
+
+Whitebox moved `196/197 -> 197/197 -> 197/198 -> 198/198`; final passes are `5,791/5,791` and full `9,260/9,260`. No public surface or performance evidence changed. The strategy remains behavior closure first, then profile/four-lane/neighborhood/performance evidence, and only then registry, dispatcher, CLI, compare/API, preset, and scheduler admission.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
