@@ -61187,7 +61187,7 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
   local_gets : Array[Int],
   local_sets : Array[Int],
   local_tees : Array[Int],
-) -> (Array[@lib.Instruction], Int)? {
+) -> (Array[@lib.Instruction], Int, Int)? {
   if idx + 6 >= instrs.length() {
     return None
   }
@@ -61202,7 +61202,7 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
       instrs[idx + 6],
     ) {
     (
-      @lib.Block(@lib.ValTypeBlockType(result_type), _) as producer,
+      @lib.Block(@lib.ValTypeBlockType(result_type), @lib.Expr(producer_body)),
       @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
       @lib.I32Const(@lib.I32(0)),
       @lib.LocalGet(readback),
@@ -61222,18 +61222,25 @@ fn run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
         local_tees[target_idx] != 0 {
         return None
       }
+      let (rewritten_producer_body, nested_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+        producer_body, local_gets, local_sets, local_tees, local_types,
+      )
       local_gets[target_idx] = 0
       local_sets[target_idx] = 0
       Some(
         (
           [
             @lib.Instruction::i32_const(@lib.I32(0)),
-            producer,
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(result_type),
+              @lib.Expr::new(rewritten_producer_body),
+            ),
             @lib.Instruction::call(wrapper),
             @lib.Instruction::struct_new(struct_type),
             @lib.Instruction::return_(),
           ],
           7,
+          nested_count,
         ),
       )
     }
@@ -61386,11 +61393,11 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
       run_hot_pipeline_dae_try_sink_remapped_terminal_call_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
       ) {
-      Some((replacement, consumed_len)) => {
+      Some((replacement, consumed_len, nested_count)) => {
         for instr in replacement {
           rewritten.push(instr)
         }
-        rewrite_count = rewrite_count + 1
+        rewrite_count = rewrite_count + nested_count + 1
         idx += consumed_len
         continue
       }

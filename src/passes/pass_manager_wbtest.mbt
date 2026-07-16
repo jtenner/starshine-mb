@@ -20751,9 +20751,11 @@ test "DAEO selected readback traversal sinks terminal call block carriers" {
       local_sets,
       local_tees,
     ) {
-    Some((value, 7)) => value
-    Some((_, consumed)) =>
-      fail("expected seven consumed instructions, got \{consumed}")
+    Some((value, 7, 0)) => value
+    Some((_, consumed, nested_count)) =>
+      fail(
+        "expected seven consumed instructions and no nested rewrites, got \{consumed}/\{nested_count}",
+      )
     None => fail("expected terminal call block-carrier sinking")
   }
   @debug.assert_eq(local_gets, [0, 0])
@@ -20763,6 +20765,87 @@ test "DAEO selected readback traversal sinks terminal call block carriers" {
     producer,
     @lib.Instruction::call(@lib.FuncIdx::new(21U)),
     @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ])
+}
+
+///|
+test "DAEO terminal call transport rewrites a nested pair-store producer in one traversal" {
+  let second = @lib.LocalIdx::new(3U)
+  let target = @lib.LocalIdx::new(4U)
+  let first_object = @lib.LocalIdx::new(5U)
+  let second_object = @lib.LocalIdx::new(6U)
+  let outer_target = @lib.LocalIdx::new(7U)
+  let pair_producer = @lib.Instruction::block(
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+      @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    ]),
+  )
+  let outer_producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      pair_producer,
+      @lib.Instruction::local_set(second),
+      @lib.Instruction::local_set(target),
+      @lib.Instruction::local_get(first_object),
+      @lib.Instruction::local_get(target),
+      @lib.Instruction::struct_set(@lib.TypeIdx::new(1U), @lib.U32(0U)),
+      @lib.Instruction::local_get(second_object),
+      @lib.Instruction::local_get(second),
+      @lib.Instruction::struct_set(@lib.TypeIdx::new(2U), @lib.U32(0U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+    ]),
+  )
+  let body = [
+    outer_producer,
+    @lib.Instruction::local_set(outer_target),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(outer_target),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(3U)),
+    @lib.Instruction::return_(),
+  ]
+  let local_gets = [1, 1, 0, 1, 1, 1, 1, 1]
+  let local_sets = [0, 0, 0, 1, 1, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0, 0]
+  let local_types = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+    @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+    @lib.ValType::i32(),
+  ]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+    body, local_gets, local_sets, local_tees, local_types,
+  )
+  let rewritten_outer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(first_object),
+      pair_producer,
+      @lib.Instruction::local_set(second),
+      @lib.Instruction::struct_set(@lib.TypeIdx::new(1U), @lib.U32(0U)),
+      @lib.Instruction::local_get(second_object),
+      @lib.Instruction::local_get(second),
+      @lib.Instruction::struct_set(@lib.TypeIdx::new(2U), @lib.U32(0U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+    ]),
+  )
+  @debug.assert_eq(rewrite_count, 2)
+  @debug.assert_eq(local_gets, [1, 1, 0, 1, 0, 1, 1, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 1, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    rewritten_outer,
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(3U)),
     @lib.Instruction::return_(),
   ])
 }
