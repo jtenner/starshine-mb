@@ -1442,9 +1442,6 @@ fn hot_lower_impl_emit_instruction(
         hot_region_body_ref(func, catch_region),
         0,
       )
-      if rethrow_count > 0 && !catch_payloads.is_empty() && rethrow_count != 1 {
-        abort("hot lower typed direct catch rethrow requires one rethrow")
-      }
       let rethrow_local = if rethrow_count > 0 {
         Some(
           hot_lower_impl_alloc_scratch_local(

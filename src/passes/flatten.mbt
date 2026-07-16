@@ -9038,15 +9038,7 @@ fn flatten_typed_catch_owns_strict_rethrow(
     if flatten_typed_catch_root_owns_strict_rethrow(
         func, candidate, rethrow_id, state,
       ) {
-      if saw_rethrow {
-        return false
-      }
       saw_rethrow = true
-    } else {
-      match @ir.hot_node_get(func, candidate).op {
-        @ir.HotOp::Rethrow => return false
-        _ => ()
-      }
     }
   }
   saw_rethrow

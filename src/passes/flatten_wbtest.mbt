@@ -1,4 +1,23 @@
 ///|
+fn flatten_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
 fn flatten_test_build_rich_drop(func : @ir.HotFunc) -> Array[Int] {
   let rich = @ir.hot_build_binary(
     func,
@@ -536,6 +555,217 @@ test "flatten preserves two scalar typed catch payloads with a direct rethrow" {
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
   }
+}
+
+///|
+test "flatten preserves a typed payload vector with two direct rethrows" {
+  let func = @ir.HotFunc::new()
+  ignore(
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      [],
+      [@lib.ValType::i32(), @lib.ValType::f32(), @lib.ValType::ref_null_exn()],
+    ),
+  )
+  let first = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let second = @ir.hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::f32(),
+  )
+  let first_drop = @ir.hot_build_drop(func, first)
+  let second_drop = @ir.hot_build_drop(func, second)
+  let first_rethrow = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=0,
+    children=[],
+  )
+  let second_rethrow = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=0,
+    children=[],
+  )
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [
+      @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+        @ir.hot_build_const_f32(func, @lib.F32(3.5)),
+      ]),
+    ],
+    catch_body=Some([
+      first, second, first_drop, second_drop, first_rethrow, second_rethrow,
+    ]),
+  )
+  @ir.hot_root_append(func, try_id)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredCatchPayloadRepair =>
+      fail("two-rethrow typed catch remained deferred for catch payload repair")
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("two-rethrow typed catch remained deferred for exceptional transfer")
+    _ => fail("two-rethrow typed catch failed an unrelated flatten gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_local_count(func), 2)
+  @debug.assert_eq(@ir.hot_local_type(func, 0), Some(@lib.ValType::i32()))
+  @debug.assert_eq(@ir.hot_local_type(func, 1), Some(@lib.ValType::f32()))
+  let catch_ref = @ir.hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(func, catch_ref), 8)
+  let second_capture = @ir.hot_region_get(func, catch_ref, 2)
+  let first_capture = @ir.hot_region_get(func, catch_ref, 3)
+  @debug.assert_eq(@ir.hot_node_get(func, second_capture).imm0, 1)
+  @debug.assert_eq(@ir.hot_child_get(func, second_capture, 0), second)
+  @debug.assert_eq(@ir.hot_node_get(func, first_capture).imm0, 0)
+  @debug.assert_eq(@ir.hot_child_get(func, first_capture, 0), first)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 4), first_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 5), second_drop)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 6), first_rethrow)
+  @debug.assert_eq(@ir.hot_region_get(func, catch_ref, 7), second_rethrow)
+  @debug.assert_eq(@ir.hot_node_get(func, first_rethrow).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, second_rethrow).imm0, 0)
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected two-rethrow typed catch HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let @lib.Func(locals, _) = lowered
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::f32(),
+      @lib.ValType::ref_null_exn(),
+    ]),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::f32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::i32(),
+              @lib.ValType::f32(),
+              @lib.ValType::ref_null_exn(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(flatten_test_count_substring(pretty, "catch_ref"), 1)
+  @debug.assert_eq(flatten_test_count_substring(pretty, "throw_ref"), 2)
+  @debug.assert_eq(flatten_test_count_substring(pretty, "local.set"), 3)
+  @debug.assert_eq(flatten_test_count_substring(pretty, "local.get"), 4)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+
+  let invalid = @ir.HotFunc::new()
+  let invalid_first = @ir.hot_build_catch_payload(
+    invalid,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let invalid_second = @ir.hot_build_catch_payload(
+    invalid,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::f32(),
+  )
+  let invalid_first_drop = @ir.hot_build_drop(invalid, invalid_first)
+  let invalid_second_drop = @ir.hot_build_drop(invalid, invalid_second)
+  let invalid_rethrows : Array[Int] = []
+  for depth in [0, 0, 1] {
+    invalid_rethrows.push(
+      @ir.hot_build_node(
+        invalid,
+        @ir.HotOp::rethrow(),
+        @ir.hot_type_void(invalid),
+        imm0=depth,
+        children=[],
+      ),
+    )
+  }
+  let invalid_rich = flatten_test_build_rich_drop(invalid)
+  let invalid_try = @ir.hot_build_try(
+    invalid,
+    @lib.BlockType::void_(),
+    [
+      invalid_rich[1],
+      @ir.hot_build_throw(invalid, @lib.TagIdx::new(0U), [
+        @ir.hot_build_const_i32(invalid, @lib.I32(7)),
+        @ir.hot_build_const_f32(invalid, @lib.F32(3.5)),
+      ]),
+    ],
+    catch_body=Some([
+      invalid_first,
+      invalid_second,
+      invalid_first_drop,
+      invalid_second_drop,
+      invalid_rethrows[0],
+      invalid_rethrows[1],
+      invalid_rethrows[2],
+    ]),
+  )
+  @ir.hot_root_append(invalid, invalid_try)
+  match flatten_run_admission(invalid, flatten_classify_hot(invalid)) {
+    FlattenRunAdmission::DeferredExceptionalTransferRepair => ()
+    _ => fail("invalid third typed rethrow should defer the complete function")
+  }
+  let invalid_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(
+    flatten_run(invalid_ctx, invalid),
+    HotPassResult::unchanged(),
+  )
+  @debug.assert_eq(@ir.hot_local_count(invalid), 0)
+  @debug.assert_eq(@ir.hot_root_count(invalid), 1)
+  @debug.assert_eq(
+    @ir.hot_child_get(invalid, invalid_rich[1], 0),
+    invalid_rich[0],
+  )
+  let invalid_catch = @ir.hot_region_catch_ref(invalid, invalid_try).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(invalid, invalid_catch), 7)
+  @debug.assert_eq(@ir.hot_region_get(invalid, invalid_catch, 0), invalid_first)
+  @debug.assert_eq(
+    @ir.hot_region_get(invalid, invalid_catch, 1),
+    invalid_second,
+  )
 }
 
 ///|
