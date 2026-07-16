@@ -8887,7 +8887,7 @@ fn flatten_run_admission(
     return FlattenRunAdmission::UpstreamHardUnsupported
   }
   if analysis.eh_repair_requirement.needs_catch_payload_tracking {
-    if !@ir.hot_scalar_catch_payloads_repairable(func) {
+    if !@ir.hot_ordered_catch_payloads_repairable(func) {
       return FlattenRunAdmission::DeferredCatchPayloadRepair
     }
     analysis.eh_repair_requirement.needs_catch_payload_tracking = false
@@ -8925,7 +8925,7 @@ pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut state = admission_state
   let mut changed = false
   if needs_catch_payload_repair {
-    if !@ir.hot_repair_scalar_catch_payloads(func) {
+    if !@ir.hot_repair_ordered_catch_payloads(func) {
       return HotPassResult::unchanged()
     }
     state = FlattenRewriteState::new(func)

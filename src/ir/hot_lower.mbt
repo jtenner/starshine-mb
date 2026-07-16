@@ -1247,8 +1247,16 @@ fn hot_lower_impl_emit_instruction(
       let catch_payloads = hot_lower_impl_catch_payload_prefix(
         func, catch_region,
       )
-      if catch_payloads.length() > 1 {
-        abort("hot lower typed legacy try currently supports one payload lane")
+      if catch_payloads.length() > 2 {
+        abort("hot lower typed legacy try currently supports at most two payload lanes")
+      }
+      if catch_payloads.length() == 2 {
+        let first_tag = catch_payloads[0].tag_idx
+        for payload in catch_payloads {
+          if payload.tag_idx != first_tag {
+            abort("hot lower typed legacy try payload lanes must share one tag")
+          }
+        }
       }
       if !effects_may_throw(effects_for_region(func, body_ref)) {
         if hot_lower_impl_label_is_used(func, label_id) {
@@ -1311,18 +1319,23 @@ fn hot_lower_impl_emit_instruction(
       let handler_type = match catch_payloads {
         [] => BlockType::void_()
         [payload] => BlockType::val_type(payload.val_type)
-        _ =>
-          abort(
-            "hot lower typed legacy try payload arity changed after preflight",
-          )
+        _ => {
+          let payload_types : Array[ValType] = []
+          for payload in catch_payloads {
+            payload_types.push(payload.val_type)
+          }
+          match hot_lower_impl_result_only_block_type(func, payload_types) {
+            Some(block_type) => block_type
+            None =>
+              abort(
+                "hot lower typed legacy try requires an existing result-only multivalue handler type",
+              )
+          }
+        }
       }
       let catches = match catch_payloads {
         [] => [Catch::all(LabelIdx::new(0U))]
-        [payload] => [Catch::new(payload.tag_idx, LabelIdx::new(0U))]
-        _ =>
-          abort(
-            "hot lower typed legacy try payload arity changed after preflight",
-          )
+        [payload, ..] => [Catch::new(payload.tag_idx, LabelIdx::new(0U))]
       }
       out.push(
         Instruction::block(
