@@ -871,6 +871,30 @@ Current internal Starshine admits three exact resultless control kinds after an 
 
 The `if` must have a constant condition, complete direct arms, exclusive descendants, and no users of its control or region labels. The `loop` must be zero-input, void, have no backedge or other label user, and contain exactly one direct `drop(const)`. The whole suffix is unreachable because the preceding table always transfers. Starshine preflights every ordinary and structured root from immutable facts, detaches the complete suffix once, and atomically deletes the descendant/label forest with one revision advance. Duplicate/overlapping roots, cross-tree sharing, cycles, outside owners, incomplete labels, and outside branch/delegate/try-table-catch users reject before mutation. Fresh Binaryen v130 retains an ordered `drop(const) + block + if + loop + unreachable` suffix under direct flatten at `76` bytes; matched `--vacuum --dce` removes it at `63` bytes. Nonconstant/effectful conditions, partial/richer arms, inputful/value loops, sharing, external targets, and unsupported ordinary or structured roots remain gated.
 
+## Shape 18: Starshine models legacy catch payload `pop` as catch-entry values
+
+Binaryen's legacy IR writes a typed payload read as `(pop i32)`. Starshine does not add that pseudo-expression to its executable stack instruction model. Internally, the equivalent scalar shape is represented as an ordered typed `Catch` value at the start of the catch region:
+
+```text
+try body:    throw $tag (i32.const 7)
+catch entry: Catch(tag=$tag, type=i32)
+catch body:  drop(Catch(...))
+```
+
+The first lowerer emits the standard stack/control equivalent:
+
+```wat
+(block $done
+  (block $handler (result i32)
+    (try_table
+      (catch $tag $handler)
+      (throw $tag (i32.const 7)))
+    (br $done))
+  (drop))
+```
+
+The payload is already on the stack after exceptional transfer to `$handler`, so the catch-entry marker emits no instruction; the following `drop` consumes it. Verification requires payload markers to be childless scalar roots in one ordered catch prefix with one tag and owner. Only one scalar lane lowers today. Flatten still rejects the function before mutation, so Binaryen's later `local.set(temp, pop)` extraction, nested-block relocation, old-use replacement, nested-catch exclusion, and loop rejection remain future behavior. `rethrow` and `delegate` are still separately gated.
+
 ## Bottom line
 
 The simplest pattern summary is:

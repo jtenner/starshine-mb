@@ -525,6 +525,18 @@ The internal legacy-try table route admits three exact structured root kinds aft
 
 The generic forest proof rejects duplicate or overlapping roots, cross-tree sharing, cycles, outside owners, incomplete control-label ownership, and outside branch/delegate/try-table-catch users before mutation. The if proof includes its condition, both HOT region-holder blocks, both arm drops/constants, the if label, and both region labels. The loop proof requires void type, zero branch arity, no loop-label users or backedges, one body root, and exclusive drop/constant ownership. Fresh pinned Binaryen v130 keeps an ordered `drop(const) + block + if + loop + unreachable` suffix under direct flatten at `76` bytes, while matched `--vacuum --dce` removes it at `63` bytes. Richer controls, shared descendants, external targets, and unsupported ordinary roots remain fail-closed before any flatten rewrite.
 
+## Starshine catch-payload representation decision
+
+Binaryen v130 represents a legacy catch payload as a typed `Pop` expression and repairs it with `handleBlockNestedPops(...)` after flatten may introduce blocks. Starshine's stack-oriented `lib` has no corresponding `Pop` instruction. The selected local bridge is therefore an explicit HOT catch-entry pseudo-value rather than a new public stack opcode:
+
+- `hot_build_catch_payload(...)` creates one childless scalar `HotOp::Catch` value carrying its tag and exact type;
+- every payload lane must be an ordered leading root of exactly one legacy catch region;
+- HOT lowering treats those roots as values already present on the exception-handler stack and emits no standalone instruction for them;
+- the first bounded lowerer supports one scalar lane by targeting a matching typed handler block from `try_table`;
+- normal completion branches over the handler, while exceptional transfer enters the handler with the payload.
+
+This representation can support Binaryen-equivalent entry extraction without manufacturing a fake lib `Pop`. It does **not** yet implement flatten's payload-to-local rewrite or nested-pop repair. The remaining repair must preserve exact lane order and types, move each payload evaluation to catch entry once, replace only the old nested use, skip nested catches, reject loops or multiple-execution shapes as upstream does, and remain whole-function fail-closed before mutation. `Rethrow` and `Delegate` remain separately deferred.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

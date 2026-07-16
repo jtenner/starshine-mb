@@ -68,6 +68,12 @@ The structured-forest suffix iteration is internal too. Commit `8b69a8e4c` adds 
 
 The mixed-forest suffix iteration remains internal too. Commit `04cc07657` adds `hot_delete_detached_forest(...)` for ordinary or control roots with the same full failure-atomic descendant/label checks; commit `ca159e6d0` admits positive scalar/control-mixed vectors only from existing exact root recognizers. HOT mutation is `13/13`, IR `321/321`, focused flatten `263/263`, private flatten `186/186`, passes `5,779/5,779`, and full `9,243/9,243`. Fresh pinned v130 direct flatten retains `drop(const) + block + if + loop + unreachable` at `76` bytes; matched cleanup removes it at `63` bytes. The `.mbti` adds only the generic IR mutation API. No flatten profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, or public pass surface was added, so no compare lane is authorized.
 
+## Typed catch-entry prerequisite remains outside public fuzzing
+
+Commits `71971e924` and `161064a0f` add generic HOT typed catch-entry representation and one-scalar lowering, including exact module validation and a corrected synthetic catch-all handler target. They do not modify `flatten_run`, add a flatten GenValid profile, admit the compare allowlist, or create registry/dispatcher/CLI/API/preset wiring. Focused flatten remains `263/263`, private flatten `186/186`, passes `5,779/5,779`, and full `9,245/9,245`.
+
+This evidence resolves a local representation prerequisite only. A future flatten-aware EH profile must wait until payload-to-local extraction and nested-pop repair are implemented and must generate exact payload type/order, nested catches, block nesting, loop rejection, `rethrow`, and `delegate` boundaries. No compare lane is authorized while `FlattenRunAdmission` still returns `DeferredCatchPayloadRepair` or `DeferredExceptionalTransferRepair` and public pass execution remains removed.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

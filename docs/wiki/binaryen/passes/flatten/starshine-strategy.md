@@ -422,6 +422,12 @@ Commits `51d080e09` and `cbb1a2395` reuse verified atomic control-plus-label del
 
 The generic invariant moves from an unbound-API red to HOT mutation `13/13` and IR `321/321`. The mixed flatten fixture moves `262/263 -> 263/263`; private flatten is `186/186`, passes `5,779/5,779`, full `9,243/9,243`, and `moon info` is green. Fresh pinned Binaryen v130 retains `drop(const) + block + if + loop + unreachable` under direct flatten at `76` bytes; matched cleanup removes it at `63` bytes. Richer controls, sharing, external targets, typed EH, exceptional transfer, broader mixed/shared/nested flow, aggregate/signoff, ordered neighborhood, performance requalification, and all public admission gates remain open.
 
+## Latest typed catch-entry representation decision
+
+Starshine now has a concrete local answer for the missing Binaryen `Pop` representation: typed legacy catch payloads are ordered childless `HotOp::Catch` pseudo-values at catch-region entry, not a new public `lib.Instruction`. Generic HOT verification owns their tag/type/order/placement invariant, and HOT lowering consumes one scalar lane from the implicit exception stack through a typed `try_table` handler. The corrected handler target is catch depth `0`; normal completion still uses branch depth `1` to skip the catch body.
+
+This direction preserves stack semantics without inventing a fake executable `Pop`, but it does not admit typed EH into flatten yet. The pass still fails closed before mutation for `Catch`/`CatchAll`; payload-to-local extraction, nested-pop replacement, nested-catch exclusion, multivalue payloads, `rethrow`, and `delegate` remain open. No registry, dispatcher, CLI execution, compare/API, GenValid, preset, or public pass surface changed. Final counts are IR `323/323`, focused flatten `263/263`, private flatten `186/186`, passes `5,779/5,779`, and full `9,245/9,245`; the durable performance gate remains unrequalified.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
