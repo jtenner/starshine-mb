@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-16
 sources:
+  - ../../../raw/research/1622-2026-07-16-daeo-pair-store-transport-final-matrix.md
   - ../../../raw/research/1621-2026-07-15-daeo-post-remap-transport-final-matrix.md
   - ../../../raw/research/1620-2026-07-15-daeo-remapped-carrier-cleanup-final-matrix.md
   - ../../../raw/research/1617-2026-07-15-daeo-sibling-terminal-transport-final-matrix.md
@@ -121,7 +122,7 @@ related:
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
 - It is currently **partially implemented** in Starshine as an active module pass. The focused `[DAE]003` and `[DAE]004` breadth slices are closed by research notes `0661` and `0687`, and the recovered current preset tables schedule `dae-optimizing` once in both public `optimize` and `shrink`, immediately after `heap-store-optimization` and before `inlining-optimizing`.
-- Current checkpoint evidence is research note [`1621`](../../../raw/research/1621-2026-07-15-daeo-post-remap-transport-final-matrix.md): the four required explicit-native Binaryen-v130 compare lanes are complete and classified, public optimize/shrink/O4z execute DAEO exactly once after late `heap-store-optimization` and immediately before `inlining-optimizing`, and plain `dae` remains separate. Exactly three red-first changes sink an exact one-argument block carrier, sink an exact terminal four-argument carrier, and forward an exact identity block carrier through the existing post-remap counted traversal. The valid byte-stable artifact improves note `1620` by `29` raw / `29` canonical bytes to raw `3194767` / canonical `3272279`; controlled repeats `16654.333ms`, `16519.364ms`, and `16618.874ms` remain below the absolute `17076.04ms` ceiling. The audit remains active on the `+9823` canonical-byte parity gap; validation, fewer local operations, or byte-identical probes do not excuse a larger unproved output shape.
+- Current checkpoint evidence is research note [`1622`](../../../raw/research/1622-2026-07-16-daeo-pair-store-transport-final-matrix.md): the four required explicit-native Binaryen-v130 compare lanes are complete and classified, public optimize/shrink/O4z execute DAEO exactly once after late `heap-store-optimization` and immediately before `inlining-optimizing`, and plain `dae` remains separate. Exactly three red-first changes forward the first result of exact two-call and one-call typed producers into paired `struct.set` consumers, then sink an exact terminal wrapper-call block carrier through a pure leading zero. The valid byte-stable artifact improves note `1621` by `14` raw / `14` canonical bytes to raw `3194753` / canonical `3272265`; controlled quiescent repeats `16831.058ms`, `16767.293ms`, and `16948.172ms` remain below the absolute `17076.04ms` ceiling. The audit remains active on the `+9809` canonical-byte parity gap; validation, fewer local operations, or byte-identical probes do not excuse a larger unproved output shape.
 - The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, backlog language, and now the local active registry.
 - The descriptive local name `dead-argument-elimination-optimizing` remains as an active compatibility alias for the same optimizing module pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the current scope and remaining parity caveats.
 - Binaryen also exposes the related plain pass name `dae`, tracked locally and in the neighboring dossier as `dead-argument-elimination`; both plain spellings are now wired as active Starshine module-pass entries with focused Moon validation green, but direct DAE compare closeout remains open.
