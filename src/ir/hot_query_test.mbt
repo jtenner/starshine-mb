@@ -210,9 +210,21 @@ test "strict no-work forest queries accept independent chains only" {
     empty_chain,
     nop_chain,
   ])
+  let recursive_positive = hot_build_block(func, @lib.BlockType::void_(), [
+    positive,
+  ])
   let executable = hot_build_block(func, @lib.BlockType::void_(), [
     hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1))),
   ])
+  let nested_executable = hot_build_block(func, @lib.BlockType::void_(), [
+    hot_build_nop(func),
+    executable,
+  ])
+  let nested_executable_holder = hot_build_block(
+    func,
+    @lib.BlockType::void_(),
+    [nested_executable],
+  )
   let used = hot_build_block(func, @lib.BlockType::void_(), [])
   let used_holder = hot_build_block(func, @lib.BlockType::void_(), [used])
   let value_block = hot_build_block(
@@ -243,10 +255,24 @@ test "strict no-work forest queries accept independent chains only" {
       fn(_) { false },
     ),
   )
+  assert_true(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, recursive_positive),
+      fn(_) { false },
+    ),
+  )
   assert_false(
     hot_region_is_strict_no_work_forest(
       func,
       hot_region_body_ref(func, executable),
+      fn(_) { false },
+    ),
+  )
+  assert_false(
+    hot_region_is_strict_no_work_forest(
+      func,
+      hot_region_body_ref(func, nested_executable_holder),
       fn(_) { false },
     ),
   )

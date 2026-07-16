@@ -207,32 +207,35 @@ fn hot_root_is_strict_no_work_block_chain(
   root_id : NodeId,
   label_is_used : (LabelId) -> Bool,
 ) -> Bool {
-  let mut current = root_id
-  while true {
-    if current < 0 || !hot_node_is_live(func, current) {
-      return false
-    }
-    match hot_query_op(func, current) {
-      HotOp::Nop => return hot_child_count(func, current) == 0
-      HotOp::Block => {
-        if hot_node_result_arity(func, current) != 0 {
+  if root_id < 0 || !hot_node_is_live(func, root_id) {
+    return false
+  }
+  match hot_query_op(func, root_id) {
+    HotOp::Nop => hot_child_count(func, root_id) == 0
+    HotOp::Block => {
+      if hot_node_result_arity(func, root_id) != 0 {
+        return false
+      }
+      let label_id = hot_control_node_label(func, root_id)
+      if label_id < 0 || label_is_used(label_id) {
+        return false
+      }
+      let body_ref = hot_region_body_ref(func, root_id)
+      for slot = 0
+          slot < hot_region_root_count(func, body_ref)
+          slot = slot + 1 {
+        if !hot_root_is_strict_no_work_block_chain(
+            func,
+            hot_region_get(func, body_ref, slot),
+            label_is_used,
+          ) {
           return false
-        }
-        let label_id = hot_control_node_label(func, current)
-        if label_id < 0 || label_is_used(label_id) {
-          return false
-        }
-        let body_ref = hot_region_body_ref(func, current)
-        match hot_region_root_count(func, body_ref) {
-          0 => return true
-          1 => current = hot_region_get(func, body_ref, 0)
-          _ => return false
         }
       }
-      _ => return false
+      true
     }
+    _ => false
   }
-  false
 }
 
 ///|
