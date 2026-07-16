@@ -1354,12 +1354,7 @@ fn hot_lower_impl_emit_instruction(
       } else {
         None
       }
-      if catch_payloads.length() > 2 {
-        abort(
-          "hot lower typed legacy try currently supports at most two payload lanes",
-        )
-      }
-      if catch_payloads.length() == 2 {
+      if catch_payloads.length() > 1 {
         let first_tag = catch_payloads[0].tag_idx
         for payload in catch_payloads {
           if payload.tag_idx != first_tag {
