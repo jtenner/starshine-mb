@@ -4186,8 +4186,9 @@ fn flatten_multivalue_tuple_br_if_consumer_matches_lane(
   match consumed.op {
     @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 => {
       let tuple_is_left = @ir.hot_child_get(func, consumed_id, 0) == tuple_id &&
-        flatten_node_is_simple_operand(
+        flatten_false_flow_binary_right_operand_is_supported(
           func,
+          use_counts,
           @ir.hot_child_get(func, consumed_id, 1),
         )
       let tuple_is_right = @ir.hot_child_get(func, consumed_id, 1) == tuple_id &&
