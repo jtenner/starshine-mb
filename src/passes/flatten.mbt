@@ -9037,26 +9037,29 @@ fn flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
   if state.direct_parent[opposite_root] != if_id {
     return false
   }
-  let opposite_exit = match @ir.hot_node_get(func, opposite_root).op {
-    @ir.HotOp::Block => {
-      if @ir.hot_node_result_arity(func, opposite_root) != 0 {
-        return false
+  let mut opposite_exit = opposite_root
+  while true {
+    match @ir.hot_node_get(func, opposite_exit).op {
+      @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, opposite_exit) != 0 {
+          return false
+        }
+        let block_label = @ir.hot_control_node_label(func, opposite_exit)
+        if block_label < 0 || !state.label_branch_nodes[block_label].is_empty() {
+          return false
+        }
+        let body_ref = @ir.hot_region_body_ref(func, opposite_exit)
+        if @ir.hot_region_root_count(func, body_ref) != 1 {
+          return false
+        }
+        let root = @ir.hot_region_get(func, body_ref, 0)
+        if state.direct_parent[root] != opposite_exit {
+          return false
+        }
+        opposite_exit = root
       }
-      let block_label = @ir.hot_control_node_label(func, opposite_root)
-      if block_label < 0 || !state.label_branch_nodes[block_label].is_empty() {
-        return false
-      }
-      let body_ref = @ir.hot_region_body_ref(func, opposite_root)
-      if @ir.hot_region_root_count(func, body_ref) != 1 {
-        return false
-      }
-      let root = @ir.hot_region_get(func, body_ref, 0)
-      if state.direct_parent[root] != opposite_root {
-        return false
-      }
-      root
+      _ => break
     }
-    _ => opposite_root
   }
   if state.label_branch_nodes[label_id][0] != opposite_exit {
     return false

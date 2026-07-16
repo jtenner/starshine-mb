@@ -2062,6 +2062,143 @@ test "flatten preserves a depth-one rethrow through a block-wrapped targeted cat
 }
 
 ///|
+test "flatten preserves a depth-one rethrow through a two-block targeted catch if exit" {
+  let func = @ir.HotFunc::new()
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=1,
+    children=[],
+  )
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [@ir.hot_build_nop(func)],
+    else_body=Some([rethrow_id]),
+  )
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  let exit_condition = @ir.hot_build_binary(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_const_i32(func, @lib.I32(2)),
+    @ir.hot_build_const_i32(func, @lib.I32(3)),
+  )
+  @ir.hot_node_exact_instr_set(
+    func,
+    exit_condition,
+    @lib.Instruction::i32_add(),
+  )
+  let opposite_exit = @ir.hot_build_br_if(func, if_label, exit_condition)
+  let inner_exit_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    opposite_exit,
+  ])
+  let outer_exit_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    inner_exit_block,
+  ])
+  @ir.hot_region_replace_body(func, @ir.hot_region_then_ref(func, if_id), [
+    outer_exit_block,
+  ])
+  let inner_try = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_throw(func, @lib.TagIdx::new(1U), [])],
+    catch_body=Some([if_id]),
+  )
+  let outer_try = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_throw(func, @lib.TagIdx::new(0U), [])],
+    catch_body=Some([inner_try]),
+  )
+  @ir.hot_root_append(func, outer_try)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("two-block targeted catch-if rethrow remained deferred")
+    _ => fail("two-block targeted catch-if rethrow failed an unrelated gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_get(func, rethrow_id).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, opposite_exit).op.to_string(), "BrIf")
+  @debug.assert_eq(@ir.hot_node_get(func, opposite_exit).imm0, if_label)
+  let outer_label = @ir.hot_control_node_label(func, outer_exit_block)
+  let inner_label = @ir.hot_control_node_label(func, inner_exit_block)
+  assert_true(outer_label >= 0)
+  assert_true(inner_label >= 0)
+  @debug.assert_eq(
+    @ir.hot_region_root_count(
+      func,
+      @ir.hot_region_body_ref(func, outer_exit_block),
+    ),
+    1,
+  )
+  @debug.assert_eq(
+    @ir.hot_region_get(func, @ir.hot_region_body_ref(func, outer_exit_block), 0),
+    inner_exit_block,
+  )
+  let inner_body = @ir.hot_region_body_ref(func, inner_exit_block)
+  @debug.assert_eq(@ir.hot_region_root_count(func, inner_body), 2)
+  let condition_set = @ir.hot_region_get(func, inner_body, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, condition_set).op.to_string(),
+    "LocalSet",
+  )
+  @debug.assert_eq(@ir.hot_child_get(func, condition_set, 0), exit_condition)
+  @debug.assert_eq(@ir.hot_region_get(func, inner_body, 1), opposite_exit)
+  let condition_get = @ir.hot_child_get(func, opposite_exit, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, condition_get).op.to_string(),
+    "LocalGet",
+  )
+  @debug.assert_eq(
+    @ir.hot_node_get(func, condition_get).imm0,
+    @ir.hot_node_get(func, condition_set).imm0,
+  )
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected two-block targeted catch-if rethrow HOT to verify, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(
+      @lib.TagSec::new([
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("catch_all_ref"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("throw_ref"), msg=pretty)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten preserves a depth-one rethrow through a rich-conditional targeted catch if wrapper" {
   let func = @ir.HotFunc::new()
   let rethrow_id = @ir.hot_build_node(
