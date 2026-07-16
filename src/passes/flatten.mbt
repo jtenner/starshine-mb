@@ -9001,6 +9001,46 @@ fn flatten_direct_delegate_is_supported(
   while parent >= 0 {
     match @ir.hot_node_get(func, parent).op {
       @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, parent) != 0 {
+          return false
+        }
+        let label_id = @ir.hot_control_node_label(func, parent)
+        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+          return false
+        }
+        let body_ref = @ir.hot_region_body_ref(func, parent)
+        if @ir.hot_region_root_count(func, body_ref) != 1 ||
+          @ir.hot_region_get(func, body_ref, 0) != current {
+          return false
+        }
+        current = parent
+        parent = state.direct_parent[current]
+      }
+      @ir.HotOp::If => {
+        if @ir.hot_node_result_arity(func, parent) != 0 {
+          return false
+        }
+        let label_id = @ir.hot_control_node_label(func, parent)
+        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+          return false
+        }
+        let then_ref = @ir.hot_region_then_ref(func, parent)
+        let mut owns_current = @ir.hot_region_root_count(func, then_ref) == 1 &&
+          @ir.hot_region_get(func, then_ref, 0) == current
+        match @ir.hot_region_else_ref(func, parent) {
+          Some(else_ref) =>
+            if @ir.hot_region_root_count(func, else_ref) == 1 &&
+              @ir.hot_region_get(func, else_ref, 0) == current {
+              if owns_current {
+                return false
+              }
+              owns_current = true
+            }
+          None => ()
+        }
+        if !owns_current {
+          return false
+        }
         current = parent
         parent = state.direct_parent[current]
       }
