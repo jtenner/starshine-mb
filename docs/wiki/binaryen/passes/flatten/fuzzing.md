@@ -144,6 +144,14 @@ Red-first whitebox moved `207/208 -> 208/208` and `208/209 -> 209/209`; final va
 
 The future negative corpus must retain multi-root/targeted/value-carrying block wrappers, multiple or outside label users, broader targeted ancestry, multiple payload lanes or typed rethrows, non-direct/nonzero/wrapped/nested/loop typed transfers, missing payload-plus-exnref handler types, and all broader catch/control ownership failures.
 
+## Typed payload vectors and strict targeted block chains remain outside public fuzzing
+
+Commits `740dfa2b5` and `374040a26` add two more internal-only positive families. A future EH aggregate now needs same-tag scalar typed payload vectors with one direct `Rethrow(0)`, including handler result vectors ending in `exnref`, reverse stack capture, and source-order locals. It also needs targeted catch-if exits under arbitrary positive strict resultless unused-label single-root block chains, with rich conditions remaining innermost.
+
+Red-first whitebox moved `209/210 -> 210/210` and `210/211 -> 211/211`; final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,804/5,804`, and full `9,274/9,274`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+The future negative corpus must retain mixed tags, multiple typed rethrows, non-direct/nonzero/wrapped/nested/loop typed transfers, missing payload-vector-plus-exnref handler types, and multi-root/used-label/targeted/value-carrying/loop/try-like or otherwise non-strict targeted wrappers.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

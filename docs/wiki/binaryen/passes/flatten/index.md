@@ -557,6 +557,14 @@ Red-first whitebox moved `207/208 -> 208/208` and `208/209 -> 209/209`. Final va
 
 All broader catch-payload, exceptional-transfer, rich/mixed/shared/nested control and EH closure, aggregate/four-lane/neighborhood, performance, docs-closeout, and final public-admission gates remain open.
 
+## 2026-07-16 two-lane typed rethrows and strict targeted block chains
+
+Commits `740dfa2b5` and `374040a26` complete the next bounded internal iteration. A typed catch may now combine any positive whole-function-repairable same-tag scalar payload vector with exactly one direct `Rethrow(0)`. Lowering uses `catch_ref` with an existing `[lane0, ..., laneN, exnref]` result-only handler type, stores `exnref` first, then consumes repaired payload captures in reverse handler-stack order while preserving source-order locals, and lowers the rethrow through `throw_ref`.
+
+The targeted catch-if opposite exit may now sit under any positive strict chain of resultless unused-label single-root blocks. Every wrapper label has no indexed users, the if label still has exactly one user, and a rich scalar `i32` condition remains immediately before the payloadless branch in the innermost block. Red-first whitebox moved `209/210 -> 210/210` and `210/211 -> 211/211`. Final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,804/5,804`, full `9,274/9,274`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public surface changed; performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+Broader payload/typed-rethrow composition, non-strict or value-carrying wrappers, richer mixed/shared/nested control and EH, the flatten aggregate, four-lane and ordered-neighborhood evidence, performance requalification, docs closeout, and final public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

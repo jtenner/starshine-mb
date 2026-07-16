@@ -418,6 +418,16 @@ Red-first whitebox moved `207/208 -> 208/208` and `208/209 -> 209/209`. Final ev
 
 Readiness remains blocked by broader payload layouts and policies; multiple-lane, multiple-rethrow, non-direct, nonzero, wrapped, nested, loop, value-carrying, multivalue, or otherwise broader typed exceptional composition; targeted wrappers beyond the exact direct-or-one-block opposite-arm exit subset; broader delegate/control/EH closure; a flatten aggregate and explicit native 10,000-case evidence; the four required lanes and ordered neighborhood; performance requalification; docs closeout; and only then public admission.
 
+## Latest readiness movement: two-lane typed rethrows and strict targeted block chains
+
+Commit `740dfa2b5` supersedes the scalar-only typed-composition ceiling for one exact vector family. The catch must begin with a positive same-tag vector of childless scalar payload markers, the existing whole-function repair transaction must own every lane, and exactly one direct `Rethrow(0)` may occur. Lowering requires an existing result-only handler type `[lane0, ..., laneN, exnref]`, stores the top exception reference first, then executes reverse stack-order payload captures into source-order locals before `throw_ref`. Multiple typed rethrows, non-direct/nonzero rethrows, wrappers, nesting, loops, mixed tags, or missing handler types remain deferred.
+
+Commit `374040a26` supersedes the one-block targeted-exit ceiling with an arbitrary positive strict block chain. Each wrapper is resultless, single-root, directly owned, and has an unused label. The final payloadless `br`/`br_if` remains the targeted if label's only indexed user, and rich scalar condition work stays in the innermost block immediately before the branch. Multi-root, used-label, targeted, value-carrying, loop, try-like, or otherwise non-strict wrappers remain excluded.
+
+Red-first whitebox moved `209/210 -> 210/210` and `210/211 -> 211/211`. Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,804/5,804`, full `9,274/9,274`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti`, profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen.
+
+Readiness remains blocked by broader catch-payload policy/repair and typed composition; broader exceptional transfer, delegate, structured-control, mixed/shared/nested EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered optimizer-neighborhood signoff; performance requalification; docs/readiness closeout; and only then public admission.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

@@ -512,6 +512,14 @@ Commit `a24539c99` adds one exact typed exceptional composition. One scalar payl
 
 Whitebox moved `207/208 -> 208/208 -> 208/209 -> 209/209`. Final passes are `5,802/5,802` and full is `9,272/9,272`; HOT mutation, HOT lower, IR, and focused flatten are `16/16`, `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at the durable `970.5 us` / `3.65x` checkpoint.
 
+## Latest typed-vector and strict targeted-wrapper decisions
+
+Commit `740dfa2b5` generalizes only the payload width of the exact direct typed-rethrow route. Any positive same-tag scalar payload vector may share one direct `Rethrow(0)` after complete catch-payload repair. The handler contract is `[lane0, ..., laneN, exnref]`: lowering captures `exnref` first, then repaired lane captures consume the remaining stack in reverse while locals retain source order. This does not admit multiple rethrows, depth, wrappers, nested typed catches, loops, mixed tags, or missing handler types.
+
+Commit `374040a26` generalizes only the number of exact block shells around the targeted opposite-arm exit. Every block remains resultless, single-root, directly owned, and unused as a label. The final branch remains the if label's sole user and rich condition work remains innermost. Non-strict wrappers remain closed.
+
+Whitebox moved `209/210 -> 210/210 -> 210/211 -> 211/211`. Final passes are `5,804/5,804` and full is `9,274/9,274`; HOT mutation, HOT lower, IR, and focused flatten are `16/16`, `90/90`, `327/327`, and `263/263`. No `.mbti` or public surface changed, and performance remains unrequalified at `970.5 us` / `3.65x`.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

@@ -1140,6 +1140,35 @@ Starshine's internal lowering uses `catch_ref` with a `[i32, exnref]` handler ty
 
 Final passes are `5,802/5,802` and full is `9,272/9,272`; public flatten remains removed.
 
+## Shape 27: typed payload vectors and strict targeted block chains
+
+A typed catch may now preserve two or more repaired scalar lanes with one direct rethrow:
+
+```text
+handler stack: lane0, lane1, ..., exnref
+capture order: exnref, laneN, ..., lane0
+local order:   lane0, lane1, ..., exnref scratch
+```
+
+The handler uses `catch_ref` and an existing result-only `[lane0, ..., laneN, exnref]` type. Starshine stores the top exception reference first, then the repaired payload captures consume the remaining values in reverse stack order, and `Rethrow(0)` lowers through `throw_ref`. The two-lane validating fixture moved whitebox `209/210 -> 210/210`.
+
+The exact targeted-if opposite exit may also sit under multiple strict blocks:
+
+```wat
+(if $exit (i32.const 1)
+  (then
+    (block
+      (block
+        (local.set $cond (i32.add (i32.const 2) (i32.const 3)))
+        (br_if $exit (local.get $cond)))))
+  (else
+    (rethrow 1)))
+```
+
+Every block is resultless, single-root, directly owned, and has an unused label. The branch remains the if label's only user, and rich condition work stays in the innermost block. The two-block fixture moved `210/211 -> 211/211`. Multi-root, used-label, targeted, value-carrying, loop, try-like, or non-strict wrappers remain deferred.
+
+Final passes are `5,804/5,804` and full is `9,274/9,274`; public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:

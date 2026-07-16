@@ -485,6 +485,14 @@ Commit `a24539c99` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and
 
 Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `209/209`, passes `5,802/5,802`, full `9,272/9,272`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` changed. Public registry, dispatcher, CLI execution, compare/API, GenValid profile, preset, scheduler, and exact-neighborhood readiness remain absent.
 
+## Latest typed-vector and targeted-block-chain implementation slices
+
+Commit `740dfa2b5` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and `src/passes/flatten_wbtest.mbt`. Admission scans the complete leading scalar `Catch` marker vector, requires one shared tag and exactly the direct rethrow under that typed catch, and leaves whole-function payload repair as the ownership transaction. Lowering builds the handler result vector from all payload lane types plus nullable `exnref`, uses `Catch::ref_`, captures the exception reference before the repaired catch body consumes payload values, and validates `catch_ref`/`throw_ref` output. The fixture was red at `209/210` and green at `210/210`.
+
+Commit `374040a26` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. The targeted-if helper now walks strict resultless unused-label single-root `Block` nodes until it reaches the sole payloadless if-target exit. The two-block rich-condition fixture was red at `210/211` and green at `211/211`; it proves both wrappers remain and ordinary condition materialization occurs inside the innermost block.
+
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, whitebox flatten `211/211`, passes `5,804/5,804`, and full `9,274/9,274`. No `.mbti` or public flatten surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

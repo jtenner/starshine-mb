@@ -607,6 +607,14 @@ One exact typed catch may now combine scalar payload repair with one direct `Ret
 
 The red-first whitebox states were `207/208` and `208/209`; final whitebox is `209/209`, with HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,802/5,802`, and full `9,272/9,272`.
 
+## Typed payload vectors and strict targeted block chains preserve prelude order
+
+The exact direct typed-rethrow handler now permits a positive same-tag scalar payload vector. Its stack contract is `[lane0, ..., laneN, exnref]`. `catch_ref` leaves `exnref` on top, lowering stores it first, and repaired catch-entry local sets then consume payload lanes in reverse stack order while their local ids retain source order. Module validation with distinct `i32` and `f32` lanes proves the ordering. Multiple typed rethrows and broader ancestry remain gated.
+
+The targeted resultless catch-if exit may now be wrapped by any positive strict chain of unused-label single-root blocks. Ordinary flatten still owns condition sequencing: a rich scalar condition becomes a local-set immediately before the branch in the innermost block, not before an outer wrapper or the if. Every wrapper, target, and catch-depth identity remains frozen by pre-mutation proof.
+
+The red-first whitebox states were `209/210` and `210/211`; final whitebox is `211/211`, with HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,804/5,804`, and full `9,274/9,274`.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`
