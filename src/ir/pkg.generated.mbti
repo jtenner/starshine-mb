@@ -613,6 +613,8 @@ pub fn hot_region_then_ref(HotFunc, Int) -> HotRegionRef
 
 pub fn hot_region_truncate_suffix(HotFunc, HotRegionRef, Int) -> Array[Int]
 
+pub fn hot_repair_scalar_catch_payloads(HotFunc) -> Bool
+
 pub fn hot_replace_child_span(HotFunc, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_replace_child_spans_and_control_result_type(HotFunc, Int, Int, Array[HotChildSpanRewrite]) -> Unit
@@ -650,6 +652,8 @@ pub fn hot_root_span(HotFunc) -> Array[Int]
 pub fn hot_root_splice(HotFunc, Int, Int, Array[Int]) -> Array[Int]
 
 pub fn hot_root_storage_count(HotFunc) -> Int
+
+pub fn hot_scalar_catch_payloads_repairable(HotFunc) -> Bool
 
 pub fn hot_set_body_local_type(HotFunc, Int, @lib.ValType) -> Bool
 

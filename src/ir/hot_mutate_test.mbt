@@ -407,6 +407,82 @@ test "label owner helper rehomes built control labels to replacement node ids" {
 }
 
 ///|
+test "scalar catch payload repair captures the first descendant atomically" {
+  let func = HotFunc::new()
+  let payload = hot_build_catch_payload(
+    func,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let payload_drop = hot_build_drop(func, payload)
+  let inner = hot_build_block(func, @lib.BlockType::void_(), [payload_drop])
+  let outer = hot_build_block(func, @lib.BlockType::void_(), [inner])
+  let try_id = hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [hot_build_nop(func)],
+    catch_body=Some([payload, outer]),
+  )
+  hot_root_append(func, try_id)
+
+  assert_true(hot_scalar_catch_payloads_repairable(func))
+  let revision = hot_revision_current(func)
+  assert_true(hot_repair_scalar_catch_payloads(func))
+  assert_true(hot_revision_current(func) > revision)
+  @debug.assert_eq(hot_local_count(func), 1)
+  @debug.assert_eq(hot_local_type(func, 0), Some(@lib.ValType::i32()))
+  let catch_ref = hot_region_catch_ref(func, try_id).unwrap()
+  @debug.assert_eq(hot_region_root_count(func, catch_ref), 3)
+  @debug.assert_eq(hot_region_get(func, catch_ref, 0), payload)
+  let capture = hot_region_get(func, catch_ref, 1)
+  @debug.assert_eq(hot_node_get(func, capture).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, capture).imm0, 0)
+  @debug.assert_eq(hot_child_get(func, capture, 0), payload)
+  @debug.assert_eq(hot_region_get(func, catch_ref, 2), outer)
+  let replacement = hot_child_get(func, payload_drop, 0)
+  @debug.assert_eq(hot_node_get(func, replacement).op.to_string(), "LocalGet")
+  @debug.assert_eq(hot_node_get(func, replacement).imm0, 0)
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) => fail("expected repaired catch payload to verify, got \{err}")
+  }
+
+  let blocked = HotFunc::new()
+  let blocked_payload = hot_build_catch_payload(
+    blocked,
+    @lib.TagIdx::new(0U),
+    @lib.ValType::i32(),
+  )
+  let blocked_drop = hot_build_drop(blocked, blocked_payload)
+  let blocked_loop = hot_build_loop(blocked, @lib.BlockType::void_(), [
+    blocked_drop,
+  ])
+  let blocked_try = hot_build_try(
+    blocked,
+    @lib.BlockType::void_(),
+    [hot_build_nop(blocked)],
+    catch_body=Some([blocked_payload, blocked_loop]),
+  )
+  hot_root_append(blocked, blocked_try)
+  let blocked_revision = hot_revision_current(blocked)
+  let blocked_nodes = hot_node_count(blocked)
+  let blocked_locals = hot_local_count(blocked)
+  let blocked_catch_ref = hot_region_catch_ref(blocked, blocked_try).unwrap()
+  let blocked_roots = hot_region_root_count(blocked, blocked_catch_ref)
+
+  assert_false(hot_scalar_catch_payloads_repairable(blocked))
+  assert_false(hot_repair_scalar_catch_payloads(blocked))
+  @debug.assert_eq(hot_revision_current(blocked), blocked_revision)
+  @debug.assert_eq(hot_node_count(blocked), blocked_nodes)
+  @debug.assert_eq(hot_local_count(blocked), blocked_locals)
+  @debug.assert_eq(
+    hot_region_root_count(blocked, blocked_catch_ref),
+    blocked_roots,
+  )
+  @debug.assert_eq(hot_child_get(blocked, blocked_drop, 0), blocked_payload)
+}
+
+///|
 test "appended body locals lower in append order" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   ignore(hot_append_body_local(func, @lib.ValType::f32()))

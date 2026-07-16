@@ -201,6 +201,211 @@ pub fn hot_append_body_local(func : HotFunc, ty : ValType) -> LocalId {
 }
 
 ///|
+priv struct HotScalarCatchPayloadRepair {
+  catch_ref : HotRegionRef
+  payload_id : NodeId
+  parent_id : NodeId
+  parent_slot : Int
+  val_type : ValType
+}
+
+///|
+fn hot_catch_payload_site_matches(
+  site : HotUseSite,
+  user : NodeId,
+  slot : Int,
+  kind : HotUseSlotKind,
+) -> Bool {
+  site.user == user && site.slot == slot && site.kind == kind
+}
+
+///|
+fn hot_scalar_catch_payload_first_descendant_repair(
+  func : HotFunc,
+  use_def : HotUseDef,
+  catch_ref : HotRegionRef,
+  payload_id : NodeId,
+) -> HotScalarCatchPayloadRepair? {
+  if hot_region_root_count(func, catch_ref) < 2 ||
+    hot_region_get(func, catch_ref, 0) != payload_id {
+    return None
+  }
+  let payload = hot_node_get(func, payload_id)
+  let payload_types = hot_type_results(func, payload.ty)
+  if payload.op != HotOp::Catch ||
+    payload.child_count != 0 ||
+    payload_types.length() != 1 {
+    return None
+  }
+
+  let mut current = hot_region_get(func, catch_ref, 1)
+  let mut expected_user = catch_ref.holder
+  let mut expected_slot = 1
+  let mut expected_kind = HotUseSlotKind::RootUseSlot
+  let mut parent_id = HOT_NONE_NODE
+  let mut parent_slot = -1
+  while current != payload_id {
+    if current < 0 || !hot_node_is_live(func, current) {
+      return None
+    }
+    let sites = node_use_sites_borrowed(use_def, current)
+    if sites.length() != 1 ||
+      !hot_catch_payload_site_matches(
+        sites[0],
+        expected_user,
+        expected_slot,
+        expected_kind,
+      ) {
+      return None
+    }
+    let node = hot_node_get(func, current)
+    match node.op {
+      HotOp::Block => {
+        let body_ref = hot_region_body_ref(func, current)
+        if hot_region_root_count(func, body_ref) == 0 {
+          return None
+        }
+        expected_user = current
+        expected_slot = 0
+        expected_kind = HotUseSlotKind::RootUseSlot
+        current = hot_region_get(func, body_ref, 0)
+      }
+      HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable => return None
+      _ => {
+        if node.child_count == 0 {
+          return None
+        }
+        parent_id = current
+        parent_slot = 0
+        expected_user = current
+        expected_slot = 0
+        expected_kind = HotUseSlotKind::ChildUseSlot
+        current = hot_child_get(func, current, 0)
+      }
+    }
+  }
+  if parent_id == HOT_NONE_NODE {
+    return None
+  }
+
+  let payload_sites = node_use_sites_borrowed(use_def, payload_id)
+  if payload_sites.length() != 2 {
+    return None
+  }
+  let mut saw_entry = false
+  let mut saw_nested = false
+  for site in payload_sites {
+    if hot_catch_payload_site_matches(
+        site,
+        catch_ref.holder,
+        0,
+        HotUseSlotKind::RootUseSlot,
+      ) {
+      saw_entry = true
+    } else if hot_catch_payload_site_matches(
+        site, expected_user, expected_slot, expected_kind,
+      ) {
+      saw_nested = true
+    } else {
+      return None
+    }
+  }
+  if !saw_entry || !saw_nested {
+    return None
+  }
+  Some({
+    catch_ref,
+    payload_id,
+    parent_id,
+    parent_slot,
+    val_type: payload_types[0],
+  })
+}
+
+///|
+fn hot_scalar_catch_payload_repair_plan(
+  func : HotFunc,
+) -> Array[HotScalarCatchPayloadRepair]? {
+  let use_def = use_def_build_node_uses(func)
+  let plans : Array[HotScalarCatchPayloadRepair] = []
+  let mut payload_count = 0
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    match hot_node_get(func, node_id).op {
+      HotOp::Catch => payload_count += 1
+      HotOp::CatchAll => return None
+      _ => ()
+    }
+  }
+  for try_id = 0; try_id < hot_node_count(func); try_id = try_id + 1 {
+    if !hot_node_is_live(func, try_id) ||
+      hot_node_get(func, try_id).op != HotOp::Try {
+      continue
+    }
+    let catch_ref = match hot_region_catch_ref(func, try_id) {
+      Some(catch_ref) => catch_ref
+      None => continue
+    }
+    if hot_region_root_count(func, catch_ref) == 0 {
+      continue
+    }
+    let payload_id = hot_region_get(func, catch_ref, 0)
+    if hot_node_get(func, payload_id).op != HotOp::Catch {
+      continue
+    }
+    if hot_region_root_count(func, catch_ref) > 1 &&
+      hot_node_get(func, hot_region_get(func, catch_ref, 1)).op == HotOp::Catch {
+      return None
+    }
+    let plan = match
+      hot_scalar_catch_payload_first_descendant_repair(
+        func, use_def, catch_ref, payload_id,
+      ) {
+      Some(plan) => plan
+      None => return None
+    }
+    plans.push(plan)
+  }
+  if plans.length() != payload_count {
+    return None
+  }
+  Some(plans)
+}
+
+///|
+/// Report whether every typed legacy catch payload in the function can be
+/// captured exactly once on its catch region's first-descendant line.
+pub fn hot_scalar_catch_payloads_repairable(func : HotFunc) -> Bool {
+  hot_scalar_catch_payload_repair_plan(func) is Some(_)
+}
+
+///|
+/// Capture every repairable scalar legacy catch payload into a typed local at
+/// catch entry and replace its exact nested first-descendant use. The complete
+/// function is preflighted before any local, node, root, child, or revision
+/// mutation; unsupported multiple payloads, nested catches, loops, sharing, or
+/// outside uses leave the function unchanged.
+pub fn hot_repair_scalar_catch_payloads(func : HotFunc) -> Bool {
+  let plans = match hot_scalar_catch_payload_repair_plan(func) {
+    Some(plans) => plans
+    None => return false
+  }
+  if plans.is_empty() {
+    return false
+  }
+  for plan in plans {
+    let local_id = hot_append_body_local(func, plan.val_type)
+    let capture = hot_build_local_set(func, local_id, plan.payload_id)
+    let replacement = hot_build_local_get(func, local_id)
+    hot_child_set(func, plan.parent_id, plan.parent_slot, replacement)
+    hot_region_insert(func, plan.catch_ref, 1, [capture])
+  }
+  true
+}
+
+///|
 pub fn hot_set_body_local_type(
   func : HotFunc,
   local_id : LocalId,
