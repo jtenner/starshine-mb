@@ -8889,9 +8889,22 @@ fn flatten_direct_catch_all_rethrow_is_supported(
   }
   let mut current = rethrow_id
   let mut parent = state.direct_parent[current]
+  let mut nested_if_count = 0
   while parent >= 0 {
     match @ir.hot_node_get(func, parent).op {
       @ir.HotOp::Block => {
+        current = parent
+        parent = state.direct_parent[current]
+      }
+      @ir.HotOp::If => {
+        if nested_if_count > 0 || @ir.hot_node_result_arity(func, parent) != 0 {
+          return false
+        }
+        let label_id = @ir.hot_control_node_label(func, parent)
+        if label_id >= 0 && !state.label_branch_nodes[label_id].is_empty() {
+          return false
+        }
+        nested_if_count += 1
         current = parent
         parent = state.direct_parent[current]
       }

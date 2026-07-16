@@ -457,7 +457,7 @@ fn hot_lower_impl_catch_payload_prefix(
 }
 
 ///|
-fn hot_lower_impl_direct_block_rethrow_count(
+fn hot_lower_impl_direct_rethrow_count(
   func : HotFunc,
   region_ref : HotRegionRef,
 ) -> Int {
@@ -467,10 +467,21 @@ fn hot_lower_impl_direct_block_rethrow_count(
     match hot_query_op(func, node_id) {
       HotOp::Rethrow => count += 1
       HotOp::Block =>
-        count += hot_lower_impl_direct_block_rethrow_count(
+        count += hot_lower_impl_direct_rethrow_count(
           func,
           hot_region_body_ref(func, node_id),
         )
+      HotOp::If => {
+        count += hot_lower_impl_direct_rethrow_count(
+          func,
+          hot_region_then_ref(func, node_id),
+        )
+        match hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            count += hot_lower_impl_direct_rethrow_count(func, else_ref)
+          None => ()
+        }
+      }
       _ => ()
     }
   }
@@ -1331,7 +1342,7 @@ fn hot_lower_impl_emit_instruction(
       let catch_payloads = hot_lower_impl_catch_payload_prefix(
         func, catch_region,
       )
-      let rethrow_count = hot_lower_impl_direct_block_rethrow_count(
+      let rethrow_count = hot_lower_impl_direct_rethrow_count(
         func,
         hot_region_body_ref(func, catch_region),
       )
