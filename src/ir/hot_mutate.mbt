@@ -353,6 +353,77 @@ fn hot_scalar_catch_payload_first_descendant_repair(
 }
 
 ///|
+fn hot_grouped_catch_payload_repairs(
+  func : HotFunc,
+  use_def : HotUseDef,
+  catch_ref : HotRegionRef,
+  payloads : Array[NodeId],
+  payload_start : Int,
+  root_id : NodeId,
+  root_user : NodeId,
+  root_slot : Int,
+) -> Array[HotCatchPayloadLaneRepair]? {
+  let mut current = root_id
+  let mut expected_user = root_user
+  let mut expected_slot = root_slot
+  while true {
+    if current < 0 || !hot_node_is_live(func, current) {
+      return None
+    }
+    let sites = node_use_sites_borrowed(use_def, current)
+    if sites.length() != 1 ||
+      !hot_catch_payload_site_matches(
+        sites[0],
+        expected_user,
+        expected_slot,
+        HotUseSlotKind::RootUseSlot,
+      ) {
+      return None
+    }
+    if hot_node_get(func, current).op != HotOp::Block {
+      return None
+    }
+    let body_ref = hot_region_body_ref(func, current)
+    let root_count = hot_region_root_count(func, body_ref)
+    if root_count == 0 {
+      return None
+    }
+    let first_root = hot_region_get(func, body_ref, 0)
+    if root_count == 1 && hot_node_get(func, first_root).op == HotOp::Block {
+      expected_user = current
+      expected_slot = 0
+      current = first_root
+      continue
+    }
+    let repairs : Array[HotCatchPayloadLaneRepair] = []
+    let remaining = payloads.length() - payload_start
+    let candidate_count = if root_count < remaining {
+      root_count
+    } else {
+      remaining
+    }
+    for offset = 0; offset < candidate_count; offset = offset + 1 {
+      match
+        hot_catch_payload_lane_repair(
+          func,
+          use_def,
+          catch_ref,
+          payload_start + offset,
+          payloads[payload_start + offset],
+          hot_region_get(func, body_ref, offset),
+          body_ref.holder,
+          offset,
+        ) {
+        Some(repair) => repairs.push(repair)
+        None => break
+      }
+    }
+    return if repairs.is_empty() { None } else { Some(repairs) }
+  }
+  None
+}
+
+///|
 fn hot_ordered_catch_payload_repair(
   func : HotFunc,
   use_def : HotUseDef,
@@ -433,36 +504,57 @@ fn hot_ordered_catch_payload_repair(
       lanes.push(lane)
     }
   } else {
-    if catch_root_count < payloads.length() * 2 {
-      return None
-    }
     let mut root_slot = payloads.length()
-    for slot = 0; slot < payloads.length(); slot = slot + 1 {
-      let mut lane : HotCatchPayloadLaneRepair? = None
+    let mut lane_slot = 0
+    while lane_slot < payloads.length() {
+      let mut found = false
       while root_slot < catch_root_count {
         let candidate_slot = root_slot
         root_slot += 1
+        let candidate = hot_region_get(func, catch_ref, candidate_slot)
+        match
+          hot_grouped_catch_payload_repairs(
+            func,
+            use_def,
+            catch_ref,
+            payloads,
+            lane_slot,
+            candidate,
+            catch_ref.holder,
+            candidate_slot,
+          ) {
+          Some(grouped) => {
+            lane_slot += grouped.length()
+            for repair in grouped {
+              lanes.push(repair)
+            }
+            found = true
+            break
+          }
+          None => ()
+        }
         match
           hot_catch_payload_lane_repair(
             func,
             use_def,
             catch_ref,
-            slot,
-            payloads[slot],
-            hot_region_get(func, catch_ref, candidate_slot),
+            lane_slot,
+            payloads[lane_slot],
+            candidate,
             catch_ref.holder,
             candidate_slot,
           ) {
-          Some(plan) => {
-            lane = Some(plan)
+          Some(repair) => {
+            lanes.push(repair)
+            lane_slot += 1
+            found = true
             break
           }
           None => ()
         }
       }
-      match lane {
-        Some(plan) => lanes.push(plan)
-        None => return None
+      if !found {
+        return None
       }
     }
   }
