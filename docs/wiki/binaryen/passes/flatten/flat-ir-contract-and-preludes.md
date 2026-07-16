@@ -647,6 +647,14 @@ Catch-side constant-selected delegate ifs now use a shared no-work forest query.
 
 The red-first transitions are `217/218 -> 218/218` and `218/219 -> 219/219`; final HOT query is `12/12`, HOT lower `90/90`, passes `5,812/5,812`, and full `9,283/9,283`.
 
+## Multiple typed rethrows and recursive no-work delegate forests
+
+The typed-catch handler channel now serves any positive population of independently admitted depth-zero rethrows. Flatten still repairs payload values first and retains every `Rethrow(0)` in place. Lowering creates one `[payloads..., exnref]` `catch_ref` handler, stores the top exception reference once, and each rethrow emits a read of that same local followed by `throw_ref`. This is exceptional-owner preservation, not ordinary prelude movement. A nonzero or otherwise unsupported typed rethrow still blocks the complete function before payload captures or rich operand preludes are inserted.
+
+The selected delegate-if no-work proof is now recursive. A resultless unused-label block can contain multiple roots only when every root independently satisfies the same exact grammar: childless `nop`, or a resultless unused-label block whose complete body recursively satisfies the grammar. Because flatten admission and HOT lowering call the same `hot_region_is_strict_no_work_forest(...)` query, no executable opposite work can be discarded by a mismatch between the two phases.
+
+The red-first transitions are `219/220 -> 220/220` and `220/221 -> 221/221`; final HOT query is `12/12`, HOT lower `90/90`, passes `5,814/5,814`, and full `9,285/9,285`. The public signature and all flatten execution surfaces remain unchanged.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

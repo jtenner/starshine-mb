@@ -599,6 +599,16 @@ Commits `41b16db02` and `4c6a1de9b` complete the next bounded internal iteration
 
 Red-first whitebox moved `217/218 -> 218/218` and `218/219 -> 219/219`. Final validation is HOT query `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,812/5,812`, full `9,283/9,283`, `moon fmt`, `git diff --check`, and green `moon info` with 11 existing warnings. The only `.mbti` addition is the generic HOT forest query. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130, and every public flatten surface remains removed.
 
+## 2026-07-16 multiple typed rethrows and recursive no-work forests
+
+Commits `ec0c8749a` and `1cac7b3ee` complete the next bounded internal iteration. A repaired same-tag scalar typed catch may now contain any positive population of depth-zero rethrows when every rethrow independently satisfies the existing exact direct, strict unused-label block, or constant-selected no-work-if ancestry. Lowering emits one `catch_ref`, captures one nullable exception-reference scratch local, and reuses it for every `throw_ref`; the two-lane/two-rethrow fixture locks reverse payload-stack capture, source-order payload locals, two exact rethrow immediates, one exception local, and whole-function atomic rejection when a third rethrow has unsupported depth.
+
+The catch-side constant-selected delegate proof now accepts a resultless unused-label block whose body is itself a recursively proven multi-root no-work forest. Every nested root must independently be a childless `nop` or another resultless unused-label block with an empty or recursively no-work body. Admission and HOT lowering still share `hot_region_is_strict_no_work_forest(...)`; nested executable work, used labels, value results, loops, and nested tries remain rejected.
+
+Red-first whitebox moved `219/220 -> 220/220` and `220/221 -> 221/221`. Final validation is HOT query `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,814/5,814`, full `9,285/9,285`, `moon fmt`, `git diff --check`, and green `moon info` with 11 existing warnings. No `.mbti` signature or public flatten surface changed. Performance was not remeasured, so `970.5 us` / `3.65x` Binaryen v130 remains the durable checkpoint.
+
+The prior one-typed-rethrow ceiling and flat/single-root-block no-work grammar are superseded only for these exact populations. Broader typed/nonzero/wrapped/value/control exceptional composition, executable or otherwise non-strict delegate opposites, richer mixed/shared/nested control and EH, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

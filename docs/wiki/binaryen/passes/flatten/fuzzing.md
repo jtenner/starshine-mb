@@ -184,6 +184,14 @@ Red-first whitebox moved `217/218 -> 218/218` and `218/219 -> 219/219`; final HO
 
 The future negative corpus must retain reverse/ambiguous/partial/mixed grouped lanes, repeated/shared/outside uses, selected-arm lanes, nested typed catches, loops/multiple execution, catch-all extraction, and delegate forests containing executable roots, used labels, value results, multi-root blocks, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, or non-active targets.
 
+## Multiple typed rethrows and recursive no-work forests remain outside public fuzzing
+
+Commits `ec0c8749a` and `1cac7b3ee` add two internal-only positive families. A future EH aggregate now needs repaired same-tag scalar typed catches with any positive number of independently admitted depth-zero rethrows, and it must record that one handler capture supplies every `throw_ref`. It also needs catch-side constant-selected delegate ifs whose unselected arm contains resultless unused-label blocks with recursively nested multi-root no-work bodies.
+
+Red-first whitebox moved `219/220 -> 220/220` and `220/221 -> 221/221`; final HOT query is `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,814/5,814`, and full `9,285/9,285`. No aggregate, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added. No `.mbti` signature changed. Performance remains unrequalified at `970.5 us` / `3.65x` Binaryen v130.
+
+The future negative corpus must retain nonzero or otherwise unsupported typed rethrows with complete pre-mutation atomicity; partial/mixed payload repair; loops, nested try-body transfers, value-carrying/multivalue/targeted/non-strict typed ancestry; and recursive delegate forests containing executable roots, used labels, value results, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, or non-active targets.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

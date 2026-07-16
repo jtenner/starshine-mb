@@ -466,6 +466,16 @@ Commit `4c6a1de9b` supersedes the single-root opposite-region requirement for ex
 
 Red-first whitebox moved `217/218 -> 218/218` and `218/219 -> 219/219`; final HOT query is `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,812/5,812`, and full `9,283/9,283`. This does not close broader catch/EH/control, aggregate, four-lane, neighborhood, performance, docs-closeout, or public-admission gates.
 
+## Latest readiness movement: multiple typed rethrows and recursive no-work forests
+
+Commit `ec0c8749a` supersedes the one-rethrow ceiling for the exact repaired typed-catch family. Any positive depth-zero rethrow population may share one typed catch when every root independently satisfies the existing direct, strict resultless unused-label block, or exact constant-selected no-work-if ancestry. The handler remains `[lane0, ..., laneN, exnref]`; lowering emits one `catch_ref`, stores one exception reference after the handler transfer, and every rethrow reads that same scratch local before `throw_ref`. The red-first two-lane/two-rethrow fixture moved whitebox `219/220 -> 220/220`; a third unsupported-depth rethrow leaves payload positions, rich operands, roots, and locals unchanged.
+
+Commit `1cac7b3ee` supersedes the flat no-work-block ceiling for one recursive delegate representation. A resultless unused-label block may contain multiple roots when every root recursively proves the same exact childless-`nop`/resultless-unused-label-block grammar. Admission and HOT lowering continue to call `hot_region_is_strict_no_work_forest(...)`, so the representational proof cannot diverge. The red-first nested-forest fixture moved `220/221 -> 221/221`; query coverage additionally rejects nested executable work and retains all previous used-label, value-result, loop, and nested-try negatives.
+
+Final evidence is HOT query `12/12`, HOT lower `90/90`, focused flatten `263/263`, whitebox flatten `221/221`, passes `5,814/5,814`, full `9,285/9,285`, `moon fmt`, `git diff --check`, and `moon info` with 11 existing warnings. No `.mbti`, registry, dispatcher, CLI execution, compare/API, GenValid profile, preset, scheduler, or neighborhood-ready surface changed. Performance remains unrequalified at the durable `970.5 us` / `3.65x` Binaryen checkpoint.
+
+Readiness remains blocked by broader catch-payload policy/repair; typed exceptional composition outside positive repaired same-tag scalar vectors whose depth-zero rethrows each use the exact direct/strict-block/exact-selected-if grammar; nonzero typed rethrows, loops, nested try-body transfers, value-carrying/multivalue/targeted/non-strict typed ancestry, and broader exceptional ownership; delegate representations with nonconstant/effectful selectors, missing else regions, executable or otherwise non-recursive-no-work opposites, used/targeted/value labels, loops, nested tries, mixed catches, or non-active targets; richer mixed/shared/nested structured control and EH; the flatten aggregate, four-lane and ordered-neighborhood evidence, performance requalification, docs closeout, and only then public admission.
+
 ## Open questions
 
 - Should Starshine implement a standalone Flat IR verifier, or should the pass itself own the analyzer/classifier?

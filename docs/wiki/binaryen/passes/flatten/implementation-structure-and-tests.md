@@ -525,6 +525,14 @@ Commit `4c6a1de9b` changes `src/ir/hot_query.mbt`, `src/ir/hot_query_test.mbt`, 
 
 Final passes are `5,812/5,812` and full is `9,283/9,283`. The `.mbti` adds only the generic forest query; no flatten descriptor, dispatcher, CLI, compare/API, profile, preset, or scheduler surface changed.
 
+## Latest multiple-typed-rethrow and recursive-no-work implementation slices
+
+Commit `ec0c8749a` changes `src/passes/flatten.mbt`, `src/ir/hot_lower.mbt`, and `src/passes/flatten_wbtest.mbt`. Typed-catch admission no longer rejects a second rethrow root merely because another independently validated root belongs to the same repaired catch. HOT lowering removes the matching one-rethrow ceiling and allocates one exception-reference scratch local whenever the catch subtree has any positive target-depth-zero rethrow count. The fixture proves two payload lanes, two direct `Rethrow(0)` roots, one `catch_ref`, one extra nullable-exnref local, two `throw_ref` sites, exact payload capture order, and module validation. Its embedded unsupported-depth population proves admission remains whole-function failure-atomic.
+
+Commit `1cac7b3ee` changes `src/ir/hot_query.mbt`, `src/ir/hot_query_test.mbt`, and `src/passes/flatten_wbtest.mbt`. The private root proof behind `hot_region_is_strict_no_work_forest(...)` now recurses through every root of a resultless unused-label block body instead of requiring a zero- or one-root chain. The public signature is unchanged. Flatten admission and HOT lowering already shared that query, so the new exact nested-forest grammar becomes available to both without duplicate logic. Query tests cover a recursive positive and a nested executable negative; the delegate fixture retains the complete HOT block forest and exact target while lowering the proven representation transparently.
+
+Red-first whitebox moved `219/220 -> 220/220` and `220/221 -> 221/221`. Final validation is HOT query `12/12`, HOT lower `90/90`, focused flatten `263/263`, passes `5,814/5,814`, full `9,285/9,285`, and green `moon fmt`, `git diff --check`, and `moon info` with 11 existing warnings. No `.mbti` or public flatten descriptor, dispatcher, CLI, compare/API, profile, preset, or scheduler surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

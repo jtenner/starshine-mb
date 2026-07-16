@@ -1286,6 +1286,36 @@ An unselected constant-selected delegate arm may now be a forest of independent 
 
 Every root must independently be childless `nop` or a resultless unused-label single-root block chain ending empty or in `nop`. Admission and lowering share the proof; the HOT forest remains represented while encoded output omits it. The fixture moved `218/219 -> 219/219`. Executable roots, used labels, value results, loops, nested tries, missing else regions, and effectful selectors remain deferred.
 
+## Shape 32: one typed handler may serve multiple rethrows, and delegate no-work blocks may contain forests
+
+A repaired typed catch may contain multiple depth-zero rethrows:
+
+```wat
+(catch $tag
+  (drop (pop i32))
+  (drop (pop f32))
+  (rethrow 0)
+  (rethrow 0))
+```
+
+Starshine lowers the catch through one `[i32, f32, exnref]` `catch_ref` handler. Payload locals remain source ordered, handler-stack payload captures remain reversed after the top exception-reference capture, and both rethrows read the same exception local before `throw_ref`. The fixture proves one `catch_ref`, one extra exnref local, two `throw_ref` sites, and validating output. A third unsupported-depth rethrow keeps the entire function unchanged.
+
+A constant-selected delegate opposite arm may also contain one block whose body is a recursively proven forest:
+
+```wat
+(if (i32.const 1)
+  (then (delegate $outer))
+  (else
+    (block
+      (nop)
+      (block (block))
+      (block (block (nop))))))
+```
+
+Every block is resultless and unused as a label. Every nested body root must recursively be childless `nop` or another exact no-work block. Admission and lowering share the query, retain the HOT tree, and omit the representational if/block forest from encoded output. Nested executable roots, value blocks, used labels, loops, and nested tries remain deferred.
+
+The two fixtures move whitebox `219/220 -> 220/220` and `220/221 -> 221/221`; final passes are `5,814/5,814` and full is `9,285/9,285`. Public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:

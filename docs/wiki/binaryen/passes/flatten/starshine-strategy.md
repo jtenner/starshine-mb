@@ -552,6 +552,14 @@ Commit `4c6a1de9b` broadens only the proven no-work representation of an unselec
 
 Whitebox is `219/219`, HOT query `12/12`, HOT lower `90/90`, passes `5,812/5,812`, and full `9,283/9,283`. The durable performance gate, broader behavior closure, aggregate/four-lane/neighborhood evidence, and all public admission work remain open.
 
+## Latest multiple typed-rethrow and recursive delegate-forest decisions
+
+Commit `ec0c8749a` broadens only the population size of the exact typed depth-zero rethrow strategy. A repaired same-tag scalar payload vector may now own any positive number of `Rethrow(0)` sites when each site independently uses the existing direct, strict unused-label block, or constant-selected no-work-if proof. One typed handler captures `exnref` once and every rethrow reuses that exact local; payload lane order, reverse handler-stack capture, rethrow immediates, and whole-function admission remain unchanged. A nonzero third rethrow still rejects before payload repair or ordinary operand flattening.
+
+Commit `1cac7b3ee` broadens only the semantic no-work grammar for the exact catch-side delegate representation. A resultless unused-label block may own a multi-root body, but every root must recursively be childless `nop` or another resultless unused-label block with a recursively no-work body. Admission and lowering use the same query and therefore either both preserve the delegate representation or both reject it. Executable roots, used labels, value blocks, loops, nested tries, missing else regions, nonconstant/effectful selectors, mixed catches, and non-active targets remain closed.
+
+Whitebox is `221/221`, HOT query `12/12`, HOT lower `90/90`, passes `5,814/5,814`, and full `9,285/9,285`. No `.mbti` or public execution surface changed; performance remains unrequalified at `970.5 us` / `3.65x` Binaryen.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
