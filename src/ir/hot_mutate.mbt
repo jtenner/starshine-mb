@@ -359,8 +359,8 @@ fn hot_ordered_catch_payload_repair(
   catch_ref : HotRegionRef,
   payloads : Array[NodeId],
 ) -> HotCatchPayloadRepair? {
-  if payloads.length() < 2 ||
-    hot_region_root_count(func, catch_ref) != payloads.length() + 1 {
+  let catch_root_count = hot_region_root_count(func, catch_ref)
+  if payloads.length() < 2 || catch_root_count < payloads.length() + 1 {
     return None
   }
   let first_tag = hot_node_get(func, payloads[0]).imm0
@@ -374,48 +374,55 @@ fn hot_ordered_catch_payload_repair(
     }
   }
 
-  let mut current = hot_region_get(func, catch_ref, payloads.length())
-  let mut expected_user = catch_ref.holder
-  let mut expected_slot = payloads.length()
   let mut final_ref = catch_ref
-  while true {
-    if current < 0 || !hot_node_is_live(func, current) {
-      return None
+  let mut final_start_slot = payloads.length()
+  if catch_root_count == payloads.length() + 1 {
+    let mut current = hot_region_get(func, catch_ref, payloads.length())
+    let mut expected_user = catch_ref.holder
+    let mut expected_slot = payloads.length()
+    while true {
+      if current < 0 || !hot_node_is_live(func, current) {
+        return None
+      }
+      let sites = node_use_sites_borrowed(use_def, current)
+      if sites.length() != 1 ||
+        !hot_catch_payload_site_matches(
+          sites[0],
+          expected_user,
+          expected_slot,
+          HotUseSlotKind::RootUseSlot,
+        ) {
+        return None
+      }
+      if hot_node_get(func, current).op != HotOp::Block {
+        return None
+      }
+      let body_ref = hot_region_body_ref(func, current)
+      let root_count = hot_region_root_count(func, body_ref)
+      if root_count == 0 {
+        return None
+      }
+      let first_root = hot_region_get(func, body_ref, 0)
+      if root_count == 1 && hot_node_get(func, first_root).op == HotOp::Block {
+        expected_user = current
+        expected_slot = 0
+        current = first_root
+        continue
+      }
+      if root_count < payloads.length() {
+        return None
+      }
+      final_ref = body_ref
+      final_start_slot = 0
+      break
     }
-    let sites = node_use_sites_borrowed(use_def, current)
-    if sites.length() != 1 ||
-      !hot_catch_payload_site_matches(
-        sites[0],
-        expected_user,
-        expected_slot,
-        HotUseSlotKind::RootUseSlot,
-      ) {
-      return None
-    }
-    if hot_node_get(func, current).op != HotOp::Block {
-      return None
-    }
-    let body_ref = hot_region_body_ref(func, current)
-    let root_count = hot_region_root_count(func, body_ref)
-    if root_count == 0 {
-      return None
-    }
-    let first_root = hot_region_get(func, body_ref, 0)
-    if root_count == 1 && hot_node_get(func, first_root).op == HotOp::Block {
-      expected_user = current
-      expected_slot = 0
-      current = first_root
-      continue
-    }
-    if root_count < payloads.length() {
-      return None
-    }
-    final_ref = body_ref
-    break
+  } else if catch_root_count < payloads.length() * 2 {
+    return None
   }
 
   let lanes : Array[HotCatchPayloadLaneRepair] = []
   for slot = 0; slot < payloads.length(); slot = slot + 1 {
+    let root_slot = final_start_slot + slot
     let lane = match
       hot_catch_payload_lane_repair(
         func,
@@ -423,9 +430,9 @@ fn hot_ordered_catch_payload_repair(
         catch_ref,
         slot,
         payloads[slot],
-        hot_region_get(func, final_ref, slot),
+        hot_region_get(func, final_ref, root_slot),
         final_ref.holder,
-        slot,
+        root_slot,
       ) {
       Some(plan) => plan
       None => return None
