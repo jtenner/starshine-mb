@@ -20658,6 +20658,72 @@ test "DAEO selected readback traversal forwards two-call pair-store carriers" {
 }
 
 ///|
+test "DAEO selected readback traversal forwards one-call pair-store carriers" {
+  let second = @lib.LocalIdx::new(3U)
+  let target = @lib.LocalIdx::new(4U)
+  let first_object = @lib.LocalIdx::new(5U)
+  let second_object = @lib.LocalIdx::new(6U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::call(@lib.FuncIdx::new(20U)),
+      @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    ]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(first_object),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(1U), @lib.U32(0U)),
+    @lib.Instruction::local_get(second_object),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(2U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+  ]
+  let local_gets = [1, 1, 0, 1, 1, 1, 1]
+  let local_sets = [0, 0, 0, 1, 1, 0, 0]
+  let local_tees = [0, 0, 0, 0, 0, 0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
+      body,
+      0,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+        @lib.ValType::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ],
+      local_gets,
+      local_sets,
+      local_tees,
+    ) {
+    Some((value, 10)) => value
+    Some((_, consumed)) =>
+      fail("expected ten consumed instructions, got \{consumed}")
+    None => fail("expected one-call pair-store carrier forwarding")
+  }
+  @debug.assert_eq(local_gets, [1, 1, 0, 1, 0, 1, 1])
+  @debug.assert_eq(local_sets, [0, 0, 0, 1, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(first_object),
+    producer,
+    @lib.Instruction::local_set(second),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(1U), @lib.U32(0U)),
+    @lib.Instruction::local_get(second_object),
+    @lib.Instruction::local_get(second),
+    @lib.Instruction::struct_set(@lib.TypeIdx::new(2U), @lib.U32(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal forwards identity blocks across call prefixes" {
   let source = @lib.LocalIdx::new(1U)
   let target = @lib.LocalIdx::new(5U)

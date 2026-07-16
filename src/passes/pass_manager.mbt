@@ -60910,6 +60910,20 @@ fn run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
 }
 
 ///|
+fn run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int)? {
+  run_hot_pipeline_dae_try_forward_remapped_pair_store_carrier(
+    instrs, idx, local_types, local_gets, local_sets, local_tees, 1,
+  )
+}
+
+///|
 // An exact `block (result T) { local.get; br 0 }` snapshots no state beyond the
 // caller local. Across a direct-call-only prefix, reading that same local at the
 // one use preserves value, call effects, traps, and control while removing the
@@ -61235,6 +61249,20 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
   while idx < instrs.length() {
     match
       run_hot_pipeline_dae_try_forward_remapped_two_call_pair_store_carrier(
+        instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_dae_try_forward_remapped_one_call_pair_store_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
       ) {
       Some((replacement, consumed_len)) => {
