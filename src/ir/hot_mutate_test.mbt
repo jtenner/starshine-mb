@@ -193,6 +193,72 @@ test "batched detached node deletion tombstones the whole set with one revision"
 }
 
 ///|
+test "detached structured subtree deletion removes owned labels atomically" {
+  let func = HotFunc::new()
+  let condition = hot_build_const_i32(func, @lib.I32(1))
+  let nested_if = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    condition,
+    [hot_build_nop(func)],
+    else_body=Some([hot_build_unreachable(func)]),
+  )
+  let subtree = hot_build_block(func, @lib.BlockType::void_(), [nested_if])
+  let subtree_label = hot_control_node_label(func, subtree)
+  let if_label = hot_control_node_label(func, nested_if)
+  let then_holder = hot_child_get(func, nested_if, 1)
+  let else_holder = hot_child_get(func, nested_if, 2)
+  let then_label = hot_control_node_label(func, then_holder)
+  let else_label = hot_control_node_label(func, else_holder)
+  let survivor = hot_build_nop(func)
+  hot_root_append(func, survivor)
+
+  let rev0 = hot_revision_current(func)
+  assert_true(hot_delete_detached_control_subtree(func, subtree))
+  @debug.assert_eq(hot_revision_current(func), rev0 + 1)
+  for node_id in [condition, nested_if, then_holder, else_holder, subtree] {
+    assert_false(hot_node_is_live(func, node_id))
+  }
+  for label_id in [subtree_label, if_label, then_label, else_label] {
+    assert_false(hot_label_is_live(func, label_id))
+  }
+  assert_true(hot_node_is_live(func, survivor))
+  match hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected structured subtree deletion to verify, got \{err}")
+  }
+
+  let externally_targeted = HotFunc::new()
+  let targeted = hot_build_block(externally_targeted, @lib.BlockType::void_(), [
+    hot_build_nop(externally_targeted),
+  ])
+  let targeted_label = hot_control_node_label(externally_targeted, targeted)
+  hot_root_append(
+    externally_targeted,
+    hot_build_br(externally_targeted, targeted_label),
+  )
+  let targeted_revision = hot_revision_current(externally_targeted)
+  assert_false(
+    hot_delete_detached_control_subtree(externally_targeted, targeted),
+  )
+  @debug.assert_eq(hot_revision_current(externally_targeted), targeted_revision)
+  assert_true(hot_node_is_live(externally_targeted, targeted))
+  assert_true(hot_label_is_live(externally_targeted, targeted_label))
+
+  let shared = HotFunc::new()
+  let shared_child = hot_build_nop(shared)
+  let shared_subtree = hot_build_block(shared, @lib.BlockType::void_(), [
+    shared_child, shared_child,
+  ])
+  let shared_revision = hot_revision_current(shared)
+  assert_false(hot_delete_detached_control_subtree(shared, shared_subtree))
+  @debug.assert_eq(hot_revision_current(shared), shared_revision)
+  assert_true(hot_node_is_live(shared, shared_subtree))
+  assert_true(hot_node_is_live(shared, shared_child))
+}
+
+///|
 test "label owner helper rehomes built control labels to replacement node ids" {
   let func = HotFunc::new()
   let temp_block = hot_build_block(func, @lib.BlockType::void_(), [

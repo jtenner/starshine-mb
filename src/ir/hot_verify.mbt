@@ -53,7 +53,7 @@ fn hot_verify_type_id_is_valid(func : HotFunc, ty : TypeId) -> Bool {
 
 ///|
 fn hot_verify_label_id_is_valid(func : HotFunc, label_id : LabelId) -> Bool {
-  label_id >= 0 && label_id < func.labels.length()
+  hot_label_is_live(func, label_id)
 }
 
 ///|
@@ -210,6 +210,9 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
   }
 
   for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
+    if !hot_label_is_live(func, label_id) {
+      continue
+    }
     let label = func.labels[label_id]
     if !hot_verify_type_id_is_valid(func, label.result_type) {
       return Err(

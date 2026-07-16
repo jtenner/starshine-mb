@@ -20,7 +20,7 @@ fn hot_mutate_require_label_id(
   label_id : LabelId,
   context : String,
 ) -> Unit {
-  if label_id < 0 || label_id >= func.labels.length() {
+  if !hot_label_is_live(func, label_id) {
     abort("\{context} must reference a valid LabelId")
   }
 }
@@ -990,6 +990,189 @@ fn hot_delete_node_tombstone(func : HotFunc, id : NodeId) -> Unit {
 fn hot_delete_node_finalize(func : HotFunc, id : NodeId) -> Unit {
   hot_delete_node_tombstone(func, id)
   hot_revision_bump(func)
+}
+
+///|
+fn hot_mutate_node_targets_marked_label(
+  func : HotFunc,
+  node_id : NodeId,
+  label_marks : @bitset.BitSet,
+) -> Bool {
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::Br
+    | HotOp::BrIf
+    | HotOp::BrOnNull
+    | HotOp::BrOnNonNull
+    | HotOp::BrOnCast
+    | HotOp::BrOnCastFail
+    | HotOp::Delegate =>
+      node.imm0 >= 0 &&
+      node.imm0 < func.labels.length() &&
+      label_marks[node.imm0]
+    HotOp::BrTable => {
+      let table_id = node.imm0
+      let default_target = hot_branch_table_default_target(func, table_id)
+      if default_target >= 0 &&
+        default_target < func.labels.length() &&
+        label_marks[default_target] {
+        return true
+      }
+      for target in hot_branch_table_targets(func, table_id) {
+        if target >= 0 && target < func.labels.length() && label_marks[target] {
+          return true
+        }
+      }
+      false
+    }
+    HotOp::TryTable => {
+      for catch_arm in hot_catch_info_get(func, node.imm1).catches {
+        let target = match catch_arm {
+          HotCatchArm::CatchArm(_, label_id)
+          | HotCatchArm::CatchRefArm(_, label_id)
+          | HotCatchArm::CatchAllArm(label_id)
+          | HotCatchArm::CatchAllRefArm(label_id) => label_id
+        }
+        if target >= 0 && target < func.labels.length() && label_marks[target] {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn hot_mutate_node_is_control(node : HotNode) -> Bool {
+  match node.op {
+    HotOp::Block | HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable =>
+      true
+    _ => false
+  }
+}
+
+///|
+/// Delete one exact detached structured subtree and all labels it owns.
+///
+/// The operation fails without mutation when the root is not control, the
+/// descendant graph is shared or cyclic, any node is still rooted or owned by
+/// another live node, or any outside branch/catch targets an owned label.
+pub fn hot_delete_detached_control_subtree(
+  func : HotFunc,
+  root_id : NodeId,
+) -> Bool {
+  if !hot_node_is_live(func, root_id) ||
+    !hot_mutate_node_is_control(hot_node_get(func, root_id)) {
+    return false
+  }
+  let node_marks = @bitset.BitSet::new(hot_node_count(func))
+  let nodes : Array[NodeId] = []
+  let pending : Array[NodeId] = [root_id]
+  while !pending.is_empty() {
+    let node_id = pending.pop().unwrap()
+    if !hot_node_is_live(func, node_id) {
+      return false
+    }
+    if node_marks[node_id] {
+      continue
+    }
+    node_marks[node_id] = true
+    nodes.push(node_id)
+    let node = hot_node_get(func, node_id)
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_id = hot_child_get(func, node_id, slot)
+      if child_id != HOT_NONE_NODE {
+        pending.push(child_id)
+      }
+    }
+  }
+
+  let incoming = Array::make(hot_node_count(func), 0)
+  for node_id in nodes {
+    let node = hot_node_get(func, node_id)
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_id = hot_child_get(func, node_id, slot)
+      if child_id == HOT_NONE_NODE || !node_marks[child_id] {
+        continue
+      }
+      incoming[child_id] = incoming[child_id] + 1
+      if incoming[child_id] > 1 {
+        return false
+      }
+    }
+  }
+  if incoming[root_id] != 0 {
+    return false
+  }
+  for node_id in nodes {
+    if node_id != root_id && incoming[node_id] != 1 {
+      return false
+    }
+  }
+  for root in func.roots {
+    if node_marks[root] {
+      return false
+    }
+  }
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) || node_marks[node_id] {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      let child_id = hot_child_get(func, node_id, slot)
+      if child_id != HOT_NONE_NODE && node_marks[child_id] {
+        return false
+      }
+    }
+  }
+
+  let label_marks = @bitset.BitSet::new(func.labels.length())
+  let labels : Array[LabelId] = []
+  for label_id = 0; label_id < func.labels.length(); label_id = label_id + 1 {
+    if hot_label_is_live(func, label_id) &&
+      node_marks[hot_label_owner(func, label_id)] {
+      label_marks[label_id] = true
+      labels.push(label_id)
+    }
+  }
+  for node_id in nodes {
+    let node = hot_node_get(func, node_id)
+    if !hot_mutate_node_is_control(node) {
+      continue
+    }
+    let label_id = hot_control_node_label(func, node_id)
+    if !hot_label_is_live(func, label_id) ||
+      !label_marks[label_id] ||
+      hot_label_owner(func, label_id) != node_id {
+      return false
+    }
+  }
+  for label_id in labels {
+    let owner = hot_label_owner(func, label_id)
+    if !hot_mutate_node_is_control(hot_node_get(func, owner)) ||
+      hot_control_node_label(func, owner) != label_id {
+      return false
+    }
+  }
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if hot_node_is_live(func, node_id) &&
+      !node_marks[node_id] &&
+      hot_mutate_node_targets_marked_label(func, node_id, label_marks) {
+      return false
+    }
+  }
+
+  for label_id in labels {
+    let label = hot_label_get(func, label_id)
+    func.labels[label_id] = { ..label, owner: HOT_NONE_NODE, branch_arity: 0 }
+  }
+  for node_id in nodes {
+    hot_delete_node_tombstone(func, node_id)
+  }
+  hot_revision_bump(func)
+  true
 }
 
 ///|

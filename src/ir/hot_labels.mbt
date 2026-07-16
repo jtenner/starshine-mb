@@ -33,6 +33,13 @@ pub fn hot_label_get(func : HotFunc, label_id : LabelId) -> HotLabelInfo {
 }
 
 ///|
+pub fn hot_label_is_live(func : HotFunc, label_id : LabelId) -> Bool {
+  label_id >= 0 &&
+  label_id < func.labels.length() &&
+  func.labels[label_id].owner != HOT_NONE_NODE
+}
+
+///|
 pub fn hot_label_owner(func : HotFunc, label_id : LabelId) -> NodeId {
   hot_label_get(func, label_id).owner
 }
