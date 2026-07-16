@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
   - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
   - ../../../raw/research/1627-2026-07-16-daeo-consumed-call-argument-slot-checkpoint.md
   - ../../../raw/research/1626-2026-07-16-daeo-immutable-selector-blocker-checkpoint.md

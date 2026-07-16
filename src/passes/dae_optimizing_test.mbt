@@ -6854,6 +6854,10 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
     ] {
     assert_true(chain_trace.contains(expected), msg=chain_trace.to_string())
   }
+  assert_false(
+    chain_trace.contains("pass[dae-optimizing]:direct-gc-batch wave=4"),
+    msg=chain_trace.to_string(),
+  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>

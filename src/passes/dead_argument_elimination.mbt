@@ -737,6 +737,16 @@ priv struct DaeDroppedResultBatchPlan {
 }
 
 ///|
+priv struct DaeDirectGcParamBatchPlan {
+  params : Array[@lib.ValType]
+  local_use : DaeLocalUse
+  candidates : Array[@lib.ValType?]
+  rejected : Array[Bool]
+  calls_seen : Array[Int]
+  collect_ok : Array[Bool]
+}
+
+///|
 priv struct DaeCallsiteLocalizationContext {
   first_scratch_local : Int
   param_types : Array[@lib.ValType]
@@ -7636,6 +7646,148 @@ fn dae_collect_direct_struct_default_actuals_instrs(
 }
 
 ///|
+fn dae_collect_direct_gc_batch_actuals_instr(
+  instr : @lib.Instruction,
+  plans : Array[DaeDirectGcParamBatchPlan?],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(_))
+    | @lib.Loop(_, @lib.Expr(_))
+    | @lib.TryTable(_, _, @lib.Expr(_))
+    | @lib.If(_, _, _) => {
+      let child_evidence = match
+        dae_nested_control_children_evidence(instr, mod_) {
+        Some(evidence) => evidence
+        None => return
+      }
+      dae_collect_direct_gc_batch_actuals_instrs(
+        child_evidence.primary_body,
+        plans,
+        child_evidence.entry_stack_values,
+        mod_,
+        func_type_indices,
+        caller_locals,
+      )
+      match child_evidence.secondary_body {
+        Some(body) =>
+          dae_collect_direct_gc_batch_actuals_instrs(
+            body,
+            plans,
+            child_evidence.entry_stack_values,
+            mod_,
+            func_type_indices,
+            caller_locals,
+          )
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn dae_collect_direct_gc_batch_actuals_instrs(
+  instrs : Array[@lib.Instruction],
+  plans : Array[DaeDirectGcParamBatchPlan?],
+  entry_stack_values : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  caller_locals : @lib.FunctionLocals?,
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if dae_instr_is_unreachable_root(instrs[idx]) {
+      break
+    }
+    match instrs[idx] {
+      @lib.Call(func_idx) => {
+        let callee_abs = dae_func_idx_slot(func_idx)
+        if callee_abs >= 0 && callee_abs < plans.length() {
+          match plans[callee_abs] {
+            Some(plan) if plan.collect_ok[0] => {
+              let evidence = match
+                dae_callsite_value_slice_evidence(
+                  instrs,
+                  idx,
+                  plan.params.length(),
+                  entry_stack_values,
+                  mod_,
+                  func_type_indices,
+                ) {
+                Some(evidence) => evidence
+                None => {
+                  plan.collect_ok[0] = false
+                  idx += 1
+                  continue
+                }
+              }
+              let mut p = 0
+              while p < plan.params.length() {
+                if !plan.local_use.writes[p] && !plan.rejected[p] {
+                  match plan.params[p] {
+                    @lib.RefTypeValType(
+                      @lib.HeapTypeRefType(_, _, @lib.HeapType(_))
+                    ) =>
+                      match
+                        dae_direct_gc_actual_candidate_type_for_value_slice(
+                          instrs,
+                          evidence.slices[p],
+                          mod_,
+                          plan.params[p],
+                          func_type_indices,
+                          caller_locals,
+                        ) {
+                        Some(candidate) =>
+                          match plan.candidates[p] {
+                            Some(previous) =>
+                              match
+                                dae_lub_gc_candidate_ref_type(
+                                  mod_,
+                                  previous,
+                                  candidate,
+                                  plan.params[p],
+                                ) {
+                                Some(lub) => plan.candidates[p] = Some(lub)
+                                None => {
+                                  plan.candidates[p] = None
+                                  plan.rejected[p] = true
+                                }
+                              }
+                            None => plan.candidates[p] = Some(candidate)
+                          }
+                        None => {
+                          plan.candidates[p] = None
+                          plan.rejected[p] = true
+                        }
+                      }
+                    _ => ()
+                  }
+                }
+                p += 1
+              }
+              plan.calls_seen[0] += 1
+            }
+            _ => ()
+          }
+        }
+      }
+      _ =>
+        dae_collect_direct_gc_batch_actuals_instr(
+          instrs[idx],
+          plans,
+          mod_,
+          func_type_indices,
+          caller_locals,
+        )
+    }
+    idx += 1
+  }
+}
+
+///|
 fn dae_exact_struct_default_ref_type(type_idx : @lib.TypeIdx) -> @lib.ValType {
   @lib.ValType::ref_type(
     @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
@@ -11196,6 +11348,26 @@ fn dae_apply_direct_caller_scope_rewrite(
 }
 
 ///|
+fn dae_val_type_is_concrete_gc_ref(value : @lib.ValType) -> Bool {
+  match value {
+    @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(_))) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_signature_has_concrete_gc_param(params : Array[@lib.ValType]) -> Bool {
+  params.any(dae_val_type_is_concrete_gc_ref)
+}
+
+///|
+fn dae_signature_has_single_concrete_gc_result(
+  results : Array[@lib.ValType],
+) -> Bool {
+  results.length() == 1 && dae_val_type_is_concrete_gc_ref(results[0])
+}
+
+///|
 fn dae_signature_has_heap_ref(
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
@@ -12381,7 +12553,10 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
 }
 
 ///|
-fn dae_try_apply_direct_gc_batch(mod_ : @lib.Module) -> DaePassResult {
+fn dae_try_apply_direct_gc_batch(
+  mod_ : @lib.Module,
+  active_defs? : Array[Bool]? = None,
+) -> DaePassResult {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
@@ -12407,9 +12582,17 @@ fn dae_try_apply_direct_gc_batch(mod_ : @lib.Module) -> DaePassResult {
   }
   let rewritten_funcs = funcs.copy()
   let touched = Array::make(defined, false)
-  let mut first_def = -1
-  let mut applied = 0
+  let eligible_defs : Array[Int] = []
+  let param_plans : Array[DaeDirectGcParamBatchPlan?] = Array::make(
+    snapshot.total,
+    None,
+  )
+  let caller_needed = Array::make(defined, false)
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    match active_defs {
+      Some(active) if def_idx >= active.length() || !active[def_idx] => continue
+      _ => ()
+    }
     let callee_abs = imported + def_idx
     let candidate = match
       dae_call_boundary_candidate(snapshot.boundary_facts, callee_abs, def_idx~) {
@@ -12426,71 +12609,164 @@ fn dae_try_apply_direct_gc_batch(mod_ : @lib.Module) -> DaePassResult {
       Some(func_type) => func_type
       None => continue
     }
-    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[def_idx]
-    let local_use = dae_local_use_for_callee(
-      rewritten_funcs[def_idx],
-      params.length() + locals.length(),
-      callee_abs,
-      params.length(),
+    let has_param_work = dae_signature_has_concrete_gc_param(params)
+    let has_result_work = dae_signature_has_single_concrete_gc_result(results)
+    if !has_param_work && !has_result_work {
+      continue
+    }
+    eligible_defs.push(def_idx)
+    if has_param_work {
+      for direct_caller_def in candidate.direct_callers {
+        if direct_caller_def >= 0 && direct_caller_def < caller_needed.length() {
+          caller_needed[direct_caller_def] = true
+        }
+      }
+      let @lib.Func(locals, _) = funcs[def_idx]
+      param_plans[callee_abs] = Some({
+        params,
+        local_use: dae_local_use_for_callee(
+          funcs[def_idx],
+          params.length() + locals.length(),
+          callee_abs,
+          params.length(),
+        ),
+        candidates: Array::make(params.length(), None),
+        rejected: Array::make(params.length(), false),
+        calls_seen: [0],
+        collect_ok: [true],
+      })
+    }
+  }
+  if eligible_defs.length() == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut caller_def = 0
+  while caller_def < funcs.length() {
+    if !caller_needed[caller_def] {
+      caller_def += 1
+      continue
+    }
+    let @lib.Func(caller_body_locals, @lib.Expr(caller_body)) = funcs[caller_def]
+    let caller_abs = imported + caller_def
+    let caller_func_locals = match
+      dae_type_sec_func_type(type_sec, current_type_indices[caller_abs]) {
+      Some(@lib.FuncType(caller_params, _)) =>
+        Some(@lib.FunctionLocals::new(caller_params, caller_body_locals))
+      None => None
+    }
+    dae_collect_direct_gc_batch_actuals_instrs(
+      caller_body, param_plans, 0, mod_, current_type_indices, caller_func_locals,
     )
+    caller_def += 1
+  }
+  let mut first_def = -1
+  let mut applied = 0
+  for def_idx in eligible_defs {
+    let callee_abs = imported + def_idx
+    let candidate = match
+      dae_call_boundary_candidate(snapshot.boundary_facts, callee_abs, def_idx~) {
+      Some(candidate) => candidate
+      None => continue
+    }
+    let @lib.FuncType(params, results) = match
+      dae_type_sec_func_type(type_sec, current_type_indices[callee_abs]) {
+      Some(func_type) => func_type
+      None => continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[def_idx]
     let next_params = params.copy()
     let next_results = results.copy()
     let refined_params = Array::make(params.length(), false)
     let mut changed = false
-    if params.length() > 0 {
-      let candidates : Array[@lib.ValType?] = Array::make(params.length(), None)
-      let rejected = Array::make(params.length(), false)
-      let mut calls_seen = 0
-      let mut collect_ok = true
-      for caller_def in candidate.direct_callers {
-        if caller_def < 0 || caller_def >= rewritten_funcs.length() {
-          collect_ok = false
-          break
+    match param_plans[callee_abs] {
+      Some(plan) => {
+        let mut evidence_candidates = plan.candidates
+        let mut evidence_rejected = plan.rejected
+        let mut evidence_calls_seen = plan.calls_seen[0]
+        let mut evidence_collect_ok = plan.collect_ok[0]
+        let mut refresh_evidence = false
+        for direct_caller_def in candidate.direct_callers {
+          if direct_caller_def >= 0 &&
+            direct_caller_def < touched.length() &&
+            touched[direct_caller_def] {
+            refresh_evidence = true
+          }
         }
-        let @lib.Func(caller_body_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
-        let caller_abs = imported + caller_def
-        let caller_func_locals = match
-          dae_type_sec_func_type(type_sec, current_type_indices[caller_abs]) {
-          Some(@lib.FuncType(caller_params, _)) =>
-            Some(@lib.FunctionLocals::new(caller_params, caller_body_locals))
-          None => None
-        }
-        let (caller_calls, ok) = dae_collect_direct_struct_default_actuals_instrs(
-          caller_body, callee_abs, params, local_use, candidates, rejected, 0, mod_,
-          current_type_indices, caller_func_locals,
-        )
-        calls_seen += caller_calls
-        if !ok {
-          collect_ok = false
-          break
-        }
-      }
-      if collect_ok && calls_seen == candidate.direct_call_count {
-        let mut p = 0
-        while p < params.length() {
-          if !rejected[p] {
-            match candidates[p] {
-              Some(type_idx) =>
-                match
-                  dae_refined_gc_candidate_ref_type(mod_, params[p], type_idx) {
-                  Some(refined) => {
-                    next_params[p] = refined
-                    refined_params[p] = true
-                    changed = true
-                  }
-                  None => ()
-                }
-              None => ()
+        if refresh_evidence {
+          let current_local_use = dae_local_use_for_callee(
+            rewritten_funcs[def_idx],
+            params.length() + locals.length(),
+            callee_abs,
+            params.length(),
+          )
+          evidence_candidates = Array::make(params.length(), None)
+          evidence_rejected = Array::make(params.length(), false)
+          evidence_calls_seen = 0
+          evidence_collect_ok = true
+          let current_view = mod_
+            .with_type_sec(type_sec)
+            .with_func_sec(@lib.FuncSec::new(type_idxs))
+            .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+          for direct_caller_def in candidate.direct_callers {
+            if direct_caller_def < 0 ||
+              direct_caller_def >= rewritten_funcs.length() {
+              evidence_collect_ok = false
+              break
+            }
+            let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[direct_caller_def]
+            let caller_func_locals = match
+              dae_type_sec_func_type(
+                type_sec,
+                current_type_indices[imported + direct_caller_def],
+              ) {
+              Some(@lib.FuncType(caller_params, _)) =>
+                Some(@lib.FunctionLocals::new(caller_params, caller_locals))
+              None => None
+            }
+            let (calls, ok) = dae_collect_direct_struct_default_actuals_instrs(
+              caller_body, callee_abs, params, current_local_use, evidence_candidates,
+              evidence_rejected, 0, current_view, current_type_indices, caller_func_locals,
+            )
+            evidence_calls_seen += calls
+            if !ok {
+              evidence_collect_ok = false
+              break
             }
           }
-          p += 1
+        }
+        if evidence_collect_ok &&
+          evidence_calls_seen == candidate.direct_call_count {
+          let mut p = 0
+          while p < params.length() {
+            if !evidence_rejected[p] {
+              match evidence_candidates[p] {
+                Some(candidate_type) =>
+                  match
+                    dae_refined_gc_candidate_ref_type(
+                      mod_,
+                      params[p],
+                      candidate_type,
+                    ) {
+                    Some(refined) => {
+                      next_params[p] = refined
+                      refined_params[p] = true
+                      changed = true
+                    }
+                    None => ()
+                  }
+                None => ()
+              }
+            }
+            p += 1
+          }
         }
       }
+      None => ()
     }
     let result_func_locals = Some(@lib.FunctionLocals::new(next_params, locals))
     let mut next_body = body
     let mut result_body_changed = false
-    if results.length() == 1 {
+    if dae_signature_has_single_concrete_gc_result(results) {
       match
         dae_direct_gc_result_candidate_body(
           mod_,
@@ -12530,12 +12806,13 @@ fn dae_try_apply_direct_gc_batch(mod_ : @lib.Module) -> DaePassResult {
       has_refined_param = has_refined_param || refined
     }
     if has_refined_param {
-      for caller_def in candidate.direct_callers {
-        if caller_def < 0 || caller_def >= rewritten_funcs.length() {
+      for direct_caller_def in candidate.direct_callers {
+        if direct_caller_def < 0 ||
+          direct_caller_def >= rewritten_funcs.length() {
           rewrite_ok = false
           break
         }
-        let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
+        let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[direct_caller_def]
         let (rewritten_body, calls, ok, _) = dae_rewrite_refined_gc_actuals_instrs(
           caller_body, callee_abs, refined_params, next_params, 0, mod_, current_type_indices,
         )
@@ -12544,7 +12821,7 @@ fn dae_try_apply_direct_gc_batch(mod_ : @lib.Module) -> DaePassResult {
           break
         }
         calls_rewritten += calls
-        staged_caller_defs.push(caller_def)
+        staged_caller_defs.push(direct_caller_def)
         staged_caller_funcs.push(
           @lib.Func::new(caller_locals, @lib.Expr::new(rewritten_body)),
         )
@@ -12558,9 +12835,9 @@ fn dae_try_apply_direct_gc_batch(mod_ : @lib.Module) -> DaePassResult {
     }
     let mut staged_idx = 0
     while staged_idx < staged_caller_defs.length() {
-      let caller_def = staged_caller_defs[staged_idx]
-      rewritten_funcs[caller_def] = staged_caller_funcs[staged_idx]
-      touched[caller_def] = true
+      let direct_caller_def = staged_caller_defs[staged_idx]
+      rewritten_funcs[direct_caller_def] = staged_caller_funcs[staged_idx]
+      touched[direct_caller_def] = true
       staged_idx += 1
     }
     if result_body_changed {
@@ -33757,8 +34034,13 @@ fn dae_run_core(
       perf, "detail:dae:core:direct-gc-batch",
     )
     let mut direct_gc_batch_wave = 0
+    let mut direct_gc_active_defs : Array[Bool]? = None
     while true {
-      let batch = dae_try_apply_direct_gc_batch(current)
+      let batch = dae_try_apply_direct_gc_batch(
+        current,
+        active_defs=direct_gc_active_defs,
+      )
+      let batch_touched = batch.touched
       let application = dae_apply_core_result(current, touched, changed, batch)
       if !application.applied {
         break
@@ -33769,6 +34051,43 @@ fn dae_run_core(
       trace(
         "pass[dae-optimizing]:direct-gc-batch wave=\{direct_gc_batch_wave} first_def=\{application.primary_def}",
       )
+      let next_active = Array::make(original_defined, false)
+      let current_call_facts = dae_collect_current_call_facts(
+        current, original_total,
+      )
+      match current.code_sec {
+        Some(@lib.CodeSec(funcs)) => {
+          let mut changed_def = 0
+          while changed_def < batch_touched.length() &&
+                changed_def < funcs.length() {
+            if batch_touched[changed_def] {
+              next_active[changed_def] = true
+              let changed_abs = original_imported + changed_def
+              if changed_abs >= 0 &&
+                changed_abs < current_call_facts.direct_callers.length() {
+                for caller_def in current_call_facts.direct_callers[changed_abs] {
+                  if caller_def >= 0 && caller_def < next_active.length() {
+                    next_active[caller_def] = true
+                  }
+                }
+              }
+              let @lib.Func(_, @lib.Expr(body)) = funcs[changed_def]
+              let outgoing : Array[Int] = []
+              dae_collect_direct_call_targets_anywhere(
+                body, original_imported, original_defined, outgoing,
+              )
+              for callee_def in outgoing {
+                if callee_def >= 0 && callee_def < next_active.length() {
+                  next_active[callee_def] = true
+                }
+              }
+            }
+            changed_def += 1
+          }
+        }
+        None => ()
+      }
+      direct_gc_active_defs = Some(next_active)
       direct_gc_batch_wave += 1
     }
     perf_stop_timer_opt(
