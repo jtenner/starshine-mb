@@ -8952,6 +8952,38 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
+fn flatten_rethrow_catch_root_through_strict_ancestry(
+  func : @ir.HotFunc,
+  root_id : Int,
+  state : FlattenRewriteState,
+) -> Int {
+  let mut current = root_id
+  let mut parent = state.direct_parent[current]
+  while parent >= 0 {
+    match @ir.hot_node_get(func, parent).op {
+      @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, parent) != 0 {
+          return -1
+        }
+        let label_id = @ir.hot_control_node_label(func, parent)
+        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+          return -1
+        }
+        let body_ref = @ir.hot_region_body_ref(func, parent)
+        if @ir.hot_region_root_count(func, body_ref) != 1 ||
+          @ir.hot_region_get(func, body_ref, 0) != current {
+          return -1
+        }
+        current = parent
+        parent = state.direct_parent[current]
+      }
+      _ => break
+    }
+  }
+  current
+}
+
+///|
 fn flatten_direct_catch_all_rethrow_is_supported(
   func : @ir.HotFunc,
   rethrow_id : Int,
@@ -8967,8 +8999,14 @@ fn flatten_direct_catch_all_rethrow_is_supported(
   }
   if rethrow.imm0 > 0 {
     let mut current = rethrow_id
-    let mut owner = state.direct_parent[current]
     for depth = 0; depth <= rethrow.imm0; depth = depth + 1 {
+      let catch_root = flatten_rethrow_catch_root_through_strict_ancestry(
+        func, current, state,
+      )
+      if catch_root < 0 {
+        return false
+      }
+      let owner = state.direct_parent[catch_root]
       if owner < 0 {
         return false
       }
@@ -8977,14 +9015,13 @@ fn flatten_direct_catch_all_rethrow_is_supported(
         _ => return false
       }
       if @ir.hot_node_result_arity(func, owner) != 0 ||
-        !flatten_markerless_catch_owns_root(func, owner, current) {
+        !flatten_markerless_catch_owns_root(func, owner, catch_root) {
         return false
       }
       if depth == rethrow.imm0 {
         return true
       }
       current = owner
-      owner = state.direct_parent[current]
     }
     return false
   }
