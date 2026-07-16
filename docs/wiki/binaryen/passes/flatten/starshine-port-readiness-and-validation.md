@@ -284,6 +284,12 @@ Required tests before any parity claim:
 
 Binaryen v130 hard-fails on all four `BrOn*` variants, and a direct `TryTable` probe aborts in the earlier unhandled control-structure arm. Internal Starshine now classifies all five through `FlattenRunAdmission::UpstreamHardUnsupported` before mutation and leaves the function byte-for-byte structurally untouched at HOT level. This is a safe internal gate, not public behavior parity: public registry/CLI/harness admission remains blocked until a tested Binaryen-compatible rejection path replaces or wraps the internal unchanged result. Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md).
 
+## Latest structured suffix breadth
+
+Commits `51d080e09` and `cbb1a2395` extend the atomic control-plus-owned-label deletion route to one exact void `if` and one exact zero-input/no-backedge void `loop` after unconditional legacy-try table transfer. The if proof covers a constant condition, complete then/else region holders, direct `drop(const)` roots, exclusive descendants, and no users of the if or region labels. The loop proof covers void type, zero branch arity, one direct `drop(const)` body, exclusive descendants, and no loop-target users or backedges. All facts are frozen before mutation.
+
+The red-first focused sequence is `260/261 -> 261/261` and `261/262 -> 262/262`; private flatten is `186/186`, passes `5,778/5,778`, full `9,240/9,240`, and `moon info` is green with 11 existing warnings. Pinned Binaryen v130 retains both roots under direct flatten, while matched `--vacuum --dce` reduces each encoded probe `76 -> 63` bytes. Nonconstant/effectful conditions, partial/richer arms, inputful/value loops, backedges, try-like roots, mixed/multiple controls, sharing, and outside label users remain fail-closed.
+
 ## Downstream validation lanes
 
 Once direct reduced tests are green, validate the cluster role that makes `flatten` worth porting:

@@ -591,15 +591,9 @@ After an unconditional legacy-try `br_table`, Starshine can delete one exact own
 
 The call and complete subtree are deleted only after immediate argument order, nested left-to-right order, distinctness, one-use ownership, and unconditional transfer are proven. Direct `i32.sub`, `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, and `i32.shr_u` roots use the same proof; `i32.rotl` is the current outside-roster boundary. Admission caches exact owned nodes and owner regions from one lightweight reachable node-use-count snapshot, label-use facts once per rewrite state, and exact terminal-table support keyed by table, label, payload arity, and mixed-target policy; mutation fails closed on a missing exact cache. After same-region suffix detachment, the complete distinct owned vector tombstones with one revision invalidation.
 
-One exact structured suffix is now admitted too:
+Three exact structured suffix roots are now admitted too: one void block with direct `drop(const)`, one constant-condition void if with complete direct `drop(const)` arms, and one zero-input/no-backedge void loop with a direct `drop(const)` body. The table is unconditional, so none can execute. Starshine requires complete exclusive descendants, live labels owned by each control or if-region holder, and no outside branch/catch user before detaching and atomically tombstoning the entire subtree and labels.
 
-```wat
-br_table $out $out
-(block $dead
-  (drop (i32.const 9)))
-```
-
-The table is unconditional, so the block cannot execute. Starshine requires a void block with exactly one direct `drop(const)`, one owner for all three nodes, a live label owned by that block, and no branch/catch user of the label. It then detaches the suffix and atomically tombstones the block, drop, constant, and label. Pinned Binaryen v130 keeps the block under direct flatten; `--vacuum --dce` shrinks the probe from `76` to `63` bytes. Externally targeted blocks, shared descendants, other control kinds, and mixed/multiple structured roots remain gated. Nonthrowing synthetic catch-all lowering keeps the refreshed three-probe cleanup matrix a measured 24-byte Starshine win, while current candidate-dense pass-local performance remains `3.65x` Binaryen and blocks public exposure. See the [current impact evidence](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
+Pinned Binaryen v130 keeps all three controls under direct flatten; matched `--vacuum --dce` shrinks each probe from `76` to `63` bytes. Nonconstant/effectful or partial ifs, inputful/value loops, backedges, external targets, sharing, and mixed/multiple structured roots remain gated. Nonthrowing synthetic catch-all lowering keeps the refreshed three-probe cleanup matrix a measured 24-byte Starshine win, while current candidate-dense pass-local performance remains `3.65x` Binaryen and blocks public exposure. See the [current impact evidence](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
 
 ### Current branch-index and tail-write implementation detail
 
@@ -860,6 +854,22 @@ becoming a temp-local-returned shape in `flatten_all-features.wast`.
 - public admission remains blocked because an unchanged internal result does not yet match Binaryen's observable failure contract
 
 Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md).
+
+## Shape 17: exact dead structured suffixes may be deleted after unconditional table transfer
+
+Current internal Starshine admits three exact resultless controls after an unconditional legacy-try `br_table`:
+
+```wat
+(block $dead (drop (i32.const 9)))
+
+(if $dead (i32.const 1)
+  (then (drop (i32.const 9)))
+  (else (drop (i32.const 10))))
+
+(loop $dead (drop (i32.const 9)))
+```
+
+The `if` must have a constant condition, complete direct arms, exclusive descendants, and no users of its control or region labels. The `loop` must be zero-input, void, have no backedge or other label user, and contain exactly one direct `drop(const)`. The whole suffix is unreachable because the preceding table always transfers; Starshine detaches and atomically deletes the complete subtree and owned labels. Binaryen v130 retains these roots under direct flatten, but matched `--vacuum --dce` reduces each probe `76 -> 63` encoded bytes. Nonconstant/effectful conditions, partial/richer arms, inputful/value loops, sharing, external targets, and mixed/multiple structured roots remain gated.
 
 ## Bottom line
 
