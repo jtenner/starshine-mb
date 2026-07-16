@@ -7426,6 +7426,51 @@ test "flatten multivalue flow payload marks preserve exact distinct ids" {
 }
 
 ///|
+test "flatten multivalue flow payload slots preserve exact source positions" {
+  let func = @ir.HotFunc::new()
+  let block_id = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [],
+  )
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  let first = @ir.hot_build_const_i32(func, @lib.I32(7))
+  ignore(@ir.hot_build_nop(func))
+  let second = @ir.hot_build_const_i64(func, @lib.I64(9L))
+  let distinct = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[first, second],
+  )
+  let distinct_slots = Array::make(@ir.hot_node_count(func), -1)
+  @debug.assert_eq(
+    flatten_collect_distinct_branch_payload_slots(
+      func, distinct, 2, distinct_slots,
+    ),
+    Some([first, second]),
+  )
+  @debug.assert_eq(distinct_slots[first], 0)
+  @debug.assert_eq(distinct_slots[second], 1)
+  @debug.assert_eq(distinct_slots[first + 1], -1)
+  let duplicate = @ir.hot_build_br_if(
+    func,
+    label_id,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[first, first],
+  )
+  assert_true(
+    flatten_collect_distinct_branch_payload_slots(
+      func,
+      duplicate,
+      2,
+      Array::make(@ir.hot_node_count(func), -1),
+    )
+    is None,
+  )
+}
+
+///|
 test "flatten unique table target marks preserve first source order" {
   let targets : Array[Int] = []
   let seen = @bitset.BitSet::new(8)

@@ -5682,6 +5682,33 @@ fn flatten_collect_distinct_branch_payloads(
 }
 
 ///|
+fn flatten_collect_distinct_branch_payload_slots(
+  func : @ir.HotFunc,
+  branch_id : Int,
+  payload_count : Int,
+  payload_slots : Array[Int],
+) -> Array[Int]? {
+  if payload_count <= 0 ||
+    branch_id < 0 ||
+    !@ir.hot_node_is_live(func, branch_id) ||
+    @ir.hot_child_count(func, branch_id) < payload_count {
+    return None
+  }
+  let payloads : Array[Int] = []
+  for slot = 0; slot < payload_count; slot = slot + 1 {
+    let payload_id = @ir.hot_child_get(func, branch_id, slot)
+    if payload_id < 0 ||
+      payload_id >= payload_slots.length() ||
+      payload_slots[payload_id] >= 0 {
+      return None
+    }
+    payload_slots[payload_id] = slot
+    payloads.push(payload_id)
+  }
+  Some(payloads)
+}
+
+///|
 fn flatten_multivalue_br_if_cached_flow_is_current(
   func : @ir.HotFunc,
   branch_id : Int,
@@ -5721,19 +5748,20 @@ fn flatten_locate_reachable_multivalue_br_if_flow_span(
   branch_id : Int,
   payload_count : Int,
 ) -> Array[Int]? {
-  let payload_seen = @bitset.BitSet::new(@ir.hot_node_count(func))
-  let payloads = match
-    flatten_collect_distinct_branch_payloads(
-      func, branch_id, payload_count, payload_seen,
-    ) {
-    Some(payloads) => payloads
-    None => return None
+  let payload_slots = Array::make(@ir.hot_node_count(func), -1)
+  if flatten_collect_distinct_branch_payload_slots(
+      func, branch_id, payload_count, payload_slots,
+    )
+    is None {
+    return None
   }
   let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   let worklist : Array[Int] = []
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     let root_id = @ir.hot_root_get(func, root_idx)
-    if root_id >= 0 && root_id < payload_seen.length() && payload_seen[root_id] {
+    if root_id >= 0 &&
+      root_id < payload_slots.length() &&
+      payload_slots[root_id] >= 0 {
       return None
     }
     if @ir.hot_node_is_live(func, root_id) && !seen[root_id] {
@@ -5749,21 +5777,20 @@ fn flatten_locate_reachable_multivalue_br_if_flow_span(
     let child_count = @ir.hot_child_count(func, node_id)
     for child_slot = 0; child_slot < child_count; child_slot = child_slot + 1 {
       let child_id = @ir.hot_child_get(func, node_id, child_slot)
-      for payload_slot = 0
-          payload_slot < payload_count
-          payload_slot = payload_slot + 1 {
-        if child_id != payloads[payload_slot] {
-          continue
-        }
+      let payload_slot = if child_id >= 0 && child_id < payload_slots.length() {
+        payload_slots[child_id]
+      } else {
+        -1
+      }
+      if payload_slot >= 0 {
         counts[payload_slot] = counts[payload_slot] + 1
-        if node_id == branch_id && child_slot == payload_slot {
-          continue
+        if node_id != branch_id || child_slot != payload_slot {
+          if parents[payload_slot] >= 0 {
+            return None
+          }
+          parents[payload_slot] = node_id
+          slots[payload_slot] = child_slot
         }
-        if parents[payload_slot] >= 0 {
-          return None
-        }
-        parents[payload_slot] = node_id
-        slots[payload_slot] = child_slot
       }
       if @ir.hot_node_is_live(func, child_id) && !seen[child_id] {
         seen[child_id] = true
