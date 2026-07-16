@@ -358,7 +358,17 @@ The current internal admission now preserves a delegated inner try through any s
 
 The two red-first whitebox cases moved `196/197 -> 197/197` and `197/198 -> 198/198`. Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,791/5,791`, full `9,260/9,260`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti`, registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed.
 
-Readiness is therefore still blocked by partial/mixed-tag, non-first-descendant/repeated/shared/outside, nested-catch, loop/multiple-execution, and catch-all payload populations; nonzero/typed-composed/loop/nested-catch/nested-try/value-carrying/targeted rethrows; non-strict, loop, nested-try, mixed/value-carrying/used-label/non-active delegate populations; broader structured/EH closure; the flatten aggregate and four-lane matrix; ordered-neighborhood evidence; and performance requalification from the durable `970.5 us` / `3.65x` checkpoint.
+That checkpoint's blanket independent-lane and value-carrying-if blockers are partially superseded by the next iteration; the other listed gates remain.
+
+## Latest readiness movement: independent direct roots and one scalar value-if rethrow
+
+Commit `fb9d071e8` admits an ordered same-tag vector whose first lane uses are separate direct catch-region roots after the leading markers. Each root independently follows Binaryen v130's first-child line, so one lane may traverse a binary while another traverses an `if` condition; later roots retain identity. The existing common direct-block-chain representation remains admitted. Partial/mixed tags, non-first children, repeated/shared/outside ownership, selected arms, nested catches, loops/multiple execution, catch-all extraction, and other direct-root arrangements still reject atomically.
+
+Commit `52fc64b49` admits one direct depth-zero rethrow as the terminal arm of a defaultable scalar value `if`. The opposite arm must end in one matching Flat-IR-simple scalar value, the if label must be unused, and the if must remain directly rooted in the active catch. Existing scalar if and legacy-try local channels erase both control results before lowering. This does not admit nonzero or typed-composed rethrow, nested try/catch ownership, loops, targeted ifs, non-simple opposite arms, multivalue value controls, or value-carrying ancestry through additional wrappers.
+
+Red-first whitebox moved `198/199 -> 199/199 -> 199/200 -> 200/200`. Final evidence is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,793/5,793`, full `9,262/9,262`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti`, profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed.
+
+Readiness remains blocked by broader partial/mixed/non-first/repeated/shared/nested/loop/catch-all payload populations; broader independent lane composition beyond the exact common-block and first-N direct-root layouts; nonzero, typed-composed, loop, nested-catch, nested-try, targeted, multivalue, and broader value-control rethrows; non-strict, loop, nested-try, mixed/value-carrying/used-label/non-active delegate populations; richer mixed/shared/nested structured and EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
 
 ## Open questions
 

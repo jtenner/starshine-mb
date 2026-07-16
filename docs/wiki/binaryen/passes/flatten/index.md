@@ -505,6 +505,16 @@ Red-first whitebox counts moved `196/197 -> 197/197` and `197/198 -> 198/198`. F
 
 This supersedes the prior direct-outer delegate boundary and ordered-unary-lane blocker. Broader catch ownership, exceptional transfer, rich/mixed/shared/nested control and EH closure, a flatten aggregate, the four-lane matrix, ordered-neighborhood proof, performance requalification, and final public admission remain open.
 
+## 2026-07-16 independent catch roots and scalar value-if rethrow breadth
+
+Commit `fb9d071e8` supersedes the blanket independent-lane blocker for one exact source-backed layout. After the ordered leading same-tag payload markers, the first matching direct catch-region roots may now own their lanes independently instead of requiring one common block-chain carrier. Each lane still follows only the exact first-child path; one fixture combines a binary first child with a separate `if` condition and preserves a later catch root unchanged. Entry plus old-position ownership, lane order, reverse handler-stack capture order, and whole-function preflight remain mandatory.
+
+Commit `52fc64b49` supersedes the blanket value-carrying-if rethrow blocker for one scalar subset. A depth-zero rethrow may be the terminal direct arm of an unused-label, defaultable scalar `if` when the opposite arm ends in one matching Flat-IR-simple scalar value and the `if` remains directly owned by the active catch. Flatten routes only the fallthrough value arm through a local, then erases the surrounding scalar legacy-try result through its existing local channel. Nonzero depth, typed composition, nested try/catch ownership, loops, targeted ifs, non-simple opposite arms, multivalue results, and broader value-control chains remain excluded.
+
+Red-first whitebox counts moved `198/199 -> 199/199` and `199/200 -> 200/200`. Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `200/200`, passes `5,793/5,793`, full `9,262/9,262`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public registry, dispatcher, CLI execution, compare/API, profile, preset, scheduler, or neighborhood-ready surface changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen v130 remains the durable checkpoint.
+
+Broader catch-payload repair, exceptional transfer, rich/mixed/shared/nested control and EH closure, a flatten-specific aggregate, the required four compare lanes, ordered-neighborhood evidence, performance requalification, and final public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

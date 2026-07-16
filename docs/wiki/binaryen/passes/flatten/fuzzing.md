@@ -102,6 +102,14 @@ Commits `0800efc79` and `57013d100` supersede the direct-outer delegate boundary
 
 This still creates no aggregate or public compare lane. A future EH profile must include admitted ordered first-child expression paths and strict catch/outer delegate chains, plus rejected non-first-descendant/repeated/shared/outside/mixed-tag/partial payloads; loop, nested-catch, nested-try, value-carrying, targeted, used-label, mixed-catch, non-active-target, nonzero, and typed-composed exceptional transfers. No profile, generator test, allowlist, registry, dispatcher, CLI execution, compare/API, preset, or scheduler surface changed.
 
+## Independent direct catch roots and scalar value-if rethrows remain outside public fuzzing
+
+Commits `fb9d071e8` and `52fc64b49` admit two further internal-only families. Ordered same-tag payload markers may feed the first ordered direct catch-region roots independently, including a binary first-child lane beside an if-condition lane with later roots preserved. One direct depth-zero rethrow may also terminate a defaultable scalar value-if arm when the opposite arm is one matching simple value and the unused if remains directly owned by the active catch.
+
+Red-first whitebox counts move `198/199 -> 199/199` and `199/200 -> 200/200`; final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,793/5,793`, and full `9,262/9,262`. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
+
+A future EH aggregate must now generate both admitted common-block and first-N direct-root lane layouts, independent first-child path kinds, later-root preservation, and the direct scalar value-if rethrow. It must separately reject partial/mixed tags, non-leading/non-first/repeated/shared/outside uses, selected-arm payloads, nested catches, loops/multiple execution, catch-all extraction, nonzero/typed/nested/loop/targeted/multivalue or broader value-control rethrows, and broader delegates. No compare lane is authorized yet.
+
 ## Future executable lane
 
 Enable a lane only after Starshine has an active flatten implementation, the harness admits and maps the spelling to Binaryen `--flatten`, and fixtures/profile generation demonstrate Flat-IR-relevant shapes with a meaningful `--min-compared` threshold. The future corpus must separately cover evaluation order, local/tee introduction, control and exception boundaries, multivalue carriers, and output flatness; generic valid modules do not prove those properties.

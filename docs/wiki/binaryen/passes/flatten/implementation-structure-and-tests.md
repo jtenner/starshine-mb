@@ -437,6 +437,14 @@ Commit `57013d100` adds `flatten repairs ordered catch payloads through first-ch
 
 Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `198/198`, passes `5,791/5,791`, and full `9,260/9,260`. No `.mbti` or public pass surface changed.
 
+## Latest independent-lane and scalar value-if rethrow slices
+
+Commit `fb9d071e8` changes `src/ir/hot_mutate.mbt` and `src/passes/flatten_wbtest.mbt`. The ordered catch planner now distinguishes the existing one-root common block-chain layout from a direct catch-region layout with enough post-marker roots for every lane. In the direct layout, lane `i` starts at post-marker root `i`; each lane then reuses the exact first-child walker and two-use ownership proof. The new fixture combines a binary lane, an independent if-condition lane, and one later untouched root. It was red at `198/199`, then green at `199/199`, lowered, and validated.
+
+Commit `52fc64b49` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. Admission recognizes one direct depth-zero rethrow as the terminal arm of a scalar value if only when the opposite arm has one matching defaultable simple value and the if label is unused. Scalar-if routing treats that rethrow arm as non-fallthrough, writes only the opposite arm, and lets the surrounding scalar legacy try reuse its existing result-local rewrite. The potentially throwing-call fixture was red at `199/200`, then green at `200/200`, verified HOT, lowered through `catch_all_ref`/`throw_ref`, and validated.
+
+Final evidence is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `200/200`, passes `5,793/5,793`, full `9,262/9,262`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` or public flatten surface changed.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

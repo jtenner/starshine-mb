@@ -466,6 +466,14 @@ Commit `57013d100` supersedes the ordered-unary catch-lane ceiling. Every ordere
 
 Whitebox moved `196/197 -> 197/197 -> 197/198 -> 198/198`; final passes are `5,791/5,791` and full `9,260/9,260`. No public surface or performance evidence changed. The strategy remains behavior closure first, then profile/four-lane/neighborhood/performance evidence, and only then registry, dispatcher, CLI, compare/API, preset, and scheduler admission.
 
+## Latest independent catch-root and scalar value-if rethrow decisions
+
+Commit `fb9d071e8` narrows the independent-lane gap without weakening the transaction. Ordered same-tag markers may now be followed directly by the first ordered lane roots in the catch region, and each root owns its own exact first-child path. The common strict direct-block-chain carrier remains supported. The proof still requires every lane's entry plus old-position ownership, source order, reverse handler-stack capture order, and no partial, mixed-tag, repeated, shared, outside, loop, nested-catch, or catch-all population.
+
+Commit `52fc64b49` narrows the value-control exceptional-transfer gap. One depth-zero rethrow may terminate one arm of a defaultable scalar value if when the opposite arm supplies one matching simple value, the if label is unused, and the if is a direct active-catch root. This is intentionally not a generic value-if rule: additional value-carrying wrappers, targeted ifs, non-simple opposite arms, multivalue ifs, nonzero/typed rethrows, loops, and nested exceptional owners remain deferred.
+
+Whitebox moved `198/199 -> 199/199` and `199/200 -> 200/200`; final passes are `5,793/5,793` and full `9,262/9,262`. No public surface or performance evidence changed. Strategy remains: close behavior families, add the aggregate/four-lane/neighborhood evidence, requalify performance, and only then expose registry, dispatcher, CLI, compare/API, preset, and scheduler surfaces.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

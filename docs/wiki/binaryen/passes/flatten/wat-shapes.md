@@ -977,6 +977,37 @@ Starshine captures the lanes into locals in source order, replaces only the exac
 
 The two red-first fixtures finish at whitebox `198/198`, and both lowered modules validate. Public flatten remains removed.
 
+## Shape 21: independent direct catch roots and one scalar value-if rethrow
+
+Ordered typed lanes no longer require a shared explicit block wrapper in HOT. The exact direct-root counterpart is now admitted:
+
+```wat
+(catch $tag
+  ;; ordered HOT markers for two i32 lanes
+  (drop (i32.add (pop i32) (i32.const 3)))
+  (if (pop i32)
+    (then (nop))
+    (else (nop)))
+  (nop))
+```
+
+The first two roots after the markers independently own lane zero and lane one. Starshine captures the implicit handler values in reverse stack order, replaces the binary's first child and the if condition with source-ordered local reads, leaves the binary's right constant and later `nop` unchanged, and then performs ordinary flattening. Non-leading roots, second-child uses, selected arms, repeated/shared/outside use, partial/mixed tags, loops, and nested catches remain deferred.
+
+One scalar value-if exceptional shape is also admitted:
+
+```wat
+(try (result i32)
+  (do (call $may_throw_i32))
+  (catch_all
+    (if (result i32) (i32.const 1)
+      (then (rethrow 0))
+      (else (i32.const 7)))))
+```
+
+The rethrow arm does not write the if-result local; the simple opposite arm does. Flatten then erases the scalar if and try results through distinct existing local channels, while lowering preserves the active caught exception through `catch_all_ref` and `throw_ref`. The if label must be unused, the rethrow must be direct and depth zero, and the opposite arm must be one matching defaultable simple scalar value. Broader value controls remain fail-closed.
+
+The two fixtures move whitebox `198/199 -> 199/199` and `199/200 -> 200/200`; both lowered modules validate. Public flatten remains removed.
+
 ## Bottom line
 
 The simplest pattern summary is:
