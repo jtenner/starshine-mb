@@ -7488,6 +7488,23 @@ test "flatten unique table target marks preserve first source order" {
 }
 
 ///|
+test "flatten tuple flow slot marks preserve exact first positions" {
+  let slots : Array[Int] = []
+  let seen = Array::make(8, false)
+  assert_true(flatten_record_distinct_flow_slot(slots, seen, 5))
+  assert_true(flatten_record_distinct_flow_slot(slots, seen, 2))
+  assert_false(flatten_record_distinct_flow_slot(slots, seen, 5))
+  assert_true(flatten_record_distinct_flow_slot(slots, seen, 7))
+  assert_false(flatten_record_distinct_flow_slot(slots, seen, -1))
+  assert_false(flatten_record_distinct_flow_slot(slots, seen, 8))
+  @debug.assert_eq(slots, [5, 2, 7])
+  assert_true(seen[5])
+  assert_true(seen[2])
+  assert_true(seen[7])
+  assert_false(seen[4])
+}
+
+///|
 test "flatten terminal payload cache keeps sparse entries sorted" {
   let payloads : Array[Int] = []
   assert_true(flatten_terminal_payload_record(payloads, 19))

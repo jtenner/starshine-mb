@@ -5912,6 +5912,20 @@ fn flatten_tuple_br_if_cached_flow_is_current(
 }
 
 ///|
+fn flatten_record_distinct_flow_slot(
+  flow_slots : Array[Int],
+  seen : Array[Bool],
+  slot : Int,
+) -> Bool {
+  if slot < 0 || slot >= seen.length() || seen[slot] {
+    return false
+  }
+  seen[slot] = true
+  flow_slots.push(slot)
+  true
+}
+
+///|
 fn flatten_locate_reachable_tuple_br_if_flow(
   func : @ir.HotFunc,
   branch_id : Int,
@@ -5932,6 +5946,7 @@ fn flatten_locate_reachable_tuple_br_if_flow(
   }
   let branch_slots = Array::make(payload_count, false)
   let flow_slots : Array[Int] = []
+  let flow_slot_seen : Array[Bool] = []
   let mut flow_parent = -1
   let mut site_count = 0
   while !worklist.is_empty() {
@@ -5949,13 +5964,15 @@ fn flatten_locate_reachable_tuple_br_if_flow(
         } else {
           if flow_parent < 0 {
             flow_parent = node_id
+            flow_slot_seen.append(Array::make(child_count, false))
           } else if flow_parent != node_id {
             return None
           }
-          if flow_slots.contains(child_slot) {
+          if !flatten_record_distinct_flow_slot(
+              flow_slots, flow_slot_seen, child_slot,
+            ) {
             return None
           }
-          flow_slots.push(child_slot)
         }
       }
       if @ir.hot_node_is_live(func, child_id) && !seen[child_id] {
