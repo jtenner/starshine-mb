@@ -11437,7 +11437,7 @@ test "flatten preserves a typed catch rethrow through a targeted resultless if" 
   let preflight = FlattenRewriteState::new(func)
   assert_true(flatten_ensure_direct_parent(func, preflight))
   assert_true(
-    flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
+    flatten_targeted_if_opposite_payloadless_exit_is_supported(
       func, if_id, rethrow_id, preflight,
     ),
   )
@@ -11555,4 +11555,151 @@ test "flatten preserves a typed catch rethrow through a targeted resultless if" 
   )
   @debug.assert_eq(@ir.hot_node_get(invalid, invalid_rethrow).imm0, 1)
   @debug.assert_eq(@ir.hot_node_get(invalid, invalid_exit).imm0, invalid_label)
+}
+
+///|
+test "flatten preserves a delegate through a targeted outer if" {
+  let func = @ir.HotFunc::new()
+  let outer = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [],
+    catch_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let target = @ir.hot_control_node_label(func, outer)
+  let delegate_id = @ir.hot_build_delegate(func, target)
+  let rich_drop = flatten_test_build_rich_drop(func)
+  let inner = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [rich_drop[1], @ir.hot_build_throw(func, @lib.TagIdx::new(0U), [])],
+    catch_body=Some([delegate_id]),
+  )
+  let body_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [inner],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let if_label = @ir.hot_control_node_label(func, body_if)
+  let opposite_exit = @ir.hot_build_br(func, if_label)
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_else_ref(func, body_if).unwrap(),
+    [opposite_exit],
+  )
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, outer), [
+    body_if,
+  ])
+  @ir.hot_root_append(func, outer)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("targeted outer-if delegate remained deferred")
+    _ => fail("targeted outer-if delegate failed an unrelated gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_get(func, delegate_id).imm0, target)
+  @debug.assert_eq(@ir.hot_node_get(func, opposite_exit).imm0, if_label)
+  @debug.assert_eq(
+    @ir.hot_child_get(func, rich_drop[1], 0) != rich_drop[0],
+    true,
+  )
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected targeted outer-if delegate HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("catch_all"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("throw"), msg=pretty)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+
+  let invalid = @ir.HotFunc::new()
+  let invalid_outer = @ir.hot_build_try(
+    invalid,
+    @lib.BlockType::void_(),
+    [],
+    catch_body=Some([@ir.hot_build_nop(invalid)]),
+  )
+  let invalid_target = @ir.hot_control_node_label(invalid, invalid_outer)
+  let invalid_delegate = @ir.hot_build_delegate(invalid, invalid_target)
+  let invalid_rich = flatten_test_build_rich_drop(invalid)
+  let invalid_inner = @ir.hot_build_try(
+    invalid,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_throw(invalid, @lib.TagIdx::new(0U), [])],
+    catch_body=Some([invalid_delegate]),
+  )
+  let invalid_if = @ir.hot_build_if(
+    invalid,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(invalid, @lib.I32(1)),
+    [invalid_inner],
+    else_body=Some([@ir.hot_build_nop(invalid)]),
+  )
+  let invalid_if_label = @ir.hot_control_node_label(invalid, invalid_if)
+  let invalid_exit0 = @ir.hot_build_br(invalid, invalid_if_label)
+  let invalid_exit1 = @ir.hot_build_br(invalid, invalid_if_label)
+  @ir.hot_region_replace_body(
+    invalid,
+    @ir.hot_region_else_ref(invalid, invalid_if).unwrap(),
+    [invalid_exit0, invalid_exit1],
+  )
+  @ir.hot_region_replace_body(
+    invalid,
+    @ir.hot_region_body_ref(invalid, invalid_outer),
+    [invalid_rich[1], invalid_if],
+  )
+  @ir.hot_root_append(invalid, invalid_outer)
+  match flatten_run_admission(invalid, flatten_classify_hot(invalid)) {
+    FlattenRunAdmission::DeferredExceptionalTransferRepair => ()
+    _ => fail("multi-exit targeted outer delegate should defer the function")
+  }
+  let invalid_ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(
+    flatten_run(invalid_ctx, invalid),
+    HotPassResult::unchanged(),
+  )
+  @debug.assert_eq(@ir.hot_local_count(invalid), 0)
+  @debug.assert_eq(
+    @ir.hot_child_get(invalid, invalid_rich[1], 0),
+    invalid_rich[0],
+  )
+  let invalid_else = @ir.hot_region_else_ref(invalid, invalid_if).unwrap()
+  @debug.assert_eq(@ir.hot_region_root_count(invalid, invalid_else), 2)
+  @debug.assert_eq(@ir.hot_region_get(invalid, invalid_else, 0), invalid_exit0)
+  @debug.assert_eq(@ir.hot_region_get(invalid, invalid_else, 1), invalid_exit1)
 }

@@ -8984,7 +8984,7 @@ fn flatten_typed_catch_root_owns_strict_rethrow(
           Some(selected_root) => current = selected_root
           None =>
             if @ir.hot_node_result_arity(func, current) == 0 &&
-              flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
+              flatten_targeted_if_opposite_payloadless_exit_is_supported(
                 func, current, rethrow_id, state,
               ) {
               current = rethrow_id
@@ -9053,7 +9053,7 @@ fn flatten_typed_catch_owns_strict_rethrow(
 }
 
 ///|
-fn flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
+fn flatten_targeted_if_opposite_payloadless_exit_is_supported(
   func : @ir.HotFunc,
   if_id : Int,
   current : Int,
@@ -9169,7 +9169,7 @@ fn flatten_rethrow_catch_root_through_strict_ancestry(
         if label_id < 0 ||
           (
             !state.label_branch_nodes[label_id].is_empty() &&
-            !flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
+            !flatten_targeted_if_opposite_payloadless_exit_is_supported(
               func, parent, current, state,
             )
           ) {
@@ -9266,7 +9266,7 @@ fn flatten_direct_catch_all_rethrow_is_supported(
         let label_id = @ir.hot_control_node_label(func, parent)
         if label_id >= 0 &&
           !state.label_branch_nodes[label_id].is_empty() &&
-          !flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
+          !flatten_targeted_if_opposite_payloadless_exit_is_supported(
             func, parent, current, state,
           ) {
           return false
@@ -9438,7 +9438,13 @@ fn flatten_direct_delegate_is_supported(
           return false
         }
         let label_id = @ir.hot_control_node_label(func, parent)
-        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+        if label_id < 0 ||
+          (
+            !state.label_branch_nodes[label_id].is_empty() &&
+            !flatten_targeted_if_opposite_payloadless_exit_is_supported(
+              func, parent, current, state,
+            )
+          ) {
           return false
         }
         let then_ref = @ir.hot_region_then_ref(func, parent)
