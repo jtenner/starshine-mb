@@ -21150,6 +21150,67 @@ test "DAEO selected readback traversal sinks block results before target-first t
 }
 
 ///|
+test "DAEO selected readback traversal sinks block results before target-last terminal calls" {
+  let target = @lib.LocalIdx::new(5U)
+  let final_argument = @lib.LocalIdx::new(3U)
+  let result_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(4U))),
+  )
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(result_type),
+    @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(20U))]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(14)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::local_get(final_argument),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(22U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(23U)),
+    @lib.Instruction::drop(),
+  ]
+  let local_gets = [1, 1, 1, 1, 0, 1]
+  let local_sets = [0, 0, 0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0, 0, 0]
+  let (rewritten, rewrite_count) = run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
+    body,
+    local_gets,
+    local_sets,
+    local_tees,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      result_type,
+    ],
+  )
+  @debug.assert_eq(rewrite_count, 1)
+  @debug.assert_eq(local_gets, [1, 1, 1, 1, 0, 0])
+  @debug.assert_eq(local_sets, [0, 0, 0, 0, 0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(14)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(21U)),
+    @lib.Instruction::local_get(final_argument),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    producer,
+    @lib.Instruction::call(@lib.FuncIdx::new(22U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(23U)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 test "DAEO selected readback traversal sinks terminal call block carriers" {
   let target = @lib.LocalIdx::new(1U)
   let producer = @lib.Instruction::block(

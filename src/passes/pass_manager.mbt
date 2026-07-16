@@ -61705,6 +61705,125 @@ fn run_hot_pipeline_dae_try_sink_target_first_terminal_call_block_carrier(
 }
 
 ///|
+// Binaryen v130 also sinks complete one-use block producers into the last
+// argument of the sibling terminal-call shape. Only a pure scalar first final
+// argument and zero move before the producer, with caller-local writes guarded.
+fn run_hot_pipeline_dae_try_sink_target_last_terminal_call_block_carrier(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  local_types : Array[@lib.ValType],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  type_sec? : @lib.TypeSec? = None,
+) -> (Array[@lib.Instruction], Int)? {
+  if idx + 12 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+      instrs[idx + 11],
+      instrs[idx + 12],
+    ) {
+    (
+      @lib.Block(block_type, @lib.Expr(producer_body)) as producer,
+      @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      @lib.LocalGet(@lib.LocalIdx(first_raw) as first),
+      @lib.LocalGet(@lib.LocalIdx(second_raw) as second),
+      @lib.I32Const(prefix_const),
+      @lib.LocalGet(@lib.LocalIdx(third_raw) as third),
+      @lib.Call(prefix_call),
+      first_final_arg,
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalGet(readback),
+      @lib.Call(consumer),
+      @lib.Call(outer),
+      @lib.Drop,
+    ) if target == readback &&
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        first_final_arg,
+      ) => {
+      let target_idx = target_raw.reinterpret_as_int()
+      let result_type = match
+        run_hot_pipeline_dae_zero_param_single_block_result_type(
+          block_type, type_sec,
+        ) {
+        Some(result_type) => result_type
+        None => return None
+      }
+      if target_idx < 0 ||
+        target_idx >= local_types.length() ||
+        target_idx >= local_gets.length() ||
+        target_idx >= local_sets.length() ||
+        target_idx >= local_tees.length() ||
+        local_types[target_idx] != result_type ||
+        local_gets[target_idx] != 1 ||
+        local_sets[target_idx] != 1 ||
+        local_tees[target_idx] != 0 {
+        return None
+      }
+      let moved = [
+        first_raw.reinterpret_as_int(),
+        second_raw.reinterpret_as_int(),
+        third_raw.reinterpret_as_int(),
+      ]
+      for moved_idx in moved {
+        if moved_idx < 0 ||
+          moved_idx == target_idx ||
+          moved_idx >= local_types.length() ||
+          run_hot_pipeline_raw_branch_writes_local(producer_body, moved_idx) {
+          return None
+        }
+      }
+      match first_final_arg {
+        @lib.LocalGet(@lib.LocalIdx(moved_raw)) => {
+          let moved_idx = moved_raw.reinterpret_as_int()
+          if moved_idx < 0 ||
+            moved_idx == target_idx ||
+            moved_idx >= local_types.length() ||
+            run_hot_pipeline_raw_branch_writes_local(producer_body, moved_idx) {
+            return None
+          }
+        }
+        _ => ()
+      }
+      local_gets[target_idx] = 0
+      local_sets[target_idx] = 0
+      Some(
+        (
+          [
+            @lib.Instruction::local_get(first),
+            @lib.Instruction::local_get(second),
+            @lib.Instruction::i32_const(prefix_const),
+            @lib.Instruction::local_get(third),
+            @lib.Instruction::call(prefix_call),
+            first_final_arg,
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            producer,
+            @lib.Instruction::call(consumer),
+            @lib.Instruction::call(outer),
+            @lib.Instruction::drop(),
+          ],
+          13,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 // A terminal wrapper call consumes a pure leading zero and an exact one-use
 // block result. Hoisting only the constant keeps producer effects and traps in
 // place while deleting the set/readback carrier before construction/return.
@@ -61953,6 +62072,26 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts_and_types(
     match
       run_hot_pipeline_dae_try_sink_remapped_one_arg_block_carrier(
         instrs, idx, local_types, local_gets, local_sets, local_tees,
+      ) {
+      Some((replacement, consumed_len)) => {
+        for instr in replacement {
+          rewritten.push(instr)
+        }
+        rewrite_count = rewrite_count + 1
+        idx += consumed_len
+        continue
+      }
+      None => ()
+    }
+    match
+      run_hot_pipeline_dae_try_sink_target_last_terminal_call_block_carrier(
+        instrs,
+        idx,
+        local_types,
+        local_gets,
+        local_sets,
+        local_tees,
+        type_sec~,
       ) {
       Some((replacement, consumed_len)) => {
         for instr in replacement {
