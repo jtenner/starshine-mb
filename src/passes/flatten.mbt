@@ -8952,6 +8952,47 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
+fn flatten_scalar_typed_catch_owns_direct_rethrow(
+  func : @ir.HotFunc,
+  try_id : Int,
+  rethrow_id : Int,
+) -> Bool {
+  let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  let root_count = @ir.hot_region_root_count(func, catch_ref)
+  if root_count < 3 {
+    return false
+  }
+  let payload_id = @ir.hot_region_get(func, catch_ref, 0)
+  let payload = @ir.hot_node_get(func, payload_id)
+  match payload.op {
+    @ir.HotOp::Catch => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, payload_id) != 0 ||
+    flatten_type_results(func, payload.ty).length() != 1 {
+    return false
+  }
+  let mut saw_rethrow = false
+  for idx = 1; idx < root_count; idx = idx + 1 {
+    let candidate = @ir.hot_region_get(func, catch_ref, idx)
+    match @ir.hot_node_get(func, candidate).op {
+      @ir.HotOp::Catch | @ir.HotOp::CatchAll => return false
+      @ir.HotOp::Rethrow => {
+        if candidate != rethrow_id || saw_rethrow {
+          return false
+        }
+        saw_rethrow = true
+      }
+      _ => ()
+    }
+  }
+  saw_rethrow
+}
+
+///|
 fn flatten_rethrow_targeted_if_opposite_payloadless_exit_is_supported(
   func : @ir.HotFunc,
   if_id : Int,
@@ -9176,7 +9217,11 @@ fn flatten_direct_catch_all_rethrow_is_supported(
     @ir.HotOp::Try => ()
     _ => return false
   }
-  flatten_markerless_catch_owns_root(func, parent, current)
+  flatten_markerless_catch_owns_root(func, parent, current) ||
+  (
+    current == rethrow_id &&
+    flatten_scalar_typed_catch_owns_direct_rethrow(func, parent, rethrow_id)
+  )
 }
 
 ///|
