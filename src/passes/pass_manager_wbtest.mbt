@@ -20446,6 +20446,55 @@ test "DAEO selected readback traversal sinks two three-producer results" {
 }
 
 ///|
+test "DAEO selected readback traversal sinks typed terminal block carriers" {
+  let target = @lib.LocalIdx::new(1U)
+  let producer = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        [@lib.Instruction::call(@lib.FuncIdx::new(20U))],
+        Some([@lib.Instruction::call(@lib.FuncIdx::new(21U))]),
+      ),
+    ]),
+  )
+  let body = [
+    producer,
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ]
+  let local_gets = [1, 1]
+  let local_sets = [0, 1]
+  let local_tees = [0, 0]
+  let rewritten = match
+    run_hot_pipeline_dae_try_sink_remapped_terminal_block_carrier(
+      body,
+      0,
+      [@lib.ValType::i32(), @lib.ValType::i32()],
+      local_gets,
+      local_sets,
+      local_tees,
+    ) {
+    Some((value, 6)) => value
+    Some((_, consumed)) =>
+      fail("expected six consumed instructions, got \{consumed}")
+    None => fail("expected typed terminal block-carrier sinking")
+  }
+  @debug.assert_eq(local_gets, [1, 0])
+  @debug.assert_eq(local_sets, [0, 0])
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    producer,
+    @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ])
+}
+
+///|
 test "DAEO selected cleanup forwards reordered four-field aggregate leader" {
   let aggregate = @lib.LocalIdx::new(0U)
   let first = @lib.LocalIdx::new(1U)
