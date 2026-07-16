@@ -567,6 +567,8 @@ pub fn hot_region_holder_block_root(HotFunc, HotRegionRef) -> Int?
 
 pub fn hot_region_insert(HotFunc, HotRegionRef, Int, Array[Int]) -> Unit
 
+pub fn hot_region_is_strict_no_work_block_chain(HotFunc, HotRegionRef, (Int) -> Bool) -> Bool
+
 pub fn hot_region_remove(HotFunc, HotRegionRef, Int, Int) -> Array[Int]
 
 pub fn hot_region_repeated_live_block_body(HotFunc, HotRegionRef) -> HotRegionRef?

@@ -548,18 +548,14 @@ fn hot_lower_impl_strict_selected_delegate_if_root(
     return None
   }
   let selected_root = hot_region_get(func, selected_ref, 0)
-  match hot_region_root_count(func, opposite_ref) {
-    0 => Some(selected_root)
-    1 => {
-      let opposite_root = hot_region_get(func, opposite_ref, 0)
-      match hot_node_get(func, opposite_root).op {
-        HotOp::Nop if hot_child_count(func, opposite_root) == 0 =>
-          Some(selected_root)
-        _ => None
-      }
-    }
-    _ => None
+  if !hot_region_is_strict_no_work_block_chain(func, opposite_ref, fn(
+      label_id,
+    ) {
+      hot_lower_impl_label_is_used(func, label_id)
+    }) {
+    return None
   }
+  Some(selected_root)
 }
 
 ///|

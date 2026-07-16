@@ -9324,21 +9324,14 @@ fn flatten_strict_constant_selected_if_root(
   if state.direct_parent[selected_root] != if_id {
     return None
   }
-  match @ir.hot_region_root_count(func, opposite_ref) {
-    0 => Some(selected_root)
-    1 => {
-      let opposite_root = @ir.hot_region_get(func, opposite_ref, 0)
-      if state.direct_parent[opposite_root] != if_id {
-        return None
-      }
-      match @ir.hot_node_get(func, opposite_root).op {
-        @ir.HotOp::Nop if @ir.hot_child_count(func, opposite_root) == 0 =>
-          Some(selected_root)
-        _ => None
-      }
-    }
-    _ => None
+  if !@ir.hot_region_is_strict_no_work_block_chain(func, opposite_ref, fn(
+      label_id,
+    ) {
+      !state.label_branch_nodes[label_id].is_empty()
+    }) {
+    return None
   }
+  Some(selected_root)
 }
 
 ///|
