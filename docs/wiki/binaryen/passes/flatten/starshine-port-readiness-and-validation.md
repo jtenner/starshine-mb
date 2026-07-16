@@ -368,7 +368,17 @@ Commit `52fc64b49` admits one direct depth-zero rethrow as the terminal arm of a
 
 Red-first whitebox moved `198/199 -> 199/199 -> 199/200 -> 200/200`. Final evidence is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,793/5,793`, full `9,262/9,262`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti`, profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed.
 
-Readiness remains blocked by broader partial/mixed/non-first/repeated/shared/nested/loop/catch-all payload populations; broader independent lane composition beyond the exact common-block and first-N direct-root layouts; nonzero, typed-composed, loop, nested-catch, nested-try, targeted, multivalue, and broader value-control rethrows; non-strict, loop, nested-try, mixed/value-carrying/used-label/non-active delegate populations; richer mixed/shared/nested structured and EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
+That checkpoint's blanket nonzero and nested-catch rethrow blockers are superseded only by the direct markerless resultless catch-all chain below. Its other blockers remain.
+
+## Latest readiness movement: direct nested catch rethrow depths
+
+Commit `1ac52d9fa` changes lowering from a compressed list of captured catches to one optional slot per active legacy catch. A catch allocates and receives an exception-reference local when any rethrow in its nested catch subtree targets that catch; `Rethrow(depth)` selects the exact slot from the innermost active catch. This preserves depth identity even when intervening catches do not need their own captured local.
+
+Commit `23f9ba164` admits any positive nonzero depth only through an exact direct chain of markerless resultless catch-all `Try` owners. The rethrow must be a direct catch root, every intermediate try must be a direct root of the next enclosing catch, and no typed payload marker, block/if wrapper, value result, loop, try-body rethrow, or mixed transfer population is admitted. The HOT depth immediate remains unchanged through flatten.
+
+Red-first evidence moved HOT lower `89/90 -> 90/90` and whitebox flatten `200/201 -> 201/201`. Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,794/5,794`, full `9,264/9,264`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti`, profile, compare lane, registry, dispatcher, CLI execution, preset, scheduler, or neighborhood-ready result changed. Performance was not remeasured; `970.5 us` / `3.65x` Binaryen remains the durable checkpoint.
+
+Readiness remains blocked by broader partial/mixed/non-first/repeated/shared/nested/loop/catch-all payload populations; broader independent lane composition beyond the exact common-block and first-N direct-root layouts; typed-composed rethrows, nonzero rethrows with wrappers between catch owners, loop or nested-try-body rethrows, targeted/multivalue/broader value-control rethrows, and broader nested exceptional ownership; non-strict, loop, nested-try, mixed/value-carrying/used-label/non-active delegate populations; richer mixed/shared/nested structured and EH closure; a flatten-specific aggregate and explicit native 10,000-case evidence; the required four-lane and ordered-neighborhood signoff; performance requalification; docs closeout; and only then public admission.
 
 ## Open questions
 

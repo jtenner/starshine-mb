@@ -474,6 +474,14 @@ Commit `52fc64b49` narrows the value-control exceptional-transfer gap. One depth
 
 Whitebox moved `198/199 -> 199/199` and `199/200 -> 200/200`; final passes are `5,793/5,793` and full `9,262/9,262`. No public surface or performance evidence changed. Strategy remains: close behavior families, add the aggregate/four-lane/neighborhood evidence, requalify performance, and only then expose registry, dispatcher, CLI, compare/API, preset, and scheduler surfaces.
 
+## Latest direct nested-catch rethrow decision
+
+Commits `1ac52d9fa` and `23f9ba164` supersede the blanket nonzero-depth and nested-catch blockers only for an exact direct catch-all chain. Lowering now models every active catch position explicitly, including catches that do not need their own exception local. A target catch captures its exception through `catch_all_ref`; a nested `Rethrow(depth)` reads that exact outer slot and emits `throw_ref`.
+
+Flatten admission allows any positive depth when the rethrow is a direct root of a markerless resultless catch-all try and every next owner is itself a direct root of the next enclosing markerless resultless catch-all. It preserves the immediate and refuses typed markers, value-carrying tries, blocks or ifs between catch owners, loops, nested try-body rethrows, or mixed transfer populations.
+
+The red-first sequence is HOT lower `89/90 -> 90/90`, then whitebox flatten `200/201 -> 201/201`. Final passes are `5,794/5,794` and full `9,264/9,264`; no `.mbti` or public surface changed. Strategy remains behavior closure first, then aggregate/four-lane/neighborhood evidence, performance requalification, and only then public wiring.
+
 ## Validation plan for the eventual port
 
 The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

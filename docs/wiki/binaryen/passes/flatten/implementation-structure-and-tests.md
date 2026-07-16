@@ -445,6 +445,14 @@ Commit `52fc64b49` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbte
 
 Final evidence is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, whitebox flatten `200/200`, passes `5,793/5,793`, full `9,262/9,262`, `moon fmt`, and `moon info` with 11 existing warnings. No `.mbti` or public flatten surface changed.
 
+## Latest nested rethrow-depth lowering and admission slices
+
+Commit `1ac52d9fa` changes `src/ir/hot_lower.mbt` and `src/ir/hot_lower_test.mbt`. `HotLowerLabelFrames` now stores `Array[LocalIdx?]`, one slot for each active legacy catch. Recursive target discovery follows block/if regions, nested try bodies at the same target depth, and nested catch regions at the next depth. The target catch alone uses `catch_all_ref` and captures a nullable `exnref`; `Rethrow(depth)` indexes the exact active slot and emits `local.get` plus `throw_ref`. The depth-one lowering test was red at `89/90`, then green and validating at `90/90`.
+
+Commit `23f9ba164` changes `src/passes/flatten.mbt` and `src/passes/flatten_wbtest.mbt`. `flatten_markerless_catch_owns_root(...)` proves that a resultless try has no typed catch markers and directly owns the expected catch root. Nonzero admission walks exactly `depth + 1` direct catch owners; every owner must be a markerless resultless catch-all try. The depth-two behavior fixture was red at whitebox `200/201`, then green at `201/201`, preserved `imm0 = 2`, verified HOT, lowered, and validated.
+
+Final evidence is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,794/5,794`, and full `9,264/9,264`. No `.mbti` changed. The direct nested-catch chain is internal only; typed catches, block/if wrappers between catch owners, loops, value results, rethrows in nested try bodies, broader exceptional ownership, and every public pass surface remain excluded.
+
 ## Non-goals to keep explicit
 
 Do not document or implement `flatten` as any of these:

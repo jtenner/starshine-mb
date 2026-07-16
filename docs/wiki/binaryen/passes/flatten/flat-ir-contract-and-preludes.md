@@ -563,6 +563,14 @@ The newest exceptional-transfer subset composes the existing rethrow capture wit
 
 The red-first transitions are `198/199 -> 199/199` and `199/200 -> 200/200`. Final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,793/5,793`, and full `9,262/9,262`; public flatten remains removed.
 
+## Direct nested catch rethrow slots
+
+The exceptional-transfer bridge now preserves one more exact legacy family without treating rethrow as ordinary prelude work. Lowering keeps one optional exception-reference slot for every active catch. When a nested rethrow targets an enclosing catch, only that target handler becomes `catch_all_ref` and captures an `exnref`; intervening catch-all handlers retain empty slots. `Rethrow(depth)` indexes from the innermost slot and emits the captured reference followed by `throw_ref`.
+
+Internal flatten admits this only when every depth step is a direct markerless resultless catch-all try owner. That shape changes no Flat IR sequencing rule: ordinary rich work still becomes preludes, the rethrow immediate remains unchanged, and the exceptional owner is proven before mutation. Typed payload composition, wrappers between catch owners, loops, nested try-body rethrows, value results, and broader nested ownership remain deferred.
+
+The lowering and flatten red-first transitions are `89/90 -> 90/90` and `200/201 -> 201/201`. Final IR is `327/327`, passes `5,794/5,794`, and full `9,264/9,264`; public flatten remains removed.
+
 ## Unsupported and surprising boundaries
 
 ## `BrOn*` and `TryTable`

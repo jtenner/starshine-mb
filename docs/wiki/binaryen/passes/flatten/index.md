@@ -515,6 +515,14 @@ Red-first whitebox counts moved `198/199 -> 199/199` and `199/200 -> 200/200`. F
 
 Broader catch-payload repair, exceptional transfer, rich/mixed/shared/nested control and EH closure, a flatten-specific aggregate, the required four compare lanes, ordered-neighborhood evidence, performance requalification, and final public admission remain open.
 
+## 2026-07-16 direct nested-catch rethrow depths
+
+Commits `1ac52d9fa` and `23f9ba164` narrow the exceptional-transfer gap again. HOT lowering now keeps one optional exception-reference slot per active legacy catch, captures an enclosing catch only when a nested rethrow targets it, and lowers `Rethrow(depth)` through the exact indexed slot. Internal flatten admits any positive nonzero depth only when the rethrow and every enclosing catch owner form a direct chain of markerless resultless catch-all `Try` roots. The depth immediate remains unchanged.
+
+The red-first lowering fixture failed at `89/90` on the direct-catch guard, then passed `90/90`. The red-first depth-two flatten fixture failed at whitebox `200/201` with `DeferredExceptionalTransferRepair`, then passed `201/201`. Final validation is HOT mutation `16/16`, HOT lower `90/90`, IR `327/327`, focused flatten `263/263`, passes `5,794/5,794`, full `9,264/9,264`, `moon fmt`, and green `moon info` with 11 existing warnings. No `.mbti` or public surface changed.
+
+This supersedes the blanket nonzero-depth and nested-catch rethrow blockers only for that exact direct markerless resultless catch-all chain. Typed composition, blocks/ifs between catch owners, loops, rethrows in nested try bodies, value-carrying owners, broader nested exceptional populations, aggregate/four-lane/neighborhood evidence, performance requalification, and public admission remain open.
+
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)

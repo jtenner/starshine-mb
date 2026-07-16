@@ -1008,6 +1008,23 @@ The rethrow arm does not write the if-result local; the simple opposite arm does
 
 The two fixtures move whitebox `198/199 -> 199/199` and `199/200 -> 200/200`; both lowered modules validate. Public flatten remains removed.
 
+## Shape 22: nonzero rethrow may select an outer direct catch-all owner
+
+The newly admitted normalized HOT shape is an exact direct catch chain:
+
+```text
+outer catch-all:
+  middle resultless try
+    middle catch-all:
+      inner resultless try
+        inner catch-all:
+          rethrow 2
+```
+
+The outer handler captures its exception through `catch_all_ref`. The middle and inner catches still occupy active catch slots even though they do not need captured locals. `rethrow 2` indexes the outer slot and lowers to `local.get` plus `throw_ref`. Flatten preserves the depth immediate.
+
+Every owner must be a markerless resultless catch-all try, and each nested try must be a direct root of the enclosing catch. Blocks or ifs between catch owners, typed payload markers, loops, value results, nested try-body rethrows, and mixed exceptional populations remain fail-closed. The lower test moved `89/90 -> 90/90`; the depth-two flatten fixture moved whitebox `200/201 -> 201/201`; both lowered modules validate.
+
 ## Bottom line
 
 The simplest pattern summary is:

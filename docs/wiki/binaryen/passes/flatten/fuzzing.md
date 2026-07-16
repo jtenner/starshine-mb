@@ -108,7 +108,13 @@ Commits `fb9d071e8` and `52fc64b49` admit two further internal-only families. Or
 
 Red-first whitebox counts move `198/199 -> 199/199` and `199/200 -> 200/200`; final validation is HOT mutation `16/16`, HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, passes `5,793/5,793`, and full `9,262/9,262`. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
 
-A future EH aggregate must now generate both admitted common-block and first-N direct-root lane layouts, independent first-child path kinds, later-root preservation, and the direct scalar value-if rethrow. It must separately reject partial/mixed tags, non-leading/non-first/repeated/shared/outside uses, selected-arm payloads, nested catches, loops/multiple execution, catch-all extraction, nonzero/typed/nested/loop/targeted/multivalue or broader value-control rethrows, and broader delegates. No compare lane is authorized yet.
+A future EH aggregate must now generate both admitted common-block and first-N direct-root lane layouts, independent first-child path kinds, later-root preservation, and the direct scalar value-if rethrow. At that checkpoint it also needed to reject all nonzero/nested rethrows; the next section supersedes that blanket requirement for the exact direct markerless resultless catch-all chain. Partial/mixed tags, non-leading/non-first/repeated/shared/outside uses, selected-arm payloads, nested typed catches, loops/multiple execution, catch-all extraction, typed/loop/targeted/multivalue or broader value-control rethrows, and broader delegates remain negative families. No compare lane is authorized yet.
+
+## Direct nested catch rethrow depths remain outside public fuzzing
+
+Commits `1ac52d9fa` and `23f9ba164` add internal lowering and admission for any positive rethrow depth through an exact direct chain of markerless resultless catch-all owners. HOT lower moves `89/90 -> 90/90`; whitebox flatten moves `200/201 -> 201/201`; final IR is `327/327`, passes `5,794/5,794`, and full `9,264/9,264`.
+
+This still creates no aggregate or public compare lane. A future EH profile must generate admitted direct catch-all depth chains separately from rejected typed markers, block/if wrappers between catch owners, loops, value results, nested try-body rethrows, mixed transfers, and broader nested ownership. No profile, generator test, allowlist, descriptor, dispatcher, CLI execution, compare/API, preset, scheduler, or public pass surface was added.
 
 ## Future executable lane
 
