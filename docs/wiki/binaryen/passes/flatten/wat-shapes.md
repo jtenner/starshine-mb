@@ -663,6 +663,12 @@ Commits `4a03de7f3` and `aa295d38b` leave every WAT shape above unchanged. Share
 
 The red-first invariants lock exact mixed-order holder/node pairs, cross-pair absence, payload mark population, and duplicate payload rejection. At 512 candidates, targeted medians improve sequenced-root lookup `91.56%` and payload distinctness `95.73%`. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
 
+### Latest multivalue flow-index detail
+
+Commits `f1dc57565` and `24b909b2d` leave every WAT shape above unchanged. Distinct non-tuple `br_if` payload nodes now carry one query-local source-slot index during reachable flow discovery, and tuple-made false-flow child slots use one parent-sized duplicate mark array. The ordered payload/slot vectors remain available for the exact final checks.
+
+The red-first invariants lock sparse source positions, duplicate payload/slot rejection, bounds rejection, and first-position order. At 512 candidates, targeted medians improve non-tuple flow indexing `97.92%` and tuple slot distinctness `97.71%`. Exact payload counts, branch-slot coverage/exclusion, one non-branch parent, contiguous order, cached parent/start/current-slot checks, types, ownership, EH, effects, traps, deletion, and post-boundary failure behavior are unchanged. No opcode, control, payload, EH, type, effect, trap, ownership, deletion, or output family is admitted.
+
 ## Shape 13: flatten may create blocks inside `catch`, so EH pop fixup is required
 
 ## Before

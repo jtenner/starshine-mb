@@ -362,6 +362,10 @@ The latest exact two-code iteration removes two additional identity scans withou
 
 Private flatten reaches `184/184`, focused flatten `245/245`, passes `5,759/5,759`, full `9,220/9,220`, and green `moon info`. At 512 candidates, targeted medians improve sequenced-root lookup `31,569 -> 2,664 us` and payload distinctness `64,554 -> 2,757 us`. These are internal owner wins, not recovery of the representative contract; no `.mbti`, semantic family, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
 
+The latest exact two-code iteration removes two remaining quadratic multivalue flow lookups without widening behavior. `f1dc57565` maps each distinct non-tuple `br_if` payload node to its exact source slot once, so reachable child edges update one count directly. `24b909b2d` marks tuple false-flow child slots once while retaining the ordered slot vector and final contiguous-span proof. Exact ownership, type, parent, slot, mutation-boundary, effect, trap, and control gates remain unchanged.
+
+Private flatten reaches `186/186`, focused flatten `245/245`, passes `5,761/5,761`, full `9,222/9,222`, and green `moon info`. At 512 candidates, targeted medians improve non-tuple edge lookup `1,878 -> 39 us` and tuple slot distinctness `59,644 -> 1,368 us`. These are internal owner wins, not recovery of the representative contract; no `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changes.
+
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.

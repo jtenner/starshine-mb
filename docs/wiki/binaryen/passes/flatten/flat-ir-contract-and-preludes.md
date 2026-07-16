@@ -443,6 +443,12 @@ Commits `4a03de7f3` and `aa295d38b` remove two more linear identity scans withou
 
 The red-first invariants lock mixed-order pair insertion, duplicate and cross-pair rejection, exact payload mark population, and duplicate payload rejection. At 512 candidates, the targeted lookup reconstructions improve sequenced-root membership `31,569 -> 2,664 us` (`91.56%`) and payload distinctness `64,554 -> 2,757 us` (`95.73%`). These are owner-specific internal results, not representative-gate requalification or semantic admission.
 
+### Multivalue flow indexing preserves the same proof
+
+Commits `f1dc57565` and `24b909b2d` change only query-local lookup inside the existing block/if multivalue `br_if` proofs. Distinct payload ids now map directly to their source slots, so each reachable child edge updates exactly one payload count instead of scanning the whole payload vector. Tuple-made flow slots now use one parent-sized mark array for duplicate rejection while retaining the ordered slot vector used by the final sort-and-contiguous-span check.
+
+The semantic boundary is unchanged: each distinct payload still needs exactly the branch use plus one non-branch use; branch slots remain excluded from the false-flow parent; all false-flow lanes still share one parent and contiguous source order; tuple sites still require complete branch-slot coverage, exact total site count, and one non-branch parent; cached parent/start identity, current child slots, ownership, and post-mutation missing-proof rejection remain mandatory. The 512-candidate lookup reconstructions improve `97.92%` and `97.71%`, but they admit no new Flat-IR or WAT shape.
+
 ## The placeholder `unreachable` rule
 
 One surprising part of `Flatten.cpp` is the generic rule for expressions that become `Type::unreachable`.

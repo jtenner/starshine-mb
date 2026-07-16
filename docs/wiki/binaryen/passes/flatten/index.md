@@ -380,6 +380,12 @@ Commits `4a03de7f3` and `aa295d38b` complete the current exact two-code internal
 
 The two red-first invariants fail on missing helpers before implementation and move private flatten to `184/184`. At 512 candidates, targeted lookup medians improve `31,569 -> 2,664 us` for sequenced roots and `64,554 -> 2,757 us` for payload distinctness. Focused flatten is `245/245`, passes are `5,759/5,759`, the full suite is `9,220/9,220`, and `moon info` is green with 11 existing warnings. No semantic family, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed; every public-readiness blocker remains open.
 
+## 2026-07-15 multivalue flow-index follow-up
+
+Commits `f1dc57565` and `24b909b2d` complete the next exact two-code internal iteration without widening behavior. Distinct non-tuple multivalue `br_if` discovery now maps each payload node id to its exact source slot once, replacing the nested child-edge-to-every-payload scan. Tuple-made flow discovery now marks each non-branch child slot once instead of scanning the growing slot vector for duplicates. Exact payload counts, branch-slot exclusion, one non-branch parent, contiguous source order, cached parent/start and current-slot checks, and the pre-mutation proof boundary remain unchanged.
+
+The red-first invariants move private flatten to `186/186`. At 512 candidates, targeted medians improve non-tuple flow indexing `1,878 -> 39 us` (`97.92%`) and tuple flow-slot distinctness `59,644 -> 1,368 us` (`97.71%`). Focused flatten is `245/245`, passes are `5,761/5,761`, the full suite is `9,222/9,222`, and `moon info` is green with 11 existing warnings. No semantic family, output shape, `.mbti`, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed. The maintained skipped sequenced-root fixture remains an explicitly stale old-linear baseline and was not reused. Every public-readiness blocker remains open.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `flatten` research and port planning.

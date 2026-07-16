@@ -329,6 +329,10 @@ The next exact two-code iteration adds commits `4a03de7f3` and `aa295d38b` witho
 
 The exact 512-candidate reconstructions improve sequenced-root lookup `31,569 -> 2,664 us` (`91.56%`) and multivalue payload distinctness `64,554 -> 2,757 us` (`95.73%`). Final validation is private flatten `184/184`, focused flatten `245/245`, passes `5,759/5,759`, full suite `9,220/9,220`, and green `moon info` with 11 existing warnings. No `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed.
 
+The next exact two-code iteration adds commits `f1dc57565` and `24b909b2d` without widening behavior. The first maps each distinct non-tuple multivalue `br_if` payload id to its exact source slot once, replacing the nested child-edge-to-every-payload scan while retaining exact counts, branch-slot exclusion, unique parent ownership, and contiguous order. The second replaces tuple false-flow slot `contains` scans with one parent-sized mark array while retaining first-position order and the final sorted contiguous-span proof. Their red-first invariants are `flatten multivalue flow payload slots preserve exact source positions` and `flatten tuple flow slot marks preserve exact first positions`.
+
+At 512 candidates, the targeted native-release reconstructions improve non-tuple flow indexing `1,878 -> 39 us` (`97.92%`) and tuple slot distinctness `59,644 -> 1,368 us` (`97.71%`). Final validation is private flatten `186/186`, focused flatten `245/245`, passes `5,761/5,761`, full suite `9,222/9,222`, and green `moon info` with 11 existing warnings. No `.mbti`, semantic family, output shape, registry, dispatcher, CLI execution, compare/API, generator, or preset surface changed.
+
 ## What a faithful Starshine test ladder should start with
 
 A future implementation should start with reduced shape tests before broad artifact replay:

@@ -180,6 +180,10 @@ The sequenced-root/multivalue-payload lookup iteration also leaves the hold poin
 
 The targeted 512-candidate medians improve sequenced-root lookup `91.56%` and payload distinctness `95.73%`, but no representative measurement or public contract was requalified. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the durable `970.5 us` / `3.65x` gate remain blocked.
 
+The multivalue flow-index iteration also leaves the hold point unchanged. `f1dc57565` indexes distinct non-tuple payload ids by exact source slot during reachable false-flow discovery; `24b909b2d` marks tuple false-flow child slots for exact duplicate rejection. Both retain complete counts, branch-slot coverage/exclusion, one non-branch parent, contiguous order, cached parent/start/current-slot validation, and missing-proof rejection after mutation begins. Their red-first invariants move private flatten to `186/186`; focused flatten is `245/245`, passes are `5,761/5,761`, the full suite is `9,222/9,222`, and `moon info` is green.
+
+The targeted 512-candidate medians improve `97.92%` and `97.71%`, but no representative measurement or public contract was requalified. Public registry, dispatcher, CLI execution, compare/API, preset wiring, the flatten aggregate, four-lane signoff, ordered-neighborhood proof, typed EH repair, structured label-owner deletion, broader behavior, and the durable `970.5 us` / `3.65x` gate remain blocked.
+
 ## First decision: local Flat IR contract
 
 Binaryen's pass is defined by `src/ir/flat.h`, not by the English phrase “remove nesting.”
