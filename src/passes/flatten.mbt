@@ -3199,6 +3199,8 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
       if @ir.hot_region_get(func, region_ref, root_idx) != branch_id {
         continue
       }
+      let mut rich_left_id = -1
+      let mut rich_binary_id = -1
       for offset = 0; offset < payload_count; offset = offset + 1 {
         let consumer_id = @ir.hot_region_get(
           func,
@@ -3220,13 +3222,42 @@ fn flatten_multivalue_try_br_if_flow_is_exact(
             ) {
             return None
           }
-        } else if !flatten_multivalue_loop_br_if_consumer_matches_payload(
-            func, use_counts, consumer_id, expected_payload,
-          ) {
-          return None
+        } else {
+          let allow_rich_left = offset == payload_count - 1
+          if !flatten_multivalue_loop_br_if_consumer_matches_payload(
+              func,
+              use_counts,
+              consumer_id,
+              expected_payload,
+              allow_rich_left~,
+            ) {
+            return None
+          }
+          if allow_rich_left {
+            let consumed_id = @ir.hot_child_get(func, consumer_id, 0)
+            match @ir.hot_node_get(func, consumed_id).op {
+              @ir.HotOp::Binary if @ir.hot_child_count(func, consumed_id) == 2 &&
+                @ir.hot_child_get(func, consumed_id, 1) == expected_payload => {
+                let left_id = @ir.hot_child_get(func, consumed_id, 0)
+                if !flatten_node_is_simple_operand(func, left_id) {
+                  for slot = 0; slot < payload_count; slot = slot + 1 {
+                    if !flatten_node_is_simple_operand(
+                        func,
+                        @ir.hot_child_get(func, branch_id, slot),
+                      ) {
+                      return None
+                    }
+                  }
+                  rich_left_id = left_id
+                  rich_binary_id = consumed_id
+                }
+              }
+              _ => ()
+            }
+          }
         }
       }
-      return Some([tuple_id, arm, root_idx])
+      return Some([tuple_id, arm, root_idx, rich_left_id, rich_binary_id])
     }
   }
   None
@@ -4107,6 +4138,7 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
   use_counts : @ir.HotNodeUseCounts,
   consumer_id : Int,
   payload_id : Int,
+  allow_rich_left? : Bool = false,
 ) -> Bool {
   let consumer = @ir.hot_node_get(func, consumer_id)
   match consumer.op {
@@ -4131,11 +4163,16 @@ fn flatten_multivalue_loop_br_if_consumer_matches_payload(
           use_counts,
           @ir.hot_child_get(func, consumed_id, 1),
         )
+      let left_id = @ir.hot_child_get(func, consumed_id, 0)
       let payload_is_right = @ir.hot_child_get(func, consumed_id, 1) ==
         payload_id &&
-        flatten_node_is_simple_operand(
-          func,
-          @ir.hot_child_get(func, consumed_id, 0),
+        (
+          flatten_node_is_simple_operand(func, left_id) ||
+          (
+            allow_rich_left &&
+            @ir.hot_node_use_count(use_counts, left_id) == 1 &&
+            flatten_scalar_branch_payload_has_supported_origin(func, left_id)
+          )
         )
       if !payload_is_left && !payload_is_right {
         return false
@@ -6858,6 +6895,21 @@ fn flatten_try_route_multivalue_br_if(
         None => return false
       }
       let tuple_id = flow[0]
+      if flow[3] >= 0 {
+        let rich_left_type = match
+          flatten_single_result_type(func, @ir.hot_node_get(func, flow[3]).ty) {
+          Some(rich_left_type) => rich_left_type
+          None => return false
+        }
+        let rich_left_local = @ir.hot_append_body_local(func, rich_left_type)
+        preludes.push(@ir.hot_build_local_set(func, rich_left_local, flow[3]))
+        @ir.hot_child_set(
+          func,
+          flow[4],
+          0,
+          @ir.hot_build_local_get(func, rich_left_local),
+        )
+      }
       for slot = 0; slot < payload_count; slot = slot + 1 {
         let payload_id = if tuple_id >= 0 {
           @ir.hot_child_get(func, tuple_id, slot)
