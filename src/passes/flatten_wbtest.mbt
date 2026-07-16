@@ -1320,6 +1320,97 @@ test "flatten preserves a depth-one rethrow through strict catch block wrappers"
 }
 
 ///|
+test "flatten preserves a depth-one rethrow through mixed catch control wrappers" {
+  let func = @ir.HotFunc::new()
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=1,
+    children=[],
+  )
+  let inner_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    rethrow_id,
+  ])
+  let inner_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [inner_block],
+    else_body=Some([@ir.hot_build_nop(func)]),
+  )
+  let inner_try = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_throw(func, @lib.TagIdx::new(1U), [])],
+    catch_body=Some([inner_if]),
+  )
+  let outer_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    inner_try,
+  ])
+  let outer_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [@ir.hot_build_nop(func)],
+    else_body=Some([outer_block]),
+  )
+  let rich_drop = flatten_test_build_rich_drop(func)
+  let outer_try = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [@ir.hot_build_throw(func, @lib.TagIdx::new(0U), [])],
+    catch_body=Some([rich_drop[1], outer_if]),
+  )
+  @ir.hot_root_append(func, outer_try)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("mixed-wrapper depth-one rethrow remained deferred")
+    _ => fail("mixed-wrapper depth-one rethrow failed an unrelated gate")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_get(func, rethrow_id).imm0, 1)
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected mixed-wrapper depth-one rethrow HOT to verify, got \{err}")
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_tag_sec(
+      @lib.TagSec::new([
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+        @lib.TagType::new(@lib.TypeIdx::new(0U)),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  let pretty = module_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("catch_all_ref"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("throw_ref"), msg=pretty)
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten preserves direct delegate target through nested block lowering" {
   let func = @ir.HotFunc::new()
   let outer = @ir.hot_build_try(

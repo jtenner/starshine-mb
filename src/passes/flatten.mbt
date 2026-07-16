@@ -8977,6 +8977,34 @@ fn flatten_rethrow_catch_root_through_strict_ancestry(
         current = parent
         parent = state.direct_parent[current]
       }
+      @ir.HotOp::If => {
+        if @ir.hot_node_result_arity(func, parent) != 0 {
+          return -1
+        }
+        let label_id = @ir.hot_control_node_label(func, parent)
+        if label_id < 0 || !state.label_branch_nodes[label_id].is_empty() {
+          return -1
+        }
+        let then_ref = @ir.hot_region_then_ref(func, parent)
+        let mut owns_current = @ir.hot_region_root_count(func, then_ref) == 1 &&
+          @ir.hot_region_get(func, then_ref, 0) == current
+        match @ir.hot_region_else_ref(func, parent) {
+          Some(else_ref) =>
+            if @ir.hot_region_root_count(func, else_ref) == 1 &&
+              @ir.hot_region_get(func, else_ref, 0) == current {
+              if owns_current {
+                return -1
+              }
+              owns_current = true
+            }
+          None => ()
+        }
+        if !owns_current {
+          return -1
+        }
+        current = parent
+        parent = state.direct_parent[current]
+      }
       _ => break
     }
   }
