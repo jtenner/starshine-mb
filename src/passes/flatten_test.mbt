@@ -7500,6 +7500,121 @@ test "flatten preserves rich left binary false flow from scalar multivalue try l
 }
 
 ///|
+test "flatten preserves rich left binary false flow with one rich scalar try payload" {
+  let i32_type = @lib.ValType::i32()
+  let i64_type = @lib.ValType::i64()
+  let func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i64_type]))
+  @ir.hot_body_result_type_set(
+    func,
+    @ir.hot_type_intern_results(func, [i32_type, i64_type]),
+  )
+  let body_first_fallback = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let body_second_fallback = @ir.hot_build_const_i64(func, @lib.I64(10L))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [body_first_fallback, body_second_fallback],
+    catch_body=Some([
+      @ir.hot_build_const_i32(func, @lib.I32(11)),
+      @ir.hot_build_const_i64(func, @lib.I64(12L)),
+    ]),
+  )
+  @ir.hot_control_result_type_set(
+    func,
+    try_id,
+    @ir.hot_type_intern_resolved_block_result(
+      func,
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      [],
+      [i32_type, i64_type],
+    ),
+  )
+  let first_payload = @ir.hot_build_call(func, 97, [i32_type], [])
+  let second_payload = @ir.hot_build_local_get(func, 0)
+  let condition = @ir.hot_build_const_i32(func, @lib.I32(0))
+  let label_id = @ir.hot_control_node_label(func, try_id)
+  let branch = @ir.hot_build_br_if(func, label_id, condition, values=[
+    first_payload, second_payload,
+  ])
+  let second_drop = @ir.hot_build_drop(func, second_payload)
+  let first_left = @ir.hot_build_call(func, 98, [i32_type], [])
+  let first_binary = @ir.hot_build_binary(
+    func, i32_type, first_left, first_payload,
+  )
+  @ir.hot_node_exact_instr_set(func, first_binary, @lib.Instruction::i32_sub())
+  let first_drop = @ir.hot_build_drop(func, first_binary)
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch, second_drop, first_drop, body_first_fallback, body_second_fallback,
+  ])
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id, try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_child_count(func, branch), 1)
+  let mut left_set_root = -1
+  let mut payload_set_root = -1
+  let mut branch_root = -1
+  let mut binary_set_root = -1
+  for root_idx = 0
+      root_idx < @ir.hot_region_root_count(func, body_ref)
+      root_idx = root_idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, root_idx)
+    if root_id == branch {
+      branch_root = root_idx
+      continue
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet if @ir.hot_child_count(func, root_id) == 1 => {
+        let value_id = @ir.hot_child_get(func, root_id, 0)
+        if value_id == first_left {
+          left_set_root = root_idx
+        } else if value_id == first_payload {
+          payload_set_root = root_idx
+        } else if value_id == first_binary {
+          binary_set_root = root_idx
+        }
+      }
+      _ => ()
+    }
+  }
+  assert_true(left_set_root >= 0)
+  assert_true(payload_set_root >= 0)
+  assert_true(branch_root >= 0)
+  assert_true(binary_set_root >= 0)
+  assert_true(left_set_root < payload_set_root)
+  assert_true(payload_set_root < branch_root)
+  assert_true(branch_root < binary_set_root)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_binary, 0)).imm0,
+    @ir.hot_node_get(func, @ir.hot_region_get(func, body_ref, left_set_root)).imm0,
+  )
+  let first_payload_local = @ir.hot_node_get(
+      func,
+      @ir.hot_region_get(func, body_ref, payload_set_root),
+    ).imm0
+  @debug.assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, first_binary, 1)).imm0,
+    first_payload_local,
+  )
+  let use_def = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_left), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, first_payload), 1)
+  @debug.assert_eq(@ir.node_use_count(use_def, second_payload), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected rich-payload scalar try flow to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten routes one tuple-made multivalue br_if to its legacy try result vector" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()
