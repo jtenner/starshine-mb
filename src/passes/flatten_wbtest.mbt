@@ -7372,6 +7372,23 @@ test "flatten sequenced roots track only pre-mutation shared nodes" {
 }
 
 ///|
+test "flatten sequenced root cache keeps sparse pairs sorted" {
+  let holders : Array[Int] = []
+  let nodes : Array[Int] = []
+  assert_true(flatten_sequenced_root_record(holders, nodes, 4, 19))
+  assert_true(flatten_sequenced_root_record(holders, nodes, 1, 12))
+  assert_true(flatten_sequenced_root_record(holders, nodes, 4, 3))
+  assert_false(flatten_sequenced_root_record(holders, nodes, 4, 19))
+  @debug.assert_eq(holders, [1, 4, 4])
+  @debug.assert_eq(nodes, [12, 3, 19])
+  assert_true(flatten_sequenced_root_contains(holders, nodes, 1, 12))
+  assert_true(flatten_sequenced_root_contains(holders, nodes, 4, 3))
+  assert_true(flatten_sequenced_root_contains(holders, nodes, 4, 19))
+  assert_false(flatten_sequenced_root_contains(holders, nodes, 1, 19))
+  assert_false(flatten_sequenced_root_contains(holders, nodes, 4, 12))
+}
+
+///|
 test "flatten unique table target marks preserve first source order" {
   let targets : Array[Int] = []
   let seen = @bitset.BitSet::new(8)

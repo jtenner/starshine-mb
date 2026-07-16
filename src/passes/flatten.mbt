@@ -1055,6 +1055,70 @@ fn flatten_terminal_payload_record(
 }
 
 ///|
+fn flatten_sequenced_root_lower_bound(
+  holders : Array[Int],
+  nodes : Array[Int],
+  holder : Int,
+  node_id : Int,
+) -> Int {
+  let mut low = 0
+  let mut high = if holders.length() < nodes.length() {
+    holders.length()
+  } else {
+    nodes.length()
+  }
+  while low < high {
+    let middle = low + (high - low) / 2
+    if holders[middle] < holder ||
+      (holders[middle] == holder && nodes[middle] < node_id) {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  low
+}
+
+///|
+fn flatten_sequenced_root_contains(
+  holders : Array[Int],
+  nodes : Array[Int],
+  holder : Int,
+  node_id : Int,
+) -> Bool {
+  if holder < 0 || node_id < 0 || holders.length() != nodes.length() {
+    return false
+  }
+  let index = flatten_sequenced_root_lower_bound(
+    holders, nodes, holder, node_id,
+  )
+  index < nodes.length() && holders[index] == holder && nodes[index] == node_id
+}
+
+///|
+fn flatten_sequenced_root_record(
+  holders : Array[Int],
+  nodes : Array[Int],
+  holder : Int,
+  node_id : Int,
+) -> Bool {
+  if holder < 0 || node_id < 0 || holders.length() != nodes.length() {
+    return false
+  }
+  let index = flatten_sequenced_root_lower_bound(
+    holders, nodes, holder, node_id,
+  )
+  if index < nodes.length() &&
+    holders[index] == holder &&
+    nodes[index] == node_id {
+    return false
+  }
+  holders.insert(index, holder)
+  nodes.insert(index, node_id)
+  true
+}
+
+///|
 priv struct FlattenRewriteState {
   label_temps : Array[Array[Int]]
   terminal_payloads : Array[Int]
@@ -7390,13 +7454,12 @@ fn flatten_place_unreachable_control_placeholder(
   if !flatten_node_is_admitted_terminal_control_effect(func, child_id) {
     return false
   }
-  let mut already_sequenced = false
-  for idx = 0; idx < state.sequenced_root_nodes.length(); idx = idx + 1 {
-    if state.sequenced_root_holders[idx] == owner_region.holder &&
-      state.sequenced_root_nodes[idx] == child_id {
-      already_sequenced = true
-    }
-  }
+  let already_sequenced = flatten_sequenced_root_contains(
+    state.sequenced_root_holders,
+    state.sequenced_root_nodes,
+    owner_region.holder,
+    child_id,
+  )
   if !already_sequenced {
     preludes.push(child_id)
   }
@@ -7509,8 +7572,14 @@ fn flatten_rewrite_region_operands(
     }
     let root_idx = idx + inserted
     if flatten_root_needs_sequence_tracking(state, node_id) {
-      state.sequenced_root_holders.push(region_ref.holder)
-      state.sequenced_root_nodes.push(node_id)
+      ignore(
+        flatten_sequenced_root_record(
+          state.sequenced_root_holders,
+          state.sequenced_root_nodes,
+          region_ref.holder,
+          node_id,
+        ),
+      )
     }
     if flatten_terminal_payload_contains(state.terminal_payloads, node_id) {
       ignore(pass_splice_region(ctx, func, region_ref, root_idx, 1, []))
