@@ -1075,6 +1075,97 @@ test "flatten preserves a catch-all rethrow through a strict nested if chain" {
 }
 
 ///|
+test "flatten preserves a direct rethrow through a value-carrying if arm" {
+  let func = @ir.HotFunc::new()
+  let rethrow_id = @ir.hot_build_node(
+    func,
+    @ir.HotOp::rethrow(),
+    @ir.hot_type_void(func),
+    imm0=0,
+  )
+  let if_id = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    [rethrow_id],
+    else_body=Some([@ir.hot_build_const_i32(func, @lib.I32(7))]),
+  )
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_call(func, 0, [@lib.ValType::i32()], [])],
+    catch_body=Some([if_id]),
+  )
+  let result_drop = @ir.hot_build_drop(func, try_id)
+  @ir.hot_root_append(func, result_drop)
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match flatten_run_admission(func, flatten_classify_hot(func)) {
+    FlattenRunAdmission::Admitted => ()
+    FlattenRunAdmission::UpstreamHardUnsupported =>
+      fail("value-carrying-if rethrow was classified hard unsupported")
+    FlattenRunAdmission::DeferredCatchPayloadRepair =>
+      fail("value-carrying-if rethrow was deferred for catch payload repair")
+    FlattenRunAdmission::DeferredExceptionalTransferRepair =>
+      fail("value-carrying-if rethrow was deferred for exceptional transfer")
+    FlattenRunAdmission::DeferredInputfulLoop =>
+      fail("value-carrying-if rethrow was deferred for an inputful loop")
+    FlattenRunAdmission::DeferredLegacyTry =>
+      fail("value-carrying-if rethrow was deferred for legacy try routing")
+    FlattenRunAdmission::DeferredBranchPayload =>
+      fail("value-carrying-if rethrow was deferred for branch payload routing")
+  }
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  @debug.assert_eq(@ir.hot_node_result_arity(func, if_id), 0)
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_node_get(func, rethrow_id).imm0, 0)
+  let result_get = @ir.hot_child_get(func, result_drop, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, result_get).op.to_string(),
+    "LocalGet",
+  )
+  match @ir.hot_verify_control(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected value-carrying-if rethrow flatten HOT to verify, got \{err}",
+      )
+  }
+
+  let lowered = @ir.hot_lower_func(func)
+  let callee = @lib.Func::new(
+    @lib.Locals::from_types([]),
+    @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+  )
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(1U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(@lib.CodeSec::new([callee, lowered]))
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "flatten preserves direct delegate target through nested block lowering" {
   let func = @ir.HotFunc::new()
   let outer = @ir.hot_build_try(

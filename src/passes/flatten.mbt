@@ -5556,6 +5556,14 @@ fn flatten_try_route_scalar_try(
 }
 
 ///|
+fn flatten_node_is_rethrow(func : @ir.HotFunc, node_id : Int) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Rethrow => true
+    _ => false
+  }
+}
+
+///|
 fn flatten_try_route_scalar_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5606,11 +5614,13 @@ fn flatten_try_route_scalar_if(
   let else_has_fallthrough_value = @ir.hot_node_result_arity(func, else_tail) ==
     1
   if !then_has_fallthrough_value &&
-    !flatten_terminal_branch_targets_label(func, then_tail, label_id, false) {
+    !flatten_terminal_branch_targets_label(func, then_tail, label_id, false) &&
+    !flatten_node_is_rethrow(func, then_tail) {
     return None
   }
   if !else_has_fallthrough_value &&
-    !flatten_terminal_branch_targets_label(func, else_tail, label_id, false) {
+    !flatten_terminal_branch_targets_label(func, else_tail, label_id, false) &&
+    !flatten_node_is_rethrow(func, else_tail) {
     return None
   }
   let local_id = if routed_local >= 0 {
@@ -8874,6 +8884,50 @@ priv enum FlattenRunAdmission {
 }
 
 ///|
+fn flatten_direct_rethrow_value_if_is_supported(
+  func : @ir.HotFunc,
+  if_id : Int,
+  rethrow_id : Int,
+  state : FlattenRewriteState,
+) -> Bool {
+  let result_types = flatten_type_results(
+    func,
+    @ir.hot_node_get(func, if_id).ty,
+    state=Some(state),
+  )
+  if result_types.length() != 1 ||
+    !flatten_value_type_is_defaultable(result_types[0]) {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let then_count = @ir.hot_region_root_count(func, then_ref)
+  let else_count = @ir.hot_region_root_count(func, else_ref)
+  if then_count == 0 || else_count == 0 {
+    return false
+  }
+  let then_tail = @ir.hot_region_get(func, then_ref, then_count - 1)
+  let else_tail = @ir.hot_region_get(func, else_ref, else_count - 1)
+  let other_tail = if then_tail == rethrow_id && else_tail != rethrow_id {
+    else_tail
+  } else if else_tail == rethrow_id && then_tail != rethrow_id {
+    then_tail
+  } else {
+    return false
+  }
+  flatten_type_results(
+    func,
+    @ir.hot_node_get(func, other_tail).ty,
+    state=Some(state),
+  ) ==
+  result_types &&
+  flatten_node_is_simple_operand(func, other_tail)
+}
+
+///|
 fn flatten_direct_catch_all_rethrow_is_supported(
   func : @ir.HotFunc,
   rethrow_id : Int,
@@ -8896,7 +8950,15 @@ fn flatten_direct_catch_all_rethrow_is_supported(
         parent = state.direct_parent[current]
       }
       @ir.HotOp::If => {
-        if @ir.hot_node_result_arity(func, parent) != 0 {
+        let result_arity = @ir.hot_node_result_arity(func, parent)
+        if result_arity != 0 &&
+          (
+            current != rethrow_id ||
+            result_arity != 1 ||
+            !flatten_direct_rethrow_value_if_is_supported(
+              func, parent, rethrow_id, state,
+            )
+          ) {
           return false
         }
         let label_id = @ir.hot_control_node_label(func, parent)
