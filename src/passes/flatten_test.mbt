@@ -15317,6 +15317,93 @@ test "flatten removes one owned structured loop suffix after a scalar legacy try
 }
 
 ///|
+test "flatten removes an owned mixed structured forest after a scalar legacy try table" {
+  let i32_type = @lib.ValType::i32()
+  let func = @ir.HotFunc::new()
+  @ir.hot_body_result_type_set(func, @ir.hot_type_intern_value(func, i32_type))
+  let body_fallback = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let try_id = @ir.hot_build_try(
+    func,
+    @lib.BlockType::val_type(i32_type),
+    [body_fallback],
+    catch_body=Some([@ir.hot_build_const_i32(func, @lib.I32(12))]),
+  )
+  let try_label = @ir.hot_control_node_label(func, try_id)
+  let branch_id = @ir.hot_build_br_table(
+    func,
+    [try_label],
+    try_label,
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    values=[@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+
+  let block_const = @ir.hot_build_const_i32(func, @lib.I32(8))
+  let block_drop = @ir.hot_build_drop(func, block_const)
+  let dead_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [
+    block_drop,
+  ])
+  let block_label = @ir.hot_control_node_label(func, dead_block)
+
+  let condition = @ir.hot_build_const_i32(func, @lib.I32(1))
+  let then_const = @ir.hot_build_const_i32(func, @lib.I32(9))
+  let then_drop = @ir.hot_build_drop(func, then_const)
+  let else_const = @ir.hot_build_const_i32(func, @lib.I32(10))
+  let else_drop = @ir.hot_build_drop(func, else_const)
+  let dead_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    condition,
+    [then_drop],
+    else_body=Some([else_drop]),
+  )
+  let if_label = @ir.hot_control_node_label(func, dead_if)
+  let then_holder = @ir.hot_region_then_ref(func, dead_if).holder
+  let then_label = @ir.hot_control_node_label(func, then_holder)
+  let else_holder = @ir.hot_region_else_ref(func, dead_if).unwrap().holder
+  let else_label = @ir.hot_control_node_label(func, else_holder)
+
+  let loop_const = @ir.hot_build_const_i32(func, @lib.I32(11))
+  let loop_drop = @ir.hot_build_drop(func, loop_const)
+  let dead_loop = @ir.hot_build_loop(func, @lib.BlockType::void_(), [loop_drop])
+  let loop_label = @ir.hot_control_node_label(func, dead_loop)
+
+  let body_ref = @ir.hot_region_body_ref(func, try_id)
+  @ir.hot_region_replace_body(func, body_ref, [
+    branch_id, dead_block, dead_if, dead_loop,
+  ])
+  @ir.hot_delete_node(func, body_fallback)
+  @ir.hot_root_append(func, @ir.hot_build_return(func, [try_id]))
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  for
+    node_id in [
+      block_const, block_drop, dead_block, condition, then_const, then_drop, then_holder,
+      else_const, else_drop, else_holder, dead_if, loop_const, loop_drop, dead_loop,
+    ] {
+    assert_false(@ir.hot_node_is_live(func, node_id))
+  }
+  for label_id in [block_label, if_label, then_label, else_label, loop_label] {
+    assert_false(@ir.hot_label_is_live(func, label_id))
+  }
+  @debug.assert_eq(@ir.hot_node_result_arity(func, try_id), 0)
+  @debug.assert_eq(@ir.hot_label_branch_arity(func, try_label), 0)
+  @debug.assert_eq(@ir.hot_child_count(func, branch_id), 1)
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected structured-forest try table routing to verify, got \{err}")
+  }
+}
+
+///|
 test "flatten removes an unreachable-only suffix after a tuple-made legacy try table" {
   let i32_type = @lib.ValType::i32()
   let i64_type = @lib.ValType::i64()

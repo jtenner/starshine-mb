@@ -3047,6 +3047,7 @@ fn flatten_try_table_dead_suffix_nodes(
       let mut exact_add_drop_then_unreachable = suffix_count == 2
       let mut exact_unreachable_then_add_drop = suffix_count == 2
       let mut all_direct_sequence_roots = true
+      let mut all_structured_control_roots = true
       for suffix_idx = root_idx + 1
           suffix_idx < root_count
           suffix_idx = suffix_idx + 1 {
@@ -3086,6 +3087,15 @@ fn flatten_try_table_dead_suffix_nodes(
         if !root_is_direct_sequence {
           all_direct_sequence_roots = false
         }
+        let root_is_structured_control = match
+          @ir.hot_node_get(func, root_id).op {
+          @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Loop =>
+            recognized_root is Some(_)
+          _ => false
+        }
+        if !root_is_structured_control {
+          all_structured_control_roots = false
+        }
         if suffix_idx == root_idx + 1 {
           if !root_is_direct_drop_const {
             exact_drop_const_then_unreachable = false
@@ -3116,7 +3126,8 @@ fn flatten_try_table_dead_suffix_nodes(
         !exact_unreachable_then_drop_const &&
         !exact_add_drop_then_unreachable &&
         !exact_unreachable_then_add_drop &&
-        !all_direct_sequence_roots {
+        !all_direct_sequence_roots &&
+        !all_structured_control_roots {
         return None
       }
     }
@@ -7999,16 +8010,15 @@ fn flatten_try_route_br_table(
           root_idx + 1,
         )
         pass_mark_mutated(ctx, func)
-        let structured_root = if detached_roots.length() == 1 {
-          match @ir.hot_node_get(func, detached_roots[0]).op {
-            @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Loop => true
-            _ => false
+        let mut structured_forest = !detached_roots.is_empty()
+        for detached_root in detached_roots {
+          match @ir.hot_node_get(func, detached_root).op {
+            @ir.HotOp::Block | @ir.HotOp::If | @ir.HotOp::Loop => ()
+            _ => structured_forest = false
           }
-        } else {
-          false
         }
-        if structured_root {
-          if !@ir.hot_delete_detached_control_subtree(func, detached_roots[0]) {
+        if structured_forest {
+          if !@ir.hot_delete_detached_control_forest(func, detached_roots) {
             abort("flatten structured suffix deletion violated admission proof")
           }
         } else {
