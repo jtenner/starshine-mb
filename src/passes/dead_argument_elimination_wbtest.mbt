@@ -14205,4 +14205,8 @@ test "dae forwarded-cycle collection prioritizes explicitly selected definitions
     2, 3,
   ])
   @debug.assert_eq(cycle_defs, [2, 3])
+  let next_cycle_defs = dae_collect_forwarded_param_cycle_defs(
+    mod_, touched, excluded_defs=cycle_defs,
+  )
+  @debug.assert_eq(next_cycle_defs, [0, 1])
 }

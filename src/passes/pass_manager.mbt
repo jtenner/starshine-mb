@@ -66576,13 +66576,25 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
-  let forwarded_cycle_defs = dae_collect_forwarded_param_cycle_defs(
-    core_mod,
-    forwarded_scc_seeds,
-    preferred_defs=forwarded_cycle_preferred_defs,
-  )
-  let mut post_component_cleanup_defs : Array[Int] = []
-  if forwarded_cycle_defs.length() > 1 {
+  let processed_forwarded_cycle_defs : Array[Int] = []
+  let post_component_cleanup_defs : Array[Int] = []
+  let mut forwarded_cycle_round = 0
+  while forwarded_cycle_round < 8 {
+    let forwarded_cycle_defs = dae_collect_forwarded_param_cycle_defs(
+      core_mod,
+      forwarded_scc_seeds,
+      preferred_defs=forwarded_cycle_preferred_defs,
+      excluded_defs=processed_forwarded_cycle_defs,
+    )
+    forwarded_cycle_preferred_defs.clear()
+    if forwarded_cycle_defs.length() < 2 {
+      break
+    }
+    for def_idx in forwarded_cycle_defs {
+      if !processed_forwarded_cycle_defs.contains(def_idx) {
+        processed_forwarded_cycle_defs.push(def_idx)
+      }
+    }
     let scc_cleanup_touched = Array::make(forwarded_scc_seeds.length(), false)
     for def_idx in forwarded_cycle_defs {
       forwarded_scc_seeds[def_idx] = true
@@ -66623,13 +66635,18 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         core_mod = application.mod_out
         core_touched = application.touched
         forwarded_scc_seeds = application.touched.copy()
-        post_component_cleanup_defs = application.defs.copy()
+        for def_idx in application.defs {
+          if !post_component_cleanup_defs.contains(def_idx) {
+            post_component_cleanup_defs.push(def_idx)
+          }
+        }
         (options.trace)(
           "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
         )
       }
       None => ()
     }
+    forwarded_cycle_round += 1
   }
   core_mod = run_hot_pipeline_apply_dae_post_component_cleanup(
     core_mod, post_component_cleanup_defs, options,

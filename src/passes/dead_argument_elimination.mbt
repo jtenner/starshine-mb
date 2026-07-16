@@ -30593,6 +30593,7 @@ fn dae_collect_forwarded_param_cycle_defs(
   current : @lib.Module,
   touched : Array[Bool],
   preferred_defs? : Array[Int] = [],
+  excluded_defs? : Array[Int] = [],
 ) -> Array[Int] {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
@@ -30608,12 +30609,15 @@ fn dae_collect_forwarded_param_cycle_defs(
     if preferred_def >= 0 &&
       preferred_def < defined &&
       touched[preferred_def] &&
+      !excluded_defs.contains(preferred_def) &&
       !seed_defs.contains(preferred_def) {
       seed_defs.push(preferred_def)
     }
   }
   for seed_def = 0; seed_def < defined; seed_def = seed_def + 1 {
-    if touched[seed_def] && !seed_defs.contains(seed_def) {
+    if touched[seed_def] &&
+      !excluded_defs.contains(seed_def) &&
+      !seed_defs.contains(seed_def) {
       seed_defs.push(seed_def)
     }
   }
@@ -30645,7 +30649,8 @@ fn dae_collect_forwarded_param_cycle_defs(
             defs.push(def_idx)
           }
         }
-        if defs.length() > 1 {
+        if defs.length() > 1 &&
+          !defs.any(fn(def_idx) { excluded_defs.contains(def_idx) }) {
           return defs
         }
       }
