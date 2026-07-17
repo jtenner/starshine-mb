@@ -16012,9 +16012,15 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
     out.write_string("    local.get 0\n    if call $log end\n")
   }
   out.write_string(
+    "    i32.const 7)\n  (func $mid (param i32) (result i32)\n    (local",
+  )
+  for local_idx = 0; local_idx < 65; local_idx = local_idx + 1 {
+    ignore(local_idx)
+    out.write_string(" i32")
+  }
+  out.write_string(
     (
-      #|    i32.const 7)
-      #|  (func $mid (param i32) (result i32)
+      #|)
       #|    local.get 0
       #|    call $leaf)
       #|  (func $normalize (param i32) (result i32)
@@ -16050,10 +16056,14 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   }
   let leaf = optimized.pretty_print_defined_func(8192U)
   assert_false(leaf.contains("call (Func 0)"), msg=leaf)
+  for def_idx in [8193U, 8194U] {
+    let productive = optimized.pretty_print_defined_func(def_idx)
+    assert_false(productive.contains("(local"), msg=productive)
+  }
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=8194 productive_defs=[8194, 8193, 8192]",
+        "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=8194 productive_defs=[8194, 8193, 8192] cleanup_defs=[8194, 8193]",
       )
     }),
     msg=trace.to_string(),

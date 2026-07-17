@@ -21732,6 +21732,23 @@ test "DAEO selected cleanup forwards one-use immutable parameter copies" {
 }
 
 ///|
+test "DAEO broad-high selected compaction preserves params and removes unused locals" {
+  let original = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32 i32) local.get 0))",
+  )
+  let (compacted, removed) = run_hot_pipeline_dae_broad_high_compact_selected_locals(
+    original, 0,
+  )
+  @debug.assert_eq(removed, 3)
+  let @lib.Func(locals, @lib.Expr(body)) = match compacted.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[0]
+    None => fail("expected compacted code section")
+  }
+  @debug.assert_eq(locals, @lib.Locals::empty())
+  @debug.assert_eq(body, [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))])
+}
+
+///|
 test "DAEO broad-high structural primitives preserve stack/control shape" {
   let value = @lib.LocalIdx::new(0U)
   let (zero_eq, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs([

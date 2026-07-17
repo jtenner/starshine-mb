@@ -62049,6 +62049,43 @@ fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_dae_broad_high_compact_selected_locals(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> (@lib.Module, Int) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, 0)
+  }
+  let func = match funcs.get(def_idx) {
+    Some(func) => func
+    None => return (mod_, 0)
+  }
+  let @lib.Func(locals, _) = func
+  let func_idx = @lib.FuncIdx::new(
+    (dae_imported_func_count(mod_) + def_idx).reinterpret_as_uint(),
+  )
+  let params = match
+    run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx) {
+    Some(params) => params
+    None => return (mod_, 0)
+  }
+  let (compacted_func, compacted) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+    func, params, 0,
+  )
+  if !compacted {
+    return (mod_, 0)
+  }
+  let @lib.Func(compacted_locals, _) = compacted_func
+  let next_funcs = funcs.copy()
+  next_funcs[def_idx] = compacted_func
+  (
+    mod_.with_code_sec(@lib.CodeSec::new(next_funcs)).without_name_sec(),
+    locals.length() - compacted_locals.length(),
+  )
+}
+
+///|
 fn run_hot_pipeline_dae_bounded_instr_count(
   instrs : Array[@lib.Instruction],
   limit : Int,
@@ -62098,14 +62135,14 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
   mod_ : @lib.Module,
   touched : Array[Bool],
   options : HotPipelineOptions,
-) -> Result[(@lib.Module, Array[Bool], Bool), String] {
+) -> Result[(@lib.Module, Array[Bool], Bool, Array[Int]), String] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return Ok((mod_, touched, false))
+    None => return Ok((mod_, touched, false, []))
   }
   let defined = funcs.length()
   if defined <= 8192 {
-    return Ok((mod_, touched, false))
+    return Ok((mod_, touched, false, []))
   }
   let imported = dae_imported_func_count(mod_)
   let discovery_start_us = perf_start_timer_opt(
@@ -62155,7 +62192,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     discovery_start_us,
   )
   if ranked_defs.length() == 0 {
-    return Ok((mod_, touched, false))
+    return Ok((mod_, touched, false, []))
   }
   let seed_start_us = perf_start_timer_opt(
     options.perf,
@@ -62196,7 +62233,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
   }
   perf_stop_timer_opt(options.perf, "detail:dae:broad-high:seed", seed_start_us)
   if seed_def < 0 {
-    return Ok((mod_, touched, false))
+    return Ok((mod_, touched, false, []))
   }
   let selected_defs = Array::make(defined, false)
   selected_defs[seed_def] = true
@@ -62343,85 +62380,148 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     options.perf,
     "detail:dae:broad-high:cleanup",
   )
-  let cleanup_baseline = current
   let cleanup_defs : Array[Int] = []
-  let cleanup_selected = Array::make(selected_defs.length(), false)
-  if productive_defs.length() > 0 {
-    let cleanup_def = productive_defs[productive_defs.length() - 1]
-    cleanup_defs.push(cleanup_def)
-    cleanup_selected[cleanup_def] = true
-  }
-  current = match
-    run_hot_pipeline_apply_coalesce_locals_to_touched(current, cleanup_selected) {
-    Ok(next) => next
-    Err(err) =>
-      return Err("DAE broad high exact-literal coalesce-locals: \{err}")
-  }
   let mut removed_dead_tee_count = 0
   let mut structural_cleanup_count = 0
-  if cleanup_defs.length() > 0 {
-    let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
-      current,
-      cleanup_defs[0],
-    )
-    current = next
-    removed_dead_tee_count += removed_count
-    let (next, cleanup_count) = run_hot_pipeline_dae_broad_high_structural_cleanup(
-      current,
-      cleanup_defs[0],
-    )
-    current = next
-    structural_cleanup_count += cleanup_count
+  // Binaryen's optimizeAfterInlining replay applies to every changed function,
+  // not only the final callee in a signature-propagation chain. Probe each
+  // productive definition independently so one invalid or non-profitable body
+  // cannot roll back an already accepted sibling cleanup.
+  let final_productive_def = if productive_defs.length() > 0 {
+    productive_defs[productive_defs.length() - 1]
+  } else {
+    -1
   }
-  for cleanup_round = 0; cleanup_round < 1; cleanup_round = cleanup_round + 1 {
-    for
-      cleanup_pass in [
-        "dead-code-elimination", "remove-unused-brs", "merge-blocks", "simplify-locals",
-        "vacuum",
-      ] {
-      let descriptor = match
-        run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-        Ok(descriptor) => descriptor
-        Err(err) => return Err(err)
+  for cleanup_def in productive_defs {
+    if cleanup_def < 0 || cleanup_def >= selected_defs.length() {
+      continue
+    }
+    let cleanup_local_count = match current.code_sec {
+      Some(@lib.CodeSec(current_funcs)) =>
+        match current_funcs.get(cleanup_def) {
+          Some(@lib.Func(locals, _)) => locals.length()
+          None => 0
+        }
+      None => 0
+    }
+    let cleanup_baseline = current
+    let cleanup_selected = Array::make(selected_defs.length(), false)
+    cleanup_selected[cleanup_def] = true
+    let mut cleanup_current = run_hot_pipeline_dae_clone_cleanup_defs(current, [
+      cleanup_def,
+    ])
+    let mut def_removed_dead_tee_count = 0
+    let mut def_structural_cleanup_count = 0
+    let (next, compacted_count) = run_hot_pipeline_dae_broad_high_compact_selected_locals(
+      cleanup_current, cleanup_def,
+    )
+    cleanup_current = next
+    def_structural_cleanup_count += compacted_count
+    // Keep the full generic round for the final exposed callee and for small
+    // earlier links. A large intermediate body receives the direct counted
+    // cleanup and compaction only: the generic hot-pass setup was expensive and
+    // non-profitable there, while final access-frequency ordering remains the
+    // source-backed representation owner after all body mutation.
+    if cleanup_def != final_productive_def && cleanup_local_count > 64 {
+      let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
+        cleanup_current, cleanup_def,
+      )
+      cleanup_current = next
+      def_removed_dead_tee_count += removed_count
+      let (next, cleanup_count) = run_hot_pipeline_dae_broad_high_structural_cleanup(
+        cleanup_current, cleanup_def,
+      )
+      cleanup_current = next
+      def_structural_cleanup_count += cleanup_count
+      let (next, compacted_count) = run_hot_pipeline_dae_broad_high_compact_selected_locals(
+        cleanup_current, cleanup_def,
+      )
+      cleanup_current = next
+      def_structural_cleanup_count += compacted_count
+      let (validated, valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+        cleanup_baseline, cleanup_current, cleanup_def,
+      )
+      let smaller = if valid {
+        match
+          run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+            cleanup_baseline, validated, cleanup_def,
+          ) {
+          Some(true) => true
+          _ => false
+        }
+      } else {
+        false
       }
-      current = match
-        run_hot_pipeline_apply_hot_pass_to_touched(
-          current, descriptor, cleanup_selected, options,
-        ) {
-        Ok(next) => next
-        Err(err) =>
-          return Err(
-            "DAE broad high exact-literal final round=\{cleanup_round} \{cleanup_pass}: \{err}",
-          )
+      if smaller {
+        current = validated
+        cleanup_defs.push(cleanup_def)
+        removed_dead_tee_count += def_removed_dead_tee_count
+        structural_cleanup_count += def_structural_cleanup_count
+      }
+      continue
+    }
+    cleanup_current = match
+      run_hot_pipeline_apply_coalesce_locals_to_touched(
+        cleanup_current, cleanup_selected,
+      ) {
+      Ok(next) => next
+      Err(err) =>
+        return Err("DAE broad high exact-literal coalesce-locals: \{err}")
+    }
+    let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
+      cleanup_current, cleanup_def,
+    )
+    cleanup_current = next
+    def_removed_dead_tee_count += removed_count
+    let (next, cleanup_count) = run_hot_pipeline_dae_broad_high_structural_cleanup(
+      cleanup_current, cleanup_def,
+    )
+    cleanup_current = next
+    def_structural_cleanup_count += cleanup_count
+    for cleanup_round = 0; cleanup_round < 1; cleanup_round = cleanup_round + 1 {
+      for
+        cleanup_pass in [
+          "dead-code-elimination", "remove-unused-brs", "merge-blocks", "simplify-locals",
+          "vacuum",
+        ] {
+        let descriptor = match
+          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+          Ok(descriptor) => descriptor
+          Err(err) => return Err(err)
+        }
+        cleanup_current = match
+          run_hot_pipeline_apply_hot_pass_to_touched(
+            cleanup_current, descriptor, cleanup_selected, options,
+          ) {
+          Ok(next) => next
+          Err(err) =>
+            return Err(
+              "DAE broad high exact-literal final def=\{cleanup_def} round=\{cleanup_round} \{cleanup_pass}: \{err}",
+            )
+        }
       }
     }
-  }
-  if cleanup_defs.length() > 0 {
     let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
-      current,
-      cleanup_defs[0],
+      cleanup_current, cleanup_def,
     )
-    current = next
-    removed_dead_tee_count += removed_count
+    cleanup_current = next
+    def_removed_dead_tee_count += removed_count
     let (next, cleanup_count) = run_hot_pipeline_dae_broad_high_structural_cleanup(
-      current,
-      cleanup_defs[0],
+      cleanup_current, cleanup_def,
     )
-    current = next
-    structural_cleanup_count += cleanup_count
-  }
-  current = match
-    run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
-      current, cleanup_defs,
-    ) {
-    Ok(next) => next
-    Err(err) =>
-      return Err("DAE broad high exact-literal reorder-locals: \{err}")
-  }
-  if cleanup_defs.length() > 0 {
-    let cleanup_def = cleanup_defs[0]
+    cleanup_current = next
+    def_structural_cleanup_count += cleanup_count
+    cleanup_current = match
+      run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
+        cleanup_current,
+        [cleanup_def],
+      ) {
+      Ok(next) => next
+      Err(err) =>
+        return Err("DAE broad high exact-literal reorder-locals: \{err}")
+    }
     let (validated, valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
-      cleanup_baseline, current, cleanup_def,
+      cleanup_baseline, cleanup_current, cleanup_def,
     )
     let smaller = if valid {
       match
@@ -62436,10 +62536,9 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     }
     if smaller {
       current = validated
-    } else {
-      current = cleanup_baseline
-      removed_dead_tee_count = 0
-      structural_cleanup_count = 0
+      cleanup_defs.push(cleanup_def)
+      removed_dead_tee_count += def_removed_dead_tee_count
+      structural_cleanup_count += def_structural_cleanup_count
     }
   }
   perf_stop_timer_opt(
@@ -62447,17 +62546,38 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     "detail:dae:broad-high:cleanup",
     cleanup_start_us,
   )
+  let final_reorder_defs : Array[Int] = []
+  let mut largest_productive_size = -1
+  let current_funcs = match current.code_sec {
+    Some(@lib.CodeSec(current_funcs)) => current_funcs
+    None => []
+  }
+  for def_idx in productive_defs {
+    match current_funcs.get(def_idx) {
+      Some(func) =>
+        match run_hot_pipeline_dae_encoded_func_size(func) {
+          Some(size) if size > largest_productive_size => {
+            largest_productive_size = size
+            final_reorder_defs.clear()
+            final_reorder_defs.push(def_idx)
+          }
+          _ => ()
+        }
+      None => ()
+    }
+  }
   (options.trace)(
-    "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=\{seed_def} productive_defs=\{productive_defs.to_string()} cleanup_defs=\{cleanup_defs.to_string()} removed_dead_tees=\{removed_dead_tee_count} structural_cleanups=\{structural_cleanup_count} payoff=\{seed_payoff}",
+    "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=\{seed_def} productive_defs=\{productive_defs.to_string()} cleanup_defs=\{cleanup_defs.to_string()} final_reorder_defs=\{final_reorder_defs.to_string()} removed_dead_tees=\{removed_dead_tee_count} structural_cleanups=\{structural_cleanup_count} payoff=\{seed_payoff}",
   )
-  Ok((current, current_touched, true))
+  Ok((current, current_touched, true, final_reorder_defs))
 }
 
 ///|
-fn run_hot_pipeline_apply_dae_final_payoff_reorder(
+fn run_hot_pipeline_apply_dae_final_reorder(
   mod_ : @lib.Module,
   defs : Array[Int],
   options : HotPipelineOptions,
+  trace_kind : String,
 ) -> @lib.Module {
   if defs.length() == 0 {
     return mod_
@@ -62480,8 +62600,8 @@ fn run_hot_pipeline_apply_dae_final_payoff_reorder(
     let selected = Array::make(def_count, false)
     selected[def_idx] = true
     // `rl_rewrite_func` remaps nested instruction arrays in place. Clone the
-    // selected body before probing so validation or profitability rollback
-    // cannot alias-mutate the accepted post-finalization module.
+    // selected body before probing so validation rollback cannot alias-mutate
+    // the accepted post-finalization module.
     let isolated = run_hot_pipeline_dae_clone_cleanup_defs(current, [def_idx])
     let reordered = match
       run_hot_pipeline_apply_reorder_locals_to_touched(isolated, selected) {
@@ -62502,18 +62622,18 @@ fn run_hot_pipeline_apply_dae_final_payoff_reorder(
       unchanged_count += 1
       continue
     }
-    // The top payoff callee is the only final-order candidate. Public
-    // reorder-locals follows Binaryen's access-frequency/first-use policy; the
-    // artifact's raw pre-canonical body can grow while the canonical local
-    // immediates shrink, so encoded raw size is not a faithful acceptance gate
-    // for this last representation-only rewrite.
+    // Each caller supplies a ranked finalized candidate list, and at most one
+    // final body is accepted. Public reorder-locals follows Binaryen's
+    // access-frequency/first-use policy; the artifact's raw pre-canonical body
+    // can grow while canonical local immediates shrink, so encoded raw size is
+    // not a faithful acceptance gate for this last representation-only rewrite.
     current = validated
     accepted_defs.push(def_idx)
   }
   pipeline_trace_hook(
     options.trace,
     "dae-optimizing",
-    "payoff-final-reorder",
+    trace_kind,
     payload="defs=\{defs.to_string()} accepted_defs=\{accepted_defs.length()} out_of_range=\{out_of_range_count} apply_errors=\{apply_error_count} invalid=\{invalid_count} unchanged=\{unchanged_count}",
   )
   current
@@ -68454,7 +68574,12 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     options.perf,
     "detail:dae:broad-high-exact-literal-chain",
   )
-  let (high_literal_mod, high_literal_touched, high_literal_changed) = match
+  let (
+    high_literal_mod,
+    high_literal_touched,
+    high_literal_changed,
+    high_literal_final_reorder_defs,
+  ) = match
     run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
       core_mod, core_touched, options,
     ) {
@@ -68770,8 +68895,11 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   // DAEO. Earlier broad reorder probes were followed by cleanup that changed
   // the access profile; here the highest-payoff finalized body is cloned and
   // validated after all cleanup and type pruning, with no later body mutation.
-  let final_reordered = run_hot_pipeline_apply_dae_final_payoff_reorder(
-    pruned, payoff_final_reorder_defs, options,
+  let payoff_reordered = run_hot_pipeline_apply_dae_final_reorder(
+    pruned, payoff_final_reorder_defs, options, "payoff-final-reorder",
+  )
+  let final_reordered = run_hot_pipeline_apply_dae_final_reorder(
+    payoff_reordered, high_literal_final_reorder_defs, options, "broad-high-final-reorder",
   )
   Ok(final_reordered)
 }

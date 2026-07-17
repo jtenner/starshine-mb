@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1633-2026-07-17-daeo-func8185-productive-cleanup-order.md
   - ../../../raw/research/1632-2026-07-17-daeo-func8187-normalized-literal-chain.md
   - ../../../raw/research/1631-2026-07-17-daeo-func8429-payoff-convergence.md
   - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
@@ -98,6 +99,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1633`](../../../raw/research/1633-2026-07-17-daeo-func8185-productive-cleanup-order.md) records the focused Func `8185` productive-cleanup/order smokes with explicit native SHA-256 `68638ed1f1129c93dcb152930173763b467eee1cc7ce60ba342acfe4cb738344`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8185-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8185-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures. Binaryen cache hits/misses are `984/16` for the dedicated lane and `0/1000` for regular. These focused smokes accompany valid byte-identical first/second artifact outputs, a canonical Func `8185` body reduction from `2978` to `2748`, and a canonical-module gap of `+2030`; they do not replace the required four-lane closeout matrix.
 
 Research note [`1632`](../../../raw/research/1632-2026-07-17-daeo-func8187-normalized-literal-chain.md) records the focused Func `8187` completion smokes with explicit native SHA-256 `970bb7456dba663dbd566bbbd789d5543d8eb1960a1fdc44662b56fb2ad030bf`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8187-final-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8187-final-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures, and Binaryen cache `1000/0`. These focused smokes accompany valid byte-identical first/second artifact outputs and a canonical Func `8187` body of `767` versus Binaryen's `961`; they do not replace the required four-lane closeout matrix.
 
