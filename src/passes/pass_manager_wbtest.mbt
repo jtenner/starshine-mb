@@ -15036,6 +15036,48 @@ test "vacuum batch writeback repair restores invalid changed functions" {
 }
 
 ///|
+test "ssa-nomerge batch writeback repair restores invalid changed functions" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let candidate = input.with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))]),
+  )
+  let trace : Array[String] = []
+  let repaired = match
+    run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
+      input,
+      candidate,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Some(mod_) => mod_
+    None => fail("expected ssa-nomerge batch repair to recover valid module")
+  }
+
+  @debug.assert_eq(repaired, input)
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:skip-invalid-lower") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "hot pipeline skips lift errors in unchecked nested-style runs" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),

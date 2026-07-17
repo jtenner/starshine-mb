@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
@@ -44,6 +45,7 @@ related:
 ## Role
 
 - `ssa-nomerge` is an active implemented **hot pass** in Starshine.
+- Research note [`1646`](../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md) fixed a whole-command writeback-accounting cliff without changing transform admission: current-artifact direct SSA no-merge moved from a `600s` timeout at Func `2499` to deterministic valid byte-identical repeats in `43.846s` / `44.954s`, with one `457957us` changed-function batch validation instead of repeated per-function module validation. The `ssa-nomerge-all` `100000` lane was `100000/100000` normalized with zero failures or mismatches. Public shrink and O4z then passed the early SSA slot and exposed later `remove-unused-brs` validation and HSO pass-local owners respectively.
 - In upstream Binaryen `version_129`, `pass.cpp` describes it as:
   - ssa-ify variables so that they have a single assignment, ignoring merges
 

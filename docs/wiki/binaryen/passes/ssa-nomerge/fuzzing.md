@@ -1,8 +1,10 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md
+  - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
   - ./parity.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../src/validate/gen_valid.mbt
@@ -39,6 +41,10 @@ bun scripts/pass-fuzz-compare.ts --count 1000000 --seed 0x5eed --pass ssa-nomerg
 ## Native binary path note
 
 The `target/native/...` paths in the historical 2026-06-16 result records below document the executable actually used at that time; do not reuse them as current commands. Under the current policy, build with `moon build --target native --release src/cmd` and pass `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` binary is acceptable only when its hash or timestamp proves it is the freshly built executable. See [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md) and [`../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
+
+## 2026-07-17 Batch-writeback refresh
+
+After replacing repeated per-changed-function current-artifact validation with one rollback-capable changed-function batch, `.tmp/pass-fuzz-ssa-nomerge-batch-writeback-100000-20260717` reran the required dedicated aggregate with explicit Binaryen v130, `--jobs auto`, and `_build/native/release/build/cmd/cmd.exe` at SHA-256 `34a21a0bfba0c86520635429047ef8fb4cc0d32f50b0ff060b5d10327d04d680`. It requested/compared `100000/100000`, normalized all `100000`, and had zero cleanup-normalized matches, mismatches, validation/generator/property/command failures; Binaryen cache was `21055/78945`. The direct current artifact completes in deterministic valid byte-identical `43.846s` / `44.954s` wall repeats instead of timing out after `600s`. This is behavior-preserving runtime evidence, not a reopened transform-family audit.
 
 ## 2026-06-16 Final Lane Results
 

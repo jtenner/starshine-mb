@@ -58627,6 +58627,26 @@ fn run_hot_pipeline_precompute_writeback_validation_error(
 }
 
 ///|
+fn run_hot_pipeline_ssa_nomerge_nonvalidation_skip_invalid_lower_reason(
+  result : HotPipelineFuncResult,
+) -> String? {
+  if result.unchanged_original {
+    return None
+  }
+  if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+      result.func,
+    ) {
+    return Some("invalid-escape-carrier")
+  }
+  if run_hot_pipeline_lowered_func_has_narrow_suspicious_escape_carrier(
+      result.func,
+    ) {
+    return Some("suspicious-escape-carrier")
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_skip_invalid_lower_reason(
   current_mod : @lib.Module,
   validation_mod : @lib.Module,
@@ -58718,15 +58738,12 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
     }
   }
   if descriptor_name == "ssa-nomerge" {
-    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-        result.func,
+    match
+      run_hot_pipeline_ssa_nomerge_nonvalidation_skip_invalid_lower_reason(
+        result,
       ) {
-      return Some("invalid-escape-carrier")
-    }
-    if run_hot_pipeline_lowered_func_has_narrow_suspicious_escape_carrier(
-        result.func,
-      ) {
-      return Some("suspicious-escape-carrier")
+      Some(reason) => return Some(reason)
+      None => ()
     }
     return match
       run_hot_pipeline_precompute_writeback_validation_error(
@@ -59194,6 +59211,82 @@ fn run_hot_pipeline_simplify_locals_should_skip_module_count(
   defined_function_count : Int,
 ) -> Bool {
   defined_function_count >= 2048
+fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
+  original_mod : @lib.Module,
+  candidate_mod : @lib.Module,
+  options : HotPipelineOptions,
+) -> @lib.Module? {
+  let imported_func_count = run_hot_pipeline_imported_func_count(original_mod)
+  match (original_mod.code_sec, candidate_mod.code_sec) {
+    (Some(@lib.CodeSec(original_defs)), Some(@lib.CodeSec(candidate_defs))) => {
+      let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
+      for code_idx = 0
+          code_idx < candidate_defs.length()
+          code_idx = code_idx + 1 {
+        if code_idx < original_defs.length() &&
+          candidate_defs[code_idx] != original_defs[code_idx] {
+          changed_funcs.push(
+            (
+              @lib.FuncIdx::new(
+                (imported_func_count + code_idx).reinterpret_as_uint(),
+              ),
+              candidate_defs[code_idx],
+            ),
+          )
+        }
+      }
+      if changed_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      let invalid_funcs = match
+        @validate.validate_defined_funcs_against_module(
+          original_mod, changed_funcs,
+        ) {
+        Ok(errors) => errors
+        Err(err) => {
+          pipeline_trace_hook(
+            options.trace,
+            "ssa-nomerge",
+            "writeback-batch-invalid",
+            payload="err=\{err}",
+          )
+          return None
+        }
+      }
+      if invalid_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      pipeline_trace_hook(
+        options.trace,
+        "ssa-nomerge",
+        "writeback-batch-invalid",
+        payload="changed=\{changed_funcs.length()} invalid=\{invalid_funcs.length()}",
+      )
+      let repaired_defs = candidate_defs.copy()
+      for item in invalid_funcs {
+        let (func_idx, err) = item
+        let @lib.FuncIdx(raw_func_idx) = func_idx
+        let code_idx = raw_func_idx.reinterpret_as_int() - imported_func_count
+        if code_idx < 0 ||
+          code_idx >= repaired_defs.length() ||
+          code_idx >= original_defs.length() {
+          return None
+        }
+        if repaired_defs[code_idx] == original_defs[code_idx] {
+          return None
+        }
+        repaired_defs[code_idx] = original_defs[code_idx]
+        pipeline_trace_hook(
+          options.trace,
+          "ssa-nomerge",
+          "skip-invalid-lower",
+          payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
+        )
+      }
+      Some(candidate_mod.with_code_sec(@lib.CodeSec::new(repaired_defs)))
+    }
+    _ => None
+  }
 }
 
 ///|
@@ -59202,6 +59295,7 @@ fn run_hot_pipeline_apply_hot_pass(
   entry : HotPassRegistryEntry,
   options : HotPipelineOptions,
   defer_vacuum_writeback_guard? : Bool = true,
+  defer_ssa_nomerge_writeback_guard? : Bool = true,
 ) -> Result[@lib.Module, String] {
   let descriptor = match entry.descriptor {
     Some(descriptor) => descriptor
@@ -59229,6 +59323,8 @@ fn run_hot_pipeline_apply_hot_pass(
   let module_state = HotPipelineModuleState::new()
   let defer_this_vacuum_writeback_guard = defer_vacuum_writeback_guard &&
     descriptor.name == "vacuum"
+  let defer_this_ssa_nomerge_writeback_guard = defer_ssa_nomerge_writeback_guard &&
+    descriptor.name == "ssa-nomerge"
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -59361,6 +59457,10 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         let skip_invalid_lower_reason = if defer_this_vacuum_writeback_guard {
           None
+        } else if defer_this_ssa_nomerge_writeback_guard {
+          run_hot_pipeline_ssa_nomerge_nonvalidation_skip_invalid_lower_reason(
+            result,
+          )
         } else {
           run_hot_pipeline_skip_invalid_lower_reason(
             current_mod,
@@ -59626,6 +59726,38 @@ fn run_hot_pipeline_apply_hot_pass(
           entry,
           options,
           defer_vacuum_writeback_guard=false,
+        )
+      }
+    }
+  }
+  if defer_this_ssa_nomerge_writeback_guard && next_code_sec is Some(_) {
+    let batch_guard_start_us = perf_start_timer_opt(
+      options.perf,
+      "guard:ssa-nomerge-writeback-batch",
+    )
+    match
+      run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
+        mod_, next_mod, options,
+      ) {
+      Some(repaired_mod) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:ssa-nomerge-writeback-batch",
+          batch_guard_start_us,
+        )
+        return Ok(repaired_mod)
+      }
+      None => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:ssa-nomerge-writeback-batch",
+          batch_guard_start_us,
+        )
+        return run_hot_pipeline_apply_hot_pass(
+          mod_,
+          entry,
+          options,
+          defer_ssa_nomerge_writeback_guard=false,
         )
       }
     }
