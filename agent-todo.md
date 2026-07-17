@@ -73,6 +73,25 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Prove the same final function prelude through shared optimizing nested reruns under `[O4Z-NESTED]001`.
 - **Exit criteria:** modern direct closeout plus a green `flatten -> SLNNS -> local-cse` neighborhood.
 
+### [SL-FAMILY]001 - Implement and close every `SimplifyLocals` variant
+
+- **Status:** source inventory complete; full, no-structure, and no-tee/no-structure are active; no-tee and nonesting are not active.
+- **Goal:** implement all five Binaryen `version_130` public variants from one explicit policy engine and sign each one off independently.
+- **Source inventory:** `docs/wiki/raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md` and `docs/wiki/binaryen/passes/simplify-locals/transform-family-inventory.md`.
+- **Deliverables:**
+  - [x] Inventory every source-owned rewrite/postcondition family and legality domain.
+  - [ ] Add a fact-based `allow_tee` / `allow_structure` / `allow_nesting` policy without adding redundant linear scans.
+  - [ ] Activate canonical `simplify-locals-notee` plus an explicit compatibility spelling policy.
+  - [ ] Activate canonical `simplify-locals-nonesting` plus an explicit compatibility spelling policy.
+  - [ ] Prove no-tee still performs structure synthesis, including structure-required conditional-branch tees, while never creating a sink tee.
+  - [ ] Prove nonesting permits flat copy retargeting and set-value sinks while rejecting ordinary new nesting, tees, and structure synthesis.
+  - [ ] Requalify full, no-structure, and no-tee/no-structure against the same 35-family matrix.
+  - [ ] Replace semantic dependence on broad raw/large-function skip gates with fact-based admission or narrow measured performance-only boundaries.
+  - [ ] Add a stable aggregate GenValid profile for each canonical variant, with family-specific leaves and `selected_profile` metadata.
+  - [ ] Run the required four-lane closeout matrix and pass-local timing for all five variants.
+  - [ ] Complete `[O4Z-SLNNS]001` direct/neighborhood and `[O4Z-NESTED]001` rerun proof using the signed shared implementation.
+- **Exit criteria:** all five canonical names are active, no source-owned family is unimplemented or unclassified, every required matrix is complete with zero true semantic mismatches, and retained boundaries are narrow, measured, and explicitly documented.
+
 ### [O4Z-PCP]001 - Implement public `precompute-propagate`
 
 - **Status:** public spelling is removed; `precompute_propagate_prefix_descriptor()` exists only as an internal helper.

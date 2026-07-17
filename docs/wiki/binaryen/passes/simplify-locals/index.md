@@ -26,6 +26,7 @@ sources:
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./transform-family-inventory.md
   - ./variant-matrix-and-scheduler.md
   - ./wat-shapes.md
   - ./structure-result-lifting-and-carrier-cleanup.md
@@ -128,6 +129,8 @@ That difference explains why:
   - Deep dive into the actual Binaryen `version_129` implementation, algorithm phases, helper dependencies, and why the pass family is more structured than the public name suggests.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Exact upstream file map plus the official lit roster: what `SimplifyLocals.cpp`, `linear-execution.h`, `equivalent_sets.h`, `local-utils.h`, `pass.cpp`, `opt-utils.h`, and the simplify-locals lit files each prove.
+- [`./transform-family-inventory.md`](./transform-family-inventory.md)
+  - Current `version_130` source-owned transform inventory for all five variants, including the no-tee structure-created-tee distinction, the nonesting parent-position rule, late equivalent-set policy, effect domains, and Starshine gap map.
 - [`./variant-matrix-and-scheduler.md`](./variant-matrix-and-scheduler.md)
   - Explicit public variant matrix for `simplify-locals`, `-notee`, `-nostructure`, `-notee-nostructure`, and `-nonesting`, plus the exact top-level and nested scheduler placements that give each variant its job.
 - [`./wat-shapes.md`](./wat-shapes.md)
