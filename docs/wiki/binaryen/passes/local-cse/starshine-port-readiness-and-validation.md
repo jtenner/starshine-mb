@@ -120,8 +120,8 @@ Keep proving that:
 
 - the pass name is active for direct execution
 - explicit `--local-cse` requests execute cleanly
-- the current catalog text points at the active implementation and the remaining preset-neighborhood gap
-- the surrounding `flatten -> simplify-locals-notee-nostructure -> local-cse` gate stays false in the local regression surface
+- the current catalog text points at the active implementation and scheduled aggressive-prelude slot
+- both public presets keep the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` order locked by registry tests
 
 ### 3. Pass-targeted parity stays green
 

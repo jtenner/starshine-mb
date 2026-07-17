@@ -472,7 +472,7 @@ pub fn simplify_locals_notee_nostructure_exact_neighborhood_ready() -> Bool {
   pass_registry_category("simplify-locals-notee-nostructure") ==
   Some(HotPassRegistryCategory::hot_pass()) &&
   pass_registry_category("local-cse") ==
-  Some(HotPassRegistryCategory::hot_pass())
+  Some(HotPassRegistryCategory::module_pass())
 }
 
 ///|
@@ -485,15 +485,13 @@ pub fn simplify_locals_nostructure_exact_slot_passes() -> Array[String] {
 
 ///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  // Keep the aggressive flatten -> simplify-locals-notee-nostructure ->
-  // local-cse neighborhood off public presets until both neighbors are active.
-  ignore(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   [
     "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
     "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge",
-    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
-    "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
-    "pick-load-signs", "precompute", "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
+    "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
+    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum",
+    "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs",
+    "precompute", "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
     "vacuum", "reorder-locals", "remove-unused-brs", "heap2local", "optimize-casts",
     "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals", "vacuum",
     "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "merge-blocks",
@@ -506,13 +504,13 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
-  ignore(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   [
     "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
     "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge",
-    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
-    "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
-    "pick-load-signs", "precompute", "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
+    "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
+    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum",
+    "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs",
+    "precompute", "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
     "vacuum", "reorder-locals", "remove-unused-brs", "heap2local", "optimize-casts",
     "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals", "vacuum",
     "reorder-locals", "coalesce-locals", "reorder-locals", "vacuum", "merge-blocks",

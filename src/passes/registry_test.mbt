@@ -317,6 +317,20 @@ test "preset expansion stays on implemented active pass names" {
 }
 
 ///|
+test "aggressive presets schedule the Binaryen flatten cleanup prelude" {
+  assert_true(simplify_locals_notee_nostructure_exact_neighborhood_ready())
+  let expected_prefix = [
+    "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
+    "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge",
+    "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
+  ]
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  @debug.assert_eq(optimize[:expected_prefix.length()], expected_prefix)
+  @debug.assert_eq(shrink[:expected_prefix.length()], expected_prefix)
+}
+
+///|
 test "run_hot_pipeline rejects removed registry names" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) i32.const 1))",

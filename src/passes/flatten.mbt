@@ -9709,7 +9709,117 @@ fn flatten_run_admission(
 }
 
 ///|
+fn flatten_synthetic_legacy_check_control(
+  func : @ir.HotFunc,
+  root_id : Int,
+  want_loop : Bool,
+) -> Int? {
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::Block if !want_loop => return Some(root_id)
+    @ir.HotOp::Loop if want_loop => return Some(root_id)
+    @ir.HotOp::Drop => ()
+    _ => return None
+  }
+  if @ir.hot_child_count(func, root_id) != 1 {
+    return None
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Block if !want_loop => Some(value_id)
+    @ir.HotOp::Loop if want_loop => Some(value_id)
+    _ => None
+  }
+}
+
+///|
+/// Legacy `try` text is currently lowered by the WAST frontend into a static
+/// validation scaffold: an outer block ending in `unreachable`, a same-typed
+/// body block, and one result-check loop per catch. It is not executable legacy
+/// EH in `@lib`, so rewriting its component controls independently can invalidate
+/// the scaffold. Keep that exact frontend-only shape failure-atomic.
+fn flatten_has_synthetic_legacy_wast_check(func : @ir.HotFunc) -> Bool {
+  // A real HOT legacy try is not the WAST frontend's block/loop scaffold. The
+  // common pass path can reject the scaffold check after finding the first try.
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Try => return false
+        _ => ()
+      }
+    }
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let outer = @ir.hot_node_get(func, node_id)
+    match outer.op {
+      @ir.HotOp::Block => ()
+      _ => continue
+    }
+    let body_ref = @ir.hot_region_body_ref(func, node_id)
+    let root_count = @ir.hot_region_root_count(func, body_ref)
+    if root_count < 3 {
+      continue
+    }
+    let terminal = @ir.hot_region_get(func, body_ref, root_count - 1)
+    match @ir.hot_node_get(func, terminal).op {
+      @ir.HotOp::Unreachable => ()
+      _ => continue
+    }
+    let body_control = match
+      flatten_synthetic_legacy_check_control(
+        func,
+        @ir.hot_region_get(func, body_ref, 0),
+        false,
+      ) {
+      Some(body_control) => body_control
+      None => continue
+    }
+    let outer_results = flatten_type_results(func, outer.ty)
+    if flatten_type_results(func, @ir.hot_node_get(func, body_control).ty) !=
+      outer_results {
+      continue
+    }
+    let mut saw_catch_check = false
+    let mut all_catch_checks_match = true
+    for slot = 1; slot < root_count - 1; slot = slot + 1 {
+      match
+        flatten_synthetic_legacy_check_control(
+          func,
+          @ir.hot_region_get(func, body_ref, slot),
+          true,
+        ) {
+        Some(catch_control) => {
+          if flatten_type_results(
+              func,
+              @ir.hot_node_get(func, catch_control).ty,
+            ) !=
+            outer_results {
+            all_catch_checks_match = false
+            break
+          }
+          saw_catch_check = true
+        }
+        None => {
+          all_catch_checks_match = false
+          break
+        }
+      }
+    }
+    if saw_catch_check && all_catch_checks_match {
+      return true
+    }
+  }
+  false
+}
+
+///|
 pub fn flatten_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if flatten_has_synthetic_legacy_wast_check(func) {
+    return HotPassResult::unchanged()
+  }
   let admission_state = FlattenRewriteState::new(func)
   let before = admission_state.flatness_report
   let needs_catch_payload_repair = admission_state.eh_repair_requirement.needs_catch_payload_tracking

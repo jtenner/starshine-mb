@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-16
+last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -846,12 +847,12 @@ becoming a temp-local-returned shape in `flatten_all-features.wast`.
 - every `BrOn` variant exits with `Unsupported instruction for Flatten`
 - a direct `try_table` probe reaches the earlier unhandled control-structure arm and aborts with `unexpected expr type` / `UNREACHABLE`
 
-## Current internal Starshine policy
+## Current Starshine policy
 
-- `FlattenRunAdmission::UpstreamHardUnsupported` is selected before any mutation
-- `flatten_run(...)` returns unchanged while the pass remains public-removed
-- whitebox coverage proves an otherwise flattenable rich operand is not partially rewritten for any of the five families
-- public admission remains blocked because an unchanged internal result does not yet match Binaryen's observable failure contract
+- `FlattenRunAdmission::UpstreamHardUnsupported` is selected before any mutation;
+- `flatten_run(...)` returns unchanged under an intentional fail-atomic unsupported boundary;
+- whitebox coverage proves an otherwise flattenable rich operand is not partially rewritten for any of the five families;
+- the public pass remains active for admitted modules, while these Binaryen-hard families stay explicitly outside the admitted compare contract rather than being misclassified as parity.
 
 Source: [`../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md`](../../../raw/binaryen/2026-07-13-flatten-version-130-unsupported-policy-refresh.md).
 

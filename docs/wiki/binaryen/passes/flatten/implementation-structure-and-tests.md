@@ -133,7 +133,7 @@ Read it when you want to move from the conceptual pages to exact files.
 
 ## Status in one sentence
 
-Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has a public active HOT implementation with registry/dispatcher/CLI wiring, a Flat-IR-preserving lowering mode, 269 focused tests, 227 whitebox tests, a `flatten-all` GenValid aggregate, four compare lanes, and idempotence signoff.
+Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel Flat-IR normalizer; Starshine now has a public active HOT implementation with registry/dispatcher/CLI wiring, top-level aggressive-preset scheduling, a Flat-IR-preserving lowering mode, 270 focused tests, 228 whitebox tests, a `flatten-all` GenValid aggregate, four compare lanes, and idempotence signoff.
 
 ## Upstream owner map
 
@@ -237,9 +237,9 @@ This is not optional cleanup: flatten can insert blocks inside `catch`, and lega
 | Local surface | Meaning |
 | --- | --- |
 | `src/passes/flatten.mbt` | HOT classifier, admission, owner-specific rewrite, EH repair, and pass descriptor. |
-| `src/passes/flatten_test.mbt` | 269 focused public behavior and lowering-validity tests. |
-| `src/passes/flatten_wbtest.mbt` | 227 private proof-boundary, cache, ownership, and failure-atomicity tests. |
-| `src/passes/optimize.mbt` | Active HOT-pass registry entry and public pass metadata. |
+| `src/passes/flatten_test.mbt` | 270 focused public behavior, lowering-validity, and legacy-WAST scaffold tests. |
+| `src/passes/flatten_wbtest.mbt` | 228 private proof-boundary, cache, ownership, scaffold-detector, and failure-atomicity tests. |
+| `src/passes/optimize.mbt` | Active HOT-pass registry entry, public pass metadata, and aggressive-trio preset placement. |
 | `src/passes/pass_manager.mbt` | Dispatcher and module-to-HOT execution bridge. |
 | `src/ir/hot_lower.mbt` | `preserve_flat_ir_spills` lowering option used to retain required flatten local traffic. |
 | `src/validate/gen_valid.mbt` | `flatten-all` aggregate across portable, stress, SSA, GC, subtyping, local, and call/convergence profiles. |

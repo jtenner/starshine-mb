@@ -41,7 +41,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 ## The honest current status
 
-`simplify-locals-notee-nostructure` is now **active direct, aggressive-prelude deferred** in Starshine.
+`simplify-locals-notee-nostructure` is now **active direct and top-level aggressive-prelude scheduled** in Starshine.
 It does not get a separate owner file; instead, `src/passes/simplify_locals.mbt` exposes a stricter policy mode of the shared locals engine:
 
 - `allowStructure = false`
@@ -50,12 +50,13 @@ It does not get a separate owner file; instead, `src/passes/simplify_locals.mbt`
 
 The current local strategy is still conservative:
 
-- register and dispatch the exact upstream / saved-audit spelling
-- keep the old local removed-name spelling distinct
-- reuse the no-structure locals cleanup engine without creating fresh tees
-- keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` preset role behind an explicit readiness gate until both neighbors are active
+- register and dispatch the exact upstream / saved-audit spelling;
+- keep the old local removed-name spelling distinct;
+- reuse the no-structure locals cleanup engine without creating fresh tees;
+- schedule the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` order in both top-level presets;
+- keep modern SLNNS closeout and optimizing nested-rerun reconciliation open rather than treating scheduling alone as direct-pass requalification.
 
-That means this page is now an **active direct implementation map** plus the standing boundary for future aggressive-path work, not an active same-release preset checklist.
+This page is now an active direct implementation and top-level scheduler map. The 2026-07-17 scheduling decision is recorded in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 
 ## Exact local code map today
 
@@ -65,7 +66,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/optimize.mbt`
     - registers `"simplify-locals-notee-nostructure"` as a `HotPass`
     - keeps the old local spelling `"simplify-locals-no-tee-no-structure"` out of the active direct-pass surface
-    - leaves the active `optimize` and `shrink` presets on full `"simplify-locals"`; the aggressive O4z-only neighborhood is not widened yet
+    - schedules the aggressive trio in both `optimize` and `shrink` while retaining the later full `"simplify-locals"` slot
 - CLI pipeline acceptance through the registry
   - `src/cmd/cmd.mbt`
     - the pipeline parser accepts `HotPass`, `ModulePass`, or `Preset` categories
@@ -87,7 +88,7 @@ The fastest read-along path through the current Starshine status is:
     - checks that the no-tee variant does not synthesize a `local.tee` for a multi-use local
 - current backlog truth
   - `agent-todo.md`
-    - no longer keeps a standalone `SLNNS` slice active after the 2026-05-07 backlog closure review
+    - tracks modern direct closeout and shared nested-rerun proof under the O4z work
     - keeps this stricter sibling distinct from `SLNS` / `simplify-locals-nostructure`
 
 That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
@@ -117,15 +118,14 @@ The no-tee/no-structure sibling must continue to preserve these distinctions:
 - no block / `if` / loop result-structure synthesis
 - ordinary single-use sinks into existing nested consumers remain allowed
 
-### 4. The aggressive pipeline role is not scheduled yet
+### 4. The aggressive pipeline role is scheduled
 
-Binaryen uses this sibling in the `-O4` / aggressive prelude after `flatten` and before `local-cse`.
-Starshine has dossiers for both neighbors:
+Binaryen uses this sibling in the `-O4` / aggressive prelude after `flatten` and before `local-cse`. Starshine now schedules that exact trio in both public presets and protects the prefix order in `src/passes/registry_test.mbt`.
+
+The remaining scheduler work is not this top-level slot; it is proving one shared final function-prelude expansion through optimizing nested reruns. Neighbor dossiers remain:
 
 - [`../flatten/index.md`](../flatten/index.md)
 - [`../local-cse/index.md`](../local-cse/index.md)
-
-But those neighboring slots are not active enough to widen the public `optimize` / `shrink` presets here. Direct pass execution is the current implemented scope.
 
 ## The current Starshine implementation shape
 
@@ -159,7 +159,7 @@ Full local cleanup may build block / `if` / loop result structure; this sibling 
 
 ## Validation evidence and remaining scope
 
-The direct-pass slice is green at the focused and oracle-comparison levels:
+The direct-pass slice is historically green at the focused and oracle-comparison levels, and the top-level aggressive neighborhood is now scheduled:
 
 1. focused local tests cover registry and exact upstream spelling, direct-pipeline acceptance, single-use sinking, no fresh tee for multi-use locals, and the Binaryen const+nop loop parity shape;
 2. `.tmp/pass-fuzz-simplify-locals-notee-nostructure` refreshed the mixed-generator direct lane on 2026-05-06 with `6759/10000` comparable cases, `6759` matches, `0` mismatches, `17` Binaryen empty-recursion-group parser command failures, and `3` other Binaryen/tool command failures;
@@ -168,31 +168,33 @@ The direct-pass slice is green at the focused and oracle-comparison levels:
 5. `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix` reached `9496/9496` comparable mixed-generator matches with `0` mismatches and `0` validation failures;
 6. `.tmp/self-opt-slnns-after-local-bin128` passed normalized-WAT and canonical-function equality against Binaryen 128 for `tests/node/dist/starshine-debug-wasi.wasm`.
 
-Remaining scope is future aggressive-neighborhood validation after neighboring slots exist:
+Remaining scope is modern direct-pass and nested-rerun qualification:
 
-- `flatten -> simplify-locals-notee-nostructure -> local-cse` cluster replay;
-- nested aggressive rerun surfaces when optimizing passes call the default function pipeline;
-- generated-artifact `-O4z` replay only after `flatten` and `local-cse` constraints are representable locally.
+- refresh the SLNNS-specific v130/four-lane closeout evidence;
+- replay the now-scheduled `flatten -> simplify-locals-notee-nostructure -> local-cse` cluster as a dedicated composition lane;
+- prove shared aggressive rerun surfaces when optimizing passes call the final function pipeline;
+- replay the generated-artifact `-O4z` path after the remaining scheduler substitutions are closed.
 
-That work should reopen under a future `flatten` / aggressive scheduler task rather than under a standalone `SLNNS` backlog item.
+That work is tracked by `[O4Z-SLNNS]001` and `[O4Z-NESTED]001`; it does not reopen the completed top-level scheduling step.
 
 ## Bottom line
 
-Current Starshine `simplify-locals-notee-nostructure` strategy is active direct execution plus a conservative aggressive-prelude boundary:
+Current Starshine `simplify-locals-notee-nostructure` strategy is active direct execution plus exact top-level aggressive-prelude placement:
 
-- the exact upstream spelling is registered locally today
-- the CLI and dispatcher can run it as a direct hot pass
-- the shared locals engine now has the needed no-tee/no-structure policy gates
-- the active full `simplify-locals` HOT pass remains a broader sibling, not this pass
-- the pass's aggressive post-`flatten` role must remain distinct from the ordinary no-DWARF `simplify-locals-nostructure` slot and from the flatness-preserving `simplify-locals-nonesting` sibling
+- the exact upstream spelling is registered locally today;
+- the CLI and dispatcher can run it as a direct hot pass;
+- the shared locals engine has the needed no-tee/no-structure policy gates;
+- both public presets schedule it immediately after `flatten` and before `local-cse`;
+- the active full `simplify-locals` HOT pass remains a broader sibling, not this pass;
+- modern direct closeout and shared nested-rerun proof remain open.
 
 So the right mental model today is:
 
-- **active direct sibling**
+- **active direct and top-level scheduled sibling**
 - **no fresh tees**
 - **no structure synthesis**
 - **clear upstream spelling**
-- **future aggressive-prelude replay deferred**
+- **nested aggressive replay still to prove**
 
 ## Sources
 

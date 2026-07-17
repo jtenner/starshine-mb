@@ -115,8 +115,8 @@ A prior default GenValid run also compared 100,000/100,000 cases with zero misma
 
 Final current-tree validation:
 
-- `src/passes/flatten_test.mbt`: 269/269
-- `src/passes/flatten_wbtest.mbt`: 227/227
+- `src/passes/flatten_test.mbt`: 270/270 after the follow-up legacy-WAST scaffold regression
+- `src/passes/flatten_wbtest.mbt`: 228/228 after the follow-up scaffold-detector lookalike boundary
 - `src/validate/gen_valid_tests.mbt`: 149/149
 - normalization fixture script: green
 - `moon info`: green with existing warnings
@@ -133,4 +133,4 @@ Final current-tree validation:
 
 ## Remaining non-behavior work
 
-This record closes the discovered behavior and validation discrepancy families under the documented normalization contract. It does not claim a new pass-local performance qualification. The older representative checkpoint was slower than Binaryen and should be remeasured separately if performance closeout is required; it is not evidence of a semantic gap.
+This record closes the discovered behavior and validation discrepancy families under the documented normalization contract. Follow-up top-level scheduling and current performance qualification are recorded in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](./1570-2026-07-17-flatten-preset-scheduling-and-performance.md). The current representative remains outside the performance target; that is not evidence of a semantic gap.

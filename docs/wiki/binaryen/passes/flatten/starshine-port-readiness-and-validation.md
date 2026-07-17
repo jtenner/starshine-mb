@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-16
+last_reviewed: 2026-07-17
 sources:
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -89,6 +89,10 @@ sources:
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
   - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
+  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
+  - ../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md
+  - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
+  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
@@ -110,13 +114,17 @@ related:
 
 Use this page after reading the overview in [`./index.md`](./index.md), the upstream strategy in [`./binaryen-strategy.md`](./binaryen-strategy.md), the concrete shape catalog in [`./wat-shapes.md`](./wat-shapes.md), and the current local status map in [`./starshine-strategy.md`](./starshine-strategy.md).
 
-This page answers a narrower question: **what should the first Starshine implementation slices prove before `flatten` stops being a removed-name placeholder?**
+This page preserves the staged proof history for the question: **what did the first Starshine implementation slices need to prove before `flatten` stopped being a removed-name placeholder?**
 
-## Current hold point
+## Current status
 
-Starshine now has the first internal implementation slices, but does not yet expose `flatten` as a public runnable pass.
+The pre-admission hold point below is superseded. `flatten` is now public, compared, and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`. Behavior closeout is in [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md); scheduling and current `4.00x` Binaryen performance qualification are in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md). Performance remains the open gate.
 
-The exact current local surfaces are:
+## Historical pre-admission hold point (superseded)
+
+At the 2026-07-16 hold point, Starshine had internal implementation slices but did not yet expose `flatten` as a public runnable pass.
+
+The exact historical local surfaces were:
 
 | Surface | Location | Meaning |
 | --- | --- | --- |
@@ -128,7 +136,7 @@ The exact current local surfaces are:
 | Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog | `agent-todo.md` `[O4Z-FLAT]001` | records the remaining implementation, wiring, fuzzing, timing, and scheduler work. |
 
-Read this as a deliberately internal partial implementation, not as public pass availability or parity evidence.
+Read this table and the iteration diary below as historical pre-admission evidence, not as the current public status.
 
 The internal bridge can lower Starshine's existing **resultless synthetic catch-all** `Try` representation and removes the bridge entirely when the body is proven nonthrowing, retaining only a void block when branches target the try label. HOT now represents ordered typed catch-entry payloads explicitly and lowers one scalar lane or any positive same-tag lane vector through scalar/result-only multivalue `try_table` handlers. Internal flatten repairs scalar first-descendant paths through direct blocks or an `if` condition plus arbitrary ordered direct-block-chain lane vectors. It admits any positive depth-zero catch-all rethrow population through arbitrary strict direct resultless untargeted block/if ancestry and one resultless outer-target delegate whose sole catch representation is direct or a strict direct resultless single-root unused-label block chain; broader payload relocation and exceptional-transfer populations retain exact pre-mutation deferred outcomes. Immutable label-use and exact terminal-table support facts are cached once per rewrite state, payload-bearing branch rewrites avoid duplicate generic routing, lightweight reachable node-use counts preserve exact suffix ownership without full use-site allocation, and exact detached suffix forests tombstone with one revision invalidation after region detachment. Direct `i32.shl`, `i32.shr_s`, plus `i32.shr_u` resultless-call roots use the same complete distinct one-use proof as the prior audited binaries. The refreshed three-probe matrix remains a narrow measured size win (`212` Starshine cleanup bytes versus `236` Binaryen), but the current 120-function pass-local median is `970.5 us`, or `3.65x` Binaryen, and no GenValid/four-lane public matrix exists. EH representation, richer/shared/nested behavior, performance, and signoff are still hard public-readiness blockers; exact block/if/loop roots can now share one atomic vector with exactly recognized ordinary roots, but that does not close those broader gates; see the [current impact note](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md).
 

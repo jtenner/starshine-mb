@@ -35,7 +35,7 @@ related:
 
 ### Hot passes
 
-`ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
+`flatten`, `ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
 
 ### Module passes
 
@@ -48,7 +48,8 @@ related:
 ```text
 duplicate-function-elimination -> remove-unused-module-elements -> memory-packing ->
 once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge ->
-dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names ->
+flatten -> simplify-locals-notee-nostructure -> local-cse -> dead-code-elimination ->
+remove-unused-names -> remove-unused-brs -> remove-unused-names ->
 vacuum -> remove-unused-brs -> optimize-instructions -> heap-store-optimization ->
 pick-load-signs -> precompute -> code-pushing -> tuple-optimization ->
 simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs ->
@@ -63,7 +64,7 @@ reorder-globals -> directize -> strip-debug
 
 Slot caveats:
 
-- `simplify-locals-notee-nostructure` is runnable explicitly but kept out of presets until the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is ready.
+- The aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude is scheduled immediately after `ssa-nomerge` in both presets. Current `flatten` timing remains an open release qualification; see [`../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 - `reorder-locals` now uses the public three-slot Binaryen-shaped cleanup schedule: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. [`../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) is the current reconciliation source for that live policy.
 - `optimize` and `shrink` should stay identical until a tested size-specific divergence lands.
 - The current shared late tail is `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`; this is registry- and slot-tested and should not be shortened in docs when summarizing the live preset.
@@ -75,7 +76,6 @@ The old Batch 1/2/3 labels are no longer the live implementation frontier. Many 
 - `const-hoisting`
 - `dataflow-optimization`
 - `loop-invariant-code-motion`
-- `flatten`
 - `re-reloop`
 - `optimize-added-constants`
 - `optimize-added-constants-propagate`

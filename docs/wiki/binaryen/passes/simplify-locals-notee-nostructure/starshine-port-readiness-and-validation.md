@@ -46,8 +46,8 @@ This page now records the landed direct-pass boundary:
 
 ## Current hold point
 
-Starshine now treats `simplify-locals-notee-nostructure` as an active direct hot pass with green direct-pass oracle evidence, but not as a preset-scheduled `-O4z` neighborhood member.
-The state to preserve until broader preset work starts is:
+Starshine now treats `simplify-locals-notee-nostructure` as an active direct hot pass and a top-level preset-scheduled `-O4z` neighborhood member.
+The current state is:
 
 - upstream Binaryen spelling: `simplify-locals-notee-nostructure`
 - current active local spelling: `simplify-locals-notee-nostructure`
@@ -55,25 +55,26 @@ The state to preserve until broader preset work starts is:
 - current CLI behavior: accepted through the registry category gate
 - current lower-level pipeline behavior: dispatched to the shared locals engine with `allowStructure=false` and `allowTee=false`
 - current owner: `src/passes/simplify_locals.mbt`
-- current preset role: explicit readiness-gated omission because the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` slot is outside the active no-DWARF parity target and still depends on `flatten`
+- current preset role: scheduled immediately after `flatten` and immediately before the aggressive `local-cse` slot in both public presets
+- remaining qualification: modern pass-specific direct closeout and shared optimizing nested-rerun proof
 
 ## Exact local code map today
 
 | Surface | Code location | Why it matters |
 | --- | --- | --- |
-| Active registry | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `pass_registry_entries()` | Registers the exact upstream spelling as a hot pass while keeping presets unchanged. |
+| Active registry and presets | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `pass_registry_entries()` and preset expansion | Registers the exact upstream spelling and schedules the complete aggressive trio. |
 | CLI pass gate | [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt), `cmd_resolve_pipeline_steps(...)` | Accepts the pass through the normal hot-pass registry path. |
 | Hot dispatcher | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), `hot_pass_run(...)` | Dispatches the exact spelling to the no-tee / no-structure locals runner. |
 | Shared locals implementation | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), `simplify_locals_run_with_options(...)` | Owns the full pass and the stricter sibling policy mode. |
 | Registry proof surface | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Covers active category and descriptor spelling. |
-| Backlog truth | [`agent-todo.md`](../../../../../agent-todo.md) | No longer carries a standalone `SLNNS` slice after the 2026-05-07 closure review; future aggressive-prelude replay belongs to later `flatten` / scheduler work. |
+| Backlog truth | [`agent-todo.md`](../../../../../agent-todo.md) | Keeps modern SLNNS direct closeout open while marking top-level scheduling complete. |
 | Neighbor scheduler context | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) | Documents the sibling’s aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` slot, but not a local implementation. |
 
 ## Slice status
 
 ### Slice 0: registry honesty — landed
 
-The chosen spelling policy is to activate the exact upstream `simplify-locals-notee-nostructure` name as a direct hot pass and keep presets unchanged.
+The chosen spelling policy activates the exact upstream `simplify-locals-notee-nostructure` name as a direct hot pass. The earlier preset omission was superseded on 2026-07-17 when both public presets scheduled the complete aggressive trio.
 
 ### Slice 1: policy-mode skeleton — landed
 
@@ -148,17 +149,16 @@ Earlier direct-pass evidence collected on 2026-05-04:
 - `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix`: `9496/9496` comparable mixed-generator cases matched Binaryen, with `0` mismatches and `0` validation failures; the remaining `504` command failures are Binaryen/canonicalization rejects from the `wasm-smith` half, not from `gen-valid`.
 - `.tmp/self-opt-slnns-after-local-bin128`: direct self-opt compare on `tests/node/dist/starshine-debug-wasi.wasm` passed with normalized WAT equality and canonical function equality against Binaryen 128.
 
-Next oracle scope remains the ordered aggressive neighborhood: add `flatten -> simplify-locals-notee-nostructure -> local-cse` only after both neighbors are active enough to replay and compare honestly. Keep `--simplify-locals`, `--simplify-locals-nostructure`, and local active `simplify-locals` as contrast lanes, not as the oracle for this sibling.
+The top-level ordered aggressive neighborhood is now scheduled as `flatten -> simplify-locals-notee-nostructure -> local-cse`. Keep `--simplify-locals`, `--simplify-locals-nostructure`, and local active `simplify-locals` as contrast lanes, not as the oracle for this sibling.
 
-That future replay should reopen as a new aggressive-path / `flatten` task, not as a reopened standalone `SLNNS` direct-pass item.
+Next oracle scope is a modern pass-specific requalification plus proof that optimizing nested reruns use one shared final function prelude. Those remain O4z closeout work rather than a reason to remove the scheduled top-level slot.
 
 ## What not to do
 
 Do not start by routing this name to the active full `simplify-locals` implementation.
 That would immediately violate the Binaryen contract because the active pass has structure rewrites and ordinary nested sinks that the no-tee / no-structure variant must reject.
 
-Do not add the pass to `optimize` or `shrink` presets during the first port.
-The source-backed role is a flatten-neighbor / explicit-pipeline sibling, not part of the current Starshine no-DWARF preset.
+The first-port instruction not to widen presets was historical staging guidance. It was superseded on 2026-07-17 after `flatten` became active and both public presets gained the exact Binaryen aggressive trio.
 
 Do not hide the local spelling mismatch.
 The current repo says `simplify-locals-no-tee-no-structure`; the upstream pass says `simplify-locals-notee-nostructure`.

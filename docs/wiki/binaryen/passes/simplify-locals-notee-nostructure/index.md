@@ -46,8 +46,7 @@ related:
 ## Why it matters
 
 - The updated pass tracker listed `simplify-locals-notee-nostructure` as the last remaining saved-audit pass with wiki status `none` when this thread started.
-- The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
-  - top-level slot `10`
+- The saved generated-artifact `-O4z` audit records it as top-level slot `10`; Starshine now schedules that top-level slot in the complete aggressive trio.
 - The saved Binaryen debug log shows it is not just a one-off top-level curiosity in that captured run:
   - the top-level slot `10` execution took about `0.568566` seconds
   - the same full run executed `simplify-locals-notee-nostructure` `18` total times because later optimizing reruns reused the same aggressive default function pipeline
@@ -56,7 +55,7 @@ related:
   - `simplify-locals-notee-nostructure`
   - `local-cse`
 - The Starshine implementation adds direct-pass registry, dispatcher, script-listing, focused HOT-pipeline coverage, 10k fuzz parity evidence, `gen-valid` parity evidence, and self-opt parity evidence.
-- A 2026-05-07 backlog review closed `[SLNNS]003`: the remaining `flatten -> simplify-locals-notee-nostructure -> local-cse` replay is future aggressive-path work, not active `v0.1.0` no-DWARF backlog scope.
+- On 2026-07-17, both public presets began scheduling `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge`. Modern pass-specific SLNNS closeout and nested-rerun proof remain active follow-up work.
 
 ## Beginner summary
 

@@ -836,6 +836,45 @@ test "flatten routes one repeated-target scalar br_table to a legacy try" {
 }
 
 ///|
+test "flatten intentionally leaves the WAST legacy try validation scaffold failure-atomic" {
+  let input =
+    #| (module
+    #|   (tag $e)
+    #|   (func $dead (param i32))
+    #|   (func (export "f") (result i32)
+    #|     (try $out (result i32)
+    #|       (do
+    #|         i32.const 7
+    #|         i32.const 0
+    #|         br_table $out $out
+    #|         i32.const 9
+    #|         i32.const 10
+    #|         i32.mul
+    #|         i32.const 11
+    #|         i32.add
+    #|         call $dead)
+    #|       (catch $e i32.const 27))
+    #|     return))
+    #|
+  for pipeline in [["flatten"], ["optimize"], ["shrink"]] {
+    let optimized = match pass_test_run_pipeline(input, pipeline) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected legacy WAST scaffold to remain valid through \{@debug.to_string(pipeline)}, got \{err}",
+        )
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected preserved legacy WAST scaffold to validate after \{@debug.to_string(pipeline)}, got \{@validate.validation_error_message(err)}",
+        )
+    }
+  }
+}
+
+///|
 test "flatten routes one scalar br_table to legacy try and enclosing block channels" {
   let i32_type = @lib.ValType::i32()
   let func = @ir.HotFunc::new(locals=@ir.HotLocals::new(locals=[i32_type]))

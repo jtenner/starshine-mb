@@ -30,6 +30,26 @@ fn flatten_test_build_rich_drop(func : @ir.HotFunc) -> Array[Int] {
 }
 
 ///|
+test "flatten synthetic legacy-WAST detector rejects a mixed-result block-loop lookalike" {
+  let func = pass_test_lift_first_func(
+    (
+      #| (module
+      #|   (func (result i32)
+      #|     (block (result i32)
+      #|       (drop
+      #|         (block (result i32)
+      #|           i32.const 1
+      #|           i32.const 2
+      #|           i32.add))
+      #|       (drop (loop (result i64) i64.const 3))
+      #|       unreachable)))
+      #|,
+    ),
+  )
+  assert_false(flatten_has_synthetic_legacy_wast_check(func))
+}
+
+///|
 fn flatten_test_assert_hard_unsupported_no_mutation(
   func : @ir.HotFunc,
   rich : Int,

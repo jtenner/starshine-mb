@@ -24,9 +24,9 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
 | `ssa-nomerge` | Closed. | None; full `ssa` is separate future work. |
-| `flatten` | Public behavior parity closed under the 2026-07-17 compare contract. | **Open performance requalification only.** |
-| `simplify-locals-notee-nostructure` | Direct pass active; omitted from presets. | **Open modern closeout and scheduling.** |
-| `local-cse` | Direct behavior closed. | **Open scheduler gap:** aggressive-prelude slot. |
+| `flatten` | Public behavior parity and top-level aggressive scheduling closed under the 2026-07-17 contracts. | **Open performance optimization or reviewed exception:** current representative is `4.00x` Binaryen. |
+| `simplify-locals-notee-nostructure` | Direct pass active and top-level preset-scheduled. | **Open modern direct closeout and nested-rerun proof.** |
+| `local-cse` | Direct behavior closed; both late and aggressive-prelude slots scheduled. | None; shared nested-rerun proof remains under `[O4Z-NESTED]001`. |
 | `dead-code-elimination` / `dce` | Closed. | None. |
 | `remove-unused-names` | Closed. | None. |
 | `remove-unused-brs` | Direct behavior closed. | **Open scheduler reconciliation:** Starshine has one extra slot. |
@@ -60,30 +60,31 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ### [O4Z-FLAT]001 - Requalify `flatten` performance
 
-- **Status:** behavior, public wiring, generator coverage, validation, and compare signoff closed on 2026-07-17; performance remains separately open.
-- **Goal:** remeasure the current public implementation against Binaryen v130 on a representative pass-local corpus and either reach the repository target or document an accepted release exception.
-- **Why:** the last durable historical representative was `970.5 us`, or `3.65x` Binaryen's `266.05 us`; extensive implementation and public-bridge changes have landed since that measurement.
-- **Completed behavior evidence:** registry/dispatcher/CLI execution, Flat-IR-preserving lowering, 269 focused tests, 227 whitebox tests, `flatten-all`, 10,000/10,000 default GenValid, 10,000/10,000 aggregate, 8,596 comparable random-profile cases, 6,719 comparable wasm-smith cases, and 1,000/1,000 idempotence with zero remaining mismatches or Starshine validation failures.
-- **Source:** `docs/wiki/raw/research/1569-2026-07-17-flatten-public-parity-closeout.md`.
+- **Status:** behavior, public wiring, generator coverage, validation, compare signoff, and top-level preset scheduling closed on 2026-07-17; current performance is measured but fails the repository target.
+- **Goal:** reduce the current public implementation to the pass-local target or document an accepted release exception.
+- **Current measurement:** `1,140 us` Starshine versus `285.236 us` Binaryen v130 on the 120-function representative (`4.00x`); the `<=2x` ceiling for that session is `570.472 us`.
+- **Completed behavior evidence:** registry/dispatcher/CLI execution, Flat-IR-preserving lowering, 270 focused tests, 228 whitebox tests, `flatten-all`, 10,000/10,000 default GenValid, 10,000/10,000 aggregate, 8,596 comparable random-profile cases, 6,719 comparable wasm-smith cases, and 1,000/1,000 idempotence with zero remaining mismatches or Starshine validation failures.
+- **Sources:** `docs/wiki/raw/research/1569-2026-07-17-flatten-public-parity-closeout.md` and `docs/wiki/raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md`.
 - **Tasks:**
-  1. Reconstruct or replace the representative native-release pass-only benchmark with pinned Binaryen v130 and the current Starshine binary.
-  2. Record phase attribution and module-shape coverage.
-  3. Optimize only measured dominant costs; preserve the current compare and focused-test contract.
-  4. Update the flatten dossier and either close this item at `>=50%` of Binaryen or record a reviewed performance exception.
+  1. Record fresh phase attribution on the maintained 120-function representative.
+  2. Optimize only measured dominant costs; preserve the current compare and focused-test contract.
+  3. Rerun the same Starshine/Binaryen v130 timing contract after each accepted optimization.
+  4. Close this item at `>=50%` of Binaryen or record a reviewed performance exception.
 - **Exit criteria:** current reproducible timings, no correctness regression, and a documented release decision.
 
-### [O4Z-SLNNS]001 - Modern-close and schedule `simplify-locals-notee-nostructure`
+### [O4Z-SLNNS]001 - Modern-close `simplify-locals-notee-nostructure`
 
-- **Status:** direct pass implemented and historically green; not modern-closeout complete and not preset-scheduled.
-- **Goal:** make slot 10 independently signable and ready to follow `flatten`.
-- **Why:** current evidence predates the pass-specific-profile/four-lane closeout standard, and living docs intentionally keep the pass direct-only.
+- **Status:** direct pass implemented, historically green, and top-level preset-scheduled after `flatten`; modern closeout remains incomplete.
+- **Goal:** make scheduled slot 10 independently signable and ready for shared nested reruns.
+- **Why:** current evidence predates the pass-specific-profile/four-lane closeout standard; scheduling is complete, but direct requalification and nested-rerun proof are not.
 - **Deliverables:**
   - [ ] Add a dedicated aggregate GenValid profile covering no-tee positives, no-structure constraints, control/EH barriers, effects/traps, and nondefaultable-ref boundaries.
   - [ ] Refresh v130 source/lit coverage and focused negative tests.
   - [ ] Reduce and remove, or narrowly justify with artifact evidence, the broad large-module skip that currently keeps hazardous direct shapes from running.
   - [ ] Run regular 100000, wasm-smith 10000, dedicated 10000, and random-all 10000 lanes.
   - [ ] Measure pass-local timing on representative candidate-heavy and O4z-prelude fixtures.
-  - [ ] Add exact preset-order tests only after `[O4Z-FLAT]001` and the aggressive LCSE slot are ready.
+  - [x] Lock the exact top-level `flatten -> simplify-locals-notee-nostructure -> local-cse` preset order.
+  - [ ] Prove the same final function prelude through shared optimizing nested reruns under `[O4Z-NESTED]001`.
 - **Exit criteria:** modern direct closeout plus a green `flatten -> SLNNS -> local-cse` neighborhood.
 
 ### [O4Z-PCP]001 - Implement public `precompute-propagate`
@@ -160,7 +161,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Goal:** make Starshine's `shrink`/O4z expansion intentionally match the Binaryen v130 56-slot top-level order, with documented Starshine-only extensions.
 - **Current differences to resolve:**
   - [ ] Add the second early `remove-unused-module-elements` slot.
-  - [ ] Add `flatten -> simplify-locals-notee-nostructure -> local-cse`.
+  - [x] Add `flatten -> simplify-locals-notee-nostructure -> local-cse`.
   - [ ] Remove or prove the extra early `vacuum -> remove-unused-brs` pair.
   - [ ] Replace both plain `precompute` substitutions with `precompute-propagate`.
   - [ ] Add `merge-locals` after `heap2local`.

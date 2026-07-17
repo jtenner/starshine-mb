@@ -158,8 +158,8 @@ The 2026-07-17 fuzz closeout found and fixed stack-polymorphic unreachable tails
 
 Current signoff is:
 
-- focused behavior: 269/269;
-- whitebox: 227/227;
+- focused behavior: 270/270;
+- whitebox: 228/228;
 - `flatten-all` generator tests: covered in the 149-test GenValid suite;
 - default GenValid: 10,000/10,000, zero mismatches;
 - `flatten-all`: 10,000/10,000, zero mismatches;
@@ -169,7 +169,7 @@ Current signoff is:
 
 The compare contract uses `drop-consts`, `unreachable-control-debris`, and `local-cleanup-debris`, each backed by exact fixtures and inspected discrepancy families. See [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
 
-The remaining separate concern is performance requalification. The historical representative checkpoint was slower than Binaryen; that is not a known semantic gap and should be measured as a dedicated follow-up rather than reopening behavior parity.
+The remaining separate concern is performance. Current native-release requalification measures `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function representative (`4.00x`), outside the repository's `<=2x` target. See [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 
 ## Exact local code and doc map today
 
@@ -594,19 +594,13 @@ That is more useful locally than a generic “compare with Binaryen later” not
 
 ## Bottom line
 
-Current Starshine `flatten` strategy is honest registry tracking plus batch planning:
+Current Starshine `flatten` is an active, compared, and top-level preset-scheduled HOT pass:
 
-- the upstream spelling is intentionally preserved in `src/passes/optimize.mbt`
-- the public `--flatten` spelling is intentionally preserved in `src/cli/cli_test.mbt`
-- the IR2 execution-plan docs still place the pass at the front of the next removed-pass batch
-- the active `[O4Z-FLAT]001` backlog records the remaining correctness, public wiring, comparison, timing, and neighborhood gates
-- the surrounding living dossiers already define the practical landing zone for a future port because they explain which later passes depend on the flattened world
+- the registry and dispatcher execute the upstream `flatten` spelling;
+- the public CLI and compare harness use that same spelling;
+- `flatten-all` and the documented normalizers protect the current behavior contract;
+- both public presets schedule `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge`;
+- the WAST frontend's non-executable legacy-try validation scaffold is detected before mutation and intentionally left unchanged;
+- the current 120-function native-release benchmark measures `1,140 us` versus Binaryen v130's `285.236 us`, or `4.00x`.
 
-So the right mental model today is not “nothing exists locally.”
-It is:
-
-- **first internal transform slices landed**
-- **clear tracked public-removed status**
-- **clear public spelling**
-- **clear future cluster**
-- **clear active backlog for the remaining implementation and signoff work**
+Behavior and top-level scheduling are closed. `[O4Z-FLAT]001` remains open solely because the current timing is outside the repository's `<=2x Binaryen` target. The current scheduling and measurement source is [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).

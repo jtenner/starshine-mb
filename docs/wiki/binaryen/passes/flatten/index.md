@@ -171,14 +171,14 @@ related:
 - Starshine follows Binaryen v130's owner-specific postorder strategy rather than applying an unsafe generic spill-every-position rewrite.
 - The public implementation has focused function/block/if/loop/try/branch/table/EH coverage, a dedicated `flatten-all` generator aggregate, four compare lanes, and idempotence evidence.
 - Current behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
-- In Binaryen v130, the pass starts the aggressive local-cleanup trio `flatten -> simplify-locals-notee-nostructure -> local-cse`; it is not part of the ordinary no-DWARF `-O` / `-Os` path.
+- Starshine now schedules the aggressive local-cleanup trio `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge` in both public presets, matching Binaryen v130's aggressive order.
+- Current pass-local timing is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function representative (`4.00x`), so performance qualification remains open; see [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 
 ## Why it matters
 
 - The dossier already explained the upstream Binaryen contract and later gained the now-standard owner-file / helper / lit-test / local-code map page that neighboring refreshed folders provide.
-- The 2026-04-27 port-readiness and 2026-07-11 current-main/local-status rechecks found no teaching-relevant drift from the tagged `version_129` contract, so the latest work adds an implementation-readiness and validation bridge rather than rewriting the strategy as a correction.
-- The saved generated-artifact `-O4z` audit still records `flatten` as a real skipped top-level upstream slot:
-  - slot `9`
+- The 2026-04-25 and 2026-04-27 current-main rechecks found no teaching-relevant drift from the tagged `version_129` contract, so the latest work adds an implementation-readiness and validation bridge rather than rewriting the strategy as a correction.
+- The saved generated-artifact `-O4z` audit records `flatten` as historical top-level slot `9`; that former Starshine scheduler gap is now closed for the top-level public presets.
 - The saved Binaryen debug log still shows it is bigger than a one-off top-level detail:
   - the top-level slot `9` run took about `1.67786` seconds
   - the full `-O4z` run executed `flatten` `18` total times because nested optimizing reruns reuse the default aggressive function pipeline
@@ -190,7 +190,8 @@ related:
   - `src/passes/pass_manager.mbt` dispatches the pass and lowers with Flat-IR spill preservation;
   - the CLI spelling executes the pass;
   - `scripts/lib/pass-fuzz-compare-task.ts` maps the pass to Binaryen `--flatten`;
-  - `src/validate/gen_valid.mbt` exposes the `flatten-all` aggregate.
+  - `src/validate/gen_valid.mbt` exposes the `flatten-all` aggregate;
+  - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` schedule the complete aggressive trio.
 
 The 2026-07-11 current-main/local-status recheck remains useful historical evidence about the former removed boundary. The 2026-07-17 closeout supersedes its local-status conclusion; see [`../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
 
