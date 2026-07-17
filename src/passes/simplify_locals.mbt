@@ -2646,6 +2646,49 @@ fn simplify_locals_count_local_gets(func : @ir.HotFunc) -> Array[Int] {
 }
 
 ///|
+fn simplify_locals_discount_subtree_local_gets(
+  func : @ir.HotFunc,
+  node_id : Int,
+  counts : Array[Int],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet =>
+      if node.imm0 >= 0 && node.imm0 < counts.length() && counts[node.imm0] > 0 {
+        counts[node.imm0] = counts[node.imm0] - 1
+      }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    simplify_locals_discount_subtree_local_gets(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      counts,
+    )
+  }
+}
+
+///|
+fn simplify_locals_discount_unreachable_root_tail_gets(
+  func : @ir.HotFunc,
+  counts : Array[Int],
+) -> Unit {
+  let root = @ir.HotRegionRef::root()
+  let mut terminated = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, root); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, root, idx)
+    if terminated {
+      simplify_locals_discount_subtree_local_gets(func, node_id, counts)
+    } else if simplify_locals_node_is_nonfallthrough_exit(func, node_id) {
+      terminated = true
+    }
+  }
+}
+
+///|
 fn simplify_locals_value_is_pure(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
@@ -4228,27 +4271,71 @@ fn simplify_locals_try_rewrite_loop_return(
     None => return false
   }
   let next_id = @ir.hot_region_get(func, parent_region, next_idx)
-  if next_id < 0 || !@ir.hot_node_is_live(func, next_id) {
-    return false
+  if next_id >= 0 && @ir.hot_node_is_live(func, next_id) {
+    let next = @ir.hot_node_get(func, next_id)
+    match next.op {
+      @ir.HotOp::LocalGet if next.imm0 == tail.local_id => {
+        ignore(
+          @ir.hot_region_set(
+            func,
+            body_ref,
+            tail.root_idx,
+            @ir.hot_build_nop(func),
+          ),
+        )
+        detached.push(tail.node_id)
+        let replacement_id = if get_counts[tail.local_id] == 1 {
+          tail.value_id
+        } else if simplify_locals_value_can_tee(func, tail.value_id) {
+          @ir.hot_build_local_tee(func, tail.local_id, tail.value_id)
+        } else {
+          return false
+        }
+        ignore(
+          @ir.hot_region_set(func, parent_region, next_idx, replacement_id),
+        )
+        detached.push(next_id)
+        return true
+      }
+      _ => ()
+    }
   }
-  let next = @ir.hot_node_get(func, next_id)
-  match next.op {
-    @ir.HotOp::LocalGet => if next.imm0 != tail.local_id { return false }
-    _ => return false
+  ignore(@ir.hot_region_set(func, body_ref, tail.root_idx, tail.value_id))
+  detached.push(tail.node_id)
+  @ir.hot_control_result_type_set(
+    func,
+    node_id,
+    simplify_locals_local_type_id(func, tail.local_id, tail.value_id),
+  )
+  if get_counts[tail.local_id] == 1 &&
+    (
+      simplify_locals_try_inline_following_local_get(
+        func,
+        parent_region,
+        root_idx,
+        tail.local_id,
+        node_id,
+        true,
+        detached,
+      ) ||
+      simplify_locals_try_consume_following_local_get(
+        func,
+        parent_region,
+        root_idx,
+        tail.local_id,
+        detached,
+      )
+    ) {
+    return true
   }
   ignore(
-    @ir.hot_region_set(func, body_ref, tail.root_idx, @ir.hot_build_nop(func)),
+    @ir.hot_region_set(
+      func,
+      parent_region,
+      root_idx,
+      @ir.hot_build_local_set(func, tail.local_id, node_id),
+    ),
   )
-  detached.push(tail.node_id)
-  let replacement_id = if get_counts[tail.local_id] == 1 {
-    tail.value_id
-  } else if simplify_locals_value_can_tee(func, tail.value_id) {
-    @ir.hot_build_local_tee(func, tail.local_id, tail.value_id)
-  } else {
-    return false
-  }
-  ignore(@ir.hot_region_set(func, parent_region, next_idx, replacement_id))
-  detached.push(next_id)
   true
 }
 
@@ -5434,8 +5521,12 @@ fn simplify_locals_run_dead_cleanup(
   func : @ir.HotFunc,
   detached : Array[Int],
   rehomed_owners : Array[SimplifyLocalsDetachedControlOwner],
+  discount_unreachable_tail_gets : Bool,
 ) -> Bool {
   let get_counts = simplify_locals_count_local_gets(func)
+  if discount_unreachable_tail_gets {
+    simplify_locals_discount_unreachable_root_tail_gets(func, get_counts)
+  }
   let one_armed_if_tail_sets = simplify_locals_one_armed_if_tail_sets(func)
   let mut changed = simplify_locals_fold_dead_set_copy_region(
     ctx,
@@ -5593,7 +5684,11 @@ fn simplify_locals_run_with_options(
     let cleanup_detached : Array[Int] = []
     let cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let cleanup_changed = simplify_locals_run_dead_cleanup(
-      ctx, func, cleanup_detached, cleanup_rehomed_owners,
+      ctx,
+      func,
+      cleanup_detached,
+      cleanup_rehomed_owners,
+      policy.allow_nesting,
     )
     perf_stop_timer_accumulate_opt(
       ctx.perf,
@@ -5618,10 +5713,13 @@ fn simplify_locals_run_with_options(
     if first_cycle {
       first_cycle = false
       // Binaryen's initial follow-up main cycle is needed for deferred multi-use
-      // local.set work that may become tee-shaped on the later cycle. When the
-      // first pass only performs non-deferred cleanup/sinking, the same-iteration
-      // dead cleanup has already run and a second full root scan is redundant.
-      if has_deferred_main_cycle {
+      // local.set work that may become tee-shaped on the later cycle. No-tee
+      // variants also need one follow-up after a main or dead-cleanup rewrite:
+      // copy retargeting can expose a computed set/get only after the cycle's
+      // get facts were collected, and leaving that carrier for the next pass is
+      // non-idempotent.
+      if has_deferred_main_cycle ||
+        (!policy.allow_sink_tee && (main_changed || cleanup_changed)) {
         deferred_follow_up_cycle = true
         continue
       }
@@ -5703,7 +5801,11 @@ fn simplify_locals_run_with_options(
     let late_cleanup_detached : Array[Int] = []
     let late_cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let late_cleanup_changed = simplify_locals_run_dead_cleanup(
-      ctx, func, late_cleanup_detached, late_cleanup_rehomed_owners,
+      ctx,
+      func,
+      late_cleanup_detached,
+      late_cleanup_rehomed_owners,
+      policy.allow_nesting,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -6023,7 +6125,8 @@ fn simplify_locals_notee_run(
     )
     return HotPassResult::unchanged()
   }
-  if simplify_locals_should_skip_root_local_set_stack_global_hazard(func) {
+  if (@ir.hot_local_count(func) >= 64 || @ir.hot_node_count(func) >= 512) &&
+    simplify_locals_should_skip_root_local_set_stack_global_hazard(func) {
     pipeline_trace_hook(
       ctx.trace,
       ctx.descriptor.name,
