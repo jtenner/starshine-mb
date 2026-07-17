@@ -16020,7 +16020,7 @@ test "dae-optimizing coalesces and late-reorders selected payoff locals after re
 fn dae_test_broad_high_normalized_literal_chain_module() -> String {
   let out = StringBuilder::new()
   out.write_string(
-    "(module\n  (import \"env\" \"log\" (func $log))\n  (import \"env\" \"touch\" (func $touch (param i32) (result i32)))\n  (import \"env\" \"sink\" (func $sink (param i32)))\n",
+    "(module\n  (type $box (struct))\n  (import \"env\" \"log\" (func $log))\n  (import \"env\" \"touch\" (func $touch (param i32) (result i32)))\n  (import \"env\" \"sink\" (func $sink (param i32)))\n  (import \"env\" \"touch_ref\" (func $touch_ref (param i32 (ref $box))))\n  (global $maybe (ref null $box) (struct.new_default $box))\n",
   )
   for dummy_idx = 0; dummy_idx < 8192; dummy_idx = dummy_idx + 1 {
     ignore(dummy_idx)
@@ -16035,6 +16035,13 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
     (
       #|    i32.const 7)
       #|  (func $carrier (param i32 i64 i32 i64 i32 i32) (result i32)
+      #|    (local (ref $box))
+      #|    global.get $maybe
+      #|    ref.as_non_null
+      #|    local.set 6
+      #|    local.get 0
+      #|    local.get 6
+      #|    call $touch_ref
       #|    local.get 5
       #|    if (result i32)
       #|      local.get 0
@@ -16196,7 +16203,10 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   let carrier = optimized.pretty_print_defined_func(8193U)
   assert_false(carrier.contains("If"), msg=carrier)
   assert_false(carrier.contains("Return"), msg=carrier)
+  let @lib.Func(carrier_locals, _) = dae_test_defined_func(optimized, 8193)
+  @debug.assert_eq(carrier_locals.length(), 0, msg=carrier)
   assert_false(carrier.contains("call (Func 1)"), msg=carrier)
+  assert_true(carrier.contains("call (Func 3)"), msg=carrier)
   let @lib.Func(plain_mid_locals, _) = dae_test_defined_func(plain, 8194)
   @debug.assert_eq(plain_mid_locals.length(), 65)
   let plain_mid = plain.pretty_print_defined_func(8194U)

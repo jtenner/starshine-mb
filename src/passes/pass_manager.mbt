@@ -62365,6 +62365,101 @@ fn run_hot_pipeline_dae_retarget_copy_producers_instrs(
 }
 
 ///|
+fn run_hot_pipeline_dae_sink_global_nonnull_call_args_instrs(
+  instrs : Array[@lib.Instruction],
+  total_local_count : Int,
+  param_count : Int,
+) -> (Array[@lib.Instruction], Int) {
+  if total_local_count <= param_count {
+    return (instrs, 0)
+  }
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 5 < instrs.length() {
+      match
+        (
+          instrs[idx],
+          instrs[idx + 1],
+          instrs[idx + 2],
+          instrs[idx + 3],
+          instrs[idx + 4],
+          instrs[idx + 5],
+        ) {
+        (
+          @lib.GlobalGet(global_idx),
+          @lib.RefAsNonNull,
+          @lib.LocalSet(@lib.LocalIdx(temp_raw)),
+          @lib.LocalGet(argument_idx),
+          @lib.LocalGet(@lib.LocalIdx(read_raw)),
+          @lib.Call(call_idx),
+        ) => {
+          let temp_idx = temp_raw.reinterpret_as_int()
+          let argument_raw = match argument_idx {
+            @lib.LocalIdx(raw) => raw.reinterpret_as_int()
+          }
+          if temp_raw == read_raw &&
+            temp_idx >= param_count &&
+            temp_idx < total_local_count &&
+            argument_raw >= 0 &&
+            argument_raw < total_local_count &&
+            argument_raw != temp_idx &&
+            local_gets[temp_idx] == 1 &&
+            local_sets[temp_idx] == 1 &&
+            local_tees[temp_idx] == 0 {
+            rewritten.push(@lib.Instruction::local_get(argument_idx))
+            rewritten.push(@lib.Instruction::global_get(global_idx))
+            rewritten.push(@lib.Instruction::ref_as_non_null())
+            rewritten.push(@lib.Instruction::call(call_idx))
+            rewrite_count += 1
+            idx += 6
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(instrs[idx])
+    idx += 1
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_fold_ref_null_is_null_if_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 2 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+        (@lib.RefNull(_), @lib.RefIsNull, @lib.If(_, then_body, Some(_))) => {
+          for instr in then_body {
+            rewritten.push(instr)
+          }
+          rewrite_count += 1
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    rewritten.push(instrs[idx])
+    idx += 1
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_dae_remove_final_return_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
@@ -62589,8 +62684,14 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   let (zero_eq_body, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
     pair_guard_body,
   )
+  // DAE can materialize a removed nullable parameter as ref.null. Its exact
+  // adjacent ref.is_null condition is always true, so retain only the typed
+  // then arm without moving any surviving producer or effect.
+  let (null_guard_body, null_guard_count) = run_hot_pipeline_dae_fold_ref_null_is_null_if_instrs(
+    zero_eq_body,
+  )
   let (branch_result_body, branch_result_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
-    zero_eq_body, local_gets, local_sets, local_tees,
+    null_guard_body, local_gets, local_sets, local_tees,
   )
   let (voided_body, voided_block_count, removed_payload_count) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
     branch_result_body,
@@ -62600,6 +62701,7 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   )
   let mut structural_count = pair_guard_count +
     zero_eq_count +
+    null_guard_count +
     branch_result_count +
     voided_block_count +
     removed_payload_count +
@@ -62614,6 +62716,19 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
     run_hot_pipeline_raw_collect_local_ref_counts(
       sunk_body, local_gets, local_sets, local_tees,
     )
+    // Sink this exact single-use non-null global call argument only across the
+    // other argument's pure local.get. The possibly trapping ref.as_non_null
+    // remains before the call and crosses no effectful or trapping instruction.
+    let (global_arg_body, global_arg_count) = run_hot_pipeline_dae_sink_global_nonnull_call_args_instrs(
+      sunk_body,
+      total_local_count,
+      params.length(),
+    )
+    if global_arg_count > 0 {
+      sunk_body = global_arg_body
+      structural_count += global_arg_count
+      continue
+    }
     let (aliased_body, alias_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
       sunk_body, local_gets, local_sets, local_tees,
     )

@@ -21920,6 +21920,74 @@ test "DAEO broad-high simplify-locals rejects unsafe copy producer retargeting" 
 }
 
 ///|
+test "DAEO selected structural cleanup sinks a global nonnull call argument" {
+  let temp = @lib.LocalIdx::new(1U)
+  let argument = @lib.LocalIdx::new(0U)
+  let original = [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::local_set(temp),
+    @lib.Instruction::local_get(argument),
+    @lib.Instruction::local_get(temp),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_sink_global_nonnull_call_args_instrs(
+    original, 2, 1,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::local_get(argument),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+
+  let extra_read = original.copy()
+  extra_read.push(@lib.Instruction::local_get(temp))
+  extra_read.push(@lib.Instruction::drop())
+  let (extra_read_rewritten, extra_read_count) = run_hot_pipeline_dae_sink_global_nonnull_call_args_instrs(
+    extra_read, 2, 1,
+  )
+  @debug.assert_eq(extra_read_count, 0)
+  @debug.assert_eq(extra_read_rewritten, extra_read)
+}
+
+///|
+test "DAEO selected structural cleanup folds ref.null ref.is_null true arms" {
+  let nullable = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let original = [
+    @lib.Instruction::ref_null(nullable),
+    @lib.Instruction::ref_is_null(),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(@lib.I32::new(7))],
+      Some([@lib.Instruction::unreachable_()]),
+    ),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_fold_ref_null_is_null_if_instrs(
+    original,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [@lib.Instruction::i32_const(@lib.I32::new(7))])
+
+  let separated = [
+    @lib.Instruction::ref_null(nullable),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      [@lib.Instruction::i32_const(@lib.I32::new(7))],
+      Some([@lib.Instruction::i32_const(@lib.I32::new(8))]),
+    ),
+  ]
+  let (separated_rewritten, separated_count) = run_hot_pipeline_dae_fold_ref_null_is_null_if_instrs(
+    separated,
+  )
+  @debug.assert_eq(separated_count, 0)
+  @debug.assert_eq(separated_rewritten, separated)
+}
+
+///|
 test "DAEO selected structural cleanup removes only a top-level final return" {
   let original = [
     @lib.Instruction::i32_const(@lib.I32::new(7)),
