@@ -15999,6 +15999,73 @@ test "dae-optimizing coalesces and late-reorders selected payoff locals after re
 }
 
 ///|
+fn dae_test_broad_high_normalized_literal_chain_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (import \"env\" \"log\" (func $log))\n")
+  for dummy_idx = 0; dummy_idx < 8192; dummy_idx = dummy_idx + 1 {
+    ignore(dummy_idx)
+    out.write_string("  (func)\n")
+  }
+  out.write_string("  (func $leaf (param i32) (result i32)\n")
+  for guarded_call = 0; guarded_call < 768; guarded_call = guarded_call + 1 {
+    ignore(guarded_call)
+    out.write_string("    local.get 0\n    if call $log end\n")
+  }
+  out.write_string(
+    (
+      #|    i32.const 7)
+      #|  (func $mid (param i32) (result i32)
+      #|    local.get 0
+      #|    call $leaf)
+      #|  (func $normalize (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const -1
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const 0
+      #|    else
+      #|      local.get 0
+      #|    end
+      #|    call $mid)
+      #|  (func (export "run") (result i32)
+      #|    i32.const -1
+      #|    call $normalize)
+      #|)
+    ),
+  )
+  out.to_string()
+}
+
+///|
+test "dae-optimizing converges a high normalized literal through direct callees" {
+  let source = dae_test_broad_high_normalized_literal_chain_module()
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  for def_idx in [8192, 8193, 8194] {
+    @debug.assert_eq(dae_test_func_params(plain, def_idx).length(), 1)
+    assert_true(
+      dae_test_func_params(optimized, def_idx).length() == 0,
+      msg="def=\{def_idx} trace=\{trace}",
+    )
+  }
+  let leaf = optimized.pretty_print_defined_func(8192U)
+  assert_false(leaf.contains("call (Func 0)"), msg=leaf)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=8194 productive_defs=[8194, 8193, 8192]",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected high normalized-literal chain output to validate: \{err}")
+  }
+}
+
+///|
 fn dae_test_two_broad_dropped_result_payoff_chains_module() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")

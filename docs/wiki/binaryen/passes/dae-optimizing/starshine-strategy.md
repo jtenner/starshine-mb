@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1632-2026-07-17-daeo-func8187-normalized-literal-chain.md
+  - ../../../raw/research/1631-2026-07-17-daeo-func8429-payoff-convergence.md
   - ../../../raw/research/1630-2026-07-16-daeo-forwarded-cycle-priority.md
   - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
   - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
@@ -88,6 +90,8 @@ related:
 ## Current status
 
 Starshine now has an **active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass on the current v0.1.0 surface. `[DAE]003` and `[DAE]004` are closed by research notes `0661` and `0687`; reopen only for a new semantic mismatch, validation failure, or measured DAE-owned regression. `[DAE]013` is closed for v0.1.0 by keeping this pass direct-pass-only: explicit `--dae-optimizing` / `--dead-argument-elimination-optimizing` requests are supported, but public `optimize` / `shrink` presets intentionally skip DAE until new ordered-prefix or artifact evidence proves default-preset safety and runtime. The current raw-cleanup policy is explicit: correctness comes first; audited pure/nontrapping cleanup is useful and should be kept when semantically proved; Binaryen-shape debris preservation is narrow and only justified by a documented diagnostic or active artifact frontier. Possibly trapping or effectful operand stacks must remain live, and any future policy-changing cleanup needs focused tests plus size/mismatch evidence from the relevant compare lane. This closes `[DAE]009` as a policy/backlog task; future raw-cleanup work should reopen only for a concrete implementation, measurement, or frontier need.
+
+Research note [`1632`](../../../raw/research/1632-2026-07-17-daeo-func8187-normalized-literal-chain.md) closed the next focused artifact owner. A bounded optimizing-only scheduler scanned only small high-definition callers/callees, required a depth-two payoff of at least `2048`, and routed every seed/downstream rewrite through the existing authoritative exact-literal transaction. The final productive definition alone received validated, strictly size-profitable coalescing, dead-write/local compaction, bounded structural cleanup, one required generic cleanup round, and local reordering. Func `8187` reached canonical body `767` versus Binaryen's `961`; the canonical module gap became `+2305`; raw/canonical second-invocation convergence and validation were exact; and plain DAE remained separate. The best stable equivalent pass-local result was `77225519us`, about `8%` above the pre-slice `71492436us`; removing the required final cleanup round left the body at `1028`, while a second round was byte-redundant and removed. That runtime remained an explicit selected-cleanup tradeoff and future performance owner, not a silent win.
 
 The local naming caveat was resolved in the first implementation slice:
 

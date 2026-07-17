@@ -21730,3 +21730,61 @@ test "DAEO selected cleanup forwards one-use immutable parameter copies" {
     ),
   ])
 }
+
+///|
+test "DAEO broad-high structural primitives preserve stack/control shape" {
+  let value = @lib.LocalIdx::new(0U)
+  let (zero_eq, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(value),
+        @lib.Instruction::i32_const(@lib.I32::new(0)),
+        @lib.Instruction::i32_eq(),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+  @debug.assert_eq(zero_eq_count, 1)
+  @debug.assert_eq(zero_eq, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(value),
+        @lib.Instruction::i32_eqz(),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+
+  let (voided, voided_count, payload_count) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs([
+      @lib.Instruction::block(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(7))]),
+      ),
+      @lib.Instruction::drop(),
+    ],
+  )
+  @debug.assert_eq(voided_count, 1)
+  @debug.assert_eq(payload_count, 1)
+  @debug.assert_eq(voided, [
+    @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new([])),
+  ])
+
+  let (flattened, flattened_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32::new(9)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        ]),
+      ),
+    ],
+  )
+  @debug.assert_eq(flattened_count, 1)
+  @debug.assert_eq(flattened, [
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::drop(),
+  ])
+}

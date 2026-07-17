@@ -3791,6 +3791,30 @@ fn dae_simplify_default_zero_high_guard_instrs(
 }
 
 ///|
+fn dae_known_i32_const_for_local_before(
+  instrs : Array[@lib.Instruction],
+  local_idx : @lib.LocalIdx,
+) -> Int? {
+  let local_slot = dae_local_idx_slot(local_idx)
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    if dae_instr_references_local(instrs[idx], local_idx) {
+      match instrs[idx] {
+        @lib.LocalSet(set_idx) if dae_local_idx_slot(set_idx) == local_slot &&
+          idx > 0 =>
+          match instrs[idx - 1] {
+            @lib.I32Const(@lib.I32(value)) => return Some(value)
+            _ => return None
+          }
+        _ => return None
+      }
+    }
+    idx -= 1
+  }
+  None
+}
+
+///|
 fn dae_simplify_rewritten_control_instrs(
   instrs : Array[@lib.Instruction],
   invert_zero_eq_if : Bool,
@@ -3844,6 +3868,57 @@ fn dae_simplify_rewritten_control_instrs(
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
   while idx < rewritten.length() {
+    if idx + 1 < rewritten.length() {
+      match (rewritten[idx], rewritten[idx + 1]) {
+        (@lib.I32Const(@lib.I32(condition)), @lib.If(_, then_body, else_body)) => {
+          let selected_body = if condition == 0 {
+            match else_body {
+              Some(body) => body
+              None => []
+            }
+          } else {
+            then_body
+          }
+          // Removing the selected `if` label is safe only when the retained arm
+          // has no label-sensitive branch. The discarded arm is unreachable
+          // under the materialized constant and may contain arbitrary effects.
+          if !selected_body.any(fn(instr) { dae_instr_has_branch(instr) }) {
+            for selected_instr in selected_body {
+              out.push(selected_instr)
+            }
+            idx += 2
+            continue
+          }
+        }
+        _ => ()
+      }
+    }
+    if idx + 1 < rewritten.length() {
+      match (rewritten[idx], rewritten[idx + 1]) {
+        (@lib.LocalGet(local_idx), @lib.If(_, then_body, else_body)) =>
+          match dae_known_i32_const_for_local_before(out, local_idx) {
+            Some(condition) => {
+              let selected_body = if condition == 0 {
+                match else_body {
+                  Some(body) => body
+                  None => []
+                }
+              } else {
+                then_body
+              }
+              if !selected_body.any(fn(instr) { dae_instr_has_branch(instr) }) {
+                for selected_instr in selected_body {
+                  out.push(selected_instr)
+                }
+                idx += 2
+                continue
+              }
+            }
+            None => ()
+          }
+        _ => ()
+      }
+    }
     if invert_zero_eq_if && idx + 2 < rewritten.length() {
       match (rewritten[idx], rewritten[idx + 1], rewritten[idx + 2]) {
         (
@@ -5389,6 +5464,13 @@ fn dae_resolve_uniform_const_candidate(
   visited : Array[Bool],
   allow_immutable_global_get? : Bool = false,
 ) -> @lib.Instruction? {
+  match
+    dae_materializable_control_const(
+      mod_, candidate, allow_immutable_global_get,
+    ) {
+    Some(materialized) => return Some(materialized)
+    None => ()
+  }
   if allow_immutable_global_get {
     if dae_instr_is_materializable_const_with_immutable_global(mod_, candidate) {
       return Some(candidate)

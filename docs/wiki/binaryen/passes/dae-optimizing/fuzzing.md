@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1632-2026-07-17-daeo-func8187-normalized-literal-chain.md
   - ../../../raw/research/1631-2026-07-17-daeo-func8429-payoff-convergence.md
   - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
   - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
@@ -97,6 +98,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1632`](../../../raw/research/1632-2026-07-17-daeo-func8187-normalized-literal-chain.md) records the focused Func `8187` completion smokes with explicit native SHA-256 `970bb7456dba663dbd566bbbd789d5543d8eb1960a1fdc44662b56fb2ad030bf`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8187-final-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8187-final-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures, and Binaryen cache `1000/0`. These focused smokes accompany valid byte-identical first/second artifact outputs and a canonical Func `8187` body of `767` versus Binaryen's `961`; they do not replace the required four-lane closeout matrix.
 
 Research note [`1631`](../../../raw/research/1631-2026-07-17-daeo-func8429-payoff-convergence.md) records the focused Func `8429` completion smokes with explicit native SHA-256 `6057190705590291c3deeca348a48276aa43d7bd9d2980bd3400152f9ba74122`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8429-final-converged-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8429-final-converged-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures, and Binaryen cache `1000/0`. These focused smokes accompany valid byte-identical first/second artifact outputs; they do not replace the required four-lane closeout matrix.
 

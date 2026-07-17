@@ -60736,6 +60736,8 @@ fn run_hot_pipeline_dae_is_scalar_literal(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.I32Const(_) | @lib.I64Const(_) | @lib.F32Const(_) | @lib.F64Const(_) =>
       true
+    @lib.Block(_, @lib.Expr(body)) if body.length() == 1 =>
+      run_hot_pipeline_dae_is_scalar_literal(body[0])
     _ => false
   }
 }
@@ -60824,6 +60826,1631 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
     }
   }
   (mod_, touched, false)
+}
+
+///|
+fn run_hot_pipeline_dae_collect_direct_callees(
+  instrs : Array[@lib.Instruction],
+  imported : Int,
+  defined : Int,
+  callee_defs : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) => {
+        let def_idx = dae_func_idx_slot(func_idx) - imported
+        if def_idx >= 0 && def_idx < defined && !callee_defs.contains(def_idx) {
+          callee_defs.push(def_idx)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_collect_direct_callees(
+          body, imported, defined, callee_defs,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_dae_collect_direct_callees(
+          then_body, imported, defined, callee_defs,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_dae_collect_direct_callees(
+              body, imported, defined, callee_defs,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_high_literal_chain_payoff(
+  funcs : Array[@lib.Func],
+  def_idx : Int,
+  imported : Int,
+  defined : Int,
+  remaining_depth : Int,
+  seen : Array[Bool],
+) -> Int {
+  if def_idx < 0 ||
+    def_idx >= funcs.length() ||
+    def_idx >= seen.length() ||
+    seen[def_idx] {
+    return 0
+  }
+  seen[def_idx] = true
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(body)
+  let mut payoff = instr_count + locals.length()
+  if remaining_depth > 0 {
+    let callees : Array[Int] = []
+    run_hot_pipeline_dae_collect_direct_callees(
+      body, imported, defined, callees,
+    )
+    for callee_def in callees {
+      payoff = payoff +
+        run_hot_pipeline_dae_high_literal_chain_payoff(
+          funcs,
+          callee_def,
+          imported,
+          defined,
+          remaining_depth - 1,
+          seen,
+        )
+    }
+  }
+  payoff
+}
+
+///|
+fn run_hot_pipeline_dae_try_flatten_pair_null_guard_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 3 {
+    return None
+  }
+  let inner_body = match body[0] {
+    @lib.Block(_, @lib.Expr(inner_body)) if inner_body.length() >= 10 =>
+      inner_body
+    _ => return None
+  }
+  let (final_second, final_first, suffix_start) = match (body[1], body[2]) {
+    (@lib.LocalSet(final_second), @lib.LocalSet(final_first)) =>
+      (final_second, final_first, 3)
+    _ => {
+      if body.length() < 8 {
+        return None
+      }
+      match (body[1], body[2], body[3], body[4], body[5], body[6], body[7]) {
+        (
+          @lib.LocalSet(second_result),
+          @lib.LocalTee(_),
+          @lib.LocalSet(first_result),
+          @lib.LocalGet(second_readback),
+          @lib.LocalSet(final_second),
+          @lib.LocalGet(first_readback),
+          @lib.LocalSet(final_first),
+        ) if second_result == second_readback && first_result == first_readback =>
+          (final_second, final_first, 8)
+        _ => return None
+      }
+    }
+  }
+  let (
+    base,
+    first_type,
+    first_field,
+    first_temp,
+    second_type,
+    second_field,
+    second_temp,
+    first_if,
+  ) = match
+    (
+      inner_body[0],
+      inner_body[1],
+      inner_body[2],
+      inner_body[3],
+      inner_body[4],
+      inner_body[5],
+      inner_body[6],
+      inner_body[7],
+      inner_body[8],
+      inner_body[9],
+    ) {
+    (
+      @lib.LocalGet(base),
+      @lib.StructGet(first_type, first_field),
+      @lib.LocalSet(first_temp),
+      @lib.LocalGet(second_base),
+      @lib.StructGet(second_type, second_field),
+      @lib.LocalSet(second_temp),
+      @lib.LocalGet(first_readback),
+      @lib.RefIsNull,
+      first_if,
+      @lib.Return,
+    ) if base == second_base && first_temp == first_readback =>
+      (
+        base, first_type, first_field, first_temp, second_type, second_field, second_temp,
+        first_if,
+      )
+    _ => return None
+  }
+  let first_else = match first_if {
+    @lib.If(_, [@lib.Br(_)], Some(first_else)) => first_else
+    _ => return None
+  }
+  if first_else.length() != 6 {
+    return None
+  }
+  let (first_nonnull, second_if) = match
+    (
+      first_else[0],
+      first_else[1],
+      first_else[2],
+      first_else[3],
+      first_else[4],
+      first_else[5],
+    ) {
+    (
+      @lib.LocalGet(first_readback),
+      @lib.RefAsNonNull,
+      @lib.LocalSet(first_nonnull),
+      @lib.LocalGet(second_readback),
+      @lib.RefIsNull,
+      second_if,
+    ) if first_readback == first_temp && second_readback == second_temp =>
+      (first_nonnull, second_if)
+    _ => return None
+  }
+  let second_else = match second_if {
+    @lib.If(_, [@lib.Br(_)], Some(second_else)) => second_else
+    _ => return None
+  }
+  match second_else {
+    [
+      @lib.LocalGet(second_readback),
+      @lib.RefAsNonNull,
+      @lib.LocalSet(second_nonnull),
+      @lib.LocalGet(first_nonnull_readback),
+      @lib.LocalGet(second_nonnull_readback),
+      @lib.Br(_),
+    ] if second_readback == second_temp &&
+      first_nonnull_readback == first_nonnull &&
+      second_nonnull_readback == second_nonnull => ()
+    _ => return None
+  }
+  let rewritten : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(base),
+    @lib.Instruction::struct_get(first_type, first_field),
+    @lib.Instruction::local_set(first_temp),
+    @lib.Instruction::local_get(base),
+    @lib.Instruction::struct_get(second_type, second_field),
+    @lib.Instruction::local_set(second_temp),
+    @lib.Instruction::local_get(first_temp),
+    @lib.Instruction::ref_is_null(),
+    @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::local_get(first_temp),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::local_set(final_first),
+    @lib.Instruction::local_get(second_temp),
+    @lib.Instruction::ref_is_null(),
+    @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::local_get(second_temp),
+    @lib.Instruction::ref_as_non_null(),
+    @lib.Instruction::local_set(final_second),
+  ]
+  for idx = suffix_start; idx < body.length(); idx = idx + 1 {
+    rewritten.push(body[idx])
+  }
+  Some(rewritten)
+}
+
+///|
+fn run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (nested_body, nested_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+          body,
+        )
+        rewrite_count += nested_count
+        match
+          run_hot_pipeline_dae_try_flatten_pair_null_guard_body(nested_body) {
+          Some(next_body) => {
+            rewrite_count += 1
+            @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+          }
+          None =>
+            @lib.Instruction::block(block_type, @lib.Expr::new(nested_body))
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+          body,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+          body,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+          then_body,
+        )
+        rewrite_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+              body,
+            )
+            rewrite_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    out.push(rewritten)
+  }
+  (out, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+          body,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+          body,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+          body,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+          then_body,
+        )
+        rewrite_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+              body,
+            )
+            rewrite_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    normalized.push(rewritten)
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 1 < normalized.length() {
+      match (normalized[idx], normalized[idx + 1]) {
+        (@lib.I32Const(@lib.I32(0)), @lib.I32Eq) => {
+          out.push(@lib.Instruction::i32_eqz())
+          rewrite_count += 1
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(normalized[idx])
+    idx += 1
+  }
+  (out, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_void_dropped_i32_block_payloads(
+  instrs : Array[@lib.Instruction],
+  target_depth : Int,
+) -> (Array[@lib.Instruction], Bool, Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut removed_payload_count = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.I32Const(_), @lib.Br(label)) if run_hot_pipeline_raw_vacuum_label_depth(
+            label,
+          ) ==
+          target_depth => {
+          out.push(instrs[idx + 1])
+          removed_payload_count += 1
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let rewritten = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, valid, nested_count) = run_hot_pipeline_dae_void_dropped_i32_block_payloads(
+          body,
+          target_depth + 1,
+        )
+        if !valid {
+          return (instrs, false, 0)
+        }
+        removed_payload_count += nested_count
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, valid, nested_count) = run_hot_pipeline_dae_void_dropped_i32_block_payloads(
+          body,
+          target_depth + 1,
+        )
+        if !valid {
+          return (instrs, false, 0)
+        }
+        removed_payload_count += nested_count
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_valid, then_count) = run_hot_pipeline_dae_void_dropped_i32_block_payloads(
+          then_body,
+          target_depth + 1,
+        )
+        if !then_valid {
+          return (instrs, false, 0)
+        }
+        removed_payload_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_valid, else_count) = run_hot_pipeline_dae_void_dropped_i32_block_payloads(
+              body,
+              target_depth + 1,
+            )
+            if !else_valid {
+              return (instrs, false, 0)
+            }
+            removed_payload_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      @lib.TryTable(_, _, _) => return (instrs, false, 0)
+      @lib.Br(label) if run_hot_pipeline_raw_vacuum_label_depth(label) ==
+        target_depth => return (instrs, false, 0)
+      @lib.BrIf(label) if run_hot_pipeline_raw_vacuum_label_depth(label) ==
+        target_depth => return (instrs, false, 0)
+      @lib.BrOnNull(label) if run_hot_pipeline_raw_vacuum_label_depth(label) ==
+        target_depth => return (instrs, false, 0)
+      @lib.BrOnNonNull(label) if run_hot_pipeline_raw_vacuum_label_depth(label) ==
+        target_depth => return (instrs, false, 0)
+      @lib.BrOnCast(label, _, _, _) if run_hot_pipeline_raw_vacuum_label_depth(
+          label,
+        ) ==
+        target_depth => return (instrs, false, 0)
+      @lib.BrOnCastFail(label, _, _, _) if run_hot_pipeline_raw_vacuum_label_depth(
+          label,
+        ) ==
+        target_depth => return (instrs, false, 0)
+      @lib.BrTable(labels, default_label) => {
+        if run_hot_pipeline_raw_vacuum_label_depth(default_label) ==
+          target_depth {
+          return (instrs, false, 0)
+        }
+        for label in labels {
+          if run_hot_pipeline_raw_vacuum_label_depth(label) == target_depth {
+            return (instrs, false, 0)
+          }
+        }
+        instrs[idx]
+      }
+      instr => instr
+    }
+    out.push(rewritten)
+    idx += 1
+  }
+  (out, true, removed_payload_count)
+}
+
+///|
+fn run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int, Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut voided_block_count = 0
+  let mut removed_payload_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_voided, nested_payloads) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+          body,
+        )
+        voided_block_count += nested_voided
+        removed_payload_count += nested_payloads
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_voided, nested_payloads) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+          body,
+        )
+        voided_block_count += nested_voided
+        removed_payload_count += nested_payloads
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_voided, nested_payloads) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+          body,
+        )
+        voided_block_count += nested_voided
+        removed_payload_count += nested_payloads
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_voided, then_payloads) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+          then_body,
+        )
+        voided_block_count += then_voided
+        removed_payload_count += then_payloads
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_voided, else_payloads) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+              body,
+            )
+            voided_block_count += else_voided
+            removed_payload_count += else_payloads
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    normalized.push(rewritten)
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 1 < normalized.length() {
+      match (normalized[idx], normalized[idx + 1]) {
+        (
+          @lib.Block(@lib.ValTypeBlockType(value_type), @lib.Expr(body)),
+          @lib.Drop,
+        ) if value_type == @lib.ValType::i32() && body.length() > 0 => {
+          let (prefix, removed_fallthrough_count) = match
+            body[body.length() - 1] {
+            @lib.I32Const(_) => {
+              let prefix : Array[@lib.Instruction] = []
+              for body_idx = 0
+                  body_idx + 1 < body.length()
+                  body_idx = body_idx + 1 {
+                prefix.push(body[body_idx])
+              }
+              (prefix, 1)
+            }
+            @lib.Return | @lib.Unreachable => (body.copy(), 0)
+            _ => ([], -1)
+          }
+          if removed_fallthrough_count >= 0 {
+            let (next_body, valid, payload_count) = run_hot_pipeline_dae_void_dropped_i32_block_payloads(
+              prefix, 0,
+            )
+            if valid && payload_count + removed_fallthrough_count > 0 {
+              out.push(
+                @lib.Instruction::block(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new(next_body),
+                ),
+              )
+              voided_block_count += 1
+              removed_payload_count += payload_count + removed_fallthrough_count
+              idx += 2
+              continue
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    out.push(normalized[idx])
+    idx += 1
+  }
+  (out, voided_block_count, removed_payload_count)
+}
+
+///|
+fn run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut flattened_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+          body,
+        )
+        flattened_count += nested_count
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+          body,
+        )
+        flattened_count += nested_count
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+          body,
+        )
+        flattened_count += nested_count
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+          then_body,
+        )
+        flattened_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+              body,
+            )
+            flattened_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    match rewritten {
+      @lib.Block(_, @lib.Expr(body)) if body.length() > 0 =>
+        match body[body.length() - 1] {
+          @lib.Br(@lib.LabelIdx(0U)) => {
+            let mut safe = true
+            for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+              if dae_instr_has_branch(body[idx]) {
+                safe = false
+                break
+              }
+            }
+            if safe {
+              for idx = 0; idx + 1 < body.length(); idx = idx + 1 {
+                out.push(body[idx])
+              }
+              flattened_count += 1
+            } else {
+              out.push(rewritten)
+            }
+          }
+          _ => out.push(rewritten)
+        }
+      _ => out.push(rewritten)
+    }
+  }
+  (out, flattened_count)
+}
+
+///|
+fn run_hot_pipeline_dae_find_loop_iteration_alias(
+  instrs : Array[@lib.Instruction],
+) -> (@lib.LocalIdx, @lib.LocalIdx)? {
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalGet(source), @lib.LocalTee(iteration_alias)) if source !=
+          iteration_alias => return Some((source, iteration_alias))
+        _ => ()
+      }
+    }
+    let nested = match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_find_loop_iteration_alias(body)
+      @lib.If(_, then_body, else_body) =>
+        match run_hot_pipeline_dae_find_loop_iteration_alias(then_body) {
+          Some(pair) => Some(pair)
+          None =>
+            match else_body {
+              Some(body) => run_hot_pipeline_dae_find_loop_iteration_alias(body)
+              None => None
+            }
+        }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_find_loop_iteration_alias(body)
+      _ => None
+    }
+    match nested {
+      Some(pair) => return Some(pair)
+      None => ()
+    }
+    idx += 1
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+  instrs : Array[@lib.Instruction],
+  source : @lib.LocalIdx,
+  iteration_alias : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.LocalGet(get_source), @lib.LocalTee(get_alias)) if get_source ==
+          source &&
+          get_alias == iteration_alias => {
+          out.push(@lib.Instruction::local_get(source))
+          idx += 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    let rewritten = match instrs[idx] {
+      @lib.LocalGet(readback) if readback == iteration_alias =>
+        @lib.Instruction::local_get(source)
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        @lib.Instruction::block(
+          block_type,
+          @lib.Expr::new(
+            run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+              body, source, iteration_alias,
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        @lib.Instruction::loop_(
+          block_type,
+          @lib.Expr::new(
+            run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+              body, source, iteration_alias,
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(
+            run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+              body, source, iteration_alias,
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        @lib.Instruction::if_(
+          block_type,
+          run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+            then_body, source, iteration_alias,
+          ),
+          match else_body {
+            Some(body) =>
+              Some(
+                run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+                  body, source, iteration_alias,
+                ),
+              )
+            None => None
+          },
+        )
+      instr => instr
+    }
+    out.push(rewritten)
+    idx += 1
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_dae_try_coalesce_loop_iteration_alias_body(
+  body : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 2 || !(body[body.length() - 1] is @lib.Br(_)) {
+    return None
+  }
+  let source = match body[body.length() - 2] {
+    @lib.LocalSet(source) => source
+    _ => return None
+  }
+  let prefix : Array[@lib.Instruction] = []
+  for idx = 0; idx + 2 < body.length(); idx = idx + 1 {
+    prefix.push(body[idx])
+  }
+  let (get_source, alias_local) = match
+    run_hot_pipeline_dae_find_loop_iteration_alias(prefix) {
+    Some(pair) => pair
+    None => return None
+  }
+  if get_source != source {
+    return None
+  }
+  let source_idx = dae_local_idx_slot(source)
+  let alias_idx = dae_local_idx_slot(alias_local)
+  for prefix_instr in prefix {
+    if dae_instr_writes_local(prefix_instr, source) {
+      return None
+    }
+  }
+  if source_idx < 0 ||
+    alias_idx < 0 ||
+    source_idx >= local_gets.length() ||
+    source_idx >= local_sets.length() ||
+    source_idx >= local_tees.length() ||
+    alias_idx >= local_gets.length() ||
+    alias_idx >= local_sets.length() ||
+    alias_idx >= local_tees.length() ||
+    local_gets[alias_idx] != 2 ||
+    local_sets[alias_idx] != 0 ||
+    local_tees[alias_idx] != 1 ||
+    local_sets[source_idx] != 2 ||
+    local_tees[source_idx] != 0 {
+    return None
+  }
+  let rewritten = run_hot_pipeline_dae_rewrite_loop_iteration_alias(
+    prefix, source, alias_local,
+  )
+  rewritten.push(body[body.length() - 2])
+  rewritten.push(body[body.length() - 1])
+  local_gets[source_idx] += local_gets[alias_idx]
+  local_gets[alias_idx] = 0
+  local_tees[alias_idx] = 0
+  Some(rewritten)
+}
+
+///|
+fn run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+          body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += nested_count
+        match
+          run_hot_pipeline_dae_try_coalesce_loop_iteration_alias_body(
+            next_body, local_gets, local_sets, local_tees,
+          ) {
+          Some(rewritten_body) => {
+            rewrite_count += 1
+            @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body))
+          }
+          None => @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+          body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += nested_count
+        match
+          run_hot_pipeline_dae_try_coalesce_loop_iteration_alias_body(
+            next_body, local_gets, local_sets, local_tees,
+          ) {
+          Some(rewritten_body) => {
+            rewrite_count += 1
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body))
+          }
+          None => @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+          body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+          then_body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+              body, local_gets, local_sets, local_tees,
+            )
+            rewrite_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    out.push(rewritten)
+  }
+  (out, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_replace_leading_block_local_get(
+  instr : @lib.Instruction,
+  target : @lib.LocalIdx,
+  replacement : Array[@lib.Instruction],
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) if body.length() > 0 => {
+      let mut leading_idx = 0
+      while leading_idx < body.length() &&
+            dae_instr_is_materializable_const(body[leading_idx]) {
+        leading_idx += 1
+      }
+      if leading_idx >= body.length() {
+        return None
+      }
+      match body[leading_idx] {
+        @lib.LocalGet(readback) if readback == target => {
+          let next_body : Array[@lib.Instruction] = []
+          for idx = 0; idx < leading_idx; idx = idx + 1 {
+            next_body.push(body[idx])
+          }
+          for producer_instr in replacement {
+            next_body.push(producer_instr)
+          }
+          for idx = leading_idx + 1; idx < body.length(); idx = idx + 1 {
+            next_body.push(body[idx])
+          }
+          Some(@lib.Instruction::block(block_type, @lib.Expr::new(next_body)))
+        }
+        first =>
+          match
+            run_hot_pipeline_dae_replace_leading_block_local_get(
+              first, target, replacement,
+            ) {
+            Some(rewritten_first) => {
+              let next_body = body.copy()
+              next_body[leading_idx] = rewritten_first
+              Some(
+                @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+              )
+            }
+            None => None
+          }
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+          body, local_gets, local_sets, local_tees, mod_, func_type_indices,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+          body, local_gets, local_sets, local_tees, mod_, func_type_indices,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+          body, local_gets, local_sets, local_tees, mod_, func_type_indices,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+          then_body, local_gets, local_sets, local_tees, mod_, func_type_indices,
+        )
+        rewrite_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+              body, local_gets, local_sets, local_tees, mod_, func_type_indices,
+            )
+            rewrite_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    normalized.push(rewritten)
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    match normalized[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw) as target) => {
+        let target_idx = raw.reinterpret_as_int()
+        if target_idx >= 0 &&
+          target_idx < local_gets.length() &&
+          target_idx < local_sets.length() &&
+          target_idx < local_tees.length() &&
+          local_gets[target_idx] == 1 &&
+          local_sets[target_idx] == 1 &&
+          local_tees[target_idx] == 0 {
+          let shape = match
+            dae_find_value_slice(normalized, idx, 0, mod_, func_type_indices) {
+            Some((shape, _, _)) if shape.start >= 0 && shape.start < idx =>
+              Some(shape)
+            _ => None
+          }
+          match shape {
+            Some(shape) => {
+              let replacement : Array[@lib.Instruction] = []
+              for slice_idx = shape.start
+                  slice_idx < idx
+                  slice_idx = slice_idx + 1 {
+                replacement.push(normalized[slice_idx])
+              }
+              let mut movable_under_block = true
+              for producer_instr in replacement {
+                if dae_instr_has_escaping_branch(producer_instr, 0) {
+                  movable_under_block = false
+                  break
+                }
+              }
+              if movable_under_block && idx + 1 < normalized.length() {
+                match
+                  run_hot_pipeline_dae_replace_leading_block_local_get(
+                    normalized[idx + 1],
+                    target,
+                    replacement,
+                  ) {
+                  Some(rewritten_block) => {
+                    while out.length() > shape.start {
+                      ignore(out.pop())
+                    }
+                    out.push(rewritten_block)
+                    local_gets[target_idx] = 0
+                    local_sets[target_idx] = 0
+                    for suffix_idx = idx + 2
+                        suffix_idx < normalized.length()
+                        suffix_idx = suffix_idx + 1 {
+                      out.push(normalized[suffix_idx])
+                    }
+                    return (out, rewrite_count + 1)
+                  }
+                  None => ()
+                }
+              }
+              let mut read_idx = idx + 1
+              while read_idx < normalized.length() && read_idx <= idx + 6 {
+                match normalized[read_idx] {
+                  @lib.LocalGet(readback) if readback == target => break
+                  instr if dae_instr_is_materializable_const(instr) =>
+                    read_idx += 1
+                  _ => {
+                    read_idx = normalized.length()
+                    break
+                  }
+                }
+              }
+              if read_idx < normalized.length() && read_idx <= idx + 6 {
+                match normalized[read_idx] {
+                  @lib.LocalGet(readback) if readback == target => {
+                    while out.length() > shape.start {
+                      ignore(out.pop())
+                    }
+                    for gap_idx = idx + 1
+                        gap_idx < read_idx
+                        gap_idx = gap_idx + 1 {
+                      out.push(normalized[gap_idx])
+                    }
+                    for producer_instr in replacement {
+                      out.push(producer_instr)
+                    }
+                    local_gets[target_idx] = 0
+                    local_sets[target_idx] = 0
+                    for suffix_idx = read_idx + 1
+                        suffix_idx < normalized.length()
+                        suffix_idx = suffix_idx + 1 {
+                      out.push(normalized[suffix_idx])
+                    }
+                    return (out, rewrite_count + 1)
+                  }
+                  _ => ()
+                }
+              }
+            }
+            None => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    out.push(normalized[idx])
+    idx += 1
+  }
+  (out, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_broad_high_structural_cleanup(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> (@lib.Module, Int) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, 0)
+  }
+  let func = match funcs.get(def_idx) {
+    Some(func) => func
+    None => return (mod_, 0)
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let (pair_guard_body, pair_guard_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+    body,
+  )
+  let (zero_eq_body, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+    pair_guard_body,
+  )
+  let (voided_body, voided_block_count, removed_payload_count) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+    zero_eq_body,
+  )
+  let (next_body, flattened_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+    voided_body,
+  )
+  let mut structural_count = pair_guard_count +
+    zero_eq_count +
+    voided_block_count +
+    removed_payload_count +
+    flattened_count
+  let func_idx = @lib.FuncIdx::new(
+    (dae_imported_func_count(mod_) + def_idx).reinterpret_as_uint(),
+  )
+  let params = match
+    run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx) {
+    Some(params) => params
+    None => return (mod_, 0)
+  }
+  let func_type_indices = dae_collect_func_type_indices(mod_)
+  let mut sunk_body = next_body
+  for sink_round = 0; sink_round < 32; sink_round = sink_round + 1 {
+    let total_local_count = params.length() + locals.length()
+    let local_gets : Array[Int] = Array::make(total_local_count, 0)
+    let local_sets : Array[Int] = Array::make(total_local_count, 0)
+    let local_tees : Array[Int] = Array::make(total_local_count, 0)
+    run_hot_pipeline_raw_collect_local_ref_counts(
+      sunk_body, local_gets, local_sets, local_tees,
+    )
+    let (aliased_body, alias_count) = run_hot_pipeline_dae_coalesce_loop_iteration_aliases_instrs(
+      sunk_body, local_gets, local_sets, local_tees,
+    )
+    let (next, sunk_count) = run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
+      aliased_body, local_gets, local_sets, local_tees, mod_, func_type_indices,
+    )
+    if alias_count + sunk_count == 0 {
+      break
+    }
+    sunk_body = next
+    structural_count += alias_count + sunk_count
+  }
+  if structural_count == 0 {
+    return (mod_, 0)
+  }
+  let shaped_func = @lib.Func::new(locals, @lib.Expr::new(sunk_body))
+  let (cleaned_func, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+    shaped_func,
+  )
+  let (compacted_func, _) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
+    cleaned_func, params, 0,
+  )
+  let next_funcs = funcs.copy()
+  next_funcs[def_idx] = compacted_func
+  let candidate = mod_
+    .with_code_sec(@lib.CodeSec::new(next_funcs))
+    .without_name_sec()
+  (candidate, structural_count)
+}
+
+///|
+fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> (@lib.Module, Int) {
+  let (candidate, removed_tee_count, _) = run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
+    mod_, def_idx,
+  )
+  if removed_tee_count == 0 {
+    return (mod_, 0)
+  }
+  (candidate, removed_tee_count)
+}
+
+///|
+fn run_hot_pipeline_dae_bounded_instr_count(
+  instrs : Array[@lib.Instruction],
+  limit : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    count += 1
+    if count > limit {
+      return count
+    }
+    let nested_count = match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_bounded_instr_count(body, limit - count)
+      @lib.If(_, then_body, else_body) => {
+        let then_count = run_hot_pipeline_dae_bounded_instr_count(
+          then_body,
+          limit - count,
+        )
+        if count + then_count > limit {
+          then_count
+        } else {
+          let else_count = match else_body {
+            Some(body) =>
+              run_hot_pipeline_dae_bounded_instr_count(
+                body,
+                limit - count - then_count,
+              )
+            None => 0
+          }
+          then_count + else_count
+        }
+      }
+      _ => 0
+    }
+    count += nested_count
+    if count > limit {
+      return count
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[(@lib.Module, Array[Bool], Bool), String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok((mod_, touched, false))
+  }
+  let defined = funcs.length()
+  if defined <= 8192 {
+    return Ok((mod_, touched, false))
+  }
+  let imported = dae_imported_func_count(mod_)
+  let discovery_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:discovery",
+  )
+  let candidate_defs : Array[Int] = []
+  for def_idx = 4096; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+    if run_hot_pipeline_dae_bounded_instr_count(body, 64) <= 64 {
+      run_hot_pipeline_dae_collect_adjacent_literal_callees(
+        body, imported, defined, candidate_defs,
+      )
+    }
+  }
+  let ranked_defs : Array[Int] = []
+  let ranked_payoffs : Array[Int] = []
+  for candidate_def in candidate_defs {
+    if candidate_def < 4096 || candidate_def >= funcs.length() {
+      continue
+    }
+    let @lib.Func(_, @lib.Expr(candidate_body)) = funcs[candidate_def]
+    let (_, _, _, _, _, candidate_instr_count) = run_hot_pipeline_instr_scan(
+      candidate_body,
+    )
+    // Binaryen's profitable high chain starts at a small default/sentinel
+    // normalizer. Keep broad dispatch and loop bodies out of this scheduler;
+    // their adjacent literals are unrelated to downstream parameter collapse.
+    if candidate_instr_count > 64 {
+      continue
+    }
+    let seen = Array::make(defined, false)
+    let payoff = run_hot_pipeline_dae_high_literal_chain_payoff(
+      funcs, candidate_def, imported, defined, 2, seen,
+    )
+    // Keep this expensive, signature-changing scheduler for major payoff
+    // chains. Smaller high-index literal opportunities remain with the normal
+    // exact-literal lanes instead of creating fresh work on a later invocation.
+    if payoff >= 2048 {
+      ranked_defs.push(candidate_def)
+      ranked_payoffs.push(payoff)
+    }
+  }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:discovery",
+    discovery_start_us,
+  )
+  if ranked_defs.length() == 0 {
+    return Ok((mod_, touched, false))
+  }
+  let seed_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:seed",
+  )
+  let initial_call_facts = dae_collect_current_call_facts(
+    mod_,
+    imported + defined,
+  )
+  let mut current = mod_
+  let mut current_touched = touched
+  let mut seed_def = -1
+  let mut seed_payoff = 0
+  let productive_defs : Array[Int] = []
+  let mut attempt = 0
+  while ranked_defs.length() > 0 && attempt < 16 && seed_def < 0 {
+    let mut best_idx = 0
+    for idx = 1; idx < ranked_defs.length(); idx = idx + 1 {
+      if ranked_payoffs[idx] > ranked_payoffs[best_idx] {
+        best_idx = idx
+      }
+    }
+    let candidate_def = ranked_defs[best_idx]
+    let candidate_payoff = ranked_payoffs[best_idx]
+    ignore(ranked_defs.remove(best_idx))
+    ignore(ranked_payoffs.remove(best_idx))
+    let result = dae_try_rewrite_exact_literal_def_with_facts_once(
+      current, candidate_def, initial_call_facts,
+    )
+    if result.changed {
+      current = result.mod_out
+      current_touched = dae_merge_touched(current_touched, result.touched)
+      seed_def = candidate_def
+      seed_payoff = candidate_payoff
+      productive_defs.push(candidate_def)
+    }
+    attempt += 1
+  }
+  perf_stop_timer_opt(options.perf, "detail:dae:broad-high:seed", seed_start_us)
+  if seed_def < 0 {
+    return Ok((mod_, touched, false))
+  }
+  let selected_defs = Array::make(defined, false)
+  selected_defs[seed_def] = true
+  let mut frontier_cleanup_defs = Array::make(defined, false)
+  frontier_cleanup_defs[seed_def] = true
+  let mut frontier_needs_vacuum = false
+  // Direct callers, escape state, and call multiplicity stay stable while this
+  // chain removes parameters and folds selected callee bodies. Reuse one facts
+  // snapshot instead of rescanning the giant module after every local cleanup.
+  let chain_call_facts = initial_call_facts
+  let rounds_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:rounds",
+  )
+  let mut round = 0
+  while round < 12 {
+    current = match
+      run_hot_pipeline_apply_hot_pass_to_touched(
+        current,
+        precompute_propagate_prefix_descriptor(),
+        frontier_cleanup_defs,
+        options,
+      ) {
+      Ok(next) => next
+      Err(err) =>
+        return Err(
+          "DAE broad high exact-literal round=\{round} precompute: \{err}",
+        )
+    }
+    let round_cleanup_passes = if frontier_needs_vacuum {
+      ["optimize-instructions", "vacuum"]
+    } else {
+      ["optimize-instructions"]
+    }
+    for cleanup_pass in round_cleanup_passes {
+      let descriptor = match
+        run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+        Ok(descriptor) => descriptor
+        Err(err) => return Err(err)
+      }
+      current = match
+        run_hot_pipeline_apply_hot_pass_to_touched(
+          current, descriptor, frontier_cleanup_defs, options,
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE broad high exact-literal round=\{round} \{cleanup_pass}: \{err}",
+          )
+      }
+    }
+    let next_frontier_cleanup_defs = Array::make(defined, false)
+    let current_funcs = match current.code_sec {
+      Some(@lib.CodeSec(current_funcs)) => current_funcs
+      None => break
+    }
+    let next_candidates : Array[Int] = []
+    for def_idx = 0; def_idx < selected_defs.length(); def_idx = def_idx + 1 {
+      if selected_defs[def_idx] && def_idx < current_funcs.length() {
+        let @lib.Func(_, @lib.Expr(body)) = current_funcs[def_idx]
+        // The seed rewrite can materialize a constant through a local.set/get
+        // carrier before the next direct call. Collect the selected chain's
+        // complete direct-callee frontier here; the authoritative exact-literal
+        // verifier still proves every actual before any signature mutation.
+        run_hot_pipeline_dae_collect_direct_callees(
+          body, imported, defined, next_candidates,
+        )
+      }
+    }
+    let mut exact_changed = false
+    let next_ranked_defs : Array[Int] = []
+    let next_ranked_payoffs : Array[Int] = []
+    for candidate_def in next_candidates {
+      if candidate_def < 0 ||
+        candidate_def >= defined ||
+        selected_defs[candidate_def] ||
+        candidate_def < seed_def - 8 ||
+        candidate_def > seed_def + 8 {
+        continue
+      }
+      let seen = Array::make(defined, false)
+      next_ranked_defs.push(candidate_def)
+      next_ranked_payoffs.push(
+        run_hot_pipeline_dae_high_literal_chain_payoff(
+          current_funcs, candidate_def, imported, defined, 1, seen,
+        ),
+      )
+    }
+    let mut next_attempt = 0
+    while next_ranked_defs.length() > 0 && next_attempt < 16 && !exact_changed {
+      let mut best_idx = 0
+      for idx = 1; idx < next_ranked_defs.length(); idx = idx + 1 {
+        if next_ranked_payoffs[idx] > next_ranked_payoffs[best_idx] {
+          best_idx = idx
+        }
+      }
+      let candidate_def = next_ranked_defs[best_idx]
+      ignore(next_ranked_defs.remove(best_idx))
+      ignore(next_ranked_payoffs.remove(best_idx))
+      let exact_result = dae_try_rewrite_exact_literal_def_with_facts_once(
+        current, candidate_def, chain_call_facts,
+      )
+      if exact_result.changed {
+        current = exact_result.mod_out
+        current_touched = dae_merge_touched(
+          current_touched,
+          exact_result.touched,
+        )
+        selected_defs[candidate_def] = true
+        next_frontier_cleanup_defs[candidate_def] = true
+        productive_defs.push(candidate_def)
+        exact_changed = true
+      }
+      next_attempt += 1
+    }
+    if exact_changed {
+      frontier_cleanup_defs = next_frontier_cleanup_defs
+      frontier_needs_vacuum = true
+      round += 1
+      continue
+    }
+    let unread_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+      current, selected_defs, chain_call_facts,
+    )
+    if unread_result.changed {
+      current = unread_result.mod_out
+      current_touched = dae_merge_touched(
+        current_touched,
+        unread_result.touched,
+      )
+      frontier_cleanup_defs = unread_result.touched
+      frontier_needs_vacuum = false
+      round += 1
+      continue
+    }
+    break
+  }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:rounds",
+    rounds_start_us,
+  )
+  let cleanup_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:cleanup",
+  )
+  let cleanup_baseline = current
+  let cleanup_defs : Array[Int] = []
+  let cleanup_selected = Array::make(selected_defs.length(), false)
+  if productive_defs.length() > 0 {
+    let cleanup_def = productive_defs[productive_defs.length() - 1]
+    cleanup_defs.push(cleanup_def)
+    cleanup_selected[cleanup_def] = true
+  }
+  current = match
+    run_hot_pipeline_apply_coalesce_locals_to_touched(current, cleanup_selected) {
+    Ok(next) => next
+    Err(err) =>
+      return Err("DAE broad high exact-literal coalesce-locals: \{err}")
+  }
+  let mut removed_dead_tee_count = 0
+  let mut structural_cleanup_count = 0
+  if cleanup_defs.length() > 0 {
+    let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
+      current,
+      cleanup_defs[0],
+    )
+    current = next
+    removed_dead_tee_count += removed_count
+    let (next, cleanup_count) = run_hot_pipeline_dae_broad_high_structural_cleanup(
+      current,
+      cleanup_defs[0],
+    )
+    current = next
+    structural_cleanup_count += cleanup_count
+  }
+  for cleanup_round = 0; cleanup_round < 1; cleanup_round = cleanup_round + 1 {
+    for
+      cleanup_pass in [
+        "dead-code-elimination", "remove-unused-brs", "merge-blocks", "simplify-locals",
+        "vacuum",
+      ] {
+      let descriptor = match
+        run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+        Ok(descriptor) => descriptor
+        Err(err) => return Err(err)
+      }
+      current = match
+        run_hot_pipeline_apply_hot_pass_to_touched(
+          current, descriptor, cleanup_selected, options,
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE broad high exact-literal final round=\{cleanup_round} \{cleanup_pass}: \{err}",
+          )
+      }
+    }
+  }
+  if cleanup_defs.length() > 0 {
+    let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
+      current,
+      cleanup_defs[0],
+    )
+    current = next
+    removed_dead_tee_count += removed_count
+    let (next, cleanup_count) = run_hot_pipeline_dae_broad_high_structural_cleanup(
+      current,
+      cleanup_defs[0],
+    )
+    current = next
+    structural_cleanup_count += cleanup_count
+  }
+  current = match
+    run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
+      current, cleanup_defs,
+    ) {
+    Ok(next) => next
+    Err(err) =>
+      return Err("DAE broad high exact-literal reorder-locals: \{err}")
+  }
+  if cleanup_defs.length() > 0 {
+    let cleanup_def = cleanup_defs[0]
+    let (validated, valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      cleanup_baseline, current, cleanup_def,
+    )
+    let smaller = if valid {
+      match
+        run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+          cleanup_baseline, validated, cleanup_def,
+        ) {
+        Some(true) => true
+        _ => false
+      }
+    } else {
+      false
+    }
+    if smaller {
+      current = validated
+    } else {
+      current = cleanup_baseline
+      removed_dead_tee_count = 0
+      structural_cleanup_count = 0
+    }
+  }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:dae:broad-high:cleanup",
+    cleanup_start_us,
+  )
+  (options.trace)(
+    "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=\{seed_def} productive_defs=\{productive_defs.to_string()} cleanup_defs=\{cleanup_defs.to_string()} removed_dead_tees=\{removed_dead_tee_count} structural_cleanups=\{structural_cleanup_count} payoff=\{seed_payoff}",
+  )
+  Ok((current, current_touched, true))
 }
 
 ///|
@@ -64552,11 +66179,17 @@ fn run_hot_pipeline_dae_rewrite_dead_tees_with_local_remap(
       }
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_idx = raw.reinterpret_as_int()
-        rewritten.push(
-          @lib.Instruction::local_set(
-            @lib.LocalIdx::new(local_remap[local_idx].reinterpret_as_uint()),
-          ),
-        )
+        if local_gets[local_idx] > 0 {
+          rewritten.push(
+            @lib.Instruction::local_set(
+              @lib.LocalIdx::new(local_remap[local_idx].reinterpret_as_uint()),
+            ),
+          )
+        } else {
+          // A never-read local write is observationally identical to dropping
+          // the produced value; retain producer traps/effects and free the slot.
+          rewritten.push(@lib.Instruction::drop())
+        }
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_idx = raw.reinterpret_as_int()
@@ -64896,7 +66529,7 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
       local_remap[local_id] = mapped_source
       remapped_gets[mapped_source] = remapped_gets[mapped_source] + 1
       remapped_sets[mapped_source] = remapped_sets[mapped_source] + 1
-    } else if local_gets[local_id] > 0 || local_sets[local_id] > 0 {
+    } else if local_gets[local_id] > 0 {
       local_remap[local_id] = remapped_gets.length()
       let retained_type = locals.get(local_idx)
       compacted_local_types.push(retained_type)
@@ -66817,6 +68450,24 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
+  let high_literal_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:broad-high-exact-literal-chain",
+  )
+  let (high_literal_mod, high_literal_touched, high_literal_changed) = match
+    run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
+      core_mod, core_touched, options,
+    ) {
+    Ok(result) => result
+    Err(err) => return Err(err)
+  }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:dae:broad-high-exact-literal-chain",
+    high_literal_start_us,
+  )
+  core_mod = high_literal_mod
+  core_touched = high_literal_touched
   let mut forwarded_scc_seeds = core_touched.copy()
   let forwarded_cycle_preferred_defs : Array[Int] = []
   match broad_adjacent.candidate {
@@ -67100,7 +68751,16 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     options.perf,
     "detail:dae:prune-unused-simple-func-types",
   )
-  let pruned = dae_prune_unused_simple_func_types(post_cleanup_stripped)
+  // The broad high-literal chain appends several mutually referenced function
+  // signatures in one bounded wave. Preserve those fresh indices here: the
+  // current simple-type pruner does not yet prove remapping across that grouped
+  // signature neighborhood, while retaining the types is valid and lets the
+  // next canonicalizer remove any genuinely unused entries.
+  let pruned = if high_literal_changed {
+    post_cleanup_stripped
+  } else {
+    dae_prune_unused_simple_func_types(post_cleanup_stripped)
+  }
   perf_stop_timer_opt(
     options.perf,
     "detail:dae:prune-unused-simple-func-types",
