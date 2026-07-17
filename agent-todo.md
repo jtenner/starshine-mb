@@ -81,7 +81,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Deliverables:**
   - [x] Inventory every source-owned rewrite/postcondition family and legality domain.
   - [ ] Add a fact-based `allow_tee` / `allow_structure` / `allow_nesting` policy without adding redundant linear scans.
-  - [ ] Activate canonical `simplify-locals-notee` plus an explicit compatibility spelling policy.
+  - [x] Activate canonical `simplify-locals-notee` plus the tested `simplify-locals-no-tee` compatibility alias.
   - [ ] Activate canonical `simplify-locals-nonesting` plus an explicit compatibility spelling policy.
   - [ ] Prove no-tee still performs structure synthesis, including structure-required conditional-branch tees, while never creating a sink tee.
   - [ ] Prove nonesting permits flat copy retargeting and set-value sinks while rejecting ordinary new nesting, tees, and structure synthesis.

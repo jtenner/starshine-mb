@@ -17,6 +17,37 @@ pub fn simplify_locals_summary() -> String {
 }
 
 ///|
+pub fn simplify_locals_notee_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-notee", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+fn simplify_locals_notee_alias_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-no-tee", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+pub fn simplify_locals_notee_summary() -> String {
+  "Run the structured no-tee SimplifyLocals variant: sink single-use local traffic, synthesize control results, canonicalize equivalent copies, and remove dead writes without creating sink tees."
+}
+
+///|
 pub fn simplify_locals_nostructure_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("simplify-locals-nostructure", requires=[], invalidates=[
     @ir.HotAnalysis::cfg(),
@@ -63,6 +94,22 @@ pub fn simplify_locals_nostructure_summary() -> String {
 ///|
 pub fn simplify_locals_notee_nostructure_summary() -> String {
   "Run Binaryen's size-biased no-tee/no-structure SimplifyLocals spelling: sink local traffic and dead writes without fresh tees or structure-result rewrites."
+}
+
+///|
+priv struct SimplifyLocalsPolicy {
+  allow_structure_rewrites : Bool
+  allow_sink_tee : Bool
+  allow_nesting : Bool
+}
+
+///|
+fn SimplifyLocalsPolicy::new(
+  allow_structure_rewrites : Bool,
+  allow_sink_tee : Bool,
+  allow_nesting : Bool,
+) -> SimplifyLocalsPolicy {
+  { allow_structure_rewrites, allow_sink_tee, allow_nesting }
 }
 
 ///|
@@ -5344,8 +5391,7 @@ fn simplify_locals_run_dead_cleanup(
 fn simplify_locals_run_with_options(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  allow_structure_rewrites : Bool,
-  allow_tee : Bool,
+  policy : SimplifyLocalsPolicy,
 ) -> HotPassResult {
   let mut first_cycle = true
   let mut deferred_follow_up_cycle = false
@@ -5359,7 +5405,12 @@ fn simplify_locals_run_with_options(
     )
     let main_detached : Array[Int] = []
     let (main_changed, has_deferred_main_cycle) = simplify_locals_run_main_cycle(
-      ctx, func, first_cycle, main_detached, allow_tee, false,
+      ctx,
+      func,
+      first_cycle,
+      main_detached,
+      policy.allow_sink_tee,
+      false,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -5425,7 +5476,7 @@ fn simplify_locals_run_with_options(
       }
     }
 
-    if allow_structure_rewrites {
+    if policy.allow_structure_rewrites {
       let structure_start_us = perf_start_timer_opt(
         ctx.perf,
         "detail:simplify-locals:structure",
@@ -5793,7 +5844,41 @@ fn simplify_locals_run(
     )
     return HotPassResult::unchanged()
   }
-  simplify_locals_run_with_options(ctx, func, true, true)
+  simplify_locals_run_with_options(
+    ctx,
+    func,
+    SimplifyLocalsPolicy::new(true, true, true),
+  )
+}
+
+///|
+fn simplify_locals_notee_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  if simplify_locals_should_skip_large_local_tee_memory_write_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=large-local-tee-memory-write-hazard-noop",
+    )
+    return HotPassResult::unchanged()
+  }
+  if simplify_locals_should_skip_root_local_set_stack_global_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=root-local-set-stack-global-hazard-noop",
+    )
+    return HotPassResult::unchanged()
+  }
+  simplify_locals_run_with_options(
+    ctx,
+    func,
+    SimplifyLocalsPolicy::new(true, false, true),
+  )
 }
 
 ///|
@@ -6351,7 +6436,11 @@ fn simplify_locals_nostructure_run(
   if simplify_locals_has_control_embedded_local_tee(func) {
     return simplify_locals_run_control_embedded_tee_root_only(ctx, func, true)
   }
-  simplify_locals_run_with_options(ctx, func, false, true)
+  simplify_locals_run_with_options(
+    ctx,
+    func,
+    SimplifyLocalsPolicy::new(false, true, true),
+  )
 }
 
 ///|
@@ -6375,5 +6464,9 @@ fn simplify_locals_notee_nostructure_run(
   if simplify_locals_has_control_embedded_local_tee(func) {
     return simplify_locals_run_control_embedded_tee_root_only(ctx, func, false)
   }
-  simplify_locals_run_with_options(ctx, func, false, false)
+  simplify_locals_run_with_options(
+    ctx,
+    func,
+    SimplifyLocalsPolicy::new(false, false, true),
+  )
 }

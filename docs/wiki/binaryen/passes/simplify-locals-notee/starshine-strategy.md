@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
   - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -30,21 +31,18 @@ related:
 # Starshine Strategy For `simplify-locals-notee`
 
 Use this page together with the retained 2026-04-24 research inventory and direct tagged source URLs.
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, naming mismatch, local code surfaces, and future port shape for the no-tee locals-family sibling.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, naming policy, shared implementation surface, and remaining closeout work for the no-tee locals-family sibling.
 
 ## Honest current status
 
-`simplify-locals-notee` is **not implemented** as an active Starshine pass today.
-There is no `src/passes/simplify_locals_notee.mbt` owner file and no active dispatcher case for the upstream spelling.
-
-The exact local status has two names:
+`simplify-locals-notee` is now implemented as an active Starshine hot pass in the shared `src/passes/simplify_locals.mbt` owner.
 
 | Surface | Name | Current Starshine status |
 | --- | --- | --- |
-| Binaryen public pass | `simplify-locals-notee` | not registered locally |
-| Starshine compatibility placeholder | `simplify-locals-no-tee` | removed registry name |
+| Binaryen public pass | `simplify-locals-notee` | active canonical hot pass |
+| Starshine compatibility spelling | `simplify-locals-no-tee` | active alias of the canonical policy |
 
-So the pass is not forgotten, but the current registry tracks a local descriptive alias rather than the upstream public spelling.
+The implementation uses one explicit policy object. For this sibling it sets structure on, sink-created tees off, and ordinary nesting on. Existing input tees may still be analyzed and cleaned; the disabled behavior is specifically multi-use sinking by creating a fresh tee.
 
 ## Exact local code map today
 
@@ -52,29 +50,26 @@ The fastest read-along path through the current Starshine state is:
 
 - registry and active-request behavior
   - `src/passes/optimize.mbt`
-    - `pass_registry_removed_names()` includes `"simplify-locals-no-tee"`
-    - `pass_registry_category("simplify-locals-no-tee")` is therefore `Removed`
-    - `pass_registry_category("simplify-locals-notee")` is not a local registry hit today
-    - `run_hot_pipeline_expand_passes(...)` rejects removed names with `"removed from the active hot pipeline registry"`
+    - both `simplify-locals-notee` and `simplify-locals-no-tee` are active hot entries
+    - the alias has been removed from `pass_registry_removed_names()`
+    - both descriptors use the same summary and policy implementation
 - CLI parse behavior
   - `src/cmd/cmd.mbt`
-    - pass-flag parsing accepts only `HotPass`, `ModulePass`, and `Preset` categories
-    - removed names are rejected as `UnknownPassFlag`, so `--pass simplify-locals-no-tee` is deliberately not advertised as runnable
-    - the exact upstream spelling is also rejected because it is not registered
-- active full-pass implementation surface
+    - pass-flag parsing accepts active `HotPass` registry entries
+    - both the canonical spelling and compatibility alias are therefore executable and visible through the shared registry-backed CLI surface
+- shared implementation surface
   - `src/passes/simplify_locals.mbt`
-    - `simplify_locals_descriptor()` publishes only active `"simplify-locals"`
-    - `simplify_locals_summary()` already describes the broad local behavior: local-set sinking, structured block/if/loop returns, equivalent-copy canonicalization, and dead-write cleanup
-    - the current implementation has reusable concepts for sinkables, effect conflicts, branch exits, stacked forwarders, structure lifting, equivalent copies, and final cleanup
-    - it does not expose an `allowTee = false` mode today
-- active dispatcher surface
+    - `simplify_locals_notee_descriptor()` publishes the canonical pass
+    - `SimplifyLocalsPolicy` records structure, sink-tee, and nesting permissions
+    - `simplify_locals_notee_run(...)` reuses sinkables, effect conflicts, branch exits, structure lifting, equivalent copies, and final cleanup with sink tees disabled
+- active dispatcher and writeback surface
   - `src/passes/pass_manager.mbt`
-    - hot-pass dispatch handles `"simplify-locals" => simplify_locals_run(ctx, func)`
-    - raw / writeback special cases also key on descriptor name `"simplify-locals"`
-    - there is no `"simplify-locals-no-tee"` or `"simplify-locals-notee"` dispatch path
+    - both names dispatch to `simplify_locals_notee_run(...)`
+    - shared family classification gives both names the SimplifyLocals lower options, verification, and exact writeback cleanup
+    - the no-tee sibling deliberately avoids tee-capable raw fast-path admission until those exact rewrites are policy-aware
 - tests and replay surfaces
   - `src/passes/registry_test.mbt`
-    - proves active `simplify-locals` classification and removed-name rejection mechanics, but does not have a focused assertion for the local no-tee alias
+    - proves both canonical and compatibility no-tee names are active hot passes and checks the canonical descriptor
   - `src/passes/optimize_test.mbt`
     - proves default presets run the active full `simplify-locals`, not the no-tee sibling
   - `src/passes/simplify_locals_test.mbt` and `src/passes/simplify_locals_wbtest.mbt`
@@ -83,44 +78,30 @@ The fastest read-along path through the current Starshine state is:
     - contains raw/writeback lanes and artifact-shaped full-pass coverage keyed to `simplify-locals`
 - planning surfaces
   - `agent-todo.md`
-    - no active dedicated `simplify-locals-notee` / `simplify-locals-no-tee` backlog slice was found in this run
+    - `[SL-FAMILY]001` tracks full family implementation, dedicated generation, parity, timing, and closeout
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - canonical no-DWARF default path uses `simplify-locals-nostructure` early and full `simplify-locals` later, not this sibling
 
-## What Starshine currently does for the pass name
+## Current implementation boundaries
 
-### 1. The local alias is tracked as removed
+### 1. Both spellings are active
 
-The local registry entry `simplify-locals-no-tee` means the project knows about the upstream sibling family.
-That is useful for docs, tracker coverage, and future compatibility work.
+The upstream spelling is canonical and the older descriptive spelling is a tested alias. No preset currently schedules this sibling.
 
-But the category is still `Removed`, so Starshine does not claim a runnable transform.
+### 2. No-tee is a sink policy, not a ban on all tees
 
-### 2. The exact upstream spelling is not registered
+The pass refuses fresh tees for multi-use sinking. Structure synthesis remains enabled and may use value-carrying branch machinery required by the structured result transform.
 
-`src/passes/optimize.mbt` does not currently include `simplify-locals-notee` in active, boundary-only, or removed names.
-That is the most important local-vs-upstream naming caveat for future CLI or registry cleanup.
-
-A future compatibility decision should be explicit:
-
-- normalize the registry to the upstream spelling, or
-- keep the local descriptive alias but document it at the CLI / registry boundary, or
-- support both names with one canonical implementation entry
-
-What should not happen is a silent implementation under the wrong variant semantics.
-
-### 3. Full `simplify-locals` is implemented, but that is not the same as this pass
+### 3. Full `simplify-locals` remains a distinct broader pass
 
 The active full pass is the closest local implementation surface, but it is not equivalent because it may perform tee-enabled rewrite families that upstream `simplify-locals-notee` intentionally disables.
 
 The future local distinction is not whether Starshine can simplify locals at all.
 It is whether Starshine can run the same family with a policy that refuses fresh tee creation while still preserving structure formation and late cleanup.
 
-## Future Starshine implementation shape
+## Remaining closeout work
 
-The most natural local implementation is a parameterized HOT locals-family mode rather than a separate module pass.
-
-A future port should preserve these source-backed semantics:
+The parameterized HOT locals-family mode is now landed. Remaining work must preserve these source-backed semantics:
 
 1. keep the pass function-local / HOT-level
    - this is not a whole-module declaration pass

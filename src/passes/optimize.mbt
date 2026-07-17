@@ -142,7 +142,7 @@ fn pass_registry_removed_names() -> Array[String] {
   [
     "const-hoisting", "dataflow-optimization", "loop-invariant-code-motion", "re-reloop",
     "optimize-added-constants", "optimize-added-constants-propagate", "precompute-propagate",
-    "de-nan", "simplify-locals-no-tee", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
+    "de-nan", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
   ]
 }
 
@@ -233,6 +233,16 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "simplify-locals",
       simplify_locals_summary(),
       simplify_locals_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "simplify-locals-notee",
+      simplify_locals_notee_summary(),
+      simplify_locals_notee_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "simplify-locals-no-tee",
+      simplify_locals_notee_summary(),
+      simplify_locals_notee_alias_descriptor(),
     ),
     pass_registry_entry_hot(
       "simplify-locals-nostructure",

@@ -3099,6 +3099,16 @@ fn run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
 }
 
 ///|
+fn run_hot_pipeline_descriptor_is_simplify_locals_family(
+  descriptor_name : String,
+) -> Bool {
+  descriptor_name == "simplify-locals" ||
+  descriptor_name == "simplify-locals-notee" ||
+  descriptor_name == "simplify-locals-no-tee" ||
+  run_hot_pipeline_simplify_locals_descriptor_is_nostructure(descriptor_name)
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
   descriptor_name : String,
   instrs : Array[@lib.Instruction],
@@ -54396,10 +54406,7 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   original_func : @lib.Func?,
   mod_ : @lib.Module,
 ) -> @lib.Func {
-  if descriptor_name != "simplify-locals" &&
-    descriptor_name != "simplify-locals-nostructure" &&
-    descriptor_name != "simplify-locals-no-structure" &&
-    descriptor_name != "simplify-locals-notee-nostructure" {
+  if !run_hot_pipeline_descriptor_is_simplify_locals_family(descriptor_name) {
     return func
   }
   let refinalization_context = run_hot_pipeline_slns_lowered_refinalization_context_from_original(
@@ -56196,10 +56203,9 @@ fn run_hot_pipeline_lower_options_for_descriptor(
     )
   } else if descriptor_name == "ssa-nomerge" {
     @ir.HotLowerOptions::new(preserve_dead_local_tee_drops=true)
-  } else if descriptor_name == "simplify-locals" ||
-    descriptor_name == "simplify-locals-nostructure" ||
-    descriptor_name == "simplify-locals-no-structure" ||
-    descriptor_name == "simplify-locals-notee-nostructure" {
+  } else if run_hot_pipeline_descriptor_is_simplify_locals_family(
+      descriptor_name,
+    ) {
     @ir.HotLowerOptions::new(
       preserve_if_arm_single_nops=true,
       preserve_dead_local_tee_drops=true,
@@ -56232,10 +56238,7 @@ fn run_hot_pipeline_lower_options_for_descriptor(
 fn run_hot_pipeline_unchecked_should_verify_before_lower(
   descriptor_name : String,
 ) -> Bool {
-  descriptor_name == "simplify-locals" ||
-  descriptor_name == "simplify-locals-nostructure" ||
-  descriptor_name == "simplify-locals-no-structure" ||
-  descriptor_name == "simplify-locals-notee-nostructure"
+  run_hot_pipeline_descriptor_is_simplify_locals_family(descriptor_name)
 }
 
 ///|
@@ -59841,6 +59844,8 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "code-folding" => code_folding_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
+    "simplify-locals-notee" | "simplify-locals-no-tee" =>
+      simplify_locals_notee_run(ctx, func)
     "simplify-locals-nostructure" | "simplify-locals-no-structure" =>
       simplify_locals_nostructure_run(ctx, func)
     "simplify-locals-notee-nostructure" =>
