@@ -63539,13 +63539,18 @@ fn run_hot_pipeline_apply_dae_post_reorder_immutable_field_delay(
     for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
       local_types.push(locals.get(local_idx))
     }
-    let (next_body, rewrite_count) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
+    let (field_body, field_rewrite_count) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
       body,
       local_types,
       params.length(),
       current.type_sec,
     )
-    if rewrite_count == 0 {
+    let (next_body, zero_rewrite_count) = run_hot_pipeline_dae_materialize_exact_i64_zero_local_instrs(
+      field_body,
+      local_types,
+      params.length(),
+    )
+    if field_rewrite_count == 0 && zero_rewrite_count == 0 {
       no_match_count += 1
       continue
     }
@@ -65912,6 +65917,128 @@ fn run_hot_pipeline_dae_tee_struct_get_readbacks(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
   run_hot_pipeline_dae_tee_struct_get_readbacks_with_counts(instrs, [], [], [])
+}
+
+///|
+fn run_hot_pipeline_dae_replace_local_get_with_i64_zero(
+  instr : @lib.Instruction,
+  target : @lib.LocalIdx,
+) -> (@lib.Instruction, Int) {
+  match instr {
+    @lib.LocalGet(idx) if idx == target =>
+      (@lib.Instruction::i64_const(@lib.I64(0)), 1)
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+        body, target,
+      )
+      (@lib.Instruction::block(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+        body, target,
+      )
+      (@lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten)), count)
+    }
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+      let (rewritten, count) = run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+        body, target,
+      )
+      (
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten),
+        ),
+        count,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_count) = run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+        then_body, target,
+      )
+      let mut count = then_count
+      let rewritten_else = match else_body {
+        Some(body) => {
+          let (rewritten, else_count) = run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+            body, target,
+          )
+          count = count + else_count
+          Some(rewritten)
+        }
+        None => None
+      }
+      (@lib.Instruction::if_(block_type, rewritten_then, rewritten_else), count)
+    }
+    _ => (instr, 0)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+  instrs : Array[@lib.Instruction],
+  target : @lib.LocalIdx,
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut count = 0
+  for instr in instrs {
+    let (next, next_count) = run_hot_pipeline_dae_replace_local_get_with_i64_zero(
+      instr, target,
+    )
+    rewritten.push(next)
+    count = count + next_count
+  }
+  (rewritten, count)
+}
+
+///|
+// Materialize only the artifact's exact one-set/sixteen-get i64.zero carrier.
+// The constant is pure and nontrapping, so duplicating it at each read removes
+// the carrier without moving any effect or trap. Other counts and parameters
+// reject instead of generalizing SimplifyLocals behavior.
+fn run_hot_pipeline_dae_materialize_exact_i64_zero_local_instrs(
+  instrs : Array[@lib.Instruction],
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+) -> (Array[@lib.Instruction], Int) {
+  let local_gets : Array[Int] = Array::make(local_types.length(), 0)
+  let local_sets : Array[Int] = Array::make(local_types.length(), 0)
+  let local_tees : Array[Int] = Array::make(local_types.length(), 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  for target_idx = param_count
+      target_idx < local_types.length()
+      target_idx = target_idx + 1 {
+    if local_types[target_idx] != @lib.ValType::i64() ||
+      local_gets[target_idx] != 16 ||
+      local_sets[target_idx] != 1 ||
+      local_tees[target_idx] != 0 {
+      continue
+    }
+    let target = @lib.LocalIdx::new(target_idx.reinterpret_as_uint())
+    let mut producer_idx = 0
+    while producer_idx + 1 < instrs.length() {
+      match (instrs[producer_idx], instrs[producer_idx + 1]) {
+        (@lib.I64Const(@lib.I64(0)), @lib.LocalSet(idx)) if idx == target => {
+          let without_producer : Array[@lib.Instruction] = []
+          for idx = 0; idx < instrs.length(); idx = idx + 1 {
+            if idx != producer_idx && idx != producer_idx + 1 {
+              without_producer.push(instrs[idx])
+            }
+          }
+          let (rewritten, replacement_count) = run_hot_pipeline_dae_replace_local_gets_with_i64_zero(
+            without_producer, target,
+          )
+          if replacement_count == 16 {
+            return (rewritten, 1)
+          }
+        }
+        _ => ()
+      }
+      producer_idx += 1
+    }
+  }
+  (instrs, 0)
 }
 
 ///|

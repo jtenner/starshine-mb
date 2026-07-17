@@ -21984,6 +21984,75 @@ test "DAEO broad-high simplify-locals rejects unsafe immutable field-read delay"
 }
 
 ///|
+test "DAEO post-reorder cleanup materializes an exact i64 zero local" {
+  let target = @lib.LocalIdx::new(2U)
+  let original : Array[@lib.Instruction] = [
+    @lib.Instruction::i64_const(@lib.I64(0)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  for i = 0; i < 16; i = i + 1 {
+    original.push(@lib.Instruction::local_get(target))
+    original.push(@lib.Instruction::drop())
+  }
+  let local_types = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_materialize_exact_i64_zero_local_instrs(
+    original, local_types, 2,
+  )
+  let expected : Array[@lib.Instruction] = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+  for i = 0; i < 16; i = i + 1 {
+    expected.push(@lib.Instruction::i64_const(@lib.I64(0)))
+    expected.push(@lib.Instruction::drop())
+  }
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, expected)
+}
+
+///|
+test "DAEO post-reorder cleanup rejects inexact i64 zero locals" {
+  let target = @lib.LocalIdx::new(2U)
+  let local_types = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ]
+  let cases : Array[Array[@lib.Instruction]] = []
+  let fifteen_reads = [
+    @lib.Instruction::i64_const(@lib.I64(0)),
+    @lib.Instruction::local_set(target),
+  ]
+  for i = 0; i < 15; i = i + 1 {
+    fifteen_reads.push(@lib.Instruction::local_get(target))
+    fifteen_reads.push(@lib.Instruction::drop())
+  }
+  cases.push(fifteen_reads)
+  let second_write = fifteen_reads.copy()
+  second_write.push(@lib.Instruction::i64_const(@lib.I64(0)))
+  second_write.push(@lib.Instruction::local_set(target))
+  second_write.push(@lib.Instruction::local_get(target))
+  second_write.push(@lib.Instruction::drop())
+  cases.push(second_write)
+  let tee = fifteen_reads.copy()
+  tee.push(@lib.Instruction::local_get(target))
+  tee.push(@lib.Instruction::local_tee(target))
+  tee.push(@lib.Instruction::drop())
+  cases.push(tee)
+  for original in cases {
+    let (rewritten, count) = run_hot_pipeline_dae_materialize_exact_i64_zero_local_instrs(
+      original, local_types, 2,
+    )
+    @debug.assert_eq(count, 0)
+    @debug.assert_eq(rewritten, original)
+  }
+}
+
+///|
 test "DAEO broad-high simplify-locals retargets copy producers without moving them" {
   let local_types = Array::make(6, @lib.ValType::i32())
   let original = [
