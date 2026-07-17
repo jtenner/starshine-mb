@@ -7184,12 +7184,19 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.instr_count >= 256 &&
     stats.local_set_count >= 24 &&
     stats.local_get_count >= 48
-  if (raw_nostructure_stack_hazard || raw_simplify_locals_stack_global_hazard) &&
+  let should_skip_root_local_set_stack_hazard = (
+      raw_nostructure_stack_hazard &&
+      (
+        stats.has_structured_control ||
+        stats.locals_count >= 16 ||
+        stats.instr_count >= 128
+      )
+    ) ||
     (
-      stats.has_structured_control ||
-      stats.locals_count >= 16 ||
-      stats.instr_count >= 128
-    ) {
+      raw_simplify_locals_stack_global_hazard &&
+      (stats.locals_count >= 64 || stats.instr_count >= 512)
+    )
+  if should_skip_root_local_set_stack_hazard {
     return Some({
       reason: "root-local-set-stack-hazard-noop",
       func: original,

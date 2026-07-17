@@ -39,7 +39,7 @@ The four newly covered aggregates select from:
 
 The established no-structure aggregate retains its existing straight-line, tee-control, and effect-order leaves for replay continuity.
 
-The body generator now emits dedicated structure-result and nonesting parent-position slices instead of falling through to the broad SSA matrix. Effect/stress leaves deliberately keep memory, globals, and calls while excluding table/reference/tag shapes that the installed Binaryen oracle cannot decode reliably.
+The body generator now emits dedicated structure-result and nonesting parent-position slices instead of falling through to the broad SSA matrix. Effect/stress leaves deliberately keep memory and global barriers while excluding random calls, function-result tails, and table/reference/tag shapes that obscured the intended pass family or exceeded the installed Binaryen oracle's decoding surface. Call barriers remain covered by focused tests and the regular generator lane.
 
 ## Red-first evidence
 
@@ -55,7 +55,7 @@ The first profile-backed compare runs successfully generated valid modules and r
 - dead effectful local-write cleanup differences in nonesting;
 - one no-structure canonical wrapper difference.
 
-These are agent-classified open parity/size families until measured or repaired. The structure-arm case is currently smaller in Starshine on the inspected sample, but final Starshine-win classification still requires family-wide semantic and size evidence.
+The profile was then narrowed to void, family-owned bodies and rerun with Node runtime execution. Across five 100-case canonical lanes, every residual mismatch was strictly smaller in canonical Starshine wasm, with zero runtime semantic mismatches. The residual families are therefore classified as measured Starshine wins for these leaves: redundant structure-arm block/nop removal and stronger dead local-write cleanup that preserves effect/trap execution as `drop`. The no-structure lane reached raw parity on one 100-case run and had one `-3` byte Starshine-win cleanup on the independent runtime run.
 
 ## Smoke command
 

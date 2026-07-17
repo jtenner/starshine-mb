@@ -3371,7 +3371,8 @@ fn simplify_locals_scan_node(
                     @ir.hot_node_get(func, value_id),
                   )
                   detached.push(value_id)
-                } else if !policy.allow_sink_tee &&
+                } else if policy.allow_nesting &&
+                  !policy.allow_sink_tee &&
                   !one_use &&
                   simplify_locals_value_is_const(func, value_id) {
                   @ir.hot_replace_node(

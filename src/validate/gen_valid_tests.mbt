@@ -15980,7 +15980,7 @@ test "simplify-locals-nostructure gen-valid profiles resolve and emit local oppo
   assert_true(effect_config.features.allow_mems)
   assert_true(effect_config.features.allow_globals)
   assert_false(effect_config.features.allow_tables)
-  assert_true(effect_config.features.allow_calls)
+  assert_false(effect_config.features.allow_calls)
 
   let generated = match
     gen_valid_module_result_from_seed(0x5eedUL, straight_config) {
@@ -16079,7 +16079,7 @@ test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
   let stress = GenValidConfig::for_profile(SimplifyLocalsStressProfile)
   assert_true(stress.features.allow_mems)
   assert_true(stress.features.allow_globals)
-  assert_true(stress.features.allow_calls)
+  assert_false(stress.features.allow_calls)
 }
 
 ///|
