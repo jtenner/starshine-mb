@@ -35,7 +35,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `optimize-instructions` | **Reopened for v131:** equal-ref, identical-select, idempotent-call/effect-order, and non-concrete-select behavior changed upstream. | **Open v131 focused parity and closeout.** |
 | `heap-store-optimization` | Closed. | None. |
 | `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
-| `precompute-propagate` | Public pass removed/unimplemented; private prefix helper exists. | **Open implementation and scheduling.** |
+| `precompute-propagate` | Public/direct/nested scheduling and the bounded one-solve/one-rerun implementation are complete; the shared evaluator is reopened against the broader Binaryen v131 interpreter contract. | **Open v131 shared-evaluator parity and renewed closeout.** |
 | `code-pushing` | Closed. | None. |
 | `tuple-optimization` | Closed with accepted performance exception. | None. |
 | `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
@@ -125,20 +125,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ## v0.1.0 Primary O4z Work
 
-### [O4Z-PCP]001 - Implement public `precompute-propagate`
-
-- **Status:** public spelling is removed; `precompute_propagate_prefix_descriptor()` exists only as an internal helper.
-- **Goal:** implement Binaryen's propagating precompute mode as a real direct pass and use it in O4z slots 19 and 43 plus nested optimizing reruns.
-- **Why:** Starshine currently substitutes plain `precompute`, which is a different contract. Direct `precompute` closeout does not close `precompute-propagate`.
-- **Deliverables:**
-  - [ ] Refresh the v130 `Precompute.cpp` mode split and dedicated tests.
-  - [ ] Expose a public descriptor/registry/dispatcher/harness spelling with truthful SSA requirements.
-  - [ ] Add red-first propagation fixtures that plain `precompute` intentionally does not perform.
-  - [ ] Add a pass-specific GenValid aggregate and four-lane closeout.
-  - [ ] Replace both plain-precompute preset substitutions with the propagating pass after ordered proof.
-  - [ ] Reuse the same public implementation for DAE/inlining nested prefixes rather than maintaining a private semantic fork.
-- **Exit criteria:** direct propagating-mode parity, two green top-level neighborhoods, and shared nested-prefix use.
-
 ### [O4Z-CF]001 - Finish and schedule `code-folding`
 
 - **Status:** active narrow direct HOT pass; prior direct audit accepted a subset, but current living docs still disclaim full Binaryen tail-sharing coverage and preset readiness.
@@ -176,7 +162,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Add the second early `remove-unused-module-elements` slot.
   - [x] Add `flatten -> simplify-locals-notee-nostructure -> local-cse`.
   - [ ] Remove or prove the extra early `vacuum -> remove-unused-brs` pair.
-  - [ ] Replace both plain `precompute` substitutions with `precompute-propagate`.
+  - [x] Replace both plain `precompute` substitutions with `precompute-propagate`.
   - [x] Add `merge-locals` after `heap2local`; the exact `heap2local -> merge-locals -> optimize-casts` lane is `10000/10000` green.
   - [ ] Reconcile the downstream local-numbering shape gap in the extended `local-subtyping -> coalesce-locals -> local-cse` suffix; a reduced probe is byte-identical with and without `merge-locals` in each tool, so this does not reopen the pass.
   - [ ] Add `code-folding` before the first late `merge-blocks`.

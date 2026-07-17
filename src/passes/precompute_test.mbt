@@ -965,3 +965,147 @@ test "precompute validates rewritten functions against full module call targets"
     msg=trace.to_string(),
   )
 }
+
+///|
+test "precompute folds safe exact integer division" {
+  let pretty = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 84 i32.const 3 i32.div_s))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected exact division precompute success, got \{err}")
+  }
+  assert_true(pretty.contains("I32(28)"), msg=pretty)
+  assert_false(pretty.contains("i32.div_s"), msg=pretty)
+}
+
+///|
+test "precompute folds exact floating point arithmetic" {
+  let pretty = match
+    pass_test_run_pipeline(
+      "(module (func (result f64) f64.const 1.5 f64.const 2.25 f64.add))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected exact floating precompute success, got \{err}")
+  }
+  assert_true(pretty.contains("F64(3.75)"), msg=pretty)
+  assert_false(pretty.contains("f64.add"), msg=pretty)
+}
+
+///|
+test "precompute partially evaluates parents through select arms" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    i32.const 10
+        #|    i32.const 20
+        #|    local.get 0
+        #|    select
+        #|    i32.const 3
+        #|    i32.add))
+        #|,
+      ),
+      ["precompute"],
+      options=HotPipelineOptions::new(optimize_level=2),
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected partial select precompute success, got \{err}")
+  }
+  assert_true(pretty.contains("I32(13)"), msg=pretty)
+  assert_true(pretty.contains("I32(23)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "precompute folds fresh GC allocation identity against null" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct))
+        #|  (func (result i32)
+        #|    struct.new $s
+        #|    ref.null $s
+        #|    ref.eq))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected GC identity precompute success, got \{err}")
+  }
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+}
+
+///|
+test "precompute folds ref tests on fresh exact allocations" {
+  let struct_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let heap_type = @lib.HeapType::new(struct_type)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(true, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new(struct_type),
+            @lib.Instruction::ref_test_type(
+              @lib.RefType::new(false, heap_type, exact=true),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected fresh allocation ref.test success, got \{err}")
+  }
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("ref.test"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+}
+
+///|
+test "precompute folds immutable struct reads from fresh allocations" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct (field i32)))
+        #|  (func (result i32)
+        #|    i32.const 42
+        #|    struct.new $s
+        #|    struct.get $s 0))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) =>
+      fail("expected immutable struct read precompute success, got \{err}")
+  }
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+}

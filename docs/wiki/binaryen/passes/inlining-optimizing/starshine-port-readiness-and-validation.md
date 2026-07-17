@@ -100,9 +100,9 @@ Focused tests validate the current subset:
 - unreachable private cycle cleanup/retention families;
 - no-inlining unreachable value-block pruning and predicted exact-helper padding;
 - narrow hot-unsafe polymorphic self-call suffix detector coverage;
-- optimizing nested-cleanup trace marker and explicit first nested-pass trace for `precompute-propagate-prefix`;
+- optimizing nested-cleanup trace marker and explicit first nested-pass trace for public `precompute-propagate`;
 - absence of the old post-prefix `pipeline:start requested=29` whole-module cleanup batch in the nested trace;
-- traced default-function prelude alignment: the private prefix is followed by `dead-code-elimination` at O0 rather than an extra pre-default `precompute`;
+- traced default-function prelude alignment: the public propagating prefix is followed by `dead-code-elimination` at O0 rather than an extra pre-default `precompute`;
 - traced option gating: the default O0 nested lane omits `ssa-nomerge`, `pick-load-signs`, `code-pushing`, `heap2local`, `merge-locals`, `optimize-casts`, `local-subtyping`, `local-cse`, `code-folding`, and `redundant-set-elimination`, while O3 still includes `ssa-nomerge`;
 - traced early cleanup order through `dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum`;
 - traced O3 nested cleanup order through `heap2local -> merge-locals -> optimize-casts`;

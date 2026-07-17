@@ -260,6 +260,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--pick-load-signs",
   "--tuple-optimization",
   "--precompute",
+  "--precompute-propagate",
   "--code-pushing",
   "--code-folding",
   "--simplify-locals",

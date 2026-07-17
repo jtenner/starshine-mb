@@ -715,6 +715,7 @@ pub enum GenValidProfile {
   PrecomputeEffectBoundaryProfile
   PrecomputeGcAtomicBoundaryProfile
   PrecomputeDirectPrefixWatchProfile
+  PrecomputePropagateLocalFactsProfile
   PrecomputeAllProfile
   PickLoadSignsSignedExtendProfile
   PickLoadSignsSignedShiftProfile
@@ -944,6 +945,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PrecomputeEffectBoundaryProfile => "precompute-effect-boundary"
     PrecomputeGcAtomicBoundaryProfile => "precompute-gc-atomic-boundary"
     PrecomputeDirectPrefixWatchProfile => "precompute-direct-prefix-watch"
+    PrecomputePropagateLocalFactsProfile => "precompute-propagate-local-facts"
     PrecomputeAllProfile => "precompute-all"
     PickLoadSignsSignedExtendProfile => "pick-load-signs-signed-extend"
     PickLoadSignsSignedShiftProfile => "pick-load-signs-signed-shift"
@@ -1550,6 +1552,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PrecomputeEffectBoundaryProfile,
     PrecomputeGcAtomicBoundaryProfile,
     PrecomputeDirectPrefixWatchProfile,
+    PrecomputePropagateLocalFactsProfile,
     PrecomputeAllProfile,
     PickLoadSignsSignedExtendProfile,
     PickLoadSignsSignedShiftProfile,
@@ -1726,6 +1729,8 @@ pub fn gen_valid_profile_by_name(
     "precompute" => Ok(PrecomputeAllProfile)
     "precompute-closeout" => Ok(PrecomputeAllProfile)
     "precompute-all-profiles" => Ok(PrecomputeAllProfile)
+    "precompute-propagate" => Ok(PrecomputePropagateLocalFactsProfile)
+    "precompute-propagate-closeout" => Ok(PrecomputePropagateLocalFactsProfile)
     "vacuum-closeout" => Ok(VacuumProfile)
     "vacuum-all" => Ok(VacuumProfile)
     "vacuum-all-profiles" => Ok(VacuumProfile)
@@ -3062,7 +3067,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PrecomputeDropCleanupProfile
     | PrecomputeEffectBoundaryProfile
     | PrecomputeGcAtomicBoundaryProfile
-    | PrecomputeDirectPrefixWatchProfile =>
+    | PrecomputeDirectPrefixWatchProfile
+    | PrecomputePropagateLocalFactsProfile =>
       gen_valid_precompute_profile_config(profile)
     PrecomputeAllProfile =>
       gen_valid_precompute_profile_config(PrecomputeScalarProfile)
@@ -3705,6 +3711,7 @@ fn gen_valid_precompute_profile_config(
     PrecomputeEffectBoundaryProfile => 15
     PrecomputeGcAtomicBoundaryProfile => 16
     PrecomputeDirectPrefixWatchProfile => 17
+    PrecomputePropagateLocalFactsProfile => 18
     _ => 11
   }
   let max_globals = match profile {
@@ -3724,7 +3731,8 @@ fn gen_valid_precompute_profile_config(
     ..base,
     max_type_defs,
     max_imports: 0,
-    max_defined_funcs: if profile == PrecomputeEffectBoundaryProfile {
+    max_defined_funcs: if profile == PrecomputeEffectBoundaryProfile ||
+      profile == PrecomputePropagateLocalFactsProfile {
       2
     } else {
       1
@@ -3735,7 +3743,8 @@ fn gen_valid_precompute_profile_config(
     max_tags: 0,
     max_elems: 0,
     max_datas: 0,
-    max_params: if profile == PrecomputeGcAtomicBoundaryProfile {
+    max_params: if profile == PrecomputeGcAtomicBoundaryProfile ||
+      profile == PrecomputePropagateLocalFactsProfile {
       1
     } else {
       0
@@ -3747,6 +3756,8 @@ fn gen_valid_precompute_profile_config(
     },
     max_locals: if profile == PrecomputeDirectPrefixWatchProfile {
       1
+    } else if profile == PrecomputePropagateLocalFactsProfile {
+      6
     } else {
       0
     },
@@ -3761,7 +3772,8 @@ fn gen_valid_precompute_profile_config(
       allow_tags: false,
       allow_elems: false,
       allow_datas: false,
-      allow_calls: profile == PrecomputeEffectBoundaryProfile,
+      allow_calls: profile == PrecomputeEffectBoundaryProfile ||
+      profile == PrecomputePropagateLocalFactsProfile,
       allow_call_indirect: false,
       allow_tail_calls: false,
       allow_memory64: false,
@@ -3784,7 +3796,8 @@ fn gen_valid_is_precompute_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PrecomputeDropCleanupProfile) ||
   config == GenValidConfig::for_profile(PrecomputeEffectBoundaryProfile) ||
   config == GenValidConfig::for_profile(PrecomputeGcAtomicBoundaryProfile) ||
-  config == GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile)
+  config == GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile) ||
+  config == GenValidConfig::for_profile(PrecomputePropagateLocalFactsProfile)
 }
 
 ///|
@@ -16769,6 +16782,9 @@ fn gen_valid_precompute_profile_kind(
   } else if config ==
     GenValidConfig::for_profile(PrecomputeDirectPrefixWatchProfile) {
     PrecomputeDirectPrefixWatchProfile
+  } else if config ==
+    GenValidConfig::for_profile(PrecomputePropagateLocalFactsProfile) {
+    PrecomputePropagateLocalFactsProfile
   } else {
     PrecomputeScalarProfile
   }
@@ -16886,6 +16902,85 @@ fn gen_valid_precompute_direct_prefix_watch_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_precompute_propagate_local_facts_body() -> Array[Instruction] {
+  [
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(10)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ],
+      Some([
+        Instruction::i32_const(I32(10)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(10)),
+        Instruction::local_set(LocalIdx::new(2U)),
+      ],
+      Some([
+        Instruction::i32_const(I32(20)),
+        Instruction::local_set(LocalIdx::new(2U)),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(3U)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::i32_const(I32(7)),
+    Instruction::local_tee(LocalIdx::new(4U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(4U)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_tee(LocalIdx::new(5U)),
+        Instruction::drop(),
+        Instruction::i32_const(I32(0)),
+      ]),
+    ),
+    Instruction::local_set(LocalIdx::new(6U)),
+    Instruction::local_get(LocalIdx::new(5U)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::i32_const(I32(10)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_add(),
+        Instruction::local_set(LocalIdx::new(2U)),
+      ],
+      Some([
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::i32_const(I32(1)),
+        Instruction::i32_add(),
+        Instruction::local_set(LocalIdx::new(2U)),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::i32_const(I32(10)),
+    Instruction::i32_add(),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::call(FuncIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::call(FuncIdx::new(0U)),
+  ]
+}
+
+///|
 fn gen_valid_precompute_gc_atomic_types() -> Array[RecType] {
   let struct_type = RecType::new(
     SubType::comp_type(
@@ -16939,6 +17034,30 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
           Func::new(
             Locals::empty(),
             Expr::new(gen_valid_precompute_gc_atomic_body()),
+          ),
+        ]),
+      )
+  }
+  if kind == PrecomputePropagateLocalFactsProfile {
+    let func_type = RecType::new(
+      SubType::comp_type(CompType::func([ValType::i32()], [])),
+    )
+    return Module::new()
+      .with_type_sec(TypeSec::new([func_type]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(Locals::empty(), Expr::new([])),
+          Func::new(
+            Locals::from_types([
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+              ValType::i32(),
+            ]),
+            Expr::new(gen_valid_precompute_propagate_local_facts_body()),
           ),
         ]),
       )

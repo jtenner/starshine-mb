@@ -271,9 +271,9 @@ This neighboring dossier is a deliberate contrast case: it reruns the default fu
 
 ## Starshine status cross-link
 
-Current Starshine does **not** implement this sibling yet. It keeps `precompute-propagate` as a removed registry name while implementing only plain `precompute` as an active hot pass. For the exact local code map and future port shape, see [`./starshine-strategy.md`](./starshine-strategy.md).
+Starshine now implements this sibling as an active public hot pass, uses it in both aggressive PC slots, and reuses it for DAE/inlining nested prefixes. It retains conservative result-`if` and large-lowered guards and inherits plain-precompute evaluator boundaries. For the exact local code map and signoff, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
-## What a future Starshine port must preserve
+## What the Starshine port must preserve
 
 1. Keep `precompute` and `precompute-propagate` as distinct public pass contracts.
 2. Keep the propagate phase as an extension of the same evaluator, not a silent replacement by a broader unsourced dataflow pass.

@@ -13549,7 +13549,7 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     }
   }
   @debug.assert_eq(nested_passes, [
-    "pass[dae-optimizing]:nested-pass name=precompute-propagate-prefix", "pass[dae-optimizing]:nested-pass name=dead-code-elimination",
+    "pass[dae-optimizing]:nested-pass name=precompute-propagate", "pass[dae-optimizing]:nested-pass name=dead-code-elimination",
     "pass[dae-optimizing]:nested-pass name=optimize-instructions", "pass[dae-optimizing]:nested-pass name=local-cse",
     "pass[dae-optimizing]:nested-pass name=pick-load-signs", "pass[dae-optimizing]:nested-pass name=heap-store-optimization",
     "pass[dae-optimizing]:nested-pass name=heap2local", "pass[dae-optimizing]:nested-pass name=optimize-casts",

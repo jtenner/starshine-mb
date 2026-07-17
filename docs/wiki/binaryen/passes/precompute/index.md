@@ -1,11 +1,26 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-11
 sources:
-  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
-  - ../late-pipeline-dispatch.md
+  - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
+  - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
+  - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
+  - ../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md
+  - ../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md
+  - ../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md
+  - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
+  - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
+  - ../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md
+  - ../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md
+  - ../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
+  - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
+  - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
+  - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -13,6 +28,9 @@ sources:
   - ../../../../../scripts/lib/self-optimize-compare-task.ts
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
+  - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/
@@ -32,10 +50,6 @@ related:
 ---
 
 # `precompute`
-
-## Binaryen v131 renewal status
-
-`Precompute.cpp` did not change between v130 and v131, so plain `precompute` is not automatically reopened. Several expected tests changed through shared GC/effect helpers, and `[V131-SPOT]001` therefore requires a focused v131 probe before the v130 closeout is promoted to current-release evidence. Any remaining mismatch must be attributed to the shared helper contract before opening pass-local work.
 
 ## Role
 
@@ -98,7 +112,7 @@ So this pass is not just “integer constant folding.”
   - The pass keeps a heap-value cache so `ref.eq`, immutable field reads, and nested immutable-object reasoning do not accidentally confuse “same contents” with “same allocation.”
 - Emitability is also part of the contract.
   - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
-- Current Starshine models only a small scalar/control subset of the upstream behavior, with a conservative raw stack-level shortcut for scalar/no-candidate functions, branch-free constant-`if` arm picks, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, safely voidable dropped result blocks, and preserved effectful/trapping dropped-tail no-candidate shapes to reduce direct-pass HOT lift/lower work.
+- Current Starshine's shared plain evaluator models a conservative scalar/control subset of the upstream behavior, with raw scalar/no-candidate shortcuts, constant-`if` arm picks, module-proven immutable `global.get` constants, dropped nontrapping expressions, result-block cleanup, and preserved effectful/trapping boundaries. The separate public `precompute-propagate` member is now active and adds one SSA local-consensus solve plus one evaluator rerun; it inherits this plain evaluator breadth rather than silently claiming Binaryen's complete interpreter/GC surface.
 - The direct debug-artifact representation drift is classified at `.tmp/pc-artifact-drift-classified` and rechecked at `.tmp/pc001-final-recheck`: after fixing the compare fallback to ignore parentheses inside WAT data strings, the first function-body drift is defined `4` / absolute `21`, where Binaryen emits temporary-local/block scaffolding plus dropped intermediate constants around `memory.size` / `local.tee` scalar folding while Starshine leaves the compact stack expression. Type-index ordering also differs across `1913 / 4671` defined functions because Binaryen's `precompute` output reorders the function types. The active `[PC]001` backlog slice is closed because direct semantic parity remains green and the remaining shape gap is not a small raw shortcut candidate; whole-command runtime belongs to `[WALL]001`.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
@@ -141,7 +155,7 @@ What the documented upstream contract is (initially read at `version_129`, then 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the documented Binaryen implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope. The detailed algorithm read remains historically anchored at `version_129`; the latest focused owner/scheduler recheck is v130/current-main, while the repo-wide release baseline is v131.
+  - Deep dive into the documented Binaryen implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope. The detailed algorithm read remains historically anchored at `version_129`; the release baseline and focused owner/scheduler recheck are now `version_130`/current main.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Compact source-confirmed owner/test map for plain `precompute`, including the shared `Precompute.cpp` core, the public/scheduler split in `pass.cpp` and `opt-utils.h`, the helper ownership in `wasm-interpreter.h` / `properties.h` / `local-graph.h`, and the broad lit roster that proves the plain-pass contract instead of only the sibling `precompute-propagate` one.
 - [`./propagation-partial-precompute-and-gc-identity.md`](./propagation-partial-precompute-and-gc-identity.md)
@@ -157,7 +171,7 @@ What the documented upstream contract is (initially read at `version_129`, then 
 
 ## Historical post-`version_129` drift notes
 
-Binaryen `version_131` is now the repo-wide public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
+Binaryen `version_130` is now the public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
 
 Those newer facts remain useful, provided they stay labeled as newer than the tagged oracle:
 
@@ -170,28 +184,28 @@ Treat those as dated drift notes, not as silent edits to the historical `version
 
 ## Release-gating status as of 2026-06-20
 
-`precompute` is closed for the v0.1.0 `-O4z` per-pass audit under the repo's current pass-audit/signoff standard. The older branch-heavy 10000-case direct compare evidence remains useful, the dedicated profile gap is closed by `precompute-all`, and the first O4z recovery slice allows only changed `raw-scalar-folds` results under `optimize_level >= 4 && shrink_level >= 1`. The remaining O4z no-op surface is an explicit v0.1.0 release boundary rather than full O4z PC-slot optimization parity: HOT-only cleanup, load/call ownership hazards, large lowered functions, br_table/parser stack hazards, unchanged raw no-candidate cases, and changed non-scalar repair reasons stay fail-closed as `o4z-precompute-noop` until a focused artifact/fixture reopens them. The native path decision is explicit for this checkout: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe` for precompute compare lanes because `target/native/release/build/cmd/cmd.exe` remains absent. The bounded regular GenValid mismatch family has been reduced: constant self-exiting `block br_if` debris and constant-true self-branching loop result tails are fixed in pass code, while the remaining constant-false loop / mixed root-debris family is classified as a focused-test-backed Starshine size win with explicit PC normalizer coverage. The final closeout in research note 0795 adds the missing regular GenValid `100000` lane: `.tmp/pass-fuzz-precompute-final-regular-100000` compared `100000/100000`, normalized `15491`, cleanup-normalized `84509`, and had `0` mismatches or failures. The prior final-evidence refresh records green `10000` dedicated `precompute-all` and `10000` broad `pass-fuzz-stress` lanes, plus the explicit wasm-smith `10000` lane. Its sole mismatch, `case-006523-wasm-smith`, is accepted as a narrow Starshine correctness boundary: Binaryen erases a reachable `atomic.fence` before branch-to-end, while Starshine preserves the ordering barrier as required by the local atomics docs and focused boundary test.
+`precompute` is closed for the v0.1.0 `-O4z` per-pass audit under the repo's current pass-audit/signoff standard. The older branch-heavy 10000-case direct compare evidence remains useful, the dedicated profile gap is closed by `precompute-all`, and the first O4z recovery slice allows only changed `raw-scalar-folds` results under `optimize_level >= 4 && shrink_level >= 1`. The remaining O4z no-op surface is an explicit v0.1.0 release boundary rather than full O4z PC-slot optimization parity: HOT-only cleanup, load/call ownership hazards, large lowered functions, br_table/parser stack hazards, unchanged raw no-candidate cases, and changed non-scalar repair reasons stay fail-closed as `o4z-precompute-noop` until a focused artifact/fixture reopens them. The native path decision is explicit for this checkout: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe` for precompute compare lanes because `target/native/release/build/cmd/cmd.exe` remains absent. The bounded regular GenValid mismatch family has been reduced: constant self-exiting `block br_if` debris and constant-true self-branching loop result tails are fixed in pass code, while the remaining constant-false loop / mixed root-debris family is classified as a focused-test-backed Starshine size win with explicit PC normalizer coverage. The final closeout in [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md) adds the missing regular GenValid `100000` lane: `.tmp/pass-fuzz-precompute-final-regular-100000` compared `100000/100000`, normalized `15491`, cleanup-normalized `84509`, and had `0` mismatches or failures. The prior final-evidence refresh records green `10000` dedicated `precompute-all` and `10000` broad `pass-fuzz-stress` lanes, plus the explicit wasm-smith `10000` lane. Its sole mismatch, `case-006523-wasm-smith`, is accepted as a narrow Starshine correctness boundary: Binaryen erases a reachable `atomic.fence` before branch-to-end, while Starshine preserves the ordering barrier as required by the local atomics docs and focused boundary test.
 
-The descriptor split between direct `precompute` and private `precompute-propagate-prefix` is now covered by focused registry coverage: direct `precompute` requires no analyses, the private prefix helper requires `ssa`, both invalidate `ssa`, and the private helper remains outside the public pass registry. The detailed audit is research note 0786; `[AUDIT001-F]` is not needed unless future source changes make direct `precompute` request SSA.
+The descriptor split is now public and testable: direct `precompute` requires no analyses, while `precompute-propagate` requires SSA and performs one local solve before one evaluator rerun. The former private `precompute-propagate-prefix` helper was removed when the public port landed. The July 17 follow-up also broadens the shared evaluator with trap-proven integer division/remainder, floating scalar families, partial scalar parents through `select`, focused fresh-GC identity/`ref.test`/immutable-struct reads, and atomic-fence-preserving raw cleanup. The historical descriptor audit remains useful provenance; the current closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
 
-The dedicated profile follow-up is research note 0787. It adds `precompute-all` plus focused generator tests for scalar, control, immutable-global, cleanup, effect/trap boundary, GC/array atomic boundary, and direct-vs-prefix watchpoint leaves.
+The dedicated profile follow-up is [`../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md`](../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md). It adds `precompute-all` plus focused generator tests for scalar, control, immutable-global, cleanup, effect/trap boundary, GC/array atomic boundary, and direct-vs-prefix watchpoint leaves.
 
-The O4z raw scalar follow-up is research note 0788. It adds focused O4z tests proving scalar raw folds now run while HOT-only `br_table` cleanup remains fail-closed, and it records the first `_build/native/...` explicit-native compare smoke. The O4z boundary decision is research note 0793: it accepts the remaining no-op surface for v0.1.0 with reopening criteria and documents that historical slot19/slot43 artifacts are absent in this checkout, so refreshed slot replay is not claimed.
+The O4z raw scalar follow-up is [`../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md`](../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md). It adds focused O4z tests proving scalar raw folds now run while HOT-only `br_table` cleanup remains fail-closed, and it records the first `_build/native/...` explicit-native compare smoke. The O4z boundary decision is [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md): it accepts the remaining no-op surface for v0.1.0 with reopening criteria and documents that historical slot19/slot43 artifacts are absent in this checkout, so refreshed slot replay is not claimed.
 
-The native-path and bounded-evidence follow-up is research note 0789. It makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout, records a green `1000/1000` `precompute-all` lane with PC normalizers, and opens a regular GenValid mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/`.
+The native-path and bounded-evidence follow-up is [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md). It makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout, records a green `1000/1000` `precompute-all` lane with PC normalizers, and opens a regular GenValid mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/`.
 
-The first reduction follow-up is research note 0790. It adds focused coverage and implementation for constant self-exiting `block br_if` cleanup, then reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-self-brif-fix-direct-100`. The next follow-up is research note 0791. It adds raw and HOT cleanup for constant-true self-branching loops with result-producing dead tails, reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-true-loop-hot-fix-direct-100`, and records that the lane still has `20` raw mismatches after PC normalizers. The latest follow-up is research note 0792: it classifies the remaining constant-false loop / root-debris family as semantic-safe, size-winning Starshine no-op control cleanup, extends the compare normalizer for exact `loop (nop)` / empty void wrappers, and reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-loop-nop-normalizer-direct-100` with `0` mismatches.
+The first reduction follow-up is [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md). It adds focused coverage and implementation for constant self-exiting `block br_if` cleanup, then reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-self-brif-fix-direct-100`. The next follow-up is [`../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md`](../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md). It adds raw and HOT cleanup for constant-true self-branching loops with result-producing dead tails, reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-true-loop-hot-fix-direct-100`, and records that the lane still has `20` raw mismatches after PC normalizers. The latest follow-up is [`../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md`](../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md): it classifies the remaining constant-false loop / root-debris family as semantic-safe, size-winning Starshine no-op control cleanup, extends the compare normalizer for exact `loop (nop)` / empty void wrappers, and reruns the bounded regular lane as `.tmp/pass-fuzz-precompute-loop-nop-normalizer-direct-100` with `0` mismatches.
 
-The durable modern status refresh is research note 0785, the final-evidence refresh is research note 0794, and the final closeout is research note 0795. Treat the direct pass audit as closed unless reopening criteria fire; keep the accepted O4z no-op surface and atomic-fence preservation boundary visible as release-boundary caveats.
+The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md), the final-evidence refresh is [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md), and the final closeout is [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md). Treat the direct pass audit as closed unless reopening criteria fire; keep the accepted O4z no-op surface and atomic-fence preservation boundary visible as release-boundary caveats.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
 - Treat Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp), and [`opt-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h), plus their current-main counterparts, as the release/source/test provenance bridge; they supersede the consumed duplicate `version_129` manifest as the active routing surface.
-- Treat the retained 2026-05-05 research mirror, research note 0468, as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
+- Treat the retained 2026-05-05 research mirror, [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
-- Use Binaryen `version_131` as the repo-wide public release baseline for new conclusions. Keep the detailed `version_129` and focused v130/current-main source readings as scoped provenance; `[V131-SPOT]001` owns targeted renewal.
+- Use Binaryen `version_130` as the current public release baseline for new conclusions. Keep the detailed `version_129` source reading as historical provenance until a behavior-specific v130 reread replaces that exact claim.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`
@@ -204,33 +218,33 @@ The durable modern status refresh is research note 0785, the final-evidence refr
 ## Sources
 
 - Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp), and [`opt-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h), plus current-main equivalents
-- research note 0795
-- research note 0794
-- research note 0793
-- research note 0792
-- research note 0791
-- research note 0790
-- research note 0789
-- research note 0468
-- research note 0400
-- research note 0132
-- research note 0229
-- research note 0251
-- [research note 0268](../late-pipeline-dispatch.md)
+- [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md)
+- [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md)
+- [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md)
+- [`../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md`](../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md)
+- [`../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md`](../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md)
+- [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md)
+- [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md)
+- [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md)
+- [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
+- [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
+- [`../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md`](../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md)
+- [`../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md`](../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md)
+- [`../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md`](../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md)
 - [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
 - [`../../../../../src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
-- [research note 0096](../late-pipeline-dispatch.md)
-- [research note 0105](../late-pipeline-dispatch.md)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [`../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md`](../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md)
+- [`../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md`](../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
 - Newer upstream drift notes already recorded on the old landing page:
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/>
-- Binaryen `version_130` focused source reread, retained beneath the v131 release horizon:
+- Binaryen `version_130` release baseline / focused source reread:
   - <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>

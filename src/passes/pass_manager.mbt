@@ -34861,7 +34861,8 @@ fn run_hot_pipeline_raw_precompute(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  if descriptor.name != "precompute" {
+  let propagating = descriptor.name == "precompute-propagate"
+  if descriptor.name != "precompute" && !propagating {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
@@ -34870,10 +34871,75 @@ fn run_hot_pipeline_raw_precompute(
   let @lib.Func(locals, @lib.Expr(body)) = original
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if propagating {
+    let module_ctx = run_hot_pipeline_require_module_ctx(
+      mod_, module_state, options,
+    )
+    match precompute_run_raw_around_atomic_fence(original, Some(module_ctx)) {
+      Some((rewritten, changed)) =>
+        return Some({
+          reason: if changed {
+            "raw-precompute-around-atomic-fence"
+          } else {
+            "atomic-fence-precompute-propagate-noop"
+          },
+          func: rewritten,
+          unchanged_original: !changed,
+          trace_skip_raw: true,
+        })
+      None => ()
+    }
+  }
+  if propagating &&
+    stats.instrs > 50 &&
+    precompute_raw_instrs_have_memory_grow(body) {
+    let module_ctx = run_hot_pipeline_require_module_ctx(
+      mod_, module_state, options,
+    )
+    let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+    match
+      precompute_propagate_run_raw_straight_line_func(
+        original,
+        params,
+        Some(module_ctx),
+      ) {
+      Some((rewritten, changed)) if changed =>
+        return Some({
+          reason: "raw-structured-local-constant-propagation",
+          func: rewritten,
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      _ => ()
+    }
+  }
   if run_hot_pipeline_dce_raw_has_load_call_set_hazard(body) {
+    if propagating {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+      match
+        precompute_propagate_run_raw_straight_line_func(
+          original,
+          params,
+          Some(module_ctx),
+        ) {
+        Some((rewritten, changed)) if changed =>
+          return Some({
+            reason: "raw-local-constant-propagation",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        _ => ()
+      }
+    }
     return Some({
       reason: if o4z_precompute_gate {
         "o4z-precompute-noop"
+      } else if propagating {
+        "load-call-set-precompute-propagate-noop"
       } else {
         "load-call-set-precompute-noop"
       },
@@ -34883,9 +34949,32 @@ fn run_hot_pipeline_raw_precompute(
     })
   }
   if locals.length() > 64 && stats.instrs > 500 {
+    if propagating {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+      match
+        precompute_propagate_run_raw_straight_line_func(
+          original,
+          params,
+          Some(module_ctx),
+        ) {
+        Some((rewritten, changed)) if changed =>
+          return Some({
+            reason: "raw-large-local-constant-propagation",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        _ => ()
+      }
+    }
     return Some({
       reason: if o4z_precompute_gate {
         "o4z-precompute-noop"
+      } else if propagating {
+        "large-lowered-precompute-propagate-noop"
       } else {
         "large-lowered-precompute-noop"
       },
@@ -34900,6 +34989,8 @@ fn run_hot_pipeline_raw_precompute(
     return Some({
       reason: if o4z_precompute_gate {
         "o4z-precompute-noop"
+      } else if propagating {
+        "simd-parser-br-table-stack-hazard-precompute-propagate-noop"
       } else {
         "simd-parser-br-table-stack-hazard-precompute-noop"
       },
@@ -34907,6 +34998,9 @@ fn run_hot_pipeline_raw_precompute(
       unchanged_original: true,
       trace_skip_raw: true,
     })
+  }
+  if propagating {
+    return None
   }
   let module_ctx = if precompute_raw_func_has_global_get(original) {
     Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
@@ -56842,7 +56936,9 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   let cleaned = run_hot_pipeline_optimize_instructions_canonicalize_lowered_func(
     cleaned, descriptor_name, mod_,
   )
-  if descriptor_name != "vacuum" && descriptor_name != "precompute" {
+  if descriptor_name != "vacuum" &&
+    descriptor_name != "precompute" &&
+    descriptor_name != "precompute-propagate" {
     return cleaned
   }
   match cleaned {
@@ -56875,7 +56971,7 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_trailing_nops=true,
     )
   } else if descriptor_name == "precompute" ||
-    descriptor_name == "precompute-propagate-prefix" {
+    descriptor_name == "precompute-propagate" {
     @ir.HotLowerOptions::new(preserve_nontrailing_nops=true)
   } else if descriptor_name == "remove-unused-brs" {
     @ir.HotLowerOptions::new(
@@ -57378,7 +57474,11 @@ fn run_hot_pipeline_func(
           descriptor.name == "remove-unused-brs"
         ) &&
         descriptor.name != "heap-store-optimization" &&
-        !((descriptor.name == "vacuum" || descriptor.name == "precompute") &&
+        !((
+          descriptor.name == "vacuum" ||
+          descriptor.name == "precompute" ||
+          descriptor.name == "precompute-propagate"
+        ) &&
         run_hot_pipeline_vacuum_needs_empty_func_nop_canonicalization(
           run_hot_pipeline_original_func(mod_, func_idx),
         )) &&
@@ -57626,7 +57726,7 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
     return None
   }
   if descriptor_name == "precompute" ||
-    descriptor_name == "precompute-propagate-prefix" {
+    descriptor_name == "precompute-propagate" {
     if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
         result.func,
       ) {
@@ -58759,11 +58859,11 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     // opportunities DAE creates with currently function-filterable passes, but
     // do not run Starshine's full default function pipeline yet. The full
     // Binaryen-equivalent lane still depends on a faster filtered batch runner
-    // plus a real public `precompute-propagate` port. For now, start with a
-    // touched-only faithful prefix equivalent over default-init and SSA-backed
-    // local constant facts before the narrower cleanup subset.
-    "precompute-propagate-prefix", "dead-code-elimination", "optimize-instructions",
-    "local-cse", "pick-load-signs", "heap-store-optimization", "heap2local", "optimize-casts",
+    // plus the public `precompute-propagate` implementation. Start with the
+    // touched-only public pass over default-init and SSA-backed local constant
+    // facts before the narrower cleanup subset.
+    "precompute-propagate", "dead-code-elimination", "optimize-instructions", "local-cse",
+    "pick-load-signs", "heap-store-optimization", "heap2local", "optimize-casts",
     "code-pushing", "simplify-locals", "code-folding", "precompute", "merge-blocks",
     "remove-unused-brs", "remove-unused-names", "merge-blocks", "coalesce-locals",
     "reorder-locals", "vacuum",
@@ -59541,11 +59641,11 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       "nested-pass",
       payload="name=\{pass_name}",
     )
-    if pass_name == "precompute-propagate-prefix" {
+    if pass_name == "precompute-propagate" {
       current = match
         run_hot_pipeline_apply_hot_pass_to_touched(
           current,
-          precompute_propagate_prefix_descriptor(),
+          precompute_propagate_descriptor(),
           touched,
           options,
         ) {
@@ -60565,7 +60665,7 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "optimize-casts" => optimize_casts_run(ctx, func)
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
-    "precompute-propagate-prefix" => precompute_propagate_prefix_run(ctx, func)
+    "precompute-propagate" => precompute_propagate_run(ctx, func)
     "code-pushing" => code_pushing_run(ctx, func)
     "code-folding" => code_folding_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)

@@ -1,12 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-11
 sources:
-  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
-  - ./index.md
-  - ../ssa-nomerge/index.md
+  - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
+  - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
+  - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
+  - ../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md
+  - ../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md
+  - ../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md
+  - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
+  - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
+  - ../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md
+  - ../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
+  - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
+  - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -31,19 +42,20 @@ related:
 
 This page is the implementation-readiness bridge for Starshine's active `precompute` pass. It does **not** claim that Starshine already implements the full Binaryen `Precompute.cpp` engine. It explains what is implemented, what to validate, and how to extend the pass without confusing Starshine's HOT cleanup subset with Binaryen's interpreter-driven strategy.
 The focused reread of Binaryen [`version_130`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp) and [current `main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp) keeps the upstream-teaching map stable while correcting the public baseline from `version_129` to `version_130`; it is not a whole-file source diff.
-A later 2026-05-07 current-head rerun in [research note 0555](../ssa-nomerge/index.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. Follow-up raw stack-level shortcuts now skip HOT lift/lower for no-candidate functions, nested nop-only control, safe adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails before HOT. A 2026-05-08 compare-tooling fix stopped WAT data string bytes such as `\\00(` from corrupting canonical-function splitting; the direct debug-artifact compare at `.tmp/pc-artifact-drift-classified` no longer reports canonical-function equality. The first real function drift is defined function `4` / absolute function `21`, and the remaining representation gap is Binaryen expression-stack / temporary-local shaping plus type-index ordering, not a small raw shortcut candidate. A final `[PC]001` recheck at `.tmp/pc001-final-recheck` and `.tmp/pass-fuzz-precompute-pc001-final` kept the direct semantic gate green (`6759 / 6759` normalized matches, `0` mismatches, only the known `20` Binaryen/tool command failures) and confirmed pass-local Starshine is faster than Binaryen (`118ms` vs `164ms`); the unresolved whole-command gap is attributed to `[WALL]001`, so the active `[PC]001` backlog slice is closed.
+A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md`](../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md) reopened the direct fuzz parity gate on a narrower local family: Starshine trimmed dead root `nop` residue more aggressively than Binaryen before trailing `unreachable`. The same-day `[PC]001` recovery now preserves that dead-root `nop` during `precompute` lowering and normalizes empty unchanged direct-pass bodies to one `nop`; saved repro replay and the mixed direct lane have `0` semantic mismatches. Follow-up raw stack-level shortcuts now skip HOT lift/lower for no-candidate functions, nested nop-only control, safe adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails before HOT. A 2026-05-08 compare-tooling fix stopped WAT data string bytes such as `\\00(` from corrupting canonical-function splitting; the direct debug-artifact compare at `.tmp/pc-artifact-drift-classified` no longer reports canonical-function equality. The first real function drift is defined function `4` / absolute function `21`, and the remaining representation gap is Binaryen expression-stack / temporary-local shaping plus type-index ordering, not a small raw shortcut candidate. A final `[PC]001` recheck at `.tmp/pc001-final-recheck` and `.tmp/pass-fuzz-precompute-pc001-final` kept the direct semantic gate green (`6759 / 6759` normalized matches, `0` mismatches, only the known `20` Binaryen/tool command failures) and confirmed pass-local Starshine is faster than Binaryen (`118ms` vs `164ms`); the unresolved whole-command gap is attributed to `[WALL]001`, so the active `[PC]001` backlog slice is closed.
 
-A 2026-06-20 release-gating refresh in [research note 0785](./index.md) reopened the status bar under the modern pass-audit standard. Direct `precompute` remains implemented and supported by the compare harness. The same day's descriptor follow-up in [research note 0786](./index.md) added focused registry coverage proving direct `precompute` is SSA-free while private `precompute-propagate-prefix` requires SSA, so `[AUDIT001-E]` is closed and `[AUDIT001-F]` is not needed for current source. A follow-up in [research note 0787](./index.md) added the dedicated `precompute-all` GenValid composite profile and focused generator coverage. The O4z preset slot story is now partially narrowed by [research note 0788](./index.md): changed `raw-scalar-folds` results run under `optimize_level >= 4 && shrink_level >= 1`, while HOT-only cleanup and hazardous/non-scalar raw paths still return `o4z-precompute-noop`. The native-path and bounded-evidence follow-up in [research note 0789](./index.md) resolves the local explicit native path to `_build/native/release/build/cmd/cmd.exe`, keeps a `1000`-case `precompute-all` smoke green, and opens a regular GenValid behavior-parity mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/`. The first reduction in [research note 0790](./index.md) fixes the sampled constant self-exiting `block br_if` gap. The next reduction in [research note 0791](./index.md) fixes constant-true self-branching loop result tails in raw and HOT paths. The closeout-normalizer slice in [research note 0792](./index.md) keeps constant-false loop / mixed root-debris cleanup as a Starshine size win, extends the PC normalizer for exact `loop (nop)` / empty void wrappers, and reruns the bounded regular lane with `0` mismatches. The O4z boundary slice in [research note 0793](./index.md) accepts the remaining `o4z-precompute-noop` surface for v0.1.0 with reopening criteria and records that historical slot19/slot43 replay fixtures are absent in this checkout. The final-evidence refresh in [research note 0794](./index.md) refreshes regular, dedicated, broad, and wasm-smith lanes; the first three are green at `10000`, while wasm-smith exposes one reachable-`atomic.fence` divergence now guarded by `precompute intentionally preserves reachable atomic fence before branch-to-end`. The final closeout in [research note 0795](./index.md) accepts that fence divergence as a narrow Starshine correctness boundary and runs the missing regular `100000` lane green. Direct pass closure is now recorded for v0.1.0, but O4z PC slots must still be described as the accepted fail-closed release boundary rather than full optimization parity.
+A 2026-06-20 release-gating refresh in [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md) reopened the status bar under the modern pass-audit standard. Direct `precompute` remains implemented and supported by the compare harness. The historical descriptor follow-up in [`../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md`](../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md) proved direct `precompute` is SSA-free while the then-private propagating helper required SSA. On 2026-07-17 that helper became the active public `precompute-propagate` descriptor and the private name was removed; see [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md). A follow-up in [`../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md`](../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md) added the dedicated `precompute-all` GenValid composite profile and focused generator coverage. The O4z preset slot story is now partially narrowed by [`../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md`](../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md): changed `raw-scalar-folds` results run under `optimize_level >= 4 && shrink_level >= 1`, while HOT-only cleanup and hazardous/non-scalar raw paths still return `o4z-precompute-noop`. The native-path and bounded-evidence follow-up in [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md) resolves the local explicit native path to `_build/native/release/build/cmd/cmd.exe`, keeps a `1000`-case `precompute-all` smoke green, and opens a regular GenValid behavior-parity mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/`. The first reduction in [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md) fixes the sampled constant self-exiting `block br_if` gap. The next reduction in [`../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md`](../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md) fixes constant-true self-branching loop result tails in raw and HOT paths. The closeout-normalizer slice in [`../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md`](../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md) keeps constant-false loop / mixed root-debris cleanup as a Starshine size win, extends the PC normalizer for exact `loop (nop)` / empty void wrappers, and reruns the bounded regular lane with `0` mismatches. The O4z boundary slice in [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md) accepts the remaining `o4z-precompute-noop` surface for v0.1.0 with reopening criteria and records that historical slot19/slot43 replay fixtures are absent in this checkout. The final-evidence refresh in [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md) refreshes regular, dedicated, broad, and wasm-smith lanes; the first three are green at `10000`, while wasm-smith exposes one reachable-`atomic.fence` divergence now guarded by `precompute intentionally preserves reachable atomic fence before branch-to-end`. The final closeout in [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md) accepts that fence divergence as a narrow Starshine correctness boundary and runs the missing regular `100000` lane green. Direct pass closure is now recorded for v0.1.0, but O4z PC slots must still be described as the accepted fail-closed release boundary rather than full optimization parity.
 
 ## Current local contract
 
 Starshine `precompute` is an active HOT pass with a narrow, practical contract:
 
-- fold exact trap-free i32/i64 unary and binary expressions;
+- fold exact i32/i64 unary and binary expressions, including safe nontrapping division/remainder and rotates;
 - use a conservative raw stack-level fast path for no-candidate functions, nested nop-only control, adjacent scalar folds, branch-free constant-`if` arm picks, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails with no remaining precompute candidate;
-- fold exact i32/i64 comparisons to i32 booleans;
+- fold exact i32/i64 and f32/f64 arithmetic/comparisons to exact scalar constants, plus supported floating unary and conversion families;
 - replace immutable defined `global.get` values with constants or `ref.null` where the module context can prove the initializer;
-- choose constant `if` arms and rebuild the chosen root shape;
+- choose constant `if` arms, rebuild the chosen root shape, and partially evaluate supported parents through `select` arms;
+- fold fresh allocation/null identity, exact fresh-allocation `ref.test`, and immutable fresh-struct field reads;
 - remove pure dropped values and clean up `nop` residue that would otherwise make HOT writeback harder;
 - preserve Binaryen-visible dead-root `nop` sentinels before trailing `unreachable`, normalize empty void bodies to one `nop` at the direct pass boundary, remove exact constant self-exiting void blocks when both branch and fallthrough leave the same zero-arity block, and mark exact constant-true self-branching loop result tails unreachable;
 - validate suspicious lowered output before committing it back to the module;
@@ -60,8 +72,8 @@ Binaryen's plain `precompute` is much broader than the current Starshine pass. T
 - `Flow`-aware handling of values, breaks, and returns;
 - child-retention for local/global writes encountered during speculative computation;
 - emitability checks separate from “we know the value”; 
-- partial precompute through parent shapes such as selected `select` arms;
-- GC identity caching for immutable object reasoning;
+- general multi-parent partial precompute beyond the supported scalar `select` parent path;
+- complete GC heap-cache and immutable array/nested-object reasoning;
 - final refinalization after type-affecting rewrites.
 
 Starshine should keep those gaps explicit. The local pass is currently a HOT fold-and-cleanup fixpoint, not a miniature Binaryen interpreter.
@@ -85,17 +97,18 @@ The cheapest safe extensions are still direct, trap-free shapes adjacent to what
 - immutable-global literal families already representable in HOT;
 - pure cleanup cases that preserve every side effect and trap.
 
-Each new family should add a focused `src/passes/precompute_test.mbt` case before implementation and should avoid divisions, remainders, loads, atomics, or heap/object reads unless a stronger semantics proof exists.
+Each new family should add a focused `src/passes/precompute_test.mbt` case before implementation. Division/remainder, floating, selected GC identity/read, and atomic-fence-preserving cleanup now have focused proofs; new loads, atomics policy changes, or heap families still require explicit semantics evidence.
 
 ### 3. Treat float, string, GC, and interpreter-like work as separate slices
 
 Do not smuggle the larger Binaryen contract into a small fold patch. These families need dedicated design and oracle tests:
 
-- floating point folding, especially NaN payload and signed-zero behavior;
 - `StringConst` and string helper surfaces;
-- immutable GC field/array reads and object identity;
-- partial parent precompute through `select` or other value-carrying control;
-- local-flow propagation, which belongs closer to the separate upstream `precompute-propagate` contract.
+- complete immutable GC array/nested-object reads and heap-cache identity;
+- broader parent-stack partial precompute beyond supported scalar `select` parents;
+- general `Flow`-aware break/return interpretation and child-write retention;
+- emitability separation and final type refinalization;
+- local-flow propagation remains owned by the active public `precompute-propagate` sibling.
 
 ### 4. Keep writeback validation in scope
 
@@ -122,13 +135,14 @@ Use this order for future work:
 | Shape | Starshine today | Binaryen parity note |
 | --- | --- | --- |
 | `i32.const a; i32.const b; i32.add` | Folds to one i32 const when both operands are exact. | Matches the easy arithmetic subset, not the full interpreter model. |
-| `i32.const a; i32.const b; i32.div_s` | Preserved. | Correctly avoids trap-sensitive folding. |
+| safe exact `i32.div_s` / integer remainder | Folds when zero-divisor and signed-overflow traps are disproven; otherwise preserved. | Matches Binaryen on the reduced safe witness without weakening trap safety. |
 | immutable defined `global.get` | Replaced with literal i32/i64/f32/f64/ref-null constants; `StringConst` is rejected. | Binaryen's emitability and string/GC behavior is broader and subtler. |
 | constant void/result `if` | HOT chooses the surviving arm and emits `nop`, a root, or a rebuilt block; raw direct execution now also folds branch-free stack-level constant-`if` tails before adjacent scalar folds, while label-relative branchy arms still defer to HOT. | Related to but narrower than Binaryen's flow-aware computation. |
 | `drop(pure-value)` / preserved effectful or trapping dropped value | Pure, side-effect-free, nontrapping values are replaced with `nop` or spliced away; flat scalar/global/select drop tails and safely voidable dropped result blocks can use the raw shortcut, and preserved effectful/trapping dropped tails can now skip HOT when no fold candidate remains, while dead exact roots before a trailing `unreachable` and still-unsupported pure drop families stay on the HOT/direct-boundary path. | Local HOT/raw cleanup and skip gating, not the full Binaryen child-retention algorithm. |
-| `select` partial precompute | Not implemented. | Binaryen has a source-backed partial-precompute path. |
-| local-flow propagation | Not implemented in `precompute`; local sibling `precompute-propagate` is removed today. | Binaryen's `precompute-propagate` uses `LazyLocalGraph` and a rerun. |
-| GC/string/atomic reads | Mostly not implemented. | Upstream has drift and special-case safety fixes; treat as a dedicated future design. |
+| supported scalar parent over `select` | Rebuilds the `select` with separately folded constant arms. | Closes the reduced parent-add witness; Binaryen's general parent-stack algorithm remains broader. |
+| local-flow propagation | Plain `precompute` remains nonpropagating; the active public `precompute-propagate` sibling owns one SSA solve and one rerun. | Matches Binaryen's public family split. |
+| fresh GC identity / immutable fresh-struct read | Folds supported `ref.eq`, exact `ref.test`, and immutable fresh-struct scalar fields. | Complete heap-cache, arrays, nested interior refs, strings, and emitability remain broader upstream work. |
+| reachable `atomic.fence` | Preserved while independent surrounding scalar debris may fold. | Intentional Starshine correctness boundary versus Binaryen v130's observed deletion. |
 
 ## Current representation drift classification
 
@@ -160,24 +174,24 @@ Do not treat the older `.tmp/pc-artifact-branch-blockdrop-raw` `Canonical functi
 - The dedicated GenValid profile name and family split are fixed as `precompute-all`; the final closeout cites the current `10000`-case dedicated lane and selected-profile counts from `0794`.
 - Whether Starshine should grow a shared interpreter/constant-flow abstraction or keep `precompute` as a pragmatic HOT peephole-plus-cleanup pass. Reopen this as a new focused slice if the project chooses to chase Binaryen's temporary-local / expression-stack shaping rather than treating it as representation drift.
 - Whether future `precompute-propagate` work should be a separate pass from the start, matching the current local removed registry entry, or should first share helper analysis with plain `precompute`.
-- The repo-wide public release baseline is Binaryen `version_131`. Keep detailed v129/v130 evidence labeled, and use `[V131-SPOT]001` for the targeted shared-helper renewal before changing or re-closing the pass contract.
+- The public release baseline is now Binaryen `version_130`. Keep current-main drift labeled, and require a behavior-specific source reread before changing a detailed historical `version_129` algorithm claim.
 
 ## Sources
 
 - Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp) and [current `main`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp)
-- [research note 0795](./index.md)
-- [research note 0794](./index.md)
-- [research note 0793](./index.md)
-- [research note 0792](./index.md)
-- [research note 0791](./index.md)
-- [research note 0790](./index.md)
-- [research note 0789](./index.md)
-- [research note 0788](./index.md)
-- [research note 0787](./index.md)
-- [research note 0786](./index.md)
-- [research note 0785](./index.md)
-- [research note 0400](./index.md)
-- [research note 0251](./index.md)
+- [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md)
+- [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md)
+- [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md)
+- [`../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md`](../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md)
+- [`../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md`](../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md)
+- [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md)
+- [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md)
+- [`../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md`](../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md)
+- [`../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md`](../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md)
+- [`../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md`](../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md)
+- [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md)
+- [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
+- [`../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md`](../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

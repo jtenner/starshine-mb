@@ -1,9 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-17
 sources:
-  - ./index.md
+  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
+  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
+  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -16,7 +21,7 @@ related:
 
 # `precompute-propagate`: implementation structure and tests
 
-This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The retained 2026-04-24 follow-up research and direct tagged URLs preserve the reviewed official-source provenance; the retained 2026-04-25 code-map research records the original local navigation, and the retained 2026-05-04 current-main freshness recheck is [research note 0440](./index.md).
+This page is the file-and-test map for Binaryen `version_130` and the active Starshine public port. The retained older research preserves provenance; the current implementation and signoff map is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
 
 ## Core source files
 
@@ -42,7 +47,7 @@ For the chosen pass, the most important durable facts visible in the reviewed fi
 
 This file matters because it proves:
 
-- `precompute-propagate` is a public upstream pass name in `version_129`
+- `precompute-propagate` is a public upstream pass name in `version_130`
 - the public description explicitly says the variant propagates through locals
 - the top-level higher-aggression scheduler uses `precompute-propagate` in the early and late propagation slots where lower-aggression no-DWARF `-O` / `-Os` uses plain `precompute`
 - the public split from plain `precompute` is intentional and user-visible
@@ -130,10 +135,14 @@ Those tests matter here because the propagate variant is not allowed to violate 
 | `test/lit/passes/precompute-propagate-partial.wast` | Bug-boundary oracle | The propagate variant changes real reachable rewrites and needs temporary heap-cache isolation during partial precompute |
 | `test/lit/passes/precompute-propagate_all-features.wast` | Behavioral oracle | The exact get/set consensus, fallthrough, join, zero-init, tee, and bailout surfaces are source-backed |
 | neighboring `precompute*` lit files | Shared-family oracle | Emitability, effects, GC identity, and other family boundaries still apply in propagate mode |
+| `src/passes/precompute.mbt` | Starshine implementation | Public descriptor, SSA consensus, fallthrough evaluation, result-`if` safety guard, and one rerun |
+| `src/passes/precompute_propagate_test.mbt` | Starshine behavior/regression suite | Nine positive, bailout, boundedness, stale-fact, and large-function boundaries |
+| `src/passes/optimize.mbt` / `pass_manager.mbt` | Starshine public scheduling | Registry/dispatch, two aggressive PC slots, nested-prefix reuse, and writeback guards |
+| `src/validate/gen_valid.mbt` | Starshine generator | `precompute-propagate-local-facts` trigger profile |
 
 ## Current-main recheck result
 
-The 2026-05-04 primary-source recheck found no teaching-relevant drift in the current `main` surfaces that matter for this pass: `Precompute.cpp`, `pass.cpp`, `opt-utils.h`, `local-graph.h`, `properties.h`, `wasm-interpreter.h`, and the two dedicated propagate lit files still support the same contract described here. Keep `version_129` as the tagged oracle, but cite the 2026-05-04 manifest when readers need the freshest official source and exact local Starshine bridge anchors.
+The July 17, 2026 implementation reread and executable replay use Binaryen `version_130` as the released oracle. The reviewed owner, registration, scheduler, helper, and dedicated lit surfaces retain the same bounded local-worklist contract.
 
 ## What this source map says about the real contract
 
@@ -156,20 +165,22 @@ If you focus only on the word “propagate,” the pass can sound like a generic
 The source map shows the extra phase is still narrow and helper-driven.
 It feeds more facts into the same evaluator rather than turning into a different optimizer entirely.
 
-## Porting takeaway
+## Starshine implementation takeaway
 
-If Starshine ever ports this pass, the source/test map suggests a clean design target:
+The port follows the source-backed shape:
 
-1. keep the shared evaluator core aligned with plain `precompute`
-2. add a dedicated local-propagation phase using the local-flow helper layer
-3. preserve the exact fallthrough and merge-consensus rules from `propagateLocals(...)`
-4. rerun the main evaluator once when propagation changed facts
-5. preserve the existing write-retention, emitability, and GC-identity rules
-6. test both the standalone pass surface and the nested `optimizeAfterInlining(...)` scheduler role
+1. reuse the shared plain-precompute evaluator;
+2. solve agreeing local facts through HOT SSA;
+3. inspect set fallthrough values and exact unary/binary expressions;
+4. rerun the evaluator once;
+5. preserve inherited writeback, emitability, and plain-evaluator boundaries;
+6. use one public implementation for direct, top-level aggressive, and nested-prefix execution.
+
+The follow-up parity slice narrowed those original safety rules. Result-producing `if` reads may use a real SSA phi or a direct condition constant proven before any arm-local overwrite. Large, owner-hazard, and selected structured `memory.grow` functions may use conservative raw propagation with exact branch agreement, loop-written-local invalidation, and loop-invariant retention; unsupported shapes still fail closed.
 
 ## Starshine status pointer
 
-Current Starshine keeps this pass as a removed registry name and implements only the narrower active plain `precompute` pass today. See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact MoonBit code map and missing local-flow / nested-rerun surfaces.
+Starshine now exposes the active public pass, both aggressive top-level slots, shared DAE/inlining nested-prefix use, focused tests, and a dedicated GenValid profile. See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact MoonBit code map and [`./fuzzing.md`](./fuzzing.md) for current evidence.
 
 ## Recommended local teaching rule
 

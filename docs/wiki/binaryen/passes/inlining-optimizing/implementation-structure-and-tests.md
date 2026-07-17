@@ -89,7 +89,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
   - exposes `no_inline_copy_policy_annotations(...)` for future clone/copy transforms to preserve no-inline policy markers.
 - Nested approximation:
   - emits trace marker;
-  - prepends the private touched-only `precompute-propagate-prefix` helper and traces that nested-pass slot explicitly;
+  - prepends the public touched-only `precompute-propagate` pass and traces that nested-pass slot explicitly;
   - converts absolute touched-function bits to defined-function bits before running filtered nested helpers so imports do not shift the touched set;
   - runs the remaining cleanup lane through touched-function filtered hot-pass adapters plus narrow touched adapters for module-shaped `local-subtyping`, `coalesce-locals`, `local-cse`, and `reorder-locals`, and includes the early second `remove-unused-names`, O3/shrink2 `merge-locals`, touched late local cleanup cluster, `code-folding` before the first late `merge-blocks` cluster, and final `vacuum` after late `heap-store-optimization`;
   - keeps body restoration as a safety net, but no longer launches the old whole-module cleanup batch;
@@ -118,7 +118,7 @@ The optimizing suffix is primarily proven by `opt-utils.h`, scheduler placement,
 - root unreachable collapse cleanup;
 - no-inlining unreachable value-block pruning;
 - shadowed void-cycle result-helper retention;
-- optimizing nested-cleanup trace marker plus a focused first nested-pass trace for `precompute-propagate-prefix`;
+- optimizing nested-cleanup trace marker plus a focused first nested-pass trace for `precompute-propagate`;
 - trace coverage proving the nested suffix no longer launches the old `pipeline:start requested=29` whole-module cleanup batch;
 - trace coverage proving the early cleanup neighborhood includes `dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum`;
 - trace coverage proving the O3 local-copy cleanup neighborhood includes `heap2local -> merge-locals -> optimize-casts`;

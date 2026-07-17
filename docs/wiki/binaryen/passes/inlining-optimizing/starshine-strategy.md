@@ -82,8 +82,8 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 - Private helper removal after refs disappear.
 - Function-index remapping across represented module surfaces.
 - Combined-size action filtering using current caller size and the default 400 KiB estimate.
-- Nested-cleanup trace marker for optimizing mode, plus an explicit nested-pass trace when the private `precompute-propagate-prefix` helper starts.
-- Private touched-only `precompute-propagate-prefix` before the optimizing cleanup lane, using an absolute-to-defined touched-set conversion so imported functions do not shift touched defined-function indexes.
+- Nested-cleanup trace marker for optimizing mode, plus an explicit nested-pass trace when the public `precompute-propagate` pass starts.
+- Public touched-only `precompute-propagate` before the optimizing cleanup lane, using an absolute-to-defined touched-set conversion so imported functions do not shift touched defined-function indexes.
 - Touched-function filtered cleanup approximation after the prefix, using the shared hot-pass touched runner plus narrow touched adapters for `local-subtyping`, `coalesce-locals`, and `local-cse`; it drops the former extra pre-default `precompute`, gates option-controlled slots (`ssa-nomerge`, `pick-load-signs`, `code-pushing`, `heap2local`, `optimize-casts`, `local-subtyping`, `local-cse`, `code-folding`, `merge-locals`, and `redundant-set-elimination`) to Binaryen's optimize/shrink thresholds, and keeps the early second `remove-unused-names`, local `reorder-locals`, late local cleanup cluster, and final touched `vacuum`; body restoration remains a safety net but the old whole-module nested cleanup batch no longer runs.
 - Exact-`unreachable` private-helper survivor prediction refinements, including shadowed void-cycle result-helper retention, duplicate trimming against non-exact same-signature survivors only when no used self-loop root is present, unique private self-loop representative drops inside root SCCs, selected final root-self-loop representative trimming, and one-helper retention for private result cycles behind self-looping roots.
 
@@ -98,7 +98,7 @@ Both direct fuzz lanes used `--jobs auto` with the prebuilt native `--starshine-
 
 ### `[INL]002`: accepted optimizing suffix representation drift
 
-`[INL]002` is accepted for v0.1.0. The private `precompute-propagate-prefix` and touched-function cleanup lane remain an approximation of Binaryen's exact public `precompute-propagate` plus option-specific default function pipeline, but direct fuzz signoff, artifact validation, and targeted triage found no correctness or validation evidence that justifies more v0.1.0 INL work. Do not reopen `[INL]002` for cosmetic canonical drift alone.
+`[INL]002` is accepted for v0.1.0. The propagating prefix now uses the exact shared public `precompute-propagate` implementation. The touched-function cleanup lane remains an approximation of Binaryen's option-specific default function pipeline, but direct fuzz signoff, artifact validation, and targeted triage found no correctness or validation evidence that justifies more v0.1.0 INL work. Do not reopen `[INL]002` for cosmetic canonical drift alone.
 
 ## Dependency map
 

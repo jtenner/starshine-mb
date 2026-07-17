@@ -24,7 +24,7 @@ The landing page and strategy page already explain the big idea:
 - then uses `LazyLocalGraph` to learn more local facts,
 - then reruns the main evaluator once.
 
-This page answers the harder question a future port actually needs:
+This page answers the harder question the active port must keep aligned:
 
 - **what exact facts does Binaryen learn, from which nodes, and where does it deliberately stop?**
 

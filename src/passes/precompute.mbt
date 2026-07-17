@@ -13,7 +13,29 @@ pub fn precompute_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn precompute_summary() -> String {
-  "Fold exact constant integer expressions that are trap-free and stable across the top-level precompute slots."
+  "Evaluate exact scalar expressions, selected control and GC values, and safe dropped computations."
+}
+
+///|
+pub fn precompute_propagate_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new(
+    "precompute-propagate",
+    requires=[@ir.HotAnalysis::ssa()],
+    invalidates=[
+      @ir.HotAnalysis::cfg(),
+      @ir.HotAnalysis::dominance(),
+      @ir.HotAnalysis::liveness(),
+      @ir.HotAnalysis::use_def(),
+      @ir.HotAnalysis::effects(),
+      @ir.HotAnalysis::loop_info(),
+      @ir.HotAnalysis::ssa(),
+    ],
+  )
+}
+
+///|
+pub fn precompute_propagate_summary() -> String {
+  "Precompute constants, propagate agreeing local values through SSA, then rerun precompute once."
 }
 
 ///|
@@ -27,23 +49,6 @@ fn precompute_replace_node_rehoming_control_label(
   if label_id >= 0 {
     @ir.hot_label_owner_set(func, label_id, node_id)
   }
-}
-
-///|
-pub fn precompute_propagate_prefix_descriptor() -> @ir.HotPassDescriptor {
-  @ir.HotPassDescriptor::new(
-    "precompute-propagate-prefix",
-    requires=[@ir.HotAnalysis::ssa()],
-    invalidates=[
-      @ir.HotAnalysis::cfg(),
-      @ir.HotAnalysis::dominance(),
-      @ir.HotAnalysis::liveness(),
-      @ir.HotAnalysis::use_def(),
-      @ir.HotAnalysis::effects(),
-      @ir.HotAnalysis::loop_info(),
-      @ir.HotAnalysis::ssa(),
-    ],
-  )
 }
 
 ///|
@@ -143,6 +148,74 @@ fn precompute_i64_exact_const(
 }
 
 ///|
+fn precompute_exact_const_instr(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.Instruction? {
+  let payload = if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Const | @ir.HotOp::RefNull =>
+        Some(@ir.hot_const_get(func, node.imm0))
+      @ir.HotOp::GlobalGet => precompute_global_const(ctx, func, node_id)
+      _ => None
+    }
+  } else {
+    None
+  }
+  match payload {
+    Some(@ir.HotConstPayload::I32Const(value)) =>
+      Some(@lib.Instruction::i32_const(value))
+    Some(@ir.HotConstPayload::I64Const(value)) =>
+      Some(@lib.Instruction::i64_const(value))
+    Some(@ir.HotConstPayload::F32Const(value)) =>
+      Some(@lib.Instruction::f32_const(value))
+    Some(@ir.HotConstPayload::F64Const(value)) =>
+      Some(@lib.Instruction::f64_const(value))
+    Some(@ir.HotConstPayload::RefNullConst(value)) =>
+      Some(@lib.Instruction::ref_null_type(value))
+    Some(@ir.HotConstPayload::StringConst(value)) =>
+      Some(@lib.Instruction::string_const(value))
+    None => None
+  }
+}
+
+///|
+fn precompute_build_const_instr(
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Const(value) => Some(@ir.hot_build_const_i32(func, value))
+    @lib.I64Const(value) => Some(@ir.hot_build_const_i64(func, value))
+    @lib.F32Const(value) => Some(@ir.hot_build_const_f32(func, value))
+    @lib.F64Const(value) => Some(@ir.hot_build_const_f64(func, value))
+    @lib.RefNull(ref_type) => Some(@ir.hot_build_ref_null(func, ref_type))
+    @lib.StringConst(value) => Some(@ir.hot_build_string_const(func, value))
+    _ => None
+  }
+}
+
+///|
+fn precompute_replace_with_const_instr(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  let temp = match precompute_build_const_instr(func, instr) {
+    Some(node_id) => node_id
+    None => return false
+  }
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn precompute_replace_with_const_i32(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -209,6 +282,17 @@ fn precompute_try_fold_unary(
   instr : @lib.Instruction,
   operand_id : Int,
 ) -> Bool {
+  match precompute_exact_const_instr(ctx, func, operand_id) {
+    Some(operand) =>
+      match precompute_raw_try_fold_unary(operand, instr) {
+        Some(folded) =>
+          if precompute_replace_with_const_instr(ctx, func, node_id, folded) {
+            return true
+          }
+        None => ()
+      }
+    None => ()
+  }
   match (instr, precompute_i32_exact_const(ctx, func, operand_id)) {
     (@lib.Instruction::I32Eqz, Some(v)) => {
       precompute_replace_with_const_i32(
@@ -252,6 +336,21 @@ fn precompute_try_fold_binary(
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
+  match
+    (
+      precompute_exact_const_instr(ctx, func, lhs_id),
+      precompute_exact_const_instr(ctx, func, rhs_id),
+    ) {
+    (Some(lhs), Some(rhs)) =>
+      match precompute_raw_try_fold_binary(lhs, rhs, instr) {
+        Some(folded) =>
+          if precompute_replace_with_const_instr(ctx, func, node_id, folded) {
+            return true
+          }
+        None => ()
+      }
+    _ => ()
+  }
   match
     (
       instr,
@@ -689,6 +788,242 @@ fn precompute_try_fold_binary(
 }
 
 ///|
+fn precompute_try_partial_select_parent(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 ||
+    @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
+  let lhs_id = @ir.hot_child_get(func, node_id, 0)
+  let rhs_id = @ir.hot_child_get(func, node_id, 1)
+  let lhs_is_select = if lhs_id >= 0 && @ir.hot_node_is_live(func, lhs_id) {
+    match @ir.hot_node_get(func, lhs_id).op {
+      @ir.HotOp::Select => true
+      _ => false
+    }
+  } else {
+    false
+  }
+  let rhs_is_select = if rhs_id >= 0 && @ir.hot_node_is_live(func, rhs_id) {
+    match @ir.hot_node_get(func, rhs_id).op {
+      @ir.HotOp::Select => true
+      _ => false
+    }
+  } else {
+    false
+  }
+  let (select_id, other_id, select_is_lhs) = if lhs_is_select {
+    (lhs_id, rhs_id, true)
+  } else if rhs_is_select {
+    (rhs_id, lhs_id, false)
+  } else {
+    return false
+  }
+  if @ir.hot_child_count(func, select_id) != 3 {
+    return false
+  }
+  let other = match precompute_exact_const_instr(ctx, func, other_id) {
+    Some(value) => value
+    None => return false
+  }
+  let true_id = @ir.hot_child_get(func, select_id, 0)
+  let false_id = @ir.hot_child_get(func, select_id, 1)
+  let condition_id = @ir.hot_child_get(func, select_id, 2)
+  let true_value = match precompute_exact_const_instr(ctx, func, true_id) {
+    Some(value) => value
+    None => return false
+  }
+  let false_value = match precompute_exact_const_instr(ctx, func, false_id) {
+    Some(value) => value
+    None => return false
+  }
+  let folded_true = match
+    (if select_is_lhs {
+      precompute_raw_try_fold_binary(true_value, other, instr)
+    } else {
+      precompute_raw_try_fold_binary(other, true_value, instr)
+    }) {
+    Some(value) => value
+    None => return false
+  }
+  let folded_false = match
+    (if select_is_lhs {
+      precompute_raw_try_fold_binary(false_value, other, instr)
+    } else {
+      precompute_raw_try_fold_binary(other, false_value, instr)
+    }) {
+    Some(value) => value
+    None => return false
+  }
+  let next_true = match precompute_build_const_instr(func, folded_true) {
+    Some(value) => value
+    None => return false
+  }
+  let next_false = match precompute_build_const_instr(func, folded_false) {
+    Some(value) => value
+    None => return false
+  }
+  let results = @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty)
+  if results.length() != 1 {
+    return false
+  }
+  let temp = @ir.hot_build_select(
+    func,
+    results[0],
+    next_true,
+    next_false,
+    condition_id,
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+fn precompute_fresh_struct_allocation_is_discardable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructNew(_)) | Some(@lib.StructNewDefault(_)) => ()
+    _ => return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !precompute_is_discardable_value(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn precompute_try_fold_gc_identity(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.RefEq) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let lhs = @ir.hot_child_get(func, node_id, 0)
+  let rhs = @ir.hot_child_get(func, node_id, 1)
+  let lhs_null = lhs >= 0 &&
+    @ir.hot_node_is_live(func, lhs) &&
+    (match @ir.hot_node_get(func, lhs).op {
+      @ir.HotOp::RefNull => true
+      _ => false
+    })
+  let rhs_null = rhs >= 0 &&
+    @ir.hot_node_is_live(func, rhs) &&
+    (match @ir.hot_node_get(func, rhs).op {
+      @ir.HotOp::RefNull => true
+      _ => false
+    })
+  if (lhs_null && precompute_fresh_struct_allocation_is_discardable(func, rhs)) ||
+    (rhs_null && precompute_fresh_struct_allocation_is_discardable(func, lhs)) {
+    precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32(0))
+    return true
+  }
+  false
+}
+
+///|
+fn precompute_try_fold_fresh_ref_test(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let target = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.RefTest(_, _, target)) => target
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let ref_id = @ir.hot_child_get(func, node_id, 0)
+  if !precompute_fresh_struct_allocation_is_discardable(func, ref_id) {
+    return false
+  }
+  let type_idx = match @ir.hot_node_exact_instr(func, ref_id) {
+    Some(@lib.StructNew(type_idx)) | Some(@lib.StructNewDefault(type_idx)) =>
+      type_idx
+    _ => return false
+  }
+  if target != @lib.HeapType::new(type_idx) {
+    return false
+  }
+  precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32(1))
+  true
+}
+
+///|
+fn precompute_try_fold_fresh_struct_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let (type_idx, raw_field) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructGet(type_idx, @lib.U32(raw_field))) => (type_idx, raw_field)
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let ref_id = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_node_exact_instr(func, ref_id) {
+    Some(@lib.StructNew(new_type_idx)) if new_type_idx == type_idx => ()
+    _ => return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return false
+  }
+  let field_idx = raw_field.reinterpret_as_int()
+  let field = match fields.get(field_idx) {
+    Some(field) => field
+    None => return false
+  }
+  if field.is_mutable() ||
+    field.get_storage_type().is_packed() ||
+    @ir.hot_child_count(func, ref_id) != fields.length() {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, ref_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, ref_id, slot)
+    if slot != field_idx && !precompute_is_discardable_value(func, child_id) {
+      return false
+    }
+  }
+  let value_id = @ir.hot_child_get(func, ref_id, field_idx)
+  let value = match precompute_exact_const_instr(ctx, func, value_id) {
+    Some(value) => value
+    None => return false
+  }
+  precompute_replace_with_const_instr(ctx, func, node_id, value)
+}
+
+///|
 fn precompute_constant_if_chosen_region_can_inline(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -794,6 +1129,54 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
     }
     _ => false
   }
+}
+
+///|
+fn precompute_try_inline_transparent_value_block_child(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if @ir.hot_is_control_node(func, node_id) {
+    return false
+  }
+  let child_count = @ir.hot_child_count(func, node_id)
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, child_id).op {
+      @ir.HotOp::Block => ()
+      _ => continue
+    }
+    if @ir.hot_node_result_arity(func, child_id) != 1 {
+      continue
+    }
+    let label_id = @ir.hot_control_node_label(func, child_id)
+    if pass_label_is_used(label_id, label_used) {
+      continue
+    }
+    let body_ref = @ir.hot_region_body_ref(func, child_id)
+    if @ir.hot_region_root_count(func, body_ref) != 1 {
+      continue
+    }
+    let value_id = @ir.hot_region_get(func, body_ref, 0)
+    if value_id < 0 ||
+      !@ir.hot_node_is_live(func, value_id) ||
+      @ir.hot_node_result_arity(func, value_id) != 1 {
+      continue
+    }
+    @ir.hot_child_set(func, node_id, slot, value_id)
+    @ir.hot_region_replace_body(func, body_ref, [])
+    if !@ir.hot_delete_detached_control_forest(func, [child_id]) {
+      abort("precompute failed to delete detached transparent value block")
+    }
+    pass_mark_mutated(ctx, func)
+    return true
+  }
+  false
 }
 
 ///|
@@ -1356,6 +1739,22 @@ fn precompute_raw_i64_const(instr : @lib.Instruction) -> @lib.I64? {
 }
 
 ///|
+fn precompute_raw_f32_const(instr : @lib.Instruction) -> @lib.F32? {
+  match instr {
+    @lib.F32Const(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_f64_const(instr : @lib.Instruction) -> @lib.F64? {
+  match instr {
+    @lib.F64Const(value) => Some(value)
+    _ => None
+  }
+}
+
+///|
 fn precompute_raw_global_const_instr(
   module_ctx : @ir.HotModuleContext?,
   global_idx : @lib.GlobalIdx,
@@ -1505,6 +1904,41 @@ fn precompute_raw_try_fold_binary(
           lhs.reinterpret_as_uint() >= rhs.reinterpret_as_uint(),
         ),
       )
+    (@lib.Instruction::I32DivS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      if rhs == 0 || (lhs == -2147483648 && rhs == -1) {
+        return None
+      }
+      return Some(@lib.Instruction::i32_const(@lib.I32(lhs / rhs)))
+    }
+    (@lib.Instruction::I32DivU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let divisor = rhs.reinterpret_as_uint()
+      if divisor == 0U {
+        return None
+      }
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32((lhs.reinterpret_as_uint() / divisor).reinterpret_as_int()),
+        ),
+      )
+    }
+    (@lib.Instruction::I32RemS, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      if rhs == 0 {
+        return None
+      }
+      let value = if lhs == -2147483648 && rhs == -1 { 0 } else { lhs % rhs }
+      return Some(@lib.Instruction::i32_const(@lib.I32(value)))
+    }
+    (@lib.Instruction::I32RemU, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let divisor = rhs.reinterpret_as_uint()
+      if divisor == 0U {
+        return None
+      }
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32((lhs.reinterpret_as_uint() % divisor).reinterpret_as_int()),
+        ),
+      )
+    }
     _ => ()
   }
   match
@@ -1514,7 +1948,7 @@ fn precompute_raw_try_fold_binary(
       precompute_raw_i64_const(rhs_instr),
     ) {
     (@lib.Instruction::I64Add, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         @lib.Instruction::i64_const(
           @lib.I64(
             (lhs.reinterpret_as_uint64() + rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
@@ -1522,7 +1956,7 @@ fn precompute_raw_try_fold_binary(
         ),
       )
     (@lib.Instruction::I64Sub, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         @lib.Instruction::i64_const(
           @lib.I64(
             (lhs.reinterpret_as_uint64() - rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
@@ -1530,7 +1964,7 @@ fn precompute_raw_try_fold_binary(
         ),
       )
     (@lib.Instruction::I64Mul, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         @lib.Instruction::i64_const(
           @lib.I64(
             (lhs.reinterpret_as_uint64() * rhs.reinterpret_as_uint64()).reinterpret_as_int64(),
@@ -1538,14 +1972,14 @@ fn precompute_raw_try_fold_binary(
         ),
       )
     (@lib.Instruction::I64And, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(@lib.Instruction::i64_const(@lib.I64(lhs & rhs)))
+      return Some(@lib.Instruction::i64_const(@lib.I64(lhs & rhs)))
     (@lib.Instruction::I64Or, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(@lib.Instruction::i64_const(@lib.I64(lhs | rhs)))
+      return Some(@lib.Instruction::i64_const(@lib.I64(lhs | rhs)))
     (@lib.Instruction::I64Xor, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(@lib.Instruction::i64_const(@lib.I64(lhs ^ rhs)))
+      return Some(@lib.Instruction::i64_const(@lib.I64(lhs ^ rhs)))
     (@lib.Instruction::I64Shl, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       let shift = rhs.reinterpret_as_uint64() & 63UL
-      Some(
+      return Some(
         @lib.Instruction::i64_const(
           @lib.I64(
             (lhs.reinterpret_as_uint64() << shift.to_int()).reinterpret_as_int64(),
@@ -1555,7 +1989,7 @@ fn precompute_raw_try_fold_binary(
     }
     (@lib.Instruction::I64ShrU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       let shift = rhs.reinterpret_as_uint64() & 63UL
-      Some(
+      return Some(
         @lib.Instruction::i64_const(
           @lib.I64(
             (lhs.reinterpret_as_uint64() >> shift.to_int()).reinterpret_as_int64(),
@@ -1565,44 +1999,143 @@ fn precompute_raw_try_fold_binary(
     }
     (@lib.Instruction::I64ShrS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
       let shift = rhs.reinterpret_as_uint64() & 63UL
-      Some(@lib.Instruction::i64_const(@lib.I64(lhs >> shift.to_int())))
+      return Some(@lib.Instruction::i64_const(@lib.I64(lhs >> shift.to_int())))
     }
     (@lib.Instruction::I64Eq, Some(lhs), Some(rhs)) =>
-      Some(precompute_raw_bool(lhs == rhs))
+      return Some(precompute_raw_bool(lhs == rhs))
     (@lib.Instruction::I64Ne, Some(lhs), Some(rhs)) =>
-      Some(precompute_raw_bool(lhs != rhs))
+      return Some(precompute_raw_bool(lhs != rhs))
     (@lib.Instruction::I64LtS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(precompute_raw_bool(lhs < rhs))
+      return Some(precompute_raw_bool(lhs < rhs))
     (@lib.Instruction::I64LtU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         precompute_raw_bool(
           lhs.reinterpret_as_uint64() < rhs.reinterpret_as_uint64(),
         ),
       )
     (@lib.Instruction::I64GtS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(precompute_raw_bool(lhs > rhs))
+      return Some(precompute_raw_bool(lhs > rhs))
     (@lib.Instruction::I64GtU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         precompute_raw_bool(
           lhs.reinterpret_as_uint64() > rhs.reinterpret_as_uint64(),
         ),
       )
     (@lib.Instruction::I64LeS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(precompute_raw_bool(lhs <= rhs))
+      return Some(precompute_raw_bool(lhs <= rhs))
     (@lib.Instruction::I64LeU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         precompute_raw_bool(
           lhs.reinterpret_as_uint64() <= rhs.reinterpret_as_uint64(),
         ),
       )
     (@lib.Instruction::I64GeS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(precompute_raw_bool(lhs >= rhs))
+      return Some(precompute_raw_bool(lhs >= rhs))
     (@lib.Instruction::I64GeU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) =>
-      Some(
+      return Some(
         precompute_raw_bool(
           lhs.reinterpret_as_uint64() >= rhs.reinterpret_as_uint64(),
         ),
       )
+    (@lib.Instruction::I64DivS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      if rhs == 0L || (lhs == -9223372036854775808L && rhs == -1L) {
+        return None
+      }
+      return Some(@lib.Instruction::i64_const(@lib.I64(lhs / rhs)))
+    }
+    (@lib.Instruction::I64DivU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let divisor = rhs.reinterpret_as_uint64()
+      if divisor == 0UL {
+        return None
+      }
+      return Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() / divisor).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::I64RemS, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      if rhs == 0L {
+        return None
+      }
+      let value = if lhs == -9223372036854775808L && rhs == -1L {
+        0L
+      } else {
+        lhs % rhs
+      }
+      return Some(@lib.Instruction::i64_const(@lib.I64(value)))
+    }
+    (@lib.Instruction::I64RemU, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let divisor = rhs.reinterpret_as_uint64()
+      if divisor == 0UL {
+        return None
+      }
+      return Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(
+            (lhs.reinterpret_as_uint64() % divisor).reinterpret_as_int64(),
+          ),
+        ),
+      )
+    }
+    _ => ()
+  }
+  match
+    (
+      instr,
+      precompute_raw_f32_const(lhs_instr),
+      precompute_raw_f32_const(rhs_instr),
+    ) {
+    (@lib.Instruction::F32Add, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(@lib.Instruction::f32_const(@lib.F32(lhs + rhs)))
+    (@lib.Instruction::F32Sub, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(@lib.Instruction::f32_const(@lib.F32(lhs - rhs)))
+    (@lib.Instruction::F32Mul, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(@lib.Instruction::f32_const(@lib.F32(lhs * rhs)))
+    (@lib.Instruction::F32Div, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(@lib.Instruction::f32_const(@lib.F32(lhs / rhs)))
+    (@lib.Instruction::F32Eq, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(precompute_raw_bool(lhs == rhs))
+    (@lib.Instruction::F32Ne, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(precompute_raw_bool(lhs != rhs))
+    (@lib.Instruction::F32Lt, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(precompute_raw_bool(lhs < rhs))
+    (@lib.Instruction::F32Gt, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(precompute_raw_bool(lhs > rhs))
+    (@lib.Instruction::F32Le, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(precompute_raw_bool(lhs <= rhs))
+    (@lib.Instruction::F32Ge, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(precompute_raw_bool(lhs >= rhs))
+    _ => ()
+  }
+  match
+    (
+      instr,
+      precompute_raw_f64_const(lhs_instr),
+      precompute_raw_f64_const(rhs_instr),
+    ) {
+    (@lib.Instruction::F64Add, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(@lib.Instruction::f64_const(@lib.F64(lhs + rhs)))
+    (@lib.Instruction::F64Sub, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(@lib.Instruction::f64_const(@lib.F64(lhs - rhs)))
+    (@lib.Instruction::F64Mul, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(@lib.Instruction::f64_const(@lib.F64(lhs * rhs)))
+    (@lib.Instruction::F64Div, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(@lib.Instruction::f64_const(@lib.F64(lhs / rhs)))
+    (@lib.Instruction::F64Eq, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(precompute_raw_bool(lhs == rhs))
+    (@lib.Instruction::F64Ne, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(precompute_raw_bool(lhs != rhs))
+    (@lib.Instruction::F64Lt, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(precompute_raw_bool(lhs < rhs))
+    (@lib.Instruction::F64Gt, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(precompute_raw_bool(lhs > rhs))
+    (@lib.Instruction::F64Le, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(precompute_raw_bool(lhs <= rhs))
+    (@lib.Instruction::F64Ge, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(precompute_raw_bool(lhs >= rhs))
     _ => None
   }
 }
@@ -1629,7 +2162,59 @@ fn precompute_raw_instr_is_nontrapping_unary_op(
   instr : @lib.Instruction,
 ) -> Bool {
   match instr {
-    @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => true
+    @lib.Instruction::I32Eqz
+    | @lib.Instruction::I64Eqz
+    | @lib.Instruction::I32Clz
+    | @lib.Instruction::I32Ctz
+    | @lib.Instruction::I32Popcnt
+    | @lib.Instruction::I64Clz
+    | @lib.Instruction::I64Ctz
+    | @lib.Instruction::I64Popcnt
+    | @lib.Instruction::F32Abs
+    | @lib.Instruction::F32Neg
+    | @lib.Instruction::F32Ceil
+    | @lib.Instruction::F32Floor
+    | @lib.Instruction::F32Trunc
+    | @lib.Instruction::F32Nearest
+    | @lib.Instruction::F32Sqrt
+    | @lib.Instruction::F64Abs
+    | @lib.Instruction::F64Neg
+    | @lib.Instruction::F64Ceil
+    | @lib.Instruction::F64Floor
+    | @lib.Instruction::F64Trunc
+    | @lib.Instruction::F64Nearest
+    | @lib.Instruction::F64Sqrt
+    | @lib.Instruction::I32WrapI64
+    | @lib.Instruction::I64ExtendI32S
+    | @lib.Instruction::I64ExtendI32U
+    | @lib.Instruction::F32ConvertI32S
+    | @lib.Instruction::F32ConvertI32U
+    | @lib.Instruction::F32ConvertI64S
+    | @lib.Instruction::F32ConvertI64U
+    | @lib.Instruction::F64ConvertI32S
+    | @lib.Instruction::F64ConvertI32U
+    | @lib.Instruction::F64ConvertI64S
+    | @lib.Instruction::F64ConvertI64U
+    | @lib.Instruction::F32DemoteF64
+    | @lib.Instruction::F64PromoteF32
+    | @lib.Instruction::I32ReinterpretF32
+    | @lib.Instruction::I64ReinterpretF64
+    | @lib.Instruction::F32ReinterpretI32
+    | @lib.Instruction::F64ReinterpretI64
+    | @lib.Instruction::I32Extend8S
+    | @lib.Instruction::I32Extend16S
+    | @lib.Instruction::I64Extend8S
+    | @lib.Instruction::I64Extend16S
+    | @lib.Instruction::I64Extend32S
+    | @lib.Instruction::I32TruncSatF32S
+    | @lib.Instruction::I32TruncSatF32U
+    | @lib.Instruction::I32TruncSatF64S
+    | @lib.Instruction::I32TruncSatF64U
+    | @lib.Instruction::I64TruncSatF32S
+    | @lib.Instruction::I64TruncSatF32U
+    | @lib.Instruction::I64TruncSatF64S
+    | @lib.Instruction::I64TruncSatF64U
+    | @lib.Instruction::RefIsNull => true
     _ => false
   }
 }
@@ -1676,7 +2261,37 @@ fn precompute_raw_instr_is_nontrapping_binary_op(
     | @lib.Instruction::I64LeS
     | @lib.Instruction::I64LeU
     | @lib.Instruction::I64GeS
-    | @lib.Instruction::I64GeU => true
+    | @lib.Instruction::I64GeU
+    | @lib.Instruction::I32Rotl
+    | @lib.Instruction::I32Rotr
+    | @lib.Instruction::I64Rotl
+    | @lib.Instruction::I64Rotr
+    | @lib.Instruction::F32Add
+    | @lib.Instruction::F32Sub
+    | @lib.Instruction::F32Mul
+    | @lib.Instruction::F32Div
+    | @lib.Instruction::F32Min
+    | @lib.Instruction::F32Max
+    | @lib.Instruction::F32Copysign
+    | @lib.Instruction::F32Eq
+    | @lib.Instruction::F32Ne
+    | @lib.Instruction::F32Lt
+    | @lib.Instruction::F32Gt
+    | @lib.Instruction::F32Le
+    | @lib.Instruction::F32Ge
+    | @lib.Instruction::F64Add
+    | @lib.Instruction::F64Sub
+    | @lib.Instruction::F64Mul
+    | @lib.Instruction::F64Div
+    | @lib.Instruction::F64Min
+    | @lib.Instruction::F64Max
+    | @lib.Instruction::F64Copysign
+    | @lib.Instruction::F64Eq
+    | @lib.Instruction::F64Ne
+    | @lib.Instruction::F64Lt
+    | @lib.Instruction::F64Gt
+    | @lib.Instruction::F64Le
+    | @lib.Instruction::F64Ge => true
     _ => false
   }
 }
@@ -2143,8 +2758,77 @@ fn precompute_raw_try_mark_value_tail_after_infinite_loop(
 }
 
 ///|
+fn precompute_raw_try_partial_select_tail(
+  out : Array[@lib.Instruction],
+) -> Bool {
+  if out.length() < 6 {
+    return false
+  }
+  let base = out.length() - 6
+  let op = out[base + 5]
+  let select_lhs = match out[base + 3] {
+    @lib.Select(_) => true
+    _ => false
+  }
+  let select_rhs = match out[base + 4] {
+    @lib.Select(_) => true
+    _ => false
+  }
+  let (true_value, false_value, condition, select_instr, other, select_is_lhs) = if select_lhs {
+    (
+      out[base],
+      out[base + 1],
+      out[base + 2],
+      out[base + 3],
+      out[base + 4],
+      true,
+    )
+  } else if select_rhs {
+    (
+      out[base + 1],
+      out[base + 2],
+      out[base + 3],
+      out[base + 4],
+      out[base],
+      false,
+    )
+  } else {
+    return false
+  }
+  let folded_true = match
+    (if select_is_lhs {
+      precompute_raw_try_fold_binary(true_value, other, op)
+    } else {
+      precompute_raw_try_fold_binary(other, true_value, op)
+    }) {
+    Some(value) => value
+    None => return false
+  }
+  let folded_false = match
+    (if select_is_lhs {
+      precompute_raw_try_fold_binary(false_value, other, op)
+    } else {
+      precompute_raw_try_fold_binary(other, false_value, op)
+    }) {
+    Some(value) => value
+    None => return false
+  }
+  while out.length() > base {
+    ignore(out.pop())
+  }
+  out.push(folded_true)
+  out.push(folded_false)
+  out.push(condition)
+  out.push(select_instr)
+  true
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
   if precompute_raw_try_fold_const_if_tail(out) {
+    return true
+  }
+  if precompute_raw_try_partial_select_tail(out) {
     return true
   }
   if precompute_raw_try_mark_value_tail_after_infinite_loop(out) {
@@ -2175,6 +2859,17 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
           None => ()
         }
         if precompute_raw_instr_is_flat_discardable_value(out[out.length() - 2]) {
+          ignore(out.pop())
+          ignore(out.pop())
+          out.push(@lib.Instruction::nop())
+          return true
+        }
+        if out.length() >= 3 &&
+          dae_instr_is_const_safe_float_to_int_unary(
+            out[out.length() - 3],
+            out[out.length() - 2],
+          ) {
+          ignore(out.pop())
           ignore(out.pop())
           ignore(out.pop())
           out.push(@lib.Instruction::nop())
@@ -2255,6 +2950,32 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn precompute_raw_void_block_is_selector_only_self_br_table(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() != 2 {
+    return false
+  }
+  match instrs[0] {
+    @lib.I32Const(_) => ()
+    _ => return false
+  }
+  let (targets, fallback) = match instrs[1] {
+    @lib.BrTable(targets, fallback) => (targets, fallback)
+    _ => return false
+  }
+  if fallback != @lib.LabelIdx::new(0U) {
+    return false
+  }
+  for target in targets {
+    if target != @lib.LabelIdx::new(0U) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn precompute_raw_rewrite_instr(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext?,
@@ -2268,6 +2989,9 @@ fn precompute_raw_rewrite_instr(
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
       if block_type == @lib.BlockType::void_() {
+        if precompute_raw_void_block_is_selector_only_self_br_table(next_body) {
+          return (@lib.Instruction::nop(), true)
+        }
         if next_body.length() == 1 {
           match next_body[0] {
             @lib.Br(@lib.LabelIdx(0U)) => return (@lib.Instruction::nop(), true)
@@ -2386,7 +3110,12 @@ fn precompute_raw_instr_has_hot_only_candidate(
 ) -> Bool {
   match instr {
     @lib.GlobalGet(_) => false
-    @lib.BrTable(_, _) => true
+    @lib.BrTable(_, _)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _)
+    | @lib.RefEq
+    | @lib.RefTest(_, _, _) => true
     @lib.Nop => false
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       precompute_raw_instrs_have_hot_only_candidate(body, module_ctx)
@@ -2803,6 +3532,456 @@ fn precompute_run_raw_func(
 }
 
 ///|
+fn precompute_raw_instr_has_atomic_fence(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.AtomicFence => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_atomic_fence(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_atomic_fence(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_atomic_fence(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_atomic_fence(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_atomic_fence(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_instr_has_memory_grow(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.MemoryGrow(_) => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_memory_grow(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_memory_grow(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_memory_grow(body)
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_memory_grow(body)
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_memory_grow(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_memory_grow(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_run_raw_around_atomic_fence(
+  func : @lib.Func,
+  module_ctx : @ir.HotModuleContext?,
+) -> (@lib.Func, Bool)? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if !precompute_raw_instrs_have_atomic_fence(instrs) {
+    return None
+  }
+  let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
+  Some((@lib.Func::new(locals, @lib.Expr::new(rewritten)), changed))
+}
+
+///|
+fn precompute_raw_default_local_const(ty : @lib.ValType) -> @lib.Instruction? {
+  match ty {
+    @lib.NumTypeValType(@lib.I32NumType) =>
+      Some(@lib.Instruction::i32_const(@lib.I32(0)))
+    @lib.NumTypeValType(@lib.I64NumType) =>
+      Some(@lib.Instruction::i64_const(@lib.I64(0L)))
+    @lib.NumTypeValType(@lib.F32NumType) =>
+      Some(@lib.Instruction::f32_const(@lib.F32(0.0)))
+    @lib.NumTypeValType(@lib.F64NumType) =>
+      Some(@lib.Instruction::f64_const(@lib.F64(0.0)))
+    @lib.RefTypeValType(ref_type) =>
+      Some(@lib.Instruction::ref_null_type(ref_type))
+    _ => None
+  }
+}
+
+///|
+fn precompute_raw_instr_is_foldable_binary(instr : @lib.Instruction) -> Bool {
+  if precompute_raw_instr_is_nontrapping_binary_op(instr) {
+    return true
+  }
+  match instr {
+    @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_mark_written_locals(
+  instrs : Array[@lib.Instruction],
+  written : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw_local))
+      | @lib.LocalTee(@lib.LocalIdx(raw_local)) => {
+        let local_id = raw_local.reinterpret_as_int()
+        if local_id >= 0 && local_id < written.length() {
+          written[local_id] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        precompute_raw_mark_written_locals(body, written)
+      @lib.If(_, then_body, else_body) => {
+        precompute_raw_mark_written_locals(then_body, written)
+        match else_body {
+          Some(body) => precompute_raw_mark_written_locals(body, written)
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        precompute_raw_mark_written_locals(body, written)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn precompute_propagate_run_raw_instrs(
+  instrs : Array[@lib.Instruction],
+  local_values : Array[@lib.Instruction?],
+  module_ctx : @ir.HotModuleContext?,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction?], Bool)? {
+  let stack : Array[@lib.Instruction?] = []
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr_idx = 0; instr_idx < instrs.length(); instr_idx = instr_idx + 1 {
+    let instr = instrs[instr_idx]
+    match instr {
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.RefNull(_)
+      | @lib.StringConst(_) => {
+        rewritten.push(instr)
+        stack.push(Some(instr))
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw_local)) => {
+        let local_id = raw_local.reinterpret_as_int()
+        if local_id < 0 || local_id >= local_values.length() {
+          return None
+        }
+        match local_values[local_id] {
+          Some(value) => {
+            rewritten.push(value)
+            stack.push(Some(value))
+            changed = true
+          }
+          None => {
+            rewritten.push(instr)
+            stack.push(None)
+          }
+        }
+      }
+      @lib.LocalSet(@lib.LocalIdx(raw_local)) => {
+        let local_id = raw_local.reinterpret_as_int()
+        if local_id < 0 ||
+          local_id >= local_values.length() ||
+          stack.length() == 0 {
+          return None
+        }
+        local_values[local_id] = stack.pop().unwrap()
+        rewritten.push(instr)
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw_local)) => {
+        let local_id = raw_local.reinterpret_as_int()
+        if local_id < 0 ||
+          local_id >= local_values.length() ||
+          stack.length() == 0 {
+          return None
+        }
+        local_values[local_id] = stack[stack.length() - 1]
+        rewritten.push(instr)
+      }
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
+        let before_values = local_values.copy()
+        let body_values_in = local_values.copy()
+        let written = Array::make(local_values.length(), false)
+        precompute_raw_mark_written_locals(body, written)
+        for local_id = 0
+            local_id < body_values_in.length()
+            local_id = local_id + 1 {
+          if written[local_id] {
+            body_values_in[local_id] = None
+          }
+        }
+        let (next_body, body_values, body_changed) = match
+          precompute_propagate_run_raw_instrs(body, body_values_in, module_ctx) {
+          Some(result) => result
+          None => return None
+        }
+        for local_id = 0
+            local_id < local_values.length()
+            local_id = local_id + 1 {
+          if before_values[local_id] == body_values[local_id] {
+            local_values[local_id] = before_values[local_id]
+          } else {
+            local_values[local_id] = None
+          }
+        }
+        rewritten.push(
+          @lib.Instruction::loop_(
+            @lib.BlockType::void_(),
+            @lib.Expr::new(next_body),
+          ),
+        )
+        if body_changed {
+          changed = true
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        if stack.length() == 0 {
+          return None
+        }
+        ignore(stack.pop())
+        let has_result = match block_type {
+          @lib.VoidBlockType => false
+          @lib.ValTypeBlockType(_) => true
+          @lib.TypeIdxBlockType(_) => return None
+        }
+        if has_result && else_body is None {
+          return None
+        }
+        let (next_then, then_values, then_changed) = match
+          precompute_propagate_run_raw_instrs(
+            then_body,
+            local_values.copy(),
+            module_ctx,
+          ) {
+          Some(result) => result
+          None => return None
+        }
+        let (next_else, else_values, else_changed) = match else_body {
+          Some(body) =>
+            match
+              precompute_propagate_run_raw_instrs(
+                body,
+                local_values.copy(),
+                module_ctx,
+              ) {
+              Some((next_body, values, body_changed)) =>
+                (Some(next_body), values, body_changed)
+              None => return None
+            }
+          None => (None, local_values.copy(), false)
+        }
+        for local_id = 0
+            local_id < local_values.length()
+            local_id = local_id + 1 {
+          if then_values[local_id] == else_values[local_id] {
+            local_values[local_id] = then_values[local_id]
+          } else {
+            local_values[local_id] = None
+          }
+        }
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+        if has_result {
+          stack.push(None)
+        }
+        if then_changed || else_changed {
+          changed = true
+        }
+      }
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) => {
+        if stack.length() < 2 {
+          return None
+        }
+        ignore(stack.pop())
+        ignore(stack.pop())
+        rewritten.push(instr)
+      }
+      @lib.MemorySize(_) => {
+        rewritten.push(instr)
+        stack.push(None)
+      }
+      @lib.MemoryGrow(_) => {
+        if stack.length() == 0 {
+          return None
+        }
+        ignore(stack.pop())
+        rewritten.push(instr)
+        stack.push(None)
+      }
+      @lib.Drop => {
+        if stack.length() == 0 {
+          return None
+        }
+        ignore(stack.pop())
+        rewritten.push(instr)
+      }
+      @lib.GlobalSet(_) => {
+        if stack.length() == 0 {
+          return None
+        }
+        ignore(stack.pop())
+        rewritten.push(instr)
+      }
+      @lib.Call(_) => {
+        rewritten.push(instr)
+        stack.clear()
+      }
+      @lib.Br(_) => {
+        rewritten.push(instr)
+        for rest_idx = instr_idx + 1
+            rest_idx < instrs.length()
+            rest_idx = rest_idx + 1 {
+          rewritten.push(instrs[rest_idx])
+        }
+        return Some((rewritten, local_values, changed))
+      }
+      @lib.Nop => rewritten.push(instr)
+      @lib.Unreachable => {
+        rewritten.push(instr)
+        stack.clear()
+      }
+      op if precompute_raw_instr_is_nontrapping_unary_op(op) => {
+        if stack.length() == 0 {
+          return None
+        }
+        let operand = stack.pop().unwrap()
+        stack.push(
+          match operand {
+            Some(value) => precompute_raw_try_fold_unary(value, op)
+            None => None
+          },
+        )
+        rewritten.push(instr)
+      }
+      op if precompute_raw_instr_is_foldable_binary(op) => {
+        if stack.length() < 2 {
+          return None
+        }
+        let rhs = stack.pop().unwrap()
+        let lhs = stack.pop().unwrap()
+        stack.push(
+          match (lhs, rhs) {
+            (Some(lhs), Some(rhs)) =>
+              precompute_raw_try_fold_binary(lhs, rhs, op)
+            _ => None
+          },
+        )
+        rewritten.push(instr)
+      }
+      _ => {
+        if !changed {
+          return None
+        }
+        rewritten.push(instr)
+        for rest_idx = instr_idx + 1
+            rest_idx < instrs.length()
+            rest_idx = rest_idx + 1 {
+          rewritten.push(instrs[rest_idx])
+        }
+        for local_id = 0
+            local_id < local_values.length()
+            local_id = local_id + 1 {
+          local_values[local_id] = None
+        }
+        let (folded, folded_changed) = precompute_raw_rewrite_instrs(
+          rewritten, module_ctx,
+        )
+        return Some((folded, local_values, changed || folded_changed))
+      }
+    }
+  }
+  let (folded, folded_changed) = precompute_raw_rewrite_instrs(
+    rewritten, module_ctx,
+  )
+  Some((folded, local_values, changed || folded_changed))
+}
+
+///|
+fn precompute_propagate_run_raw_straight_line_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+  module_ctx : @ir.HotModuleContext?,
+) -> (@lib.Func, Bool)? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let local_values : Array[@lib.Instruction?] = Array::make(
+    params.length() + locals.length(),
+    None,
+  )
+  for idx = 0; idx < locals.length(); idx = idx + 1 {
+    local_values[params.length() + idx] = precompute_raw_default_local_const(
+      locals.get(idx),
+    )
+  }
+  match precompute_propagate_run_raw_instrs(instrs, local_values, module_ctx) {
+    Some((rewritten, _, changed)) =>
+      Some((@lib.Func::new(locals, @lib.Expr::new(rewritten)), changed))
+    None => None
+  }
+}
+
+///|
 fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed_any = false
   let mut changed_round = true
@@ -2812,8 +3991,16 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       changed_round = true
       changed_any = true
     }
+    let label_used = pass_compute_label_used(func)
     for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
       if !@ir.hot_node_is_live(func, node_id) {
+        continue
+      }
+      if precompute_try_inline_transparent_value_block_child(
+          ctx, func, node_id, label_used,
+        ) {
+        changed_round = true
+        changed_any = true
         continue
       }
       if precompute_try_fold_global_get(ctx, func, node_id) {
@@ -2831,9 +4018,21 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         changed_any = true
         continue
       }
+      if precompute_try_fold_gc_identity(ctx, func, node_id) ||
+        precompute_try_fold_fresh_ref_test(ctx, func, node_id) ||
+        precompute_try_fold_fresh_struct_get(ctx, func, node_id) {
+        changed_round = true
+        changed_any = true
+        continue
+      }
       let instr = match @ir.hot_node_exact_instr(func, node_id) {
         Some(instr) => instr
         None => continue
+      }
+      if precompute_try_partial_select_parent(ctx, func, node_id, instr) {
+        changed_round = true
+        changed_any = true
+        continue
       }
       let child_count = @ir.hot_child_count(func, node_id)
       let changed = if child_count == 1 {
@@ -3038,6 +4237,39 @@ fn precompute_propagate_prefix_const_for_node(
         )
       }
     }
+    @ir.HotOp::If => {
+      let cond_id = @ir.hot_child_get(func, node_id, 0)
+      let take_then = match
+        precompute_propagate_prefix_const_for_node(
+          ctx, func, ssa, label_used, cond_id, states, value_consts,
+        ) {
+        Some(@ir.HotConstPayload::I32Const(@lib.I32(0))) => false
+        Some(@ir.HotConstPayload::I32Const(_)) => true
+        _ => return None
+      }
+      let chosen = if take_then {
+        Some(@ir.hot_region_then_ref(func, node_id))
+      } else {
+        @ir.hot_region_else_ref(func, node_id)
+      }
+      match chosen {
+        Some(region_ref) => {
+          let root_count = @ir.hot_region_root_count(func, region_ref)
+          if root_count > 0 {
+            return precompute_propagate_prefix_const_for_node(
+              ctx,
+              func,
+              ssa,
+              label_used,
+              @ir.hot_region_get(func, region_ref, root_count - 1),
+              states,
+              value_consts,
+            )
+          }
+        }
+        None => ()
+      }
+    }
     _ => ()
   }
   let instr = match @ir.hot_node_exact_instr(func, node_id) {
@@ -3219,6 +4451,271 @@ fn precompute_propagate_prefix_const_for_value(
 }
 
 ///|
+fn precompute_propagate_mark_result_if_arm_writes(
+  func : @ir.HotFunc,
+  node_id : Int,
+  inside_result_if_arm : Bool,
+  unsafe_locals : Array[Bool],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      if inside_result_if_arm &&
+        node.imm0 >= 0 &&
+        node.imm0 < unsafe_locals.length() {
+        unsafe_locals[node.imm0] = true
+      }
+    _ => ()
+  }
+  match node.op {
+    @ir.HotOp::If => {
+      precompute_propagate_mark_result_if_arm_writes(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+        inside_result_if_arm,
+        unsafe_locals,
+      )
+      let arm_is_unsafe = inside_result_if_arm ||
+        @ir.hot_node_result_arity(func, node_id) > 0
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        precompute_propagate_mark_result_if_arm_writes(
+          func,
+          @ir.hot_region_get(func, then_ref, idx),
+          arm_is_unsafe,
+          unsafe_locals,
+        )
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            precompute_propagate_mark_result_if_arm_writes(
+              func,
+              @ir.hot_region_get(func, else_ref, idx),
+              arm_is_unsafe,
+              unsafe_locals,
+            )
+          }
+        None => ()
+      }
+    }
+    _ =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        precompute_propagate_mark_result_if_arm_writes(
+          func,
+          @ir.hot_child_get(func, node_id, slot),
+          inside_result_if_arm,
+          unsafe_locals,
+        )
+      }
+  }
+}
+
+///|
+fn precompute_propagate_collect_condition_const_writes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  local_consts : Array[@ir.HotConstPayload?],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    precompute_propagate_collect_condition_const_writes(
+      ctx,
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      local_consts,
+    )
+  }
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      let local_id = node.imm0
+      if local_id >= 0 &&
+        local_id < local_consts.length() &&
+        @ir.hot_child_count(func, node_id) == 1 {
+        local_consts[local_id] = precompute_propagate_prefix_const_payload_from_node(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+        )
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn precompute_propagate_mark_arm_direct_const_gets(
+  func : @ir.HotFunc,
+  node_id : Int,
+  condition_consts : Array[@ir.HotConstPayload?],
+  arm_written : Array[Bool],
+  get_consts : Array[@ir.HotConstPayload?],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0; idx < @ir.hot_region_root_count(func, body); idx = idx + 1 {
+        precompute_propagate_mark_arm_direct_const_gets(
+          func,
+          @ir.hot_region_get(func, body, idx),
+          condition_consts,
+          arm_written,
+          get_consts,
+        )
+      }
+      return
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    precompute_propagate_mark_arm_direct_const_gets(
+      func,
+      @ir.hot_child_get(func, node_id, slot),
+      condition_consts,
+      arm_written,
+      get_consts,
+    )
+  }
+  match node.op {
+    @ir.HotOp::LocalGet => {
+      let local_id = node.imm0
+      if local_id >= 0 &&
+        local_id < condition_consts.length() &&
+        !arm_written[local_id] {
+        get_consts[node_id] = condition_consts[local_id]
+      }
+    }
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+      let local_id = node.imm0
+      if local_id >= 0 && local_id < arm_written.length() {
+        arm_written[local_id] = true
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn precompute_propagate_mark_result_if_direct_const_gets(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  get_consts : Array[@ir.HotConstPayload?],
+) -> Unit {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => {
+      let condition_id = @ir.hot_child_get(func, node_id, 0)
+      precompute_propagate_mark_result_if_direct_const_gets(
+        ctx, func, condition_id, get_consts,
+      )
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      let else_ref = @ir.hot_region_else_ref(func, node_id)
+      if @ir.hot_node_result_arity(func, node_id) > 0 {
+        let condition_consts : Array[@ir.HotConstPayload?] = Array::make(
+          @ir.hot_local_count(func),
+          None,
+        )
+        precompute_propagate_collect_condition_const_writes(
+          ctx, func, condition_id, condition_consts,
+        )
+        let then_written = Array::make(@ir.hot_local_count(func), false)
+        for idx = 0
+            idx < @ir.hot_region_root_count(func, then_ref)
+            idx = idx + 1 {
+          precompute_propagate_mark_arm_direct_const_gets(
+            func,
+            @ir.hot_region_get(func, then_ref, idx),
+            condition_consts,
+            then_written,
+            get_consts,
+          )
+        }
+        match else_ref {
+          Some(region_ref) => {
+            let else_written = Array::make(@ir.hot_local_count(func), false)
+            for idx = 0
+                idx < @ir.hot_region_root_count(func, region_ref)
+                idx = idx + 1 {
+              precompute_propagate_mark_arm_direct_const_gets(
+                func,
+                @ir.hot_region_get(func, region_ref, idx),
+                condition_consts,
+                else_written,
+                get_consts,
+              )
+            }
+          }
+          None => ()
+        }
+      }
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        precompute_propagate_mark_result_if_direct_const_gets(
+          ctx,
+          func,
+          @ir.hot_region_get(func, then_ref, idx),
+          get_consts,
+        )
+      }
+      match else_ref {
+        Some(region_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, region_ref)
+              idx = idx + 1 {
+            precompute_propagate_mark_result_if_direct_const_gets(
+              ctx,
+              func,
+              @ir.hot_region_get(func, region_ref, idx),
+              get_consts,
+            )
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0; idx < @ir.hot_region_root_count(func, body); idx = idx + 1 {
+        precompute_propagate_mark_result_if_direct_const_gets(
+          ctx,
+          func,
+          @ir.hot_region_get(func, body, idx),
+          get_consts,
+        )
+      }
+    }
+    _ =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        precompute_propagate_mark_result_if_direct_const_gets(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, slot),
+          get_consts,
+        )
+      }
+  }
+}
+
+///|
 fn precompute_propagate_prefix_fold_local_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3230,6 +4727,39 @@ fn precompute_propagate_prefix_fold_local_gets(
     ssa.value_types.length(),
     None,
   )
+  let local_written = Array::make(@ir.hot_local_count(func), false)
+  let result_if_arm_written = Array::make(@ir.hot_local_count(func), false)
+  let result_if_direct_get_consts : Array[@ir.HotConstPayload?] = Array::make(
+    @ir.hot_node_count(func),
+    None,
+  )
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    precompute_propagate_mark_result_if_direct_const_gets(
+      ctx,
+      func,
+      @ir.hot_root_get(func, root_idx),
+      result_if_direct_get_consts,
+    )
+    precompute_propagate_mark_result_if_arm_writes(
+      func,
+      @ir.hot_root_get(func, root_idx),
+      false,
+      result_if_arm_written,
+    )
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if node.imm0 >= 0 && node.imm0 < local_written.length() {
+          local_written[node.imm0] = true
+        }
+      _ => ()
+    }
+  }
   let replacements : Array[PrecomputePropagatePrefixReplacement] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -3237,9 +4767,40 @@ fn precompute_propagate_prefix_fold_local_gets(
     }
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::LocalGet => {
+        let local_id = @ir.hot_node_get(func, node_id).imm0
+        match result_if_direct_get_consts[node_id] {
+          Some(payload) => {
+            replacements.push({ node_id, payload })
+            continue
+          }
+          None => ()
+        }
         let value_id = ssa.local_get_values[node_id]
         if value_id < 0 {
           continue
+        }
+        if local_id >= 0 &&
+          local_id < result_if_arm_written.length() &&
+          result_if_arm_written[local_id] {
+          // A real phi proves CFG/SSA observed both result-if arms. If SSA
+          // reports a stale entry or prior definition instead, retain the get.
+          match @ir.ssa_value_origin(ssa, value_id) {
+            @ir.HotSsaValueOrigin::PhiDef(_) => ()
+            _ => continue
+          }
+        }
+        // HOT SSA currently leaves branch-local writes nested under a
+        // result-producing expression out of some post-expression merges. A
+        // direct default-init origin is only trustworthy when the local is
+        // never written anywhere in the function; otherwise fail closed.
+        match @ir.ssa_value_origin(ssa, value_id) {
+          @ir.HotSsaValueOrigin::EntryDefaultInitDef(local_id) =>
+            if local_id >= 0 &&
+              local_id < local_written.length() &&
+              local_written[local_id] {
+              continue
+            }
+          _ => ()
         }
         match
           precompute_propagate_prefix_const_for_value(
@@ -3286,10 +4847,15 @@ fn precompute_propagate_prefix_fold_local_gets(
 }
 
 ///|
-pub fn precompute_propagate_prefix_run(
+pub fn precompute_propagate_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  // Resolve the local graph before mutating control. The current plain
+  // precompute cleanup can temporarily leave detached label owners until
+  // lowering; requiring SSA after that mutation would verify the transient
+  // state. Applying the proven local facts first still preserves Binaryen's
+  // bounded contract: one local solve followed by one evaluator run.
   let propagated = precompute_propagate_prefix_fold_local_gets(ctx, func)
   let precomputed = precompute_run(ctx, func)
   if propagated || precomputed.changed {

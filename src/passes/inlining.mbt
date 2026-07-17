@@ -5437,11 +5437,11 @@ fn inl_run_nested_cleanup(
   )
   let imports = inl_imported_func_count(prepared)
   let def_touched = inl_abs_touched_to_defined(touched, imports, defined_count)
-  inl_trace_nested_pass(trace, "precompute-propagate-prefix")
+  inl_trace_nested_pass(trace, "precompute-propagate")
   let prefixed = match
     run_hot_pipeline_apply_hot_pass_to_touched(
       prepared,
-      precompute_propagate_prefix_descriptor(),
+      precompute_propagate_descriptor(),
       def_touched,
       options,
     ) {

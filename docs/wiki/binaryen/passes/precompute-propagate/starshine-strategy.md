@@ -1,226 +1,159 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-17
 sources:
-  - ./index.md
-  - ../../../../../src/passes/optimize.mbt
+  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../../../src/passes/precompute.mbt
+  - ../../../../../src/passes/precompute_propagate_test.mbt
+  - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/passes/precompute_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../ir2/registry-map.md
-  - ../../../../../agent-todo.md
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_precompute_propagate_tests.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
+  - ./fuzzing.md
   - ../precompute/index.md
   - ../precompute/starshine-hot-ir-strategy.md
   - ../dae-optimizing/starshine-strategy.md
   - ../inlining-optimizing/starshine-strategy.md
-  - ../simplify-globals-optimizing/starshine-strategy.md
-  - ./starshine-port-readiness-and-validation.md
 ---
 
-# Starshine `precompute-propagate` strategy today
+# Starshine `precompute-propagate` strategy
 
-This page describes the **current in-tree Starshine status** for upstream Binaryen `precompute-propagate`.
+## Current status
 
-It is intentionally separate from [`../precompute/starshine-hot-ir-strategy.md`](../precompute/starshine-hot-ir-strategy.md): Starshine implements plain `precompute` today, but it does **not** implement the sibling local-propagation mode yet.
+`precompute-propagate` is an active public Starshine hot/function pass.
 
-## Short version
+It is not an alias of plain `precompute`. The public runner performs:
 
-Current Starshine status:
+1. one SSA-backed local-fact solve;
+2. replacement of only concrete, type-matching local reads whose reaching facts agree;
+3. one bounded plain-precompute evaluator/cleanup run.
 
-- `precompute-propagate` is a known **removed** registry name.
-- There is no `precompute-propagate` owner file.
-- There is no `precompute-propagate` hot-pass descriptor.
-- There is no active nested-rerun scheduler that prepends it after `dae-optimizing` / `inlining-optimizing`-style boundary rewrites.
-- The reusable local landing zone is the active [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt) plain-`precompute` implementation, but that file currently implements scalar HOT folding and cleanup rather than Binaryen's `LazyLocalGraph` propagation sibling.
+This preserves Binaryen's mode split and stopping rule while reusing Starshine's accepted plain-precompute base.
 
-So the honest current strategy is:
+## Public code map
 
-- **preserve the public pass name as an unavailable compatibility / planning marker, keep the docs explicit about the upstream sibling contract, and treat a future local port as a new propagation layer on top of the plain `precompute` infrastructure rather than as a registry alias.**
+### Descriptor and implementation
 
-For the concrete first-slice plan and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+[`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt) owns:
 
-## Exact local code map
+- `precompute_propagate_descriptor()` with an SSA requirement and conservative analysis invalidation;
+- `precompute_propagate_summary()`;
+- literal/default-local payload handling;
+- recursive evaluation of set fallthrough values, direct tees, unbranched value blocks, constant-selected `if` values, and exact unary/binary expressions;
+- phi/reaching-value consensus;
+- the one-solve/one-rerun public runner.
 
-### 1. Public registry status
+The same file retains plain `precompute` as a separate descriptor and runner.
 
-The registry source of truth is [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+### Registry, presets, and dispatch
 
-Read these locations first:
+[`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):
 
-- `src/passes/optimize.mbt:144-151`
-  - `pass_registry_removed_names()` includes `"precompute-propagate"`
-  - this is the current user-visible implementation status
-- `src/passes/optimize.mbt:211-215`
-  - `pass_registry_entries()` registers active plain `"precompute"` through `precompute_descriptor()`
-  - it does **not** register a `precompute-propagate` hot descriptor
-- `src/passes/optimize.mbt:250-269`
-  - the modeled `optimize` / `shrink` preset entries replay plain `"precompute"` in the PC slots
-  - they do not schedule `"precompute-propagate"`
-- `src/passes/optimize.mbt:463-472`
-  - removed-name and boundary-only requests fail before dispatch
-  - an explicit `--pass precompute-propagate` request therefore reports removal rather than reaching `hot_pass_run(...)`
+- removes `precompute-propagate` from removed-name handling;
+- registers the exact public name;
+- uses it in both aggressive optimize/shrink PC slots.
 
-This is the strongest local status fact: the sibling name exists, but only in the removed-name table.
+[`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):
 
-### 2. Active plain-`precompute` landing zone
+- dispatches the exact public name;
+- gives it the same lowering, empty-function, escape-carrier, and per-function writeback validation treatment as plain precompute;
+- uses conservative raw propagation before retained load/call/set and large-lowered no-op gates when the raw evaluator proves a changed result; selected structured `memory.grow` functions also use this path, while unsupported SIMD/parser/`br_table` hazards remain fail-closed;
+- uses the public pass in DAE's touched-function nested prefix.
 
-The active local implementation is [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt).
+[`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt) uses the public descriptor for its optimizing nested prefix as well. The former private `precompute-propagate-prefix` descriptor/runner no longer exists.
 
-Useful read-along line ranges:
+### Harness and generator
 
-- `src/passes/precompute.mbt:2-16`
-  - `precompute_descriptor()` declares only the active pass name `"precompute"`
-  - `precompute_summary()` intentionally describes a narrower scalar top-level slot pass
-- `src/passes/precompute.mbt:20-138`
-  - `precompute_global_const(...)`, `precompute_i32_exact_const(...)`, and `precompute_i64_exact_const(...)` define the current local constant-source model
-- `src/passes/precompute.mbt:138-655`
-  - `precompute_try_fold_global_get(...)`, `precompute_try_fold_unary(...)`, and `precompute_try_fold_binary(...)` own the current scalar/global fold surface
-- `src/passes/precompute.mbt:656-720`
-  - `precompute_try_fold_constant_if(...)` owns current constant-`if` arm picking
-- `src/passes/precompute.mbt:722-1063`
-  - dead-drop and root/region cleanup helpers preserve current HOT/writeback hygiene
-- `src/passes/precompute.mbt:1095-1166`
-  - `precompute_run(...)` runs an iterative local HOT fixpoint over the above helpers
+[`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) accepts `--pass precompute-propagate` and maps it to Binaryen's `--precompute-propagate`.
 
-Those helpers are real future infrastructure, but they are not enough to call the sibling implemented. They do not model Binaryen's `propagateLocals(...)` get/set worklist.
+[`src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt) exposes `precompute-propagate-local-facts`, with compatibility aliases `precompute-propagate` and `precompute-propagate-closeout`.
 
-### 3. Hot-pass dispatch and writeback guard rails
+The profile emits:
 
-The active dispatcher is [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
+- agreeing branch definitions;
+- differing-definition bailouts;
+- defaultable-local entry reads;
+- direct and block-fallthrough tees;
+- a bounded chained propagation/evaluation opportunity;
+- a parameter boundary.
 
-Important locations:
+## Safety boundaries
 
-- `src/passes/pass_manager.mbt:8670-8704`
-  - `hot_pass_run(...)` dispatches `"precompute" => precompute_run(ctx, func)`
-  - there is no `"precompute-propagate"` arm
-- neighboring `run_hot_pipeline_precompute_*` helpers in the same file
-  - preserve the artifact-driven writeback safety environment built around plain `precompute`
-  - these are lowering / validation guard rails, not evidence of a local-propagation algorithm
+### Result-producing `if` writes
 
-That writeback work is important for a future sibling port, but it should not be misread as evidence that the Binaryen `precompute-propagate` algorithm is already present.
+The artifact closeout exposed a HOT SSA limitation: branch-local writes nested inside a result-producing `if` can be absent from the post-expression merge. Propagating a stale default or prior fact is unsound.
 
-### 4. Tests that prove the local status
+Starshine therefore fails closed for every local written in a result-`if` arm. It also refuses a direct default-init origin when that local has any write in the function. Focused tests cover both stale-default and stale-prior-fact forms.
 
-#### Registry tests
+This is a conservative local representation boundary, not a Binaryen semantic difference. Reopen it when HOT SSA proves complete post-expression merges for result-producing control.
 
-[`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) proves the active and unavailable surfaces:
+### Large lowered functions and known lowering hazards
 
-- `src/passes/registry_test.mbt:105-122`
-  - `batch 1 descriptors expose the active first hot ports` checks `precompute_descriptor().name == "precompute"`
-- `src/passes/registry_test.mbt:146-160`
-  - `preset expansion stays on implemented active pass names` checks the current modeled `optimize` / `shrink` expansion uses active names only and includes plain `precompute`
-- the same file's removed-name request coverage proves the generic removed-name path rejects unavailable passes
+Public propagation inherits plain precompute's raw safety gates:
 
-The test currently uses `de-nan` as the explicit removed-name example, not `precompute-propagate`; the registry list in `optimize.mbt` is the exact source for this pass's removed status.
+- load/call/set ownership hazards;
+- more than `64` locals together with more than `500` lowered instructions;
+- the SIMD/parser/`br_table` stack hazard.
 
-#### Preset-slot tests
+These guards prevented an invalid self-optimized output in function `2641`. They remain correctness gates, not optimization claims.
 
-[`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt) locks the local scheduler story:
+### Shared plain-precompute scope
 
-- `src/passes/optimize_test.mbt:290-313` proves `optimize` replays plain `precompute` in both PC slots
-- `src/passes/optimize_test.mbt:315-335` proves `shrink` replays plain `precompute` in both PC slots
+The propagating member reuses Starshine's plain-precompute evaluator. The follow-up slice closes the reduced scalar, partial-`select`, fresh-GC, immutable-struct, result-`if`, large-function, and self-hosted tee gaps. Broader string, general `Flow`, complete heap-cache/array, side-effect-retention, emitability, and type-refinalization work remains shared evaluator architecture rather than propagation-specific local consensus.
 
-Those tests deliberately prove two plain-`precompute` top-level slots, not the Binaryen aggressive sibling.
+## Tests
 
-#### Plain precompute behavior and artifact tests
+[`src/passes/precompute_propagate_test.mbt`](../../../../../src/passes/precompute_propagate_test.mbt) covers fifteen behavior and safety families:
 
-[`src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt) proves the current scalar/control rewrite subset.
-[`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) proves command-line replay lanes for plain `--precompute` on generated and debug artifacts.
+- plain-versus-propagating distinction;
+- agreeing and differing reaching definitions;
+- default-entry zero;
+- tee/block fallthrough;
+- stale and agreeing result-`if` behavior;
+- direct condition-tee facts;
+- high-local large-function positive propagation;
+- reachable atomic-fence preservation with surrounding cleanup;
+- raw loop invariants and loop-carried-local invalidation;
+- bounded one-solve/one-rerun behavior.
 
-Those tests are useful future regression scaffolding, but they are not sibling-pass proof.
+Registry, preset, and nested scheduler expectations are covered in:
 
-## What is missing for Binaryen parity
+- [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt);
+- [`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt);
+- [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt).
 
-A real local `precompute-propagate` port would need all of the following, in addition to the current scalar/plain infrastructure:
+Generator name, limits, validation, and trigger floors are covered by [`src/validate/gen_valid_precompute_propagate_tests.mbt`](../../../../../src/validate/gen_valid_precompute_propagate_tests.mbt).
 
-1. **A public pass entry**
-   - move `precompute-propagate` out of removed-name handling only when the implementation exists
-   - add focused registry / request tests for the exact pass name
-2. **A local-flow proof layer**
-   - build or reuse a `LazyLocalGraph`-equivalent get/set influence graph over HOT IR
-   - model set-to-get and get-to-set influences conservatively
-3. **Fallthrough-value set analysis**
-   - preserve the Binaryen rule that candidate set values come from fallthrough values, not arbitrary expression replacement
-   - keep the subtype/type-safety filter explicit
-4. **All-reaching-sets get consensus**
-   - fold a `local.get` only when every reaching source agrees on the same concrete literal tuple
-   - preserve differing-constant and unknown-arm bailouts
-5. **Entry-value handling**
-   - params are not constants
-   - defaultable locals may contribute zero/default literals
-   - nondefaultable local entry reads must bail out
-6. **Second evaluator walk**
-   - expose a get-values map to the evaluator
-   - run one extra evaluator walk after propagation succeeds
-   - avoid silently turning the pass into unbounded SCCP
-7. **Nested optimizing scheduler support**
-   - implement the `optimizeAfterInlining(...)`-style role before claiming parity for `dae-optimizing` / `inlining-optimizing` cleanup
-   - keep the contrast with `simplify-globals-optimizing`, whose upstream nested default-function rerun deliberately lacks the prepended `precompute-propagate`
-8. **Shared semantic evaluator breadth**
-   - decide whether to broaden plain `precompute` first or build the local-flow layer first
-   - in either order, keep the public mode split testable
+## Signoff summary
 
-## Relationship to neighboring pass pages
+The retained closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
 
-### Plain `precompute`
+Key results against Binaryen `version_130`:
 
-[`../precompute/starshine-hot-ir-strategy.md`](../precompute/starshine-hot-ir-strategy.md) is the current active-code map.
+- regular GenValid: `100000/100000`, zero mismatches/failures;
+- dedicated local-facts profile: `10000/10000`, zero mismatches/failures;
+- broad `pass-fuzz-stress`: `10000/10000`, zero mismatches/failures;
+- wasm-smith: `9956/10000` compared, two classified inherited/size-winning differences and `44` Binaryen parser/tool failures;
+- completed random-all profiles: `10000/10000`, `2973` raw differences, all `2973` canonically smaller for Starshine and none larger;
+- repeated self-optimization benchmark: valid output, Starshine canonical output `80,049` bytes (`1.716%`) smaller; across 15 measured processes after one warmup, pass-local medians are `694.444 ms` versus Binaryen `505.591 ms` (Starshine `1.374x` slower but within the maintained `2x` ceiling), while whole-command medians are `7,330.096 ms` versus `1,110.672 ms` (`6.600x` slower end to end due to non-pass infrastructure overhead).
 
-Use it for:
+The former first difference at defined `4`, absolute `31` is closed. The first difference is now defined `24`, absolute `51`, where Starshine's valid result-typed shape is smaller than Binaryen's refinalized unreachable form.
 
-- scalar folding behavior that already exists;
-- current artifact-retirement proof;
-- writeback guard locations;
-- active top-level preset slots.
+## Maintenance rule
 
-Use this page for:
-
-- the missing sibling-mode status;
-- what a future propagation port must add;
-- why `precompute-propagate` references in other dossiers are upstream scheduler facts, not local implementation facts.
-
-### `dae-optimizing` and `inlining-optimizing`
-
-Binaryen's optimizing boundary rewrites use a nested cleanup path that prepends `precompute-propagate`.
-
-Current Starshine does not have that nested path yet. Future work on those passes should therefore treat `precompute-propagate` as a scheduler dependency, not as a solved local primitive.
-
-### `simplify-globals-optimizing`
-
-This sibling is the contrast case: Binaryen reruns the default function pipeline after optimizing global simplification, but without prepending `precompute-propagate`.
-
-That difference should stay visible in future Starshine scheduler work.
-
-## Implementation strategy recommendation
-
-When this pass is ported, keep the steps small:
-
-1. add explicit tests showing `precompute-propagate` is still rejected while removed;
-2. design the HOT get/set influence graph and its safety boundaries;
-3. add a feature-limited propagation prototype behind the exact pass name;
-4. prove the dedicated upstream WAT families from [`./wat-shapes.md`](./wat-shapes.md): identical-merge positives, differing-merge bailouts, default-entry positives, tee/fallthrough positives, and tuple-local positives;
-5. only then wire nested optimizing reruns.
-
-Avoid two tempting shortcuts:
-
-- do not register `precompute-propagate` as an alias of plain `precompute`; and
-- do not replace Binaryen's bounded get/set consensus model with an unsourced generic SCCP story without documenting and testing the semantic difference.
-
-## Bottom line
-
-The Starshine side is now clear enough for future readers:
-
-- upstream `precompute-propagate` has a real primary-source-backed pass contract;
-- Starshine currently knows the name only as removed;
-- the local `precompute` implementation is the nearest landing zone but lacks the local-propagation phase;
-- future scheduler work for optimizing boundary rewrites must not assume the sibling already exists.
+- Keep plain and propagating descriptors separate.
+- Preserve the one-solve/one-rerun bound.
+- Keep stale result-`if` facts rejected unless a real phi or direct condition proof exists; keep raw branch/loop facts conservative and invalidate loop-written locals before body evaluation.
+- Use the public descriptor in all top-level and nested propagating slots; do not recreate a private prefix fork.
+- Use Binaryen `version_130` as the released oracle and keep inherited plain-precompute boundaries explicit.

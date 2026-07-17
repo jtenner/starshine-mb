@@ -1,16 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-17
 sources:
-  - ./index.md
-  - ../../../../../src/passes/optimize.mbt
+  - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../../../src/passes/precompute.mbt
+  - ../../../../../src/passes/precompute_propagate_test.mbt
+  - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/passes/precompute_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/validate/gen_valid.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -18,153 +17,117 @@ related:
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../precompute/index.md
-  - ../dae-optimizing/starshine-strategy.md
-  - ../inlining-optimizing/starshine-strategy.md
-  - ../simplify-globals-optimizing/starshine-strategy.md
 ---
 
-# Starshine port-readiness for `precompute-propagate`
+# Starshine validation contract for `precompute-propagate`
 
-This page is the implementation-readiness bridge for upstream Binaryen `precompute-propagate`.
+The public Binaryen-compatible member landed on July 17, 2026. This page records its maintained behavior, safety, and signoff contract after the follow-up parity-gap closure.
 
-It is intentionally separate from [`./starshine-strategy.md`](./starshine-strategy.md): the strategy page says what the local truth is today, while this page says what a faithful future port would need first.
+## Implemented surfaces
 
-## Current Starshine status
+- exact public registry/CLI/harness spelling;
+- SSA-requiring hot-pass descriptor;
+- agreeing reaching-value consensus and defaultable-local entry values;
+- direct tee, unbranched block fallthrough, result-`if` phi consensus, and condition-tee facts used in selected arms;
+- one propagation solve followed by one evaluator rerun;
+- safe integer division/remainder, deterministic scalar floating arithmetic/comparisons, nontrapping unary/conversion cleanup, and rotate folding;
+- partial parent evaluation through `select`;
+- fresh GC allocation/null identity, exact fresh-allocation `ref.test`, and immutable fresh-struct field reads;
+- conservative raw local propagation for owner-hazard, large-lowered, and selected structured `memory.grow` functions, including loop-invariant preservation and loop-carried-local invalidation;
+- raw scalar/control cleanup around reachable `atomic.fence` without deleting the fence;
+- both aggressive top-level PC slots and shared DAE/inlining nested-prefix use;
+- dedicated `precompute-propagate-local-facts` GenValid profile.
 
-Starshine does **not** implement Binaryen's `precompute-propagate` sibling yet.
+## Required focused behavior
 
-The local status remains a removed-registry marker, not a solved alias:
+Keep direct tests for:
 
-- `src/passes/optimize.mbt:144-151` keeps `precompute-propagate` in the removed-name table;
-- `src/passes/optimize.mbt:211-215` registers plain `precompute`, not the sibling;
-- `src/passes/optimize.mbt:463-472` rejects removed-name requests before dispatch;
-- `src/passes/pass_manager.mbt:8670-8704` dispatches plain `precompute` but has no `precompute-propagate` arm;
-- plain `precompute` in `src/passes/precompute.mbt:2-16` is the nearest landing zone, but it is still only the scalar/control HOT subset.
+1. plain-versus-propagating distinction;
+2. identical and differing reaching constants;
+3. default-init consensus;
+4. tee and block fallthrough;
+5. one-solve/one-rerun boundedness;
+6. stale-default and stale-prior result-`if` safety;
+7. agreeing result-`if` arm writes and condition-tee facts;
+8. high-local/large-lowered positive propagation;
+9. safe scalar, partial-`select`, GC identity, `ref.test`, and immutable-struct folds;
+10. reachable atomic-fence preservation with surrounding raw cleanup;
+11. raw loop invariants and loop-carried-local invalidation.
 
-So the right user-facing summary is:
+A required positive family must assert the transform, not merely successful validation. A retained boundary test must name the unsupported or invalid shape explicitly.
 
-> Starshine can already execute the plain precompute family, but it has no local get/set propagation sibling yet.
+## Maintained safety boundaries
 
-## Why this page exists
+### Result-producing `if`
 
-The pass is easy to under-teach as “just the more aggressive precompute mode.”
-That is too vague for a future port.
+HOT SSA is accepted only when it provides a real phi for an arm-written local, or when a direct condition constant is proven for an arm read before any arm-local overwrite. Stale entry-default and stale prior definitions remain rejected. This closes the agreeing-arm and condition-tee gaps without reintroducing the former self-hosted stale-local bug.
 
-A faithful Starshine port has to add a new local-propagation layer, not just a new registry alias.
+### Raw structured propagation
 
-## Exact local code map
+Raw propagation is deliberately narrower than HOT evaluation. It is used where HOT ownership guards would otherwise skip useful work: owner-hazard functions, large lowered functions, and selected structured `memory.grow` functions. It must:
 
-### Registry and request handling
+- invalidate every local written by a loop before evaluating the loop body;
+- retain only loop-invariant facts across a backedge;
+- merge branch-local facts by exact agreement;
+- stop or clear stack facts at unsupported stack effects while preserving already proven local substitutions;
+- never use a raw result that is unchanged merely to bypass the stronger HOT cleanup path.
 
-- `src/passes/optimize.mbt:144-151`
-  - removed registry currently carries `precompute-propagate`
-- `src/passes/optimize.mbt:211-215`
-  - active registry currently exposes plain `precompute`
-- `src/passes/optimize.mbt:463-472`
-  - requests for removed names fail before hot dispatch
+### Atomics
 
-### Current landing zone
+A reachable `atomic.fence` is an ordering barrier. Starshine may fold independent values around it but does not copy Binaryen v130's observed fence deletion.
 
-- `src/passes/precompute.mbt:2-16`
-  - public active descriptor for plain `precompute`
-- `src/passes/precompute.mbt:20-138`
-  - current constant-source model
-- `src/passes/precompute.mbt:138-720`
-  - scalar/global/conditional rewrite helpers
-- `src/passes/precompute.mbt:722-1063`
-  - cleanup and writeback hygiene helpers
-- `src/passes/precompute.mbt:1095-1166`
-  - iterative `precompute_run(...)` fixpoint for the plain pass
+### Remaining shared evaluator scope
 
-### Hot-pass dispatch and scheduler rails
+The reduced parity-gap witnesses for scalar folding, partial `select`, fresh GC identity, immutable `struct.get`, large local propagation, result-`if` consensus, and the self-hosted condition tee are closed. Broader string evaluation, general `Flow`-aware break/return interpretation, complete heap-cache/array evaluation, side-effecting child retention, emitability separation, and final type refinalization remain shared plain-`precompute` architecture work. They are not known size-losing families in the final random-all matrix.
 
-- `src/passes/pass_manager.mbt:8670-8704`
-  - dispatches plain `precompute`; there is no sibling dispatch arm yet
-- neighboring `run_hot_pipeline_precompute_*` helpers in the same file
-  - preserve the artifact-driven writeback safety environment built around plain `precompute`
-  - these are lowering / validation guard rails, not evidence of a local-propagation algorithm
+## Signoff ladder
 
-## What a future Starshine port must prove
+### Focused
 
-1. **Registry honesty**
-   - keep `precompute-propagate` removed until the sibling actually exists
-   - add focused request tests once the sibling is introduced
-2. **Local-flow proof layer**
-   - build or reuse a `LazyLocalGraph`-equivalent get/set influence graph over HOT IR
-   - model set-to-get and get-to-set influences conservatively
-3. **Fallthrough-value set analysis**
-   - preserve the Binaryen rule that candidate set values come from fallthrough values, not arbitrary expression replacement
-   - keep the subtype/type-safety filter explicit
-4. **All-reaching-sets get consensus**
-   - fold a `local.get` only when every reaching source agrees on the same concrete literal tuple
-   - preserve differing-constant and unknown-arm bailouts
-5. **Entry-value handling**
-   - params are not constants
-   - defaultable locals may contribute zero/default literals
-   - nondefaultable local entry reads must bail out
-6. **Second evaluator walk**
-   - expose a get-values map to the evaluator
-   - run one extra evaluator walk after propagation succeeds
-   - avoid silently turning the pass into unbounded SCCP
-7. **Nested optimizing scheduler support**
-   - implement the `optimizeAfterInlining(...)`-style role before claiming parity for `dae-optimizing` / `inlining-optimizing` cleanup
-   - keep the contrast with `simplify-globals-optimizing`, whose upstream nested default-function rerun deliberately lacks the prepended `precompute-propagate`
-8. **Shared semantic evaluator breadth**
-   - decide whether to broaden plain `precompute` first or build the local-flow layer first
-   - in either order, keep the public mode split testable
+```sh
+moon test --package jtenner/starshine/passes --file precompute_test.mbt
+moon test --package jtenner/starshine/passes --file precompute_propagate_test.mbt
+moon test --package jtenner/starshine/passes --file registry_test.mbt
+moon test --package jtenner/starshine/passes --file optimize_test.mbt
+moon test --package jtenner/starshine/validate --file gen_valid_precompute_propagate_tests.mbt
+```
 
-## Relationship to neighboring pass pages
+### Direct fuzz
 
-### Plain `precompute`
+Use Binaryen `version_130`, an explicitly rebuilt release native Starshine binary, parallel workers, the persistent cache, and the three reviewed normalizers. The exact final lanes are recorded in [`./fuzzing.md`](./fuzzing.md).
 
-[`../precompute/starshine-hot-ir-strategy.md`](../precompute/starshine-hot-ir-strategy.md) is the current active-code map.
+### Artifact/performance
 
-Use it for:
+```sh
+bun scripts/self-optimize-compare.ts \
+  tests/node/dist/starshine-debug-wasi.wasm \
+  --out-dir .tmp/self-opt-precompute-propagate-gap-close-memorygrow \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin .tmp/binaryen-version-130-bin/bin/wasm-opt \
+  --canonicalize-binaryen-output \
+  --precompute-propagate
+```
 
-- scalar folding behavior that already exists;
-- current artifact-retirement proof;
-- writeback guard locations;
-- active top-level preset slots.
+Require external validity, no stale-local substitution, classification of the first canonical difference, and pass-local time below `2x` Binaryen. Whole-command overhead remains a separate tool-infrastructure metric.
 
-Use this page for:
+## Current evidence
 
-- the missing sibling-mode status;
-- what a future propagation port must add;
-- why `precompute-propagate` references in other dossiers are upstream scheduler facts, not local implementation facts.
+The final July 17, 2026 evidence is:
 
-### `dae-optimizing` and `inlining-optimizing`
+- regular GenValid: `100000/100000`, zero mismatches or failures;
+- dedicated local-facts profile: `10000/10000`, zero mismatches or failures;
+- `pass-fuzz-stress`: `10000/10000`, zero mismatches or failures;
+- wasm-smith: `9956/10000` compared, two previously classified differences, zero validation/property failures, and `44` Binaryen parser/tool failures;
+- random-all profiles: `10000/10000`, `2973` raw mismatches, all `2973` with smaller canonical Starshine output and none equal-sized or larger;
+- all six original reduced behavior witnesses now match Binaryen exactly except partial `select`, where Starshine performs the requested fold and is smaller, and the structured self-hosted prefix witness, where Starshine is also smaller;
+- valid self-optimization output: Starshine canonical `4,585,973` bytes versus direct Binaryen `4,666,022` bytes;
+- repeated one-warmup/15-run benchmark: Starshine pass-local median `694.444 ms`, Binaryen `505.591 ms` (`1.374x` Binaryen advantage, within the `<2x` contract); whole-command medians `7,330.096 ms` and `1,110.672 ms` respectively;
+- the former defined-function `4` / absolute-function `31` condition-tee gap is closed; the first canonical difference moves to defined `24` / absolute `51`, where Starshine retains valid result typing instead of Binaryen's larger unreachable/refinalized shape.
 
-Binaryen's optimizing boundary rewrites use a nested cleanup path that prepends `precompute-propagate`.
+Detailed artifacts are under `.tmp/pass-fuzz-precompute-propagate-gap-close-final3-*`, `.tmp/pass-fuzz-precompute-propagate-gap-close-final4-*`, `.tmp/self-opt-precompute-propagate-gap-close-memorygrow`, and `.tmp/benchmark-precompute-propagate-gap-close-final-2026-07-17`.
 
-Current Starshine does not have that nested path yet. Future work on those passes should therefore treat `precompute-propagate` as a scheduler dependency, not as a solved local primitive.
+## Status rule
 
-### `simplify-globals-optimizing`
-
-This sibling is the contrast case: Binaryen reruns the default function pipeline after optimizing global simplification, but without prepending `precompute-propagate`.
-
-That difference should stay visible in future Starshine scheduler work.
-
-## Implementation strategy recommendation
-
-When this pass is ported, keep the steps small:
-
-1. add explicit tests showing `precompute-propagate` is still rejected while removed;
-2. design the HOT get/set influence graph and its safety boundaries;
-3. add a feature-limited propagation prototype behind the exact pass name;
-4. prove the dedicated upstream WAT families from [`./wat-shapes.md`](./wat-shapes.md): identical-merge positives, differing-merge bailouts, default-entry positives, tee/fallthrough positives, and tuple-local positives;
-5. only then wire nested optimizing reruns.
-
-Avoid two tempting shortcuts:
-
-- do not register `precompute-propagate` as an alias of plain `precompute`; and
-- do not replace Binaryen's bounded get/set consensus model with an unsourced generic SCCP story without documenting and testing the semantic difference.
-
-## Bottom line
-
-The Starshine side is now clear enough for future readers:
-
-- upstream `precompute-propagate` has a real primary-source-backed pass contract;
-- Starshine currently knows the name only as removed;
-- the local `precompute` implementation is the nearest landing zone but lacks the local-propagation phase;
-- future scheduler work for optimizing boundary rewrites must not assume the sibling already exists.
+The public propagation member, its reduced behavior-gap set, and its no-size-loss random-all matrix are closed. Reopen for a semantic failure, a size-losing mismatch, a focused evaluator family with Binaryen-backed evidence, or a pass-local regression beyond `2x` Binaryen. Do not call the remaining smaller structural differences parity bugs merely because the WAT differs.

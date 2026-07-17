@@ -1193,6 +1193,7 @@ pub enum GenValidProfile {
   PrecomputeEffectBoundaryProfile
   PrecomputeGcAtomicBoundaryProfile
   PrecomputeDirectPrefixWatchProfile
+  PrecomputePropagateLocalFactsProfile
   PrecomputeAllProfile
   PickLoadSignsSignedExtendProfile
   PickLoadSignsSignedShiftProfile

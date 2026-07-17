@@ -277,7 +277,7 @@ Why it matters:
 
 ## Starshine status note
 
-Current Starshine does not implement these `precompute-propagate` shapes under the sibling name. Plain [`../precompute/index.md`](../precompute/index.md) implements a narrower scalar/control HOT subset, while [`./starshine-strategy.md`](./starshine-strategy.md) records the missing get/set propagation and nested-rerun scheduler work.
+Starshine now implements the sibling name and covers agreeing/differing merges, default-init, tee/block fallthrough, agreeing result-`if` phis, direct condition-tee facts, bounded chained evaluation, large/guarded raw propagation, and nested/top-level scheduling. Stale result-`if` facts remain rejected unless a real phi or direct condition proof exists. See [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Best beginner summary
 

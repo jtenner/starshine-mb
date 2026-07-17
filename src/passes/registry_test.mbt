@@ -278,17 +278,22 @@ test "batch 1 descriptors expose the active first hot ports" {
 }
 
 ///|
-test "precompute descriptor split keeps direct pass SSA-free and prefix SSA-backed" {
+test "precompute descriptors keep plain SSA-free and propagate SSA-backed" {
   let direct = precompute_descriptor()
-  let prefix = precompute_propagate_prefix_descriptor()
+  let propagate = precompute_propagate_descriptor()
 
   @debug.assert_eq(direct.name, "precompute")
-  @debug.assert_eq(prefix.name, "precompute-propagate-prefix")
+  @debug.assert_eq(propagate.name, "precompute-propagate")
   registry_test_assert_requires(direct, [])
-  registry_test_assert_requires(prefix, [@ir.HotAnalysis::ssa()])
+  registry_test_assert_requires(propagate, [@ir.HotAnalysis::ssa()])
   assert_true(@ir.hot_pass_invalidates(direct).contains(@ir.HotAnalysis::ssa()))
-  assert_true(@ir.hot_pass_invalidates(prefix).contains(@ir.HotAnalysis::ssa()))
-  @debug.assert_eq(pass_registry_category("precompute-propagate-prefix"), None)
+  assert_true(
+    @ir.hot_pass_invalidates(propagate).contains(@ir.HotAnalysis::ssa()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("precompute-propagate"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
 }
 
 ///|
@@ -303,7 +308,7 @@ test "audited pass_require helper metadata contracts stay declared" {
   registry_test_assert_requires(remove_unused_brs_descriptor(), [
     @ir.HotAnalysis::use_def(),
   ])
-  registry_test_assert_requires(precompute_propagate_prefix_descriptor(), [
+  registry_test_assert_requires(precompute_propagate_descriptor(), [
     @ir.HotAnalysis::ssa(),
   ])
   registry_test_assert_requires(pick_load_signs_descriptor(), [
@@ -327,6 +332,11 @@ test "preset expansion stays on implemented active pass names" {
 
   assert_true(optimize.length() > 0)
   @debug.assert_eq(optimize, shrink)
+  @debug.assert_eq(
+    optimize.filter(fn(name) { name == "precompute-propagate" }).length(),
+    2,
+  )
+  assert_false(optimize.contains("precompute"))
   for name in optimize {
     match pass_registry_category(name) {
       Some(HotPass) | Some(ModulePass) => ()

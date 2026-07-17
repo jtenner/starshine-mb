@@ -33,13 +33,14 @@ This page describes the **current in-tree Starshine implementation**, not the fu
 
 ## Short version
 
-Starshine currently implements a deliberately narrow HOT-IR `precompute` pass focused on:
+Starshine currently implements a focused HOT-IR `precompute` pass covering:
 
-- exact i32/i64 unary and binary folds
+- exact integer and floating unary/binary/comparison folds, including safe nontrapping integer division/remainder and rotates
 - raw stack-level shortcuts for no-candidate functions, nested nop-only control, adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result `block`s with no branch to the rewritten label, and preserved effectful/trapping dropped tails with no remaining precompute candidates, so they can skip HOT lift/lower safely while label-relative branchy arm picks and still-unsupported pure drop cleanup stay on the HOT path
-- exact i32/i64 comparisons lowered to i32 boolean constants
+- exact integer and floating comparisons lowered to i32 boolean constants
 - immutable scalar-or-null `global.get` replacement
-- constant-`if` arm picking
+- constant-`if` arm picking and supported parent folding through `select`
+- fresh GC/null identity, exact fresh-allocation `ref.test`, and immutable fresh-struct field reads
 - dead pure-`drop` cleanup
 - root-region `nop` / empty-wrapper cleanup, constant self-exiting block cleanup, and constant-true self-branching loop result-tail cleanup needed for safe writeback and direct compare parity
 - artifact-driven invalid-lower and writeback-validation guard rails around the old slot-19 failure family
@@ -62,9 +63,9 @@ The public local pass identity lives in [`src/passes/precompute.mbt`](../../../.
   - declares the hot-pass name `precompute`
   - invalidates CFG, dominance, liveness, use-def, effects, loop-info, and SSA analyses
 - `precompute_summary()`
-  - currently promises: exact constant integer folding that is trap-free and stable across the top-level precompute slots
+  - promises exact scalar evaluation, selected control/GC values, and safe dropped computation cleanup
 
-That wording is intentionally narrower than upstream Binaryen and still matches the code.
+That wording remains narrower than the full upstream Binaryen interpreter while matching the expanded local implementation.
 
 The pass also appears in the registry and preset expansions in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):
 
@@ -103,13 +104,15 @@ The core rewrite helpers also live in [`src/passes/precompute.mbt`](../../../../
   - rewrites immutable defined `global.get` to literal consts or `ref.null`
   - deliberately rejects `StringConst`, which keeps the local string gap explicit
 - `precompute_try_fold_unary(...)`
-  - currently covers only `i32.eqz` and `i64.eqz`
+  - covers integer `eqz`, count/bit unary operations, floating unary operations, supported conversions/reinterpretations, sign extensions, and saturating truncations when represented by exact constants
 - `precompute_try_fold_binary(...)`
-  - owns all current exact scalar binary folding
-  - positive families today are integer add/sub/mul, bitwise ops, shifts, and the signed/unsigned compare set for both i32 and i64
-  - trapping operators like division and remainder are intentionally absent
+  - owns exact integer arithmetic/bitwise/shift/rotate/comparison folds, trap-proven integer division/remainder, and floating arithmetic/comparison folds
+- `precompute_try_partial_select_parent(...)`
+  - pushes a supported scalar parent into both `select` arms and rebuilds the select when both arm evaluations succeed
+- `precompute_try_fold_gc_identity(...)`, `precompute_try_fold_fresh_ref_test(...)`, and `precompute_try_fold_fresh_struct_get(...)`
+  - cover the focused fresh-allocation/null identity and immutable fresh-struct read families
 
-So the local coded fold surface is larger than the one-line summary, but still strictly scalar and trap-averse.
+The coded surface is still smaller than Binaryen's general interpreter, heap cache, and emitability machinery, but it is no longer integer-only.
 
 ## 4. Constant-`if` lowering and root-shape rebuilding
 
