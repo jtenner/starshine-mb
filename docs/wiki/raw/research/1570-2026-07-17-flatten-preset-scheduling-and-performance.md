@@ -81,7 +81,7 @@ Binaryen used `/mise/installs/http-binaryen/130/binaryen-version_130/bin/wasm-op
 
 The four Starshine per-run medians were `1,271.5`, `1,098`, `1,127.5`, and `1,142 us`; the pooled 80-sample median is reported above to reduce run-order and thermal sensitivity.
 
-The repository acceptance ceiling is `2 * Binaryen`, or `570.472 us` for this session. Starshine's `1,140 us` median is almost exactly twice that ceiling and therefore does **not** pass the performance target.
+The repository's ordinary comparison ceiling is `2 * Binaryen`, or `570.472 us` for this session. Starshine's `1,140 us` median is almost exactly twice that ceiling, so it does not meet the default relative target. The absolute measured cost is nevertheless only about `1.14 ms` for the complete 120-function representative.
 
 The older durable checkpoint was `970.5 us` versus Binaryen `266.05 us` (`3.65x`). The new session is approximately `17.5%` slower in absolute Starshine time and `4.00x` rather than `3.65x` relative to Binaryen. Because both tools and host conditions moved between sessions, this is a current qualification result rather than proof that one specific code slice caused the full difference.
 
@@ -99,6 +99,7 @@ The older durable checkpoint was `970.5 us` versus Binaryen `266.05 us` (`3.65x`
 ## Decision
 
 - Schedule the top-level aggressive trio as explicitly requested and protect its exact order with tests.
-- Keep `[O4Z-FLAT]001` open: current pass-local performance misses the repository target.
-- Do not label the current timing acceptable without either measured optimization to `<=570.472 us` on this contract or an explicit reviewed performance exception.
-- Preserve the existing behavior compare contract while profiling; semantic breadth must not be traded away for the timing target.
+- Accept the current `1,140 us` timing as an explicit maintainer-reviewed, pass-specific exception on 2026-07-17. The absolute cost is approximately `1.14 ms` over 120 functions and is not considered operationally slow; the `4.00x` ratio primarily records that Binaryen is faster on this synthetic contract.
+- Close `[O4Z-FLAT]001`. Further flatten optimization is optional follow-up rather than a release or scheduling blocker.
+- Keep the repository's ordinary `<=2x Binaryen` target unchanged for other qualification work; this decision is a documented exception, not a global target change.
+- Preserve the existing behavior compare contract in any future optimization; semantic breadth must not be traded away for lower timing.

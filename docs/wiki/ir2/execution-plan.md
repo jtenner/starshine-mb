@@ -64,7 +64,7 @@ reorder-globals -> directize -> strip-debug
 
 Slot caveats:
 
-- The aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude is scheduled immediately after `ssa-nomerge` in both presets. Current `flatten` timing remains an open release qualification; see [`../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+- The aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude is scheduled immediately after `ssa-nomerge` in both presets. The measured `1,140 us` flatten cost is accepted under a pass-specific timing exception; see [`../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 - `reorder-locals` now uses the public three-slot Binaryen-shaped cleanup schedule: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. [`../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) is the current reconciliation source for that live policy.
 - `optimize` and `shrink` should stay identical until a tested size-specific divergence lands.
 - The current shared late tail is `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`; this is registry- and slot-tested and should not be shortened in docs when summarizing the live preset.

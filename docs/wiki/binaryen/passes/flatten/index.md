@@ -172,7 +172,7 @@ related:
 - The public implementation has focused function/block/if/loop/try/branch/table/EH coverage, a dedicated `flatten-all` generator aggregate, four compare lanes, and idempotence evidence.
 - Current behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
 - Starshine now schedules the aggressive local-cleanup trio `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge` in both public presets, matching Binaryen v130's aggressive order.
-- Current pass-local timing is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function representative (`4.00x`), so performance qualification remains open; see [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+- Current pass-local timing is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function representative (`4.00x`). This approximately `1.14 ms` absolute cost is accepted under an explicit pass-specific timing exception; see [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 
 ## Why it matters
 

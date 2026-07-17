@@ -133,4 +133,4 @@ Final current-tree validation:
 
 ## Remaining non-behavior work
 
-This record closes the discovered behavior and validation discrepancy families under the documented normalization contract. Follow-up top-level scheduling and current performance qualification are recorded in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](./1570-2026-07-17-flatten-preset-scheduling-and-performance.md). The current representative remains outside the performance target; that is not evidence of a semantic gap.
+This record closes the discovered behavior and validation discrepancy families under the documented normalization contract. Follow-up top-level scheduling and timing review are recorded in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](./1570-2026-07-17-flatten-preset-scheduling-and-performance.md). The representative remains outside the default relative target, but its approximately `1.14 ms` absolute cost is accepted under an explicit pass-specific exception; that timing difference is not evidence of a semantic gap.

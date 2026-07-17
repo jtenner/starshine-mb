@@ -169,11 +169,11 @@ Current signoff is:
 
 The compare contract uses `drop-consts`, `unreachable-control-debris`, and `local-cleanup-debris`, each backed by exact fixtures and inspected discrepancy families. See [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
 
-The remaining separate concern is performance. Current native-release requalification measures `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function representative (`4.00x`), outside the repository's `<=2x` target. See [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+Current native-release requalification measures `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function representative (`4.00x`). The approximately `1.14 ms` absolute cost is accepted under a maintainer-reviewed pass-specific exception; the relative result remains useful optional optimization evidence. See [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
 
-## Exact local code and doc map today
+## Historical pre-admission code and doc map (superseded)
 
-The fastest read-along path through the current Starshine status is:
+The following map is retained as staged implementation history. The current active status is the signoff section above and the bottom-line section below.
 
 - tracked but removed pass-name status
   - `src/passes/optimize.mbt:144-151`
@@ -206,9 +206,9 @@ The fastest read-along path through the current Starshine status is:
 
 That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and the future landing zone.
 
-## What Starshine currently does for this pass name
+## What the pre-admission Starshine slice did
 
-Today Starshine's behavior for `flatten` is deliberately limited.
+At that hold point, Starshine's behavior for `flatten` was deliberately limited.
 
 ### 1. The name is tracked, not forgotten
 
@@ -603,4 +603,4 @@ Current Starshine `flatten` is an active, compared, and top-level preset-schedul
 - the WAST frontend's non-executable legacy-try validation scaffold is detected before mutation and intentionally left unchanged;
 - the current 120-function native-release benchmark measures `1,140 us` versus Binaryen v130's `285.236 us`, or `4.00x`.
 
-Behavior and top-level scheduling are closed. `[O4Z-FLAT]001` remains open solely because the current timing is outside the repository's `<=2x Binaryen` target. The current scheduling and measurement source is [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+Behavior, top-level scheduling, and timing review are closed. `[O4Z-FLAT]001` is closed with an explicit exception because `1,140 us` over 120 functions is operationally acceptable even though Binaryen is `4.00x` faster on the representative. The scheduling and accepted measurement source is [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).

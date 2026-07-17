@@ -118,7 +118,7 @@ This page preserves the staged proof history for the question: **what did the fi
 
 ## Current status
 
-The pre-admission hold point below is superseded. `flatten` is now public, compared, and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`. Behavior closeout is in [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md); scheduling and current `4.00x` Binaryen performance qualification are in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md). Performance remains the open gate.
+The pre-admission hold point below is superseded. `flatten` is now public, compared, and scheduled in both top-level presets as `flatten -> simplify-locals-notee-nostructure -> local-cse`. Behavior closeout is in [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md); scheduling and the accepted `1,140 us` / `4.00x` Binaryen measurement are in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md). No flatten release gate remains open.
 
 ## Historical pre-admission hold point (superseded)
 
