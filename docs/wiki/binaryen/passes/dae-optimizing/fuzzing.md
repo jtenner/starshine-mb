@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md
   - ../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md
   - ../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md
   - ../../../raw/research/1640-2026-07-17-daeo-func8186-final-return.md
@@ -108,6 +109,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1645`](../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md) is the authoritative current four-lane closeout. A freshly relinked explicit native binary at SHA-256 `3180bb10194a19fff1c939beee4d6d2b20f1f830aee0be34fa7e37e1097f55fa` and explicit Binaryen v130 produce: regular `.tmp/pass-fuzz-daeo-closeout-regular-100000-v130-20260717` `100000/100000` normalized; dedicated `.tmp/pass-fuzz-daeo-closeout-dedicated-10000-v130-20260717` `10000/10000` normalized; wasm-smith `.tmp/pass-fuzz-daeo-closeout-wasm-smith-10000-v130-20260717` `9955` normalized plus `1` cleanup-normalized out of `9956`, with only the unchanged `44` Binaryen/oracle failures; random-all `.tmp/pass-fuzz-daeo-closeout-random-all-10000-v130-20260717` `9633` normalized plus the exact same `367` note-`1627` measured/source-backed cleanup wins. The `367` failure-directory names and all `3670` files are byte-identical to the prior reviewed corpus, with aggregate Starshine deltas `-110224` raw / `-797486` canonical / `-5465849` WAT and no canonical/WAT-positive case. All lanes use both DAE cleanup normalizers, `--jobs auto`, the explicit native binary, and the default persistent cache. There are no unknown/risky, generated size-losing, Starshine-validation, or true-semantic residuals. Direct generated closeout is current; public optimize/shrink/O4z artifact blockers remain separate.
 
 Research note [`1642`](../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md) records the focused immutable-field-delay smokes with explicit native SHA-256 `20a36db6f8b546a1571533dd134cbc2bed244b5aebb4b8323f63e6967db5dcc5`: dedicated `.tmp/pass-fuzz-dae-optimizing-field6-final-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-field6-final-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, canonical Func `8185` body `2462` matching the direct no-structure/vacuum probe, and a canonical-module gap of `+1498`; they do not replace the required four-lane closeout matrix.
 
