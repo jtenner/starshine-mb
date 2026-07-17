@@ -16105,6 +16105,12 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
       #|    call $sink
       #|    local.get 11
       #|    call $sink
+      #|    i32.const 84
+      #|    call $touch
+      #|    local.set 12
+      #|    i32.const 85
+      #|    call $touch
+      #|    local.set 12
       #|    local.get 0
       #|    local.set 1
       #|    i32.const 41
@@ -16199,11 +16205,13 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   @debug.assert_eq(mid_locals.length(), 2, msg=mid)
   assert_false(mid.contains("unreachable"), msg=mid)
   assert_false(mid.contains("nop"), msg=mid)
-  assert_true(dae_test_count_substring(mid, "call (Func 1)") == 5, msg=mid)
+  assert_true(dae_test_count_substring(mid, "call (Func 1)") == 7, msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 2)") == 5, msg=mid)
   assert_true(mid.contains("I32(81)"), msg=mid)
   assert_true(mid.contains("I32(82)"), msg=mid)
   assert_true(mid.contains("I32(83)"), msg=mid)
+  assert_true(mid.contains("I32(84)"), msg=mid)
+  assert_true(mid.contains("I32(85)"), msg=mid)
   let normalize = optimized.pretty_print_defined_func(8195U)
   assert_false(normalize.contains("(local"), msg=normalize)
   assert_true(

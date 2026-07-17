@@ -62365,6 +62365,113 @@ fn run_hot_pipeline_dae_retarget_copy_producers_instrs(
 }
 
 ///|
+fn run_hot_pipeline_dae_drop_selected_local_sets_instrs(
+  instrs : Array[@lib.Instruction],
+  drop_locals : Array[Bool],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let local_idx = raw.reinterpret_as_int()
+        if local_idx >= 0 &&
+          local_idx < drop_locals.length() &&
+          drop_locals[local_idx] {
+          rewritten.push(@lib.Instruction::drop())
+          rewrite_count += 1
+        } else {
+          rewritten.push(instr)
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_drop_selected_local_sets_instrs(
+          body, drop_locals,
+        )
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+        rewrite_count += nested_count
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_drop_selected_local_sets_instrs(
+          body, drop_locals,
+        )
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+        rewrite_count += nested_count
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_drop_selected_local_sets_instrs(
+          body, drop_locals,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+        rewrite_count += nested_count
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_drop_selected_local_sets_instrs(
+          then_body, drop_locals,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_drop_selected_local_sets_instrs(
+              body, drop_locals,
+            )
+            rewrite_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+        rewrite_count += then_count
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
+  instrs : Array[@lib.Instruction],
+  total_local_count : Int,
+  param_count : Int,
+) -> (Array[@lib.Instruction], Int) {
+  if total_local_count <= param_count {
+    return (instrs, 0)
+  }
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let drop_locals = Array::make(total_local_count, false)
+  let mut candidate_count = 0
+  for local_idx = param_count
+      local_idx < total_local_count
+      local_idx = local_idx + 1 {
+    if local_gets[local_idx] == 0 &&
+      local_sets[local_idx] == 2 &&
+      local_tees[local_idx] == 0 {
+      drop_locals[local_idx] = true
+      candidate_count += 1
+    }
+  }
+  if candidate_count == 0 {
+    return (instrs, 0)
+  }
+  run_hot_pipeline_dae_drop_selected_local_sets_instrs(instrs, drop_locals)
+}
+
+///|
 fn run_hot_pipeline_dae_remove_nops_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
@@ -62514,6 +62621,17 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   )
   sunk_body = retargeted_body
   structural_count += retargeted_copy_count
+  // The same Binaryen SimplifyLocals probe replaces the exact two writes to a
+  // never-read result local with drops. Preserve each producer's evaluation,
+  // effects, and traps while exposing the now-unused declaration to the
+  // existing selected compaction step.
+  let (dropped_write_body, dropped_write_count) = run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
+    sunk_body,
+    total_local_count,
+    params.length(),
+  )
+  sunk_body = dropped_write_body
+  structural_count += dropped_write_count
   // Binaryen's filtered optimizeAfterInlining suffix ends in vacuum. Earlier
   // selected coalescing intentionally leaves nop placeholders to preserve raw
   // instruction positions; once all structural rewrites are complete those

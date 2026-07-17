@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1639-2026-07-17-daeo-func8185-never-read-result-stores.md
   - ../../../raw/research/1638-2026-07-17-daeo-func8185-copy-producer-retarget.md
   - ../../../raw/research/1637-2026-07-17-daeo-func8185-vacuum-nops.md
   - ../../../raw/research/1636-2026-07-17-daeo-func8185-branch-result-if.md
@@ -104,6 +105,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1639`](../../../raw/research/1639-2026-07-17-daeo-func8185-never-read-result-stores.md) records the focused never-read-result-store smokes with explicit native SHA-256 `23753ece5222807f661a13ef1cd3e14519b2db33ec35d28cd1b26ca707766a94`: dedicated `.tmp/pass-fuzz-dae-optimizing-dead-result-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-dead-result-regular-1000` each compare and normalize `1000/1000`, with zero compare-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, canonical Func `8185` body `2464` versus Binaryen's `2429`, and a canonical-module gap of `+1517`; they do not replace the required four-lane closeout matrix.
 
 Research note [`1638`](../../../raw/research/1638-2026-07-17-daeo-func8185-copy-producer-retarget.md) records the focused copy-producer-retarget smokes with explicit native SHA-256 `afe3fd177be17e180d81eea5c05fccec9806e81826271f3c321456f0409e1784`: dedicated `.tmp/pass-fuzz-dae-optimizing-copy-retarget-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-copy-retarget-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, canonical Func `8185` body `2466` versus Binaryen's `2429`, and a canonical-module gap of `+1519`; they do not replace the required four-lane closeout matrix.
 

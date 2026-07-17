@@ -21920,6 +21920,79 @@ test "DAEO broad-high simplify-locals rejects unsafe copy producer retargeting" 
 }
 
 ///|
+test "DAEO broad-high simplify-locals drops exactly two writes to a never-read local" {
+  let target = @lib.LocalIdx::new(2U)
+  let original = [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
+    original, 3, 0,
+  )
+  @debug.assert_eq(count, 2)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+  ])
+}
+
+///|
+test "DAEO broad-high simplify-locals keeps non-exact dead-write families" {
+  let target = @lib.LocalIdx::new(2U)
+  let one_write = [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::local_set(target),
+  ]
+  let read_local = [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32::new(2)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ]
+  let tee_local = [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::local_tee(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(2)),
+    @lib.Instruction::local_set(target),
+  ]
+  let three_writes = [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32::new(2)),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::i32_const(@lib.I32::new(3)),
+    @lib.Instruction::local_set(target),
+  ]
+  for original in [one_write, read_local, tee_local, three_writes] {
+    let (rewritten, count) = run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
+      original, 3, 0,
+    )
+    @debug.assert_eq(count, 0)
+    @debug.assert_eq(rewritten, original)
+  }
+  let param_writes = [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(2)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_drop_two_write_never_read_locals_instrs(
+    param_writes, 1, 1,
+  )
+  @debug.assert_eq(count, 0)
+  @debug.assert_eq(rewritten, param_writes)
+}
+
+///|
 test "DAEO broad-high structural cleanup removes nested vacuum nop debris without changing control" {
   let original = [
     @lib.Instruction::nop(),
