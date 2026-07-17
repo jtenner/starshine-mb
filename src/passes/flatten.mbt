@@ -229,6 +229,26 @@ fn flatten_value_type_is_defaultable(value_type : @lib.ValType) -> Bool {
 }
 
 ///|
+fn flatten_scalar_result_can_flow_directly(
+  ctx : HotPassContext,
+  source_type : @lib.ValType,
+  target_type : @lib.ValType,
+) -> Bool {
+  if source_type == target_type {
+    return true
+  }
+  match source_type {
+    @lib.BotValType => return true
+    _ => ()
+  }
+  let env = match ctx.module_ctx {
+    Some(module_ctx) => @validate.Env::new().with_types(module_ctx.subtypes)
+    None => @validate.Env::new()
+  }
+  @validate.Match::matches(source_type, target_type, env)
+}
+
+///|
 fn flatten_build_node_use_counts(func : @ir.HotFunc) -> @ir.HotNodeUseCounts {
   @ir.hot_node_use_counts_build(func)
 }
@@ -4228,21 +4248,41 @@ fn flatten_try_route_scalar_block(
     !flatten_terminal_branch_targets_label(func, tail_id, label_id, false) {
     return None
   }
+  let tail_result_type = if tail_has_fallthrough_value {
+    match flatten_single_result_type(func, @ir.hot_node_get(func, tail_id).ty) {
+      Some(tail_result_type) => Some(tail_result_type)
+      None => return None
+    }
+  } else {
+    None
+  }
   let local_id = if routed_local >= 0 {
     routed_local
   } else {
     @ir.hot_append_body_local(func, result_types[0])
   }
-  if tail_has_fallthrough_value {
-    ignore(
-      flatten_set_region_root(
-        ctx,
-        func,
-        body_ref,
-        body_count - 1,
-        @ir.hot_build_local_set(func, local_id, tail_id),
-      ),
-    )
+  match tail_result_type {
+    Some(tail_result_type) => {
+      let replacement = if flatten_scalar_result_can_flow_directly(
+          ctx,
+          tail_result_type,
+          result_types[0],
+        ) {
+        @ir.hot_build_local_set(func, local_id, tail_id)
+      } else {
+        @ir.hot_build_drop(func, tail_id)
+      }
+      ignore(
+        flatten_set_region_root(
+          ctx,
+          func,
+          body_ref,
+          body_count - 1,
+          replacement,
+        ),
+      )
+    }
+    None => ()
   }
   @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
   Some(local_id)
@@ -5377,15 +5417,23 @@ fn flatten_try_route_scalar_loop(
   if @ir.hot_node_result_arity(func, tail_id) != 1 {
     return None
   }
+  let tail_result_type = match
+    flatten_single_result_type(func, @ir.hot_node_get(func, tail_id).ty) {
+    Some(tail_result_type) => tail_result_type
+    None => return None
+  }
   let local_id = @ir.hot_append_body_local(func, result_types[0])
-  ignore(
-    flatten_set_region_root(
+  let replacement = if flatten_scalar_result_can_flow_directly(
       ctx,
-      func,
-      body_ref,
-      body_count - 1,
-      @ir.hot_build_local_set(func, local_id, tail_id),
-    ),
+      tail_result_type,
+      result_types[0],
+    ) {
+    @ir.hot_build_local_set(func, local_id, tail_id)
+  } else {
+    @ir.hot_build_drop(func, tail_id)
+  }
+  ignore(
+    flatten_set_region_root(ctx, func, body_ref, body_count - 1, replacement),
   )
   @ir.hot_control_result_type_set(func, loop_id, @ir.hot_type_void(func))
   Some(local_id)
@@ -5623,32 +5671,74 @@ fn flatten_try_route_scalar_if(
     !flatten_node_is_rethrow(func, else_tail) {
     return None
   }
+  let then_tail_result_type = if then_has_fallthrough_value {
+    match
+      flatten_single_result_type(func, @ir.hot_node_get(func, then_tail).ty) {
+      Some(tail_result_type) => Some(tail_result_type)
+      None => return None
+    }
+  } else {
+    None
+  }
+  let else_tail_result_type = if else_has_fallthrough_value {
+    match
+      flatten_single_result_type(func, @ir.hot_node_get(func, else_tail).ty) {
+      Some(tail_result_type) => Some(tail_result_type)
+      None => return None
+    }
+  } else {
+    None
+  }
   let local_id = if routed_local >= 0 {
     routed_local
   } else {
     @ir.hot_append_body_local(func, result_types[0])
   }
-  if then_has_fallthrough_value {
-    ignore(
-      flatten_set_region_root(
-        ctx,
-        func,
-        then_ref,
-        then_count - 1,
-        @ir.hot_build_local_set(func, local_id, then_tail),
-      ),
-    )
+  match then_tail_result_type {
+    Some(tail_result_type) => {
+      let replacement = if flatten_scalar_result_can_flow_directly(
+          ctx,
+          tail_result_type,
+          result_types[0],
+        ) {
+        @ir.hot_build_local_set(func, local_id, then_tail)
+      } else {
+        @ir.hot_build_drop(func, then_tail)
+      }
+      ignore(
+        flatten_set_region_root(
+          ctx,
+          func,
+          then_ref,
+          then_count - 1,
+          replacement,
+        ),
+      )
+    }
+    None => ()
   }
-  if else_has_fallthrough_value {
-    ignore(
-      flatten_set_region_root(
-        ctx,
-        func,
-        else_ref,
-        else_count - 1,
-        @ir.hot_build_local_set(func, local_id, else_tail),
-      ),
-    )
+  match else_tail_result_type {
+    Some(tail_result_type) => {
+      let replacement = if flatten_scalar_result_can_flow_directly(
+          ctx,
+          tail_result_type,
+          result_types[0],
+        ) {
+        @ir.hot_build_local_set(func, local_id, else_tail)
+      } else {
+        @ir.hot_build_drop(func, else_tail)
+      }
+      ignore(
+        flatten_set_region_root(
+          ctx,
+          func,
+          else_ref,
+          else_count - 1,
+          replacement,
+        ),
+      )
+    }
+    None => ()
   }
   @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
   Some(local_id)
@@ -8547,11 +8637,40 @@ fn flatten_materialize_scalar_body_result(
   if flatten_op_is_control_structure(tail.op) {
     return false
   }
-  let result_types = flatten_type_results(func, tail.ty, state=Some(state))
-  if result_types.length() != 1 {
+  let tail_result_types = flatten_type_results(func, tail.ty, state=Some(state))
+  let body_result_types = flatten_type_results(
+    func,
+    @ir.hot_body_result_type(func),
+    state=Some(state),
+  )
+  if tail_result_types.length() != 1 || body_result_types.length() != 1 {
     return false
   }
-  let local_id = @ir.hot_append_body_local(func, result_types[0])
+  let tail_result_type = tail_result_types[0]
+  let body_result_type = body_result_types[0]
+  if !flatten_scalar_result_can_flow_directly(
+      ctx, tail_result_type, body_result_type,
+    ) {
+    if !flatten_value_type_is_defaultable(body_result_type) {
+      return false
+    }
+    let local_id = @ir.hot_append_body_local(func, body_result_type)
+    let drop_id = @ir.hot_build_drop(func, tail_id)
+    let get_id = @ir.hot_build_local_get(func, local_id)
+    let return_id = @ir.hot_build_return(func, [get_id])
+    ignore(
+      pass_splice_region(
+        ctx,
+        func,
+        @ir.HotRegionRef::root(),
+        root_count - 1,
+        1,
+        [drop_id, return_id],
+      ),
+    )
+    return true
+  }
+  let local_id = @ir.hot_append_body_local(func, tail_result_type)
   let set_id = @ir.hot_build_local_set(func, local_id, tail_id)
   let get_id = @ir.hot_build_local_get(func, local_id)
   let return_id = @ir.hot_build_return(func, [get_id])
@@ -8952,6 +9071,49 @@ fn flatten_markerless_catch_owns_root(
 }
 
 ///|
+fn flatten_typed_catch_owns_root(
+  func : @ir.HotFunc,
+  try_id : Int,
+  root_id : Int,
+) -> Bool {
+  let catch_ref = match @ir.hot_region_catch_ref(func, try_id) {
+    Some(catch_ref) => catch_ref
+    None => return false
+  }
+  let mut saw_payload = false
+  let mut saw_non_payload = false
+  let mut payload_tag = -1
+  let mut owns_root = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, catch_ref); idx = idx + 1 {
+    let candidate = @ir.hot_region_get(func, catch_ref, idx)
+    let node = @ir.hot_node_get(func, candidate)
+    match node.op {
+      @ir.HotOp::Catch => {
+        if saw_non_payload ||
+          @ir.hot_child_count(func, candidate) != 0 ||
+          flatten_type_results(func, node.ty).length() != 1 {
+          return false
+        }
+        if !saw_payload {
+          payload_tag = node.imm0
+          saw_payload = true
+        } else if node.imm0 != payload_tag {
+          return false
+        }
+      }
+      @ir.HotOp::CatchAll => return false
+      _ => {
+        saw_non_payload = true
+        if candidate == root_id {
+          owns_root = true
+        }
+      }
+    }
+  }
+  saw_payload && owns_root
+}
+
+///|
 fn flatten_typed_catch_root_owns_strict_rethrow(
   func : @ir.HotFunc,
   root_id : Int,
@@ -9233,7 +9395,10 @@ fn flatten_direct_catch_all_rethrow_is_supported(
         _ => return false
       }
       if @ir.hot_node_result_arity(func, owner) != 0 ||
-        !flatten_markerless_catch_owns_root(func, owner, catch_root) {
+        (
+          !flatten_markerless_catch_owns_root(func, owner, catch_root) &&
+          !flatten_typed_catch_owns_root(func, owner, catch_root)
+        ) {
         return false
       }
       if depth == rethrow.imm0 {

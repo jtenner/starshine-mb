@@ -16247,6 +16247,75 @@ test "optimize-instructions aggregate profile samples every OI family" {
 }
 
 ///|
+test "flatten aggregate profile samples scalar control GC and call families" {
+  @debug.assert_eq(gen_valid_profile_name(FlattenAllProfile), "flatten-all")
+  match gen_valid_profile_by_name("flatten") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, FlattenAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      let members = gen_valid_profile_members(profile)
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(BinaryenOraclePortableProfile, 4),
+        ),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(PassFuzzStressProfile, 3)),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(SsaNomergeSmokeProfile, 2)),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(Heap2LocalStructProfile, 1)),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 1),
+        ),
+      )
+      assert_true(
+        members.contains(
+          GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 1),
+        ),
+      )
+      assert_true(
+        members.contains(GenValidProfileMember::new(DaeConvergenceProfile, 1)),
+      )
+    }
+    Err(msg) => fail(msg)
+  }
+  let seen : Array[GenValidProfile] = []
+  let mut index = 1
+  while index <= 256 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      FlattenAllProfile,
+      0x5eedUL,
+      index,
+    )
+    assert_false(gen_valid_profile_is_composite(leaf))
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+    index += 1
+  }
+  for
+    profile in [
+      BinaryenOraclePortableProfile,
+      PassFuzzStressProfile,
+      SsaNomergeSmokeProfile,
+      Heap2LocalStructProfile,
+      LocalSubtypingStraightLineProfile,
+      CoalesceLocalsStructuredProfile,
+      DaeConvergenceProfile,
+    ] {
+    assert_true(
+      seen.contains(profile),
+      msg="missing flatten aggregate leaf \{gen_valid_profile_name(profile)}",
+    )
+  }
+}
+
+///|
 test "random all-profiles gen-valid profile resolves stable compare-pass leaves" {
   @debug.assert_eq(
     gen_valid_profile_name(RandomAllProfilesProfile),

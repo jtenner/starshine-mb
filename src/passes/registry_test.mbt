@@ -21,6 +21,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   @debug.assert_eq(
+    pass_registry_category("flatten"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  @debug.assert_eq(
     pass_registry_category("ssa"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -326,6 +330,25 @@ test "run_hot_pipeline rejects removed registry names" {
   match run_hot_pipeline(input, HotPipelineOptions::new(), ["de-nan"]) {
     Ok(_) => fail("expected removed registry name to reject in hot pipeline")
     Err(err) => assert_true(err.contains("removed"))
+  }
+}
+
+///|
+test "run_hot_pipeline dispatches flatten through the public registry" {
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+  )
+  match run_hot_pipeline(input, HotPipelineOptions::new(), ["flatten"]) {
+    Ok(output) =>
+      match output.code_sec {
+        Some(@lib.CodeSec([@lib.Func(locals, _)])) =>
+          assert_true(locals.length() > 0)
+        other =>
+          fail(
+            "expected one flattened function, got \{@debug.to_string(other)}",
+          )
+      }
+    Err(err) => fail("expected public flatten dispatch, got \{err}")
   }
 }
 

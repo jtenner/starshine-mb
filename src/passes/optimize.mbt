@@ -140,16 +140,16 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "const-hoisting", "dataflow-optimization", "loop-invariant-code-motion", "flatten",
-    "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
-    "precompute-propagate", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-tee-no-structure",
-    "simplify-locals-no-nesting",
+    "const-hoisting", "dataflow-optimization", "loop-invariant-code-motion", "re-reloop",
+    "optimize-added-constants", "optimize-added-constants-propagate", "precompute-propagate",
+    "de-nan", "simplify-locals-no-tee", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
   ]
 }
 
 ///|
 fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
   let entries = [
+    pass_registry_entry_hot("flatten", flatten_summary(), flatten_descriptor()),
     pass_registry_entry_hot(
       "ssa-nomerge",
       ssa_nomerge_summary(),

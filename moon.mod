@@ -18,6 +18,4 @@ description = ""
 
 warnings = "-deprecated"
 
-options(
-  source: "src",
-)
+source = "src"

@@ -1,8 +1,9 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-07-16
+status: supported
+last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
@@ -164,15 +165,13 @@ related:
 
 ## Role
 
-- `flatten` is an upstream Binaryen aggressive flat-IR preparation pass.
-- It now has an **internal active-partial** Starshine owner with a Flat IR classifier, scalar function-result materialization, reachable/unreachable tee lowering across region roots and operand positions, ordered scalar operand preludes, branch-free defaultable scalar `block`/`if` routing, branch-free defaultable independently produced multivalue `block`/`if`, one exact exclusive tuple-made multivalue block tail, if-arm tail, plain block/if-targeting `br` payload, repeated-target `br_table` payload, or exact block/if-targeting `br_if` flow, and zero-input `loop` routing across payloadless backedges, branch-targeted independently scalar multivalue `if` arms with plain exits, scalar and exact independently scalar or tuple-made multivalue legacy `try` do/catch routing with plain carried try-label `br` exits and exact scalar try-label `br_if` direct-drop/unary/conversion/same-typed-binary false flow in either operand position and exact multivalue direct-drop, unary/conversion, or independently scalar / exclusively tuple-made same-typed-binary false flow plus exact scalar try-label `br_table` fanout through any complete strict direct-enclosure chain of matching block/if controls in structural order without a hardcoded count cap, and independently scalar multivalue fanout through the same arbitrary direct mixed order, including try-inside-if-inside-block, with exclusively tuple-made fanout admitted through the same arbitrary strict direct block/if order after separate exclusive-ownership, component, one-evaluation, and safe-deletion preflight without a hardcoded count cap, or one repeated try target behind an explicit catch-payload/exceptional-transfer prerequisite classifier, defaultable scalar branch-targeted `if` routing, zero-input and independently scalar or one exact tuple-made-entry inputful scalar-result `loop` routing with payloadless or independently scalar one- and multi-parameter `br`/`br_if` backedges, and plain scalar or independently scalar multivalue block-targeting `br`, including mixed fallthrough plus nested plain exits, scalar `br_if` routing including rich shared origins and the target/flow two-temp mismatch, same-vector multivalue block/if-targeting `br_if` routing with exact exclusive false-path spans, plus independently scalar `br_table` rich-origin and unique-target fanout for defaultable scalar block/if targets, exact repeated-label and nested multi-block multivalue targets, one- or multi-parameter loop entry channels, exact inputful multivalue loop plain branches and `br_if` channels with immediate direct-drop, same-typed binary with a simple opposite operand, one exact one-use rich right operand when the payload is left, or one exact pre-branch rich left paired with lane zero when the payload is right and every rich origin in the legacy-try or inputful-loop payload vector is independently supported, unary, or conversion false flow from independently scalar or tuple-made payloads, one exact exclusive tuple-made loop result tail, per-arm independently scalar or exact separately owned tuple-made legacy-try tails with supported scalar component origins, and exact loop-plus-enclosing-block, loop-plus-repeated-if, and loop-plus-repeated-block table channels, exact scalar, independently scalar, and exclusively tuple-made terminal try-table fanout into one directly enclosing inputful loop with distinct entry/result channels and tuple ownership/deletion proof, plus same-arm nonterminal tables followed only by direct `Unreachable` roots, any positive number of exclusively owned distinct direct `drop(const)` roots, either exact two-root mixed order of direct `drop(const)` and direct `Unreachable`, either exact two-root mixed order of direct `drop(i32.add(const, const))` and direct `Unreachable`, any positive ordered sequence whose roots are independently owned direct `drop(const)`, direct `Unreachable`, or independently owned direct `drop(i32.add(const, const))`, `drop(i32.sub(const, const))`, `drop(i32.mul(const, const))`, `drop(i32.and(const, const))`, `drop(i32.clz(const))`, `drop(i64.extend_i32_s(const))`, or `drop(i32.div_s(const, const))`, or exact owned direct resultless calls with zero arguments, any positive vector of distinct scalar constants, exactly one audited binary, unary, or conversion argument plus any positive number of distinct scalar constants at arbitrary positions, or exactly two audited rich arguments from the admitted pair roster, with or without additional distinct scalar constants at arbitrary positions, or one exact scalar constant, `i32.add(const, const)`, `i32.div_s(const, const)`, `i32.clz(const)`, or `i64.extend_i32_s(const)` argument, or exact one- or two-multiply-child outer-add or outer-subtract drop trees with constant leaves, or one exact bounded outer add/subtract tree combining a matching two-multiply-child subtree and one direct constant; separately admitted single-root suffixes include exact `drop(i32.sub(const, const))`, any positive number of independently owned direct `drop(i32.mul(const, const))` roots, exact `drop(i32.and(const, const))`, exact `drop(i32.clz(const))`, exact `drop(i64.extend_i32_s(const))`, or exact `drop(i32.div_s(const, const))` root, plus exact owned direct void calls with zero arguments, any positive vector of distinct exclusively owned scalar constants, exactly one audited binary, unary, or conversion argument plus any positive number of distinct exclusively owned scalar constants at arbitrary positions, or exactly two audited rich arguments from the admitted pair roster, with or without additional distinct scalar constants at arbitrary positions, or one exclusively owned scalar constant, exact `i32.add(const, const)`, exact `i32.div_s(const, const)`, exact `i64.extend_i32_s(const)`, or exact `i32.clz(const)` argument through admitted try-table ancestries, and owner-local terminal placeholders for nested `br`/`br_table`/`return`/`return_call`/`return_call_indirect`/`return_call_ref`/`throw`/`throw_ref`; exact untargeted void `block { drop(const) }`, constant-condition complete-arm void `if`, and zero-input/no-backedge void `loop { drop(const) }` suffixes now delete with all owned labels after unconditional transfer, while positive vectors may mix any existing exactly recognized ordinary roots with those exact structured roots and richer, shared, targeted, or unsupported structured roots remain fail-closed; the public registry remains `Removed` while broader correctness work continues.
-- In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path used elsewhere in this repo.
-- Instead, it appears only in the more aggressive `optimizeLevel >= 4` function pipeline, where it starts the trio:
-  - `flatten`
-  - `simplify-locals-notee-nostructure`
-  - `local-cse`
-- Its real job is not “generic flattening” or “merge blocks.”
-- The real job is: rewrite Binaryen IR into the formal `Flat IR` shape from `src/ir/flat.h` by routing nested values and value-carrying control flow through temp locals and explicit preludes.
+- `flatten` is Binaryen's aggressive Flat IR preparation pass.
+- Starshine now exposes an active HOT implementation through the registry, dispatcher, and CLI.
+- The pass rewrites rich nested operands into ordered preludes, routes value-carrying control and branches through typed temporaries, removes `local.tee`, preserves exceptional-transfer semantics, and materializes explicit function results.
+- Starshine follows Binaryen v130's owner-specific postorder strategy rather than applying an unsafe generic spill-every-position rewrite.
+- The public implementation has focused function/block/if/loop/try/branch/table/EH coverage, a dedicated `flatten-all` generator aggregate, four compare lanes, and idempotence evidence.
+- Current behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
+- In Binaryen v130, the pass starts the aggressive local-cleanup trio `flatten -> simplify-locals-notee-nostructure -> local-cse`; it is not part of the ordinary no-DWARF `-O` / `-Os` path.
 
 ## Why it matters
 
@@ -186,14 +185,14 @@ related:
 - The pass sits immediately before two already-documented neighbors whose purpose is easier to understand once flatten is clear:
   - `simplify-locals-notee-nostructure`
   - `local-cse`
-- The current Starshine planning story is worth keeping explicit:
-  - `src/passes/optimize.mbt:142-147` still tracks `flatten` in the removed-name registry
-  - `src/cli/cli_test.mbt:305-309` and `src/cli/cli_test.mbt:340-342` still preserve the public `--flatten` spelling
-  - `src/passes/pass_manager.mbt` has no active public `flatten` dispatcher case; helpers whose names contain `flatten` serve other passes and do not change this status
-  - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` and `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` still place `flatten` at the front of the old removed-pass batch
-  - `agent-todo.md` now carries `[O4Z-FLAT]001`, including the remaining control, branch-payload, EH, fuzzing, and scheduler work
+- The current Starshine surface is executable rather than planned:
+  - `src/passes/optimize.mbt` registers `flatten` as a HOT pass;
+  - `src/passes/pass_manager.mbt` dispatches the pass and lowers with Flat-IR spill preservation;
+  - the CLI spelling executes the pass;
+  - `scripts/lib/pass-fuzz-compare-task.ts` maps the pass to Binaryen `--flatten`;
+  - `src/validate/gen_valid.mbt` exposes the `flatten-all` aggregate.
 
-The 2026-07-11 current-main/local-status recheck found no teaching-relevant upstream transform drift. It does, however, make the two local non-implementation boundaries explicit: the aggressive-neighborhood readiness predicate is intentionally false until all three passes are active, and text matches on `flatten` helper names do not prove pass registration. See Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp) and local registry evidence in `src/passes/optimize.mbt`.
+The 2026-07-11 current-main/local-status recheck remains useful historical evidence about the former removed boundary. The 2026-07-17 closeout supersedes its local-status conclusion; see [`../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
 
 ## Beginner summary
 
@@ -235,7 +234,7 @@ That is much closer to the real pass than “flatten removes nesting.”
   - carried `switch` / `br_table`
 - `If` temp typing uses least-upper-bound logic, not just exact arm type equality.
 - Flatten can create blocks inside `catch`, so it must repair EH pop placement afterwards.
-- In `version_130`, all four `BrOn*` variants are hard unsupported, and a direct `TryTable` probe aborts in the unhandled control-structure arm. Internal Starshine classifies these as `UpstreamHardUnsupported` before mutation but keeps public execution removed until a Binaryen-compatible rejection contract is wired.
+- In `version_130`, all four `BrOn*` variants are hard unsupported, and a direct `TryTable` probe aborts in the unhandled control-structure arm. Starshine preserves explicit pre-mutation unsupported classification while the public pass remains executable for admitted modules.
 - `Flatten.cpp` also still carries an open non-nullability TODO.
   - But the shipped tests show some non-null cases already work, so the limitation is selective, not absolute.
 
@@ -244,15 +243,15 @@ That is much closer to the real pass than “flatten removes nesting.”
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: scheduler placement, formal Flat IR meaning, the postorder prelude algorithm, control-value rewrites, branch-value temp routing, EH fixups, the reviewed release/source provenance, the retained current-main source bridges, and the current unsupported-instruction boundary.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  Owner-file, helper-surface, official lit-test, scheduler, and current Starshine code-map page for `flatten`, including the `Flatten.cpp` / `flat.h` split, the tiny smoke test versus broad all-features and EH proof files, and the exact removed-registry / CLI-spelling / dispatcher-gap line ranges.
+  Owner-file, helper-surface, official lit-test, scheduler, current Starshine code map, HOT lowering bridge, focused suites, and fuzz/profile wiring.
 - [`./flat-ir-contract-and-preludes.md`](./flat-ir-contract-and-preludes.md)
   Focused guide to the easiest part of the pass to misunderstand: what “flat” means exactly, how preludes migrate, why flatten creates so many locals, how named branch targets get temps, and why `unreachable` placeholders plus EH pop repair are part of the real contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for nested arithmetic, value-carrying `block` / `if` / `loop` / `try`, tee removal, `br_if` / switch value carriers, preserved simple-child families, and hard bailout shapes.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status/port map for `flatten`: removed-name registry tracking, preserved `--flatten` CLI spelling, Batch 2 planning surfaces, the still-missing active backlog slice, and the downstream dossier cluster a future local port would need to serve.
+  Current Starshine implementation strategy, pass surfaces, conservative unsupported boundaries, and downstream integration.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Future implementation-readiness bridge: analyzer-first Flat IR classification, narrow first mutating slice, tee and branch-payload follow-ups, EH and unsupported-family gates, downstream cluster validation, and the criteria for moving `flatten` out of the removed-name registry.
+  Historical implementation-readiness plan; use the current strategy and fuzzing pages for completed admission and signoff status.
 
 ## 2026-07-15 internal output, ownership, proof-cache, and batch-mutation iterations
 
@@ -490,9 +489,9 @@ Final validation is HOT lower `89/89`, IR `326/326`, focused flatten `263/263`, 
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `flatten` research and port planning.
-- Keep it explicitly marked **internal active-partial / public removed** until the direct pass surface is safe to register and dispatch.
-- Keep the strategy, implementation/test-map, and flat-IR/preludes pages in sync whenever new evidence changes the answer to any of these:
+- Treat this folder as the canonical home for `flatten` implementation, parity, performance, and release evidence.
+- Keep the pass marked public and supported while the focused suites and documented compare matrix remain green.
+- Keep the strategy, implementation/test-map, fuzzing, and flat-IR/preludes pages in sync whenever new evidence changes the answer to any of these:
   - “what exact AST properties does Binaryen flatten enforce?”
   - “which owner/test/helper surfaces prove that behavior?”
   - “which feature shapes are still unsupported or only selectively supported?”

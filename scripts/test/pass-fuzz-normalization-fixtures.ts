@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { applyCompareNormalizersForTest } from "../lib/pass-fuzz-compare-task";
 
 function fail(message: string): never {
   throw new Error(message);
@@ -49,6 +50,10 @@ process.exit(0);
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
+if (args.includes("--version")) {
+  console.log("wasm-opt version 130");
+  process.exit(0);
+}
 const out = args[args.indexOf("-o") + 1];
 fs.mkdirSync(path.dirname(out), { recursive: true });
 if (args.includes("-S")) {
@@ -110,7 +115,177 @@ process.exit(0);
   );
 }
 
+function testTerminalLocalCopyNormalization(): void {
+  const starshine = `(module
+ (func $0 (result i32)
+  (local $0 i32)
+  (local.set $0
+   (i32.const 7)
+  )
+  (return
+   (local.get $0)
+  )
+ )
+)\n`;
+  const binaryen = `(module
+ (func $0 (result i32)
+  (local $0 i32)
+  (local $1 i32)
+  (local $2 i32)
+  (local.set $0
+   (i32.const 7)
+  )
+  (local.set $1
+   (local.get $0)
+  )
+  (local.set $2
+   (local.get $1)
+  )
+  (return
+   (local.get $2)
+  )
+ )
+)\n`;
+  const normalizers = ["local-cleanup-debris"] as const;
+  assert(
+    applyCompareNormalizersForTest(starshine, [...normalizers]) ===
+      applyCompareNormalizersForTest(binaryen, [...normalizers]),
+    "local cleanup normalizer should erase one-use terminal return copies",
+  );
+}
+
+function testBinaryenFlattenCopyPreludeNormalization(): void {
+  const starshine = `(module
+ (func $0
+  (local $0 i32)
+  (local $1 i32)
+  (local.set $0
+   (i32.const 17)
+  )
+  (local.set $1
+   (local.get $0)
+  )
+  (drop
+   (local.get $1)
+  )
+ )
+)\n`;
+  const binaryen = `(module
+ (func $0
+  (local $0 i32)
+  (local $1 i32)
+  (local $2 i32)
+  (local $3 i32)
+  (local.set $0
+   (i32.const 17)
+  )
+  (local.set $2
+   (local.get $0)
+  )
+  (local.set $1
+   (local.get $2)
+  )
+  (local.set $3
+   (local.get $1)
+  )
+  (drop
+   (local.get $3)
+  )
+ )
+)\n`;
+  const normalizers = ["local-cleanup-debris"] as const;
+  assert(
+    applyCompareNormalizersForTest(starshine, [...normalizers]) ===
+      applyCompareNormalizersForTest(binaryen, [...normalizers]),
+    "local cleanup normalizer should erase Binaryen flatten copy preludes",
+  );
+}
+
+function testBinaryenFlattenRichProducerNormalization(): void {
+  const starshine = `(module
+ (type $0 (struct))
+ (func $0
+  (local $0 (ref null $0))
+  (local.set $0
+   (struct.new_default $0)
+  )
+  (drop
+   (local.get $0)
+  )
+ )
+)\n`;
+  const binaryen = `(module
+ (type $0 (struct))
+ (func $0
+  (local $0 (ref null $0))
+  (local $1 (ref $0))
+  (local $2 (ref null $0))
+  (local.set $1
+   (struct.new_default $0)
+  )
+  (local.set $0
+   (local.get $1)
+  )
+  (local.set $2
+   (local.get $0)
+  )
+  (drop
+   (local.get $2)
+  )
+ )
+)\n`;
+  const normalizers = ["local-cleanup-debris"] as const;
+  assert(
+    applyCompareNormalizersForTest(starshine, [...normalizers]) ===
+      applyCompareNormalizersForTest(binaryen, [...normalizers]),
+    "local cleanup normalizer should inline Binaryen flatten producer temporaries",
+  );
+}
+
+function testBinaryenFlattenUntargetedBlockNormalization(): void {
+  const starshine = `(module
+ (func $0 (param $0 i32)
+  (block $label$1
+   (if
+    (local.get $0)
+    (br $label$1)
+   )
+  )
+  (block $label$2
+   (br $label$2)
+  )
+ )
+)\n`;
+  const binaryen = `(module
+ (func $0 (param $0 i32)
+  (block $label$1
+   (block $label$2
+    (if
+     (local.get $0)
+     (br $label$1)
+    )
+   )
+  )
+  (block $label$3
+   (block $label$4
+    (br $label$3)
+   )
+  )
+ )
+)\n`;
+  const normalizers = ["local-cleanup-debris"] as const;
+  assert(
+    applyCompareNormalizersForTest(starshine, [...normalizers]) ===
+      applyCompareNormalizersForTest(binaryen, [...normalizers]),
+    "local cleanup normalizer should erase untargeted Binaryen flatten block shells",
+  );
+}
+
 export function runPassFuzzNormalizationFixtureMatrixTest(): void {
+  testTerminalLocalCopyNormalization();
+  testBinaryenFlattenCopyPreludeNormalization();
+  testBinaryenFlattenRichProducerNormalization();
+  testBinaryenFlattenUntargetedBlockNormalization();
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpRoot = path.join(repoRoot, ".tmp", "script-tests");
   fs.mkdirSync(tmpRoot, { recursive: true });

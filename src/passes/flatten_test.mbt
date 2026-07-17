@@ -4,6 +4,28 @@ fn flatten_test_classify(text : String) -> FlattenFlatnessReport {
 }
 
 ///|
+fn flatten_test_validate_lowered_single_result(
+  func : @ir.HotFunc,
+  result_type : @lib.ValType,
+) -> Unit raise {
+  let lowered = @ir.hot_lower_func(func)
+  let module_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [result_type])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(module_) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 fn flatten_test_assert_rich_left_payload_order(
   func : @ir.HotFunc,
   ctx : HotPassContext,
@@ -104,6 +126,81 @@ test "flatten classifier reports upstream unsupported try-table" {
   let report = flatten_classify_hot(func)
   @debug.assert_eq(report.unsupported_count, 1)
   assert_false(report.is_flat())
+}
+
+///|
+test "flatten spills every nested arithmetic layer under drop" {
+  let func = pass_test_lift_first_func(
+    "(module (func i32.const 6 i32.const 7 i32.add i32.const 3 i32.mul drop))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let report = flatten_classify_hot(func)
+  assert_true(
+    report.is_flat(),
+    msg="remaining flatness violations: \{@debug.to_string(report)}",
+  )
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let first_set = @ir.hot_root_get(func, 0)
+  let second_set = @ir.hot_root_get(func, 1)
+  let drop_id = @ir.hot_root_get(func, 2)
+  @debug.assert_eq(@ir.hot_node_get(func, first_set).op.to_string(), "LocalSet")
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_set).op.to_string(),
+    "LocalSet",
+  )
+  let second_value = @ir.hot_child_get(func, second_set, 0)
+  @debug.assert_eq(
+    @ir.hot_node_get(func, second_value).op.to_string(),
+    "Binary",
+  )
+  @debug.assert_eq(@ir.hot_child_count(func, second_value), 2)
+  @debug.assert_eq(
+    @ir.hot_node_exact_instr(func, second_value),
+    Some(@lib.Instruction::i32_mul()),
+  )
+  let uses = @ir.use_def_build(func)
+  @debug.assert_eq(@ir.node_use_count(uses, second_value), 1)
+  @debug.assert_eq(@ir.hot_node_get(func, drop_id).op.to_string(), "Drop")
+  let dropped = @ir.hot_child_get(func, drop_id, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, dropped).op.to_string(), "LocalGet")
+  match
+    @ir.hot_lower_func_with_options(
+      func,
+      @ir.HotLowerOptions::new(preserve_flat_ir_spills=true),
+    ) {
+    @lib.Func(
+      _,
+      @lib.Expr(
+        [
+          @lib.I32Const(_),
+          @lib.I32Const(_),
+          @lib.I32Add,
+          @lib.LocalSet(_),
+          @lib.LocalGet(_),
+          @lib.I32Const(_),
+          @lib.I32Mul,
+          @lib.LocalSet(_),
+          @lib.LocalGet(_),
+          @lib.Drop,
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected Binaryen-ordered nested arithmetic spill, got \{@debug.to_string(other)}",
+      )
+  }
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected fully spilled arithmetic to verify, got \{err}")
+  }
 }
 
 ///|
@@ -9453,6 +9550,119 @@ test "flatten materializes an implicit scalar function result before return" {
     Ok(_) => ()
     Err(err) => fail("expected flattened body to verify, got \{err}")
   }
+}
+
+///|
+test "flatten materializes the declared scalar result after a polymorphic unreachable tail" {
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i64) (local i32 f32) nop i32.const 2129477294 f32.const 0 unreachable))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let return_id = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
+  @debug.assert_eq(@ir.hot_node_get(func, return_id).op.to_string(), "Return")
+  let result_get = @ir.hot_child_get(func, return_id, 0)
+  let result_local = @ir.hot_node_get(func, result_get).imm0
+  @debug.assert_eq(@ir.hot_local_type(func, result_local), Some(i64_type))
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected polymorphic unreachable result materialization to verify, got \{err}",
+      )
+  }
+}
+
+///|
+test "flatten materializes the declared scalar result after a nested unreachable block" {
+  let i32_type = @lib.ValType::i32()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i32) (block (result i64) f64.const 0 unreachable) unreachable))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  let return_id = @ir.hot_root_get(func, @ir.hot_root_count(func) - 1)
+  @debug.assert_eq(@ir.hot_node_get(func, return_id).op.to_string(), "Return")
+  let result_get = @ir.hot_child_get(func, return_id, 0)
+  let result_local = @ir.hot_node_get(func, result_get).imm0
+  @debug.assert_eq(@ir.hot_local_type(func, result_local), Some(i32_type))
+  assert_true(flatten_classify_hot(func).is_flat())
+  match pass_verify_before_after(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested unreachable result materialization to verify, got \{err}",
+      )
+  }
+  flatten_test_validate_lowered_single_result(func, i32_type)
+}
+
+///|
+test "flatten keeps polymorphic unreachable if arms type-correct" {
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i64) i32.const 1 if (result i64) f32.const 0 unreachable else i64.const 7 end))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  flatten_test_validate_lowered_single_result(func, i64_type)
+}
+
+///|
+test "flatten keeps polymorphic unreachable loop tails type-correct" {
+  let i64_type = @lib.ValType::i64()
+  let func = pass_test_lift_first_func(
+    "(module (func (result i64) (loop (result i64) f32.const 0 unreachable)))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  flatten_test_validate_lowered_single_result(func, i64_type)
+}
+
+///|
+test "flatten keeps polymorphic unreachable reference tails type-correct" {
+  let result_type = @lib.ValType::funcref()
+  let func = pass_test_lift_first_func(
+    "(module (func (result funcref) ref.null extern unreachable))",
+  )
+  let ctx = HotPassContext::new(
+    flatten_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  @debug.assert_eq(flatten_run(ctx, func), HotPassResult::changed())
+  assert_true(flatten_classify_hot(func).is_flat())
+  flatten_test_validate_lowered_single_result(func, result_type)
 }
 
 ///|

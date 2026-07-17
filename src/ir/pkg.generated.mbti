@@ -1256,8 +1256,9 @@ pub struct HotLowerOptions {
   preserve_nontrailing_nops : Bool
   preserve_trailing_nops : Bool
   preserve_typed_loop_const_prefix_spills : Bool
+  preserve_flat_ir_spills : Bool
 }
-pub fn HotLowerOptions::new(preserve_if_arm_single_nops? : Bool, preserve_dead_local_tee_drops? : Bool, preserve_nontrailing_nops? : Bool, preserve_trailing_nops? : Bool, preserve_typed_loop_const_prefix_spills? : Bool) -> Self
+pub fn HotLowerOptions::new(preserve_if_arm_single_nops? : Bool, preserve_dead_local_tee_drops? : Bool, preserve_nontrailing_nops? : Bool, preserve_trailing_nops? : Bool, preserve_typed_loop_const_prefix_spills? : Bool, preserve_flat_ir_spills? : Bool) -> Self
 
 pub struct HotMemArg {
   memarg : @lib.MemArg

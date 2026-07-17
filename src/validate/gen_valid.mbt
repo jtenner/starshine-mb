@@ -817,6 +817,7 @@ pub enum GenValidProfile {
   PassOiDescriptorGcProfile
   PassOiTupleProfile
   PassOiAllProfile
+  FlattenAllProfile
   RandomAllProfilesProfile
 } derive(Eq, Debug)
 
@@ -1046,6 +1047,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassOiDescriptorGcProfile => "pass-oi-descriptor-gc"
     PassOiTupleProfile => "pass-oi-tuple"
     PassOiAllProfile => "pass-oi-all"
+    FlattenAllProfile => "flatten-all"
     RandomAllProfilesProfile => "random-all-profiles"
   }
 }
@@ -1074,6 +1076,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | InliningOptimizingAllProfile
     | PassOiAllProfile
     | SgoAllProfile
+    | FlattenAllProfile
     | RandomAllProfilesProfile => true
     _ => false
   }
@@ -1312,6 +1315,16 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SgoStartupPropagationProfile, 2),
         GenValidProfileMember::new(SgoRuntimePropagationProfile, 3),
         GenValidProfileMember::new(SgoNestedCleanupProfile, 2),
+      ]
+    FlattenAllProfile =>
+      [
+        GenValidProfileMember::new(BinaryenOraclePortableProfile, 4),
+        GenValidProfileMember::new(PassFuzzStressProfile, 3),
+        GenValidProfileMember::new(SsaNomergeSmokeProfile, 2),
+        GenValidProfileMember::new(Heap2LocalStructProfile, 1),
+        GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 1),
+        GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 1),
+        GenValidProfileMember::new(DaeConvergenceProfile, 1),
       ]
     RandomAllProfilesProfile =>
       [
@@ -1556,6 +1569,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassOiDescriptorGcProfile,
     PassOiTupleProfile,
     PassOiAllProfile,
+    FlattenAllProfile,
     RandomAllProfilesProfile,
   ]
 }
@@ -1668,6 +1682,9 @@ pub fn gen_valid_profile_by_name(
       Ok(DuplicateImportEliminationAllProfile)
     "die" => Ok(DuplicateImportEliminationAllProfile)
     "die-closeout" => Ok(DuplicateImportEliminationAllProfile)
+    "flatten" => Ok(FlattenAllProfile)
+    "flatten-closeout" => Ok(FlattenAllProfile)
+    "flatten-all-profiles" => Ok(FlattenAllProfile)
     "all-profiles" => Ok(RandomAllProfilesProfile)
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
@@ -3065,6 +3082,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | PassOiDescriptorGcProfile
     | PassOiTupleProfile => gen_valid_oi_profile_config(profile)
     PassOiAllProfile => gen_valid_oi_profile_config(PassOiDefaultScalarProfile)
+    FlattenAllProfile =>
+      GenValidConfig::binaryen_oracle_coverage_forced_default()
     RandomAllProfilesProfile => GenValidConfig::coverage_forced_default()
   }
 }

@@ -938,7 +938,7 @@ test "cmd harness profile config expands broad executable pass profiles" {
   assert_false(each.optimize_passes.contains("optimize"))
   assert_false(each.optimize_passes.contains("shrink"))
   assert_false(each.optimize_passes.contains("no-inline"))
-  assert_false(each.optimize_passes.contains("flatten"))
+  assert_true(each.optimize_passes.contains("flatten"))
 
   let clusters = match
     cmd_fuzz_harness_profile_config("smoke+passes=common-clusters") {

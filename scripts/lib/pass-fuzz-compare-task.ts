@@ -247,6 +247,7 @@ const RESERVED_OPTIONS = new Set([
 const SUPPORTED_PASS_FLAGS = new Set([
   "--avoid-reinterprets",
   "--untee",
+  "--flatten",
   "--ssa-nomerge",
   "--dead-code-elimination",
   "--remove-unused-names",
@@ -1593,27 +1594,133 @@ function normalizeUnusedLocalDeclarationsInFunction(funcText: string): string {
 
 function normalizeLocalNamesInFunction(funcText: string): string {
   if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
-  const localNames: string[] = [];
+  const paramNames: string[] = [];
   for (const match of funcText.matchAll(/\(param\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+/g)) {
-    if (!localNames.includes(match[1])) localNames.push(match[1]);
+    if (!paramNames.includes(match[1])) paramNames.push(match[1]);
   }
-  for (const match of funcText.matchAll(/^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[^\n]+\)\s*$/gm)) {
-    if (!localNames.includes(match[1])) localNames.push(match[1]);
+  const localDecls = new Map<string, { indent: string; type: string }>();
+  for (const line of funcText.split("\n")) {
+    const match = line.match(/^(\s*)\(local\s+(\$[A-Za-z0-9_.$-]+)\s+(.+)\)\s*$/);
+    if (match !== null) localDecls.set(match[2], { indent: match[1], type: match[3] });
   }
+  const bodyLocalNames: string[] = [];
+  for (const match of funcText.matchAll(/\blocal\.(?:get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g)) {
+    const name = match[1];
+    if (localDecls.has(name) && !bodyLocalNames.includes(name)) bodyLocalNames.push(name);
+  }
+  for (const name of localDecls.keys()) {
+    if (!bodyLocalNames.includes(name)) bodyLocalNames.push(name);
+  }
+  const localNames = [...paramNames, ...bodyLocalNames];
   if (localNames.length === 0) return funcText;
   const localNameMap = new Map(localNames.map((name, index) => [name, `$local${index}`]));
-  return funcText
-    .split("\n")
-    .map((line) => line
-      .replace(/\((param|local)\s+(\$[A-Za-z0-9_.$-]+)\b/g, (full, kind: string, name: string) => {
-        const replacement = localNameMap.get(name);
-        return replacement === undefined ? full : `(${kind} ${replacement}`;
-      })
-      .replace(/\blocal\.(get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g, (full, kind: string, name: string) => {
-        const replacement = localNameMap.get(name);
-        return replacement === undefined ? full : `local.${kind} ${replacement}`;
-      }))
-    .join("\n");
+  const lines = funcText.split("\n");
+  const output: string[] = [];
+  let wroteLocalDecls = false;
+  for (const line of lines) {
+    const localDecl = line.match(/^(\s*)\(local\s+(\$[A-Za-z0-9_.$-]+)\s+(.+)\)\s*$/);
+    if (localDecl !== null) {
+      if (!wroteLocalDecls) {
+        for (const name of bodyLocalNames) {
+          const decl = localDecls.get(name);
+          const replacement = localNameMap.get(name);
+          if (decl !== undefined && replacement !== undefined) {
+            output.push(`${decl.indent}(local ${replacement} ${decl.type})`);
+          }
+        }
+        wroteLocalDecls = true;
+      }
+      continue;
+    }
+    output.push(
+      line
+        .replace(/\(param\s+(\$[A-Za-z0-9_.$-]+)\b/g, (full, name: string) => {
+          const replacement = localNameMap.get(name);
+          return replacement === undefined ? full : `(param ${replacement}`;
+        })
+        .replace(/\blocal\.(get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g, (full, kind: string, name: string) => {
+          const replacement = localNameMap.get(name);
+          return replacement === undefined ? full : `local.${kind} ${replacement}`;
+        }),
+    );
+  }
+  return output.join("\n");
+}
+
+function normalizeSingleUseAdjacentProducerCopiesInFunction(funcText: string): string {
+  if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
+  let normalized = funcText;
+  while (true) {
+    const localRefCount = new Map<string, number>();
+    for (const match of normalized.matchAll(/\blocal\.(?:get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g)) {
+      localRefCount.set(match[1], (localRefCount.get(match[1]) ?? 0) + 1);
+    }
+    const lines = normalized.split("\n");
+    let changed = false;
+    for (let index = 0; index < lines.length; index += 1) {
+      const producerMatch = lines[index].match(/^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*$/);
+      if (producerMatch === null || localRefCount.get(producerMatch[2]) !== 2) continue;
+      const producer = collectCompleteWatExpression(lines, index);
+      if (producer === null || producer.exprLines.length < 3 || producer.nextIndex >= lines.length) continue;
+      const consumer = collectCompleteWatExpression(lines, producer.nextIndex);
+      if (consumer === null || consumer.exprLines.length < 2) continue;
+      const getIndexes: number[] = [];
+      for (let lineIndex = 0; lineIndex < consumer.exprLines.length; lineIndex += 1) {
+        const getMatch = consumer.exprLines[lineIndex].match(/^\s*\(local\.get\s+(\$[A-Za-z0-9_.$-]+)\s*\)\s*$/);
+        if (getMatch !== null && getMatch[1] === producerMatch[2]) getIndexes.push(lineIndex);
+      }
+      if (getIndexes.length !== 1) continue;
+      const getIndex = getIndexes[0];
+      const targetIndent = consumer.exprLines[getIndex].match(/^\s*/)?.[0] ?? "";
+      const producerChildLines = producer.exprLines.slice(1, -1);
+      const sourceIndent = producerChildLines[0]?.match(/^\s*/)?.[0] ?? "";
+      const shiftedProducer = producerChildLines.map((line) =>
+        targetIndent + (line.startsWith(sourceIndent) ? line.slice(sourceIndent.length) : line.trimStart())
+      );
+      const rewrittenConsumer = [
+        ...consumer.exprLines.slice(0, getIndex),
+        ...shiftedProducer,
+        ...consumer.exprLines.slice(getIndex + 1),
+      ];
+      lines.splice(index, consumer.nextIndex - index, ...rewrittenConsumer);
+      normalized = lines.join("\n");
+      changed = true;
+      break;
+    }
+    if (!changed) return normalized;
+  }
+}
+
+function normalizeSingleUseLocalForwardingInFunction(funcText: string): string {
+  if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
+  let normalized = funcText;
+  while (true) {
+    const localRefCount = new Map<string, number>();
+    for (const match of normalized.matchAll(/\blocal\.(?:get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g)) {
+      localRefCount.set(match[1], (localRefCount.get(match[1]) ?? 0) + 1);
+    }
+    let changed = false;
+    const copyPattern = /^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*\n\s*\(local\.get\s+(\$[A-Za-z0-9_.$-]+)\s*\)\s*\n\1\)\s*\n/gm;
+    for (const match of normalized.matchAll(copyPattern)) {
+      const [full, , temp, source] = match;
+      if (temp === source || localRefCount.get(temp) !== 2 || match.index === undefined) continue;
+      const suffixStart = match.index + full.length;
+      const suffix = normalized.slice(suffixStart);
+      const usePattern = new RegExp(`\\blocal\\.get\\s+${escapeRegExp(temp)}\\b`);
+      const use = usePattern.exec(suffix);
+      if (use === null) continue;
+      const between = suffix.slice(0, use.index);
+      const sourceWritePattern = new RegExp(`\\blocal\\.(?:set|tee)\\s+${escapeRegExp(source)}\\b`);
+      if (sourceWritePattern.test(between)) continue;
+      const replacedSuffix = suffix.slice(0, use.index)
+        + use[0].replace(temp, source)
+        + suffix.slice(use.index + use[0].length);
+      normalized = normalized.slice(0, match.index) + replacedSuffix;
+      changed = true;
+      break;
+    }
+    if (!changed) return normalized;
+  }
 }
 
 function normalizeSingleUseLocalCopyDropsInFunction(funcText: string): string {
@@ -1650,6 +1757,26 @@ function normalizeSingleUseLocalCopyDropsInFunction(funcText: string): string {
     },
   );
   return normalized;
+}
+
+function normalizeSingleUseTerminalLocalCopiesInFunction(funcText: string): string {
+  if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
+  let normalized = funcText;
+  while (true) {
+    const localRefCount = new Map<string, number>();
+    for (const match of normalized.matchAll(/\blocal\.(?:get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g)) {
+      localRefCount.set(match[1], (localRefCount.get(match[1]) ?? 0) + 1);
+    }
+    const next = normalized.replace(
+      /^(\s*)\(local\.set\s+(\$[A-Za-z0-9_.$-]+)\s*\n(\s*)\(local\.get\s+(\$[A-Za-z0-9_.$-]+)\s*\)\s*\n\s*\)\s*\n\1\(return\s*\n\s*\(local\.get\s+\2\s*\)\s*\n\s*\)/gm,
+      (full, indent: string, temp: string, childIndent: string, source: string) => {
+        if (temp === source || localRefCount.get(temp) !== 2) return full;
+        return `${indent}(return\n${childIndent}(local.get ${source})\n${indent})`;
+      },
+    );
+    if (next === normalized) return normalized;
+    normalized = next;
+  }
 }
 
 function collectCompleteWatExpression(lines: string[], startIndex: number): { exprLines: string[]; nextIndex: number } | null {
@@ -1784,6 +1911,43 @@ function normalizeEmptyConstIfDebris(wat: string): string {
   return output.join("\n");
 }
 
+function normalizeUntargetedVoidBlockShellsInFunction(funcText: string): string {
+  let normalized = funcText;
+  while (true) {
+    const lines = normalized.split("\n");
+    let changed = false;
+    for (let index = 0; index < lines.length; index += 1) {
+      const blockMatch = lines[index].match(/^(\s*)\(block\s+(\$label\$[A-Za-z0-9_.$-]+)\s*$/);
+      if (blockMatch === null) continue;
+      const labelPattern = new RegExp(escapeRegExp(blockMatch[2]), "g");
+      if ([...normalized.matchAll(labelPattern)].length !== 1) continue;
+      const block = collectCompleteWatExpression(lines, index);
+      if (block === null || block.exprLines.length < 2) continue;
+      const childIndent = `${blockMatch[1]} `;
+      const body = block.exprLines.slice(1, -1).map((line) =>
+        line.startsWith(childIndent) ? blockMatch[1] + line.slice(childIndent.length) : line
+      );
+      lines.splice(index, block.nextIndex - index, ...body);
+      normalized = lines.join("\n");
+      changed = true;
+      break;
+    }
+    if (!changed) return normalized;
+  }
+}
+
+function normalizeLabelNamesInFunction(funcText: string): string {
+  const labels: string[] = [];
+  for (const match of funcText.matchAll(/\$label\$[A-Za-z0-9_.$-]+/g)) {
+    if (!labels.includes(match[0])) labels.push(match[0]);
+  }
+  let normalized = funcText;
+  for (let index = 0; index < labels.length; index += 1) {
+    normalized = normalized.replaceAll(labels[index], `$label${index}`);
+  }
+  return normalized;
+}
+
 function normalizeUnusedLocalDeclarations(wat: string): string {
   const lines = wat.split("\n");
   const output: string[] = [];
@@ -1800,8 +1964,21 @@ function normalizeUnusedLocalDeclarations(wat: string): string {
       funcLines.push(lines[index]);
       balance += parenDelta(lines[index]);
     }
-    const normalizedCopies = normalizeSingleUseLocalCopyDropsInFunction(funcLines.join("\n"));
-    output.push(...normalizeLocalNamesInFunction(normalizeUnusedLocalDeclarationsInFunction(normalizedCopies)).split("\n"));
+    const normalizedCopies = normalizeSingleUseLocalCopyDropsInFunction(
+      normalizeSingleUseTerminalLocalCopiesInFunction(
+        normalizeSingleUseLocalForwardingInFunction(
+          normalizeSingleUseAdjacentProducerCopiesInFunction(funcLines.join("\n")),
+        ),
+      ),
+    );
+    const normalizedFunction = normalizeUntargetedVoidBlockShellsInFunction(normalizedCopies);
+    output.push(
+      ...normalizeLabelNamesInFunction(
+        normalizeLocalNamesInFunction(
+          normalizeUnusedLocalDeclarationsInFunction(normalizedFunction),
+        ),
+      ).split("\n"),
+    );
   }
   return output.join("\n");
 }

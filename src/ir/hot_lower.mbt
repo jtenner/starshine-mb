@@ -18,6 +18,7 @@ pub struct HotLowerOptions {
   preserve_nontrailing_nops : Bool
   preserve_trailing_nops : Bool
   preserve_typed_loop_const_prefix_spills : Bool
+  preserve_flat_ir_spills : Bool
 }
 
 ///|
@@ -27,6 +28,7 @@ pub fn HotLowerOptions::new(
   preserve_nontrailing_nops? : Bool = false,
   preserve_trailing_nops? : Bool = false,
   preserve_typed_loop_const_prefix_spills? : Bool = false,
+  preserve_flat_ir_spills? : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
@@ -34,6 +36,7 @@ pub fn HotLowerOptions::new(
     preserve_nontrailing_nops,
     preserve_trailing_nops,
     preserve_typed_loop_const_prefix_spills,
+    preserve_flat_ir_spills,
   }
 }
 
@@ -4586,13 +4589,21 @@ fn hot_lower_body_with_extras_unverified_with_options(
     )
   }
   let canonical = hot_lower_impl_canonicalize_body(out, options)
-  let stackified = hot_lower_impl_stackify_nested_body(
-    func, canonical, extra_locals,
-  )
-  let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
-  let stackified = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
-    func, stackified,
-  )
+  let stackified = if options.preserve_flat_ir_spills {
+    canonical
+  } else {
+    hot_lower_impl_stackify_nested_body(func, canonical, extra_locals)
+  }
+  let stackified = if options.preserve_flat_ir_spills {
+    stackified
+  } else {
+    hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
+  }
+  let stackified = if options.preserve_flat_ir_spills {
+    stackified
+  } else {
+    hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, stackified)
+  }
   let stackified = hot_lower_impl_prune_dead_local_tees(
     func, stackified, extra_locals, options,
   )

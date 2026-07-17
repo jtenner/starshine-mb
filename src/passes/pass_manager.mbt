@@ -56187,7 +56187,14 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
 fn run_hot_pipeline_lower_options_for_descriptor(
   descriptor_name : String,
 ) -> @ir.HotLowerOptions {
-  if descriptor_name == "ssa-nomerge" {
+  if descriptor_name == "flatten" {
+    @ir.HotLowerOptions::new(
+      preserve_if_arm_single_nops=true,
+      preserve_nontrailing_nops=true,
+      preserve_trailing_nops=true,
+      preserve_flat_ir_spills=true,
+    )
+  } else if descriptor_name == "ssa-nomerge" {
     @ir.HotLowerOptions::new(preserve_dead_local_tee_drops=true)
   } else if descriptor_name == "simplify-locals" ||
     descriptor_name == "simplify-locals-nostructure" ||
@@ -59794,6 +59801,7 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "pass:\{descriptor.name}",
   )
   let result = match descriptor.name {
+    "flatten" => flatten_run(ctx, func)
     "ssa" => ssa_full_run(ctx, func)
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "vacuum" =>
