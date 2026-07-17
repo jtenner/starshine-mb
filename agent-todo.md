@@ -75,7 +75,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ### [SL-FAMILY]001 - Implement and close every `SimplifyLocals` variant
 
-- **Status:** source inventory complete; full, no-structure, and no-tee/no-structure are active; no-tee and nonesting are not active.
+- **Status:** all five canonical variants are active from one policy engine; dedicated aggregate/leaf profiles now expose remaining parity and cleanup gaps.
 - **Goal:** implement all five Binaryen `version_130` public variants from one explicit policy engine and sign each one off independently.
 - **Source inventory:** `docs/wiki/raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md` and `docs/wiki/binaryen/passes/simplify-locals/transform-family-inventory.md`.
 - **Deliverables:**
@@ -87,7 +87,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [x] Prove nonesting permits flat copy retargeting and set-value sinks while rejecting representative ordinary `drop`/call nesting, tees, and structure synthesis; broaden the source-family matrix before closeout.
   - [ ] Requalify full, no-structure, and no-tee/no-structure against the same 35-family matrix.
   - [ ] Replace semantic dependence on broad raw/large-function skip gates with fact-based admission or narrow measured performance-only boundaries.
-  - [ ] Add a stable aggregate GenValid profile for each canonical variant, with family-specific leaves and `selected_profile` metadata.
+  - [x] Add a stable aggregate GenValid profile for each canonical variant, with shared family-specific leaves and `selected_profile` metadata; repair the exposed effect-order, flat-parent, structure-shape, and cleanup residuals before closeout.
   - [ ] Run the required four-lane closeout matrix and pass-local timing for all five variants.
   - [ ] Complete `[O4Z-SLNNS]001` direct/neighborhood and `[O4Z-NESTED]001` rerun proof using the signed shared implementation.
 - **Exit criteria:** all five canonical names are active, no source-owned family is unimplemented or unclassified, every required matrix is complete with zero true semantic mismatches, and retained boundaries are narrow, measured, and explicitly documented.

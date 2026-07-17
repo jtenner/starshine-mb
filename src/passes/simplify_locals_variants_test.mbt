@@ -18,7 +18,7 @@ test "simplify-locals-notee sinks single-use locals" {
 test "simplify-locals-notee does not create a sink tee for multi-use locals" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (result i32) (local i32) i32.const 1 local.set 0 local.get 0 drop local.get 0))",
+      "(module (func (param i32) (result i32) (local i32) local.get 0 i32.const 1 i32.add local.set 1 local.get 1 drop local.get 1))",
       ["simplify-locals-notee"],
     ) {
     Ok(mod_) => mod_
@@ -26,8 +26,8 @@ test "simplify-locals-notee does not create a sink tee for multi-use locals" {
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.tee"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
 }
 
 ///|

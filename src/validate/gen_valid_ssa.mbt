@@ -2094,6 +2094,10 @@ fn gen_valid_append_ssa_nomerge_body_slice(
   }
   if gen_valid_is_slns_straight_line_config(ctx.config) {
     gen_valid_append_slns_straight_line_body_slice(out, accepts)
+  } else if gen_valid_is_simplify_locals_structure_result_config(ctx.config) {
+    gen_valid_append_simplify_locals_structure_result_body_slice(out, accepts)
+  } else if gen_valid_is_simplify_locals_flat_parent_config(ctx.config) {
+    gen_valid_append_simplify_locals_flat_parent_body_slice(out, accepts)
   } else if gen_valid_is_slns_tee_control_config(ctx.config) {
     gen_valid_append_slns_tee_control_body_slice(out, accepts)
   } else if gen_valid_is_slns_effect_order_config(ctx.config) {
@@ -2109,8 +2113,23 @@ fn gen_valid_append_ssa_nomerge_body_slice(
 
 ///|
 fn gen_valid_is_slns_straight_line_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SimplifyLocalsLocalTrafficProfile) ||
   config ==
   GenValidConfig::for_profile(SimplifyLocalsNostructureStraightLineProfile)
+}
+
+///|
+fn gen_valid_is_simplify_locals_structure_result_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(SimplifyLocalsStructureResultProfile)
+}
+
+///|
+fn gen_valid_is_simplify_locals_flat_parent_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(SimplifyLocalsFlatParentProfile)
 }
 
 ///|
@@ -2121,6 +2140,8 @@ fn gen_valid_is_slns_tee_control_config(config : GenValidConfig) -> Bool {
 
 ///|
 fn gen_valid_is_slns_effect_order_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SimplifyLocalsEffectOrderProfile) ||
+  config == GenValidConfig::for_profile(SimplifyLocalsStressProfile) ||
   config ==
   GenValidConfig::for_profile(SimplifyLocalsNostructureEffectOrderProfile)
 }
@@ -2145,6 +2166,68 @@ fn gen_valid_append_slns_straight_line_body_slice(
   out.push(Instruction::local_tee(l1))
   out.push(Instruction::drop())
   out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_simplify_locals_structure_result_body_slice(
+  out : Array[Instruction],
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  // Positive structure-result family for the structure-enabled variants and a
+  // direct negative for both no-structure siblings.
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(61)), Instruction::local_set(l0)],
+      Some([Instruction::i32_const(I32(62)), Instruction::local_set(l0)]),
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::i32_const(I32(63)), Instruction::local_set(l1)]),
+    ),
+  )
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_simplify_locals_flat_parent_body_slice(
+  out : Array[Instruction],
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  // Copy retargeting plus the Binaryen nonesting parent-position split: the
+  // computed value may move into another local.set but not under drop.
+  out.push(Instruction::i32_const(I32(70)))
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::local_set(l1))
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(71)))
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::i32_add())
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::local_set(l1))
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(72)))
+  out.push(Instruction::i32_const(I32(2)))
+  out.push(Instruction::i32_add())
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
   out.push(Instruction::drop())
 }
 

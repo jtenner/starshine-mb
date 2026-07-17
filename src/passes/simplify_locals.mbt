@@ -168,6 +168,7 @@ priv struct SimplifyLocalsSinkables {
   local_write_counts : Array[Int]
   scratch_local_read_stamps : Array[Int]
   scratch_local_write_stamps : Array[Int]
+  cloned_const_nodes : Array[Bool]
   mut next_scratch_stamp : Int
 }
 
@@ -206,6 +207,7 @@ fn simplify_locals_new_sinkables(func : @ir.HotFunc) -> SimplifyLocalsSinkables 
     local_write_counts: Array::make(@ir.hot_local_count(func), 0),
     scratch_local_read_stamps: Array::make(@ir.hot_local_count(func), 0),
     scratch_local_write_stamps: Array::make(@ir.hot_local_count(func), 0),
+    cloned_const_nodes: Array::make(@ir.hot_node_count(func), false),
     next_scratch_stamp: 1,
   }
 }
@@ -2330,6 +2332,17 @@ fn simplify_locals_node_targets_label(
 }
 
 ///|
+fn simplify_locals_value_is_const(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const => true
+    _ => false
+  }
+}
+
+///|
 fn simplify_locals_value_can_clone_node(
   func : @ir.HotFunc,
   node_id : Int,
@@ -3358,6 +3371,22 @@ fn simplify_locals_scan_node(
                     @ir.hot_node_get(func, value_id),
                   )
                   detached.push(value_id)
+                } else if !policy.allow_sink_tee &&
+                  !one_use &&
+                  simplify_locals_value_is_const(func, value_id) {
+                  @ir.hot_replace_node(
+                    func,
+                    node_id,
+                    @ir.hot_node_get(func, value_id),
+                  )
+                  if get_counts[local_id] > 0 {
+                    get_counts[local_id] = get_counts[local_id] - 1
+                  }
+                  if node_id >= 0 &&
+                    node_id < sinkables.cloned_const_nodes.length() {
+                    sinkables.cloned_const_nodes[node_id] = true
+                  }
+                  return true
                 } else if policy.allow_sink_tee &&
                   !one_use &&
                   simplify_locals_value_can_tee(func, value_id) {
@@ -3400,6 +3429,12 @@ fn simplify_locals_scan_node(
       if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
         let child = @ir.hot_node_get(func, child_id)
         match child.op {
+          @ir.HotOp::Const if child_id < sinkables.cloned_const_nodes.length() &&
+            sinkables.cloned_const_nodes[child_id] => {
+            @ir.hot_replace_node(func, node_id, simplify_locals_make_nop(func))
+            detached.push(child_id)
+            changed = true
+          }
           @ir.HotOp::LocalTee => {
             let value_id = @ir.hot_child_get(func, child_id, 0)
             let preserves_control_owner = if value_id >= 0 &&

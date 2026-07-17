@@ -2250,7 +2250,7 @@ test "simplify-locals-nostructure avoids tees when the first use is dropped" {
 test "simplify-locals-notee-nostructure does not create tees for multi-use locals" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (result i32) (local i32) i32.const 7 local.set 0 local.get 0 local.get 0 i32.add))",
+      "(module (func (param i32) (result i32) (local i32) local.get 0 i32.const 7 i32.add local.set 1 local.get 1 local.get 1 i32.add))",
       ["simplify-locals-notee-nostructure"],
     ) {
     Ok(mod_) => mod_
@@ -2259,9 +2259,9 @@ test "simplify-locals-notee-nostructure does not create tees for multi-use local
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
-  assert_false(pretty.contains("local.tee (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
 }
 
 ///|

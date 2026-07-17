@@ -791,6 +791,15 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  SimplifyLocalsLocalTrafficProfile
+  SimplifyLocalsStructureResultProfile
+  SimplifyLocalsFlatParentProfile
+  SimplifyLocalsEffectOrderProfile
+  SimplifyLocalsStressProfile
+  SimplifyLocalsAllProfile
+  SimplifyLocalsNoteeAllProfile
+  SimplifyLocalsNoteeNostructureAllProfile
+  SimplifyLocalsNonestingAllProfile
   SimplifyLocalsNostructureStraightLineProfile
   SimplifyLocalsNostructureTeeControlProfile
   SimplifyLocalsNostructureEffectOrderProfile
@@ -1018,6 +1027,16 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
     SsaNomergeAllProfile => "ssa-nomerge-all"
+    SimplifyLocalsLocalTrafficProfile => "simplify-locals-local-traffic"
+    SimplifyLocalsStructureResultProfile => "simplify-locals-structure-result"
+    SimplifyLocalsFlatParentProfile => "simplify-locals-flat-parent"
+    SimplifyLocalsEffectOrderProfile => "simplify-locals-effect-order"
+    SimplifyLocalsStressProfile => "simplify-locals-stress"
+    SimplifyLocalsAllProfile => "simplify-locals-all"
+    SimplifyLocalsNoteeAllProfile => "simplify-locals-notee-all"
+    SimplifyLocalsNoteeNostructureAllProfile =>
+      "simplify-locals-notee-nostructure-all"
+    SimplifyLocalsNonestingAllProfile => "simplify-locals-nonesting-all"
     SimplifyLocalsNostructureStraightLineProfile =>
       "simplify-locals-nostructure-straight-line"
     SimplifyLocalsNostructureTeeControlProfile =>
@@ -1070,6 +1089,10 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | RemoveUnusedBrsAllProfile
     | DuplicateImportEliminationAllProfile
     | SsaNomergeAllProfile
+    | SimplifyLocalsAllProfile
+    | SimplifyLocalsNoteeAllProfile
+    | SimplifyLocalsNoteeNostructureAllProfile
+    | SimplifyLocalsNonestingAllProfile
     | SimplifyLocalsNostructureAllProfile
     | ReorderLocalsAllProfile
     | OptimizeCastsAllProfile
@@ -1256,6 +1279,38 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 2),
         GenValidProfileMember::new(SsaNomergeCoverageProfile, 2),
         GenValidProfileMember::new(SsaNomergeStressProfile, 1),
+      ]
+    SimplifyLocalsAllProfile =>
+      [
+        GenValidProfileMember::new(SimplifyLocalsLocalTrafficProfile, 3),
+        GenValidProfileMember::new(SimplifyLocalsStructureResultProfile, 3),
+        GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+      ]
+    SimplifyLocalsNoteeAllProfile =>
+      [
+        GenValidProfileMember::new(SimplifyLocalsLocalTrafficProfile, 3),
+        GenValidProfileMember::new(SimplifyLocalsStructureResultProfile, 3),
+        GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+      ]
+    SimplifyLocalsNoteeNostructureAllProfile =>
+      [
+        GenValidProfileMember::new(SimplifyLocalsLocalTrafficProfile, 3),
+        GenValidProfileMember::new(SimplifyLocalsStructureResultProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 3),
+        GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
+      ]
+    SimplifyLocalsNonestingAllProfile =>
+      [
+        GenValidProfileMember::new(SimplifyLocalsLocalTrafficProfile, 4),
+        GenValidProfileMember::new(SimplifyLocalsStructureResultProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsFlatParentProfile, 4),
+        GenValidProfileMember::new(SimplifyLocalsEffectOrderProfile, 2),
+        GenValidProfileMember::new(SimplifyLocalsStressProfile, 1),
       ]
     SimplifyLocalsNostructureAllProfile =>
       [
@@ -1543,6 +1598,15 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
     SsaNomergeAllProfile,
+    SimplifyLocalsLocalTrafficProfile,
+    SimplifyLocalsStructureResultProfile,
+    SimplifyLocalsFlatParentProfile,
+    SimplifyLocalsEffectOrderProfile,
+    SimplifyLocalsStressProfile,
+    SimplifyLocalsAllProfile,
+    SimplifyLocalsNoteeAllProfile,
+    SimplifyLocalsNoteeNostructureAllProfile,
+    SimplifyLocalsNonestingAllProfile,
     SimplifyLocalsNostructureStraightLineProfile,
     SimplifyLocalsNostructureTeeControlProfile,
     SimplifyLocalsNostructureEffectOrderProfile,
@@ -1689,6 +1753,20 @@ pub fn gen_valid_profile_by_name(
     "random-profiles" => Ok(RandomAllProfilesProfile)
     "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     "ssa-nomerge-closeout" => Ok(SsaNomergeAllProfile)
+    "simplify-locals"
+    | "simplify-locals-closeout"
+    | "simplify-locals-all-profiles" => Ok(SimplifyLocalsAllProfile)
+    "simplify-locals-notee"
+    | "simplify-locals-no-tee"
+    | "simplify-locals-notee-closeout" => Ok(SimplifyLocalsNoteeAllProfile)
+    "simplify-locals-notee-nostructure"
+    | "simplify-locals-no-tee-no-structure"
+    | "simplify-locals-notee-nostructure-closeout" =>
+      Ok(SimplifyLocalsNoteeNostructureAllProfile)
+    "simplify-locals-nonesting"
+    | "simplify-locals-no-nesting"
+    | "simplify-locals-nonesting-closeout" =>
+      Ok(SimplifyLocalsNonestingAllProfile)
     "simplify-locals-nostructure" => Ok(SimplifyLocalsNostructureAllProfile)
     "simplify-locals-nostructure-closeout" =>
       Ok(SimplifyLocalsNostructureAllProfile)
@@ -3048,6 +3126,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
     SsaNomergeAllProfile =>
       gen_valid_ssa_nomerge_profile_config(SsaNomergeCoverageProfile)
+    SimplifyLocalsLocalTrafficProfile
+    | SimplifyLocalsStructureResultProfile
+    | SimplifyLocalsFlatParentProfile
+    | SimplifyLocalsEffectOrderProfile
+    | SimplifyLocalsStressProfile => gen_valid_slns_profile_config(profile)
+    SimplifyLocalsAllProfile
+    | SimplifyLocalsNoteeAllProfile
+    | SimplifyLocalsNoteeNostructureAllProfile
+    | SimplifyLocalsNonestingAllProfile =>
+      gen_valid_slns_profile_config(SimplifyLocalsLocalTrafficProfile)
     SimplifyLocalsNostructureStraightLineProfile
     | SimplifyLocalsNostructureTeeControlProfile
     | SimplifyLocalsNostructureEffectOrderProfile =>
@@ -4489,6 +4577,150 @@ fn gen_valid_slns_profile_config(profile : GenValidProfile) -> GenValidConfig {
     allow_subtyping_topology: false,
   }
   match profile {
+    SimplifyLocalsLocalTrafficProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 2,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 3,
+        max_results: 1,
+        max_locals: 9,
+        max_body_statements: 20,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_calls: false,
+          allow_ref_types: false,
+          allow_branch_heavy_control: false,
+        },
+      }
+    SimplifyLocalsStructureResultProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 3,
+        max_imports: 0,
+        max_defined_funcs: 4,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 3,
+        max_results: 2,
+        max_locals: 12,
+        max_body_statements: 30,
+        max_body_depth: 6,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_calls: false,
+          allow_ref_types: false,
+          allow_branch_heavy_control: true,
+        },
+      }
+    SimplifyLocalsFlatParentProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 2,
+        max_imports: 0,
+        max_defined_funcs: 3,
+        max_tables: 0,
+        max_mems: 0,
+        max_globals: 0,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 0,
+        max_params: 2,
+        max_results: 1,
+        max_locals: 7,
+        max_body_statements: 16,
+        max_body_depth: 3,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_calls: false,
+          allow_ref_types: false,
+          allow_branch_heavy_control: false,
+        },
+      }
+    SimplifyLocalsEffectOrderProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 7,
+        max_imports: 2,
+        max_defined_funcs: 5,
+        max_tables: 0,
+        max_mems: 1,
+        max_globals: 2,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 1,
+        max_params: 3,
+        max_results: 1,
+        max_locals: 12,
+        max_body_statements: 32,
+        max_body_depth: 5,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: true,
+          allow_tables: false,
+          allow_mems: true,
+          allow_globals: true,
+          allow_tags: false,
+          allow_calls: true,
+          allow_ref_types: false,
+        },
+      }
+    SimplifyLocalsStressProfile =>
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 8,
+        max_imports: 2,
+        max_defined_funcs: 6,
+        max_tables: 0,
+        max_mems: 1,
+        max_globals: 3,
+        max_tags: 0,
+        max_elems: 0,
+        max_datas: 2,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 16,
+        max_body_statements: 48,
+        max_body_depth: 7,
+        features: GenValidFeatureToggles::{
+          ..common,
+          allow_imports: true,
+          allow_tables: false,
+          allow_mems: true,
+          allow_globals: true,
+          allow_tags: false,
+          allow_calls: true,
+          allow_ref_types: false,
+          allow_branch_heavy_control: true,
+        },
+      }
     SimplifyLocalsNostructureStraightLineProfile =>
       GenValidConfig::{
         ..base,
@@ -4552,11 +4784,11 @@ fn gen_valid_slns_profile_config(profile : GenValidProfile) -> GenValidConfig {
         max_type_defs: 6,
         max_imports: 2,
         max_defined_funcs: 4,
-        max_tables: 1,
+        max_tables: 0,
         max_mems: 1,
         max_globals: 2,
-        max_tags: 1,
-        max_elems: 1,
+        max_tags: 0,
+        max_elems: 0,
         max_datas: 1,
         max_params: 2,
         max_results: 1,
@@ -4566,12 +4798,12 @@ fn gen_valid_slns_profile_config(profile : GenValidProfile) -> GenValidConfig {
         features: GenValidFeatureToggles::{
           ..common,
           allow_imports: true,
-          allow_tables: true,
+          allow_tables: false,
           allow_mems: true,
           allow_globals: true,
-          allow_tags: true,
+          allow_tags: false,
           allow_calls: true,
-          allow_ref_types: true,
+          allow_ref_types: false,
         },
       }
     _ =>

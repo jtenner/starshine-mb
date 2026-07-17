@@ -1267,6 +1267,15 @@ pub enum GenValidProfile {
   SsaNomergeParityProfile
   SsaNomergeStressProfile
   SsaNomergeAllProfile
+  SimplifyLocalsLocalTrafficProfile
+  SimplifyLocalsStructureResultProfile
+  SimplifyLocalsFlatParentProfile
+  SimplifyLocalsEffectOrderProfile
+  SimplifyLocalsStressProfile
+  SimplifyLocalsAllProfile
+  SimplifyLocalsNoteeAllProfile
+  SimplifyLocalsNoteeNostructureAllProfile
+  SimplifyLocalsNonestingAllProfile
   SimplifyLocalsNostructureStraightLineProfile
   SimplifyLocalsNostructureTeeControlProfile
   SimplifyLocalsNostructureEffectOrderProfile

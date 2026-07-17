@@ -15979,7 +15979,7 @@ test "simplify-locals-nostructure gen-valid profiles resolve and emit local oppo
   )
   assert_true(effect_config.features.allow_mems)
   assert_true(effect_config.features.allow_globals)
-  assert_true(effect_config.features.allow_tables)
+  assert_false(effect_config.features.allow_tables)
   assert_true(effect_config.features.allow_calls)
 
   let generated = match
@@ -16006,6 +16006,80 @@ test "simplify-locals-nostructure gen-valid profiles resolve and emit local oppo
   )
   assert_true(effect_generated.facts.has_mems)
   assert_true(effect_generated.facts.has_ssa_straight_line_local_chain)
+}
+
+///|
+test "all SimplifyLocals variants resolve family-targeted aggregate profiles" {
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsLocalTrafficProfile),
+    "simplify-locals-local-traffic",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsStructureResultProfile),
+    "simplify-locals-structure-result",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsFlatParentProfile),
+    "simplify-locals-flat-parent",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsEffectOrderProfile),
+    "simplify-locals-effect-order",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SimplifyLocalsStressProfile),
+    "simplify-locals-stress",
+  )
+  match gen_valid_profile_by_name("simplify-locals") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SimplifyLocalsAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+    }
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("simplify-locals-notee") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SimplifyLocalsNoteeAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+    }
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("simplify-locals-nostructure") {
+    Ok(profile) =>
+      @debug.assert_eq(profile, SimplifyLocalsNostructureAllProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("simplify-locals-notee-nostructure") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SimplifyLocalsNoteeNostructureAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+    }
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("simplify-locals-nonesting") {
+    Ok(profile) => {
+      @debug.assert_eq(profile, SimplifyLocalsNonestingAllProfile)
+      assert_true(gen_valid_profile_is_composite(profile))
+      @debug.assert_eq(gen_valid_profile_members(profile).length(), 5)
+    }
+    Err(msg) => fail(msg)
+  }
+  let structure = GenValidConfig::for_profile(
+    SimplifyLocalsStructureResultProfile,
+  )
+  assert_true(structure.features.allow_branch_heavy_control)
+  assert_true(structure.features.allow_ssa_nomerge_body_generator)
+  assert_false(structure.features.allow_mems)
+  let flat = GenValidConfig::for_profile(SimplifyLocalsFlatParentProfile)
+  assert_true(flat.features.allow_ssa_nomerge_body_generator)
+  assert_false(flat.features.allow_calls)
+  let stress = GenValidConfig::for_profile(SimplifyLocalsStressProfile)
+  assert_true(stress.features.allow_mems)
+  assert_true(stress.features.allow_globals)
+  assert_true(stress.features.allow_calls)
 }
 
 ///|
