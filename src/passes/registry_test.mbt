@@ -77,6 +77,14 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   @debug.assert_eq(
+    pass_registry_category("simplify-locals-nonesting"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("simplify-locals-no-nesting"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  @debug.assert_eq(
     pass_registry_category("simplify-locals-nostructure"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -202,6 +210,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let oc = optimize_casts_descriptor()
   let locals = simplify_locals_descriptor()
   let locals_notee = simplify_locals_notee_descriptor()
+  let locals_nonesting = simplify_locals_nonesting_descriptor()
   let locals_nostructure = simplify_locals_nostructure_descriptor()
   let locals_notee_nostructure = simplify_locals_notee_nostructure_descriptor()
   let merge_blocks = merge_blocks_descriptor()
@@ -251,6 +260,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   @debug.assert_eq(@ir.hot_pass_requires(locals), [])
   @debug.assert_eq(locals_notee.name, "simplify-locals-notee")
   @debug.assert_eq(@ir.hot_pass_requires(locals_notee), [])
+  @debug.assert_eq(locals_nonesting.name, "simplify-locals-nonesting")
+  @debug.assert_eq(@ir.hot_pass_requires(locals_nonesting), [])
   @debug.assert_eq(locals_nostructure.name, "simplify-locals-nostructure")
   @debug.assert_eq(@ir.hot_pass_requires(locals_nostructure), [])
   @debug.assert_eq(

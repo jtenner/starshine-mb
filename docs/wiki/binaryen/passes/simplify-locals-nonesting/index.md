@@ -1,11 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+starshine_status: active
+last_reviewed: 2026-07-17
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
+  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
   - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
@@ -39,12 +41,12 @@ related:
 
 ## Role
 
-- `simplify-locals-nonesting` is a real public Binaryen pass.
-- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) under the alias `simplify-locals-no-nesting`.
-- It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
-- `agent-todo.md` currently has **no dedicated `simplify-locals-nonesting` or `simplify-locals-no-nesting` slice**.
-- A 2026-04-25 refresh added an immutable Binaryen primary-source manifest and a dedicated Starshine status page; a 2026-04-26 bridge added port-readiness sources plus a first-slice / validation page. The focused 2026-07-11 current-main recheck confirms the shared owner, public spelling, flatness wording, factory, and dedicated golden pair remain current; it found no behavior-bearing drift in those reviewed surfaces. Older note `0186` remains useful for mechanics but is superseded for raw-source provenance and local status.
-- Official Binaryen `pass.cpp` still describes it as a locals pass with **no nesting at all** that **preserves flatness**.
+- `simplify-locals-nonesting` is a real public Binaryen pass and now an **active Starshine hot pass**.
+- The canonical spelling and compatibility alias `simplify-locals-no-nesting` share `SimplifyLocalsPolicy(false, false, false)` in [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt).
+- Focused red-first tests prove flat copy retargeting, computed-value movement only into another `local.set`, preservation under `drop` and calls, no `if`-result synthesis, and alias behavior.
+- Starshine's HOT inline helpers now carry an explicit parent-position fact so non-copy expressions move only when the immediate consumer is a `local.set`; copy values remain eligible everywhere. This is the Binaryen-specific nonesting exception, not a broad skip gate.
+- The initial regular GenValid smoke compared `1000/1000` cases with `1000` normalized matches and zero failures or mismatches. Dedicated generation and final closeout remain open under `[SL-FAMILY]001`.
+- It is not part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
 
@@ -126,7 +128,7 @@ A dedicated folder was still justified because:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: removed local alias, upstream spelling gap, CLI/request rejection, no owner/backlog slice, active full-`simplify-locals` reuse surface, and the policy-mode boundaries a faithful port must preserve.
+  Active Starshine implementation map: spelling policy, shared policy engine, parent-position legality fact, tests, and remaining closeout.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge: spelling-policy first step, no-rewrite skeleton, flat-copy first slice, disabled tee/structure/nesting negatives, late-cleanup follow-up, and Binaryen `--simplify-locals-nonesting` oracle ladder.
 - [`./fuzzing.md`](./fuzzing.md)
@@ -135,11 +137,10 @@ A dedicated folder was still justified because:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `simplify-locals-nonesting` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
-- Keep the alias split explicit:
-  - upstream Binaryen: `simplify-locals-nonesting`
-  - local registry: `simplify-locals-no-nesting`
-- Keep [`fuzzing.md`](fuzzing.md) planned-only until an active local pass, harness admission, explicit Binaryen alias, and flatness-aware meaningful generator lane all exist.
+- Keep the canonical/alias split explicit:
+  - canonical upstream and Starshine name: `simplify-locals-nonesting`
+  - tested Starshine compatibility alias: `simplify-locals-no-nesting`
+- Do not mark [`fuzzing.md`](fuzzing.md) closed until the dedicated profile and required four-lane closeout are complete.
 - Keep the biggest correction explicit:
   - this variant is stricter than `simplify-locals-notee-nostructure` because it also forbids new nesting.
 

@@ -1,12 +1,13 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-17
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/passes/simplify_locals_variants_test.mbt
+  - ../../../../../src/validate/gen_valid.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -15,80 +16,94 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ../../../tooling/pass-fuzz-compare.md
+  - ../simplify-locals/transform-family-inventory.md
   - ../tracker.md
 ---
 
-# `simplify-locals-nonesting` Fuzzing Status
+# `simplify-locals-nonesting` fuzzing
 
-## Current status: planned only
+## Current status
 
-Do **not** run or advertise a `compare-pass --pass simplify-locals-nonesting` command as Starshine-vs-Binaryen parity evidence today.
+The direct compare lane is runnable.
 
-The spelling mismatch makes the current situation especially easy to misread:
+- canonical Starshine pass: `simplify-locals-nonesting`
+- compatibility alias: `simplify-locals-no-nesting`
+- Binaryen oracle flag: `--simplify-locals-nonesting`
+- harness alias mapping: active
+- dedicated aggregate profile: not yet implemented
+- final closeout: not yet complete
 
-- Binaryen's public pass spelling is `simplify-locals-nonesting`.
-- Starshine tracks only `simplify-locals-no-nesting`, and that local alias is **Removed** in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), not an active transform.
-- The harness's `SUPPORTED_PASS_FLAGS` set in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) admits neither spelling.
-- The harness has no local alias mapping to Binaryen's `--simplify-locals-nonesting` flag.
+## Initial smoke
 
-Consequently, `--pass simplify-locals-nonesting` is rejected by the harness before generation or either optimizer runs; `simplify-locals-no-nesting` would still be rejected by Starshine as removed if it reached the registry. Neither outcome is a smoke result, command-failure result, or parity comparison.
-
-Use this discovery command only to inspect the current admitted roster:
+After a fresh native release build, the regular GenValid lane ran:
 
 ```text
-bun fuzz compare-pass --list-passes
+bun fuzz compare-pass --pass simplify-locals-nonesting --count 1000 --seed 41000 \
+  --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/pass-fuzz-simplify-locals-nonesting-genvalid-1000-initial
 ```
 
-## Why the profile must be flatness-aware
+Result:
 
-This Binaryen variant is not simply “simplify locals with fewer rewrites.” Its defining contract is to preserve flatness: it must not create new tees, structure, or ordinary expression nesting while still performing allowed flat local-copy and cleanup work. See [`binaryen-strategy.md`](binaryen-strategy.md), [`flatness-variant-boundaries.md`](flatness-variant-boundaries.md), and [`wat-shapes.md`](wat-shapes.md).
+- compared: `1000/1000`;
+- normalized matches: `1000`;
+- compare-normalized matches: `0`;
+- mismatches: `0`;
+- validation failures: `0`;
+- property failures: `0`;
+- generator failures: `0`;
+- command failures: `0`.
 
-A generic valid-module lane cannot establish that boundary. Future generation must distinguish:
+This proves initial direct compatibility on the regular generator distribution. It does not prove the flatness-specific family matrix.
 
-- flat copy and local-set value-position positives;
-- sinks that would introduce nesting and must remain unchanged;
-- fresh-tee and structure-synthesis negatives;
-- late equivalent-copy and dead-set cleanup;
-- effects, traps, branches, and exception-handling barriers; and
-- `flatten -> simplify-locals-nonesting` interaction shapes without treating the sibling as `flatten` itself.
+## Why the dedicated profile must be flatness-aware
 
-## Before a runnable lane exists
+The profile must distinguish:
 
-A future implementation must pass all four [pass-eligibility gates](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight):
+- copy retargeting that adds no depth;
+- non-copy movement into a direct `local.set` value;
+- forbidden non-copy movement under `drop`, calls, arithmetic, select, returns, branch payloads, and control conditions;
+- fresh-tee and structure-result negatives;
+- equivalent-local and dead-write cleanup;
+- effect, trap, memory, global, table, atomic, and EH barriers;
+- explicit input tees versus lift-fused set/get traffic;
+- `flatten -> simplify-locals-nonesting` neighborhood shapes.
 
-1. add an active local implementation and dispatcher path rather than a removed-name rejection;
-2. decide and document the public local spelling (preserve `simplify-locals-no-nesting`, add upstream spelling, or support both);
-3. admit that spelling in `SUPPORTED_PASS_FLAGS` and map it explicitly to Binaryen `--simplify-locals-nonesting`; and
-4. add a flatness-aware generator/profile with a meaningful nonzero `--min-compared` threshold.
+A generic valid-module lane can miss these policy boundaries even when every case normalizes.
 
-Only then should the wiki publish a runnable 10,000-case command.
+## Required profile shape
 
-## Future command template
+Add one deterministic aggregate profile and leaf aliases grouped around the source-owned family inventory:
 
-This is a **future-only** template:
+1. `copy-retarget`;
+2. `set-value-parent`;
+3. `ordinary-consumer-negative`;
+4. `no-tee`;
+5. `no-structure`;
+6. `equivalent-and-dead-cleanup`;
+7. `effects-and-traps`;
+8. `control-and-eh`;
+9. `lift-fused-tee-boundary`;
+10. `stress`.
+
+Each leaf needs a meaningful nonzero compared-case threshold and direct profile tests proving the intended family is generated.
+
+## Final command template
+
+After the aggregate profile lands:
 
 ```text
 moon build --target native --release src/cmd
-bun fuzz compare-pass --pass <chosen-local-spelling> --count 10000 --seed 0x5eed \
-  --gen-valid-profile simplify-locals-nonesting-flat \
-  --out-dir .tmp/pass-fuzz-simplify-locals-nonesting --jobs auto \
+bun fuzz compare-pass --pass simplify-locals-nonesting --count 10000 --seed 0x5eed \
+  --gen-valid-profile simplify-locals-nonesting \
+  --out-dir .tmp/pass-fuzz-simplify-locals-nonesting-10000 --jobs auto \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --min-compared <meaningful-count>
+  --min-compared <profile-backed-threshold>
 ```
 
-The future run report must preserve the requested local spelling and verify the mapped Binaryen flag through `result.json`'s `binaryenPassFlags` field.
+Also run low-feature, trap/effect, and stress lanes. Add `--wasm-smith` only for the explicitly separate external-generator lane.
 
-## Required targeted tests before signoff
+## Classification rule
 
-| Case | Required assertion |
-| --- | --- |
-| Flat local-copy chain | Allowed retargeting preserves a flat shape. |
-| `local.set` value-position sink | A permitted flat sink remains available without creating nesting. |
-| Call/arithmetic/drop/branch operand sink | Remains unchanged when moving the value would create ordinary nesting. |
-| Multiple-use source | Does not introduce a fresh `local.tee`. |
-| Block/if/loop result opportunity | Does not synthesize structure or result carriers. |
-| Equivalent-copy and dead-set tail | Late cleanup still occurs where flatness permits it. |
-| Effect/trap/EH barrier | No movement changes execution order, trapping, or exceptional control flow. |
-| Local alias and upstream spelling | Unsupported requests fail honestly before landing; admitted spelling and Binaryen alias are asserted after landing. |
-
-A normalized match after these gates is pass-local evidence only. Keep raw bytes, names, diagnostics, and unexercised flatness-sensitive syntax under dedicated tests rather than treating generic canonical WAT equality as complete proof.
+Do not classify a mismatch as safe because both outputs validate or Starshine is smaller. Inspect the transform family and classify it as a Starshine win, parity gap, size-losing difference, unknown/risky difference, validation failure, tool failure, or true semantic mismatch. A retained output-shape difference requires source-backed semantics and measured benefit; otherwise align to Binaryen.

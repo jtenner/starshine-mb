@@ -3095,7 +3095,9 @@ fn run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
 ) -> Bool {
   descriptor_name == "simplify-locals-nostructure" ||
   descriptor_name == "simplify-locals-no-structure" ||
-  descriptor_name == "simplify-locals-notee-nostructure"
+  descriptor_name == "simplify-locals-notee-nostructure" ||
+  descriptor_name == "simplify-locals-nonesting" ||
+  descriptor_name == "simplify-locals-no-nesting"
 }
 
 ///|
@@ -54412,6 +54414,12 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   let refinalization_context = run_hot_pipeline_slns_lowered_refinalization_context_from_original(
     original_func,
   )
+  if descriptor_name == "simplify-locals-nonesting" ||
+    descriptor_name == "simplify-locals-no-nesting" {
+    return run_hot_pipeline_slns_lowered_canonicalize_no_normal_try_table_results_func(
+      func, descriptor_name, refinalization_context, mod_,
+    )
+  }
   let @lib.Func(_, @lib.Expr(body)) = func
   if run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
       descriptor_name, body,
@@ -59846,6 +59854,8 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "simplify-locals" => simplify_locals_run(ctx, func)
     "simplify-locals-notee" | "simplify-locals-no-tee" =>
       simplify_locals_notee_run(ctx, func)
+    "simplify-locals-nonesting" | "simplify-locals-no-nesting" =>
+      simplify_locals_nonesting_run(ctx, func)
     "simplify-locals-nostructure" | "simplify-locals-no-structure" =>
       simplify_locals_nostructure_run(ctx, func)
     "simplify-locals-notee-nostructure" =>

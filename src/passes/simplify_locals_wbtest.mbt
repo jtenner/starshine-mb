@@ -208,7 +208,7 @@ test "simplify-locals deferred follow-up records only scanned first-cycle sets" 
       true,
       simplify_locals_count_local_gets(func),
       detached,
-      true,
+      SimplifyLocalsPolicy::new(true, true, true),
       true,
       false,
       deferred_sets,

@@ -293,6 +293,10 @@ pub fn simplify_globals_optimizing_summary() -> String
 
 pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor
 
+pub fn simplify_locals_nonesting_descriptor() -> @ir.HotPassDescriptor
+
+pub fn simplify_locals_nonesting_summary() -> String
+
 pub fn simplify_locals_nostructure_descriptor() -> @ir.HotPassDescriptor
 
 pub fn simplify_locals_nostructure_exact_slot_passes() -> Array[String]

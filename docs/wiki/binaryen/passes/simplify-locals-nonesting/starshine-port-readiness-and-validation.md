@@ -1,16 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
   - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
   - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
-  - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
+  - ../../../../../src/passes/simplify_locals_variants_test.mbt
   - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -18,160 +19,102 @@ related:
   - ./flatness-variant-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../simplify-locals/index.md
-  - ../simplify-locals/starshine-hot-ir-strategy.md
-  - ../simplify-locals-notee-nostructure/index.md
-  - ../flatten/index.md
-  - ../dataflow-optimization/index.md
-  - ../souperify/index.md
+  - ../simplify-locals/transform-family-inventory.md
   - ../tracker.md
 ---
 
-# Starshine `simplify-locals-nonesting` port readiness and validation
+# Starshine `simplify-locals-nonesting` implementation and validation
 
-## Why this page exists
+## Implementation state
 
-The main dossier already explains what Binaryen does.
-The Starshine strategy page already says the pass is not implemented locally.
-This page fills the remaining implementation-readiness gap:
+The initial port is active.
 
-- what is the smallest honest local slice?
-- what must stay disabled so the sibling does not become full `simplify-locals`?
-- what tests and oracle lanes prove the flatness policy?
+- [x] Canonical `simplify-locals-nonesting` registry entry.
+- [x] Tested `simplify-locals-no-nesting` compatibility alias.
+- [x] Shared policy engine with tee, structure, and nesting disabled.
+- [x] Flat copy-chain retargeting.
+- [x] Non-copy movement into direct `local.set` value positions.
+- [x] Parent-position rejection for non-copy `drop` and call consumers.
+- [x] No structure-result synthesis.
+- [x] Harness admission and Binaryen alias normalization.
+- [x] Initial regular GenValid smoke.
+- [ ] Dedicated aggregate and leaf profiles.
+- [ ] Complete official-family fixture translation.
+- [ ] Four-lane and 10,000-case closeout.
+- [ ] Timing and neighborhood signoff.
 
-## Current hold point
+## Code surfaces
 
-Starshine currently treats this pass as a removed compatibility name, not an active pass.
-The state to preserve until implementation starts is:
+| Surface | Current implementation |
+| --- | --- |
+| Registry | Both names are active hot entries in `src/passes/optimize.mbt`; the compatibility alias is no longer removed. |
+| Dispatcher | Both names route to `simplify_locals_nonesting_run(...)`. |
+| Policy | `SimplifyLocalsPolicy::new(false, false, false)`. |
+| Sink legality | Copy values are eligible without added depth; non-copy values require a direct `local.set` parent-position fact. |
+| Structure | `simplify_locals_run_with_options(...)` does not execute structure rewrites. |
+| Tee creation | Multi-use sink-created tees are disabled. |
+| Lowered cleanup | The broader exact locals cleanup is skipped for this sibling so it cannot erase flat source carriers under ordinary consumers. |
+| Compare harness | Both names are accepted; the alias invokes Binaryen's canonical `--simplify-locals-nonesting`. |
 
-- upstream Binaryen spelling: `simplify-locals-nonesting`
-- current local spelling: `simplify-locals-no-nesting`
-- current local category: removed
-- current CLI behavior: rejected as an unknown executable pass flag by the command-layer category gate
-- current lower-level pipeline behavior: rejected as removed if it reaches `run_hot_pipeline_expand_passes(...)`
-- current owner: none
-- current preset role: none
+## Why the parent-position fact matters
 
-## Code surfaces a future port must touch deliberately
+Binaryen's `allowNesting = false` rule permits a special flat rewrite when the local read is already the direct child of a `local.set`. It also permits copy retargeting because replacing one `local.get` with another does not deepen the expression.
 
-| Surface | Code location | Why it matters |
-| --- | --- | --- |
-| Removed-name registry | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `pass_registry_removed_names()` | Proves the local alias exists only as `simplify-locals-no-nesting` today. |
-| Active registry entry shape | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `pass_registry_entries()` | A real port would need a hot-pass entry, likely using the upstream spelling and/or alias tests. |
-| Preset omission | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `optimize_preset_passes(...)` and `shrink_preset_passes(...)` | Prevents accidental scheduling before parity evidence exists. |
-| Removed-pass rejection | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `run_hot_pipeline_expand_passes(...)` | Gives the current explicit lower-level error path. |
-| CLI pass gate | [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt), `cmd_resolve_pipeline_steps(...)` | Keeps removed names from becoming executable CLI flags by accident. |
-| Hot dispatcher | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), `hot_pass_run(...)` | A new descriptor must dispatch to the correct policy mode. |
-| Full locals implementation | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), `simplify_locals_descriptor()` / `simplify_locals_run(...)` | Best landing zone, but currently owns the full pass, including behavior the nonesting sibling must disable. |
-| Structure rewrite phase | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), `simplify_locals_run_structure_rewrites(...)` | Must be gated off for `allowStructure = false`. |
-| Late equivalent/dead cleanup | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), late equivalent cleanup plus dead cleanup in `simplify_locals_run(...)` | Reusable later, but should follow after flatness-policy negatives are green. |
+Starshine represents that distinction explicitly in the HOT inline helpers. This avoids either bad extreme:
 
-## Recommended first slice
+- routing the pass to full SimplifyLocals and nesting computations under arbitrary consumers; or
+- using a broad fail-closed skip that loses valid flat copy and set-value rewrites.
 
-### Slice 0: registry honesty
+## Existing red-first tests
 
-Before any rewrite:
+The focused variant suite covers:
 
-- decide the spelling policy:
-  - add upstream `simplify-locals-nonesting`,
-  - keep local `simplify-locals-no-nesting`, or
-  - support both with one canonical descriptor;
-- add registry tests for the chosen names;
-- keep presets unchanged;
-- keep CLI behavior explicit while the pass is still removed or skeleton-only.
+- positive flat copy retargeting;
+- positive computed-value movement into another local set;
+- negative computed-value movement under `drop`;
+- negative computed-value movement into a call;
+- negative `if` result synthesis;
+- compatibility alias behavior.
 
-Exit criteria:
+Before registry and implementation changes, all six nonesting tests failed: five with an unknown canonical pass and one because the alias was removed. After implementation, the complete variant file passes `10/10`.
 
-- tests show exactly which names are accepted, rejected, hidden, or aliased;
-- docs and help do not imply the pass is active before it is.
+## Validation completed for the initial slice
 
-### Slice 1: no-rewrite policy skeleton
+- `moon info`: passed with existing unrelated warnings.
+- `moon fmt`: passed.
+- focused variant tests: `10/10`.
+- registry tests: `10/10`.
+- full `src/passes` suite: `5840/5840`.
+- native release build: passed.
+- regular GenValid smoke: `1000/1000` normalized matches, zero mismatches or failures.
 
-Add a policy-mode entry point beside the active full `simplify-locals` implementation.
-Model the Binaryen axes directly:
+Artifacts: `.tmp/pass-fuzz-simplify-locals-nonesting-genvalid-1000-initial`.
 
-- `allow_tee = false`
-- `allow_structure = false`
-- `allow_nesting = false`
+## Required remaining test families
 
-This skeleton should be able to run and report no changes before mutating logic is enabled.
+Add source-backed tests before final closeout for:
 
-Exit criteria:
+- multi-use non-copy temps that would require a tee;
+- arithmetic, branch-payload, return, select, and control-condition consumers;
+- copy retargeting through each allowed consumer family;
+- flat set-value rewrites separated by legal pure statements;
+- equivalent-local canonicalization without direct set removal;
+- dead-write cleanup after flat retargeting;
+- effect, trap, memory, global, table, atomic, and EH barriers;
+- loops, blocks, `if`, `try`, and `try_table` with structure synthesis disabled;
+- explicit input tees versus lift-fused set/get traffic;
+- nested rerun idempotence.
 
-- the pass can be requested in focused tests if the registry policy makes it active;
-- it does not change output;
-- validation after the pass remains green.
+## Oracle and closeout ladder
 
-### Slice 2: flat copy cleanup only
+1. Translate the official dedicated WAST/TXT families into focused local fixtures.
+2. Add a deterministic aggregate GenValid profile and family leaf profiles.
+3. Run regular, low-feature, trap/effect, and stress lanes with the fresh native binary.
+4. Repair mismatches by family; do not classify a difference as safe merely because both outputs validate.
+5. Run the final 10,000-case aggregate lane.
+6. Check `flatten -> simplify-locals-nonesting` and the documented DFO/Souperify neighborhood without scheduling this pass in a preset.
+7. Measure pass-local wall time against Binaryen.
 
-Implement the minimum useful Binaryen-positive families:
-
-1. `local.set $b (local.get $a)` followed by uses of `$b` can retarget to `$a` when that preserves flatness.
-2. A value may move into another `local.set` value position when the move does not create an ordinary nested consumer.
-3. Dead local writes exposed by those flat rewrites can be cleaned only if the cleanup does not require the disabled structure or tee families.
-
-Exit criteria:
-
-- dedicated positive tests cover flat copy-chain retargeting;
-- dedicated positive tests cover direct set-value rewriting;
-- no `local.tee` is introduced;
-- no block / `if` / loop result carrier is introduced;
-- no non-copy expression is moved under `drop`, call operands, arithmetic operands, branch payloads, or control conditions.
-
-### Slice 3: late cleanup reuse
-
-Only after Slice 2 is stable, reuse the late equivalent-local and dead-set cleanup families from the full pass.
-
-Exit criteria:
-
-- equivalent-copy cleanup works on flat local-copy classes;
-- dead-set cleanup removes only now-dead local shells;
-- the same negative fixtures still prove no fresh nesting, teeing, or structure synthesis.
-
-## Negative tests that should exist before mutating code
-
-Add these before enabling real rewrites:
-
-- multi-use non-copy temp that full `simplify-locals` could tee;
-- computed value consumed by `drop`;
-- computed value consumed by `call`;
-- computed value consumed by arithmetic;
-- computed value used as an `if` condition;
-- branch payload temp where inlining would create nested payload computation;
-- block / `if` / loop local-set patterns that full `simplify-locals` might convert to result carriers;
-- effectful producer followed by memory/global/table/atomic/EH barrier;
-- dangling-pop or EH-sensitive value shape if the local HOT surface can represent it.
-
-The core rule is simple: if the expected output contains a new non-copy expression under an ordinary consumer, the test should fail for this pass.
-
-## Binaryen oracle ladder
-
-Use Binaryen as an oracle in increasing scope:
-
-1. Run the official dedicated `test/passes/simplify-locals-nonesting.wast` shape family through Binaryen `--simplify-locals-nonesting` and a local focused fixture set.
-2. Compare local hand-written fixtures against Binaryen after normalizing nops and local names where the harness already supports that.
-3. Add a small `flatten -> simplify-locals-nonesting -> dfo`-style chain only after the local pass itself is green.
-4. Keep full `--simplify-locals`, `--simplify-locals-notee-nostructure`, and local active `simplify-locals` as contrast lanes, not as the oracle for this sibling.
-
-## What not to do
-
-Do not start by routing this name to the active full `simplify-locals` implementation.
-That would immediately violate the Binaryen contract because the active pass has structure rewrites and ordinary nested sinks that the nonesting variant must reject.
-
-Do not add the pass to `optimize` or `shrink` presets during the first port.
-The source-backed role is a flatten-neighbor / explicit-pipeline sibling, not part of the current Starshine no-DWARF preset.
-
-Do not hide the local spelling mismatch.
-The current repo says `simplify-locals-no-nesting`; the upstream pass says `simplify-locals-nonesting`.
-A faithful port should make that choice visible in tests.
-
-## Sources
-
-- [`../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md)
-- [`../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
-- [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-- [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
-- [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
+Final closeout requires zero validation, property, generator, and command failures, plus either normalized parity or source-backed measured justification for every remaining output-shape difference.

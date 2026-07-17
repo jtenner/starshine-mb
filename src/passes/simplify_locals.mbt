@@ -48,6 +48,37 @@ pub fn simplify_locals_notee_summary() -> String {
 }
 
 ///|
+pub fn simplify_locals_nonesting_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-nonesting", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+fn simplify_locals_nonesting_alias_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-no-nesting", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+pub fn simplify_locals_nonesting_summary() -> String {
+  "Run the flat SimplifyLocals variant: retarget copy traffic and clean dead locals without creating tees, control results, or ordinary new nesting."
+}
+
+///|
 pub fn simplify_locals_nostructure_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new("simplify-locals-nostructure", requires=[], invalidates=[
     @ir.HotAnalysis::cfg(),
@@ -2427,12 +2458,22 @@ fn simplify_locals_try_inline_local_get_child(
   node_id : Int,
   local_id : Int,
   replacement_id : Int,
+  allow_nesting : Bool,
   detached : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
+  let replacement_is_copy = match
+    simplify_locals_equivalent_local_get_value(func, replacement_id) {
+    Some(_) => true
+    None => false
+  }
+  let parent_is_local_set = match node.op {
+    @ir.HotOp::LocalSet => true
+    _ => false
+  }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     if (match node.op {
         @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 1
@@ -2447,13 +2488,16 @@ fn simplify_locals_try_inline_local_get_child(
     let child = @ir.hot_node_get(func, child_id)
     match child.op {
       @ir.HotOp::LocalGet if child.imm0 == local_id => {
+        if !allow_nesting && !replacement_is_copy && !parent_is_local_set {
+          return false
+        }
         @ir.hot_child_set(func, node_id, slot, replacement_id)
         detached.push(child_id)
         return true
       }
       _ =>
         if simplify_locals_try_inline_local_get_child(
-            func, child_id, local_id, replacement_id, detached,
+            func, child_id, local_id, replacement_id, allow_nesting, detached,
           ) {
           return true
         }
@@ -2468,12 +2512,22 @@ fn simplify_locals_try_inline_leading_local_get_child(
   node_id : Int,
   local_id : Int,
   replacement_id : Int,
+  allow_nesting : Bool,
   detached : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
   let node = @ir.hot_node_get(func, node_id)
+  let replacement_is_copy = match
+    simplify_locals_equivalent_local_get_value(func, replacement_id) {
+    Some(_) => true
+    None => false
+  }
+  let parent_is_local_set = match node.op {
+    @ir.HotOp::LocalSet => true
+    _ => false
+  }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     if (match node.op {
         @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 1
@@ -2489,13 +2543,16 @@ fn simplify_locals_try_inline_leading_local_get_child(
     match child.op {
       @ir.HotOp::Nop => continue
       @ir.HotOp::LocalGet if child.imm0 == local_id => {
+        if !allow_nesting && !replacement_is_copy && !parent_is_local_set {
+          return false
+        }
         @ir.hot_child_set(func, node_id, slot, replacement_id)
         detached.push(child_id)
         return true
       }
       _ =>
         return simplify_locals_try_inline_leading_local_get_child(
-          func, child_id, local_id, replacement_id, detached,
+          func, child_id, local_id, replacement_id, allow_nesting, detached,
         )
     }
   }
@@ -2509,6 +2566,7 @@ fn simplify_locals_try_inline_following_local_get(
   root_idx : Int,
   local_id : Int,
   replacement_id : Int,
+  allow_nesting : Bool,
   detached : Array[Int],
 ) -> Bool {
   let next_idx = match
@@ -2521,8 +2579,13 @@ fn simplify_locals_try_inline_following_local_get(
   let next_id = @ir.hot_region_get(func, parent_region, next_idx)
   if simplify_locals_value_is_child_inline_safe(func, replacement_id) {
     return simplify_locals_try_inline_local_get_child(
-      func, next_id, local_id, replacement_id, detached,
+      func, next_id, local_id, replacement_id, allow_nesting, detached,
     )
+  }
+  let replacement_is_copy = match
+    simplify_locals_equivalent_local_get_value(func, replacement_id) {
+    Some(_) => true
+    None => false
   }
   if next_id >= 0 && @ir.hot_node_is_live(func, next_id) {
     let next = @ir.hot_node_get(func, next_id)
@@ -2531,6 +2594,9 @@ fn simplify_locals_try_inline_following_local_get(
         replacement_id >= 0 &&
         @ir.hot_node_is_live(func, replacement_id) &&
         @ir.hot_node_result_arity(func, replacement_id) == 1 => {
+        if !allow_nesting && !replacement_is_copy {
+          return false
+        }
         @ir.hot_replace_node(
           func,
           next_id,
@@ -2543,7 +2609,7 @@ fn simplify_locals_try_inline_following_local_get(
     }
   }
   simplify_locals_try_inline_leading_local_get_child(
-    func, next_id, local_id, replacement_id, detached,
+    func, next_id, local_id, replacement_id, allow_nesting, detached,
   )
 }
 
@@ -2844,7 +2910,7 @@ fn simplify_locals_scan_region(
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
-  allow_tee : Bool,
+  policy : SimplifyLocalsPolicy,
   protect_control_embedded_local_tee : Bool,
   inside_control : Bool,
   deferred_sets : Array[Int],
@@ -2862,6 +2928,20 @@ fn simplify_locals_scan_region(
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    let flat_parent_is_local_set = if idx + 1 <
+      @ir.hot_region_root_count(func, region_ref) {
+      let next_id = @ir.hot_region_get(func, region_ref, idx + 1)
+      if next_id >= 0 && @ir.hot_node_is_live(func, next_id) {
+        match @ir.hot_node_get(func, next_id).op {
+          @ir.HotOp::LocalSet => true
+          _ => false
+        }
+      } else {
+        false
+      }
+    } else {
+      false
+    }
     if simplify_locals_scan_node(
         func,
         node_id,
@@ -2869,11 +2949,12 @@ fn simplify_locals_scan_region(
         first_cycle,
         get_counts,
         detached,
-        allow_tee,
+        policy,
         Some(region_ref),
         idx,
         protect_control_embedded_local_tee,
         inside_control,
+        flat_parent_is_local_set,
         deferred_sets,
       ) {
       changed = true
@@ -2989,11 +3070,12 @@ fn simplify_locals_scan_node(
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
-  allow_tee : Bool,
+  policy : SimplifyLocalsPolicy,
   parent_region : @ir.HotRegionRef?,
   root_idx : Int,
   protect_control_embedded_local_tee : Bool,
   inside_control : Bool,
+  flat_sink_parent_is_local_set : Bool,
   deferred_sets : Array[Int],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
@@ -3010,8 +3092,8 @@ fn simplify_locals_scan_node(
     @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       if simplify_locals_scan_region(
-          func, body_ref, sinkables, first_cycle, get_counts, detached, allow_tee,
-          protect_control_embedded_local_tee, true, deferred_sets,
+          func, body_ref, sinkables, first_cycle, get_counts, detached, policy, protect_control_embedded_local_tee,
+          true, deferred_sets,
         ) {
         changed = true
       }
@@ -3036,7 +3118,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
-          allow_tee,
+          policy,
           protect_control_embedded_local_tee,
           true,
           deferred_sets,
@@ -3055,11 +3137,12 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
-          allow_tee,
+          policy,
           None,
           -1,
           protect_control_embedded_local_tee,
           true,
+          false,
           deferred_sets,
         ) {
         changed = true
@@ -3073,7 +3156,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
-          allow_tee,
+          policy,
           protect_control_embedded_local_tee,
           true,
           deferred_sets,
@@ -3085,7 +3168,7 @@ fn simplify_locals_scan_node(
           let else_sinkables = simplify_locals_new_sinkables(func)
           if simplify_locals_scan_region(
               func, else_ref, else_sinkables, first_cycle, get_counts, detached,
-              allow_tee, protect_control_embedded_local_tee, true, deferred_sets,
+              policy, protect_control_embedded_local_tee, true, deferred_sets,
             ) {
             changed = true
           }
@@ -3108,7 +3191,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
-          allow_tee,
+          policy,
           protect_control_embedded_local_tee,
           true,
           deferred_sets,
@@ -3121,7 +3204,7 @@ fn simplify_locals_scan_node(
           let catch_sinkables = simplify_locals_new_sinkables(func)
           if simplify_locals_scan_region(
               func, catch_ref, catch_sinkables, first_cycle, get_counts, detached,
-              allow_tee, protect_control_embedded_local_tee, true, deferred_sets,
+              policy, protect_control_embedded_local_tee, true, deferred_sets,
             ) {
             changed = true
           }
@@ -3142,7 +3225,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
-          allow_tee,
+          policy,
           protect_control_embedded_local_tee,
           true,
           deferred_sets,
@@ -3158,7 +3241,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
-          allow_tee,
+          policy,
           protect_control_embedded_local_tee,
           true,
           deferred_sets,
@@ -3202,11 +3285,15 @@ fn simplify_locals_scan_node(
             first_cycle,
             get_counts,
             detached,
-            allow_tee,
+            policy,
             None,
             -1,
             protect_control_embedded_local_tee,
             inside_control,
+            match node.op {
+              @ir.HotOp::LocalSet => true
+              _ => false
+            },
             deferred_sets,
           ) {
           changed = true
@@ -3226,6 +3313,43 @@ fn simplify_locals_scan_node(
               @ir.HotOp::LocalSet => {
                 let value_id = @ir.hot_child_get(func, info.node_id, 0)
                 let one_use = first_cycle || get_counts[local_id] == 1
+                let pending_copy_local = simplify_locals_equivalent_local_get_value(
+                  func, value_id,
+                )
+                if !policy.allow_nesting &&
+                  pending_copy_local == None &&
+                  !flat_sink_parent_is_local_set {
+                  simplify_locals_sinkables_clear_local(sinkables, local_id)
+                  simplify_locals_invalidate_sinkables(
+                    func, node_id, current, sinkables,
+                  )
+                  return changed
+                }
+                if !policy.allow_nesting && !one_use {
+                  match pending_copy_local {
+                    Some(source_local) => {
+                      @ir.hot_replace_node(
+                        func,
+                        node_id,
+                        simplify_locals_make_local_get(func, source_local),
+                      )
+                      if source_local >= 0 && source_local < get_counts.length() {
+                        get_counts[source_local] = get_counts[source_local] + 1
+                      }
+                      if local_id >= 0 &&
+                        local_id < get_counts.length() &&
+                        get_counts[local_id] > 0 {
+                        get_counts[local_id] = get_counts[local_id] - 1
+                      }
+                      simplify_locals_sinkables_clear_local(sinkables, local_id)
+                      simplify_locals_invalidate_sinkables(
+                        func, node_id, current, sinkables,
+                      )
+                      return true
+                    }
+                    None => ()
+                  }
+                }
                 if one_use &&
                   simplify_locals_value_can_move_one_use(func, value_id) {
                   @ir.hot_replace_node(
@@ -3234,7 +3358,7 @@ fn simplify_locals_scan_node(
                     @ir.hot_node_get(func, value_id),
                   )
                   detached.push(value_id)
-                } else if allow_tee &&
+                } else if policy.allow_sink_tee &&
                   !one_use &&
                   simplify_locals_value_can_tee(func, value_id) {
                   @ir.hot_replace_node(
@@ -3328,6 +3452,7 @@ fn simplify_locals_scan_node(
                 root_idx,
                 current.imm0,
                 value_id,
+                policy.allow_nesting,
                 detached,
               ) {
               simplify_locals_invalidate_sinkables(
@@ -3795,6 +3920,7 @@ fn simplify_locals_try_rewrite_block_return(
               root_idx,
               candidate.local_id,
               node_id,
+              true,
               detached,
             )
           ) {
@@ -3833,6 +3959,7 @@ fn simplify_locals_try_rewrite_block_return(
             root_idx,
             candidate.local_id,
             node_id,
+            true,
             detached,
           )
         ) {
@@ -4817,7 +4944,7 @@ fn simplify_locals_run_main_cycle(
   func : @ir.HotFunc,
   first_cycle : Bool,
   detached : Array[Int],
-  allow_tee : Bool,
+  policy : SimplifyLocalsPolicy,
   protect_control_embedded_local_tee : Bool,
 ) -> (Bool, Bool) {
   let sinkables = simplify_locals_new_sinkables(func)
@@ -4843,7 +4970,7 @@ fn simplify_locals_run_main_cycle(
     first_cycle,
     get_counts,
     detached,
-    allow_tee,
+    policy,
     protect_control_embedded_local_tee,
     false,
     deferred_sets,
@@ -5405,12 +5532,7 @@ fn simplify_locals_run_with_options(
     )
     let main_detached : Array[Int] = []
     let (main_changed, has_deferred_main_cycle) = simplify_locals_run_main_cycle(
-      ctx,
-      func,
-      first_cycle,
-      main_detached,
-      policy.allow_sink_tee,
-      false,
+      ctx, func, first_cycle, main_detached, policy, false,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -6361,7 +6483,7 @@ fn simplify_locals_run_root_dead_cleanup(
 fn simplify_locals_run_control_embedded_tee_root_only(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  allow_tee : Bool,
+  policy : SimplifyLocalsPolicy,
 ) -> HotPassResult {
   pipeline_trace_hook(
     ctx.trace,
@@ -6374,7 +6496,7 @@ fn simplify_locals_run_control_embedded_tee_root_only(
   while true {
     let main_detached : Array[Int] = []
     let (main_changed, has_deferred_main_cycle) = simplify_locals_run_main_cycle(
-      ctx, func, first_cycle, main_detached, allow_tee, true,
+      ctx, func, first_cycle, main_detached, policy, true,
     )
     simplify_locals_delete_detached_nodes(func, main_detached)
 
@@ -6434,13 +6556,38 @@ fn simplify_locals_nostructure_run(
     return HotPassResult::unchanged()
   }
   if simplify_locals_has_control_embedded_local_tee(func) {
-    return simplify_locals_run_control_embedded_tee_root_only(ctx, func, true)
+    return simplify_locals_run_control_embedded_tee_root_only(
+      ctx,
+      func,
+      SimplifyLocalsPolicy::new(false, true, true),
+    )
   }
   simplify_locals_run_with_options(
     ctx,
     func,
     SimplifyLocalsPolicy::new(false, true, true),
   )
+}
+
+///|
+fn simplify_locals_nonesting_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  let policy = SimplifyLocalsPolicy::new(false, false, false)
+  if simplify_locals_should_skip_root_local_set_stack_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=root-local-set-stack-hazard-noop",
+    )
+    return HotPassResult::unchanged()
+  }
+  if simplify_locals_has_control_embedded_local_tee(func) {
+    return simplify_locals_run_control_embedded_tee_root_only(ctx, func, policy)
+  }
+  simplify_locals_run_with_options(ctx, func, policy)
 }
 
 ///|
@@ -6462,7 +6609,11 @@ fn simplify_locals_notee_nostructure_run(
     return HotPassResult::unchanged()
   }
   if simplify_locals_has_control_embedded_local_tee(func) {
-    return simplify_locals_run_control_embedded_tee_root_only(ctx, func, false)
+    return simplify_locals_run_control_embedded_tee_root_only(
+      ctx,
+      func,
+      SimplifyLocalsPolicy::new(false, false, true),
+    )
   }
   simplify_locals_run_with_options(
     ctx,

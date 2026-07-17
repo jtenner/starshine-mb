@@ -80,11 +80,11 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Source inventory:** `docs/wiki/raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md` and `docs/wiki/binaryen/passes/simplify-locals/transform-family-inventory.md`.
 - **Deliverables:**
   - [x] Inventory every source-owned rewrite/postcondition family and legality domain.
-  - [ ] Add a fact-based `allow_tee` / `allow_structure` / `allow_nesting` policy without adding redundant linear scans.
+  - [x] Add a fact-based `allow_tee` / `allow_structure` / `allow_nesting` policy without adding redundant linear scans.
   - [x] Activate canonical `simplify-locals-notee` plus the tested `simplify-locals-no-tee` compatibility alias.
-  - [ ] Activate canonical `simplify-locals-nonesting` plus an explicit compatibility spelling policy.
+  - [x] Activate canonical `simplify-locals-nonesting` plus the tested `simplify-locals-no-nesting` compatibility alias.
   - [ ] Prove no-tee still performs structure synthesis, including structure-required conditional-branch tees, while never creating a sink tee.
-  - [ ] Prove nonesting permits flat copy retargeting and set-value sinks while rejecting ordinary new nesting, tees, and structure synthesis.
+  - [x] Prove nonesting permits flat copy retargeting and set-value sinks while rejecting representative ordinary `drop`/call nesting, tees, and structure synthesis; broaden the source-family matrix before closeout.
   - [ ] Requalify full, no-structure, and no-tee/no-structure against the same 35-family matrix.
   - [ ] Replace semantic dependence on broad raw/large-function skip gates with fact-based admission or narrow measured performance-only boundaries.
   - [ ] Add a stable aggregate GenValid profile for each canonical variant, with family-specific leaves and `selected_profile` metadata.

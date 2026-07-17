@@ -265,6 +265,8 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--simplify-locals",
   "--simplify-locals-notee",
   "--simplify-locals-no-tee",
+  "--simplify-locals-nonesting",
+  "--simplify-locals-no-nesting",
   "--simplify-locals-nostructure",
   "--simplify-locals-no-structure",
   "--simplify-locals-notee-nostructure",
@@ -303,6 +305,7 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--global-struct-inference-desc-cast", "--gsi-desc-cast"],
   ["--redundant-set-elimination", "--rse"],
   ["--simplify-locals-no-tee", "--simplify-locals-notee"],
+  ["--simplify-locals-no-nesting", "--simplify-locals-nonesting"],
   ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);
 
