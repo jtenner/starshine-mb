@@ -1511,6 +1511,71 @@ fn simplify_locals_test_make_large_validator_structured_returning_const_fanout_r
 }
 
 ///|
+fn simplify_locals_test_make_structured_dead_tee_repro() -> String {
+  let repetitions = 64
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let target_local = i + 2
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then (drop (local.tee 100 (i32.const ")
+    next.write_string((3000 + i).to_string())
+    next.write_string("))) ")
+    if i % 2 == 0 {
+      next.write_string("(local.get 0)")
+    } else {
+      next.write_string("(i32.const ")
+      next.write_string((2000 + i).to_string())
+      next.write_string(")")
+    }
+    next.write_string(" (local.set ")
+    next.write_string(target_local.to_string())
+    next.write_string(") (local.get 0) (call 0) (local.get 0) (local.get ")
+    next.write_string(target_local.to_string())
+    next.write_string(") (call 1) drop (i32.const 1)) (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (import \"env\" \"touch\" (func (param i32)))\n")
+  out.write_string(
+    "  (import \"env\" \"sink\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 192 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "simplify-locals raw structured cleanup removes unread local.tee writes" {
+  let input = simplify_locals_test_make_structured_dead_tee_repro()
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw structured dead-tee cleanup success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.tee (Local 100)"), msg=pretty)
+}
+
+///|
 test "simplify-locals sinks a single-use local.set into the later get" {
   let optimized = match
     pass_test_run_pipeline(

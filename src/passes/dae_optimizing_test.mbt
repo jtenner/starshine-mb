@@ -15819,7 +15819,7 @@ fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
 }
 
 ///|
-test "dae-optimizing closes a broad dropped-result wrapper chain with bounded selected cleanup" {
+test "dae-optimizing converges selected cleanup after a broad dropped-result wrapper chain" {
   let source = dae_test_broad_dropped_result_payoff_chain_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
@@ -15828,7 +15828,7 @@ test "dae-optimizing closes a broad dropped-result wrapper chain with bounded se
   let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, 0)
   let @lib.Func(optimized_locals, _) = dae_test_defined_func(optimized, 0)
   @debug.assert_eq(plain_locals.length(), 128)
-  @debug.assert_eq(optimized_locals.length(), 1)
+  @debug.assert_eq(optimized_locals.length(), 0)
   let target = optimized.pretty_print_defined_func(0U)
   assert_true(target.contains("I32(77)"), msg=target)
   assert_true(target.contains("call (Func 0)"), msg=target)
@@ -15868,6 +15868,134 @@ fn dae_test_append_broad_dropped_result_payoff_target(
   out.write_string("    local.get ")
   out.write_string((copy_count - 1).to_string())
   out.write_string(")\n")
+}
+
+///|
+fn dae_test_broad_forwarded_dropped_result_chain_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $leaf (result i32) i32.const 7)\n")
+  out.write_string("  (func $forward (result i32) call $leaf return)\n")
+  out.write_string("  (func (export \"run\") call $forward drop)\n")
+  for dummy_idx = 3; dummy_idx < 1024; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing removes results forwarded only into dropped results" {
+  let optimized = dae_test_run(
+    dae_test_broad_forwarded_dropped_result_chain_module(),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
+}
+
+///|
+fn dae_test_broad_block_dropped_result_chain_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $leaf (result i32) i32.const 7)\n")
+  out.write_string(
+    "  (func (export \"run\") (block (result i32) call $leaf) drop)\n",
+  )
+  for dummy_idx = 2; dummy_idx < 1024; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing removes results produced only for dropped blocks" {
+  let optimized = dae_test_run(
+    dae_test_broad_block_dropped_result_chain_module(),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+}
+
+///|
+fn dae_test_broad_dropped_result_payoff_coalesce_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (import \"env\" \"source_i64\" (func $source_i64 (result i64)))\n  (import \"env\" \"source_i32\" (func $source_i32 (result i32)))\n  (import \"env\" \"touch\" (func $touch))\n  (import \"env\" \"sink_i64\" (func $sink_i64 (param i64)))\n  (import \"env\" \"sink_i32\" (func $sink_i32 (param i32)))\n",
+  )
+  out.write_string("  (func $target (result i32)\n    (local")
+  for local_idx = 0; local_idx < 129; local_idx = local_idx + 1 {
+    ignore(local_idx)
+    out.write_string(" i64")
+  }
+  for local_idx = 129; local_idx < 162; local_idx = local_idx + 1 {
+    ignore(local_idx)
+    out.write_string(" i32")
+  }
+  out.write_string(")\n")
+  for local_id = 129; local_id < 161; local_id = local_id + 1 {
+    out.write_string("    i32.const ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n    local.set ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n    block\n      local.get ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n      drop\n    end\n")
+  }
+  for local_id = 0; local_id < 129; local_id = local_id + 1 {
+    out.write_string("    call $source_i64\n    local.set ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n")
+  }
+  out.write_string("    call $source_i32\n    local.set 161\n    call $touch\n")
+  for local_id = 0; local_id < 129; local_id = local_id + 1 {
+    out.write_string("    local.get ")
+    out.write_string(local_id.to_string())
+    out.write_string("\n    call $sink_i64\n")
+  }
+  out.write_string(
+    "    local.get 161\n    call $sink_i32\n    local.get 161\n    call $sink_i32\n    local.get 161\n    call $sink_i32\n    i32.const 2\n    i32.const 48\n    call $slice\n    local.get 161)\n",
+  )
+  out.write_string(
+    "  (func $slice (param i32 i32)\n    local.get 0\n    call $sink_i32\n    local.get 1\n    call $sink_i32)\n",
+  )
+  out.write_string("  (func $wrapper (result i32) call $target)\n")
+  out.write_string("  (func (export \"run\") call $wrapper drop)\n")
+  for dummy_idx = 4; dummy_idx < 8193; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing coalesces and late-reorders selected payoff locals after result removal" {
+  let source = dae_test_broad_dropped_result_payoff_coalesce_module()
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(plain, 1).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, 0)
+  let @lib.Func(optimized_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(plain_locals.length(), 162)
+  let expected_types : Array[@lib.ValType] = [@lib.ValType::i32()]
+  for local_idx = 0; local_idx < 129; local_idx = local_idx + 1 {
+    ignore(local_idx)
+    expected_types.push(@lib.ValType::i64())
+  }
+  @debug.assert_eq(optimized_locals, @lib.Locals::from_types(expected_types))
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:payoff-final-reorder defs=[0] accepted_defs=1",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected late payoff reorder output to validate: \{err}")
+  }
 }
 
 ///|

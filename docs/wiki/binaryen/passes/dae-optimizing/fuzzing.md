@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-16
+last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1631-2026-07-17-daeo-func8429-payoff-convergence.md
   - ../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md
   - ../../../raw/research/1628-2026-07-16-daeo-unbounded-convergence-batching-checkpoint.md
   - ../../../raw/research/1627-2026-07-16-daeo-consumed-call-argument-slot-checkpoint.md
@@ -96,6 +97,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1631`](../../../raw/research/1631-2026-07-17-daeo-func8429-payoff-convergence.md) records the focused Func `8429` completion smokes with explicit native SHA-256 `6057190705590291c3deeca348a48276aa43d7bd9d2980bd3400152f9ba74122`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8429-final-converged-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8429-final-converged-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures, and Binaryen cache `1000/0`. These focused smokes accompany valid byte-identical first/second artifact outputs; they do not replace the required four-lane closeout matrix.
 
 Research note [`1629`](../../../raw/research/1629-2026-07-16-daeo-direct-gc-batch-performance.md) records post-fusion smoke evidence with native SHA-256 `ac02b98c3649966b5cacb8c6dbefebb36a4918839131a9ca5368ab84fea2ddb0`: dedicated `.tmp/pass-fuzz-daeo-fused-dedicated-1000-20260716` and regular `.tmp/pass-fuzz-daeo-fused-regular-1000-20260716` each compare and normalize `1000/1000` with zero mismatches or validation/generator/property/command failures and Binaryen cache `1000/0`. These are performance-slice smokes, not replacements for the note-1628 `10000`-case lanes or the required four-lane closeout matrix.
 

@@ -6761,12 +6761,97 @@ fn run_hot_pipeline_raw_simplify_locals_flatten_no_normal_result_blocks(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+          body, local_gets,
+        )
+        rewritten.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count += nested_rewrites
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+          body, local_gets,
+        )
+        rewritten.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count += nested_rewrites
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+          body, local_gets,
+        )
+        rewritten.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count += nested_rewrites
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+          then_body, local_gets,
+        )
+        let rewritten_else = match else_body {
+          Some(body) => {
+            let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+              body, local_gets,
+            )
+            rewrite_count += nested_rewrites
+            Some(rewritten_body)
+          }
+          None => None
+        }
+        rewritten.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+        rewrite_count += then_rewrites
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= 0 &&
+          local_id < local_gets.length() &&
+          local_gets[local_id] == 0 {
+          rewrite_count += 1
+        } else {
+          rewritten.push(instr)
+        }
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
+  total_local_count : Int,
 ) -> (Array[@lib.Instruction], Int) {
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    instrs, local_gets, local_sets, local_tees,
+  )
+  let (dead_tee_instrs, dead_tee_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unread_local_tees(
+    instrs, local_gets,
+  )
   let (dead_set_instrs, dead_set_rewrites) = run_hot_pipeline_raw_simplify_locals_remove_unreachable_dead_stack_sets(
-    instrs,
+    dead_tee_instrs,
   )
   let (call_tail_instrs, call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested_fixpoint(
     dead_set_instrs,
@@ -6782,6 +6867,7 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bound
   )
   (
     rewritten_instrs,
+    dead_tee_rewrites +
     dead_set_rewrites +
     call_tail_rewrites +
     pure_suffix_rewrites +
@@ -7854,8 +7940,13 @@ fn run_hot_pipeline_raw_simplify_locals(
       let env = run_hot_pipeline_raw_simplify_locals_func_env(
         mod_, func_idx, module_ctx, locals,
       )
+      let params = run_hot_pipeline_required_raw_func_params(
+        mod_, module_ctx, func_idx,
+      )
       let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_structured_copy_call_tails_bounded(
-        instrs, env,
+        instrs,
+        env,
+        params.length() + locals.length(),
       )
       if rewrite_count >= 16 {
         return Some({
@@ -60641,6 +60732,167 @@ fn run_hot_pipeline_dae_clone_cleanup_defs(
 }
 
 ///|
+fn run_hot_pipeline_dae_is_scalar_literal(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_) | @lib.I64Const(_) | @lib.F32Const(_) | @lib.F64Const(_) =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_collect_adjacent_literal_callees(
+  instrs : Array[@lib.Instruction],
+  imported : Int,
+  defined : Int,
+  callee_defs : Array[Int],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Call(func_idx) if idx > 0 &&
+        run_hot_pipeline_dae_is_scalar_literal(instrs[idx - 1]) => {
+        let def_idx = dae_func_idx_slot(func_idx) - imported
+        if def_idx >= 0 && def_idx < defined && !callee_defs.contains(def_idx) {
+          callee_defs.push(def_idx)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_collect_adjacent_literal_callees(
+          body, imported, defined, callee_defs,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_dae_collect_adjacent_literal_callees(
+          then_body, imported, defined, callee_defs,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_dae_collect_adjacent_literal_callees(
+              body, imported, defined, callee_defs,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
+  mod_ : @lib.Module,
+  payoff_defs : Array[Int],
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> (@lib.Module, Array[Bool], Bool) {
+  if payoff_defs.length() == 0 {
+    return (mod_, touched, false)
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, touched, false)
+  }
+  let caller_def = payoff_defs[0]
+  if caller_def < 0 || caller_def >= funcs.length() {
+    return (mod_, touched, false)
+  }
+  let imported = dae_imported_func_count(mod_)
+  let defined = funcs.length()
+  let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+  let callee_defs : Array[Int] = []
+  // Uniform scalar arguments in the selected payoff body appear immediately
+  // before their direct call in raw stack order. Prefilter on that source shape
+  // so the exact-literal verifier scans global callers only for plausible
+  // callees instead of probing every direct target in the giant function.
+  run_hot_pipeline_dae_collect_adjacent_literal_callees(
+    body, imported, defined, callee_defs,
+  )
+  if callee_defs.length() == 0 {
+    return (mod_, touched, false)
+  }
+  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
+  for callee_def in callee_defs {
+    let result = dae_try_rewrite_exact_literal_def_with_facts_once(
+      mod_, callee_def, call_facts,
+    )
+    if result.changed {
+      (options.trace)(
+        "pass[dae-optimizing]:payoff-direct-callee-exact-literal caller_def=\{caller_def} callee_def=\{callee_def}",
+      )
+      return (result.mod_out, dae_merge_touched(touched, result.touched), true)
+    }
+  }
+  (mod_, touched, false)
+}
+
+///|
+fn run_hot_pipeline_apply_dae_final_payoff_reorder(
+  mod_ : @lib.Module,
+  defs : Array[Int],
+  options : HotPipelineOptions,
+) -> @lib.Module {
+  if defs.length() == 0 {
+    return mod_
+  }
+  let mut current = mod_
+  let accepted_defs : Array[Int] = []
+  let mut out_of_range_count = 0
+  let mut apply_error_count = 0
+  let mut invalid_count = 0
+  let mut unchanged_count = 0
+  for def_idx in defs {
+    if accepted_defs.length() > 0 {
+      break
+    }
+    let def_count = dae_defined_func_count(current)
+    if def_idx < 0 || def_idx >= def_count {
+      out_of_range_count += 1
+      continue
+    }
+    let selected = Array::make(def_count, false)
+    selected[def_idx] = true
+    // `rl_rewrite_func` remaps nested instruction arrays in place. Clone the
+    // selected body before probing so validation or profitability rollback
+    // cannot alias-mutate the accepted post-finalization module.
+    let isolated = run_hot_pipeline_dae_clone_cleanup_defs(current, [def_idx])
+    let reordered = match
+      run_hot_pipeline_apply_reorder_locals_to_touched(isolated, selected) {
+      Ok(next) => next
+      Err(_) => {
+        apply_error_count += 1
+        continue
+      }
+    }
+    let (validated, valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      current, reordered, def_idx,
+    )
+    if !valid {
+      invalid_count += 1
+      continue
+    }
+    if validated == current {
+      unchanged_count += 1
+      continue
+    }
+    // The top payoff callee is the only final-order candidate. Public
+    // reorder-locals follows Binaryen's access-frequency/first-use policy; the
+    // artifact's raw pre-canonical body can grow while the canonical local
+    // immediates shrink, so encoded raw size is not a faithful acceptance gate
+    // for this last representation-only rewrite.
+    current = validated
+    accepted_defs.push(def_idx)
+  }
+  pipeline_trace_hook(
+    options.trace,
+    "dae-optimizing",
+    "payoff-final-reorder",
+    payload="defs=\{defs.to_string()} accepted_defs=\{accepted_defs.length()} out_of_range=\{out_of_range_count} apply_errors=\{apply_error_count} invalid=\{invalid_count} unchanged=\{unchanged_count}",
+  )
+  current
+}
+
+///|
 fn run_hot_pipeline_dae_remove_never_read_local_tees_with_counts(
   instrs : Array[@lib.Instruction],
   local_gets : Array[Int],
@@ -66673,10 +66925,108 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let payoff_cleanup_candidates = dae_collect_dropped_result_payoff_cleanup_candidates(
     mod_, core_mod,
   )
+  let payoff_final_reorder_defs : Array[Int] = []
+  for candidate in payoff_cleanup_candidates {
+    payoff_final_reorder_defs.push(candidate.callee_def)
+  }
+  let (payoff_literal_mod, payoff_literal_touched, payoff_literal_changed) = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
+    core_mod, payoff_final_reorder_defs, core_touched, options,
+  )
+  core_mod = payoff_literal_mod
+  core_touched = payoff_literal_touched
+  if payoff_literal_changed {
+    let post_literal_direct_gc = dae_try_apply_direct_gc_batch(core_mod)
+    if post_literal_direct_gc.changed {
+      core_mod = post_literal_direct_gc.mod_out
+      core_touched = dae_merge_touched(
+        core_touched,
+        post_literal_direct_gc.touched,
+      )
+      (options.trace)(
+        "pass[dae-optimizing]:payoff-post-literal-direct-gc primary_def=\{post_literal_direct_gc.primary_def}",
+      )
+    }
+    let post_literal_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
+      core_mod,
+      core_touched,
+      true,
+      options.trace,
+    )
+    core_mod = post_literal_adjacent.mod_out
+    core_touched = post_literal_adjacent.touched
+    match post_literal_adjacent.candidate {
+      Some(candidate) => {
+        let adjacent_touched = Array::make(
+          dae_defined_func_count(core_mod),
+          false,
+        )
+        adjacent_touched[candidate.first_def] = true
+        adjacent_touched[candidate.second_def] = true
+        for cleanup_pass in ["simplify-locals", "vacuum"] {
+          let descriptor = match
+            run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+            Ok(descriptor) => descriptor
+            Err(err) => return Err(err)
+          }
+          core_mod = match
+            run_hot_pipeline_apply_hot_pass_to_touched(
+              core_mod, descriptor, adjacent_touched, options,
+            ) {
+            Ok(next) => next
+            Err(err) =>
+              return Err(
+                "DAE payoff post-literal adjacent \{cleanup_pass} cleanup: \{err}",
+              )
+          }
+        }
+        core_mod = match
+          run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(core_mod, [
+            candidate.first_def,
+            candidate.second_def,
+          ]) {
+          Ok(next) => next
+          Err(err) =>
+            return Err(
+              "DAE payoff post-literal adjacent type-stable reorder-locals: \{err}",
+            )
+        }
+        (options.trace)(
+          "pass[dae-optimizing]:payoff-post-literal-adjacent root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff}",
+        )
+      }
+      None => ()
+    }
+  }
   if payoff_cleanup_candidates.length() > 0 {
     let cleanup_touched = Array::make(dae_defined_func_count(core_mod), false)
     for candidate in payoff_cleanup_candidates {
       cleanup_touched[candidate.callee_def] = true
+    }
+    for cleanup_round = 0; cleanup_round < 4; cleanup_round = cleanup_round + 1 {
+      for cleanup_pass in ["simplify-locals", "vacuum"] {
+        let descriptor = match
+          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
+          Ok(descriptor) => descriptor
+          Err(err) => return Err(err)
+        }
+        core_mod = match
+          run_hot_pipeline_apply_hot_pass_to_touched(
+            core_mod, descriptor, cleanup_touched, options,
+          ) {
+          Ok(next) => next
+          Err(err) =>
+            return Err(
+              "DAE dropped-result payoff-chain round=\{cleanup_round} \{cleanup_pass} cleanup: \{err}",
+            )
+        }
+      }
+    }
+    core_mod = match
+      run_hot_pipeline_apply_coalesce_locals_to_touched(
+        core_mod, cleanup_touched,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err("DAE payoff coalesce-locals: \{err}")
     }
     for cleanup_pass in ["simplify-locals", "vacuum"] {
       let descriptor = match
@@ -66691,7 +67041,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         Ok(next) => next
         Err(err) =>
           return Err(
-            "DAE dropped-result payoff-chain \{cleanup_pass} cleanup: \{err}",
+            "DAE dropped-result post-coalesce \{cleanup_pass} cleanup: \{err}",
           )
       }
     }
@@ -66756,7 +67106,14 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     "detail:dae:prune-unused-simple-func-types",
     prune_start_us,
   )
-  Ok(pruned)
+  // This selected payoff reorder is intentionally the last body mutation in
+  // DAEO. Earlier broad reorder probes were followed by cleanup that changed
+  // the access profile; here the highest-payoff finalized body is cloned and
+  // validated after all cleanup and type pruning, with no later body mutation.
+  let final_reordered = run_hot_pipeline_apply_dae_final_payoff_reorder(
+    pruned, payoff_final_reorder_defs, options,
+  )
+  Ok(final_reordered)
 }
 
 ///|

@@ -12428,6 +12428,16 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let void_callers : Array[Bool] = []
+  for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    let callee_abs = imported + def_idx
+    void_callers.push(
+      match dae_resolve_func_type(mod_, snapshot.type_indices, callee_abs) {
+        Some(@lib.FuncType(_, results)) => results.length() == 0
+        None => false
+      },
+    )
+  }
   let tail_boundary = dae_tail_call_boundary_evidence(funcs)
   if tail_boundary.blocks_result_removal {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -12443,7 +12453,7 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
       Some(candidate) => candidate
       None => continue
     }
-    if !candidate.owned_dropped_result_candidate ||
+    if !candidate.owned ||
       candidate.direct_call_count ==
       dae_count_self_calls(funcs[def_idx], callee_abs) {
       continue
@@ -12476,22 +12486,38 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
       rewritten_funcs.length(),
       Some(plan.direct_caller_defs),
     )
-    let current_evidence = dae_dropped_result_scope_direct_call_evidence(
+    let current_evidence = dae_dropped_result_scope_direct_call_evidence_with_void_returns(
       rewritten_funcs,
+      mod_.type_sec,
+      void_callers,
       scope,
       plan.callee_abs,
-      -1,
     )
     if current_evidence.direct_call_count != plan.direct_call_count ||
       current_evidence.dropped_direct_call_count != plan.direct_call_count ||
       current_evidence.has_live_undropped_direct_call {
       continue
     }
-    let rewritten_call_count = dae_rewrite_dropped_result_calls_in_scope(
-      rewritten_funcs,
-      scope,
-      plan.callee_abs,
-    )
+    let mut rewritten_call_count = 0
+    for caller_def in scope.caller_defs {
+      if caller_def >= 0 && caller_def < rewritten_funcs.length() {
+        let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[caller_def]
+        let (next_body, count) = dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+          caller_body,
+          plan.callee_abs,
+          mod_.type_sec,
+          caller_def < void_callers.length() && void_callers[caller_def],
+          true,
+        )
+        if count > 0 {
+          rewritten_funcs[caller_def] = @lib.Func::new(
+            caller_locals,
+            @lib.Expr::new(next_body),
+          )
+        }
+        rewritten_call_count += count
+      }
+    }
     if rewritten_call_count != plan.direct_call_count {
       continue
     }
@@ -13612,6 +13638,250 @@ fn dae_dropped_result_scope_direct_call_evidence(
     has_undropped_direct_call,
     has_live_undropped_direct_call,
   }
+}
+
+///|
+fn dae_instrs_end_in_direct_call(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Call(func_idx) => dae_func_idx_slot(func_idx) == callee_abs
+    _ => false
+  }
+}
+
+///|
+fn dae_void_caller_dropped_result_evidence_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  type_sec : @lib.TypeSec?,
+  caller_void : Bool,
+  allow_terminal : Bool,
+) -> DaeDroppedResultScopeDirectCallEvidence {
+  let mut direct_call_count = 0
+  let mut dropped_direct_call_count = 0
+  let mut has_live_undropped_direct_call = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        direct_call_count += 1
+        if (
+            idx + 1 < instrs.length() &&
+            instrs[idx + 1] == @lib.Instruction::drop()
+          ) ||
+          (
+            caller_void &&
+            idx + 1 < instrs.length() &&
+            instrs[idx + 1] == @lib.Instruction::return_()
+          ) ||
+          (caller_void && allow_terminal && idx + 1 == instrs.length()) {
+          dropped_direct_call_count += 1
+        } else {
+          has_live_undropped_direct_call = true
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let dropped_single_result_block = match
+          dae_control_block_type_signature_evidence_from_type_sec(
+            block_type, type_sec,
+          ) {
+          Some(signature) =>
+            signature.input_count == 0 &&
+            signature.output_count == 1 &&
+            idx + 1 < instrs.length() &&
+            instrs[idx + 1] == @lib.Instruction::drop() &&
+            dae_instrs_end_in_direct_call(body, callee_abs)
+          None => false
+        }
+        let nested = dae_void_caller_dropped_result_evidence_instrs(
+          body, callee_abs, type_sec, caller_void, dropped_single_result_block,
+        )
+        direct_call_count += nested.direct_call_count
+        dropped_direct_call_count += nested.dropped_direct_call_count
+        has_live_undropped_direct_call = has_live_undropped_direct_call ||
+          nested.has_live_undropped_direct_call
+      }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let nested = dae_void_caller_dropped_result_evidence_instrs(
+          body, callee_abs, type_sec, caller_void, false,
+        )
+        direct_call_count += nested.direct_call_count
+        dropped_direct_call_count += nested.dropped_direct_call_count
+        has_live_undropped_direct_call = has_live_undropped_direct_call ||
+          nested.has_live_undropped_direct_call
+      }
+      @lib.If(_, then_body, else_body) => {
+        let then_evidence = dae_void_caller_dropped_result_evidence_instrs(
+          then_body, callee_abs, type_sec, caller_void, false,
+        )
+        direct_call_count += then_evidence.direct_call_count
+        dropped_direct_call_count += then_evidence.dropped_direct_call_count
+        has_live_undropped_direct_call = has_live_undropped_direct_call ||
+          then_evidence.has_live_undropped_direct_call
+        match else_body {
+          Some(body) => {
+            let else_evidence = dae_void_caller_dropped_result_evidence_instrs(
+              body, callee_abs, type_sec, caller_void, false,
+            )
+            direct_call_count += else_evidence.direct_call_count
+            dropped_direct_call_count += else_evidence.dropped_direct_call_count
+            has_live_undropped_direct_call = has_live_undropped_direct_call ||
+              else_evidence.has_live_undropped_direct_call
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  {
+    direct_call_count,
+    dropped_direct_call_count,
+    has_direct_call: direct_call_count > 0,
+    has_undropped_direct_call: dropped_direct_call_count < direct_call_count,
+    has_live_undropped_direct_call,
+  }
+}
+
+///|
+fn dae_dropped_result_scope_direct_call_evidence_with_void_returns(
+  funcs : Array[@lib.Func],
+  type_sec : @lib.TypeSec?,
+  void_callers : Array[Bool],
+  scope : DaeDroppedResultScope,
+  callee_abs : Int,
+) -> DaeDroppedResultScopeDirectCallEvidence {
+  let mut result : DaeDroppedResultScopeDirectCallEvidence = {
+    direct_call_count: 0,
+    dropped_direct_call_count: 0,
+    has_direct_call: false,
+    has_undropped_direct_call: false,
+    has_live_undropped_direct_call: false,
+  }
+  for def_idx in scope.caller_defs {
+    if def_idx >= 0 && def_idx < funcs.length() {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+      let caller_void = def_idx < void_callers.length() && void_callers[def_idx]
+      let evidence = dae_void_caller_dropped_result_evidence_instrs(
+        body, callee_abs, type_sec, caller_void, true,
+      )
+      result = {
+        direct_call_count: result.direct_call_count + evidence.direct_call_count,
+        dropped_direct_call_count: result.dropped_direct_call_count +
+        evidence.dropped_direct_call_count,
+        has_direct_call: result.has_direct_call || evidence.has_direct_call,
+        has_undropped_direct_call: result.has_undropped_direct_call ||
+        evidence.has_undropped_direct_call,
+        has_live_undropped_direct_call: result.has_live_undropped_direct_call ||
+        evidence.has_live_undropped_direct_call,
+      }
+    }
+  }
+  result
+}
+
+///|
+fn dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  type_sec : @lib.TypeSec?,
+  caller_void : Bool,
+  allow_terminal : Bool,
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut rewrites = 0
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        out.push(instrs[idx])
+        if idx + 1 < instrs.length() &&
+          instrs[idx + 1] == @lib.Instruction::drop() {
+          rewrites += 1
+          idx += 2
+          continue
+        }
+        if caller_void &&
+          (
+            (
+              idx + 1 < instrs.length() &&
+              instrs[idx + 1] == @lib.Instruction::return_()
+            ) ||
+            (allow_terminal && idx + 1 == instrs.length())
+          ) {
+          rewrites += 1
+        }
+      }
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let dropped_single_result_block = match
+          dae_control_block_type_signature_evidence_from_type_sec(bt, type_sec) {
+          Some(signature) =>
+            signature.input_count == 0 &&
+            signature.output_count == 1 &&
+            idx + 1 < instrs.length() &&
+            instrs[idx + 1] == @lib.Instruction::drop() &&
+            dae_instrs_end_in_direct_call(body, callee_abs)
+          None => false
+        }
+        let (next, count) = dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+          body, callee_abs, type_sec, caller_void, dropped_single_result_block,
+        )
+        if dropped_single_result_block {
+          out.push(
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(next),
+            ),
+          )
+          idx += 2
+          rewrites += count
+          continue
+        }
+        out.push(@lib.Instruction::block(bt, @lib.Expr::new(next)))
+        rewrites += count
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (next, count) = dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+          body, callee_abs, type_sec, caller_void, false,
+        )
+        out.push(@lib.Instruction::loop_(bt, @lib.Expr::new(next)))
+        rewrites += count
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (next, count) = dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+          body, callee_abs, type_sec, caller_void, false,
+        )
+        out.push(@lib.Instruction::try_table(bt, catches, @lib.Expr::new(next)))
+        rewrites += count
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (next_then, then_count) = dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+          then_body, callee_abs, type_sec, caller_void, false,
+        )
+        let next_else = match else_body {
+          Some(body) => {
+            let (next, count) = dae_rewrite_dropped_result_calls_with_void_returns_instrs(
+              body, callee_abs, type_sec, caller_void, false,
+            )
+            rewrites += count
+            Some(next)
+          }
+          None => None
+        }
+        out.push(@lib.Instruction::if_(bt, next_then, next_else))
+        rewrites += then_count
+      }
+      _ => out.push(instrs[idx])
+    }
+    idx += 1
+  }
+  (out, rewrites)
 }
 
 ///|
