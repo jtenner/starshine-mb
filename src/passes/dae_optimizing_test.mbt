@@ -16064,28 +16064,46 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
     (
       #|)
       #|    local.get 0
+      #|    local.set 1
+      #|    i32.const 41
+      #|    drop
+      #|    i32.const 42
+      #|    drop
+      #|    i32.const 43
+      #|    drop
+      #|    i32.const 44
+      #|    drop
+      #|    i32.const 45
+      #|    drop
+      #|    i32.const 46
+      #|    drop
+      #|    i32.const 47
+      #|    drop
+      #|    local.get 1
+      #|    local.set 2
+      #|    local.get 2
       #|    call $leaf
       #|    drop
-      #|    local.get 0
+      #|    local.get 2
       #|    i64.const 9
-      #|    local.get 0
+      #|    local.get 2
       #|    call $touch
       #|    i64.const 10
-      #|    local.get 0
+      #|    local.get 2
       #|    call $sink
-      #|    local.get 0
+      #|    local.get 2
       #|    call $touch
       #|    i32.const 0
       #|    call $carrier
       #|    drop
       #|    i32.const 1
       #|    i64.const 11
-      #|    local.get 0
+      #|    local.get 2
       #|    call $touch
       #|    i64.const 12
-      #|    local.get 0
+      #|    local.get 2
       #|    call $sink
-      #|    local.get 0
+      #|    local.get 2
       #|    call $touch
       #|    i32.const 0
       #|    call $carrier)
@@ -16130,14 +16148,18 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   let carrier = optimized.pretty_print_defined_func(8193U)
   assert_false(carrier.contains("If"), msg=carrier)
   assert_false(carrier.contains("call (Func 1)"), msg=carrier)
+  let @lib.Func(plain_mid_locals, _) = dae_test_defined_func(plain, 8194)
+  @debug.assert_eq(plain_mid_locals.length(), 65)
   let mid = optimized.pretty_print_defined_func(8194U)
+  let @lib.Func(mid_locals, _) = dae_test_defined_func(optimized, 8194)
+  @debug.assert_eq(mid_locals.length(), 1, msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 1)") == 4, msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 2)") == 2, msg=mid)
   let normalize = optimized.pretty_print_defined_func(8195U)
   assert_false(normalize.contains("(local"), msg=normalize)
   assert_true(
     trace.any(fn(line) {
-      line.contains("productive_defs=[8195, 8194, 8193, 8192]")
+      line.contains("productive_defs=[8195, 8194, 8192, 8193]")
     }),
     msg=trace.to_string(),
   )

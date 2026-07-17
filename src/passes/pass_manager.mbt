@@ -60676,6 +60676,42 @@ fn run_hot_pipeline_dae_encoded_func_size(func : @lib.Func) -> Int? {
 }
 
 ///|
+fn run_hot_pipeline_dae_selected_func_encoded_not_larger(
+  current : @lib.Module,
+  candidate : @lib.Module,
+  def_idx : Int,
+) -> Bool? {
+  if current.type_sec != candidate.type_sec {
+    let current_size = run_hot_pipeline_dae_encoded_size(current)
+    let candidate_size = run_hot_pipeline_dae_encoded_size(candidate)
+    return match (current_size, candidate_size) {
+      (Some(before), Some(after)) => Some(after <= before)
+      _ => None
+    }
+  }
+  let current_func = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.get(def_idx)
+    None => None
+  }
+  let candidate_func = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.get(def_idx)
+    None => None
+  }
+  match (current_func, candidate_func) {
+    (Some(before), Some(after)) =>
+      match
+        (
+          run_hot_pipeline_dae_encoded_func_size(before),
+          run_hot_pipeline_dae_encoded_func_size(after),
+        ) {
+        (Some(before_size), Some(after_size)) => Some(after_size <= before_size)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
   current : @lib.Module,
   candidate : @lib.Module,
@@ -62035,6 +62071,52 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> (@lib.Module, Int) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, 0)
+  }
+  let func = match funcs.get(def_idx) {
+    Some(func) => func
+    None => return (mod_, 0)
+  }
+  let func_idx = @lib.FuncIdx::new(
+    (dae_imported_func_count(mod_) + def_idx).reinterpret_as_uint(),
+  )
+  let params = match
+    run_hot_pipeline_defined_func_params_from_sections(mod_, func_idx) {
+    Some(params) => params
+    None => return (mod_, 0)
+  }
+  // Reuse coalesce-locals' conservative linear fallback directly. It keeps
+  // read locals distinct except for exact same-typed one-set/one-get/no-tee
+  // copy-through chains with no early destination access or intervening
+  // structured/terminal boundary, and it shares only same-typed body locals
+  // that are written but never read. Unlike dense structured coloring, this
+  // stays bounded and does not recolor unrelated live locals in the large body.
+  let rewrite = cl_rewrite_loop_func_unused_locals(func, params)
+  if !rewrite.changed {
+    return (mod_, 0)
+  }
+  let @lib.Func(locals, _) = func
+  let @lib.Func(rewritten_locals, _) = rewrite.func
+  let next_funcs = funcs.copy()
+  next_funcs[def_idx] = rewrite.func
+  let removed = if rewritten_locals.length() < locals.length() {
+    locals.length() - rewritten_locals.length()
+  } else {
+    0
+  }
+  (
+    mod_.with_code_sec(@lib.CodeSec::new(next_funcs)).without_name_sec(),
+    removed,
+  )
+}
+
+///|
 fn run_hot_pipeline_dae_broad_high_dead_write_cleanup(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -62450,6 +62532,16 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
         cleanup_local_count > 64 ||
         (cleanup_local_count == 0 && cleanup_instr_count <= 16)
       ) {
+      // Binaryen's filtered optimizeAfterInlining replay includes
+      // coalesce-locals before its later local cleanup. Apply only the exact
+      // conservative linear subset here: the full structured coloring probe was
+      // size-losing on Func 8185, while exact copy-through and unread-scratch
+      // packing stay bounded and leave unrelated live local slots untouched.
+      let (next, coalesced_count) = run_hot_pipeline_dae_broad_high_coalesce_linear_subset(
+        cleanup_current, cleanup_def,
+      )
+      cleanup_current = next
+      def_structural_cleanup_count += coalesced_count
       let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
         cleanup_current, cleanup_def,
       )
@@ -62479,7 +62571,18 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
       } else {
         false
       }
-      if smaller {
+      let non_growing_coalesced = if valid && coalesced_count > 0 {
+        match
+          run_hot_pipeline_dae_selected_func_encoded_not_larger(
+            cleanup_baseline, validated, cleanup_def,
+          ) {
+          Some(true) => true
+          _ => false
+        }
+      } else {
+        false
+      }
+      if smaller || non_growing_coalesced {
         current = validated
         cleanup_defs.push(cleanup_def)
         removed_dead_tee_count += def_removed_dead_tee_count
