@@ -3,6 +3,7 @@ kind: concept
 status: working
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -162,16 +163,22 @@ The practical meaning is:
 
 ## Writeback and validation guards are part of the current contract
 
-`src/passes/pass_manager.mbt` also keeps pass-specific post-lowering safeguards for DCE.
-The `descriptor_name == "dead-code-elimination"` branch checks for:
+`src/passes/pass_manager.mbt` also keeps pass-specific post-lowering safeguards for DCE. The current path:
 
-- invalid escape carriers
-- suspicious escape carriers
-- local-count blowups
-- writeback validation errors
+- preserves original-function suspicious-carrier and large-local guards;
+- preserves changed-candidate invalid-escape-carrier and local-limit guards;
+- defers only per-function validation;
+- validates the final changed-function batch against the candidate module context;
+- restores invalid candidates independently;
+- falls back to the old per-function path if batch validation fails.
 
-That matters because several historically visible failures surfaced during DCE replay even when the root cause was a HOT/writeback interaction rather than a pure pass-local semantic mismatch.
-For current Starshine, those guard rails are part of the honest strategy story.
+Research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) also records three external-validator safety lessons that the internal batch validator did not fully enforce:
+
+- branch-depth-aware fallthrough must treat a self-targeting branch as completing its result block;
+- multivalue control results immediately drained into local carriers remain fail-closed;
+- a DCE result of `changed=false` must preserve the original function instead of accepting incidental HOT lowering drift, except for the explicit tested dead-drop-after-nonfallthrough repair.
+
+That matters because several historically visible failures surfaced during DCE replay even when the root cause was a HOT/writeback interaction rather than a pure pass-local semantic mismatch. For current Starshine, those guard rails are part of the honest strategy story.
 
 ## Current proof surface in this repository
 

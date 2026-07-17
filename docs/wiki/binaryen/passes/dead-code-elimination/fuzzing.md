@@ -3,6 +3,7 @@ kind: workflow
 status: strong
 last_reviewed: 2026-07-11
 sources:
+  - ../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
@@ -236,5 +237,7 @@ bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass dead-code-e
 ```
 
 Result: compared 100000/100000 with 0 raw normalized matches, 100000 cleanup-normalized matches, zero mismatches, zero validation/generator/property/command failures, `maxFailuresHit=false`, and cache counters wasm-smith 0/0, Binaryen 10334/89666, Binaryen failures 0/0. The local oracle was `wasm-opt version 130 (version_130)`. Agent classification: this is the same documented direct DCE cleanup family already inspected at count 10000—Binaryen-retained no-op/local/pure-result debris normalized by `local-cleanup-debris`; no new mismatch or failure family appeared.
+
+The 2026-07-17 current-artifact batch/validity slice in research note [`1648`](../../../raw/research/1648-2026-07-17-dce-batch-writeback-and-shrink-vacuum-attribution.md) reran the two lanes required for that performance/correctness change with a fresh explicit native binary and Binaryen v130. Regular GenValid with `local-cleanup-debris` compared `10000/10000` with `10000` normalized matches and zero failures/mismatches. Dedicated `dead-code-elimination-all` compared `10000/10000` with `7513` normalized matches and the exact established `2487` measured Starshine-win mismatches: `842` branch-payload-forwarder, `825` structured-prefix, and `820` effectful-structured-prefix; all `809` split-local-set-wrapper cases still matched. No new family, validation failure, or semantic mismatch appeared.
 
 Future full pass closeout reruns, if required after new DCE changes, should use the repo-standard pass matrix with the DCE-specific cleanup normalizer on the regular and broad lanes. Use `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`; a concurrently present `target/native/...` artifact needs explicit freshness verification before it can be used for signoff.
