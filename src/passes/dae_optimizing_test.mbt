@@ -16081,6 +16081,30 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
       #|      local.get 65
       #|    end
       #|    drop
+      #|    i32.const 81
+      #|    local.set 3
+      #|    i32.const 82
+      #|    local.set 4
+      #|    i32.const 83
+      #|    local.set 5
+      #|    local.get 3
+      #|    local.set 8
+      #|    local.get 4
+      #|    local.set 7
+      #|    local.get 5
+      #|    local.set 6
+      #|    local.get 8
+      #|    local.set 9
+      #|    local.get 7
+      #|    local.set 10
+      #|    local.get 6
+      #|    local.set 11
+      #|    local.get 9
+      #|    call $sink
+      #|    local.get 10
+      #|    call $sink
+      #|    local.get 11
+      #|    call $sink
       #|    local.get 0
       #|    local.set 1
       #|    i32.const 41
@@ -16176,7 +16200,10 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   assert_false(mid.contains("unreachable"), msg=mid)
   assert_false(mid.contains("nop"), msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 1)") == 5, msg=mid)
-  assert_true(dae_test_count_substring(mid, "call (Func 2)") == 2, msg=mid)
+  assert_true(dae_test_count_substring(mid, "call (Func 2)") == 5, msg=mid)
+  assert_true(mid.contains("I32(81)"), msg=mid)
+  assert_true(mid.contains("I32(82)"), msg=mid)
+  assert_true(mid.contains("I32(83)"), msg=mid)
   let normalize = optimized.pretty_print_defined_func(8195U)
   assert_false(normalize.contains("(local"), msg=normalize)
   assert_true(

@@ -62169,6 +62169,202 @@ fn run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
 }
 
 ///|
+fn run_hot_pipeline_dae_copy_retarget_is_control_boundary(
+  instr : @lib.Instruction,
+) -> Bool {
+  if run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
+    run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr) {
+    return true
+  }
+  match instr {
+    @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_retarget_copy_producers_once(
+  instrs : Array[@lib.Instruction],
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Bool) {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let nested = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_retarget_copy_producers_once(
+          body, local_types, param_count, local_gets, local_sets, local_tees,
+        )
+        if changed {
+          Some(@lib.Instruction::block(block_type, @lib.Expr::new(next_body)))
+        } else {
+          None
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_retarget_copy_producers_once(
+          body, local_types, param_count, local_gets, local_sets, local_tees,
+        )
+        if changed {
+          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)))
+        } else {
+          None
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_retarget_copy_producers_once(
+          body, local_types, param_count, local_gets, local_sets, local_tees,
+        )
+        if changed {
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+          )
+        } else {
+          None
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_dae_retarget_copy_producers_once(
+          then_body, local_types, param_count, local_gets, local_sets, local_tees,
+        )
+        if then_changed {
+          Some(@lib.Instruction::if_(block_type, next_then, else_body))
+        } else {
+          match else_body {
+            Some(body) => {
+              let (next_body, else_changed) = run_hot_pipeline_dae_retarget_copy_producers_once(
+                body, local_types, param_count, local_gets, local_sets, local_tees,
+              )
+              if else_changed {
+                Some(
+                  @lib.Instruction::if_(block_type, then_body, Some(next_body)),
+                )
+              } else {
+                None
+              }
+            }
+            None => None
+          }
+        }
+      }
+      _ => None
+    }
+    match nested {
+      Some(rewritten_instr) => {
+        let rewritten = instrs.copy()
+        rewritten[idx] = rewritten_instr
+        return (rewritten, true)
+      }
+      None => ()
+    }
+  }
+  let mut copy_idx = 0
+  while copy_idx + 1 < instrs.length() {
+    match (instrs[copy_idx], instrs[copy_idx + 1]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(source_raw)),
+        @lib.LocalSet(@lib.LocalIdx(destination_raw)),
+      ) => {
+        let source = source_raw.reinterpret_as_int()
+        let destination = destination_raw.reinterpret_as_int()
+        if source >= param_count &&
+          destination >= param_count &&
+          source >= 0 &&
+          destination >= 0 &&
+          source != destination &&
+          source < local_types.length() &&
+          destination < local_types.length() &&
+          source < local_gets.length() &&
+          source < local_sets.length() &&
+          source < local_tees.length() &&
+          local_types[source] == local_types[destination] &&
+          local_gets[source] == 1 &&
+          local_sets[source] == 1 &&
+          local_tees[source] == 0 {
+          let mut producer_idx = copy_idx - 1
+          let mut blocked = false
+          while producer_idx >= 0 {
+            let candidate = instrs[producer_idx]
+            if run_hot_pipeline_dae_copy_retarget_is_control_boundary(candidate) {
+              blocked = true
+              break
+            }
+            match candidate {
+              @lib.LocalSet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() ==
+                source => break
+              _ =>
+                if dae_instr_references_local(
+                    candidate,
+                    @lib.LocalIdx::new(destination.reinterpret_as_uint()),
+                  ) {
+                  blocked = true
+                  break
+                }
+            }
+            producer_idx -= 1
+          }
+          if !blocked && producer_idx >= 0 {
+            let rewritten : Array[@lib.Instruction] = []
+            for idx = 0; idx < instrs.length(); idx = idx + 1 {
+              if idx == producer_idx {
+                rewritten.push(
+                  @lib.Instruction::local_set(
+                    @lib.LocalIdx::new(destination.reinterpret_as_uint()),
+                  ),
+                )
+              } else if idx != copy_idx && idx != copy_idx + 1 {
+                rewritten.push(instrs[idx])
+              }
+            }
+            return (rewritten, true)
+          }
+        }
+      }
+      _ => ()
+    }
+    copy_idx += 1
+  }
+  (instrs, false)
+}
+
+///|
+fn run_hot_pipeline_dae_retarget_copy_producers_instrs(
+  instrs : Array[@lib.Instruction],
+  local_types : Array[@lib.ValType],
+  param_count? : Int = 0,
+) -> (Array[@lib.Instruction], Int) {
+  let mut current = instrs
+  let mut rewrite_count = 0
+  let max_rounds = local_types.length()
+  while rewrite_count < max_rounds {
+    let local_gets : Array[Int] = Array::make(local_types.length(), 0)
+    let local_sets : Array[Int] = Array::make(local_types.length(), 0)
+    let local_tees : Array[Int] = Array::make(local_types.length(), 0)
+    run_hot_pipeline_raw_collect_local_ref_counts(
+      current, local_gets, local_sets, local_tees,
+    )
+    let (next, changed) = run_hot_pipeline_dae_retarget_copy_producers_once(
+      current, local_types, param_count, local_gets, local_sets, local_tees,
+    )
+    if !changed {
+      break
+    }
+    current = next
+    rewrite_count += 1
+  }
+  (current, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_dae_remove_nops_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Int) {
@@ -62254,6 +62450,10 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
     None => return (mod_, 0)
   }
   let total_local_count = params.length() + locals.length()
+  let local_types = params.copy()
+  for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+    local_types.push(locals.get(local_idx))
+  }
   let local_gets : Array[Int] = Array::make(total_local_count, 0)
   let local_sets : Array[Int] = Array::make(total_local_count, 0)
   let local_tees : Array[Int] = Array::make(total_local_count, 0)
@@ -62303,6 +62503,17 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
     sunk_body = next
     structural_count += alias_count + sunk_count
   }
+  // Binaryen SimplifyLocals retargets one-set/one-get copy producers before
+  // later vacuum/compaction. Keep every producer in place: only redirect its
+  // same-typed local.set and delete the later flat get/set copy pair, rejecting
+  // destination accesses and all structured or terminal boundaries.
+  let (retargeted_body, retargeted_copy_count) = run_hot_pipeline_dae_retarget_copy_producers_instrs(
+    sunk_body,
+    local_types,
+    param_count=params.length(),
+  )
+  sunk_body = retargeted_body
+  structural_count += retargeted_copy_count
   // Binaryen's filtered optimizeAfterInlining suffix ends in vacuum. Earlier
   // selected coalescing intentionally leaves nop placeholders to preserve raw
   // instruction positions; once all structural rewrites are complete those

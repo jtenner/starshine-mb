@@ -21805,6 +21805,121 @@ test "DAEO broad-high selected linear coalescing keeps an early-read destination
 }
 
 ///|
+test "DAEO broad-high simplify-locals retargets copy producers without moving them" {
+  let local_types = Array::make(6, @lib.ValType::i32())
+  let original = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i32_const(@lib.I32::new(8)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::drop(),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_retarget_copy_producers_instrs(
+    original, local_types,
+  )
+  @debug.assert_eq(count, 2)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::i32_const(@lib.I32::new(8)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(5U)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "DAEO broad-high simplify-locals rejects unsafe copy producer retargeting" {
+  let i32_types = Array::make(6, @lib.ValType::i32())
+  let destination_read = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  let multiple_source_reads = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  let multiple_source_writes = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i32_const(@lib.I32::new(8)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  let source_tee = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  let structured_boundary = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::nop()]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  let terminal_boundary = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::return_(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  for
+    original in [
+      destination_read, multiple_source_reads, multiple_source_writes, source_tee,
+      structured_boundary, terminal_boundary,
+    ] {
+    let (rewritten, count) = run_hot_pipeline_dae_retarget_copy_producers_instrs(
+      original, i32_types,
+    )
+    @debug.assert_eq(count, 0)
+    @debug.assert_eq(rewritten, original)
+  }
+  let mixed_types = [
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+    @lib.ValType::i64(),
+  ]
+  let type_mismatch = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_retarget_copy_producers_instrs(
+    type_mismatch, mixed_types,
+  )
+  @debug.assert_eq(count, 0)
+  @debug.assert_eq(rewritten, type_mismatch)
+}
+
+///|
 test "DAEO broad-high structural cleanup removes nested vacuum nop debris without changing control" {
   let original = [
     @lib.Instruction::nop(),
