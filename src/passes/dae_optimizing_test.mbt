@@ -16174,6 +16174,7 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   let @lib.Func(mid_locals, _) = dae_test_defined_func(optimized, 8194)
   @debug.assert_eq(mid_locals.length(), 2, msg=mid)
   assert_false(mid.contains("unreachable"), msg=mid)
+  assert_false(mid.contains("nop"), msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 1)") == 5, msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 2)") == 2, msg=mid)
   let normalize = optimized.pretty_print_defined_func(8195U)

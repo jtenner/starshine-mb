@@ -21805,6 +21805,34 @@ test "DAEO broad-high selected linear coalescing keeps an early-read destination
 }
 
 ///|
+test "DAEO broad-high structural cleanup removes nested vacuum nop debris without changing control" {
+  let original = [
+    @lib.Instruction::nop(),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::nop(),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::nop(),
+      ]),
+    ),
+    @lib.Instruction::nop(),
+  ]
+  let (cleaned, removed) = run_hot_pipeline_dae_remove_nops_instrs(original)
+  @debug.assert_eq(removed, 4)
+  @debug.assert_eq(cleaned, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+  ])
+}
+
+///|
 test "DAEO broad-high structural cleanup folds a branch-result if out of its inner block" {
   let temp = @lib.LocalIdx::new(3U)
   let local_gets = [0, 0, 0, 1]

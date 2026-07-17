@@ -62169,6 +62169,69 @@ fn run_hot_pipeline_dae_sink_single_use_local_spills_instrs(
 }
 
 ///|
+fn run_hot_pipeline_dae_remove_nops_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut removed = 0
+  for instr in instrs {
+    match instr {
+      @lib.Nop => removed += 1
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_removed) = run_hot_pipeline_dae_remove_nops_instrs(
+          body,
+        )
+        removed += nested_removed
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
+        )
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_removed) = run_hot_pipeline_dae_remove_nops_instrs(
+          body,
+        )
+        removed += nested_removed
+        rewritten.push(
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+        )
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_removed) = run_hot_pipeline_dae_remove_nops_instrs(
+          body,
+        )
+        removed += nested_removed
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          ),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_removed) = run_hot_pipeline_dae_remove_nops_instrs(
+          then_body,
+        )
+        removed += then_removed
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_removed) = run_hot_pipeline_dae_remove_nops_instrs(
+              body,
+            )
+            removed += else_removed
+            Some(next_body)
+          }
+          None => None
+        }
+        rewritten.push(@lib.Instruction::if_(block_type, next_then, next_else))
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, removed)
+}
+
+///|
 fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -62240,6 +62303,15 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
     sunk_body = next
     structural_count += alias_count + sunk_count
   }
+  // Binaryen's filtered optimizeAfterInlining suffix ends in vacuum. Earlier
+  // selected coalescing intentionally leaves nop placeholders to preserve raw
+  // instruction positions; once all structural rewrites are complete those
+  // placeholders carry no values, effects, traps, labels, or local accesses.
+  let (denopped_body, removed_nop_count) = run_hot_pipeline_dae_remove_nops_instrs(
+    sunk_body,
+  )
+  sunk_body = denopped_body
+  structural_count += removed_nop_count
   if structural_count == 0 {
     return (mod_, 0)
   }
