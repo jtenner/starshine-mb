@@ -3,6 +3,7 @@ kind: concept
 status: working
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ./index.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -117,6 +118,15 @@ Detailed page:
   - `remove-unused-brs skips large void-if return ladders after lift`
   - `remove-unused-brs skips single-root value-if ladders after lift`
   - `remove-unused-brs skips nested constructor ladders after lift`
+- `remove_unused_brs_region_has_result_local_set_stack_hazard(...)`
+  Preserves result-region local carriers when multivalue/root stack reassociation is not represented safely. The traversal includes control regions and expression children, and the checked-in Func-`3397` witness remains byte-identical.
+  Covered by `remove-unused-brs intentionally preserves multivalue result roots feeding local carriers`.
+- `remove_unused_brs_has_result_type_return_hazard(...)`
+  Preserves returns nested under a single-result non-null reference region when the function result is nullable, preventing return removal from forcing a nullable value through a non-null fallthrough type.
+  Covered by `remove-unused-brs intentionally preserves returns bypassing stricter result regions`.
+- `remove_unused_brs_has_giant_br_table(...)`
+  Preserves tables with at least `128` explicit targets after current-artifact Func `7353` showed nonconvergent target-vector reshaping with stable size.
+  Covered by `remove-unused-brs intentionally preserves giant br_tables for convergence`.
 
 Detailed page:
 - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)

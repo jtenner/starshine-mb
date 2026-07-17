@@ -3,6 +3,7 @@ kind: comparison
 status: working
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ./index.md
   - ../late-pipeline-dispatch.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -28,6 +29,7 @@ related:
 
 ## Durable Conclusions
 
+- Note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md) closed the direct DAEO-prefix runtime/validity owner: the current artifact moved from `580.178s` and invalid Func `3397` output to valid deterministic `3.239s` / `3.068s` repeats through rollback-capable batch validation and narrow safety guards. Regular `10000` compare had zero mismatches/failures; the dedicated `115`-mismatch accepted family was runtime-all-equal; finite direct convergence reached a byte-identical fixed point after three productive applications.
 - Binaryen's `RemoveUnusedBrs` is phase-driven and Starshine now mirrors a meaningful subset of that structure.
 - The current tree already covers much more than dead tail stripping:
   - tail `br` / `return` elimination

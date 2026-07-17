@@ -2356,6 +2356,144 @@ test "remove-unused-brs skips void-root stack/local-set call hazards" {
 }
 
 ///|
+test "remove-unused-brs intentionally preserves multivalue result roots feeding local carriers" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $pair (func (result i32 i32)))
+        #|  (func (param i64 i64) (result i32)
+        #|    (local i32 i32 i32 i32 i32 i64 i64)
+        #|    (block $outer (result i32)
+        #|      (block $pair_block (type $pair)
+        #|        local.get 0 local.set 7
+        #|        local.get 1 local.set 8
+        #|        local.get 7 i64.const 4294967296 i64.eq
+        #|        (if
+        #|          (then i32.const 0 drop)
+        #|          (else
+        #|            local.get 7 local.tee 7 i32.wrap_i64 local.set 2
+        #|            local.get 8 i64.const 4294967296 i64.eq
+        #|            (if
+        #|              (then i32.const 0 drop)
+        #|              (else
+        #|                local.get 8 local.tee 8 i32.wrap_i64 local.set 3
+        #|                local.get 2 local.get 3 i32.eq
+        #|                (if
+        #|                  (then local.get 2 local.get 3 br $pair_block)
+        #|                  (else i32.const 0 drop))
+        #|                i32.const 0 drop))))
+        #|        i32.const 0 br $outer)
+        #|      local.set 4 local.tee 5 local.set 6
+        #|      local.get 4 drop
+        #|      local.get 6 return)
+        #|    drop
+        #|    i32.const 0))
+      ),
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs multivalue carrier preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.set (Local 4))(local.tee (Local 5))(local.set (Local 6))",
+    ),
+    msg=pretty,
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-hot reason=result-local-set-stack-hazard-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs intentionally preserves returns bypassing stricter result regions" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $A (struct))
+        #|  (func (param i32) (result (ref null $A))
+        #|    (local (ref $A))
+        #|    (block $out (result (ref $A))
+        #|      local.get 0
+        #|      (if (result (ref null $A))
+        #|        (then ref.null $A)
+        #|        (else struct.new $A br $out))
+        #|      return)
+        #|    local.tee 1))
+      ),
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs result-region return preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-hot reason=return-bypasses-result-type-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "remove-unused-brs intentionally preserves giant br_tables for convergence" {
+  let mut wat = "(module (func (block i32.const 0 br_table"
+  let mut target = 0
+  while target < 129 {
+    wat = wat + " 0"
+    target += 1
+  }
+  wat = wat + ")))"
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      wat,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected giant br_table convergence preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-hot reason=giant-br-table-convergence-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried self tails into fallthrough arms" {
   let optimized = match
     pass_test_run_pipeline(

@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-19
 sources:
+  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -46,6 +47,7 @@ The owner file is unchanged from v130, so direct behavior is not automatically r
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
+- Current large-artifact correctness/runtime evidence is note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md): rollback-capable changed-function batch validation plus three source-backed fail-closed guards replace a `580.178s` invalid direct output with valid byte-identical `3.239s` / `3.068s` repeats. The current artifact reaches a byte-identical fixed point after three productive applications; regular `10000` compare is fully normalized, and the dedicated `115`-mismatch accepted family is runtime-all-equal with zero validation failures.
 - The folder retains the 2026-05-06 research bridge together with direct `version_130` source and lit URLs below, so the Binaryen release/source/test provenance for this dossier does not depend on an intermediate capture.
 - In the current local upstream oracle, Binaryen `version_130`, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.

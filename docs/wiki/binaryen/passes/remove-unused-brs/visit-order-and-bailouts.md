@@ -3,6 +3,7 @@ kind: concept
 status: working
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ./index.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
@@ -149,8 +150,14 @@ After lift, the pass still has hot-only bailouts:
 - `localset-heavy-value-if-mesh-noop`
 - `large-void-if-return-ladder-noop`
 - `nested-constructor-return-ladder-noop`
+- `result-local-set-stack-hazard-noop`
+  preserves result regions whose root local carriers can be reassociated incorrectly by HOT lowering; the current rule also traverses expression children so nested multivalue blocks are visible
+- `return-bypasses-result-type-noop`
+  preserves a nullable function return that bypasses a stricter single-result non-null reference region
+- `giant-br-table-convergence-noop`
+  preserves tables with at least `128` explicit targets after the current artifact exposed repeated same-size target-vector churn across direct applications
 
-Those skips exist because some giant lifted families were repeatedly proven to be semantically unchanged while still costing a lot to traverse.
+Those skips exist because some giant lifted families were repeatedly proven to be semantically unchanged while still costing a lot to traverse, or because the current HOT/lowering boundary is intentionally fail-closed for a proved validity/convergence hazard.
 
 The hot skip is shape-based, not name-based.
 
