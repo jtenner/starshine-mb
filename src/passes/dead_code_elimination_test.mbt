@@ -56,6 +56,143 @@ test "dead-code-elimination skips O4z raw pass until self-opt pipeline state is 
 }
 
 ///|
+test "dead-code-elimination intentionally preserves multivalue result roots feeding local carriers" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $pair (func (result i32 i32)))
+        #|  (func (param i64 i64) (result i32)
+        #|    (local i32 i32 i32 i32 i32 i64 i64)
+        #|    (block $outer (result i32)
+        #|      (block $pair_block (type $pair)
+        #|        local.get 0 local.set 7
+        #|        local.get 1 local.set 8
+        #|        local.get 7 i64.const 4294967296 i64.eq
+        #|        (if
+        #|          (then i32.const 0 drop)
+        #|          (else
+        #|            local.get 7 local.tee 7 i32.wrap_i64 local.set 2
+        #|            local.get 8 i64.const 4294967296 i64.eq
+        #|            (if
+        #|              (then i32.const 0 drop)
+        #|              (else
+        #|                local.get 8 local.tee 8 i32.wrap_i64 local.set 3
+        #|                local.get 2 local.get 3 i32.eq
+        #|                (if
+        #|                  (then local.get 2 local.get 3 br $pair_block)
+        #|                  (else i32.const 0 drop))
+        #|                i32.const 0 drop))))
+        #|        i32.const 0 br $outer)
+        #|      local.set 4 local.tee 5 local.set 6
+        #|      local.get 4 drop
+        #|      local.get 6 return)
+        #|    drop
+        #|    i32.const 0))
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected dead-code-elimination multivalue carrier preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.set (Local 4))(local.tee (Local 5))(local.set (Local 6))",
+    ),
+    msg=pretty,
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=multivalue-local-carrier-dce-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dead-code-elimination intentionally preserves nested struct stack builders" {
+  // HOT lift/lower cannot yet preserve this flat operand-stack constructor
+  // family independently of a DCE mutation. Keep it raw and unchanged until
+  // stack-builder reconstruction is proven for GC references and scalar lanes.
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $a (struct))
+      #|  (type $b (struct
+      #|    (field (ref $a))
+      #|    (field i32) (field i32) (field i32) (field i32) (field i32)))
+      #|  (type $c (struct (field (ref $a)) (field (ref $b))))
+      #|  (type $f (func (param i32 i32) (result i32)))
+      #|  (import "env" "f" (func $f (type $f)))
+      #|  (func (param i32) (result (ref $c))
+      #|    (block $fallback
+      #|      local.get 0
+      #|      (if (result (ref $c))
+      #|        (then
+      #|          struct.new_default $a
+      #|          struct.new_default $a
+      #|          i32.const 0 i32.const 0 call $f
+      #|          i32.const 0 i32.const 0 call $f
+      #|          i32.const 0 i32.const 0 call $f
+      #|          i32.const 0
+      #|          (if (result i32)
+      #|            (then i32.const 1)
+      #|            (else i32.const 2))
+      #|          i32.const 0 i32.const 0 call $f
+      #|          struct.new $b
+      #|          struct.new $c)
+      #|        (else br $fallback))
+      #|      return)
+      #|    struct.new_default $a
+      #|    struct.new_default $a
+      #|    i32.const 0 i32.const 0 call $f
+      #|    i32.const 0 i32.const 0 call $f
+      #|    i32.const 0 i32.const 0 call $f
+      #|    i32.const 0
+      #|    (if (result i32)
+      #|      (then i32.const 1)
+      #|      (else i32.const 2))
+      #|    i32.const 0 i32.const 0 call $f
+      #|    struct.new $b
+      #|    struct.new $c))
+    ),
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested struct builder DCE success, got \{err}")
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dead-code-elimination]:done changed=false")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[dead-code-elimination]:skip-invalid-lower")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dead-code-elimination skips load-call-set ownership hazards" {
   let trace : Array[String] = []
   match

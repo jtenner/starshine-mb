@@ -15123,6 +15123,112 @@ test "remove-unused-brs batch writeback repair restores invalid changed function
 }
 
 ///|
+test "dead-code-elimination raw fallthrough sees result blocks completed by self branches" {
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+  ]
+  assert_true(run_hot_pipeline_dce_raw_body_may_fallthrough(body))
+}
+
+///|
+test "dead-code-elimination fails closed on result-control self-branch fallthrough" {
+  // The inner result block's `br 0` completes that block and lets the typed if
+  // arm fall through. The raw stack-polymorphic cleanup must not treat the arm
+  // as unreachable and void the if result before its following payload branch.
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    (block $outer (result i32)
+      #|      (block $inner (result i32)
+      #|        (local.get 0)
+      #|        (if (result i32)
+      #|          (then
+      #|            (block $value (result i32)
+      #|              (i32.const 1)
+      #|              (br $value)))
+      #|          (else
+      #|            (i32.const 2)
+      #|            (br $inner)))
+      #|        (br $outer)))))
+    ),
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected fail-closed DCE success, got \{err}")
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=no-dce-candidates",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dead-code-elimination batch writeback repair restores invalid changed functions" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+        ),
+      ]),
+    )
+  let candidate = input.with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))]),
+  )
+  let trace : Array[String] = []
+  let repaired = match
+    run_hot_pipeline_dce_repair_batch_writeback(
+      input,
+      candidate,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Some(mod_) => mod_
+    None =>
+      fail(
+        "expected dead-code-elimination batch repair to recover valid module",
+      )
+  }
+
+  @debug.assert_eq(repaired, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dead-code-elimination]:skip-invalid-lower")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "hot pipeline skips lift errors in unchecked nested-style runs" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -19149,6 +19255,78 @@ test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
   assert_true(stats.locals_count >= 256, msg="locals=\{stats.locals_count}")
   assert_true(stats.local_set_count >= 256, msg="sets=\{stats.local_set_count}")
   assert_true(stats.call_count >= 16, msg="calls=\{stats.call_count}")
+}
+
+///|
+#cfg(target="native")
+test "dead-code-elimination fails closed on extracted Func 62 result-control witness" {
+  let input_path = "tests/repros/daeo-dce-func62-result-control-self-branch.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in witness at \{input_path}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected witness decode success, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected extracted DCE witness success, got \{err}")
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=multivalue-local-carrier-dce-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+#cfg(target="native")
+test "dead-code-elimination preserves unchanged extracted Func 3733 stack builder" {
+  let input_path = "tests/repros/daeo-dce-func3733-nested-struct-stack-builder.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in witness at \{input_path}")
+  }
+  let input = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected witness decode success, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["dead-code-elimination"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected extracted stack-builder DCE success, got \{err}")
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dead-code-elimination]:done changed=false")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[dead-code-elimination]:skip-invalid-lower")
+    }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|

@@ -7980,6 +7980,91 @@ fn run_hot_pipeline_raw_simplify_locals(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_block_result_arity(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext,
+) -> Int {
+  match block_type {
+    @lib.VoidBlockType => 0
+    @lib.ValTypeBlockType(_) => 1
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(_, results)) => results.length()
+        None => 0
+      }
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instr_is_local_carrier_write(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.LocalSet(_) | @lib.LocalTee(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_has_multivalue_local_carrier_hazard(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let result_arity = match instrs[idx] {
+      @lib.Block(block_type, _)
+      | @lib.Loop(block_type, _)
+      | @lib.If(block_type, _, _)
+      | @lib.TryTable(block_type, _, _) =>
+        run_hot_pipeline_dce_raw_block_result_arity(block_type, module_ctx)
+      _ => 0
+    }
+    if result_arity > 1 {
+      let mut carrier_writes = 0
+      let mut next_idx = idx + 1
+      while next_idx < instrs.length() &&
+            run_hot_pipeline_dce_raw_instr_is_local_carrier_write(
+              instrs[next_idx],
+            ) {
+        carrier_writes += 1
+        next_idx += 1
+      }
+      if carrier_writes >= result_arity {
+        return true
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_multivalue_local_carrier_hazard(
+            body, module_ctx,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_multivalue_local_carrier_hazard(
+            then_body, module_ctx,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_multivalue_local_carrier_hazard(
+                else_body, module_ctx,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_instr_is_call(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => true
@@ -8179,6 +8264,87 @@ fn run_hot_pipeline_dce_raw_void_try_table_type_if_nonfallthrough(
     @lib.ValTypeBlockType(_) => (@lib.BlockType::void_(), true)
     _ => (block_type, false)
   }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_instr_is_result_control(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.If(block_type, _, _)
+    | @lib.TryTable(block_type, _, _) =>
+      match block_type {
+        @lib.VoidBlockType => false
+        _ => true
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_body_ends_with_result_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  match instrs.last() {
+    Some(instr) => run_hot_pipeline_dce_raw_instr_is_result_control(instr)
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_dce_raw_has_result_control_tail_hazard(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.If(block_type, then_body, Some(else_body)), @lib.Br(_)) =>
+          match block_type {
+            @lib.VoidBlockType => ()
+            _ =>
+              if !run_hot_pipeline_dce_raw_body_may_fallthrough(then_body) &&
+                !run_hot_pipeline_dce_raw_body_may_fallthrough(else_body) &&
+                (
+                  run_hot_pipeline_dce_raw_body_ends_with_result_control(
+                    then_body,
+                  ) ||
+                  run_hot_pipeline_dce_raw_body_ends_with_result_control(
+                    else_body,
+                  )
+                ) {
+                return true
+              }
+          }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_has_result_control_tail_hazard(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_has_result_control_tail_hazard(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_has_result_control_tail_hazard(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -8562,6 +8728,61 @@ fn run_hot_pipeline_dce_raw_has_early_terminator(
 }
 
 ///|
+fn run_hot_pipeline_dce_raw_instrs_branch_to_depth(
+  instrs : Array[@lib.Instruction],
+  target_depth : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
+        if raw.reinterpret_as_int() == target_depth {
+          return true
+        }
+      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+        if default_raw.reinterpret_as_int() == target_depth {
+          return true
+        }
+        for label in labels {
+          let @lib.LabelIdx(raw) = label
+          if raw.reinterpret_as_int() == target_depth {
+            return true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_dce_raw_instrs_branch_to_depth(
+            body,
+            target_depth + 1,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_dce_raw_instrs_branch_to_depth(
+            then_body,
+            target_depth + 1,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_dce_raw_instrs_branch_to_depth(
+                else_body,
+                target_depth + 1,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_dce_raw_instr_may_fallthrough(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -8575,21 +8796,27 @@ fn run_hot_pipeline_dce_raw_instr_may_fallthrough(
     | @lib.Throw(_)
     | @lib.ThrowRef
     | @lib.Unreachable => false
-    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+    @lib.Block(_, @lib.Expr(body)) =>
+      run_hot_pipeline_dce_raw_body_may_fallthrough(body) ||
+      run_hot_pipeline_dce_raw_instrs_branch_to_depth(body, 0)
+    @lib.Loop(_, @lib.Expr(body)) =>
       run_hot_pipeline_dce_raw_body_may_fallthrough(body)
     @lib.If(_, then_body, else_body) => {
       let then_may_fallthrough = run_hot_pipeline_dce_raw_body_may_fallthrough(
-        then_body,
-      )
+          then_body,
+        ) ||
+        run_hot_pipeline_dce_raw_instrs_branch_to_depth(then_body, 0)
       let else_may_fallthrough = match else_body {
         Some(else_body) =>
-          run_hot_pipeline_dce_raw_body_may_fallthrough(else_body)
+          run_hot_pipeline_dce_raw_body_may_fallthrough(else_body) ||
+          run_hot_pipeline_dce_raw_instrs_branch_to_depth(else_body, 0)
         None => true
       }
       then_may_fallthrough || else_may_fallthrough
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_dce_raw_body_may_fallthrough(body)
+      run_hot_pipeline_dce_raw_body_may_fallthrough(body) ||
+      run_hot_pipeline_dce_raw_instrs_branch_to_depth(body, 0)
     _ => true
   }
 }
@@ -23670,6 +23897,27 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
   }
   if descriptor.name == "dead-code-elimination" {
     let @lib.Func(_, @lib.Expr(instrs)) = original
+    let dce_module_ctx = run_hot_pipeline_require_module_ctx(
+      mod_, module_state, options,
+    )
+    if run_hot_pipeline_dce_raw_has_multivalue_local_carrier_hazard(
+        instrs, dce_module_ctx,
+      ) {
+      return Some({
+        reason: "multivalue-local-carrier-dce-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_dce_raw_has_result_control_tail_hazard(instrs) {
+      return Some({
+        reason: "result-control-tail-dce-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     match run_hot_pipeline_dce_raw_cleanup_stack_polymorphic_func(original) {
       Some(rewritten) =>
         return Some({
@@ -58383,7 +58631,8 @@ fn run_hot_pipeline_func(
       if !result.changed &&
         (
           @ir.hot_revision_current(func) == lifted_revision ||
-          descriptor.name == "remove-unused-brs"
+          descriptor.name == "remove-unused-brs" ||
+          descriptor.name == "dead-code-elimination"
         ) &&
         descriptor.name != "heap-store-optimization" &&
         !((
@@ -58647,6 +58896,24 @@ fn run_hot_pipeline_ssa_nomerge_nonvalidation_skip_invalid_lower_reason(
 }
 
 ///|
+fn run_hot_pipeline_dce_nonvalidation_skip_invalid_lower_reason(
+  result : HotPipelineFuncResult,
+) -> String? {
+  if result.unchanged_original {
+    return None
+  }
+  if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+      result.func,
+    ) {
+    return Some("invalid-escape-carrier")
+  }
+  if run_hot_pipeline_lowered_func_exceeds_local_limit(result.func) {
+    return Some("local-limit")
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_skip_invalid_lower_reason(
   current_mod : @lib.Module,
   validation_mod : @lib.Module,
@@ -58675,13 +58942,9 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
     }
   }
   if descriptor_name == "dead-code-elimination" {
-    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-        result.func,
-      ) {
-      return Some("invalid-escape-carrier")
-    }
-    if run_hot_pipeline_lowered_func_exceeds_local_limit(result.func) {
-      return Some("local-limit")
+    match run_hot_pipeline_dce_nonvalidation_skip_invalid_lower_reason(result) {
+      Some(reason) => return Some(reason)
+      None => ()
     }
     return match
       run_hot_pipeline_precompute_writeback_validation_error(
@@ -59369,6 +59632,85 @@ fn run_hot_pipeline_remove_unused_brs_repair_batch_writeback(
 }
 
 ///|
+fn run_hot_pipeline_dce_repair_batch_writeback(
+  original_mod : @lib.Module,
+  candidate_mod : @lib.Module,
+  options : HotPipelineOptions,
+) -> @lib.Module? {
+  let imported_func_count = run_hot_pipeline_imported_func_count(original_mod)
+  match (original_mod.code_sec, candidate_mod.code_sec) {
+    (Some(@lib.CodeSec(original_defs)), Some(@lib.CodeSec(candidate_defs))) => {
+      let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
+      for code_idx = 0
+          code_idx < candidate_defs.length()
+          code_idx = code_idx + 1 {
+        if code_idx < original_defs.length() &&
+          candidate_defs[code_idx] != original_defs[code_idx] {
+          changed_funcs.push(
+            (
+              @lib.FuncIdx::new(
+                (imported_func_count + code_idx).reinterpret_as_uint(),
+              ),
+              candidate_defs[code_idx],
+            ),
+          )
+        }
+      }
+      if changed_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      let invalid_funcs = match
+        @validate.validate_defined_funcs_against_module(
+          candidate_mod, changed_funcs,
+        ) {
+        Ok(errors) => errors
+        Err(err) => {
+          pipeline_trace_hook(
+            options.trace,
+            "dead-code-elimination",
+            "writeback-batch-invalid",
+            payload="err=\{err}",
+          )
+          return None
+        }
+      }
+      if invalid_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      pipeline_trace_hook(
+        options.trace,
+        "dead-code-elimination",
+        "writeback-batch-invalid",
+        payload="changed=\{changed_funcs.length()} invalid=\{invalid_funcs.length()}",
+      )
+      let repaired_defs = candidate_defs.copy()
+      for item in invalid_funcs {
+        let (func_idx, err) = item
+        let @lib.FuncIdx(raw_func_idx) = func_idx
+        let code_idx = raw_func_idx.reinterpret_as_int() - imported_func_count
+        if code_idx < 0 ||
+          code_idx >= repaired_defs.length() ||
+          code_idx >= original_defs.length() {
+          return None
+        }
+        if repaired_defs[code_idx] == original_defs[code_idx] {
+          return None
+        }
+        repaired_defs[code_idx] = original_defs[code_idx]
+        pipeline_trace_hook(
+          options.trace,
+          "dead-code-elimination",
+          "skip-invalid-lower",
+          payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
+        )
+      }
+      Some(candidate_mod.with_code_sec(@lib.CodeSec::new(repaired_defs)))
+    }
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -59376,6 +59718,7 @@ fn run_hot_pipeline_apply_hot_pass(
   defer_vacuum_writeback_guard? : Bool = true,
   defer_ssa_nomerge_writeback_guard? : Bool = true,
   defer_remove_unused_brs_writeback_guard? : Bool = true,
+  defer_dce_writeback_guard? : Bool = true,
 ) -> Result[@lib.Module, String] {
   let descriptor = match entry.descriptor {
     Some(descriptor) => descriptor
@@ -59407,6 +59750,8 @@ fn run_hot_pipeline_apply_hot_pass(
     descriptor.name == "ssa-nomerge"
   let defer_this_remove_unused_brs_writeback_guard = defer_remove_unused_brs_writeback_guard &&
     descriptor.name == "remove-unused-brs"
+  let defer_this_dce_writeback_guard = defer_dce_writeback_guard &&
+    descriptor.name == "dead-code-elimination"
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
@@ -59545,6 +59890,8 @@ fn run_hot_pipeline_apply_hot_pass(
           )
         } else if defer_this_remove_unused_brs_writeback_guard {
           None
+        } else if defer_this_dce_writeback_guard {
+          run_hot_pipeline_dce_nonvalidation_skip_invalid_lower_reason(result)
         } else {
           run_hot_pipeline_skip_invalid_lower_reason(
             current_mod,
@@ -59810,6 +60157,35 @@ fn run_hot_pipeline_apply_hot_pass(
           entry,
           options,
           defer_vacuum_writeback_guard=false,
+        )
+      }
+    }
+  }
+  if defer_this_dce_writeback_guard && next_code_sec is Some(_) {
+    let batch_guard_start_us = perf_start_timer_opt(
+      options.perf,
+      "guard:dead-code-elimination-writeback-batch",
+    )
+    match run_hot_pipeline_dce_repair_batch_writeback(mod_, next_mod, options) {
+      Some(repaired_mod) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:dead-code-elimination-writeback-batch",
+          batch_guard_start_us,
+        )
+        return Ok(repaired_mod)
+      }
+      None => {
+        perf_stop_timer_opt(
+          options.perf,
+          "guard:dead-code-elimination-writeback-batch",
+          batch_guard_start_us,
+        )
+        return run_hot_pipeline_apply_hot_pass(
+          mod_,
+          entry,
+          options,
+          defer_dce_writeback_guard=false,
         )
       }
     }
