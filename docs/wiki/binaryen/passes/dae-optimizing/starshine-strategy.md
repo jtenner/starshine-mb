@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md
   - ../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md
   - ../../../raw/research/1640-2026-07-17-daeo-func8186-final-return.md
   - ../../../raw/research/1639-2026-07-17-daeo-func8185-never-read-result-stores.md
@@ -99,6 +100,8 @@ related:
 ## Current status
 
 Starshine now has an **active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass on the current v0.1.0 surface. `[DAE]003` and `[DAE]004` are closed by research notes `0661` and `0687`; reopen only for a new semantic mismatch, validation failure, or measured DAE-owned regression. `[DAE]013` is closed for v0.1.0 by keeping this pass direct-pass-only: explicit `--dae-optimizing` / `--dead-argument-elimination-optimizing` requests are supported, but public `optimize` / `shrink` presets intentionally skip DAE until new ordered-prefix or artifact evidence proves default-preset safety and runtime. The current raw-cleanup policy is explicit: correctness comes first; audited pure/nontrapping cleanup is useful and should be kept when semantically proved; Binaryen-shape debris preservation is narrow and only justified by a documented diagnostic or active artifact frontier. Possibly trapping or effectful operand stacks must remain live, and any future policy-changing cleanup needs focused tests plus size/mismatch evidence from the relevant compare lane. This closes `[DAE]009` as a policy/backlog task; future raw-cleanup work should reopen only for a concrete implementation, measurement, or frontier need.
+
+Research note [`1642`](../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md) closed the final two-byte difference to the direct Binaryen-v130 `simplify-locals-nostructure -> vacuum` probe. After final selected local ordering, DAEO delayed only an exact one-set/four-get immutable field read from an unwritten non-null parameter source to its first use as `local.tee`; loops, conditional/EH control, nullable sources, mutable fields, source writes, count drift, validation failure, and non-shrinking candidates rejected. Func `8185` fell `2464 -> 2462`, traffic became `215/58/17`, and raw/canonical both improved by `2` bytes to `3203064` / `3263954`, leaving `+1498`. Broader one-read, two-read, pre-reorder, and all-touched probes were rejected or narrowed from measured output/ownership evidence.
 
 Research note [`1641`](../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md) closed Func `8184` at exact body-size parity. The optimizing-only broad-high cleanup folded only adjacent `ref.null; ref.is_null; if-with-else` true arms, then sank only an exact one-set/one-get `global.get; ref.as_non_null` call argument across the other argument's pure `local.get`. Func `8184` fell `27 -> 11`; the valid byte-identical endpoint was raw `3203066` / canonical `3263956`, `+1500` over Binaryen v130.
 

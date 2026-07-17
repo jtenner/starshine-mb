@@ -62945,14 +62945,14 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
   mod_ : @lib.Module,
   touched : Array[Bool],
   options : HotPipelineOptions,
-) -> Result[(@lib.Module, Array[Bool], Bool, Array[Int]), String] {
+) -> Result[(@lib.Module, Array[Bool], Bool, Array[Int], Array[Int]), String] {
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return Ok((mod_, touched, false, []))
+    None => return Ok((mod_, touched, false, [], []))
   }
   let defined = funcs.length()
   if defined <= 8192 {
-    return Ok((mod_, touched, false, []))
+    return Ok((mod_, touched, false, [], []))
   }
   let imported = dae_imported_func_count(mod_)
   let discovery_start_us = perf_start_timer_opt(
@@ -63002,7 +63002,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     discovery_start_us,
   )
   if ranked_defs.length() == 0 {
-    return Ok((mod_, touched, false, []))
+    return Ok((mod_, touched, false, [], []))
   }
   let seed_start_us = perf_start_timer_opt(
     options.perf,
@@ -63043,7 +63043,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
   }
   perf_stop_timer_opt(options.perf, "detail:dae:broad-high:seed", seed_start_us)
   if seed_def < 0 {
-    return Ok((mod_, touched, false, []))
+    return Ok((mod_, touched, false, [], []))
   }
   let selected_defs = Array::make(defined, false)
   selected_defs[seed_def] = true
@@ -63427,7 +63427,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
   (options.trace)(
     "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=\{seed_def} productive_defs=\{productive_defs.to_string()} cleanup_defs=\{cleanup_defs.to_string()} final_reorder_defs=\{final_reorder_defs.to_string()} removed_dead_tees=\{removed_dead_tee_count} structural_cleanups=\{structural_cleanup_count} payoff=\{seed_payoff}",
   )
-  Ok((current, current_touched, true, final_reorder_defs))
+  Ok((current, current_touched, true, final_reorder_defs, productive_defs))
 }
 
 ///|
@@ -63493,6 +63493,93 @@ fn run_hot_pipeline_apply_dae_final_reorder(
     "dae-optimizing",
     trace_kind,
     payload="defs=\{defs.to_string()} accepted_defs=\{accepted_defs.length()} out_of_range=\{out_of_range_count} apply_errors=\{apply_error_count} invalid=\{invalid_count} unchanged=\{unchanged_count}",
+  )
+  current
+}
+
+///|
+fn run_hot_pipeline_apply_dae_post_reorder_immutable_field_delay(
+  mod_ : @lib.Module,
+  defs : Array[Int],
+  options : HotPipelineOptions,
+) -> @lib.Module {
+  if defs.length() == 0 {
+    return mod_
+  }
+  let mut current = mod_
+  let accepted_defs : Array[Int] = []
+  let mut no_match_count = 0
+  let mut invalid_count = 0
+  let mut non_smaller_count = 0
+  for def_idx in defs {
+    let funcs = match current.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => break
+    }
+    let func = match funcs.get(def_idx) {
+      Some(func) => func
+      None => {
+        no_match_count += 1
+        continue
+      }
+    }
+    let func_idx = @lib.FuncIdx::new(
+      (dae_imported_func_count(current) + def_idx).reinterpret_as_uint(),
+    )
+    let params = match
+      run_hot_pipeline_defined_func_params_from_sections(current, func_idx) {
+      Some(params) => params
+      None => {
+        no_match_count += 1
+        continue
+      }
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    let local_types = params.copy()
+    for local_idx = 0; local_idx < locals.length(); local_idx = local_idx + 1 {
+      local_types.push(locals.get(local_idx))
+    }
+    let (next_body, rewrite_count) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
+      body,
+      local_types,
+      params.length(),
+      current.type_sec,
+    )
+    if rewrite_count == 0 {
+      no_match_count += 1
+      continue
+    }
+    let next_funcs = funcs.copy()
+    next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+    let candidate = current
+      .with_code_sec(@lib.CodeSec::new(next_funcs))
+      .without_name_sec()
+    let (validated, valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+      current, candidate, def_idx,
+    )
+    if !valid {
+      invalid_count += 1
+      continue
+    }
+    let smaller = match
+      run_hot_pipeline_dae_selected_func_encoded_strictly_smaller(
+        current, validated, def_idx,
+      ) {
+      Some(true) => true
+      _ => false
+    }
+    if !smaller {
+      non_smaller_count += 1
+      continue
+    }
+    current = validated
+    accepted_defs.push(def_idx)
+  }
+  pipeline_trace_hook(
+    options.trace,
+    "dae-optimizing",
+    "post-reorder-immutable-field-delay",
+    payload="defs_count=\{defs.length()} accepted_defs=\{accepted_defs.to_string()} no_match=\{no_match_count} invalid=\{invalid_count} non_smaller=\{non_smaller_count}",
   )
   current
 }
@@ -64866,6 +64953,250 @@ fn run_hot_pipeline_dae_struct_field_is_immutable(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_dae_rewrite_delayed_struct_get_readback_in_region(
+  instrs : Array[@lib.Instruction],
+  source : @lib.LocalIdx,
+  target : @lib.LocalIdx,
+  struct_type : @lib.TypeIdx,
+  field : @lib.U32,
+  keep_target : Bool,
+) -> (Array[@lib.Instruction], Bool) {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalGet(readback) if readback == target => {
+        let rewritten : Array[@lib.Instruction] = []
+        for prefix_idx = 0; prefix_idx < idx; prefix_idx = prefix_idx + 1 {
+          rewritten.push(instrs[prefix_idx])
+        }
+        rewritten.push(@lib.Instruction::local_get(source))
+        rewritten.push(@lib.Instruction::struct_get(struct_type, field))
+        if keep_target {
+          rewritten.push(@lib.Instruction::local_tee(target))
+        }
+        for suffix_idx = idx + 1
+            suffix_idx < instrs.length()
+            suffix_idx = suffix_idx + 1 {
+          rewritten.push(instrs[suffix_idx])
+        }
+        return (rewritten, true)
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_rewrite_delayed_struct_get_readback_in_region(
+          body, source, target, struct_type, field, keep_target,
+        )
+        if !changed {
+          return (instrs, false)
+        }
+        let rewritten = instrs.copy()
+        rewritten[idx] = @lib.Instruction::block(
+          block_type,
+          @lib.Expr::new(next_body),
+        )
+        return (rewritten, true)
+      }
+      candidate =>
+        if run_hot_pipeline_dae_copy_retarget_is_control_boundary(candidate) {
+          return (instrs, false)
+        }
+    }
+  }
+  (instrs, false)
+}
+
+///|
+fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+  instrs : Array[@lib.Instruction],
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+  type_sec : @lib.TypeSec?,
+) -> (Array[@lib.Instruction], Bool) {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let nested = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+          body, local_types, param_count, local_gets, local_sets, local_tees, type_sec,
+        )
+        if changed {
+          Some(@lib.Instruction::block(block_type, @lib.Expr::new(next_body)))
+        } else {
+          None
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+          body, local_types, param_count, local_gets, local_sets, local_tees, type_sec,
+        )
+        if changed {
+          Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)))
+        } else {
+          None
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, changed) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+          body, local_types, param_count, local_gets, local_sets, local_tees, type_sec,
+        )
+        if changed {
+          Some(
+            @lib.Instruction::try_table(
+              block_type,
+              catches,
+              @lib.Expr::new(next_body),
+            ),
+          )
+        } else {
+          None
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+          then_body, local_types, param_count, local_gets, local_sets, local_tees,
+          type_sec,
+        )
+        if then_changed {
+          Some(@lib.Instruction::if_(block_type, next_then, else_body))
+        } else {
+          match else_body {
+            Some(body) => {
+              let (next_body, else_changed) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+                body, local_types, param_count, local_gets, local_sets, local_tees,
+                type_sec,
+              )
+              if else_changed {
+                Some(
+                  @lib.Instruction::if_(block_type, then_body, Some(next_body)),
+                )
+              } else {
+                None
+              }
+            }
+            None => None
+          }
+        }
+      }
+      _ => None
+    }
+    match nested {
+      Some(rewritten_instr) => {
+        let rewritten = instrs.copy()
+        rewritten[idx] = rewritten_instr
+        return (rewritten, true)
+      }
+      None => ()
+    }
+  }
+  let mut producer_idx = 0
+  while producer_idx + 2 < instrs.length() {
+    match
+      (instrs[producer_idx], instrs[producer_idx + 1], instrs[producer_idx + 2]) {
+      (
+        @lib.LocalGet(@lib.LocalIdx(source_raw) as source),
+        @lib.StructGet(struct_type, field),
+        @lib.LocalSet(@lib.LocalIdx(target_raw) as target),
+      ) => {
+        let source_idx = source_raw.reinterpret_as_int()
+        let target_idx = target_raw.reinterpret_as_int()
+        let source_nonnull = if source_idx >= 0 &&
+          source_idx < local_types.length() {
+          match local_types[source_idx] {
+            @lib.RefTypeValType(ref_type) => ref_type.is_non_nullable()
+            _ => false
+          }
+        } else {
+          false
+        }
+        if source_idx >= 0 &&
+          source_idx < param_count &&
+          target_idx >= param_count &&
+          target_idx < local_types.length() &&
+          source_idx != target_idx &&
+          source_idx < local_gets.length() &&
+          source_idx < local_sets.length() &&
+          source_idx < local_tees.length() &&
+          target_idx < local_gets.length() &&
+          target_idx < local_sets.length() &&
+          target_idx < local_tees.length() &&
+          source_nonnull &&
+          local_gets[source_idx] >= 1 &&
+          local_sets[source_idx] == 0 &&
+          local_tees[source_idx] == 0 &&
+          local_gets[target_idx] == 4 &&
+          local_sets[target_idx] == 1 &&
+          local_tees[target_idx] == 0 &&
+          run_hot_pipeline_dae_struct_field_is_immutable(
+            type_sec, struct_type, field,
+          ) {
+          let suffix : Array[@lib.Instruction] = []
+          for suffix_idx = producer_idx + 3
+              suffix_idx < instrs.length()
+              suffix_idx = suffix_idx + 1 {
+            suffix.push(instrs[suffix_idx])
+          }
+          let (rewritten_suffix, changed) = run_hot_pipeline_dae_rewrite_delayed_struct_get_readback_in_region(
+            suffix, source, target, struct_type, field, true,
+          )
+          if changed {
+            let rewritten : Array[@lib.Instruction] = []
+            for prefix_idx = 0
+                prefix_idx < producer_idx
+                prefix_idx = prefix_idx + 1 {
+              rewritten.push(instrs[prefix_idx])
+            }
+            for instr in rewritten_suffix {
+              rewritten.push(instr)
+            }
+            return (rewritten, true)
+          }
+        }
+      }
+      _ => ()
+    }
+    producer_idx += 1
+  }
+  (instrs, false)
+}
+
+///|
+// Delay only immutable, nontrapping struct reads from unwritten non-null
+// parameter references. The exact artifact one-set/four-get carrier moves to
+// its first use as local.tee so the three later reads keep the same value. Other
+// read counts are excluded: the broader one-read family caused a canonical-size
+// regression, and unrelated two-read matches changed a different function.
+// Flat effects may remain between the old and new positions; only unconditional
+// block descent is
+// allowed, and all other structured or terminal boundaries reject.
+fn run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
+  instrs : Array[@lib.Instruction],
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+  type_sec : @lib.TypeSec?,
+) -> (Array[@lib.Instruction], Int) {
+  let mut current = instrs
+  let mut rewrite_count = 0
+  let max_rounds = local_types.length()
+  while rewrite_count < max_rounds {
+    let local_gets : Array[Int] = Array::make(local_types.length(), 0)
+    let local_sets : Array[Int] = Array::make(local_types.length(), 0)
+    let local_tees : Array[Int] = Array::make(local_types.length(), 0)
+    run_hot_pipeline_raw_collect_local_ref_counts(
+      current, local_gets, local_sets, local_tees,
+    )
+    let (next, changed) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_once(
+      current, local_types, param_count, local_gets, local_sets, local_tees, type_sec,
+    )
+    if !changed {
+      break
+    }
+    current = next
+    rewrite_count += 1
+  }
+  (current, rewrite_count)
 }
 
 ///|
@@ -69437,6 +69768,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     high_literal_touched,
     high_literal_changed,
     high_literal_final_reorder_defs,
+    high_literal_field_delay_defs,
   ) = match
     run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
       core_mod, core_touched, options,
@@ -69749,17 +70081,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     "detail:dae:prune-unused-simple-func-types",
     prune_start_us,
   )
-  // This selected payoff reorder is intentionally the last body mutation in
-  // DAEO. Earlier broad reorder probes were followed by cleanup that changed
-  // the access profile; here the highest-payoff finalized body is cloned and
-  // validated after all cleanup and type pruning, with no later body mutation.
+  // Final local ordering must precede the exact immutable-field delay: moving
+  // the field producer first and then reordering changed the raw local grouping
+  // enough to add a byte. Reorder the finalized body first, then perform only
+  // the source-backed one-set/four-get field movement transaction below.
   let payoff_reordered = run_hot_pipeline_apply_dae_final_reorder(
     pruned, payoff_final_reorder_defs, options, "payoff-final-reorder",
   )
   let final_reordered = run_hot_pipeline_apply_dae_final_reorder(
     payoff_reordered, high_literal_final_reorder_defs, options, "broad-high-final-reorder",
   )
-  Ok(final_reordered)
+  let field_delayed = run_hot_pipeline_apply_dae_post_reorder_immutable_field_delay(
+    final_reordered, high_literal_field_delay_defs, options,
+  )
+  Ok(field_delayed)
 }
 
 ///|

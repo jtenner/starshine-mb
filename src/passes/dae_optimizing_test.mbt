@@ -16020,16 +16020,18 @@ test "dae-optimizing coalesces and late-reorders selected payoff locals after re
 fn dae_test_broad_high_normalized_literal_chain_module() -> String {
   let out = StringBuilder::new()
   out.write_string(
-    "(module\n  (type $box (struct))\n  (import \"env\" \"log\" (func $log))\n  (import \"env\" \"touch\" (func $touch (param i32) (result i32)))\n  (import \"env\" \"sink\" (func $sink (param i32)))\n  (import \"env\" \"touch_ref\" (func $touch_ref (param i32 (ref $box))))\n  (global $maybe (ref null $box) (struct.new_default $box))\n",
+    "(module\n  (type $box (struct (field i64)))\n  (import \"env\" \"log\" (func $log))\n  (import \"env\" \"touch\" (func $touch (param i32) (result i32)))\n  (import \"env\" \"sink\" (func $sink (param i32)))\n  (import \"env\" \"touch_ref\" (func $touch_ref (param i32 (ref $box))))\n  (global $maybe (ref null $box) (struct.new_default $box))\n",
   )
   for dummy_idx = 0; dummy_idx < 8192; dummy_idx = dummy_idx + 1 {
     ignore(dummy_idx)
     out.write_string("  (func)\n")
   }
-  out.write_string("  (func $leaf (param i32) (result i32)\n")
+  out.write_string(
+    "  (func $leaf (param (ref $box) i32) (result i32) (local i64)\n    local.get 0\n    struct.get $box 0\n    local.set 2\n    call $log\n    local.get 2\n    i32.wrap_i64\n    call $sink\n    call $log\n    local.get 2\n    i32.wrap_i64\n    call $sink\n    call $log\n    local.get 2\n    i32.wrap_i64\n    call $sink\n    call $log\n    local.get 2\n    i32.wrap_i64\n    call $sink\n",
+  )
   for guarded_call = 0; guarded_call < 768; guarded_call = guarded_call + 1 {
     ignore(guarded_call)
-    out.write_string("    local.get 0\n    if call $log end\n")
+    out.write_string("    local.get 1\n    if call $log end\n")
   }
   out.write_string(
     (
@@ -16059,7 +16061,7 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
       #|    else
       #|      local.get 0
       #|    end)
-      #|  (func $mid (param i32) (result i32)
+      #|  (func $mid (param (ref $box) i32) (result i32)
       #|    (local
     ),
   )
@@ -16118,8 +16120,8 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
       #|    i32.const 85
       #|    call $touch
       #|    local.set 12
-      #|    local.get 0
-      #|    local.set 1
+      #|    local.get 1
+      #|    local.set 2
       #|    i32.const 41
       #|    drop
       #|    i32.const 42
@@ -16134,9 +16136,10 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
       #|    drop
       #|    i32.const 47
       #|    drop
-      #|    local.get 1
-      #|    local.set 2
       #|    local.get 2
+      #|    local.set 3
+      #|    local.get 0
+      #|    local.get 3
       #|    call $leaf
       #|    drop
       #|    local.get 2
@@ -16163,6 +16166,7 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
       #|    i32.const 0
       #|    call $carrier)
       #|  (func $normalize (param i32) (result i32)
+      #|    struct.new_default $box
       #|    local.get 0
       #|    i32.const -1
       #|    i32.eq
@@ -16186,20 +16190,48 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   let source = dae_test_broad_high_normalized_literal_chain_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
-  for def_idx in [8192, 8194, 8195] {
-    @debug.assert_eq(dae_test_func_params(plain, def_idx).length(), 1)
-    assert_true(
-      dae_test_func_params(optimized, def_idx).length() == 0,
-      msg="def=\{def_idx} trace=\{trace}",
-    )
-  }
+  @debug.assert_eq(dae_test_func_params(plain, 8192).length(), 2)
+  assert_true(
+    dae_test_func_params(optimized, 8192).length() == 1,
+    msg="def=8192 trace=\{trace}",
+  )
+  @debug.assert_eq(dae_test_func_params(plain, 8195).length(), 1)
+  assert_true(
+    dae_test_func_params(optimized, 8195).length() == 0,
+    msg="def=8195 trace=\{trace}",
+  )
+  @debug.assert_eq(dae_test_func_params(plain, 8194).length(), 2)
+  assert_true(
+    dae_test_func_params(optimized, 8194).length() == 1,
+    msg="def=8194 trace=\{trace}",
+  )
   @debug.assert_eq(dae_test_func_params(plain, 8193).length(), 6)
   assert_true(
     dae_test_func_params(optimized, 8193).length() == 1,
     msg="carrier=\{optimized.pretty_print_defined_func(8193U)} trace=\{trace}",
   )
   let leaf = optimized.pretty_print_defined_func(8192U)
-  assert_false(leaf.contains("call (Func 0)"), msg=leaf)
+  assert_true(dae_test_count_substring(leaf, "call (Func 0)") == 4, msg=leaf)
+  assert_true(dae_test_count_substring(leaf, "call (Func 2)") == 4, msg=leaf)
+  let @lib.Func(leaf_locals, @lib.Expr(leaf_body)) = dae_test_defined_func(
+    optimized, 8192,
+  )
+  @debug.assert_eq(leaf_locals.length(), 1, msg=leaf)
+  match leaf_body {
+    [
+      @lib.Call(@lib.FuncIdx(0U)),
+      @lib.LocalGet(@lib.LocalIdx(0U)),
+      @lib.StructGet(_, @lib.U32(0U)),
+      @lib.LocalTee(_),
+      @lib.I32WrapI64,
+      @lib.Call(@lib.FuncIdx(2U)),
+      ..,
+    ] => ()
+    _ =>
+      fail(
+        "expected immutable field read after side call: \{leaf_body} trace=\{trace}",
+      )
+  }
   let carrier = optimized.pretty_print_defined_func(8193U)
   assert_false(carrier.contains("If"), msg=carrier)
   assert_false(carrier.contains("Return"), msg=carrier)

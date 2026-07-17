@@ -21805,6 +21805,185 @@ test "DAEO broad-high selected linear coalescing keeps an early-read destination
 }
 
 ///|
+test "DAEO broad-high simplify-locals delays immutable nontrapping field reads to first use" {
+  let source = @lib.LocalIdx::new(0U)
+  let target = @lib.LocalIdx::new(2U)
+  let type_idx = @lib.TypeIdx::new(0U)
+  let field_idx = @lib.U32(0U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i32()),
+            @lib.Mut::const_(),
+          ),
+        ]),
+      ),
+    ),
+  ])
+  let original = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::struct_get(type_idx, field_idx),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(target),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
+    original,
+    [
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::new(type_idx)),
+      ),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ],
+    1,
+    Some(type_sec),
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(source),
+            @lib.Instruction::struct_get(type_idx, field_idx),
+            @lib.Instruction::local_tee(target),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "DAEO broad-high simplify-locals rejects unsafe immutable field-read delay" {
+  let source = @lib.LocalIdx::new(0U)
+  let target = @lib.LocalIdx::new(2U)
+  let type_idx = @lib.TypeIdx::new(0U)
+  let field_idx = @lib.U32(0U)
+  let immutable_type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i32()),
+            @lib.Mut::const_(),
+          ),
+        ]),
+      ),
+    ),
+  ])
+  let mutable_type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::struct_([
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::i32()),
+            @lib.Mut::var_(),
+          ),
+        ]),
+      ),
+    ),
+  ])
+  let base = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::struct_get(type_idx, field_idx),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(target),
+    @lib.Instruction::drop(),
+  ]
+  let nonnull_types = [
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::new(type_idx)),
+    ),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]
+  let nullable_types = [
+    @lib.ValType::ref_type(
+      @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+    ),
+    @lib.ValType::i32(),
+    @lib.ValType::i32(),
+  ]
+  let source_write = base.copy()
+  source_write.push(@lib.Instruction::local_get(source))
+  source_write.push(@lib.Instruction::local_set(source))
+  let extra_target_read = base.copy()
+  extra_target_read.push(@lib.Instruction::local_get(target))
+  extra_target_read.push(@lib.Instruction::drop())
+  let structured_boundary = [
+    @lib.Instruction::local_get(source),
+    @lib.Instruction::struct_get(type_idx, field_idx),
+    @lib.Instruction::local_set(target),
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(target),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ]
+  for
+    case in [
+      (base, nonnull_types, Some(mutable_type_sec)),
+      (base, nullable_types, Some(immutable_type_sec)),
+      (source_write, nonnull_types, Some(immutable_type_sec)),
+      (extra_target_read, nonnull_types, Some(immutable_type_sec)),
+      (structured_boundary, nonnull_types, Some(immutable_type_sec)),
+    ] {
+    let (original, local_types, type_sec) = case
+    let (rewritten, count) = run_hot_pipeline_dae_delay_immutable_struct_get_readbacks_instrs(
+      original, local_types, 1, type_sec,
+    )
+    @debug.assert_eq(count, 0)
+    @debug.assert_eq(rewritten, original)
+  }
+}
+
+///|
 test "DAEO broad-high simplify-locals retargets copy producers without moving them" {
   let local_types = Array::make(6, @lib.ValType::i32())
   let original = [

@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md
   - ../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md
   - ../../../raw/research/1640-2026-07-17-daeo-func8186-final-return.md
   - ../../../raw/research/1639-2026-07-17-daeo-func8185-never-read-result-stores.md
@@ -107,6 +108,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1642`](../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md) records the focused immutable-field-delay smokes with explicit native SHA-256 `20a36db6f8b546a1571533dd134cbc2bed244b5aebb4b8323f63e6967db5dcc5`: dedicated `.tmp/pass-fuzz-dae-optimizing-field6-final-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-field6-final-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, canonical Func `8185` body `2462` matching the direct no-structure/vacuum probe, and a canonical-module gap of `+1498`; they do not replace the required four-lane closeout matrix.
 
 Research note [`1641`](../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md) records the focused Func-`8184` smokes with explicit native SHA-256 `73f86497e49a958d15e7c1d2824086688c43742e1cc67a3b05dcc2b51596679a`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8184-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8184-regular-1000` each compare and normalize `1000/1000`, with zero compare-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, exact canonical Func `8184` body parity at `11`, and a canonical-module gap of `+1500`; they do not replace the required four-lane closeout matrix.
 
