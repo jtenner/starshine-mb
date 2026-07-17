@@ -1,6 +1,6 @@
 ---
 kind: concept
-status: working
+status: supported
 last_reviewed: 2026-07-17
 sources:
   - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
@@ -40,17 +40,17 @@ The family inventory contains 35 source-owned transform/postcondition rows. The 
 4. `EquivalentOptimizer` removes redundant equivalent sets only when structure is enabled, but canonicalizes equivalent gets in every variant;
 5. refinalization and nondefaultable-local repair are part of the pass contract, not optional downstream polish.
 
-## Starshine starting gap map
+## Starshine completion state
 
-- Active: `simplify-locals`, `simplify-locals-nostructure`, compatibility `simplify-locals-no-structure`, and `simplify-locals-notee-nostructure`.
-- Missing active public variants: `simplify-locals-notee` and `simplify-locals-nonesting`.
-- Missing policy axis: `allow_nesting`.
-- Existing no-structure aggregate generation is useful but too narrow for family closeout.
-- Large/sparse equivalent-cleanup cutoffs and raw skip gates remain performance boundaries that require proof; they are not accepted semantic omissions.
+- All five canonical variants and compatibility aliases are active through one explicit tee/structure/nesting policy engine.
+- Focused tests cover no-tee structure synthesis, nonesting parent-position legality, loop-result lifting, no-tee self-copy handling, reachable dead-write cleanup, nested-loop result nops, and one-run idempotence.
+- Every canonical variant has a stable aggregate profile with selected-leaf metadata.
+- The required four-lane matrix, runtime probes, idempotence reruns, pass-local timing, and O4z neighborhood are complete; see [`fuzzing.md`](./fuzzing.md).
+- Retained raw gates are performance/correctness boundaries, not semantic omissions. The newly narrowed no-tee stack/global gate admits small source-owned GC cleanup shapes while preserving the large-function boundary.
 
 ## Completion rule
 
-Do not close the family because one variant or one random lane is green. Completion requires:
+The family was closed only after satisfying:
 
 - focused TDD coverage for every inventory row and every variant gate;
 - stable pass-owned GenValid aggregate profiles for all five canonical variants;

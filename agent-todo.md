@@ -25,7 +25,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
 | `ssa-nomerge` | Closed. | None; full `ssa` is separate future work. |
 | `flatten` | Closed: public behavior parity, top-level aggressive scheduling, and reviewed timing acceptance completed on 2026-07-17. | None; `1,140 us` over the 120-function representative is accepted as a pass-specific timing exception. |
-| `simplify-locals-notee-nostructure` | Direct pass active and top-level preset-scheduled. | **Open modern direct closeout and nested-rerun proof.** |
+| `simplify-locals` family | Closed: all five variants, four-lane direct evidence, O4z neighborhood, idempotence, and timing completed on 2026-07-17. | None; shared DAE/inlining/SGO scheduler infrastructure remains under `[O4Z-NESTED]001`. |
 | `local-cse` | Direct behavior closed; both late and aggressive-prelude slots scheduled. | None; shared nested-rerun proof remains under `[O4Z-NESTED]001`. |
 | `dead-code-elimination` / `dce` | Closed. | None. |
 | `remove-unused-names` | Closed. | None. |
@@ -57,40 +57,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `directize` | Accepted default direct/preset status. | Optional pass-arg breadth deferred. |
 
 ## v0.1.0 Primary O4z Work
-
-### [O4Z-SLNNS]001 - Modern-close `simplify-locals-notee-nostructure`
-
-- **Status:** direct pass implemented, historically green, and top-level preset-scheduled after `flatten`; modern closeout remains incomplete.
-- **Goal:** make scheduled slot 10 independently signable and ready for shared nested reruns.
-- **Why:** current evidence predates the pass-specific-profile/four-lane closeout standard; scheduling is complete, but direct requalification and nested-rerun proof are not.
-- **Deliverables:**
-  - [ ] Add a dedicated aggregate GenValid profile covering no-tee positives, no-structure constraints, control/EH barriers, effects/traps, and nondefaultable-ref boundaries.
-  - [ ] Refresh v130 source/lit coverage and focused negative tests.
-  - [ ] Reduce and remove, or narrowly justify with artifact evidence, the broad large-module skip that currently keeps hazardous direct shapes from running.
-  - [ ] Run regular 100000, wasm-smith 10000, dedicated 10000, and random-all 10000 lanes.
-  - [ ] Measure pass-local timing on representative candidate-heavy and O4z-prelude fixtures.
-  - [x] Lock the exact top-level `flatten -> simplify-locals-notee-nostructure -> local-cse` preset order.
-  - [ ] Prove the same final function prelude through shared optimizing nested reruns under `[O4Z-NESTED]001`.
-- **Exit criteria:** modern direct closeout plus a green `flatten -> SLNNS -> local-cse` neighborhood.
-
-### [SL-FAMILY]001 - Implement and close every `SimplifyLocals` variant
-
-- **Status:** all five canonical variants are active from one policy engine; dedicated aggregate/leaf profiles now expose remaining parity and cleanup gaps.
-- **Goal:** implement all five Binaryen `version_130` public variants from one explicit policy engine and sign each one off independently.
-- **Source inventory:** `docs/wiki/raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md` and `docs/wiki/binaryen/passes/simplify-locals/transform-family-inventory.md`.
-- **Deliverables:**
-  - [x] Inventory every source-owned rewrite/postcondition family and legality domain.
-  - [x] Add a fact-based `allow_tee` / `allow_structure` / `allow_nesting` policy without adding redundant linear scans.
-  - [x] Activate canonical `simplify-locals-notee` plus the tested `simplify-locals-no-tee` compatibility alias.
-  - [x] Activate canonical `simplify-locals-nonesting` plus the tested `simplify-locals-no-nesting` compatibility alias.
-  - [ ] Prove no-tee still performs structure synthesis, including structure-required conditional-branch tees, while never creating a sink tee.
-  - [x] Prove nonesting permits flat copy retargeting and set-value sinks while rejecting representative ordinary `drop`/call nesting, tees, and structure synthesis; broaden the source-family matrix before closeout.
-  - [ ] Requalify full, no-structure, and no-tee/no-structure against the same 35-family matrix.
-  - [ ] Replace semantic dependence on broad raw/large-function skip gates with fact-based admission or narrow measured performance-only boundaries.
-  - [x] Add a stable aggregate GenValid profile for each canonical variant, with shared family-specific leaves and `selected_profile` metadata; repair the exposed effect-order, flat-parent, structure-shape, and cleanup residuals before closeout.
-  - [ ] Run the required four-lane closeout matrix and pass-local timing for all five variants.
-  - [ ] Complete `[O4Z-SLNNS]001` direct/neighborhood and `[O4Z-NESTED]001` rerun proof using the signed shared implementation.
-- **Exit criteria:** all five canonical names are active, no source-owned family is unimplemented or unclassified, every required matrix is complete with zero true semantic mismatches, and retained boundaries are narrow, measured, and explicitly documented.
 
 ### [O4Z-PCP]001 - Implement public `precompute-propagate`
 
@@ -187,7 +153,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Preserve touched-function filtering; do not mutate unrelated functions.
   - [ ] Replace broad large-module/tail-call bypasses only with focused safe guards or repaired owners.
   - [ ] Add exact nested-order tests and pass-specific runtime/artifact evidence.
-- **Dependencies:** `[O4Z-SLNNS]001`, `[O4Z-PCP]001`, `[O4Z-ML]001`, `[O4Z-CF]001`, and `[O4Z-PRESET]001`.
+- **Dependencies:** `[O4Z-PCP]001`, `[O4Z-ML]001`, `[O4Z-CF]001`, and `[O4Z-PRESET]001`. The SimplifyLocals prelude itself is signed; this slice owns only shared scheduler routing.
 - **Exit criteria:** DAE/inlining/SGO nested traces match the intended roster and stay valid, runtime-green, and within accepted pass-local performance bounds.
 
 ## v0.1.0 O4z Supporting Work

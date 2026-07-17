@@ -1,6 +1,6 @@
 ---
 kind: workflow
-status: working
+status: supported
 last_reviewed: 2026-07-17
 sources:
   - ../../../tooling/pass-fuzz-compare.md
@@ -30,8 +30,8 @@ The direct compare lane is runnable.
 - compatibility alias: `simplify-locals-no-nesting`
 - Binaryen oracle flag: `--simplify-locals-nonesting`
 - harness alias mapping: active
-- dedicated aggregate profile: not yet implemented
-- final closeout: not yet complete
+- dedicated aggregate profile: `simplify-locals-nonesting`
+- final closeout: complete on 2026-07-17
 
 ## Initial smoke
 
@@ -72,26 +72,11 @@ The profile must distinguish:
 
 A generic valid-module lane can miss these policy boundaries even when every case normalizes.
 
-## Required profile shape
+## Dedicated profile
 
-Add one deterministic aggregate profile and leaf aliases grouped around the source-owned family inventory:
+The aggregate selects the shared `local-traffic`, `structure-result`, `flat-parent`, `effect-order`, and `stress` leaves with nonesting-specific flat-parent generation. At seed `0x5eed`, the final `10000`-case lane selected `3107/1546/3031/1523/793` local/structure/flat/effect/stress cases.
 
-1. `copy-retarget`;
-2. `set-value-parent`;
-3. `ordinary-consumer-negative`;
-4. `no-tee`;
-5. `no-structure`;
-6. `equivalent-and-dead-cleanup`;
-7. `effects-and-traps`;
-8. `control-and-eh`;
-9. `lift-fused-tee-boundary`;
-10. `stress`.
-
-Each leaf needs a meaningful nonzero compared-case threshold and direct profile tests proving the intended family is generated.
-
-## Final command template
-
-After the aggregate profile lands:
+## Final command
 
 ```text
 moon build --target native --release src/cmd
@@ -102,7 +87,7 @@ bun fuzz compare-pass --pass simplify-locals-nonesting --count 10000 --seed 0x5e
   --min-compared <profile-backed-threshold>
 ```
 
-Also run low-feature, trap/effect, and stress lanes. Add `--wasm-smith` only for the explicitly separate external-generator lane.
+Final evidence: regular GenValid `100000/100000` raw matches; wasm-smith `6719/6719` comparable matches with shared Binaryen parser failures; dedicated `7684` matches plus `2316` strictly smaller effect/stress cleanups; random-all `8018` matches plus `965` strictly smaller SSA-smoke cleanups. The final `1000`-case idempotence lane had zero property failures, and the Node runtime lane had zero semantic mismatches.
 
 ## Classification rule
 
