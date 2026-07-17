@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1644-2026-07-17-daeo-func8185-post-o0-residual.md
   - ../../../raw/research/1643-2026-07-17-daeo-func8185-i64-zero-carrier.md
   - ../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md
   - ../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md
@@ -101,6 +102,8 @@ related:
 ## Current status
 
 Starshine now has an **active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass on the current v0.1.0 surface. `[DAE]003` and `[DAE]004` are closed by research notes `0661` and `0687`; reopen only for a new semantic mismatch, validation failure, or measured DAE-owned regression. `[DAE]013` is closed for v0.1.0 by keeping this pass direct-pass-only: explicit `--dae-optimizing` / `--dead-argument-elimination-optimizing` requests are supported, but public `optimize` / `shrink` presets intentionally skip DAE until new ordered-prefix or artifact evidence proves default-preset safety and runtime. The current raw-cleanup policy is explicit: correctness comes first; audited pure/nontrapping cleanup is useful and should be kept when semantically proved; Binaryen-shape debris preservation is narrow and only justified by a documented diagnostic or active artifact frontier. Possibly trapping or effectful operand stacks must remain live, and any future policy-changing cleanup needs focused tests plus size/mismatch evidence from the relevant compare lane. This closes `[DAE]009` as a policy/backlog task; future raw-cleanup work should reopen only for a concrete implementation, measurement, or frontier need.
+
+Research note [`1644`](../../../raw/research/1644-2026-07-17-daeo-func8185-post-o0-residual.md) exhausted the remaining local movement/coalescing audit: the exact documented downstream O0 replay was fixed at Func `8185` body `2458` through no-structure/vacuum and only visited temporary `2459` representation states. The final Binaryen DAEO `2429` had no isolated downstream owner, so `+29` remained a parity gap but speculative rewrites were closed pending direct internal source/trace, a minimized reproducer, or measured Starshine benefit.
 
 Research note [`1643`](../../../raw/research/1643-2026-07-17-daeo-func8185-i64-zero-carrier.md) retained the next direct SimplifyLocals owner: an exact body-local `i64.const 0` carrier with one set, sixteen gets, and no tee was materialized at every read. Pure nontrapping constant substitution plus validation and strict selected-body profitability lowered Func `8185` `2462 -> 2458`; raw/canonical became `3203060` / `3263950`, leaving `+1494`. Other types, constants, counts, parameters, writes, and tees rejected.
 
