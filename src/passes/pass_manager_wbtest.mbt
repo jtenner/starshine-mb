@@ -21749,6 +21749,58 @@ test "DAEO broad-high selected compaction preserves params and removes unused lo
 }
 
 ///|
+test "DAEO stack-carried immediate suffix rejects conflicting literals" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "env" "sink" (func $sink (param i32)))
+      #|  (func $target (param i32 i64 i32 i64 i32 i32) (result i32)
+      #|    local.get 5
+      #|    if (result i32)
+      #|      local.get 1
+      #|      drop
+      #|      local.get 2
+      #|      drop
+      #|      local.get 3
+      #|      drop
+      #|      local.get 4
+      #|      drop
+      #|      local.get 0
+      #|    else
+      #|      local.get 0
+      #|    end)
+      #|  (func (export "a") (result i32)
+      #|    i32.const 7
+      #|    i64.const 8
+      #|    i32.const 9
+      #|    i64.const 10
+      #|    i32.const 11
+      #|    call $sink
+      #|    i32.const 12
+      #|    i32.const 0
+      #|    call $target)
+      #|  (func (export "b") (result i32)
+      #|    i32.const 7
+      #|    i64.const 8
+      #|    i32.const 9
+      #|    i64.const 10
+      #|    i32.const 11
+      #|    call $sink
+      #|    i32.const 12
+      #|    i32.const 1
+      #|    call $target))
+    ),
+  )
+  let facts = dae_collect_current_call_facts(mod_, 4)
+  assert_false(
+    dae_exact_literal_def_has_immediate_i32_suffix_priority(mod_, 0, facts),
+  )
+  let result = dae_try_rewrite_exact_literal_def_with_facts_once(mod_, 0, facts)
+  assert_false(result.changed)
+  assert_true(result.mod_out == mod_)
+}
+
+///|
 test "DAEO broad-high structural primitives preserve stack/control shape" {
   let value = @lib.LocalIdx::new(0U)
   let (zero_eq, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs([

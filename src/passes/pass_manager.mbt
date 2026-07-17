@@ -62306,6 +62306,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     let mut exact_changed = false
     let next_ranked_defs : Array[Int] = []
     let next_ranked_payoffs : Array[Int] = []
+    let next_ranked_stack_suffix : Array[Bool] = []
     for candidate_def in next_candidates {
       if candidate_def < 0 ||
         candidate_def >= defined ||
@@ -62321,20 +62322,35 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
           current_funcs, candidate_def, imported, defined, 1, seen,
         ),
       )
+      next_ranked_stack_suffix.push(
+        dae_exact_literal_def_has_immediate_i32_suffix_priority(
+          current, candidate_def, chain_call_facts,
+        ),
+      )
     }
     let mut next_attempt = 0
     while next_ranked_defs.length() > 0 && next_attempt < 16 && !exact_changed {
       let mut best_idx = 0
       for idx = 1; idx < next_ranked_defs.length(); idx = idx + 1 {
-        if next_ranked_payoffs[idx] > next_ranked_payoffs[best_idx] {
+        if (
+            next_ranked_stack_suffix[idx] && !next_ranked_stack_suffix[best_idx]
+          ) ||
+          (
+            next_ranked_stack_suffix[idx] == next_ranked_stack_suffix[best_idx] &&
+            next_ranked_payoffs[idx] > next_ranked_payoffs[best_idx]
+          ) {
           best_idx = idx
         }
       }
       let candidate_def = next_ranked_defs[best_idx]
       ignore(next_ranked_defs.remove(best_idx))
       ignore(next_ranked_payoffs.remove(best_idx))
+      ignore(next_ranked_stack_suffix.remove(best_idx))
       let exact_result = dae_try_rewrite_exact_literal_def_with_facts_once(
-        current, candidate_def, chain_call_facts,
+        current,
+        candidate_def,
+        chain_call_facts,
+        allow_immediate_i32_suffix_fallback=true,
       )
       if exact_result.changed {
         current = exact_result.mod_out
@@ -62356,7 +62372,10 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
       continue
     }
     let unread_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, selected_defs, chain_call_facts,
+      current,
+      selected_defs,
+      chain_call_facts,
+      allow_stack_carried_void_effects=true,
     )
     if unread_result.changed {
       current = unread_result.mod_out
@@ -62396,13 +62415,17 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     if cleanup_def < 0 || cleanup_def >= selected_defs.length() {
       continue
     }
-    let cleanup_local_count = match current.code_sec {
+    let (cleanup_local_count, cleanup_instr_count) = match current.code_sec {
       Some(@lib.CodeSec(current_funcs)) =>
         match current_funcs.get(cleanup_def) {
-          Some(@lib.Func(locals, _)) => locals.length()
-          None => 0
+          Some(@lib.Func(locals, @lib.Expr(body))) =>
+            (
+              locals.length(),
+              run_hot_pipeline_dae_bounded_instr_count(body, 16),
+            )
+          None => (0, 0)
         }
-      None => 0
+      None => (0, 0)
     }
     let cleanup_baseline = current
     let cleanup_selected = Array::make(selected_defs.length(), false)
@@ -62422,7 +62445,11 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     // cleanup and compaction only: the generic hot-pass setup was expensive and
     // non-profitable there, while final access-frequency ordering remains the
     // source-backed representation owner after all body mutation.
-    if cleanup_def != final_productive_def && cleanup_local_count > 64 {
+    if cleanup_def != final_productive_def &&
+      (
+        cleanup_local_count > 64 ||
+        (cleanup_local_count == 0 && cleanup_instr_count <= 16)
+      ) {
       let (next, removed_count) = run_hot_pipeline_dae_broad_high_dead_write_cleanup(
         cleanup_current, cleanup_def,
       )

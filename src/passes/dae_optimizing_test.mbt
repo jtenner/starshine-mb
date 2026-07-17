@@ -243,6 +243,24 @@ fn dae_test_instrs_have_i32_div_s(instrs : Array[@lib.Instruction]) -> Bool {
       _ => false
     }
   })
+
+///|
+fn dae_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut idx = 0
+  while idx <= limit {
+    if text.sub(start=idx, end=idx + needle.length()).to_owned() == needle {
+      count += 1
+      idx += needle.length()
+    } else {
+      idx += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -16001,7 +16019,9 @@ test "dae-optimizing coalesces and late-reorders selected payoff locals after re
 ///|
 fn dae_test_broad_high_normalized_literal_chain_module() -> String {
   let out = StringBuilder::new()
-  out.write_string("(module\n  (import \"env\" \"log\" (func $log))\n")
+  out.write_string(
+    "(module\n  (import \"env\" \"log\" (func $log))\n  (import \"env\" \"touch\" (func $touch (param i32) (result i32)))\n  (import \"env\" \"sink\" (func $sink (param i32)))\n",
+  )
   for dummy_idx = 0; dummy_idx < 8192; dummy_idx = dummy_idx + 1 {
     ignore(dummy_idx)
     out.write_string("  (func)\n")
@@ -16012,7 +16032,29 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
     out.write_string("    local.get 0\n    if call $log end\n")
   }
   out.write_string(
-    "    i32.const 7)\n  (func $mid (param i32) (result i32)\n    (local",
+    (
+      #|    i32.const 7)
+      #|  (func $carrier (param i32 i64 i32 i64 i32 i32) (result i32)
+      #|    local.get 5
+      #|    if (result i32)
+      #|      local.get 0
+      #|      call $touch
+      #|      drop
+      #|      local.get 1
+      #|      drop
+      #|      local.get 2
+      #|      call $touch
+      #|      drop
+      #|      local.get 3
+      #|      drop
+      #|      local.get 4
+      #|      call $touch
+      #|    else
+      #|      local.get 0
+      #|    end)
+      #|  (func $mid (param i32) (result i32)
+      #|    (local
+    ),
   )
   for local_idx = 0; local_idx < 65; local_idx = local_idx + 1 {
     ignore(local_idx)
@@ -16022,7 +16064,31 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
     (
       #|)
       #|    local.get 0
-      #|    call $leaf)
+      #|    call $leaf
+      #|    drop
+      #|    local.get 0
+      #|    i64.const 9
+      #|    local.get 0
+      #|    call $touch
+      #|    i64.const 10
+      #|    local.get 0
+      #|    call $sink
+      #|    local.get 0
+      #|    call $touch
+      #|    i32.const 0
+      #|    call $carrier
+      #|    drop
+      #|    i32.const 1
+      #|    i64.const 11
+      #|    local.get 0
+      #|    call $touch
+      #|    i64.const 12
+      #|    local.get 0
+      #|    call $sink
+      #|    local.get 0
+      #|    call $touch
+      #|    i32.const 0
+      #|    call $carrier)
       #|  (func $normalize (param i32) (result i32)
       #|    local.get 0
       #|    i32.const -1
@@ -16047,24 +16113,31 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   let source = dae_test_broad_high_normalized_literal_chain_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
-  for def_idx in [8192, 8193, 8194] {
+  for def_idx in [8192, 8194, 8195] {
     @debug.assert_eq(dae_test_func_params(plain, def_idx).length(), 1)
     assert_true(
       dae_test_func_params(optimized, def_idx).length() == 0,
       msg="def=\{def_idx} trace=\{trace}",
     )
   }
+  @debug.assert_eq(dae_test_func_params(plain, 8193).length(), 6)
+  assert_true(
+    dae_test_func_params(optimized, 8193).length() == 1,
+    msg="carrier=\{optimized.pretty_print_defined_func(8193U)} trace=\{trace}",
+  )
   let leaf = optimized.pretty_print_defined_func(8192U)
   assert_false(leaf.contains("call (Func 0)"), msg=leaf)
-  for def_idx in [8193U, 8194U] {
-    let productive = optimized.pretty_print_defined_func(def_idx)
-    assert_false(productive.contains("(local"), msg=productive)
-  }
+  let carrier = optimized.pretty_print_defined_func(8193U)
+  assert_false(carrier.contains("If"), msg=carrier)
+  assert_false(carrier.contains("call (Func 1)"), msg=carrier)
+  let mid = optimized.pretty_print_defined_func(8194U)
+  assert_true(dae_test_count_substring(mid, "call (Func 1)") == 4, msg=mid)
+  assert_true(dae_test_count_substring(mid, "call (Func 2)") == 2, msg=mid)
+  let normalize = optimized.pretty_print_defined_func(8195U)
+  assert_false(normalize.contains("(local"), msg=normalize)
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:broad-high-exact-literal-chain seed_def=8194 productive_defs=[8194, 8193, 8192] cleanup_defs=[8194, 8193]",
-      )
+      line.contains("productive_defs=[8195, 8194, 8193, 8192]")
     }),
     msg=trace.to_string(),
   )

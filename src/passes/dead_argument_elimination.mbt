@@ -3025,6 +3025,7 @@ fn dae_find_value_slice(
   entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> (DaeCallShape, Int, Int)? {
   let mut need = 1
   let mut idx = end - 1
@@ -3036,7 +3037,7 @@ fn dae_find_value_slice(
     }
     let ins = effect.inputs
     let outs = effect.outputs
-    if outs == 0 && need > 0 {
+    if outs == 0 && need > 0 && !allow_stack_carried_void_effects {
       if need <= entry_stack_values {
         return Some(
           (
@@ -4384,6 +4385,7 @@ fn dae_collect_callsite_value_slices(
   entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> (Array[DaeValueSlice], Int)? {
   let empty_disposition = {
     start: 0,
@@ -4405,7 +4407,12 @@ fn dae_collect_callsite_value_slices(
   while arg_idx >= 0 {
     match
       dae_find_value_slice(
-        instrs, cursor, ambient_remaining, mod_, func_type_indices,
+        instrs,
+        cursor,
+        ambient_remaining,
+        mod_,
+        func_type_indices,
+        allow_stack_carried_void_effects~,
       ) {
       Some((shape, next_cursor, next_ambient_remaining)) => {
         slices[arg_idx] = dae_value_slice_from_call_shape(instrs, shape)
@@ -4452,10 +4459,17 @@ fn dae_callsite_value_slice_evidence(
   entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeCallsiteValueSliceEvidence? {
   match
     dae_collect_callsite_value_slices(
-      instrs, call_idx, arg_count, entry_stack_values, mod_, func_type_indices,
+      instrs,
+      call_idx,
+      arg_count,
+      entry_stack_values,
+      mod_,
+      func_type_indices,
+      allow_stack_carried_void_effects~,
     ) {
     Some((slices, cursor)) => {
       let evidence = { call_idx, arg_count, entry_stack_values, slices, cursor }
@@ -4865,6 +4879,7 @@ fn dae_rewrite_callsite_with_localization_at(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   existing_scratch_local_types? : Array[@lib.ValType] = [],
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeCallsiteRewriteApplicationEvidence? {
   if remove.length() != param_types.length() || first_scratch_local < 0 {
     return None
@@ -4877,6 +4892,7 @@ fn dae_rewrite_callsite_with_localization_at(
       entry_stack_values,
       mod_,
       func_type_indices,
+      allow_stack_carried_void_effects~,
     ) {
     Some(evidence) => evidence
     None => return None
@@ -5130,6 +5146,7 @@ fn dae_rewrite_calls_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   localization? : DaeCallsiteLocalizationContext? = None,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> (@lib.Instruction, Int, Bool) {
   let children = match dae_nested_control_children_evidence(instr, mod_) {
     Some(evidence) => evidence
@@ -5151,6 +5168,7 @@ fn dae_rewrite_calls_instr(
     mod_,
     func_type_indices,
     localization~,
+    allow_stack_carried_void_effects~,
   )
   if !primary_result.ok {
     return (instr, primary_result.calls_rewritten, false)
@@ -5166,6 +5184,7 @@ fn dae_rewrite_calls_instr(
         mod_,
         func_type_indices,
         localization~,
+        allow_stack_carried_void_effects~,
       )
       calls += secondary_result.calls_rewritten
       if !secondary_result.ok {
@@ -5196,6 +5215,7 @@ fn dae_rewrite_calls_instrs(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
   localization? : DaeCallsiteLocalizationContext? = None,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeRewriteResult {
   let current = instrs.copy()
   let mut idx = 0
@@ -5224,6 +5244,7 @@ fn dae_rewrite_calls_instrs(
                 mod_,
                 func_type_indices,
                 existing_scratch_local_types=context.scratch_local_types,
+                allow_stack_carried_void_effects~,
               ) {
               Some(evidence) => {
                 context.scratch_local_types.clear()
@@ -5260,6 +5281,7 @@ fn dae_rewrite_calls_instrs(
           mod_,
           func_type_indices,
           localization~,
+          allow_stack_carried_void_effects~,
         )
         if !ok {
           return {
@@ -12998,6 +13020,7 @@ fn dae_try_rewrite_candidate(
   local_use : DaeLocalUse,
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
@@ -13048,6 +13071,7 @@ fn dae_try_rewrite_candidate(
       mod_,
       type_indices,
       localization=Some(localization),
+      allow_stack_carried_void_effects~,
     )
     if !result.ok {
       return {
@@ -20261,6 +20285,7 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
   call_facts : DaeCurrentCallFacts,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -20337,6 +20362,40 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       )
       if result.changed {
         return result
+      }
+      let mut kept_count = 0
+      let mut removed_param_written = false
+      p = 0
+      while p < params.length() {
+        if remove[p] {
+          removed_param_written = removed_param_written || local_use.writes[p]
+        } else {
+          kept_count += 1
+        }
+        p += 1
+      }
+      // After an exact control literal folds, a selected callee can retain one
+      // argument while older removed arguments remain stack-carried across void
+      // effects in its callers. Retry only that bounded shape. The alternate
+      // value slicing includes those void effects in the preceding operand;
+      // the existing localization, exact call-count, signature, callee-local,
+      // and module-validation transaction remains authoritative.
+      if allow_stack_carried_void_effects &&
+        kept_count == 1 &&
+        !removed_param_written {
+        let stack_carried = dae_try_rewrite_candidate(
+          mod_,
+          callee_abs,
+          remove,
+          const_params,
+          local_use,
+          boundary_candidate.direct_call_count,
+          boundary_candidate.direct_callers,
+          allow_stack_carried_void_effects=true,
+        )
+        if stack_carried.changed {
+          return stack_carried
+        }
       }
     }
     def_idx += 1
@@ -30125,11 +30184,264 @@ fn dae_try_remove_descending_dropped_results_with_facts_once(
 }
 
 ///|
+fn dae_collect_uniform_immediate_i32_suffix_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  expected : Array[@lib.I32?],
+  call_count : Array[Int],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        if idx == 0 {
+          return false
+        }
+        let value = match instrs[idx - 1] {
+          @lib.I32Const(value) => value
+          _ => return false
+        }
+        match expected[0] {
+          Some(current) if current != value => return false
+          Some(_) => ()
+          None => expected[0] = Some(value)
+        }
+        call_count[0] += 1
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if !dae_collect_uniform_immediate_i32_suffix_instrs(
+            body, callee_abs, expected, call_count,
+          ) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if !dae_collect_uniform_immediate_i32_suffix_instrs(
+            then_body, callee_abs, expected, call_count,
+          ) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if !dae_collect_uniform_immediate_i32_suffix_instrs(
+                body, callee_abs, expected, call_count,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_collect_uniform_immediate_i32_suffix_from_callers(
+  funcs : Array[@lib.Func],
+  caller_defs : Array[Int],
+  callee_abs : Int,
+  expected_call_count : Int,
+) -> @lib.Instruction? {
+  let expected : Array[@lib.I32?] = [None]
+  let call_count = [0]
+  for caller_def in caller_defs {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      return None
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    if !dae_collect_uniform_immediate_i32_suffix_instrs(
+        body, callee_abs, expected, call_count,
+      ) {
+      return None
+    }
+  }
+  if call_count[0] != expected_call_count {
+    return None
+  }
+  match expected[0] {
+    Some(value) => Some(@lib.Instruction::i32_const(value))
+    None => None
+  }
+}
+
+///|
+fn dae_direct_calls_need_stack_carried_void_effects_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_count : Int,
+  entry_stack_values : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+  failed : Array[Bool],
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match
+      dae_target_callsite_evidence(
+        instrs[idx],
+        callee_abs,
+        DaeTargetDirectCallOnly,
+      ) {
+      Some(_) =>
+        if dae_callsite_value_slice_evidence(
+            instrs, idx, param_count, entry_stack_values, mod_, type_indices,
+          )
+          is None {
+          failed[0] = true
+        }
+      None =>
+        match instrs[idx] {
+          @lib.Block(_, _)
+          | @lib.Loop(_, _)
+          | @lib.TryTable(_, _, _)
+          | @lib.If(_, _, _) => {
+            let children = match
+              dae_nested_control_children_evidence(instrs[idx], mod_) {
+              Some(children) => children
+              None => return false
+            }
+            if !dae_direct_calls_need_stack_carried_void_effects_instrs(
+                children.primary_body,
+                callee_abs,
+                param_count,
+                children.entry_stack_values,
+                mod_,
+                type_indices,
+                failed,
+              ) {
+              return false
+            }
+            match children.secondary_body {
+              Some(body) =>
+                if !dae_direct_calls_need_stack_carried_void_effects_instrs(
+                    body,
+                    callee_abs,
+                    param_count,
+                    children.entry_stack_values,
+                    mod_,
+                    type_indices,
+                    failed,
+                  ) {
+                  return false
+                }
+              None => ()
+            }
+          }
+          _ => ()
+        }
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+fn dae_direct_calls_need_stack_carried_void_effects(
+  funcs : Array[@lib.Func],
+  caller_defs : Array[Int],
+  callee_abs : Int,
+  param_count : Int,
+  mod_ : @lib.Module,
+  type_indices : Array[@lib.TypeIdx],
+) -> Bool {
+  let failed = [false]
+  for caller_def in caller_defs {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      return false
+    }
+    let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+    if !dae_direct_calls_need_stack_carried_void_effects_instrs(
+        body, callee_abs, param_count, 0, mod_, type_indices, failed,
+      ) {
+      return false
+    }
+  }
+  failed[0]
+}
+
+///|
+fn dae_exact_literal_def_has_immediate_i32_suffix_priority(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  call_facts : DaeCurrentCallFacts,
+) -> Bool {
+  let imported = dae_imported_func_count(mod_)
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return false
+  }
+  let callee_abs = imported + def_idx
+  let boundary_candidate = match
+    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+    Some(candidate) => candidate
+    None => return false
+  }
+  if !boundary_candidate.owned ||
+    boundary_candidate.has_self_direct_caller ||
+    !boundary_candidate.allows_nonself_direct_rewrite {
+    return false
+  }
+  let @lib.FuncType(params, _) = match
+    dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(func_type) => func_type
+    None => return false
+  }
+  if params.length() == 0 || params[params.length() - 1] != @lib.ValType::i32() {
+    return false
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let mut has_dead_param = false
+  let mut p = 0
+  while p < params.length() {
+    if !local_use.gets[p] {
+      has_dead_param = true
+    }
+    p += 1
+  }
+  let final_param = params.length() - 1
+  if has_dead_param ||
+    !local_use.gets[final_param] ||
+    local_use.writes[final_param] {
+    return false
+  }
+  dae_collect_uniform_immediate_i32_suffix_from_callers(
+    funcs,
+    boundary_candidate.direct_callers,
+    callee_abs,
+    boundary_candidate.direct_call_count,
+  ).is_some() &&
+  dae_direct_calls_need_stack_carried_void_effects(
+    funcs,
+    boundary_candidate.direct_callers,
+    callee_abs,
+    params.length(),
+    mod_,
+    type_indices,
+  )
+}
+
+///|
 fn dae_try_rewrite_exact_literal_def_with_facts_once(
   mod_ : @lib.Module,
   def_idx : Int,
   call_facts : DaeCurrentCallFacts,
   allow_immutable_global_get? : Bool = false,
+  allow_immediate_i32_suffix_fallback? : Bool = false,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -30205,14 +30517,51 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
     }
     p += 1
   }
-  if !any_const || has_dead_param {
+  if has_dead_param {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  dae_try_rewrite_candidate(
+  if any_const {
+    return dae_try_rewrite_candidate(
+      mod_,
+      callee_abs,
+      remove,
+      const_params,
+      local_use,
+      boundary_candidate.direct_call_count,
+      boundary_candidate.direct_callers,
+    )
+  }
+  if !allow_immediate_i32_suffix_fallback {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  // A void effect can sit between older stack-carried arguments and a direct
+  // call, making complete value-slice reconstruction intentionally fail even
+  // when the final literal is the immediate call suffix. Prove only that i32
+  // suffix across the already-owned caller set, then use the existing suffix
+  // transaction to reverify every call, preserve all preceding effects, update
+  // the signature and callee body, and reject any count or validation drift.
+  let final_param = params.length() - 1
+  if params[final_param] != @lib.ValType::i32() ||
+    !local_use.gets[final_param] ||
+    local_use.writes[final_param] {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let expected = match
+    dae_collect_uniform_immediate_i32_suffix_from_callers(
+      funcs,
+      boundary_candidate.direct_callers,
+      callee_abs,
+      boundary_candidate.direct_call_count,
+    ) {
+    Some(expected) => expected
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_rewrite_verified_materialized_const_suffix_candidate(
     mod_,
     callee_abs,
-    remove,
-    const_params,
+    params,
+    [expected],
     local_use,
     boundary_candidate.direct_call_count,
     boundary_candidate.direct_callers,
