@@ -16063,6 +16063,24 @@ fn dae_test_broad_high_normalized_literal_chain_module() -> String {
   out.write_string(
     (
       #|)
+      #|    block (result i32)
+      #|      block (result i32)
+      #|        i32.const 99
+      #|        call $touch
+      #|        if
+      #|          i32.const 71
+      #|          br 1
+      #|        else
+      #|          i32.const 72
+      #|          br 2
+      #|        end
+      #|        unreachable
+      #|      end
+      #|      local.set 65
+      #|      call $log
+      #|      local.get 65
+      #|    end
+      #|    drop
       #|    local.get 0
       #|    local.set 1
       #|    i32.const 41
@@ -16150,10 +16168,13 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   assert_false(carrier.contains("call (Func 1)"), msg=carrier)
   let @lib.Func(plain_mid_locals, _) = dae_test_defined_func(plain, 8194)
   @debug.assert_eq(plain_mid_locals.length(), 65)
+  let plain_mid = plain.pretty_print_defined_func(8194U)
+  assert_true(plain_mid.contains("unreachable"), msg=plain_mid)
   let mid = optimized.pretty_print_defined_func(8194U)
   let @lib.Func(mid_locals, _) = dae_test_defined_func(optimized, 8194)
-  @debug.assert_eq(mid_locals.length(), 1, msg=mid)
-  assert_true(dae_test_count_substring(mid, "call (Func 1)") == 4, msg=mid)
+  @debug.assert_eq(mid_locals.length(), 2, msg=mid)
+  assert_false(mid.contains("unreachable"), msg=mid)
+  assert_true(dae_test_count_substring(mid, "call (Func 1)") == 5, msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 2)") == 2, msg=mid)
   let normalize = optimized.pretty_print_defined_func(8195U)
   assert_false(normalize.contains("(local"), msg=normalize)

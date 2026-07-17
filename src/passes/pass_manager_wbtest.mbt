@@ -21805,6 +21805,110 @@ test "DAEO broad-high selected linear coalescing keeps an early-read destination
 }
 
 ///|
+test "DAEO broad-high structural cleanup folds a branch-result if out of its inner block" {
+  let temp = @lib.LocalIdx::new(3U)
+  let local_gets = [0, 0, 0, 1]
+  let local_sets = [0, 0, 0, 1]
+  let local_tees = [0, 0, 0, 0]
+  let inner = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32::new(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::i32_const(@lib.I32::new(71)),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ],
+        Some([
+          @lib.Instruction::i32_const(@lib.I32::new(72)),
+          @lib.Instruction::br(@lib.LabelIdx::new(3U)),
+        ]),
+      ),
+      @lib.Instruction::unreachable_(),
+    ]),
+  )
+  let original = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        inner,
+        @lib.Instruction::local_set(temp),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::local_get(temp),
+      ]),
+    ),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+    original, local_gets, local_sets, local_tees,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          [@lib.Instruction::i32_const(@lib.I32::new(71))],
+          Some([
+            @lib.Instruction::i32_const(@lib.I32::new(72)),
+            @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+          ]),
+        ),
+        @lib.Instruction::local_set(temp),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::local_get(temp),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "DAEO broad-high structural cleanup rejects an intervening branch-result local read" {
+  let temp = @lib.LocalIdx::new(3U)
+  let inner = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32::new(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::i32_const(@lib.I32::new(71)),
+          @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+        ],
+        Some([
+          @lib.Instruction::i32_const(@lib.I32::new(72)),
+          @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+        ]),
+      ),
+      @lib.Instruction::unreachable_(),
+    ]),
+  )
+  let original = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        inner,
+        @lib.Instruction::local_set(temp),
+        @lib.Instruction::local_get(temp),
+        @lib.Instruction::drop(),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::local_get(temp),
+      ]),
+    ),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+    original,
+    [0, 0, 0, 2],
+    [0, 0, 0, 1],
+    [0, 0, 0, 0],
+  )
+  @debug.assert_eq(count, 0)
+  @debug.assert_eq(rewritten, original)
+}
+
+///|
 test "DAEO stack-carried immediate suffix rejects conflicting literals" {
   let mod_ = pass_test_module_from_wat(
     (

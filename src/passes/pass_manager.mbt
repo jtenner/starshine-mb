@@ -60942,6 +60942,183 @@ fn run_hot_pipeline_dae_high_literal_chain_payoff(
 }
 
 ///|
+// Binaryen's late full simplify-locals creates result ifs after the earlier
+// no-structure/coalescing phase. Keep this selected subset exact to the
+// observed branch-result family instead of enabling generic control flattening.
+fn run_hot_pipeline_dae_try_fold_branch_result_if_body(
+  body : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> Array[@lib.Instruction]? {
+  if body.length() < 4 {
+    return None
+  }
+  let (result_type, inner_body) = match body[0] {
+    @lib.Block(@lib.VoidBlockType, _) => return None
+    @lib.Block(result_type, @lib.Expr(inner_body)) if inner_body.length() >= 3 =>
+      (result_type, inner_body)
+    _ => return None
+  }
+  let target = match body[1] {
+    @lib.LocalSet(target) => target
+    _ => return None
+  }
+  let target_idx = dae_local_idx_slot(target)
+  if target_idx < 0 ||
+    target_idx >= local_gets.length() ||
+    target_idx >= local_sets.length() ||
+    target_idx >= local_tees.length() ||
+    local_gets[target_idx] < 1 ||
+    local_sets[target_idx] < 1 {
+    return None
+  }
+  let continuation_end = body.length()
+  let terminal_read_idx = match body[continuation_end - 1] {
+    @lib.LocalGet(readback) if readback == target => continuation_end - 1
+    @lib.Br(@lib.LabelIdx(raw)) if raw == 1U && continuation_end >= 2 =>
+      match body[continuation_end - 2] {
+        @lib.LocalGet(readback) if readback == target => continuation_end - 2
+        _ => return None
+      }
+    _ => return None
+  }
+  if dae_instrs_reference_local(inner_body, target) {
+    return None
+  }
+  for idx = 2; idx < terminal_read_idx; idx = idx + 1 {
+    if dae_instr_references_local(body[idx], target) {
+      return None
+    }
+  }
+  if !(inner_body[inner_body.length() - 1] is @lib.Unreachable) {
+    return None
+  }
+  let (then_body, else_body) = match inner_body[inner_body.length() - 2] {
+    @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) =>
+      (then_body, else_body)
+    _ => return None
+  }
+  if then_body.length() < 2 || else_body.length() < 2 {
+    return None
+  }
+  match then_body[then_body.length() - 1] {
+    @lib.Br(@lib.LabelIdx(raw)) if raw == 1U => ()
+    _ => return None
+  }
+  let else_target_depth = match else_body[else_body.length() - 1] {
+    @lib.Br(@lib.LabelIdx(raw)) if raw == 2U || raw == 3U => raw
+    _ => return None
+  }
+  for idx = 0; idx + 2 < inner_body.length(); idx = idx + 1 {
+    if dae_instr_has_branch(inner_body[idx]) {
+      return None
+    }
+  }
+  for idx = 0; idx + 1 < then_body.length(); idx = idx + 1 {
+    if dae_instr_has_branch(then_body[idx]) {
+      return None
+    }
+  }
+  for idx = 0; idx + 1 < else_body.length(); idx = idx + 1 {
+    if dae_instr_has_branch(else_body[idx]) {
+      return None
+    }
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  for idx = 0; idx + 2 < inner_body.length(); idx = idx + 1 {
+    rewritten.push(inner_body[idx])
+  }
+  let rewritten_then : Array[@lib.Instruction] = []
+  for idx = 0; idx + 1 < then_body.length(); idx = idx + 1 {
+    rewritten_then.push(then_body[idx])
+  }
+  let rewritten_else : Array[@lib.Instruction] = []
+  for idx = 0; idx + 1 < else_body.length(); idx = idx + 1 {
+    rewritten_else.push(else_body[idx])
+  }
+  rewritten_else.push(
+    @lib.Instruction::br(@lib.LabelIdx::new(else_target_depth - 1U)),
+  )
+  rewritten.push(
+    @lib.Instruction::if_(result_type, rewritten_then, Some(rewritten_else)),
+  )
+  for idx = 1; idx < body.length(); idx = idx + 1 {
+    rewritten.push(body[idx])
+  }
+  Some(rewritten)
+}
+
+///|
+fn run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+  instrs : Array[@lib.Instruction],
+  local_gets : Array[Int],
+  local_sets : Array[Int],
+  local_tees : Array[Int],
+) -> (Array[@lib.Instruction], Int) {
+  let out : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    let rewritten = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+          body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += nested_count
+        match
+          run_hot_pipeline_dae_try_fold_branch_result_if_body(
+            next_body, local_gets, local_sets, local_tees,
+          ) {
+          Some(folded_body) => {
+            rewrite_count += 1
+            @lib.Instruction::block(block_type, @lib.Expr::new(folded_body))
+          }
+          None => @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+          body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, nested_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+          body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += nested_count
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+          then_body, local_gets, local_sets, local_tees,
+        )
+        rewrite_count += then_count
+        let next_else = match else_body {
+          Some(body) => {
+            let (next_body, else_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+              body, local_gets, local_sets, local_tees,
+            )
+            rewrite_count += else_count
+            Some(next_body)
+          }
+          None => None
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      instr => instr
+    }
+    out.push(rewritten)
+  }
+  (out, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_dae_try_flatten_pair_null_guard_body(
   body : Array[@lib.Instruction],
 ) -> Array[@lib.Instruction]? {
@@ -62005,23 +62182,6 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
     None => return (mod_, 0)
   }
   let @lib.Func(locals, @lib.Expr(body)) = func
-  let (pair_guard_body, pair_guard_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
-    body,
-  )
-  let (zero_eq_body, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
-    pair_guard_body,
-  )
-  let (voided_body, voided_block_count, removed_payload_count) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
-    zero_eq_body,
-  )
-  let (next_body, flattened_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
-    voided_body,
-  )
-  let mut structural_count = pair_guard_count +
-    zero_eq_count +
-    voided_block_count +
-    removed_payload_count +
-    flattened_count
   let func_idx = @lib.FuncIdx::new(
     (dae_imported_func_count(mod_) + def_idx).reinterpret_as_uint(),
   )
@@ -62030,6 +62190,34 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
     Some(params) => params
     None => return (mod_, 0)
   }
+  let total_local_count = params.length() + locals.length()
+  let local_gets : Array[Int] = Array::make(total_local_count, 0)
+  let local_sets : Array[Int] = Array::make(total_local_count, 0)
+  let local_tees : Array[Int] = Array::make(total_local_count, 0)
+  run_hot_pipeline_raw_collect_local_ref_counts(
+    body, local_gets, local_sets, local_tees,
+  )
+  let (pair_guard_body, pair_guard_count) = run_hot_pipeline_dae_flatten_pair_null_guard_blocks_instrs(
+    body,
+  )
+  let (zero_eq_body, zero_eq_count) = run_hot_pipeline_dae_fold_i32_zero_eq_instrs(
+    pair_guard_body,
+  )
+  let (branch_result_body, branch_result_count) = run_hot_pipeline_dae_fold_branch_result_if_blocks_instrs(
+    zero_eq_body, local_gets, local_sets, local_tees,
+  )
+  let (voided_body, voided_block_count, removed_payload_count) = run_hot_pipeline_dae_void_dropped_i32_blocks_instrs(
+    branch_result_body,
+  )
+  let (next_body, flattened_count) = run_hot_pipeline_dae_flatten_tail_self_branch_blocks_instrs(
+    voided_body,
+  )
+  let mut structural_count = pair_guard_count +
+    zero_eq_count +
+    branch_result_count +
+    voided_block_count +
+    removed_payload_count +
+    flattened_count
   let func_type_indices = dae_collect_func_type_indices(mod_)
   let mut sunk_body = next_body
   for sink_round = 0; sink_round < 32; sink_round = sink_round + 1 {

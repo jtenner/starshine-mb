@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-17
 sources:
+  - ../../../raw/research/1636-2026-07-17-daeo-func8185-branch-result-if.md
   - ../../../raw/research/1635-2026-07-17-daeo-func8185-linear-coalescing.md
   - ../../../raw/research/1634-2026-07-17-daeo-func8186-stack-carried-literal-suffix.md
   - ../../../raw/research/1633-2026-07-17-daeo-func8185-productive-cleanup-order.md
@@ -101,6 +102,8 @@ Report these independently with a freshly built explicit native binary:
 For each lane report requested/compared counts, normalized and cleanup-normalized matches, raw mismatches, validation/generator/property failures, command-failure classes, cache counters, and selected subprofile counts when available.
 
 ## Fresh current evidence
+
+Research note [`1636`](../../../raw/research/1636-2026-07-17-daeo-func8185-branch-result-if.md) records the focused Func `8185` branch-result-`if` smokes with explicit native SHA-256 `6647b9913d403b170ad2f672198c622382a97e391ba6b48c0c0a62765a7cff37`: dedicated `.tmp/pass-fuzz-dae-optimizing-branch-result-if-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-branch-result-if-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, a canonical Func `8185` reduction from `2644` to `2590`, exact branch/`unreachable` count closure, and a canonical-module gap of `+1663`; they do not replace the required four-lane closeout matrix.
 
 Research note [`1635`](../../../raw/research/1635-2026-07-17-daeo-func8185-linear-coalescing.md) records the focused Func `8185` conservative-linear-coalescing smokes with explicit native SHA-256 `9bea4ab087d91d338dff2388a9603a3da505e5d0f52e36aad5fff68e33dddee8`: dedicated `.tmp/pass-fuzz-dae-optimizing-func8185-linear-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-func8185-linear-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, a canonical Func `8185` reduction from `2716` to `2644`, and a canonical-module gap of `+1717`; they do not replace the required four-lane closeout matrix.
 
