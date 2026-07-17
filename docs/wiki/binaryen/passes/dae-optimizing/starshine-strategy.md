@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1640-2026-07-17-daeo-func8186-final-return.md
   - ../../../raw/research/1639-2026-07-17-daeo-func8185-never-read-result-stores.md
   - ../../../raw/research/1638-2026-07-17-daeo-func8185-copy-producer-retarget.md
   - ../../../raw/research/1637-2026-07-17-daeo-func8185-vacuum-nops.md
@@ -97,6 +98,8 @@ related:
 ## Current status
 
 Starshine now has an **active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass on the current v0.1.0 surface. `[DAE]003` and `[DAE]004` are closed by research notes `0661` and `0687`; reopen only for a new semantic mismatch, validation failure, or measured DAE-owned regression. `[DAE]013` is closed for v0.1.0 by keeping this pass direct-pass-only: explicit `--dae-optimizing` / `--dead-argument-elimination-optimizing` requests are supported, but public `optimize` / `shrink` presets intentionally skip DAE until new ordered-prefix or artifact evidence proves default-preset safety and runtime. The current raw-cleanup policy is explicit: correctness comes first; audited pure/nontrapping cleanup is useful and should be kept when semantically proved; Binaryen-shape debris preservation is narrow and only justified by a documented diagnostic or active artifact frontier. Possibly trapping or effectful operand stacks must remain live, and any future policy-changing cleanup needs focused tests plus size/mismatch evidence from the relevant compare lane. This closes `[DAE]009` as a policy/backlog task; future raw-cleanup work should reopen only for a concrete implementation, measurement, or frontier need.
+
+Research note [`1640`](../../../raw/research/1640-2026-07-17-daeo-func8186-final-return.md) closed Func `8186` at exact body-size parity. The optimizing-only selected structural cleanup removed only a top-level final `return`; nested and nonfinal returns retained their control semantics. The valid byte-identical endpoint was raw `3203082` / canonical `3263972`, `+1516` over Binaryen v130. Func `8186` was canonical body `10` versus Binaryen's `10`.
 
 Research note [`1639`](../../../raw/research/1639-2026-07-17-daeo-func8185-never-read-result-stores.md) closed the final exact movement-free residual in the direct full-`simplify-locals -> vacuum` probe. The optimizing-only broad-high cleanup recognized only body locals with zero gets, exactly two sets, and zero tees; it replaced both stores with drops, preserved every producer evaluation/effect/trap in place, and let selected compaction remove the declaration. Func `8185` fell from canonical `2466` to `2464`, body locals fell `76 -> 75`, and traffic fell `216/61/16 -> 216/59/16`. The valid byte-identical endpoint was raw `3203083` / canonical `3263973`, `+1517` over Binaryen v130. The direct probe was only two bytes smaller; its remaining producer/readback tee and six delayed field reads stayed blocked on mutability, aliasing, trap, effect-order, and control proof.
 

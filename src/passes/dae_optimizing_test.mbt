@@ -16195,6 +16195,7 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   assert_false(leaf.contains("call (Func 0)"), msg=leaf)
   let carrier = optimized.pretty_print_defined_func(8193U)
   assert_false(carrier.contains("If"), msg=carrier)
+  assert_false(carrier.contains("Return"), msg=carrier)
   assert_false(carrier.contains("call (Func 1)"), msg=carrier)
   let @lib.Func(plain_mid_locals, _) = dae_test_defined_func(plain, 8194)
   @debug.assert_eq(plain_mid_locals.length(), 65)

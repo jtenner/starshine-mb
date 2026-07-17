@@ -21920,6 +21920,41 @@ test "DAEO broad-high simplify-locals rejects unsafe copy producer retargeting" 
 }
 
 ///|
+test "DAEO selected structural cleanup removes only a top-level final return" {
+  let original = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::return_(),
+  ]
+  let (rewritten, count) = run_hot_pipeline_dae_remove_final_return_instrs(
+    original,
+  )
+  @debug.assert_eq(count, 1)
+  @debug.assert_eq(rewritten, [@lib.Instruction::i32_const(@lib.I32::new(7))])
+
+  let nested = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32::new(7)),
+        @lib.Instruction::return_(),
+      ]),
+    ),
+  ]
+  let (nested_rewritten, nested_count) = run_hot_pipeline_dae_remove_final_return_instrs(
+    nested,
+  )
+  @debug.assert_eq(nested_count, 0)
+  @debug.assert_eq(nested_rewritten, nested)
+
+  let nonfinal = [@lib.Instruction::return_(), @lib.Instruction::unreachable_()]
+  let (nonfinal_rewritten, nonfinal_count) = run_hot_pipeline_dae_remove_final_return_instrs(
+    nonfinal,
+  )
+  @debug.assert_eq(nonfinal_count, 0)
+  @debug.assert_eq(nonfinal_rewritten, nonfinal)
+}
+
+///|
 test "DAEO broad-high simplify-locals drops exactly two writes to a never-read local" {
   let target = @lib.LocalIdx::new(2U)
   let original = [

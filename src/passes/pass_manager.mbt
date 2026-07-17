@@ -62365,6 +62365,22 @@ fn run_hot_pipeline_dae_retarget_copy_producers_instrs(
 }
 
 ///|
+fn run_hot_pipeline_dae_remove_final_return_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  if instrs.length() == 0 {
+    return (instrs, 0)
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Return => {
+      ignore(instrs.pop())
+      (instrs, 1)
+    }
+    _ => (instrs, 0)
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_drop_selected_local_sets_instrs(
   instrs : Array[@lib.Instruction],
   drop_locals : Array[Bool],
@@ -62641,6 +62657,14 @@ fn run_hot_pipeline_dae_broad_high_structural_cleanup(
   )
   sunk_body = denopped_body
   structural_count += removed_nop_count
+  // A top-level final return is equivalent to the function body's implicit
+  // return. Remove only that exact trailing instruction; nested and nonfinal
+  // returns retain their control semantics.
+  let (without_final_return, removed_final_return_count) = run_hot_pipeline_dae_remove_final_return_instrs(
+    sunk_body,
+  )
+  sunk_body = without_final_return
+  structural_count += removed_final_return_count
   if structural_count == 0 {
     return (mod_, 0)
   }
