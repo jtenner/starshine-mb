@@ -7040,6 +7040,81 @@ test "pick-load-signs skips raw lift when narrow loads have no extension surface
 }
 
 ///|
+test "pick-load-signs raw-rewrites unsigned shift shapes without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (result i32) (local $x i32) i32.const 0 i32.load8_s local.set $x local.get $x i32.const 24 i32.shl i32.const 24 i32.shr_u)
+    #|   (func (result i32) (local $x i32) i32.const 0 i32.load16_s local.set $x local.get $x i32.const 16 i32.shl i32.const 16 i32.shr_u)
+    #|   (func (result i64) (local $x i64) i32.const 0 i64.load8_s local.set $x local.get $x i64.const 56 i64.shl i64.const 56 i64.shr_u)
+    #|   (func (result i64) (local $x i64) i32.const 0 i64.load16_s local.set $x local.get $x i64.const 48 i64.shl i64.const 48 i64.shr_u)
+    #|   (func (result i64) (local $x i64) i32.const 0 i64.load32_s local.set $x local.get $x i64.const 32 i64.shl i64.const 32 i64.shr_u))
+    #|
+
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["pick-load-signs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw pick-load-signs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("node_allocs=0"), msg=text)
+  assert_false(text.contains("pass[pick-load-signs]:func"), msg=text)
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=analysis:use-def"), msg=text)
+  for func_idx in 0U..<5U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains(".shl"), msg=pretty)
+    assert_false(pretty.contains(".shr_u"), msg=pretty)
+  }
+}
+
+///|
+test "pick-load-signs raw-rewrites broader winning evidence without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (result i32) (local $x i32) i32.const 0 i32.load8_s local.set $x i32.const 255 local.get $x i32.and)
+    #|   (func (result i64) (local $x i64) i32.const 0 i64.load16_s local.set $x local.get $x i64.const 65535 i64.and)
+    #|   (func (result i64) (local $x i64) i32.const 0 i64.load32_u local.set $x local.get $x i64.extend32_s)
+    #|   (func (result i64) (local $x i64) i32.const 0 i64.load32_u local.set $x local.get $x i64.const 32 i64.shl i64.const 32 i64.shr_s))
+    #|
+
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["pick-load-signs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw pick-load-signs success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("node_allocs=0"), msg=text)
+  assert_false(text.contains("pass[pick-load-signs]:func"), msg=text)
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=analysis:use-def"), msg=text)
+  for func_idx in 0U..<4U {
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+    assert_false(pretty.contains(".and"), msg=pretty)
+    assert_false(pretty.contains(".shl"), msg=pretty)
+    assert_false(pretty.contains(".shr_s"), msg=pretty)
+    assert_false(pretty.contains(".extend32_s"), msg=pretty)
+  }
+}
+
+///|
 test "pick-load-signs aggregates identical raw-skip trace lines across functions" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

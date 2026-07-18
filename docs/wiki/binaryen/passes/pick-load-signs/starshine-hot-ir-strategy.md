@@ -1,21 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
   - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
-  - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
-  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
-  - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
-  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
-  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -23,249 +19,91 @@ related:
   - ./wat-shapes.md
   - ./parity.md
   - ./starshine-strategy.md
-  - ../../no-dwarf-default-optimize-path.md
+  - ./fuzzing.md
 ---
 
 # Starshine `pick-load-signs` HOT-IR strategy
 
-This page describes the **current local implementation**, not upstream Binaryen's AST pass.
-For the concise Starshine status and code-map layer, start with [`./starshine-strategy.md`](./starshine-strategy.md).
-For the upstream contract, start with [`./binaryen-strategy.md`](./binaryen-strategy.md).
+## Descriptor and placement
 
-## Current local surface
+Starshine exposes `pick-load-signs` as an active hot pass requiring `use_def`. It invalidates CFG, dominance, liveness, use-def, effects, loop info, and SSA after mutation. The public optimize/shrink ordering places it immediately before `precompute`.
 
-Starshine exposes `pick-load-signs` as an active hot pass with:
+## Raw pass-manager layer
 
-- descriptor name: `pick-load-signs`
-- summary: `Pick narrower signed/unsigned load opcodes based on local use extension evidence.`
-- required HOT analysis: `use_def`
+`src/passes/pass_manager.mbt` handles three pre-HOT cases:
 
-The local descriptor also declares broad invalidation after mutation:
+1. modules with no defined or imported memory skip the pass;
+2. functions without a candidate producer, local read, and extension surface return unchanged without lift;
+3. exact straight-line evidence shapes are rewritten directly.
 
-- CFG
-- dominance
-- liveness
-- use-def
-- effects
-- loop info
-- SSA
+The exact rewrite layer covers:
 
-That is already a major structural difference from upstream Binaryen's tiny AST walker.
+- upstream-common i32 direct signed extensions and signed shift pairs;
+- upstream-common right-hand i32 masks;
+- commuted i32 masks;
+- i32 unsigned shift pairs;
+- i64 direct signed extensions;
+- i64 masks;
+- i64 signed and unsigned shift pairs.
 
-## Exact local code map
+For upstream-common forms, the raw path preserves Binaryen's direct-pass extension shape. For retained Starshine-only forms, it also removes the redundant evidence expression. `src/passes/perf_test.mbt` requires zero HOT node allocations and no lift/use-def timer for representative exact forms.
 
-### Registry and preset placement
+## HOT candidate discovery
 
-The public registry surface lives in `src/passes/optimize.mbt`:
+`pls_scan_candidate_loads(...)` iterates use-def local writes and admits only:
 
-- `pick_load_signs_descriptor()` declares the active HOT descriptor
-- `pick_load_signs_summary()` provides the help text
-- `pass_registry_entries()` registers `pick-load-signs` as a hot pass
-- `optimize_preset_passes(...)` and `shrink_preset_passes(...)` place it after `heap-store-optimization` and before `precompute`
+- live `HotOp::LocalSet` nodes;
+- whose value is a live `HotOp::Load`;
+- whose exact opcode is a supported i32/i64 narrow signed or unsigned load.
 
-That file is the local answer to: “is this pass active, and where does it sit in the public preset order?”
+`local.tee`, atomic loads, and unrelated writes are not candidate producers.
 
-### Pass-manager gates and dispatch
+## Use evidence
 
-The HOT-pipeline integration lives in `src/passes/pass_manager.mbt`:
+`pls_analyze_candidates(...)` visits every read and every read use site for candidate locals. `pls_extension_from_parent(...)` and the shift grandparent helpers classify:
 
-- `run_hot_pipeline_pls_candidate_scan_into(...)` does the cheap raw recursive instruction scan
-- `run_hot_pipeline_pls_candidate_scan(...)` returns the three raw preconditions: candidate producer, `local.get`, and extension-looking surface
-- `run_hot_pipeline_raw_pick_load_signs(...)` converts a failed raw scan into the `no-pick-load-signs-candidates` fast skip
-- `run_hot_pipeline_apply_hot_pass(...)` enforces the module-level `skip-no-memory` rule and aggregates repeated raw-skip trace lines
-- `run_hot_pipeline_run_descriptor(...)` dispatches the descriptor name `pick-load-signs` into `pick_load_signs_run(...)`
+- i32 direct signed extensions;
+- i32/i64 low masks;
+- i32/i64 signed and unsigned shift pairs;
+- i64 direct signed extensions.
 
-That means the practical local contract is not only the rewrite algorithm.
-It also includes two performance-facing gates that upstream Binaryen does not have in this form:
+Unknown uses invalidate the local. Conflicting evidence widths poison the corresponding usage record. Final choice follows the upstream weighting rule: signed wins when `signed_usages * 2 >= unsigned_usages`.
 
-- module-level no-memory skip
-- function-level raw candidate screening before HOT lift
+## Redundant-evidence deletion
 
-### Core algorithm owner file
+The final implementation records evidence roots that are broader than Binaryen v131:
 
-The pass logic itself lives in `src/passes/pick_load_signs.mbt`.
-The cleanest read-along is:
+- commuted i32 masks;
+- i32 unsigned shifts;
+- all recognized i64 direct/mask/shift forms.
 
-- `pls_scan_candidate_loads(...)`
-  - finds exact `LocalSet(Load(...))` HOT candidates from use-def write nodes
-- `pls_analyze_candidates(...)`
-  - gathers use evidence per local, reusing `use_def` read and use-site queries
-- `pls_extension_from_parent(...)`
-  - classifies direct extend, mask, and shift-pair evidence
-- `pls_extension_from_grandparent_zero_ext(...)`
-  - classifies i32 shift-pair grandparent evidence
-- `pls_extension_from_grandparent_zero_ext64(...)`
-  - classifies the local i64 shift-pair grandparent family
-- `pls_target_signedness(...)`
-  - applies the same signed-weighted final choice policy the local port currently uses
-- `pls_rewrite_candidates(...)`
-  - rebuilds the exact load opcode with the chosen signedness and replaces the HOT node
-- `pick_load_signs_run(...)`
-  - drives the scan / analyze / rewrite sequence and emits the local trace labels
+After target signedness is known, `pls_local_all_writes_become_matching_loads(...)` allows deletion only when:
 
-### Focused local proof lanes
+- the local is not a parameter;
+- every explicit write maps to a PLS candidate;
+- every candidate has the evidence width;
+- every candidate reaches the required final signedness;
+- at least one candidate changes from the opposite signedness.
 
-The local tests are intentionally split across multiple files:
+If any condition fails, the evidence expression remains. This protects parameter-entry values, arbitrary writes, mixed producer widths, and partial signedness conversion.
 
-- `src/passes/pick_load_signs_test.mbt`
-  - focused pass behavior: direct signed positives, zero-mask positives, shift-pair positives, representative i64 signed/unsigned positives, unknown-use bailouts, tee bailouts, same-local multi-candidate rewrites, idempotence, no-memory skip, and imported-memory coverage
-- `src/passes/perf_test.mbt`
-  - raw-skip behavior: no-lift and aggregated `skip-raw reason=no-pick-load-signs-candidates` trace behavior
-- `src/passes/registry_test.mbt`
-  - registry category, descriptor requirement, and preset placement checks
-- `src/cmd/cmd_wbtest.mbt`
-  - CLI-visible `--pick-load-signs` replay on the debug artifact and the saved generated-artifact predecessor lane
+Eligible evidence roots are replaced with their `local.get`, removing direct extension, mask, or shift-pair instructions after the load opcode changes.
 
-## How the local pass works today
+## Focused safety surface
 
-### 1. Candidate discovery is HOT/use-def-based
+`src/passes/pick_load_signs_test.mbt` includes:
 
-The local pass scans local write nodes via `@ir.local_write_nodes_borrowed(use_def, local_idx)` and selects candidates when:
+- i32 unsigned shift cleanup at widths 8 and 16;
+- i64 unsigned shift cleanup at widths 8, 16, and 32;
+- i64 signed shift cleanup at widths 8, 16, and 32;
+- i64 direct and mask cleanup;
+- commuted i32 mask cleanup;
+- preservation when another write is not a matching load;
+- preservation when a parameter value can reach the read;
+- upstream unknown-use, mixed-width, width-mismatch, tee, no-memory, and imported-memory behavior.
 
-- the write node is a `HotOp::LocalSet`
-- its child is a live `HotOp::Load`
-- the exact load instruction is one of the supported narrow-load opcodes
+## Performance and parity
 
-So the local pass is still intentionally narrow.
-But it learns that narrowness through HOT/use-def data, not through AST visitor callbacks.
+Exact winning shapes avoid HOT lift entirely. Native-release 2,000-function medians are `6.21-7.36 ms` for Starshine versus `6.94-8.18 ms` for Binaryen v131 across mask, unsigned-shift, and i64 direct/signed-shift workloads.
 
-### 2. Usage analysis is read-site based
-
-For each candidate local, the local implementation gathers:
-
-- all local read nodes through `@ir.local_read_nodes_borrowed(use_def, local_idx)`
-- all use sites of each read via `@ir.node_use_sites_borrowed(use_def, read_id)`
-
-It then tries to classify each use site as:
-
-- signed evidence
-- unsigned evidence
-- or invalid / unknown
-
-If any use site is unknown, the local usage record is marked invalid.
-
-That is conceptually similar to Binaryen's “all uses must be recognized” rule, but the mechanism is very different.
-
-### 3. The local implementation recognizes a broader family than upstream
-
-The in-tree MoonBit pass handles both i32 and i64 families in code.
-
-Recognized direct extend evidence includes:
-
-- `i32.extend8_s`
-- `i32.extend16_s`
-- `i64.extend8_s`
-- `i64.extend16_s`
-- `i64.extend32_s`
-- `i64.extend_i32_s`
-- `i64.extend_i32_u`
-
-Recognized zero-extension evidence includes:
-
-- `i32.and` low-bit masks
-- `i64.and` low-bit masks
-
-Recognized shift-pair evidence includes:
-
-- `i32.shl` followed by `i32.shr_s` / `i32.shr_u`
-- `i64.shl` followed by `i64.shr_s` / `i64.shr_u`
-
-The local code also caches shift-pair classification per parent node in `PLSShiftExtCacheEntry` so repeated grandparent scans do not redo the same work.
-
-## Biggest local-vs-upstream difference
-
-The most important current divergence is:
-
-- upstream Binaryen `version_129` `pick-load-signs` is effectively i32-only
-- local Starshine `pick-load-signs` explicitly recognizes i64 families too
-
-That does not mean the local pass is necessarily wrong.
-But it does mean the local pass is broader than the official source contract documented in this dossier.
-Keep that difference explicit.
-
-## Rewrite strategy
-
-When a candidate should flip, the local pass:
-
-- rebuilds the exact load instruction with the chosen signedness via `pls_load_with_signedness(...)`
-- preserves the same memarg and address child
-- updates the existing HOT load node's exact instruction with `@ir.hot_node_exact_instr_set(...)`
-- marks the pass mutated through the shared pass context
-
-This is a node-local opcode rewrite, not a structural control-flow rewrite.
-That part is close to the spirit of upstream Binaryen even though the surrounding analysis is different.
-
-## Raw fast-skip behavior in the local pipeline
-
-The local pass manager adds two important fast paths that are local infrastructure rather than upstream semantics.
-
-### Module-level no-memory skip
-
-Before running the pass, `run_hot_pipeline_apply_hot_pass(...)` checks `run_hot_pipeline_module_has_memory(mod_)`.
-If the module has no defined or imported memory, it traces:
-
-- `pass[pick-load-signs]:skip-no-memory`
-
-and skips the pass.
-
-### Function-level raw candidate scan
-
-Before lifting a function, `run_hot_pipeline_raw_pick_load_signs(...)` uses `run_hot_pipeline_pls_candidate_scan(...)` to look for:
-
-- a narrow-load producer surface
-- a `local.get`
-- any extension-looking surface
-
-If that cheap scan finds no plausible candidate family, the function is skipped with:
-
-- `reason: no-pick-load-signs-candidates`
-
-and the aggregated trace hook later reports:
-
-- `skip-raw reason=no-pick-load-signs-candidates count=...`
-
-`src/passes/perf_test.mbt` locks both the no-lift and aggregation behavior.
-
-## Current test and replay surface
-
-The in-tree local evidence includes:
-
-- focused pass tests in `src/passes/pick_load_signs_test.mbt`
-- raw-skip perf coverage in `src/passes/perf_test.mbt`
-- registry / preset checks in `src/passes/registry_test.mbt`
-- CLI and debug-artifact replay in `src/cmd/cmd_wbtest.mbt`
-
-Current focused tests now directly lock representative local i64 positives:
-
-- `i64.load32_u` flips to `i64.load32_s` when all uses prove signed 32-bit extension through `i64.extend32_s`
-- `i64.load16_s` flips to `i64.load16_u` when all uses prove zero-extension through an `i64.and` low-bit mask
-
-The suite also keeps the `local.tee` producer bailout, same-local multi-candidate rewrite, idempotence, no-memory skip, and an actual imported-memory fixture visible.
-
-## What future strict-parity work must preserve
-
-If Starshine wants to stay as close as possible to Binaryen `version_129`, future work should keep these distinctions explicit:
-
-- exact non-tee `local.set(load ...)` producer requirement
-- all-use recognition requirement
-- signed-tie weighting rule
-- atomic-load exclusion
-- the fact that upstream `pick-load-signs` itself is effectively i32-only
-
-And if Starshine intentionally keeps the broader i64 support, that should remain a documented divergence rather than an accidental one.
-
-## Practical maintenance rule
-
-Treat the current local implementation as:
-
-- broadly green on present artifact and focused fuzz evidence,
-- structurally different from upstream,
-- broader than upstream in its coded i64 recognition surface,
-- and now directly covered by focused representative i64/imported-memory tests.
-
-That means future changes should answer two questions explicitly:
-
-- are we preserving Binaryen semantics?
-- are we preserving current Starshine behavior?
-
-For this pass, those two questions are no longer exactly the same.
+The final dedicated profile intentionally reports retained-win mismatches; all other leaves and the broad/random lanes match Binaryen. See [`./parity.md`](./parity.md).

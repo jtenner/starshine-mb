@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
@@ -18,7 +19,7 @@ related:
 
 # `pick-load-signs`: implementation structure and tests
 
-This page is the compact source-confirmed map for Binaryen `version_129` `pick-load-signs`.
+This page is the compact source-confirmed map for Binaryen `version_131` `pick-load-signs`.
 
 Its main job is to answer two practical questions:
 
@@ -53,7 +54,7 @@ This file is the most important helper owner.
 - `getZeroExtValue(...)`
 - `getZeroExtBits(...)`
 
-That helper split is why the pass is effectively i32-only in upstream `version_129` even though its public name sounds broader.
+That helper split is why the pass is effectively i32-only in upstream `version_131` even though its public name sounds broader. The v131 zero-extension helper recognizes only a right-hand low-bit mask, not an unsigned shift pair.
 The pass logic itself is small partly because the sign/zero-extension recognition details live here.
 
 ## `src/passes/pass.cpp`
@@ -121,7 +122,7 @@ This file belongs to a different pass, but it still matters here.
 It is the neighboring proof surface that keeps one common misunderstanding honest:
 
 - broader i64 sign-extension cleanup exists in Binaryen,
-- but it should not be attributed to `pick-load-signs` in upstream `version_129`.
+- but it should not be attributed to `pick-load-signs` in upstream `version_131`.
 
 So this file is part of the teaching map even though it is not part of the pass's direct owner surface.
 
@@ -143,14 +144,9 @@ The better model is:
 - `properties.h` owns the actual sign/zero-extension pattern recognition that constrains that rewrite,
 - and the broader sign-extension story is split across neighboring passes and tests.
 
-## Current-main freshness note
+## Version-131 freshness note
 
-A narrow 2026-05-05 current-main recheck found no visible drift on the most important checked surfaces:
-
-- `src/passes/PickLoadSigns.cpp`
-- `test/lit/passes/pick-load-signs_sign-ext.wast`
-
-So `version_129` remains a good source oracle for this implementation/test map.
+The 2026-07-18 audit found `src/passes/PickLoadSigns.cpp`, the relevant `properties.h` helper behavior, and `test/lit/passes/pick-load-signs_sign-ext.wast` unchanged from v130. `version_131` is the current oracle for this implementation/test map.
 
 ## Porting takeaway
 

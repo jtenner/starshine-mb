@@ -1,28 +1,20 @@
 ---
 kind: comparison
-status: working
-last_reviewed: 2026-06-20
+status: supported
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
   - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
   - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
-  - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
-  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
-  - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
-  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
-  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
-  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
-  - ../../../../../src/fuzz/main_wbtest.mbt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/PickLoadSigns.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/pick-load-signs_sign-ext.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-instructions-sign_ext.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PickLoadSigns.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/properties.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/pick-load-signs_sign-ext.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -30,102 +22,113 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
+  - ./fuzzing.md
 ---
 
 # `pick-load-signs` Binaryen parity
 
-## Durable conclusions
+## Current verdict
 
-- `pick-load-signs` is an early function-phase Binaryen pass on the no-DWARF path for optimize level `>= 2` or shrink level `>= 2`.
-- The living dossier now also has a dedicated implementation/test-map page, so the tiny owner split across `PickLoadSigns.cpp`, `properties.h`, `pass.cpp`, `opt-utils.h`, and the dedicated-vs-neighboring lit tests no longer has to be reconstructed from the strategy page alone.
-- The official Binaryen `version_129` pass is smaller than the old local port note made it sound:
-  - exact non-tee `local.set(load ...)` producers only
-  - exact recognized sign/zero-extension use shapes only
-  - any unknown use blocks the rewrite
-  - atomic loads are skipped
-  - the real upstream helper surface here is effectively **i32-only**
-- The current in-tree Starshine implementation is broader than upstream in one visible way:
-  - it recognizes i64 extend / mask / shift-pair families too
-- Current local artifact and focused fuzz evidence are still green despite that broader local surface.
-- The 2026-06-03 O4z audit refreshed direct signoff for `pick-load-signs` with `9975 / 10000` compared cases, `9975` normalized matches, 0 semantic mismatches, and 25 Binaryen/tool command failures.
-- Focused local tests now isolate the broader i64 positive rewrite surface and use a real imported-memory fixture, so the former i64-test caveat is closed while the local-vs-upstream scope divergence remains explicit.
-- The 2026-06-20 refresh found no new semantic behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice: the older closeout predates the current four-lane final pass signoff matrix. The pass now has a dedicated `pick-load-signs-all` GenValid profile and focused generator/manifest tests, but the full four-lane matrix has not been rerun yet.
+`pick-load-signs` is **closed at Binaryen-v131-or-better behavior parity**.
 
-## Current in-tree status
+Starshine covers every Binaryen-owned transform and bailout family found in the v131 source audit. It intentionally retains five broader evidence families, but now removes the redundant extension expression whenever every possible value source is a matching rewritten narrow load. Those retained differences are therefore measured direct-pass size wins rather than equal-size, size-losing, or unproven drift.
 
-- The implementation lives in [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt).
-- The focused suite lives in [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt).
-- CLI and debug-artifact coverage lives in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
-- The pass is active in the optimize and shrink pipelines after `heap-store-optimization` and before `precompute`.
-- The pass manager includes a module-memory fast skip and raw candidate screening so functions without plausible candidate surface can avoid hot lift.
+Cleanup is deliberately fail-closed:
 
-## Signoff status
+- the local cannot be a parameter;
+- every explicit write must be an exact matching candidate load;
+- all candidate widths and final signedness must agree with the evidence;
+- at least one load must actually change signedness;
+- otherwise PLS changes only the eligible load opcode and preserves the extension expression.
 
-Current status under the modern repo standard: not fully reclosed yet. The pass remains behavior-closed on existing inspected evidence, and `pick-load-signs-all` now supplies the required PLS-specific GenValid profile surface. Modern final closeout still needs the four-lane matrix from [`./fuzzing.md`](./fuzzing.md).
+## Binaryen v131 contract covered by Starshine
 
-- The `2026-03-29` debug-artifact signoff recorded canonical wasm parity and normalized WAT parity.
-- The same signoff recorded Starshine wall time at about `2067.184 ms` versus Binaryen at `1408.509 ms`.
-- The `2026-03-29` `gen-valid` pass-fuzz run recorded `10000 / 10000` compared cases, `10000` normalized matches, and `0` mismatches or failures.
-- The `2026-04-11` focused health rerun confirmed clean direct smoke behavior:
-  - mixed: `199 / 199` compared, `199` normalized matches, `0` mismatches, `1` command failure (`binaryen-rec-group-zero`)
-  - gen-valid: `200 / 200` compared, `200` normalized matches, `0` mismatches, `0` failures
-- The saved generated-artifact `-O4z` audit also records a successful ordered replay at Binaryen slot `18` / audit row `15`: exact wasm equality, meaningful equality, valid Starshine/Binaryen outputs, `7.492 ms` Starshine pass-local time, and `24.574 ms` Binaryen pass-local time.
-- The `2026-06-03` O4z audit direct closeout recorded `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures in `.tmp/pass-fuzz-pick-load-signs-audit-10000`.
-- The `2026-06-20` refresh command `bun scripts/pass-fuzz-compare.ts --list-passes | grep pick-load-signs` still printed `pick-load-signs`. No compare lane was run in that docs/backlog slice because `target/native/release/build/cmd/cmd.exe` was missing and no executable behavior changed.
-- The later 2026-06-20 profile slice added `pick-load-signs-all` plus singleton leaves for signed direct/shift evidence, unsigned mask/shift evidence, unknown/mixed/width/tee/no-memory/imported-memory boundaries, and the Starshine-local i64 watchpoint. Focused tests cover profile resolution, validation, aggregate leaf sampling, and manifest `selected_profile` metadata. The dedicated profile smoke `.tmp/pass-fuzz-pick-load-signs-profile-smoke-50-v2` compared `50/50`, normalized `50`, and had `0` mismatches/failures while sampling all 11 leaves.
+Starshine matches the upstream contract for:
 
-## Important honesty note
+- no-memory skip, including imported-memory admission;
+- exact non-tee `local.set(load ...)` candidates;
+- i32 direct signed extension for 8 and 16 bits;
+- i32 signed equal-constant shift pairs;
+- i32 right-hand low masks;
+- all-use recognition and unknown-use rejection;
+- no-use, mixed-width, load/use-width, and official `br_if` bailouts;
+- same-local multiple candidates;
+- `signedUses * 2 >= unsignedUses` weighting;
+- `local.tee` and atomic-load exclusion.
 
-A fresh `2026-04-20` official-source review corrected one part of the older local understanding:
+No Binaryen-owned transform remains missing.
 
-- the archived local note `0069` treated i64 extension evidence as part of upstream `pick-load-signs`
-- the official Binaryen `version_129` source for this pass does not support that reading
-- the broader i64 logic exists in Starshine today, but it should be treated as a local scope expansion, not silently described as if it were official Binaryen behavior here
+## Retained Starshine wins
 
-Current practical reading:
+| Starshine-only family | Final direct-pass behavior | Canonical size evidence |
+| --- | --- | --- |
+| commuted i32 low mask | flip to unsigned load and remove the redundant mask | load8 `48` vs Binaryen `52`; load16 `48` vs `53` |
+| i32 unsigned shift pair | flip to unsigned load and remove `shl -> shr_u` | load8/load16 `48` vs `54` |
+| i64 direct signed extension | flip to signed load and remove `extend{8,16,32}_s` | `48` vs `49` for all widths |
+| i64 low mask | flip to unsigned load and remove the mask | load8 `48` vs `52`; load16 `48` vs `53`; load32 `48` vs `55` |
+| i64 signed shift pair | flip to signed load and remove the shift pair | `48` vs `54` for 8/16/32 |
+| i64 unsigned shift pair | flip to unsigned load and remove the shift pair | `48` vs `54` for 8/16/32 |
 
-- the local implementation is still green on today's evidence,
-- focused tests now directly lock representative i64 signed and unsigned positives,
-- but the i64 surface should remain an explicit parity watchpoint if strict upstream equivalence becomes important.
+The 16-case negative-value runtime matrix matched Binaryen results for every retained width and family. Exact simple shapes also use the raw pass-manager rewrite path, avoiding HOT lift and use-def construction.
 
-## Modern closeout gap
+## Performance evidence
 
-The current final pass closeout standard requires:
+Native-release whole-command medians over 2,000-function exact-shape modules:
 
-1. regular GenValid `100000` cases at seed `0x5eed`
-2. explicit wasm-smith `10000` cases at seed `0x5eed`
-3. pass-specific GenValid profile `10000` cases at seed `0x5eed`
-4. broad named all-profiles-style GenValid lane `10000` cases at seed `0x5555`
+| Workload | Starshine | Binaryen v131 | Result |
+| --- | ---: | ---: | --- |
+| unsigned shift pairs | `7.36 ms` | `8.18 ms` | Starshine faster |
+| commuted/i64 masks | `6.35 ms` | `6.94 ms` | Starshine faster |
+| i64 direct/signed-shift evidence | `6.21 ms` | `7.15 ms` | Starshine faster |
 
-PLS has not yet run that matrix. It now has the dedicated `pick-load-signs-all` profile required for lane 3, so `[O4Z-AUDIT-PLS]` remains open only until the matrix is run and classified rather than because of missing profile infrastructure.
+These workloads exercise the raw exact-shape path added for the retained wins. More complex control/dataflow shapes continue through the HOT/use-def implementation.
 
-## Freshness note
+## Final four-lane evidence
 
-A narrow 2026-05-05 current-main recheck found no visible drift here:
+All lanes used `_build/native/release/build/cmd/cmd.exe` and the official Binaryen v131 executable.
 
-- `PickLoadSigns.cpp` is identical on Binaryen `version_129` and current `main`
-- `pick-load-signs_sign-ext.wast` is also identical
-- the new raw manifest records the refreshed 2026-05-05 bridge explicitly
+| Lane | Requested / compared | Result |
+| --- | --- | --- |
+| regular GenValid, seed `0x5eed` | `100000 / 100000` | `100000` normalized; zero failures/mismatches |
+| wasm-smith, seed `0x5eed` | `10000 / 9956` | `9955` normalized; one PLS-unrelated unreachable-control-debris mismatch; `44` Binaryen/tool failures |
+| `pick-load-signs-all`, seed `0x5eed` | `10000 / 10000` | `6452` exact normalized; `3548` measured Starshine-win mismatches; zero failures |
+| `random-all-profiles`, seed `0x5555` | `10000 / 10000` | `10000` normalized; zero failures/mismatches |
 
-So there is no post-`version_129` trunk-drift caveat to maintain for this pass right now.
+The dedicated mismatch count exactly equals its behavior-revealing selected leaves:
 
-## Sources
+- `pick-load-signs-unsigned-mask`: `1762`;
+- `pick-load-signs-unsigned-shift`: `1225`;
+- `pick-load-signs-i64-watch`: `561`.
 
-- [`../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`](../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md)
-- [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
-- [`../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md)
-- [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
-- [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)
-- [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
-- [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)
-- [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
-- [`../../../../../src/validate/gen_valid.mbt`](../../../../../src/validate/gen_valid.mbt)
-- [`../../../../../src/validate/gen_valid_tests.mbt`](../../../../../src/validate/gen_valid_tests.mbt)
-- [`../../../../../src/fuzz/main_wbtest.mbt`](../../../../../src/fuzz/main_wbtest.mbt)
-- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-- [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/PickLoadSigns.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/pick-load-signs_sign-ext.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-instructions-sign_ext.wast>
+Every saved example from those leaves has the documented redundant-extension deletion and smaller canonical output. All other selected leaves matched Binaryen exactly.
+
+The sole wasm-smith raw mismatch remains case `009332`, an extra `(drop (unreachable))` wrapper in a module with no PLS pattern. Replay with `--normalize unreachable-control-debris` produced one cleanup-normalized match and zero remaining mismatches. Agent classification: codec/HOT writeback debris, not PLS behavior.
+
+## Ordered neighborhood
+
+The actual `pick-load-signs -> precompute` neighborhood completed `10000/10000` dedicated-profile cases with `5300` exact normalized matches, `4700` smaller Starshine outputs, and zero validation/generator/property/command failures. Every mismatch was smaller:
+
+- PLS-owned unsigned-mask, unsigned-shift, and i64-watch wins retained their `-20`, `-30`, and `-21` aggregate deltas;
+- neighboring `precompute` additionally cleaned the tee boundary by `8` bytes and the mixed-width boundary by `3` bytes.
+
+No equal-size, size-losing, validation, or semantic regression appeared in the scheduled neighborhood.
+
+## Validation
+
+- `moon info`: passed with existing warnings.
+- `moon fmt`: passed.
+- `moon test src/passes`: `5857/5857` passed.
+- `moon test src/validate`: `1704/1704` passed.
+- `moon test`: `9333/9333` passed.
+- native release CLI build: passed with existing warnings.
+- no Starshine validation, generator, property, or command failure occurred in the final matrix.
+
+## Reopening criteria
+
+Reopen parity if:
+
+- Binaryen expands PLS beyond the v131 i32 helper contract;
+- a retained cleanup can remove evidence when a parameter, non-load write, mismatched width, or mismatched final signedness reaches the read;
+- any retained family ceases to be smaller after canonicalization;
+- the exact-shape raw path becomes slower than the `2x` Binaryen target;
+- runtime or fuzz evidence finds a true semantic mismatch.

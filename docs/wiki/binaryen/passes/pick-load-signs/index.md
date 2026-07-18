@@ -1,34 +1,23 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-06-20
+status: supported
+starshine_status: active
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
   - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
   - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
-  - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
-  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
-  - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
-  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
-  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
-  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
-  - ../../../../../src/fuzz/main_wbtest.mbt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/PickLoadSigns.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/pick-load-signs_sign-ext.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-instructions-sign_ext.wast
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/PickLoadSigns.cpp
-  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/pick-load-signs_sign-ext.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PickLoadSigns.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/properties.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/pick-load-signs_sign-ext.wast
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -36,170 +25,64 @@ related:
   - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
-  - ../tracker.md
+  - ./fuzzing.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../heap-store-optimization/index.md
-  - ../precompute/index.md
 ---
 
 # `pick-load-signs`
 
 ## Role
 
-- `pick-load-signs` is an active implemented **hot pass** in Starshine.
-- This folder is already a deep dossier, and the 2026-05-05 bridge refresh closes the remaining freshness gap: it adds a current-main raw manifest and a dedicated Starshine strategy page, while keeping the deeper HOT implementation map in sync.
-- In upstream Binaryen `version_129`, the public `pass.cpp` description is only:
-  - `pick load signs based on their uses`
+`pick-load-signs` chooses the signed or unsigned opcode for a narrow load when every read of the receiving local proves a consistent extension width.
 
-That description is accurate, but still leaves out the most important practical details.
+Binaryen `version_131` remains intentionally small:
 
-A better beginner summary is:
+- exact non-tee `local.set(load ...)` producers;
+- i32 direct signed extension and signed shift-pair evidence;
+- i32 right-hand low masks for unsigned evidence;
+- all-use recognition, width agreement, atomic exclusion, and signed-weighted voting.
 
-- Binaryen looks for a narrow non-atomic integer load that is written into a local by an exact non-tee `local.set`,
-- checks every `local.get` use of that local in a very small parent/grandparent AST window,
-- recognizes only a few exact sign- or zero-extension shapes,
-- and flips the load to the signed or unsigned variant only when **every** use is recognized at the right width.
+The upstream helper contract is effectively i32-only.
 
-So this is **not** a general integer canonicalization pass.
-It is a tiny, shape-driven local rewrite.
+## Starshine status
 
-## Why this pass matters
+Starshine is **closed at Binaryen-v131-or-better behavior parity**.
 
-- When this thread started, `docs/wiki/binaryen/passes/tracker.md` named `pick-load-signs` as the strongest remaining implemented landing-page target.
-- In the canonical no-DWARF `-O` / `-Os` scheduler, it sits in the early memory/sign cleanup cluster:
-  - `... -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> precompute ...`
-- That placement is meaningful:
-  - earlier cleanup simplifies the obvious instruction and heap-store shapes first
-  - `pick-load-signs` then picks a better narrow-load signedness in the remaining exact local cases
-  - later `precompute` and rerun cleanup can benefit from the simpler opcode choice
-- The 2026-06-03 O4z audit refreshed direct signoff with `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures; it also added focused local i64 positive tests and corrected the imported-memory fixture.
-- The 2026-06-20 modern-signoff refresh found no new semantic PLS behavior gap, but reopened `[O4Z-AUDIT-PLS]` as a release-gating evidence/profile slice because the older closeout predates the current four-lane final signoff matrix. The dedicated `pick-load-signs-all` GenValid profile now exists, so the remaining reclose work is running and recording the final matrix.
-- The saved generated-artifact `-O4z` audit records a successful top-level slot here:
-  - ordered audit row `15`
-  - Binaryen slot `18`
-  - both canonical wasm and normalized WAT matched in the saved replay
-- The saved Binaryen debug log contains `18` `running pass: pick-load-signs` lines, so nested reruns matter here too.
+It covers every upstream transform and bailout and retains five broader evidence families:
 
-## Most important durable takeaways
+1. commuted i32 masks;
+2. i32 unsigned shift pairs;
+3. i64 direct signed extensions;
+4. i64 low masks;
+5. i64 signed and unsigned shift pairs.
 
-- Upstream `pick-load-signs` is much smaller than its name suggests.
-- The real implementation depends mainly on:
-  - `ExpressionStackWalker`
-  - `Properties::getSignExt*`
-  - `Properties::getZeroExt*`
-- Any unrecognized use blocks the rewrite.
-- `local.tee` producers are out of scope.
-- Atomic loads are always skipped.
-- The signed side wins ties because Binaryen expects a sign-extension shift pair to remove more follow-up instructions than a zero-extension mask usually does.
-- **Most important correction:** the official `version_129` pass here is effectively **i32-only** because the helper surface it relies on only recognizes i32 sign/zero-extension patterns.
+For those extra families, PLS now removes the redundant extension expression after proving every possible value source is a matching rewritten narrow load. Across the 16 retained width/family probes, Starshine canonical output is `1` to `7` bytes smaller than Binaryen per function and runtime results match for negative boundary values.
 
-## Biggest beginner correction
+Exact simple forms use a raw pass-manager rewrite path. Representative 2,000-function workloads run faster than Binaryen v131 (`6.21-7.36 ms` Starshine versus `6.94-8.18 ms` Binaryen).
 
-The easy wrong mental model is:
+## Final evidence
 
-- `pick-load-signs` is where Binaryen handles all narrow integer load signedness cleanup, including i64 extension families
+- regular GenValid: `100000/100000` exact normalized;
+- wasm-smith: `9956/10000` compared, `9955` exact normalized, one cleanup-normalized PLS-unrelated debris mismatch, `44` Binaryen/tool failures;
+- `pick-load-signs-all`: `10000/10000`, with `6452` exact matches and `3548` measured smaller-output Starshine wins;
+- scheduled `pick-load-signs -> precompute`: `10000/10000`, with `5300` exact matches and `4700` smaller Starshine outputs;
+- `random-all-profiles`: `10000/10000` exact normalized;
+- focused passes: `5857/5857`;
+- validation package: `1704/1704`;
+- full suite: `9333/9333`.
 
-The safer mental model is:
-
-- `pick-load-signs` is a tiny AST-context pass for a narrow local-written load family, and in upstream `version_129` the actual recognition logic here only covers i32 sign/zero-extension shapes.
-
-That difference matters a lot.
-It explains why the dedicated official lit file is tiny, why branch-value uses block the optimization immediately, and why broader i64 sign-extension cleanup shows up in official `optimize-instructions` tests instead.
-
-## What the pass sounds like versus what it actually does
-
-What it sounds like:
-
-- pick the best signedness for narrow loads everywhere
-
-What it actually is in `version_129`:
-
-- a function-parallel AST walker,
-- with one `Usage` record per local,
-- one `Load* -> local` candidate map,
-- exact non-tee `local.set(load ...)` candidate discovery,
-- exact parent/grandparent sign/zero-extension matching through `properties.h`,
-- and a tiny final rewrite that flips only the load's `signed_` bit when the usage proof is completely clean.
+The dedicated profile now exposes all previously hidden mutating families. See [`./parity.md`](./parity.md) for classification and [`./fuzzing.md`](./fuzzing.md) for profile composition.
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the real `PickLoadSigns.cpp` structure, helper utilities, scheduler placement, and the exact i32-only recognition logic visible through `properties.h`.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - Compact upstream file/test map covering the real owner split across `PickLoadSigns.cpp`, `properties.h`, `pass.cpp`, `opt-utils.h`, the tiny dedicated lit file, and the neighboring `optimize-instructions` sign-extension proof surface that this pass should not silently absorb.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  - Beginner-friendly shape catalog covering direct sign-ext positives, mask and shift-pair positives, branch/tee/atomic bailouts, and the important non-goals.
-- [`./parity.md`](./parity.md)
-  - Current in-tree Starshine parity state, focused evidence, the explicit local-vs-upstream scope difference, the `pick-load-signs-all` GenValid profile, and the remaining 2026-06-20 modern-signoff matrix gap.
-- [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Concise Starshine status and code-map page for the active hot pass, including the registry, scheduler, raw-skip, test, and replay surfaces.
-- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Deeper HOT-IR implementation note: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the now-focused i64/imported-memory test coverage.
-- [`../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`](../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md)
-  - Modern signoff refresh: no new semantic bug found, but `[O4Z-AUDIT-PLS]` reopened for a pass-specific GenValid profile and the current four-lane final closeout matrix.
-- [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
-  - Historical O4z release-gating audit under the older standard: direct `10000` requested compare, focused i64/imported-memory test refresh, saved slot `18` timing, and `[O4Z-AUDIT-PLS]` closure.
-- [`../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md)
-  - Refreshed direct pass-fuzz signoff after the 2026-05-06 harness audit.
-- [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
-  - Retained research bridge for this folder's 2026-05-05 no-drift finding.
-- Direct Binaryen `version_129` source/test URLs below preserve the original tagged-source route; the retained 2026-05-05 bridge records the reviewed current-main comparison.
+- [`./binaryen-strategy.md`](./binaryen-strategy.md): exact upstream algorithm.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): upstream owner/test map.
+- [`./wat-shapes.md`](./wat-shapes.md): positive, bailout, and retained Starshine-win shapes.
+- [`./starshine-strategy.md`](./starshine-strategy.md): concise local code map.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md): HOT/use-def and raw-path details.
+- [`./parity.md`](./parity.md): final classification and signoff.
+- [`./fuzzing.md`](./fuzzing.md): dedicated profile and replay commands.
 
-## Freshness note
+## Reopening rule
 
-A narrow 2026-05-05 current-main recheck found **no visible drift** here:
-
-- the reviewed `src/passes/PickLoadSigns.cpp` release and current-`main` surfaces still match on the teaching-relevant mechanics captured in this folder
-- the dedicated lit file `pick-load-signs_sign-ext.wast` also still matches between the reviewed release and current `main`
-
-So the released `version_129` source is still the right semantic oracle for this dossier.
-
-## Important supersession note
-
-The archived local port note `0069-2026-03-26-pick-load-signs.md` remains useful as implementation history.
-But a fresh official-source review corrects one part of that older note:
-
-- the upstream pass here should not be described as an i64-aware signedness picker
-- the current in-tree Starshine pass is broader than upstream on that point
-
-Keep that difference explicit instead of silently smoothing it away.
-
-## Current maintenance rule
-
-- Treat this folder as the canonical home for future `pick-load-signs` parity and scheduler research.
-- Do not treat PLS as fully reclosed under the current final pass closeout standard until the four-lane matrix described in [`./fuzzing.md`](./fuzzing.md) is complete with the `pick-load-signs-all` dedicated profile lane.
-- Keep the main correction explicit:
-  - upstream `pick-load-signs` is a narrow AST-context pass, not a generic all-width load-sign canonicalizer
-- Keep the local-vs-upstream i64 scope difference explicit until it is either removed or intentionally documented as a standing divergence.
-- Keep the no-memory skip, exact `local.set(load ...)` producer rule, all-uses-recognized rule, and atomic-load bailout explicit whenever future docs or code changes touch this pass.
-- Keep the concise Starshine strategy page and the deeper HOT note aligned.
-
-## Sources
-
-- [`../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md`](../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md)
-- [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
-- [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
-- [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
-- [`../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md`](../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md)
-- [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)
-- [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
-- [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)
-- [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
-- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-- [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- Saved generated-artifact slot, timing, and debug-log facts are preserved in the committed audit note [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md); old `.artifacts` paths are local replay identifiers rather than durable source links.
-- Binaryen `version_129` sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/PickLoadSigns.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/pick-load-signs_sign-ext.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-instructions-sign_ext.wast>
-- Narrow freshness-check surfaces:
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/PickLoadSigns.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/pick-load-signs_sign-ext.wast>
-- Starshine strategy / HOT detail:
-  - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+Reopen if Binaryen changes the v131 contract, a retained cleanup loses its source-completeness proof, canonical output stops winning, performance exceeds the `2x` target, or runtime/fuzzing finds a semantic mismatch.

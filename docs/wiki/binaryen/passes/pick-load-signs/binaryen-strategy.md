@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
@@ -23,8 +24,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
-The retained 2026-05-05 research bridge at [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md) records the no-drift result; the direct `version_129` URLs in this page and [`./index.md`](./index.md) are the active semantic-source route.
+Use Binaryen `version_131` as the primary source oracle for this pass. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [`../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md`](../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md).
 
 Primary files:
 
@@ -258,7 +258,8 @@ These non-goals are worth keeping explicit:
 - no proof through branches, selects, or merges
 - no `local.tee` producer handling
 - no atomic signedness flipping
-- no i64 sign/zero-extension recognition in upstream `version_129`
+- no i64 sign/zero-extension recognition in upstream `version_131`
+- no unsigned shift-pair recognition; upstream zero-extension evidence is only a right-hand low-bit mask
 
 ## Why the dedicated lit file matters so much
 
@@ -291,12 +292,7 @@ The correct beginner takeaway is:
 
 ## Current freshness note
 
-A narrow 2026-05-05 current-main recheck found no visible drift here:
-
-- `PickLoadSigns.cpp` is identical on `version_129` and current `main`
-- `pick-load-signs_sign-ext.wast` is also identical
-
-So there is no current-main correction story to maintain for this dossier.
+The 2026-07-18 tag refresh found the audited `PickLoadSigns.cpp`, `properties.h` helper contract, and dedicated lit file byte-identical between Binaryen `version_130` and `version_131`. The v131 pass remains i32-only and still recognizes unsigned evidence only through a right-hand low-bit mask.
 
 ## What a future port must preserve
 

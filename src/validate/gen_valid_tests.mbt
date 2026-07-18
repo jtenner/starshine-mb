@@ -20241,6 +20241,179 @@ test "pick-load-signs optimization profiles emit validating narrow-load local-us
 }
 
 ///|
+fn gen_valid_test_pick_load_signs_unsigned_shift_shape(
+  instrs : Array[Instruction],
+) -> String? {
+  if instrs.length() != 8 {
+    return None
+  }
+  match (instrs[1], instrs[4], instrs[5], instrs[6], instrs[7]) {
+    (I32Load8S(_), I32Const(I32(24)), I32Shl, I32Const(I32(24)), I32ShrU) =>
+      Some("i32-load8")
+    (I32Load16S(_), I32Const(I32(16)), I32Shl, I32Const(I32(16)), I32ShrU) =>
+      Some("i32-load16")
+    (I64Load8S(_), I64Const(I64(56L)), I64Shl, I64Const(I64(56L)), I64ShrU) =>
+      Some("i64-load8")
+    (I64Load16S(_), I64Const(I64(48L)), I64Shl, I64Const(I64(48L)), I64ShrU) =>
+      Some("i64-load16")
+    (I64Load32S(_), I64Const(I64(32L)), I64Shl, I64Const(I64(32L)), I64ShrU) =>
+      Some("i64-load32")
+    _ => None
+  }
+}
+
+///|
+test "pick-load-signs unsigned-shift profile emits every size-loss regression shape" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PickLoadSignsUnsignedShiftProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let seen : Array[String] = []
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        match gen_valid_test_pick_load_signs_unsigned_shift_shape(instrs) {
+          Some(shape) => if !seen.contains(shape) { seen.push(shape) }
+          None => ()
+        }
+      }
+    None => fail("expected generated code section")
+  }
+  @debug.assert_eq(seen.length(), 5)
+  assert_true(seen.contains("i32-load8"))
+  assert_true(seen.contains("i32-load16"))
+  assert_true(seen.contains("i64-load8"))
+  assert_true(seen.contains("i64-load16"))
+  assert_true(seen.contains("i64-load32"))
+}
+
+///|
+fn gen_valid_test_pick_load_signs_mask_shape(
+  instrs : Array[Instruction],
+) -> String? {
+  if instrs.length() != 6 {
+    return None
+  }
+  match (instrs[1], instrs[3], instrs[4], instrs[5]) {
+    (I32Load8S(_), LocalGet(_), I32Const(I32(255)), I32And) =>
+      Some("i32-mask-right")
+    (I32Load8S(_), I32Const(I32(255)), LocalGet(_), I32And) =>
+      Some("i32-mask-commuted")
+    (I64Load8S(_), LocalGet(_), I64Const(I64(255L)), I64And) =>
+      Some("i64-mask8")
+    (I64Load16S(_), LocalGet(_), I64Const(I64(65535L)), I64And) =>
+      Some("i64-mask16")
+    (I64Load32S(_), LocalGet(_), I64Const(I64(4294967295L)), I64And) =>
+      Some("i64-mask32")
+    _ => None
+  }
+}
+
+///|
+test "pick-load-signs unsigned-mask profile exposes commuted and i64 breadth" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PickLoadSignsUnsignedMaskProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let seen : Array[String] = []
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        match gen_valid_test_pick_load_signs_mask_shape(instrs) {
+          Some(shape) => if !seen.contains(shape) { seen.push(shape) }
+          None => ()
+        }
+      }
+    None => fail("expected generated code section")
+  }
+  @debug.assert_eq(seen.length(), 5)
+  assert_true(seen.contains("i32-mask-right"))
+  assert_true(seen.contains("i32-mask-commuted"))
+  assert_true(seen.contains("i64-mask8"))
+  assert_true(seen.contains("i64-mask16"))
+  assert_true(seen.contains("i64-mask32"))
+}
+
+///|
+fn gen_valid_test_pick_load_signs_i64_watch_shape(
+  instrs : Array[Instruction],
+) -> String? {
+  if instrs.length() == 5 {
+    match (instrs[1], instrs[4]) {
+      (I64Load8U(_), I64Extend8S) => return Some("i64-direct8")
+      (I64Load16U(_), I64Extend16S) => return Some("i64-direct16")
+      (I64Load32U(_), I64Extend32S) => return Some("i64-direct32")
+      _ => ()
+    }
+  }
+  if instrs.length() == 8 {
+    match (instrs[1], instrs[4], instrs[5], instrs[6], instrs[7]) {
+      (I64Load8U(_), I64Const(I64(56L)), I64Shl, I64Const(I64(56L)), I64ShrS) =>
+        return Some("i64-signed-shift8")
+      (I64Load16U(_), I64Const(I64(48L)), I64Shl, I64Const(I64(48L)), I64ShrS) =>
+        return Some("i64-signed-shift16")
+      (I64Load32U(_), I64Const(I64(32L)), I64Shl, I64Const(I64(32L)), I64ShrS) =>
+        return Some("i64-signed-shift32")
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
+test "pick-load-signs i64 watch profile emits mutating direct and signed-shift shapes" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(PickLoadSignsI64WatchProfile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let seen : Array[String] = []
+  match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        match gen_valid_test_pick_load_signs_i64_watch_shape(instrs) {
+          Some(shape) => if !seen.contains(shape) { seen.push(shape) }
+          None => ()
+        }
+      }
+    None => fail("expected generated code section")
+  }
+  @debug.assert_eq(seen.length(), 6)
+  assert_true(seen.contains("i64-direct8"))
+  assert_true(seen.contains("i64-direct16"))
+  assert_true(seen.contains("i64-direct32"))
+  assert_true(seen.contains("i64-signed-shift8"))
+  assert_true(seen.contains("i64-signed-shift16"))
+  assert_true(seen.contains("i64-signed-shift32"))
+}
+
+///|
 test "pick-load-signs boundary profiles emit deliberate skip and watchpoint modules" {
   for
     profile in [

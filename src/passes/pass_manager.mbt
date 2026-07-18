@@ -34433,6 +34433,353 @@ fn run_hot_pipeline_raw_heap_store_optimization(
 }
 
 ///|
+fn run_hot_pipeline_raw_pls_direct_extension(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if instrs.length() != 5 {
+    return None
+  }
+  match (instrs[1], instrs[2], instrs[3], instrs[4]) {
+    (
+      @lib.I32Load8U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Extend8S,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load8s(memarg),
+        instrs[2],
+        instrs[3],
+        instrs[4],
+      ])
+    (
+      @lib.I32Load16U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Extend16S,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load16s(memarg),
+        instrs[2],
+        instrs[3],
+        instrs[4],
+      ])
+    (
+      @lib.I64Load8U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Extend8S,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load8s(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load16U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Extend16S,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load16s(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load32U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Extend32S,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load32s(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_pls_mask(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if instrs.length() != 6 {
+    return None
+  }
+  match (instrs[1], instrs[2], instrs[3], instrs[4], instrs[5]) {
+    (
+      @lib.I32Load8S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Const(@lib.I32(255)),
+      @lib.I32And,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load8u(memarg),
+        instrs[2],
+        instrs[3],
+        instrs[4],
+        instrs[5],
+      ])
+    (
+      @lib.I32Load8S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.I32Const(@lib.I32(255)),
+      @lib.LocalGet(get_local),
+      @lib.I32And,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load8u(memarg),
+        instrs[2],
+        instrs[4],
+      ])
+    (
+      @lib.I32Load16S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Const(@lib.I32(65535)),
+      @lib.I32And,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load16u(memarg),
+        instrs[2],
+        instrs[3],
+        instrs[4],
+        instrs[5],
+      ])
+    (
+      @lib.I64Load8S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(255L)),
+      @lib.I64And,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load8u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load16S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(65535L)),
+      @lib.I64And,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load16u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load32S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(4294967295L)),
+      @lib.I64And,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load32u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_pls_unsigned_shift(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if instrs.length() != 8 {
+    return None
+  }
+  match
+    (
+      instrs[1],
+      instrs[2],
+      instrs[3],
+      instrs[4],
+      instrs[5],
+      instrs[6],
+      instrs[7],
+    ) {
+    (
+      @lib.I32Load8U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Const(@lib.I32(24)),
+      @lib.I32Shl,
+      @lib.I32Const(@lib.I32(24)),
+      @lib.I32ShrS,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load8s(memarg),
+        instrs[2],
+        instrs[3],
+        instrs[4],
+        instrs[5],
+        instrs[6],
+        instrs[7],
+      ])
+    (
+      @lib.I32Load16U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Const(@lib.I32(16)),
+      @lib.I32Shl,
+      @lib.I32Const(@lib.I32(16)),
+      @lib.I32ShrS,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load16s(memarg),
+        instrs[2],
+        instrs[3],
+        instrs[4],
+        instrs[5],
+        instrs[6],
+        instrs[7],
+      ])
+    (
+      @lib.I32Load8S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Const(@lib.I32(24)),
+      @lib.I32Shl,
+      @lib.I32Const(@lib.I32(24)),
+      @lib.I32ShrU,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load8u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I32Load16S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I32Const(@lib.I32(16)),
+      @lib.I32Shl,
+      @lib.I32Const(@lib.I32(16)),
+      @lib.I32ShrU,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i32_load16u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load8S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(56L)),
+      @lib.I64Shl,
+      @lib.I64Const(@lib.I64(56L)),
+      @lib.I64ShrU,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load8u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load16S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(48L)),
+      @lib.I64Shl,
+      @lib.I64Const(@lib.I64(48L)),
+      @lib.I64ShrU,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load16u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load32S(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(32L)),
+      @lib.I64Shl,
+      @lib.I64Const(@lib.I64(32L)),
+      @lib.I64ShrU,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load32u(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load8U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(56L)),
+      @lib.I64Shl,
+      @lib.I64Const(@lib.I64(56L)),
+      @lib.I64ShrS,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load8s(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load16U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(48L)),
+      @lib.I64Shl,
+      @lib.I64Const(@lib.I64(48L)),
+      @lib.I64ShrS,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load16s(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    (
+      @lib.I64Load32U(memarg),
+      @lib.LocalSet(set_local),
+      @lib.LocalGet(get_local),
+      @lib.I64Const(@lib.I64(32L)),
+      @lib.I64Shl,
+      @lib.I64Const(@lib.I64(32L)),
+      @lib.I64ShrS,
+    ) if set_local == get_local =>
+      Some([
+        instrs[0],
+        @lib.Instruction::i64_load32s(memarg),
+        instrs[2],
+        instrs[3],
+      ])
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_pick_load_signs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -34442,7 +34789,25 @@ fn run_hot_pipeline_raw_pick_load_signs(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  let @lib.Func(_, @lib.Expr(instrs)) = original
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let raw_rewrite = match run_hot_pipeline_raw_pls_direct_extension(instrs) {
+    Some(rewritten) => Some(rewritten)
+    None =>
+      match run_hot_pipeline_raw_pls_mask(instrs) {
+        Some(rewritten) => Some(rewritten)
+        None => run_hot_pipeline_raw_pls_unsigned_shift(instrs)
+      }
+  }
+  match raw_rewrite {
+    Some(rewritten) =>
+      return Some({
+        reason: "raw-load-sign-evidence",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        unchanged_original: false,
+        trace_skip_raw: false,
+      })
+    None => ()
+  }
   let (has_candidate_producer, has_local_get, has_extension_surface) = run_hot_pipeline_pls_candidate_scan(
     instrs,
   )

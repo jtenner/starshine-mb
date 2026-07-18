@@ -32,7 +32,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `remove-unused-brs` | Direct behavior closed. | **Open scheduler reconciliation:** Starshine has one extra slot. |
 | `optimize-instructions` | Closed under the 2026-07-12 maintained parity contract. | None; reopen only under documented criteria. |
 | `heap-store-optimization` | Closed. | None. |
-| `pick-load-signs` | No known behavior gap; dedicated profile exists. | **Open modern four-lane closeout.** |
+| `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
 | `precompute-propagate` | Public pass removed/unimplemented; private prefix helper exists. | **Open implementation and scheduling.** |
 | `code-pushing` | Closed. | None. |
 | `tuple-optimization` | Closed with accepted performance exception. | None. |
@@ -113,18 +113,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Complete current four-lane direct and optimizing closeout plus ordered slot-48/runtime artifact proof.
 - **Current sources:** `docs/wiki/binaryen/passes/dead-argument-elimination/`, `docs/wiki/binaryen/passes/dae-optimizing/`, and research notes `1562` through `1567`.
 - **Exit criteria:** zero unclassified direct/optimizing residual families, real touched-only nested cleanup, no selected-function correctness dependency where a generic proof is feasible, and valid runtime-green O4z slot behavior.
-
-### [O4Z-PLS]001 - Reclose `pick-load-signs` under the modern standard
-
-- **Status:** evidence-only blocker; no known semantic behavior gap.
-- **Goal:** complete the required current four-lane matrix using `pick-load-signs-all`.
-- **Deliverables:**
-  - [ ] Regular GenValid 100000 at seed `0x5eed`.
-  - [ ] Explicit wasm-smith 10000 at seed `0x5eed`.
-  - [ ] `pick-load-signs-all` 10000 at seed `0x5eed`.
-  - [ ] `random-all-profiles` 10000 at seed `0x5555`.
-  - [ ] Refresh pass-local timing and the saved/current slot-18 neighborhood if behavior or performance moved.
-- **Exit criteria:** current matrix classified with no new behavior gap or Starshine failure; then remove this slice.
 
 ### [O4Z-PRESET]001 - Reconcile the exact 56-slot public preset
 

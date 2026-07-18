@@ -1,57 +1,89 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-06-20
+status: supported
+last_reviewed: 2026-07-18
 sources:
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
-  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
+  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
+related:
+  - ./index.md
+  - ./parity.md
 ---
 
-# `pick-load-signs` Fuzzing Profile
-
-Recommended smoke lane after rebuilding the native CLI:
-
-```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass pick-load-signs --out-dir .tmp/pass-fuzz-pick-load-signs --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --keep-going-after-command-failures
-```
+# `pick-load-signs` fuzzing profile
 
 Dedicated GenValid profile: `pick-load-signs-all`.
 
-`pick-load-signs-all` is a replayable composite profile. GenValid manifests keep `config_label: "pick-load-signs-all"` and record the deterministic selected leaf in `selected_profile`, which the compare-pass summary can aggregate as selected-profile counters.
+The aggregate is replayable: manifests retain `config_label: "pick-load-signs-all"` and record the selected leaf in `selected_profile`.
 
-Current profile leaves:
+## Profile leaves
 
-- `pick-load-signs-signed-extend`: `i32.load8_u -> local.set -> local.get -> i32.extend8_s` positive signed rewrite candidate.
-- `pick-load-signs-signed-shift`: `i32.load8_u` followed by a signed shift-pair use.
-- `pick-load-signs-unsigned-mask`: `i32.load8_s` followed by an unsigned low-bit mask.
-- `pick-load-signs-unsigned-shift`: already-unsigned `i32.load16_u` followed by an unsigned shift-pair use. This keeps the dedicated compare lane parity-clean while still exercising the shift-pair evidence shape; Starshine's broader mutating signed-load-to-unsigned-shift cleanup remains covered by focused pass tests rather than the Binaryen-parity aggregate lane.
-- `pick-load-signs-unknown-use-boundary`: narrow load/local producer with an unrecognized equality use that should block rewrite.
-- `pick-load-signs-mixed-width-boundary`: mixed signed-width evidence that should block rewrite.
-- `pick-load-signs-width-mismatch-boundary`: load/use width mismatch that should block rewrite.
-- `pick-load-signs-tee-boundary`: `local.tee` producer boundary, intentionally outside the upstream exact `local.set(load ...)` contract.
-- `pick-load-signs-no-memory-boundary`: validating no-memory module for the pass manager skip surface.
+- `pick-load-signs-signed-extend`: upstream-common i32 direct signed-extension rewrite.
+- `pick-load-signs-signed-shift`: upstream-common i32 signed shift-pair rewrite.
+- `pick-load-signs-unsigned-mask`: five functions covering the upstream right-hand i32 mask, the retained commuted i32 mask, and i64 mask widths 8/16/32.
+- `pick-load-signs-unsigned-shift`: five mutating functions covering i32 widths 8/16 and i64 widths 8/16/32. Each begins with a signed load so the pass must flip it and remove the redundant unsigned shift pair.
+- `pick-load-signs-i64-watch`: six mutating functions covering i64 direct signed extensions and signed shift pairs at widths 8/16/32.
+- `pick-load-signs-unknown-use-boundary`: equality use that blocks rewriting.
+- `pick-load-signs-mixed-width-boundary`: conflicting evidence widths.
+- `pick-load-signs-width-mismatch-boundary`: use width differs from load width.
+- `pick-load-signs-tee-boundary`: deliberately unsupported `local.tee` producer.
+- `pick-load-signs-no-memory-boundary`: module-level no-memory skip.
 - `pick-load-signs-imported-memory`: imported-memory positive candidate.
-- `pick-load-signs-i64-watch`: non-mutating Starshine-local i64 watchpoint surface with already-signed `i64.load32_s` plus `i64.extend32_s`; upstream Binaryen `version_129` is effectively i32-only, so mutating i64 cleanup remains focused-test coverage rather than a Binaryen-parity aggregate lane expectation.
 
-Focused generator coverage added with the profile proves profile resolution, aggregate leaf sampling, validating modules, pass-owned optimization candidates, skip/watchpoint boundary modules, and composite manifest `selected_profile` metadata.
+The former profile blind spots are gone: unsigned shifts are mutating, i64 cases are mutating and width-complete, and commuted-mask breadth is directly generated.
 
-Smoke evidence after the profile landed: `.tmp/pass-fuzz-pick-load-signs-profile-smoke-50-v2` used `--count 50 --seed 0x5eed --pass pick-load-signs --gen-valid-profile pick-load-signs-all --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe`; it compared `50/50`, normalized `50`, and had `0` mismatches, validation failures, generator failures, property failures, or command failures. Selected-profile counts sampled all 11 leaves at least once in the run.
+## Generator tests
 
-The remaining blocker for reclosing `pick-load-signs` under the current final pass closeout standard is running and recording the full four-lane matrix. The older 2026-06-03 audit remains useful behavior evidence, but it predates the now-required pass-specific profile lane.
+`src/validate/gen_valid_tests.mbt` proves:
 
-The final closeout matrix should report these lanes separately:
+- profile and alias resolution;
+- aggregate sampling of all 11 leaves;
+- validation of every generated module;
+- all five unsigned-shift regression shapes;
+- right-hand/commuted i32 masks and i64 mask widths 8/16/32;
+- i64 direct and signed-shift widths 8/16/32;
+- deliberate skip/bailout surfaces.
+
+## Expected compare behavior
+
+The aggregate intentionally contains retained Starshine wins, so a fully green raw output comparison is not expected.
+
+Final v131 dedicated lane:
+
+- requested/compared: `10000/10000`;
+- exact normalized matches: `6452`;
+- measured Starshine-win mismatches: `3548`;
+- validation/generator/property/command failures: `0`;
+- Binaryen cache: `9987` hits / `13` misses.
+
+The `3548` mismatches equal the selected counts of the three behavior-revealing leaves exactly:
+
+- unsigned mask: `1762`;
+- unsigned shift: `1225`;
+- i64 watch: `561`.
+
+Their representative generated modules are smaller after Starshine PLS:
+
+- unsigned mask aggregate: `109` vs Binaryen `129` canonical bytes;
+- unsigned shift aggregate: `105` vs `135`;
+- i64 watch aggregate: `116` vs `137`.
+
+Classify those mismatches as measured Starshine wins, not generic representation drift.
+
+## Final lane commands
+
+Use a current native release build and the official v131 executable:
 
 ```sh
 moon build --target native --release src/cmd
-bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass pick-load-signs --out-dir .tmp/pass-fuzz-pick-load-signs-genvalid-100000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
-bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass pick-load-signs --out-dir .tmp/pass-fuzz-pick-load-signs-wasm-smith-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass pick-load-signs --gen-valid-profile pick-load-signs-all --out-dir .tmp/pass-fuzz-pick-load-signs-genvalid-pick-load-signs-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass pick-load-signs --gen-valid-profile pass-fuzz-stress --out-dir .tmp/pass-fuzz-pick-load-signs-genvalid-pass-fuzz-stress-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass pick-load-signs --out-dir .tmp/pass-fuzz-pick-load-signs-v131-fix-genvalid-100000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin <binaryen-v131>/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass pick-load-signs --out-dir .tmp/pass-fuzz-pick-load-signs-v131-fix-wasm-smith-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin <binaryen-v131>/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass pick-load-signs --gen-valid-profile pick-load-signs-all --out-dir .tmp/pass-fuzz-pick-load-signs-v131-fix-profile-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin <binaryen-v131>/bin/wasm-opt --max-failures 10000 --no-reduce-mismatches --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass pick-load-signs --gen-valid-profile random-all-profiles --out-dir .tmp/pass-fuzz-pick-load-signs-v131-fix-random-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin <binaryen-v131>/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
 ```
 
-Use `pass-fuzz-stress` as the current broad named all-profiles-style lane unless the repo adds a literal random all-profiles profile before closeout.
+The saved wasm-smith mismatch should replay as cleanup-normalized with `--normalize unreachable-control-debris`; it has no PLS candidate pattern.

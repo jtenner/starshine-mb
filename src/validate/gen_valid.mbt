@@ -3744,26 +3744,38 @@ fn gen_valid_pick_load_signs_profile_config(
   let body_statements = match profile {
     PickLoadSignsSignedExtendProfile => 11
     PickLoadSignsSignedShiftProfile => 12
-    PickLoadSignsUnsignedMaskProfile => 13
-    PickLoadSignsUnsignedShiftProfile => 14
+    PickLoadSignsUnsignedMaskProfile => 30
+    PickLoadSignsUnsignedShiftProfile => 40
     PickLoadSignsUnknownUseBoundaryProfile => 15
     PickLoadSignsMixedWidthBoundaryProfile => 16
     PickLoadSignsWidthMismatchBoundaryProfile => 17
     PickLoadSignsTeeBoundaryProfile => 18
     PickLoadSignsNoMemoryBoundaryProfile => 19
     PickLoadSignsImportedMemoryProfile => 20
-    PickLoadSignsI64WatchProfile => 21
+    PickLoadSignsI64WatchProfile => 48
     _ => 11
   }
   GenValidConfig::{
     ..base,
-    max_type_defs: 1,
+    max_type_defs: if profile == PickLoadSignsUnsignedMaskProfile ||
+      profile == PickLoadSignsUnsignedShiftProfile {
+      2
+    } else {
+      1
+    },
     max_imports: if profile == PickLoadSignsImportedMemoryProfile {
       1
     } else {
       0
     },
-    max_defined_funcs: 1,
+    max_defined_funcs: if profile == PickLoadSignsUnsignedMaskProfile ||
+      profile == PickLoadSignsUnsignedShiftProfile {
+      5
+    } else if profile == PickLoadSignsI64WatchProfile {
+      6
+    } else {
+      1
+    },
     max_tables: 0,
     max_mems: if profile == PickLoadSignsNoMemoryBoundaryProfile ||
       profile == PickLoadSignsImportedMemoryProfile {
@@ -18374,7 +18386,7 @@ fn gen_valid_pick_load_signs_i32_body(
     PickLoadSignsUnsignedShiftProfile =>
       [
         Instruction::i32_const(I32(0)),
-        Instruction::i32_load16u(ma),
+        Instruction::i32_load16s(ma),
         Instruction::local_set(LocalIdx::new(0U)),
         Instruction::local_get(LocalIdx::new(0U)),
         Instruction::i32_const(I32(16)),
@@ -18442,34 +18454,299 @@ fn gen_valid_pick_load_signs_tee_body() -> Array[Instruction] {
 }
 
 ///|
-fn gen_valid_pick_load_signs_i64_body() -> Array[Instruction] {
+fn gen_valid_pick_load_signs_unsigned_mask_i32_body(
+  commuted : Bool,
+) -> Array[Instruction] {
   let ma = gen_valid_pick_load_signs_memarg()
+  let prefix = [
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_load8s(ma),
+    Instruction::local_set(LocalIdx::new(0U)),
+  ]
+  if commuted {
+    prefix +
+    [
+      Instruction::i32_const(I32(255)),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::i32_and(),
+    ]
+  } else {
+    prefix +
+    [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::i32_const(I32(255)),
+      Instruction::i32_and(),
+    ]
+  }
+}
+
+///|
+fn gen_valid_pick_load_signs_unsigned_mask_i64_body(
+  load_bits : Int,
+) -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  let (load, mask) = if load_bits == 8 {
+    (Instruction::i64_load8s(ma), 255L)
+  } else if load_bits == 16 {
+    (Instruction::i64_load16s(ma), 65535L)
+  } else {
+    (Instruction::i64_load32s(ma), 4294967295L)
+  }
   [
     Instruction::i32_const(I32(0)),
-    Instruction::i64_load32s(ma),
+    load,
     Instruction::local_set(LocalIdx::new(0U)),
     Instruction::local_get(LocalIdx::new(0U)),
-    Instruction::i64_extend32s(),
+    Instruction::i64_const(I64(mask)),
+    Instruction::i64_and(),
   ]
+}
+
+///|
+fn gen_valid_pick_load_signs_unsigned_mask_module() -> Module {
+  let i32_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let i64_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  let funcs = [
+    Func::new(
+      Locals::from_types([ValType::i32()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_mask_i32_body(false)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i32()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_mask_i32_body(true)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_mask_i64_body(8)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_mask_i64_body(16)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_mask_i64_body(32)),
+    ),
+  ]
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_type, i64_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+    ]),
+  )
+  .with_code_sec(CodeSec::new(funcs))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+}
+
+///|
+fn gen_valid_pick_load_signs_i64_direct_body(
+  load_bits : Int,
+) -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  let (load, extension) = if load_bits == 8 {
+    (Instruction::i64_load8u(ma), Instruction::i64_extend8s())
+  } else if load_bits == 16 {
+    (Instruction::i64_load16u(ma), Instruction::i64_extend16s())
+  } else {
+    (Instruction::i64_load32u(ma), Instruction::i64_extend32s())
+  }
+  [
+    Instruction::i32_const(I32(0)),
+    load,
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    extension,
+  ]
+}
+
+///|
+fn gen_valid_pick_load_signs_i64_signed_shift_body(
+  load_bits : Int,
+) -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  let (load, shift) = if load_bits == 8 {
+    (Instruction::i64_load8u(ma), 56)
+  } else if load_bits == 16 {
+    (Instruction::i64_load16u(ma), 48)
+  } else {
+    (Instruction::i64_load32u(ma), 32)
+  }
+  [
+    Instruction::i32_const(I32(0)),
+    load,
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i64_const(I64(shift.to_int64())),
+    Instruction::i64_shl(),
+    Instruction::i64_const(I64(shift.to_int64())),
+    Instruction::i64_shr_s(),
+  ]
+}
+
+///|
+fn gen_valid_pick_load_signs_i64_watch_module() -> Module {
+  let i64_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  let funcs = [
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_i64_direct_body(8)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_i64_direct_body(16)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_i64_direct_body(32)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_i64_signed_shift_body(8)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_i64_signed_shift_body(16)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_i64_signed_shift_body(32)),
+    ),
+  ]
+  Module::new()
+  .with_type_sec(TypeSec::new([i64_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+    ]),
+  )
+  .with_code_sec(CodeSec::new(funcs))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+}
+
+///|
+fn gen_valid_pick_load_signs_unsigned_shift_i32_body(
+  load_bits : Int,
+) -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  let (load, shift) = if load_bits == 8 {
+    (Instruction::i32_load8s(ma), 24)
+  } else {
+    (Instruction::i32_load16s(ma), 16)
+  }
+  [
+    Instruction::i32_const(I32(0)),
+    load,
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i32_const(I32(shift)),
+    Instruction::i32_shl(),
+    Instruction::i32_const(I32(shift)),
+    Instruction::i32_shr_u(),
+  ]
+}
+
+///|
+fn gen_valid_pick_load_signs_unsigned_shift_i64_body(
+  load_bits : Int,
+) -> Array[Instruction] {
+  let ma = gen_valid_pick_load_signs_memarg()
+  let (load, shift) = if load_bits == 8 {
+    (Instruction::i64_load8s(ma), 56)
+  } else if load_bits == 16 {
+    (Instruction::i64_load16s(ma), 48)
+  } else {
+    (Instruction::i64_load32s(ma), 32)
+  }
+  [
+    Instruction::i32_const(I32(0)),
+    load,
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::i64_const(I64(shift.to_int64())),
+    Instruction::i64_shl(),
+    Instruction::i64_const(I64(shift.to_int64())),
+    Instruction::i64_shr_u(),
+  ]
+}
+
+///|
+fn gen_valid_pick_load_signs_unsigned_shift_module() -> Module {
+  let i32_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let i64_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  let funcs = [
+    Func::new(
+      Locals::from_types([ValType::i32()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_shift_i32_body(8)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i32()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_shift_i32_body(16)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_shift_i64_body(8)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_shift_i64_body(16)),
+    ),
+    Func::new(
+      Locals::from_types([ValType::i64()]),
+      Expr::new(gen_valid_pick_load_signs_unsigned_shift_i64_body(32)),
+    ),
+  ]
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_type, i64_type]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+      TypeIdx::new(1U),
+    ]),
+  )
+  .with_code_sec(CodeSec::new(funcs))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
 }
 
 ///|
 fn gen_valid_pick_load_signs_profile_module(config : GenValidConfig) -> Module {
   let kind = gen_valid_pick_load_signs_profile_kind(config)
-  let is_i64 = kind == PickLoadSignsI64WatchProfile
-  let is_tee = kind == PickLoadSignsTeeBoundaryProfile
-  let result_type = if is_tee {
-    []
-  } else if is_i64 {
-    [ValType::i64()]
-  } else {
-    [ValType::i32()]
+  if kind == PickLoadSignsUnsignedMaskProfile {
+    return gen_valid_pick_load_signs_unsigned_mask_module()
   }
-  let local_type = if is_i64 { ValType::i64() } else { ValType::i32() }
+  if kind == PickLoadSignsUnsignedShiftProfile {
+    return gen_valid_pick_load_signs_unsigned_shift_module()
+  }
+  if kind == PickLoadSignsI64WatchProfile {
+    return gen_valid_pick_load_signs_i64_watch_module()
+  }
+  let is_tee = kind == PickLoadSignsTeeBoundaryProfile
+  let result_type = if is_tee { [] } else { [ValType::i32()] }
+  let local_type = ValType::i32()
   let body = if is_tee {
     gen_valid_pick_load_signs_tee_body()
-  } else if is_i64 {
-    gen_valid_pick_load_signs_i64_body()
   } else {
     gen_valid_pick_load_signs_i32_body(kind)
   }

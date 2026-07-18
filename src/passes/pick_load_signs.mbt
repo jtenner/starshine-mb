@@ -60,12 +60,23 @@ priv struct PLSShiftExtCacheEntry {
   has_result : Bool
   is_signed : Bool
   bits : Int
+  root_id : Int
+}
+
+///|
+priv struct PLSElidableUse {
+  local_idx : Int
+  read_id : Int
+  root_id : Int
+  bits : Int
+  target_signed : Bool
 }
 
 ///|
 priv struct PLSAnalysis {
   candidates : Array[PLSCandidateLoad]
   rewritable_candidates : Int
+  elidable_uses : Array[PLSElidableUse]
 }
 
 ///|
@@ -360,7 +371,7 @@ fn pls_extension_from_grandparent_zero_ext(
   use_def : @ir.HotUseDef,
   parent_id : Int,
   shift_bits : @lib.I32,
-) -> (Bool, Int)? {
+) -> (Bool, Int, Int)? {
   for grand_site in @ir.node_use_sites_borrowed(use_def, parent_id) {
     if !pls_is_child_use_slot(grand_site.kind) || grand_site.slot != 0 {
       continue
@@ -376,9 +387,9 @@ fn pls_extension_from_grandparent_zero_ext(
     }
     match grand_instr {
       @lib.Instruction::I32ShrU(_) =>
-        return Some((false, pls_i32_shift_ext_bits(shift_bits)))
+        return Some((false, pls_i32_shift_ext_bits(shift_bits), grand_id))
       @lib.Instruction::I32ShrS(_) =>
-        return Some((true, pls_i32_shift_ext_bits(shift_bits)))
+        return Some((true, pls_i32_shift_ext_bits(shift_bits), grand_id))
       _ => ()
     }
   }
@@ -391,7 +402,7 @@ fn pls_extension_from_grandparent_zero_ext64(
   use_def : @ir.HotUseDef,
   parent_id : Int,
   shift_bits : @lib.I64,
-) -> (Bool, Int)? {
+) -> (Bool, Int, Int)? {
   for grand_site in @ir.node_use_sites_borrowed(use_def, parent_id) {
     if !pls_is_child_use_slot(grand_site.kind) || grand_site.slot != 0 {
       continue
@@ -407,9 +418,9 @@ fn pls_extension_from_grandparent_zero_ext64(
     }
     match grand_instr {
       @lib.Instruction::I64ShrU(_) =>
-        return Some((false, pls_i64_shift_ext_bits(shift_bits)))
+        return Some((false, pls_i64_shift_ext_bits(shift_bits), grand_id))
       @lib.Instruction::I64ShrS(_) =>
-        return Some((true, pls_i64_shift_ext_bits(shift_bits)))
+        return Some((true, pls_i64_shift_ext_bits(shift_bits), grand_id))
       _ => ()
     }
   }
@@ -423,7 +434,7 @@ fn pls_extension_from_parent(
   _read_node_id : Int,
   site : @ir.HotUseSite,
   shift_ext_cache : Array[PLSShiftExtCacheEntry],
-) -> (Bool, Int)? {
+) -> (Bool, Int, Int)? {
   if !pls_is_child_use_slot(site.kind) {
     return None
   }
@@ -434,13 +445,13 @@ fn pls_extension_from_parent(
   }
   if site.slot == 0 {
     match parent_instr {
-      @lib.Instruction::I32Extend8S => return Some((true, 8))
-      @lib.Instruction::I32Extend16S => return Some((true, 16))
-      @lib.Instruction::I64Extend8S => return Some((true, 8))
-      @lib.Instruction::I64Extend16S => return Some((true, 16))
-      @lib.Instruction::I64Extend32S => return Some((true, 32))
-      @lib.Instruction::I64ExtendI32S => return Some((true, 32))
-      @lib.Instruction::I64ExtendI32U => return Some((false, 32))
+      @lib.Instruction::I32Extend8S => return Some((true, 8, -1))
+      @lib.Instruction::I32Extend16S => return Some((true, 16, -1))
+      @lib.Instruction::I64Extend8S => return Some((true, 8, parent_id))
+      @lib.Instruction::I64Extend16S => return Some((true, 16, parent_id))
+      @lib.Instruction::I64Extend32S => return Some((true, 32, parent_id))
+      @lib.Instruction::I64ExtendI32S => return Some((true, 32, -1))
+      @lib.Instruction::I64ExtendI32U => return Some((false, 32, -1))
       @lib.Instruction::I32Shl => {
         let shift_bits = match
           pls_i32_const_node(func, @ir.hot_child_get(func, parent_id, 1)) {
@@ -453,12 +464,13 @@ fn pls_extension_from_parent(
             pls_extension_from_grandparent_zero_ext(
               func, use_def, parent_id, shift_bits,
             ) {
-            Some((is_signed, bits)) =>
+            Some((is_signed, bits, root_id)) =>
               shift_ext_cache[parent_id] = {
                 computed: true,
                 has_result: true,
                 is_signed,
                 bits,
+                root_id,
               }
             None =>
               shift_ext_cache[parent_id] = {
@@ -466,12 +478,23 @@ fn pls_extension_from_parent(
                 has_result: false,
                 is_signed: false,
                 bits: 0,
+                root_id: -1,
               }
           }
         }
         let updated_cache = shift_ext_cache[parent_id]
         if updated_cache.has_result {
-          return Some((updated_cache.is_signed, updated_cache.bits))
+          return Some(
+            (
+              updated_cache.is_signed,
+              updated_cache.bits,
+              if updated_cache.is_signed {
+                -1
+              } else {
+                updated_cache.root_id
+              },
+            ),
+          )
         }
         return None
       }
@@ -487,12 +510,13 @@ fn pls_extension_from_parent(
             pls_extension_from_grandparent_zero_ext64(
               func, use_def, parent_id, shift_bits,
             ) {
-            Some((is_signed, bits)) =>
+            Some((is_signed, bits, root_id)) =>
               shift_ext_cache[parent_id] = {
                 computed: true,
                 has_result: true,
                 is_signed,
                 bits,
+                root_id,
               }
             None =>
               shift_ext_cache[parent_id] = {
@@ -500,12 +524,15 @@ fn pls_extension_from_parent(
                 has_result: false,
                 is_signed: false,
                 bits: 0,
+                root_id: -1,
               }
           }
         }
         let updated_cache = shift_ext_cache[parent_id]
         if updated_cache.has_result {
-          return Some((updated_cache.is_signed, updated_cache.bits))
+          return Some(
+            (updated_cache.is_signed, updated_cache.bits, updated_cache.root_id),
+          )
         }
         return None
       }
@@ -526,7 +553,8 @@ fn pls_extension_from_parent(
         None => return None
       }
       match pls_i32_low_mask_bits(mask) {
-        Some(bits) => Some((false, bits))
+        Some(bits) =>
+          Some((false, bits, if site.slot == 1 { parent_id } else { -1 }))
         None => None
       }
     }
@@ -543,7 +571,7 @@ fn pls_extension_from_parent(
         None => return None
       }
       match pls_i64_low_mask_bits(mask) {
-        Some(bits) => Some((false, bits))
+        Some(bits) => Some((false, bits, parent_id))
         None => None
       }
     }
@@ -555,9 +583,60 @@ fn pls_extension_from_parent(
 fn pls_shift_ext_cache_make_empty(size : Int) -> Array[PLSShiftExtCacheEntry] {
   let out : Array[PLSShiftExtCacheEntry] = []
   for _ in 0..<size {
-    out.push({ computed: false, has_result: false, is_signed: false, bits: 0 })
+    out.push({
+      computed: false,
+      has_result: false,
+      is_signed: false,
+      bits: 0,
+      root_id: -1,
+    })
   }
   out
+}
+
+///|
+fn pls_candidate_for_write(
+  candidates : Array[PLSCandidateLoad],
+  write_id : Int,
+) -> PLSCandidateLoad? {
+  for candidate in candidates {
+    if candidate.set_node == write_id {
+      return Some(candidate)
+    }
+  }
+  None
+}
+
+///|
+fn pls_local_all_writes_become_matching_loads(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  candidates : Array[PLSCandidateLoad],
+  local_idx : Int,
+  bits : Int,
+  target_signed : Bool,
+) -> Bool {
+  if local_idx < @ir.hot_param_count(func) {
+    return false
+  }
+  let writes = @ir.local_write_nodes_borrowed(use_def, local_idx)
+  if writes.length() == 0 {
+    return false
+  }
+  let mut rewrites_opposite_load = false
+  for write_id in writes {
+    let candidate = match pls_candidate_for_write(candidates, write_id) {
+      Some(candidate) => candidate
+      None => return false
+    }
+    if candidate.load_bits != bits || candidate.target_signed != target_signed {
+      return false
+    }
+    if candidate.current_signed != target_signed {
+      rewrites_opposite_load = true
+    }
+  }
+  rewrites_opposite_load
 }
 
 ///|
@@ -569,6 +648,7 @@ fn pls_analyze_candidates(
   let usage_by_local = pls_make_usage_by_local(@ir.hot_local_count(func))
   let seen_local = @bitset.BitSet::new(usage_by_local.length())
   let local_work_list : Array[Int] = []
+  let cleanup_uses : Array[PLSElidableUse] = []
   let shift_ext_cache = pls_shift_ext_cache_make_empty(@ir.hot_node_count(func))
   for candidate in candidates {
     let local_idx = candidate.local_idx
@@ -600,11 +680,29 @@ fn pls_analyze_candidates(
           pls_extension_from_parent(
             func, use_def, read_id, site, shift_ext_cache,
           ) {
-          Some((is_signed, bits)) =>
+          Some((is_signed, bits, root_id)) =>
             if is_signed {
               pls_record_signed_usage(usage_by_local, local_idx, bits)
+              if root_id >= 0 {
+                cleanup_uses.push({
+                  local_idx,
+                  read_id,
+                  root_id,
+                  bits,
+                  target_signed: true,
+                })
+              }
             } else {
               pls_record_unsigned_usage(usage_by_local, local_idx, bits)
+              if root_id >= 0 {
+                cleanup_uses.push({
+                  local_idx,
+                  read_id,
+                  root_id,
+                  bits,
+                  target_signed: false,
+                })
+              }
             }
           None => {
             let usage = usage_by_local[local_idx]
@@ -634,7 +732,23 @@ fn pls_analyze_candidates(
       target_signed,
     }
   }
-  { candidates, rewritable_candidates }
+  let elidable_uses : Array[PLSElidableUse] = []
+  for cleanup_use in cleanup_uses {
+    if !elidable_uses.any(fn(existing) {
+        existing.root_id == cleanup_use.root_id
+      }) &&
+      pls_local_all_writes_become_matching_loads(
+        func,
+        use_def,
+        candidates,
+        cleanup_use.local_idx,
+        cleanup_use.bits,
+        cleanup_use.target_signed,
+      ) {
+      elidable_uses.push(cleanup_use)
+    }
+  }
+  { candidates, rewritable_candidates, elidable_uses }
 }
 
 ///|
@@ -725,6 +839,36 @@ fn pls_rewrite_candidates(
     )
     changed = true
   }
+  for cleanup_use in analysis.elidable_uses {
+    if !@ir.hot_node_is_live(func, cleanup_use.root_id) ||
+      !@ir.hot_node_is_live(func, cleanup_use.read_id) {
+      continue
+    }
+    match @ir.hot_node_exact_instr(func, cleanup_use.root_id) {
+      Some(@lib.Instruction::I32ShrU(_))
+      | Some(@lib.Instruction::I64ShrU(_))
+      | Some(@lib.Instruction::I64ShrS(_))
+      | Some(@lib.Instruction::I32And)
+      | Some(@lib.Instruction::I64And)
+      | Some(@lib.Instruction::I64Extend8S)
+      | Some(@lib.Instruction::I64Extend16S)
+      | Some(@lib.Instruction::I64Extend32S) => ()
+      _ => continue
+    }
+    let read_node = @ir.hot_node_get(func, cleanup_use.read_id)
+    match read_node.op {
+      @ir.HotOp::LocalGet => ()
+      _ => continue
+    }
+    pipeline_trace_hook(
+      ctx.trace,
+      "pick-load-signs",
+      "remove-redundant-extension",
+      payload="local=\{cleanup_use.local_idx} root_id=\{cleanup_use.root_id} bits=\{cleanup_use.bits} signed=\{cleanup_use.target_signed}",
+    )
+    pass_replace_node(ctx, func, cleanup_use.root_id, read_node)
+    changed = true
+  }
   changed
 }
 
@@ -750,9 +894,9 @@ fn pick_load_signs_run(
     ctx.trace,
     "pick-load-signs",
     "analyzed",
-    payload="rewritable=\{analysis.rewritable_candidates}",
+    payload="rewritable=\{analysis.rewritable_candidates} elidable_uses=\{analysis.elidable_uses.length()}",
   )
-  if analysis.rewritable_candidates == 0 {
+  if analysis.rewritable_candidates == 0 && analysis.elidable_uses.length() == 0 {
     pipeline_trace_hook(ctx.trace, "pick-load-signs", "no-rewrites")
     return HotPassResult::unchanged()
   }
