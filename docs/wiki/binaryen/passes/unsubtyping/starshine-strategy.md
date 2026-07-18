@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -33,8 +34,8 @@ related:
 
 # Starshine Strategy For `unsubtyping`
 
-Use this page together with the direct tagged source URLs and retained current-main/research provenance in this dossier.
-The 2026-07-11 current-main recheck does not change Starshine's boundary-only status, but it corrects the upstream contract: explicit Binaryen `unsubtyping` now supports open-world invocation through a mode-aware public-type boundary. The missing implementation ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the direct tagged source URLs and retained research provenance in this dossier.
+Binaryen v131 does not change Starshine's boundary-only status, but it releases the corrected upstream contract: explicit `unsubtyping` supports open-world invocation through a mode-aware public-type boundary. The missing implementation ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
