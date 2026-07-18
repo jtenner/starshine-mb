@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentMemory.cpp
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
@@ -325,7 +326,7 @@ This is the same basic instrumentation-story neighborhood as `instrument-locals`
 
 ## Release provenance and current-main spot check
 
-The retained 2026-04-24 source review anchors historical teaching detail to Binaryen `version_129`; the public release baseline is now `version_130`.
+The retained 2026-04-24 source review anchors historical teaching detail to Binaryen `version_129`; the repo-wide public release baseline is now `version_131`, while this pass's latest focused owner/fixture review remains the 2026-07-11 v130/current-main no-drift check.
 
 A focused 2026-07-11 reread of `version_130` and current-`main` `InstrumentMemory.cpp`, `pass.cpp`, `passes.h`, and the four dedicated lit files found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness statement, not that capture's historical port-readiness reasoning. Both reviews are narrower than a full upstream history audit, so keep future source corrections explicit if Binaryen changes the pass.
 

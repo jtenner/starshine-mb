@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentMemory.cpp
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
@@ -150,7 +151,7 @@ Why this order helps:
 
 ## Release provenance and current-main spot check
 
-The retained 2026-04-24 source review anchors this page's historical `version_129` evidence; `version_130` is now the public release baseline.
+The retained 2026-04-24 source review anchors this page's historical `version_129` evidence; the repo-wide public release baseline is `version_131`, while the reviewed implementation map is still grounded in the 2026-07-11 v130/current-main reread.
 
 A focused 2026-07-11 reread of the `version_130` and current-`main` owner, registration, factory, and four dedicated lit fixtures found no behavior-bearing contract drift. It supersedes the 2026-04-26 freshness claim; both rechecks are focused source reads, not full upstream history audits.
 

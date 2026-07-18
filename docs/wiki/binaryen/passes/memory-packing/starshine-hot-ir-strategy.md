@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../../../src/passes/memory_packing.mbt
@@ -37,7 +38,7 @@ Starshine currently supports:
 - conservative no-split handling for GC `array.new_data` / `array.init_data`, plus data-index, data-name, and `data_count` repair;
 - `__llvm*` no-split handling, segment-count limiting, `trapsNeverHappen`, and active-only user-scan elision.
 
-The important 2026-07-10 boundary is current Binaryen `main`'s new imported-memory overlap exception. Starshine still rejects **all** active overlaps, even when imported memory is known zero-filled and the ranges are in allocation. That is a parity gap, not a safety justification for broadening local behavior without the upstream source-order and bounds proof. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+The important v131 boundary is Binaryen's released imported-memory overlap exception. Starshine still rejects **all** active overlaps, even when imported memory is known zero-filled and the ranges are in allocation. That is a parity gap, not a safety justification for broadening local behavior without the upstream source-order and bounds proof. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 ## Why this remains a module pass
 
@@ -67,7 +68,7 @@ For a beginner, read the local gate in this order:
 4. **Multiple active spans must be disjoint.** The local sorted-span test rejects any overlap before range packing.
 5. **A rewritten active segment must retain an observable startup trap.** If the original final write can exceed the declared initial memory, the local pass retains the top byte unless `trapsNeverHappen` is set.
 
-The fourth rule is deliberately stricter than current Binaryen `main`. Upstream's new narrow exception is not merely an alternate span predicate: it neutralizes earlier bytes trampled by later segments and proves that the imported segment fits within its declared allocation. Starshine does neither today.
+The fourth rule is deliberately stricter than Binaryen v131. Upstream's narrow released exception is not merely an alternate span predicate: it neutralizes earlier bytes trampled by later segments and proves that the imported segment fits within its declared allocation. Starshine does neither today.
 
 ## Concrete local shapes
 
@@ -103,14 +104,14 @@ Starshine leaves this module unchanged. Even an apparently removable zero range 
 
 The local pass has substantial passive support, but these boundaries remain material:
 
-- **Current-main imported overlap:** no `zeroOutTrampledData(...)` equivalent; no source-order-aware overlap handling; all overlaps bail out.
-- **Imported in-allocation proof:** local imported-memory option support does not implement Binaryen's current-main overlap-specific checked page/byte proof.
+- **Released v131 imported overlap:** no `zeroOutTrampledData(...)` equivalent; no source-order-aware overlap handling; all overlaps bail out.
+- **Imported in-allocation proof:** local imported-memory option support does not implement Binaryen v131's overlap-specific checked page/byte proof.
 - **Broader symbolic layouts:** dynamic active offsets and multimemory remain unsupported.
 - **Any unmodeled upstream surface:** use the upstream strategy and parity page before assuming the local module driver is a faithful source port.
 
 ## Read next
 
-1. [`binaryen-strategy.md`](binaryen-strategy.md) for the upstream phase model and current-main overlap drift.
+1. [`binaryen-strategy.md`](binaryen-strategy.md) for the upstream phase model and released v131 overlap behavior.
 2. [`wat-shapes.md`](wat-shapes.md) for positive and negative module examples.
 3. [`parity.md`](parity.md) for current evidence and the explicit parity-gap classification.
 4. [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) and [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt) for the executable contract.
