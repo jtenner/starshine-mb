@@ -205,6 +205,22 @@ test "precompute-propagate folds constant-true branches after loop effects" {
 }
 
 ///|
+test "precompute folds loop-carried constant breaks to the enclosing result" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result i32) (loop (br 1 (i32.const 1))))))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop break result fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("loop"), msg=pretty)
+  assert_false(pretty.contains("br ("), msg=pretty)
+}
+
+///|
 test "precompute removes constant-false self-branch loop debris" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1506,6 +1522,149 @@ test "precompute folds immutable struct reads from fresh allocations" {
 }
 
 ///|
+test "precompute partially folds immutable heap reads across select arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $box (struct (field i32)))
+        #|  (global $a (ref $box) (struct.new $box (i32.const 11)))
+        #|  (global $b (ref $box) (struct.new $box (i32.const 22)))
+        #|  (func (param i32) (result i32)
+        #|    (struct.get $box 0
+        #|      (select
+        #|        (global.get $a)
+        #|        (global.get $b)
+        #|        (local.get 0))))
+        #|  (func (param i32) (result i32)
+        #|    (ref.eq
+        #|      (select
+        #|        (global.get $a)
+        #|        (global.get $b)
+        #|        (local.get 0))
+        #|      (global.get $a))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected partial immutable heap fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("I32(11)"), msg=pretty)
+  assert_true(pretty.contains("I32(22)"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  let identity = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(identity.contains("select"), msg=identity)
+  assert_true(identity.contains("I32(1)"), msg=identity)
+  assert_true(identity.contains("I32(0)"), msg=identity)
+  assert_false(identity.contains("ref.eq"), msg=identity)
+}
+
+///|
+test "precompute-propagate folds nested immutable aggregate reads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $inner (struct (field i32)))
+        #|  (type $outer (struct (field (ref $inner))))
+        #|  (global $inner-global (ref $inner)
+        #|    (struct.new $inner (i32.const 84)))
+        #|  (func (result i32)
+        #|    (local $outer-local (ref null $outer))
+        #|    (local.set $outer-local
+        #|      (struct.new $outer
+        #|        (struct.new $inner (i32.const 42))))
+        #|    (struct.get $inner 0
+        #|      (struct.get $outer 0
+        #|        (local.get $outer-local))))
+        #|  (func (result i32)
+        #|    (struct.get $inner 0
+        #|      (struct.get $outer 0
+        #|        (struct.new $outer (global.get $inner-global))))))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested immutable aggregate folds, got \{err}")
+  }
+  let local_read = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let global_read = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(local_read.contains("I32(42)"), msg=local_read)
+  assert_false(local_read.contains("struct.get"), msg=local_read)
+  assert_true(global_read.contains("I32(84)"), msg=global_read)
+  assert_false(global_read.contains("struct.get"), msg=global_read)
+}
+
+///|
+test "precompute-propagate emits ref.func from nested immutable reads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $inner (struct (field funcref)))
+        #|  (type $outer (struct (field (ref $inner))))
+        #|  (type $target-type (func))
+        #|  (type $sink-type (func (param funcref)))
+        #|  (elem declare func $target)
+        #|  (func $target (type $target-type))
+        #|  (func $sink (type $sink-type) (param funcref))
+        #|  (func
+        #|    (local $outer-local (ref null $outer))
+        #|    (local.set $outer-local
+        #|      (struct.new $outer
+        #|        (struct.new $inner (ref.func $target))))
+        #|    (call $sink
+        #|      (struct.get $inner 0
+        #|        (struct.get $outer 0
+        #|          (local.get $outer-local))))))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested ref.func aggregate fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+}
+
+///|
+test "precompute recursively folds select conditions through deterministic parents" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    (i32.eqz
+        #|      (select
+        #|        (i32.const 0)
+        #|        (i32.const 10)
+        #|        (i32.eqz
+        #|          (select
+        #|            (i32.const 0)
+        #|            (i32.const 20)
+        #|            (local.get 0)))))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected recursive select-condition fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_false(pretty.contains("i32.eqz"), msg=pretty)
+}
+
+///|
 test "precompute folds returned integer unary rotate and conversion values" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1530,6 +1689,48 @@ test "precompute folds returned integer unary rotate and conversion values" {
   assert_false(rotl.contains("i32.rotl"), msg=rotl)
   assert_true(extended.contains("I64(4294967295)"), msg=extended)
   assert_false(extended.contains("i64.extend_i32_u"), msg=extended)
+}
+
+///|
+test "precompute folds deterministic SIMD constants but preserves relaxed SIMD" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result v128)
+        #|    (f32x4.max
+        #|      (v128.const f32x4 5 6 7 8)
+        #|      (v128.const f32x4 9 3 1 0)))
+        #|  (func (result v128)
+        #|    (i32x4.splat (i32.const 0)))
+        #|  (func (result v128)
+        #|    (f32x4.relaxed_max
+        #|      (v128.const f32x4 1 2 3 4)
+        #|      (v128.const f32x4 5 6 7 8))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected deterministic SIMD precompute, got \{err}")
+  }
+  let max = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let splat = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let relaxed = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(max.contains("v128.const") || max.contains("V128Const"), msg=max)
+  assert_false(max.contains("f32x4.max") || max.contains("F32x4Max"), msg=max)
+  assert_true(
+    splat.contains("v128.const") || splat.contains("V128Const"),
+    msg=splat,
+  )
+  assert_false(
+    splat.contains("i32x4.splat") || splat.contains("I32x4Splat"),
+    msg=splat,
+  )
+  assert_true(
+    relaxed.contains("relaxed_max") || relaxed.contains("RelaxedMax"),
+    msg=relaxed,
+  )
 }
 
 ///|

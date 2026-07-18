@@ -539,6 +539,11 @@ pub impl Validate for CompType with fn validate(self, env) {
         Ok(_) => Validate::validate(v1, env)
         Err(t) => Err(t)
       }
+    ContCompType(func_type) =>
+      match env.resolve_functype(func_type) {
+        Some(_) => Ok(())
+        None => Err("continuation type must reference a function type")
+      }
   }
 }
 
@@ -1289,6 +1294,7 @@ pub fn validate_tagsec(tagsec : TagSec?, env0 : Env) -> Result[Env, String] {
           locals: env.locals,
           labels: env.labels,
           return_type: env.return_type,
+          legacy_catch_depth: env.legacy_catch_depth,
         }
       }
       Ok(env)

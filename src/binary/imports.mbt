@@ -76,6 +76,7 @@ using @lib {
   type DataMode,
   type BlockType,
   type Catch,
+  type ResumeHandler,
   type MemArg,
   type AtomicOrder,
   type AtomicRmwOp,

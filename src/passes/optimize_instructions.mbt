@@ -1602,6 +1602,7 @@ fn OiConcreteCompAbsTargetFact::from_comp_abs(
       } else {
         ConcreteCompAbsTargetNoMatch
       }
+    @lib.ContCompType(_) => ConcreteCompAbsTargetNoMatch
   }
   { kind, }
 }

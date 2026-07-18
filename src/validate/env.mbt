@@ -97,6 +97,7 @@ pub(all) struct Env {
   locals : Locals
   labels : LabelStack
   return_type : Array[ValType]?
+  legacy_catch_depth : Int
 } derive(Hash, Debug)
 
 ///|
@@ -127,6 +128,8 @@ pub impl Show for Env with fn output(self, logger) {
   Show::output(self.labels, logger)
   logger.write_string(", return_type: ")
   logger.write_string(@debug.to_string(self.return_type))
+  logger.write_string(", legacy_catch_depth: ")
+  Show::output(self.legacy_catch_depth, logger)
   logger.write_char('}')
 }
 
@@ -179,6 +182,14 @@ pub fn Env::resolve_comptype(env : Env, idx : TypeIdx) -> CompType? {
 pub fn Env::resolve_functype(env : Env, idx : TypeIdx) -> FuncType? {
   match env.resolve_comptype(idx) {
     Some(FuncCompType(ps, rs)) => Some(FuncType::new(ps, rs))
+    _ => None
+  }
+}
+
+///|
+pub fn Env::resolve_cont_functype(env : Env, idx : TypeIdx) -> FuncType? {
+  match env.resolve_comptype(idx) {
+    Some(ContCompType(func_type)) => env.resolve_functype(func_type)
     _ => None
   }
 }
@@ -243,6 +254,11 @@ pub fn Env::with_return_type(env : Env, rt : Array[ValType]?) -> Env {
 }
 
 ///|
+pub fn Env::with_legacy_catch_depth(env : Env, depth : Int) -> Env {
+  Env::{ ..env, legacy_catch_depth: depth }
+}
+
+///|
 pub fn Env::with_rectype(env : Env, rt : RecType) -> Env {
   let rs = env.rec_stack.copy()
   let gs = env.global_types.copy()
@@ -290,6 +306,7 @@ pub fn empty_env() -> Env {
     locals: Locals::empty(),
     labels: LabelStack::new(),
     return_type: None,
+    legacy_catch_depth: 0,
   }
 }
 

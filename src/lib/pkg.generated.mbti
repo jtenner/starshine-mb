@@ -101,18 +101,22 @@ pub enum AbsHeapType {
   AnyAbsHeapType
   ExternAbsHeapType
   FuncAbsHeapType
+  ContAbsHeapType
   NoneAbsHeapType
   NoExternAbsHeapType
   NoFuncAbsHeapType
   NoExnAbsHeapType
+  NoContAbsHeapType
 } derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
 pub fn AbsHeapType::any() -> Self
 pub fn AbsHeapType::array() -> Self
+pub fn AbsHeapType::cont() -> Self
 pub fn AbsHeapType::eq() -> Self
 pub fn AbsHeapType::exn() -> Self
 pub fn AbsHeapType::extern_() -> Self
 pub fn AbsHeapType::func() -> Self
 pub fn AbsHeapType::i31() -> Self
+pub fn AbsHeapType::no_cont() -> Self
 pub fn AbsHeapType::no_exn() -> Self
 pub fn AbsHeapType::no_extern() -> Self
 pub fn AbsHeapType::no_func() -> Self
@@ -702,8 +706,10 @@ pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(Array[ValType], Array[ValType])
+  ContCompType(TypeIdx)
 } derive(Eq, Hash, @debug.Debug)
 pub fn CompType::array(FieldType) -> Self
+pub fn CompType::cont(TypeIdx) -> Self
 pub fn CompType::func(Array[ValType], Array[ValType]) -> Self
 pub fn CompType::struct_(Array[FieldType]) -> Self
 pub impl PrettyPrint for CompType
@@ -1009,6 +1015,7 @@ pub enum Instruction {
   If(BlockType, Array[Instruction], Array[Instruction]?)
   Throw(TagIdx)
   ThrowRef
+  Rethrow(LabelIdx)
   Br(LabelIdx)
   BrIf(LabelIdx)
   BrTable(Array[LabelIdx], LabelIdx)
@@ -1019,6 +1026,13 @@ pub enum Instruction {
   ReturnCallIndirect(TypeIdx, TableIdx)
   CallRef(TypeIdx)
   ReturnCallRef(TypeIdx)
+  ContNew(TypeIdx)
+  ContBind(TypeIdx, TypeIdx)
+  Suspend(TagIdx)
+  Resume(TypeIdx, Array[ResumeHandler])
+  ResumeThrow(TypeIdx, TagIdx, Array[ResumeHandler])
+  ResumeThrowRef(TypeIdx, Array[ResumeHandler])
+  StackSwitch(TypeIdx, TagIdx)
   Drop
   Select(Array[ValType]?)
   Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)
@@ -1590,6 +1604,8 @@ pub fn Instruction::br_table(Array[LabelIdx], LabelIdx) -> Self
 pub fn Instruction::call(FuncIdx) -> Self
 pub fn Instruction::call_indirect(TypeIdx, TableIdx) -> Self
 pub fn Instruction::call_ref(TypeIdx) -> Self
+pub fn Instruction::cont_bind(TypeIdx, TypeIdx) -> Self
+pub fn Instruction::cont_new(TypeIdx) -> Self
 pub fn Instruction::data_drop(DataIdx) -> Self
 pub fn Instruction::drop() -> Self
 pub fn Instruction::elem_drop(ElemIdx) -> Self
@@ -2032,11 +2048,16 @@ pub fn Instruction::ref_test(Bool, HeapType) -> Self
 pub fn Instruction::ref_test_desc(Bool, HeapType) -> Self
 pub fn Instruction::ref_test_exact(Bool, HeapType) -> Self
 pub fn Instruction::ref_test_type(RefType) -> Self
+pub fn Instruction::resume_(TypeIdx, Array[ResumeHandler]) -> Self
+pub fn Instruction::resume_throw(TypeIdx, TagIdx, Array[ResumeHandler]) -> Self
+pub fn Instruction::resume_throw_ref(TypeIdx, Array[ResumeHandler]) -> Self
+pub fn Instruction::rethrow(LabelIdx) -> Self
 pub fn Instruction::return_() -> Self
 pub fn Instruction::return_call(FuncIdx) -> Self
 pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self
 pub fn Instruction::return_call_ref(TypeIdx) -> Self
 pub fn Instruction::select(types? : Array[ValType]?) -> Self
+pub fn Instruction::stack_switch(TypeIdx, TagIdx) -> Self
 pub fn Instruction::string_as_wtf16() -> Self
 pub fn Instruction::string_concat() -> Self
 pub fn Instruction::string_const(Bytes) -> Self
@@ -2065,6 +2086,7 @@ pub fn Instruction::struct_new_default(TypeIdx) -> Self
 pub fn Instruction::struct_new_default_desc(TypeIdx) -> Self
 pub fn Instruction::struct_new_desc(TypeIdx) -> Self
 pub fn Instruction::struct_set(TypeIdx, U32) -> Self
+pub fn Instruction::suspend(TagIdx) -> Self
 pub fn Instruction::table_copy(TableIdx, TableIdx) -> Self
 pub fn Instruction::table_fill(TableIdx) -> Self
 pub fn Instruction::table_get(TableIdx) -> Self
@@ -2458,6 +2480,14 @@ pub fn ReplaceLaneOp::i64x2_replace_lane() -> Self
 pub fn ReplaceLaneOp::i8x16_replace_lane() -> Self
 pub impl PrettyPrint for ReplaceLaneOp
 pub impl Show for ReplaceLaneOp
+
+pub enum ResumeHandler {
+  ResumeOnLabel(TagIdx, LabelIdx)
+  ResumeOnSwitch(TagIdx)
+} derive(Eq, Hash, @debug.Debug)
+pub fn ResumeHandler::on_label(TagIdx, LabelIdx) -> Self
+pub fn ResumeHandler::on_switch(TagIdx) -> Self
+pub impl Show for ResumeHandler
 
 pub(all) struct S33(UInt) derive(Eq, Hash, @debug.Debug)
 pub fn S33::new(UInt) -> Self

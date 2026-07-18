@@ -32,10 +32,12 @@ fn pretty_abs_heap_type(abs_heap_type : AbsHeapType) -> String {
     AnyAbsHeapType => "Any"
     ExternAbsHeapType => "Extern"
     FuncAbsHeapType => "Func"
+    ContAbsHeapType => "Cont"
     NoneAbsHeapType => "None"
     NoExternAbsHeapType => "NoExtern"
     NoFuncAbsHeapType => "NoFunc"
     NoExnAbsHeapType => "NoExn"
+    NoContAbsHeapType => "NoCont"
   }
 }
 
@@ -97,6 +99,7 @@ fn pretty_comp_type(comp_type : CompType) -> String {
       "(Struct [" + pretty_join(items, ", ") + "])"
     }
     ArrayCompType(field_type) => "(Array " + pretty_field_type(field_type) + ")"
+    ContCompType(func_type) => "(Cont " + pretty_type_idx(func_type) + ")"
   }
 }
 

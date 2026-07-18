@@ -69,6 +69,7 @@ using @lib {
   type PackType,
   type RecType,
   type RefType,
+  type ResumeHandler,
   type ResultType,
   type StartSec,
   type StorageType,

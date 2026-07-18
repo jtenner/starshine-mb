@@ -138,6 +138,7 @@ pub impl Encode for AbsHeapType with fn encode(val, buf) {
   match val {
     ExnAbsHeapType => buf.write_byte(0x69)
     StringAbsHeapType => buf.write_byte(0x67)
+    ContAbsHeapType => buf.write_byte(0x68)
     ArrayAbsHeapType => buf.write_byte(0x6A)
     StructAbsHeapType => buf.write_byte(0x6B)
     I31AbsHeapType => buf.write_byte(0x6C)
@@ -149,6 +150,7 @@ pub impl Encode for AbsHeapType with fn encode(val, buf) {
     NoExternAbsHeapType => buf.write_byte(0x72)
     NoFuncAbsHeapType => buf.write_byte(0x73)
     NoExnAbsHeapType => buf.write_byte(0x74)
+    NoContAbsHeapType => buf.write_byte(0x75)
   }
   Ok(())
 }
@@ -248,6 +250,10 @@ pub impl Encode for CompType with fn encode(val, buf) {
         return Err(t)
       }
       Encode::encode(t2, buf)
+    }
+    ContCompType(func_type) => {
+      buf.write_byte(0x5D)
+      Encode::encode(func_type, buf)
     }
   }
 }
@@ -1850,6 +1856,23 @@ pub impl Encode for Expr with fn encode(val, buf) {
 }
 
 ///|
+pub impl Encode for ResumeHandler with fn encode(val, buf) {
+  match val {
+    ResumeOnLabel(tag, label) => {
+      buf.write_byte(0x00)
+      if Encode::encode(tag, buf) is Err(err) {
+        return Err(err)
+      }
+      Encode::encode(label, buf)
+    }
+    ResumeOnSwitch(tag) => {
+      buf.write_byte(0x01)
+      Encode::encode(tag, buf)
+    }
+  }
+}
+
+///|
 pub impl Encode for Catch with fn encode(val, buf) {
   match val {
     Catch(t, l) => {
@@ -2101,6 +2124,12 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       }
     }
     ThrowRef => buf.write_byte(0x0A)
+    Rethrow(depth) => {
+      buf.write_byte(0x09)
+      if Encode::encode(depth, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     Br(i) => {
       buf.write_byte(0x0C)
       if Encode::encode(i, buf) is Err(t) {
@@ -2162,6 +2191,66 @@ pub impl Encode for Instruction with fn encode(val, buf) {
     ReturnCallRef(t) => {
       buf.write_byte(0x15)
       if Encode::encode(t, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ContNew(type_idx) => {
+      buf.write_byte(0xE0)
+      if Encode::encode(type_idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ContBind(source_type, target_type) => {
+      buf.write_byte(0xE1)
+      if Encode::encode(source_type, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(target_type, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    Suspend(tag) => {
+      buf.write_byte(0xE2)
+      if Encode::encode(tag, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    Resume(type_idx, handlers) => {
+      buf.write_byte(0xE3)
+      if Encode::encode(type_idx, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(handlers, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ResumeThrow(type_idx, tag, handlers) => {
+      buf.write_byte(0xE4)
+      if Encode::encode(type_idx, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(tag, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(handlers, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ResumeThrowRef(type_idx, handlers) => {
+      buf.write_byte(0xE5)
+      if Encode::encode(type_idx, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(handlers, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StackSwitch(type_idx, tag) => {
+      buf.write_byte(0xE6)
+      if Encode::encode(type_idx, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(tag, buf) is Err(t) {
         return Err(t)
       }
     }

@@ -836,7 +836,10 @@ test "flatten routes one repeated-target scalar br_table to a legacy try" {
 }
 
 ///|
-test "flatten intentionally leaves the WAST legacy try validation scaffold failure-atomic" {
+test "flatten boundary: first-class legacy try remains unsupported by HOT pipelines" {
+  // Old EH is admitted in raw IR, but flatten/optimize/shrink do not yet lift
+  // legacy catch regions into HOT. Fail closed instead of using the former
+  // synthetic block scaffold, which was not semantically faithful.
   let input =
     #| (module
     #|   (tag $e)
@@ -857,19 +860,12 @@ test "flatten intentionally leaves the WAST legacy try validation scaffold failu
     #|     return))
     #|
   for pipeline in [["flatten"], ["optimize"], ["shrink"]] {
-    let optimized = match pass_test_run_pipeline(input, pipeline) {
-      Ok(mod_) => mod_
-      Err(err) =>
+    match pass_test_run_pipeline(input, pipeline) {
+      Ok(_) =>
         fail(
-          "expected legacy WAST scaffold to remain valid through \{@debug.to_string(pipeline)}, got \{err}",
+          "expected first-class legacy try to remain unsupported by \{@debug.to_string(pipeline)}",
         )
-    }
-    match @validate.validate_module(optimized) {
-      Ok(_) => ()
-      Err(err) =>
-        fail(
-          "expected preserved legacy WAST scaffold to validate after \{@debug.to_string(pipeline)}, got \{@validate.validation_error_message(err)}",
-        )
+      Err(_) => ()
     }
   }
 }

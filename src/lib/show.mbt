@@ -76,10 +76,12 @@ pub impl Show for AbsHeapType with fn output(self, logger) {
     AnyAbsHeapType => logger.write_string("(AbsHeapType Any)")
     ExternAbsHeapType => logger.write_string("(AbsHeapType Extern)")
     FuncAbsHeapType => logger.write_string("(AbsHeapType Func)")
+    ContAbsHeapType => logger.write_string("(AbsHeapType Cont)")
     NoneAbsHeapType => logger.write_string("(AbsHeapType None)")
     NoExternAbsHeapType => logger.write_string("(AbsHeapType NoExtern)")
     NoFuncAbsHeapType => logger.write_string("(AbsHeapType NoFunc)")
     NoExnAbsHeapType => logger.write_string("(AbsHeapType NoExn)")
+    NoContAbsHeapType => logger.write_string("(AbsHeapType NoCont)")
   }
 }
 
@@ -321,6 +323,11 @@ pub impl Show for CompType with fn output(self, logger) {
             logger.write_char(' ')
           }
       }
+      logger.write_char(')')
+    }
+    ContCompType(func_type) => {
+      logger.write_string("(Cont ")
+      Show::output(func_type, logger)
       logger.write_char(')')
     }
   }
@@ -807,6 +814,24 @@ pub impl Show for LegacyCatch with fn output(self, logger) {
 }
 
 ///|
+pub impl Show for ResumeHandler with fn output(self, logger) {
+  match self {
+    ResumeOnLabel(tag, label) => {
+      logger.write_string("(on ")
+      Show::output(tag, logger)
+      logger.write_char(' ')
+      Show::output(label, logger)
+      logger.write_char(')')
+    }
+    ResumeOnSwitch(tag) => {
+      logger.write_string("(on ")
+      Show::output(tag, logger)
+      logger.write_string(" switch)")
+    }
+  }
+}
+
+///|
 pub impl Show for MemArg with fn output(self, logger) {
   let MemArg(a, m, o) = self
   logger.write_string("align=")
@@ -881,6 +906,11 @@ pub impl Show for Instruction with fn output(self, logger) {
       logger.write_char(')')
     }
     ThrowRef => logger.write_string("throw_ref")
+    Rethrow(depth) => {
+      logger.write_string("(rethrow ")
+      Show::output(depth, logger)
+      logger.write_char(')')
+    }
     Br(l) => {
       logger.write_string("(br ")
       Show::output(l, logger)
@@ -933,6 +963,59 @@ pub impl Show for Instruction with fn output(self, logger) {
     ReturnCallRef(t) => {
       logger.write_string("(return_call_ref ")
       Show::output(t, logger)
+      logger.write_char(')')
+    }
+    ContNew(t) => {
+      logger.write_string("(cont.new ")
+      Show::output(t, logger)
+      logger.write_char(')')
+    }
+    ContBind(source, target) => {
+      logger.write_string("(cont.bind ")
+      Show::output(source, logger)
+      logger.write_char(' ')
+      Show::output(target, logger)
+      logger.write_char(')')
+    }
+    Suspend(tag) => {
+      logger.write_string("(suspend ")
+      Show::output(tag, logger)
+      logger.write_char(')')
+    }
+    Resume(t, handlers) => {
+      logger.write_string("(resume ")
+      Show::output(t, logger)
+      for handler in handlers {
+        logger.write_char(' ')
+        Show::output(handler, logger)
+      }
+      logger.write_char(')')
+    }
+    ResumeThrow(t, tag, handlers) => {
+      logger.write_string("(resume_throw ")
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(tag, logger)
+      for handler in handlers {
+        logger.write_char(' ')
+        Show::output(handler, logger)
+      }
+      logger.write_char(')')
+    }
+    ResumeThrowRef(t, handlers) => {
+      logger.write_string("(resume_throw_ref ")
+      Show::output(t, logger)
+      for handler in handlers {
+        logger.write_char(' ')
+        Show::output(handler, logger)
+      }
+      logger.write_char(')')
+    }
+    StackSwitch(t, tag) => {
+      logger.write_string("(switch ")
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(tag, logger)
       logger.write_char(')')
     }
     Drop => logger.write_string("drop")

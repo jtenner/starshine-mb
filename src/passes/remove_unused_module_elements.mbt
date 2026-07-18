@@ -2248,6 +2248,7 @@ fn rume_mark_comp_type(
         rume_mark_val_type(used_types, result)
       }
     }
+    @lib.ContCompType(func_type) => rume_mark_type_idx(used_types, func_type)
   }
 }
 
@@ -2335,6 +2336,11 @@ fn rume_comp_type_mentions_type_idxs(comp_type : @lib.CompType) -> Bool {
     @lib.FuncCompType(params, results) =>
       rume_val_types_mention_type_idxs(params) ||
       rume_val_types_mention_type_idxs(results)
+    @lib.ContCompType(func_type) =>
+      match func_type {
+        @lib.TypeIdx(_) => true
+        @lib.RecIdx(_) => false
+      }
   }
 }
 

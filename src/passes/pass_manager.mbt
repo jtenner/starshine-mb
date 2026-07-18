@@ -9601,6 +9601,7 @@ fn run_hot_pipeline_raw_comptype_matches_abs_heap(
     @lib.FuncCompType(_, _) =>
       abs_heap == @lib.AbsHeapType::func() ||
       abs_heap == @lib.AbsHeapType::any()
+    @lib.ContCompType(_) => abs_heap == @lib.AbsHeapType::cont()
   }
 }
 
@@ -34914,6 +34915,33 @@ fn run_hot_pipeline_raw_precompute(
         })
     }
   }
+  if propagating && precompute_raw_instrs_have_stack_switching(body) {
+    let module_ctx = if precompute_raw_func_has_global_get(original) {
+      Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
+    } else {
+      None
+    }
+    match precompute_run_raw_func(original, module_ctx) {
+      Some((rewritten, changed, _)) =>
+        return Some({
+          reason: if changed {
+            "raw-stack-switching-precompute-propagate"
+          } else {
+            "stack-switching-precompute-propagate-noop"
+          },
+          func: rewritten,
+          unchanged_original: !changed,
+          trace_skip_raw: true,
+        })
+      None =>
+        return Some({
+          reason: "stack-switching-precompute-propagate-noop",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+    }
+  }
   if precompute_raw_instrs_have_atomic_fence(body) {
     let module_ctx = if propagating ||
       precompute_raw_func_has_global_get(original) {
@@ -35073,6 +35101,9 @@ fn run_hot_pipeline_raw_precompute(
     })
   }
   if propagating {
+    return None
+  }
+  if precompute_raw_instrs_have_partial_heap_select(body) {
     return None
   }
   let module_ctx = if precompute_raw_func_has_global_get(original) {

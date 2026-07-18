@@ -1036,35 +1036,25 @@ test "remove-unused-brs keeps catch_all_ref caught throws as exnref transport" {
 }
 
 ///|
-test "remove-unused-brs boundary: legacy try is lowered before caught-throw cleanup" {
-  // The public WAT path desugars legacy `try` into a synthetic block/unreachable
-  // before HOT RUB runs, so RUB cannot observe a `HotOp::Try` catch body to
-  // apply Binaryen's old-EH caught-throw cleanup here.
-  let source =
-    #|(module
-    #|  (tag $e)
-    #|  (func
-    #|    (try
-    #|      (do (throw $e))
-    #|      (catch $e))))
-  let func = pass_test_lift_first_func(source)
-  let mut saw_try = false
-  let mut saw_try_table = false
-  let mut saw_unreachable = false
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Try => saw_try = true
-      @ir.HotOp::TryTable => saw_try_table = true
-      @ir.HotOp::Unreachable => saw_unreachable = true
-      _ => ()
-    }
+test "remove-unused-brs boundary: first-class legacy try is outside HOT cleanup" {
+  // Legacy `try` is now represented faithfully in the raw IR. RUB does not yet
+  // lift old-EH catches into HOT, so this boundary test only verifies admission
+  // and must not claim caught-throw cleanup for the unsupported control form.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func
+      #|    (try
+      #|      (do (throw $e))
+      #|      (catch $e))))
+    ),
+  )
+  match mod_.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([@lib.Try(_, _, [_], _)]))])) =>
+      ()
+    _ => fail("expected first-class legacy try admission")
   }
-  assert_false(saw_try)
-  assert_false(saw_try_table)
-  assert_true(saw_unreachable)
 }
 
 ///|

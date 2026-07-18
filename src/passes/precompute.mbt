@@ -70,10 +70,34 @@ priv struct PrecomputePropagateIdentityFold {
 }
 
 ///|
+priv struct PrecomputePartialI32Select {
+  condition_id : Int
+  true_value : Int
+  false_value : Int
+}
+
+///|
+priv struct PrecomputePartialKnownHeapSelect {
+  condition_id : Int
+  true_value : PrecomputeKnownHeapValue
+  false_value : PrecomputeKnownHeapValue
+}
+
+///|
 priv enum PrecomputeHeapIdentity {
   HeapNode(Int)
   HeapGlobal(@lib.GlobalIdx)
 } derive(Eq)
+
+///|
+priv enum PrecomputeKnownHeapValue {
+  KnownEmit(@lib.Instruction)
+  KnownStructFields(@lib.TypeIdx, Array[PrecomputeKnownHeapValue])
+  KnownStructDefault(@lib.TypeIdx)
+  KnownArrayFixed(@lib.TypeIdx, Array[PrecomputeKnownHeapValue])
+  KnownArrayFill(@lib.TypeIdx, Array[PrecomputeKnownHeapValue], UInt)
+  KnownArrayDefault(@lib.TypeIdx, UInt)
+}
 
 ///|
 fn precompute_global_const(
@@ -171,6 +195,13 @@ fn precompute_exact_const_instr(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> @lib.Instruction? {
+  if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(@lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)) as value =>
+        return value
+      _ => ()
+    }
+  }
   let payload = if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
@@ -211,6 +242,8 @@ fn precompute_build_const_instr(
     @lib.F64Const(value) => Some(@ir.hot_build_const_f64(func, value))
     @lib.RefNull(ref_type) => Some(@ir.hot_build_ref_null(func, ref_type))
     @lib.StringConst(value) => Some(@ir.hot_build_string_const(func, value))
+    @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(@ir.hot_build_simd(func, [@lib.ValType::v128()], instr, []))
     _ => None
   }
 }
@@ -925,6 +958,162 @@ fn precompute_try_partial_select_unary_parent(
 }
 
 ///|
+fn precompute_partial_i32_select_for_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth : Int,
+) -> PrecomputePartialI32Select? {
+  if depth > 32 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  if @ir.hot_child_count(func, node_id) == 3 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Select => {
+        let true_value = match
+          precompute_i32_exact_const(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+          ) {
+          Some(@lib.I32(value)) => value
+          None => return None
+        }
+        let false_value = match
+          precompute_i32_exact_const(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 1),
+          ) {
+          Some(@lib.I32(value)) => value
+          None => return None
+        }
+        return Some({
+          condition_id: @ir.hot_child_get(func, node_id, 2),
+          true_value,
+          false_value,
+        })
+      }
+      _ => ()
+    }
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return None
+  }
+  let inner = match
+    precompute_partial_i32_select_for_node(
+      ctx,
+      func,
+      @ir.hot_child_get(func, node_id, 0),
+      depth + 1,
+    ) {
+    Some(value) => value
+    None => return None
+  }
+  let fold = fn(value : Int) -> Int? {
+    match
+      precompute_raw_try_fold_unary(
+        @lib.Instruction::i32_const(@lib.I32(value)),
+        instr,
+      ) {
+      Some(@lib.I32Const(@lib.I32(value))) => Some(value)
+      _ => None
+    }
+  }
+  let true_value = match fold(inner.true_value) {
+    Some(value) => value
+    None => return None
+  }
+  let false_value = match fold(inner.false_value) {
+    Some(value) => value
+    None => return None
+  }
+  Some({ condition_id: inner.condition_id, true_value, false_value })
+}
+
+///|
+fn precompute_try_partial_select_condition(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 ||
+    !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_child_count(func, node_id) != 3 ||
+    @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Select => ()
+    _ => return false
+  }
+  let condition = match
+    precompute_partial_i32_select_for_node(
+      ctx,
+      func,
+      @ir.hot_child_get(func, node_id, 2),
+      0,
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let outer_true = match
+    precompute_exact_const_instr(ctx, func, @ir.hot_child_get(func, node_id, 0)) {
+    Some(value) => value
+    None => return false
+  }
+  let outer_false = match
+    precompute_exact_const_instr(ctx, func, @ir.hot_child_get(func, node_id, 1)) {
+    Some(value) => value
+    None => return false
+  }
+  let next_true = match
+    precompute_build_const_instr(
+      func,
+      if condition.true_value != 0 {
+        outer_true
+      } else {
+        outer_false
+      },
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let next_false = match
+    precompute_build_const_instr(
+      func,
+      if condition.false_value != 0 {
+        outer_true
+      } else {
+        outer_false
+      },
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let results = @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty)
+  if results.length() != 1 {
+    return false
+  }
+  let temp = @ir.hot_build_select(
+    func,
+    results[0],
+    next_true,
+    next_false,
+    condition.condition_id,
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn precompute_try_fold_constant_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1309,6 +1498,123 @@ fn precompute_global_heap_identity(
 }
 
 ///|
+fn precompute_known_heap_pop_values(
+  stack : Array[PrecomputeKnownHeapValue],
+  count : Int,
+) -> Array[PrecomputeKnownHeapValue]? {
+  if count < 0 || stack.length() < count {
+    return None
+  }
+  let start = stack.length() - count
+  let values : Array[PrecomputeKnownHeapValue] = []
+  for i = 0; i < count; i = i + 1 {
+    values.push(stack[start + i])
+  }
+  while stack.length() > start {
+    ignore(stack.pop())
+  }
+  Some(values)
+}
+
+///|
+fn precompute_known_heap_value_from_global(
+  module_ctx : @ir.HotModuleContext,
+  global_idx : @lib.GlobalIdx,
+  depth : Int,
+) -> PrecomputeKnownHeapValue? {
+  if depth > 32 || !precompute_global_is_immutable(module_ctx, global_idx) {
+    return None
+  }
+  let instrs = match
+    @ir.hot_module_resolve_global_init(module_ctx, global_idx) {
+    Some(@lib.Expr(instrs)) => instrs
+    None => return None
+  }
+  let stack : Array[PrecomputeKnownHeapValue] = []
+  for instr in instrs {
+    match instr {
+      @lib.I32Const(_)
+      | @lib.I64Const(_)
+      | @lib.F32Const(_)
+      | @lib.F64Const(_)
+      | @lib.RefNull(_)
+      | @lib.RefFunc(_)
+      | @lib.StringConst(_) => stack.push(KnownEmit(instr))
+      @lib.GlobalGet(global_alias) =>
+        match
+          precompute_known_heap_value_from_global(
+            module_ctx,
+            global_alias,
+            depth + 1,
+          ) {
+          Some(value) => stack.push(value)
+          None => return None
+        }
+      @lib.StructNew(type_idx) => {
+        let fields = match
+          @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+          Some(fields) => fields
+          None => return None
+        }
+        let values = match
+          precompute_known_heap_pop_values(stack, fields.length()) {
+          Some(values) => values
+          None => return None
+        }
+        stack.push(KnownStructFields(type_idx, values))
+      }
+      @lib.StructNewDefault(type_idx) =>
+        stack.push(KnownStructDefault(type_idx))
+      @lib.ArrayNewFixed(type_idx, @lib.U32(length)) => {
+        if !precompute_fresh_array_length_is_interpretable(length) {
+          return None
+        }
+        let values = match
+          precompute_known_heap_pop_values(stack, length.reinterpret_as_int()) {
+          Some(values) => values
+          None => return None
+        }
+        stack.push(KnownArrayFixed(type_idx, values))
+      }
+      @lib.ArrayNew(type_idx) => {
+        let operands = match precompute_known_heap_pop_values(stack, 2) {
+          Some(operands) => operands
+          None => return None
+        }
+        let length = match operands[1] {
+          KnownEmit(@lib.I32Const(@lib.I32(length))) if length >= 0 &&
+            precompute_fresh_array_length_is_interpretable(
+              length.reinterpret_as_uint(),
+            ) => length.reinterpret_as_uint()
+          _ => return None
+        }
+        stack.push(KnownArrayFill(type_idx, [operands[0]], length))
+      }
+      @lib.ArrayNewDefault(type_idx) => {
+        let operands = match precompute_known_heap_pop_values(stack, 1) {
+          Some(operands) => operands
+          None => return None
+        }
+        let length = match operands[0] {
+          KnownEmit(@lib.I32Const(@lib.I32(length))) if length >= 0 &&
+            precompute_fresh_array_length_is_interpretable(
+              length.reinterpret_as_uint(),
+            ) => length.reinterpret_as_uint()
+          _ => return None
+        }
+        stack.push(KnownArrayDefault(type_idx, length))
+      }
+      _ => return None
+    }
+  }
+  if stack.length() == 1 {
+    Some(stack[0])
+  } else {
+    None
+  }
+}
+
+///|
 fn precompute_global_descriptor_identity(
   module_ctx : @ir.HotModuleContext,
   global_idx : @lib.GlobalIdx,
@@ -1475,6 +1781,337 @@ fn precompute_descriptor_identity_for_node(
       }
     }
   }
+}
+
+///|
+fn precompute_known_heap_value_for_plain_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth : Int,
+) -> PrecomputeKnownHeapValue? {
+  if depth > 64 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  match precompute_exact_const_instr(ctx, func, node_id) {
+    Some(instr) => return Some(KnownEmit(instr))
+    None => ()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::RefFunc =>
+      return Some(
+        KnownEmit(
+          @lib.Instruction::ref_func(
+            @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+          ),
+        ),
+      )
+    @ir.HotOp::GlobalGet =>
+      return match ctx.module_ctx {
+        Some(module_ctx) =>
+          precompute_known_heap_value_from_global(
+            module_ctx,
+            @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+            depth + 1,
+          )
+        None => None
+      }
+    _ => ()
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructNew(type_idx)) => {
+      let fields = match ctx.module_ctx {
+        Some(module_ctx) =>
+          match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+            Some(fields) => fields
+            None => return None
+          }
+        None => return None
+      }
+      if @ir.hot_child_count(func, node_id) != fields.length() {
+        return None
+      }
+      let values : Array[PrecomputeKnownHeapValue] = []
+      for slot = 0; slot < fields.length(); slot = slot + 1 {
+        match
+          precompute_known_heap_value_for_plain_node(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            depth + 1,
+          ) {
+          Some(value) => values.push(value)
+          None => return None
+        }
+      }
+      Some(KnownStructFields(type_idx, values))
+    }
+    Some(@lib.StructNewDefault(type_idx)) => Some(KnownStructDefault(type_idx))
+    Some(@lib.StructGet(type_idx, @lib.U32(field)))
+    | Some(@lib.StructGetS(type_idx, @lib.U32(field)))
+    | Some(@lib.StructGetU(type_idx, @lib.U32(field))) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let source = match
+        precompute_known_heap_value_for_plain_node(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      let signed = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::struct_get_s(type_idx, @lib.U32(field)))
+      let unsigned = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::struct_get_u(type_idx, @lib.U32(field)))
+      precompute_known_heap_struct_get(
+        ctx, source, type_idx, field, signed, unsigned,
+      )
+    }
+    Some(@lib.RefCast(nullable, _, target)) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let source = match
+        precompute_known_heap_value_for_plain_node(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      if precompute_known_heap_value_matches_cast(source, nullable, target) {
+        Some(source)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn precompute_partial_known_heap_select_for_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth : Int,
+) -> PrecomputePartialKnownHeapSelect? {
+  if depth > 64 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  if @ir.hot_child_count(func, node_id) == 3 {
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Select => {
+        let true_value = match
+          precompute_known_heap_value_for_plain_node(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 0),
+            depth + 1,
+          ) {
+          Some(value) => value
+          None => return None
+        }
+        let false_value = match
+          precompute_known_heap_value_for_plain_node(
+            ctx,
+            func,
+            @ir.hot_child_get(func, node_id, 1),
+            depth + 1,
+          ) {
+          Some(value) => value
+          None => return None
+        }
+        return Some({
+          condition_id: @ir.hot_child_get(func, node_id, 2),
+          true_value,
+          false_value,
+        })
+      }
+      _ => ()
+    }
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructGet(type_idx, @lib.U32(field)))
+    | Some(@lib.StructGetS(type_idx, @lib.U32(field)))
+    | Some(@lib.StructGetU(type_idx, @lib.U32(field))) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let inner = match
+        precompute_partial_known_heap_select_for_node(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      let signed = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::struct_get_s(type_idx, @lib.U32(field)))
+      let unsigned = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::struct_get_u(type_idx, @lib.U32(field)))
+      let true_value = match
+        precompute_known_heap_struct_get(
+          ctx,
+          inner.true_value,
+          type_idx,
+          field,
+          signed,
+          unsigned,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      let false_value = match
+        precompute_known_heap_struct_get(
+          ctx,
+          inner.false_value,
+          type_idx,
+          field,
+          signed,
+          unsigned,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      Some({ condition_id: inner.condition_id, true_value, false_value })
+    }
+    _ => None
+  }
+}
+
+///|
+fn precompute_known_heap_ref_is_null(value : PrecomputeKnownHeapValue) -> Int? {
+  match value {
+    KnownEmit(@lib.RefNull(_)) => Some(1)
+    KnownEmit(@lib.RefFunc(_))
+    | KnownEmit(@lib.StringConst(_))
+    | KnownStructFields(_, _)
+    | KnownStructDefault(_)
+    | KnownArrayFixed(_, _)
+    | KnownArrayFill(_, _, _)
+    | KnownArrayDefault(_, _) => Some(0)
+    _ => None
+  }
+}
+
+///|
+fn precompute_build_known_emit(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.RefFunc(func_idx) => {
+      let type_idx = match ctx.module_ctx {
+        Some(module_ctx) =>
+          match @ir.hot_module_resolve_func_type_idx(module_ctx, func_idx) {
+            Some(type_idx) => type_idx
+            None => return None
+          }
+        None => return None
+      }
+      Some(
+        @ir.hot_build_ref_func(
+          func,
+          func_idx,
+          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+        ),
+      )
+    }
+    _ => precompute_build_const_instr(func, instr)
+  }
+}
+
+///|
+fn precompute_try_partial_heap_select_parent(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let partial : PrecomputePartialKnownHeapSelect = match
+    @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::RefIsNull => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return false
+      }
+      let inner = match
+        precompute_partial_known_heap_select_for_node(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+          0,
+        ) {
+        Some(value) => value
+        None => return false
+      }
+      let true_value = match
+        precompute_known_heap_ref_is_null(inner.true_value) {
+        Some(value) => KnownEmit(@lib.Instruction::i32_const(@lib.I32(value)))
+        None => return false
+      }
+      let false_value = match
+        precompute_known_heap_ref_is_null(inner.false_value) {
+        Some(value) => KnownEmit(@lib.Instruction::i32_const(@lib.I32(value)))
+        None => return false
+      }
+      { condition_id: inner.condition_id, true_value, false_value }
+    }
+    _ => {
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.StructGet(_, _))
+        | Some(@lib.StructGetS(_, _))
+        | Some(@lib.StructGetU(_, _)) => ()
+        _ => return false
+      }
+      match
+        precompute_partial_known_heap_select_for_node(ctx, func, node_id, 0) {
+        Some(value) => value
+        None => return false
+      }
+    }
+  }
+  let true_instr = match partial.true_value {
+    KnownEmit(instr) => instr
+    _ => return false
+  }
+  let false_instr = match partial.false_value {
+    KnownEmit(instr) => instr
+    _ => return false
+  }
+  let true_id = match precompute_build_known_emit(ctx, func, true_instr) {
+    Some(value) => value
+    None => return false
+  }
+  let false_id = match precompute_build_known_emit(ctx, func, false_instr) {
+    Some(value) => value
+    None => return false
+  }
+  let results = @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty)
+  if results.length() != 1 {
+    return false
+  }
+  let temp = @ir.hot_build_select(
+    func,
+    results[0],
+    true_id,
+    false_id,
+    partial.condition_id,
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -1688,6 +2325,81 @@ fn precompute_try_fold_ref_is_null(
     )
   }
   false
+}
+
+///|
+fn precompute_try_partial_ref_eq_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.RefEq) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let lhs = @ir.hot_child_get(func, node_id, 0)
+  let rhs = @ir.hot_child_get(func, node_id, 1)
+  let lhs_select = lhs >= 0 &&
+    @ir.hot_node_is_live(func, lhs) &&
+    (match @ir.hot_node_get(func, lhs).op {
+      @ir.HotOp::Select => true
+      _ => false
+    })
+  let rhs_select = rhs >= 0 &&
+    @ir.hot_node_is_live(func, rhs) &&
+    (match @ir.hot_node_get(func, rhs).op {
+      @ir.HotOp::Select => true
+      _ => false
+    })
+  let (select_id, other_id) = if lhs_select {
+    (lhs, rhs)
+  } else if rhs_select {
+    (rhs, lhs)
+  } else {
+    return false
+  }
+  if @ir.hot_child_count(func, select_id) != 3 {
+    return false
+  }
+  let other = match precompute_heap_identity_for_node(ctx, func, other_id, 0) {
+    Some(value) => value
+    None => return false
+  }
+  let arm_value = fn(slot : Int) -> Int? {
+    match
+      precompute_heap_identity_for_node(
+        ctx,
+        func,
+        @ir.hot_child_get(func, select_id, slot),
+        0,
+      ) {
+      Some(value) => Some(if value == other { 1 } else { 0 })
+      None => None
+    }
+  }
+  let true_value = match arm_value(0) {
+    Some(value) => value
+    None => return false
+  }
+  let false_value = match arm_value(1) {
+    Some(value) => value
+    None => return false
+  }
+  let temp = @ir.hot_build_select(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_const_i32(func, @lib.I32(true_value)),
+    @ir.hot_build_const_i32(func, @lib.I32(false_value)),
+    @ir.hot_child_get(func, select_id, 2),
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -3585,11 +4297,134 @@ fn precompute_raw_try_fold_i64_trunc(
 }
 
 ///|
+fn precompute_v128_const_bytes(instr : @lib.Instruction) -> Array[Byte]? {
+  match instr {
+    @lib.V128Const(
+      b0,
+      b1,
+      b2,
+      b3,
+      b4,
+      b5,
+      b6,
+      b7,
+      b8,
+      b9,
+      b10,
+      b11,
+      b12,
+      b13,
+      b14,
+      b15
+    ) =>
+      Some([
+        b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+      ])
+    _ => None
+  }
+}
+
+///|
+fn precompute_v128_read_u32(bytes : Array[Byte], offset : Int) -> UInt {
+  bytes[offset].to_uint() |
+  (bytes[offset + 1].to_uint() << 8) |
+  (bytes[offset + 2].to_uint() << 16) |
+  (bytes[offset + 3].to_uint() << 24)
+}
+
+///|
+fn precompute_v128_write_u32(
+  bytes : Array[Byte],
+  offset : Int,
+  value : UInt,
+) -> Unit {
+  bytes[offset] = value.to_byte()
+  bytes[offset + 1] = (value >> 8).to_byte()
+  bytes[offset + 2] = (value >> 16).to_byte()
+  bytes[offset + 3] = (value >> 24).to_byte()
+}
+
+///|
+fn precompute_v128_const_from_bytes(bytes : Array[Byte]) -> @lib.Instruction? {
+  if bytes.length() != 16 {
+    return None
+  }
+  Some(
+    @lib.Instruction::v128_const(
+      bytes[0],
+      bytes[1],
+      bytes[2],
+      bytes[3],
+      bytes[4],
+      bytes[5],
+      bytes[6],
+      bytes[7],
+      bytes[8],
+      bytes[9],
+      bytes[10],
+      bytes[11],
+      bytes[12],
+      bytes[13],
+      bytes[14],
+      bytes[15],
+    ),
+  )
+}
+
+///|
+fn precompute_raw_try_fold_f32x4_max(
+  lhs_instr : @lib.Instruction,
+  rhs_instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let lhs = match precompute_v128_const_bytes(lhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let rhs = match precompute_v128_const_bytes(rhs_instr) {
+    Some(bytes) => bytes
+    None => return None
+  }
+  let out = Array::make(16, b'\x00')
+  for lane = 0; lane < 4; lane = lane + 1 {
+    let offset = lane * 4
+    let lhs_value = @lib.Instruction::f32_const(
+      @lib.F32(
+        Float::reinterpret_from_uint(precompute_v128_read_u32(lhs, offset)),
+      ),
+    )
+    let rhs_value = @lib.Instruction::f32_const(
+      @lib.F32(
+        Float::reinterpret_from_uint(precompute_v128_read_u32(rhs, offset)),
+      ),
+    )
+    let folded = match
+      precompute_raw_try_fold_binary(
+        lhs_value,
+        rhs_value,
+        @lib.Instruction::f32_max(),
+      ) {
+      Some(@lib.F32Const(@lib.F32(value))) => value.reinterpret_as_uint()
+      _ => return None
+    }
+    precompute_v128_write_u32(out, offset, folded)
+  }
+  precompute_v128_const_from_bytes(out)
+}
+
+///|
 fn precompute_raw_try_fold_unary(
   operand : @lib.Instruction,
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
   match (instr, operand) {
+    (@lib.I32x4Splat, @lib.I32Const(@lib.I32(value))) => {
+      let bytes = Array::make(16, b'\x00')
+      let bits = value.reinterpret_as_uint()
+      for lane = 0; lane < 4; lane = lane + 1 {
+        precompute_v128_write_u32(bytes, lane * 4, bits)
+      }
+      return precompute_v128_const_from_bytes(bytes)
+    }
     (@lib.RefCast(true, exact, heap_type), @lib.RefNull(_)) =>
       return Some(
         @lib.Instruction::ref_null_type(
@@ -3952,6 +4787,8 @@ fn precompute_raw_try_fold_binary(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
   match (instr, lhs_instr, rhs_instr) {
+    (@lib.F32x4Max, _, _) =>
+      return precompute_raw_try_fold_f32x4_max(lhs_instr, rhs_instr)
     (@lib.StringConcat, @lib.StringConst(lhs), @lib.StringConst(rhs)) => {
       let lhs_units = match precompute_string_bytes_to_utf16(lhs) {
         Some(units) => units
@@ -5225,6 +6062,69 @@ fn precompute_raw_try_mark_value_tail_after_infinite_loop(
 }
 
 ///|
+fn precompute_raw_instrs_have_partial_heap_select(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut saw_select = false
+  let mut saw_heap_parent = false
+  for instr in instrs {
+    match instr {
+      @lib.Select(_) => saw_select = true
+      @lib.StructGet(_, _)
+      | @lib.StructGetS(_, _)
+      | @lib.StructGetU(_, _)
+      | @lib.RefIsNull
+      | @lib.RefEq => saw_heap_parent = true
+      _ => ()
+    }
+  }
+  saw_select && saw_heap_parent
+}
+
+///|
+fn precompute_raw_try_partial_select_condition_tail(
+  out : Array[@lib.Instruction],
+) -> Bool {
+  if out.length() < 7 {
+    return false
+  }
+  let base = out.length() - 7
+  let outer_select = match out[base + 6] {
+    @lib.Select(_) => out[base + 6]
+    _ => return false
+  }
+  match out[base + 5] {
+    @lib.Select(_) => ()
+    _ => return false
+  }
+  let condition_true = match out[base + 2] {
+    @lib.I32Const(@lib.I32(value)) => value != 0
+    _ => return false
+  }
+  let condition_false = match out[base + 3] {
+    @lib.I32Const(@lib.I32(value)) => value != 0
+    _ => return false
+  }
+  let outer_true = out[base]
+  let outer_false = out[base + 1]
+  if !precompute_raw_is_literal_const(outer_true) ||
+    !precompute_raw_is_literal_const(outer_false) {
+    return false
+  }
+  let next_true = if condition_true { outer_true } else { outer_false }
+  let next_false = if condition_false { outer_true } else { outer_false }
+  let condition = out[base + 4]
+  while out.length() > base {
+    ignore(out.pop())
+  }
+  out.push(next_true)
+  out.push(next_false)
+  out.push(condition)
+  out.push(outer_select)
+  true
+}
+
+///|
 fn precompute_raw_try_partial_select_unary_tail(
   out : Array[@lib.Instruction],
 ) -> Bool {
@@ -5607,7 +6507,8 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
   if precompute_raw_try_fold_const_if_tail(out) {
     return true
   }
-  if precompute_raw_try_partial_select_unary_tail(out) ||
+  if precompute_raw_try_partial_select_condition_tail(out) ||
+    precompute_raw_try_partial_select_unary_tail(out) ||
     precompute_raw_try_partial_select_tail(out) {
     return true
   }
@@ -5919,6 +6820,18 @@ fn precompute_raw_rewrite_instr(
       }
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
+      match (block_type, next_body) {
+        (
+          @lib.ValTypeBlockType(_),
+          [
+            @lib.Loop(
+              @lib.VoidBlockType,
+              @lib.Expr([value, @lib.Br(@lib.LabelIdx(1U))])
+            ),
+          ],
+        ) if precompute_raw_is_literal_const(value) => return (value, true)
+        _ => ()
+      }
       if block_type == @lib.BlockType::void_() {
         if precompute_raw_void_block_is_selector_only_self_br_table(next_body) {
           return (@lib.Instruction::nop(), true)
@@ -6752,6 +7665,60 @@ fn precompute_raw_instrs_have_legacy_try(
 }
 
 ///|
+fn precompute_raw_instr_has_stack_switching(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.ContNew(_)
+    | @lib.ContBind(_, _)
+    | @lib.Suspend(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if precompute_raw_instrs_have_stack_switching(body) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            catch_body
+        }
+        if precompute_raw_instrs_have_stack_switching(catch_body) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_stack_switching(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_stack_switching(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_stack_switching(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_stack_switching(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_stack_switching(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn precompute_raw_instr_has_atomic_fence(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.AtomicFence => true
@@ -7319,13 +8286,16 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         changed_any = true
         continue
       }
-      if precompute_try_fold_constant_select(ctx, func, node_id) ||
+      if precompute_try_partial_select_condition(ctx, func, node_id) ||
+        precompute_try_partial_heap_select_parent(ctx, func, node_id) ||
+        precompute_try_fold_constant_select(ctx, func, node_id) ||
         precompute_try_fold_string_slice(ctx, func, node_id) ||
         precompute_try_fold_fresh_string_new_wtf16(ctx, func, node_id) ||
         precompute_try_fold_descriptor_branch(ctx, func, node_id) ||
         precompute_try_fold_null_ref_cast(ctx, func, node_id) ||
         precompute_try_fold_null_aggregate_trap(ctx, func, node_id) ||
         precompute_try_fold_ref_is_null(ctx, func, node_id) ||
+        precompute_try_partial_ref_eq_select(ctx, func, node_id) ||
         precompute_try_fold_gc_identity(ctx, func, node_id) ||
         precompute_try_fold_fresh_ref_test(ctx, func, node_id) ||
         precompute_try_fold_fresh_struct_get(ctx, func, node_id) ||
@@ -8033,6 +9003,501 @@ fn precompute_propagate_mark_result_if_direct_const_gets(
 }
 
 ///|
+fn precompute_known_heap_struct_get(
+  ctx : HotPassContext,
+  value : PrecomputeKnownHeapValue,
+  type_idx : @lib.TypeIdx,
+  raw_field : UInt,
+  signed : Bool,
+  unsigned : Bool,
+) -> PrecomputeKnownHeapValue? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let fields = match
+    @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+    Some(fields) => fields
+    None => return None
+  }
+  let field_idx = raw_field.reinterpret_as_int()
+  let field = match fields.get(field_idx) {
+    Some(field) if !field.is_mutable() => field
+    _ => return None
+  }
+  let raw_value = match value {
+    KnownStructFields(actual_type, values) if actual_type == type_idx =>
+      match values.get(field_idx) {
+        Some(value) => value
+        None => return None
+      }
+    KnownStructDefault(actual_type) if actual_type == type_idx =>
+      match precompute_default_const_for_storage(field.get_storage_type()) {
+        Some(value) => KnownEmit(value)
+        None => return None
+      }
+    _ => return None
+  }
+  match raw_value {
+    KnownEmit(instr) =>
+      match
+        precompute_unpack_array_value(
+          instr,
+          field.get_storage_type(),
+          signed,
+          unsigned,
+        ) {
+        Some(instr) => Some(KnownEmit(instr))
+        None => None
+      }
+    _ =>
+      match field.get_storage_type() {
+        @lib.ValTypeStorageType(@lib.RefTypeValType(_)) if !signed && !unsigned =>
+          Some(raw_value)
+        _ => None
+      }
+  }
+}
+
+///|
+fn precompute_known_heap_array_get(
+  ctx : HotPassContext,
+  value : PrecomputeKnownHeapValue,
+  type_idx : @lib.TypeIdx,
+  index : UInt,
+  signed : Bool,
+  unsigned : Bool,
+) -> PrecomputeKnownHeapValue? {
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+    Some(field) if !field.is_mutable() => field
+    _ => return None
+  }
+  let raw_value = match value {
+    KnownArrayFixed(actual_type, values) if actual_type == type_idx =>
+      match values.get(index.reinterpret_as_int()) {
+        Some(value) => value
+        None => return None
+      }
+    KnownArrayFill(actual_type, values, length) if actual_type == type_idx &&
+      index < length &&
+      values.length() == 1 => values[0]
+    KnownArrayDefault(actual_type, length) if actual_type == type_idx &&
+      index < length =>
+      match precompute_default_const_for_storage(field.get_storage_type()) {
+        Some(value) => KnownEmit(value)
+        None => return None
+      }
+    _ => return None
+  }
+  match raw_value {
+    KnownEmit(instr) =>
+      match
+        precompute_unpack_array_value(
+          instr,
+          field.get_storage_type(),
+          signed,
+          unsigned,
+        ) {
+        Some(instr) => Some(KnownEmit(instr))
+        None => None
+      }
+    _ =>
+      match field.get_storage_type() {
+        @lib.ValTypeStorageType(@lib.RefTypeValType(_)) if !signed && !unsigned =>
+          Some(raw_value)
+        _ => None
+      }
+  }
+}
+
+///|
+fn precompute_known_heap_array_len(
+  value : PrecomputeKnownHeapValue,
+) -> PrecomputeKnownHeapValue? {
+  let length = match value {
+    KnownArrayFixed(_, values) => values.length().reinterpret_as_uint()
+    KnownArrayFill(_, _, length) | KnownArrayDefault(_, length) => length
+    _ => return None
+  }
+  Some(
+    KnownEmit(
+      @lib.Instruction::i32_const(@lib.I32(length.reinterpret_as_int())),
+    ),
+  )
+}
+
+///|
+fn precompute_known_heap_value_matches_cast(
+  value : PrecomputeKnownHeapValue,
+  nullable : Bool,
+  target : @lib.HeapType,
+) -> Bool {
+  match value {
+    KnownEmit(@lib.RefNull(_)) => nullable
+    KnownStructFields(type_idx, _)
+    | KnownStructDefault(type_idx)
+    | KnownArrayFixed(type_idx, _)
+    | KnownArrayFill(type_idx, _, _)
+    | KnownArrayDefault(type_idx, _) => target == @lib.HeapType::new(type_idx)
+    _ => false
+  }
+}
+
+///|
+fn precompute_propagate_known_heap_value_for_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
+  node_id : Int,
+  states : Array[Int],
+  allocations : Array[Int],
+  depth : Int,
+) -> PrecomputeKnownHeapValue? {
+  if depth > 64 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  match precompute_exact_const_instr(ctx, func, node_id) {
+    Some(instr) => return Some(KnownEmit(instr))
+    None => ()
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.RefFunc(func_idx)) =>
+      return Some(KnownEmit(@lib.Instruction::ref_func(func_idx)))
+    Some(@lib.StructNew(type_idx)) => {
+      let fields = match ctx.module_ctx {
+        Some(module_ctx) =>
+          match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+            Some(fields) => fields
+            None => return None
+          }
+        None => return None
+      }
+      if @ir.hot_child_count(func, node_id) != fields.length() {
+        return None
+      }
+      let values : Array[PrecomputeKnownHeapValue] = []
+      for slot = 0; slot < fields.length(); slot = slot + 1 {
+        match
+          precompute_propagate_known_heap_value_for_node(
+            ctx,
+            func,
+            ssa,
+            label_used,
+            @ir.hot_child_get(func, node_id, slot),
+            states,
+            allocations,
+            depth + 1,
+          ) {
+          Some(value) => values.push(value)
+          None => return None
+        }
+      }
+      return Some(KnownStructFields(type_idx, values))
+    }
+    Some(@lib.StructNewDefault(type_idx)) =>
+      return Some(KnownStructDefault(type_idx))
+    Some(@lib.ArrayNewFixed(type_idx, @lib.U32(length))) => {
+      if !precompute_fresh_array_length_is_interpretable(length) ||
+        @ir.hot_child_count(func, node_id) != length.reinterpret_as_int() {
+        return None
+      }
+      let values : Array[PrecomputeKnownHeapValue] = []
+      for slot = 0; slot < length.reinterpret_as_int(); slot = slot + 1 {
+        match
+          precompute_propagate_known_heap_value_for_node(
+            ctx,
+            func,
+            ssa,
+            label_used,
+            @ir.hot_child_get(func, node_id, slot),
+            states,
+            allocations,
+            depth + 1,
+          ) {
+          Some(value) => values.push(value)
+          None => return None
+        }
+      }
+      return Some(KnownArrayFixed(type_idx, values))
+    }
+    Some(@lib.ArrayNew(type_idx)) if @ir.hot_child_count(func, node_id) == 2 => {
+      let value = match
+        precompute_propagate_known_heap_value_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      let length = match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 1),
+        ) {
+        Some(@lib.I32(length)) if length >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            length.reinterpret_as_uint(),
+          ) => length.reinterpret_as_uint()
+        _ => return None
+      }
+      return Some(KnownArrayFill(type_idx, [value], length))
+    }
+    Some(@lib.ArrayNewDefault(type_idx)) if @ir.hot_child_count(func, node_id) ==
+      1 => {
+      let length = match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+        ) {
+        Some(@lib.I32(length)) if length >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            length.reinterpret_as_uint(),
+          ) => length.reinterpret_as_uint()
+        _ => return None
+      }
+      return Some(KnownArrayDefault(type_idx, length))
+    }
+    Some(@lib.StructGet(type_idx, @lib.U32(field)))
+    | Some(@lib.StructGetS(type_idx, @lib.U32(field)))
+    | Some(@lib.StructGetU(type_idx, @lib.U32(field))) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let source = match
+        precompute_propagate_known_heap_value_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      let signed = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::struct_get_s(type_idx, @lib.U32(field)))
+      let unsigned = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::struct_get_u(type_idx, @lib.U32(field)))
+      return precompute_known_heap_struct_get(
+        ctx, source, type_idx, field, signed, unsigned,
+      )
+    }
+    Some(@lib.ArrayGet(type_idx))
+    | Some(@lib.ArrayGetS(type_idx))
+    | Some(@lib.ArrayGetU(type_idx)) => {
+      if @ir.hot_child_count(func, node_id) != 2 {
+        return None
+      }
+      let source = match
+        precompute_propagate_known_heap_value_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      let index = match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 1),
+        ) {
+        Some(@lib.I32(index)) => index.reinterpret_as_uint()
+        None => return None
+      }
+      let signed = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::array_get_s(type_idx))
+      let unsigned = @ir.hot_node_exact_instr(func, node_id) ==
+        Some(@lib.Instruction::array_get_u(type_idx))
+      return precompute_known_heap_array_get(
+        ctx, source, type_idx, index, signed, unsigned,
+      )
+    }
+    Some(@lib.ArrayLen) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let source = match
+        precompute_propagate_known_heap_value_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      return precompute_known_heap_array_len(source)
+    }
+    Some(@lib.RefCast(nullable, _, target)) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let source = match
+        precompute_propagate_known_heap_value_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+          depth + 1,
+        ) {
+        Some(value) => value
+        None => return None
+      }
+      if precompute_known_heap_value_matches_cast(source, nullable, target) {
+        return Some(source)
+      }
+      return None
+    }
+    _ => ()
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::RefFunc =>
+      Some(
+        KnownEmit(
+          @lib.Instruction::ref_func(
+            @lib.FuncIdx::new(node.imm0.reinterpret_as_uint()),
+          ),
+        ),
+      )
+    @ir.HotOp::GlobalGet =>
+      match ctx.module_ctx {
+        Some(module_ctx) =>
+          precompute_known_heap_value_from_global(
+            module_ctx,
+            @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+            depth + 1,
+          )
+        None => None
+      }
+    @ir.HotOp::LocalGet => {
+      let allocation_id = precompute_propagate_allocation_for_node(
+        func, ssa, label_used, node_id, states, allocations,
+      )
+      if allocation_id >= 0 && allocation_id != node_id {
+        precompute_propagate_known_heap_value_for_node(
+          ctx,
+          func,
+          ssa,
+          label_used,
+          allocation_id,
+          states,
+          allocations,
+          depth + 1,
+        )
+      } else {
+        None
+      }
+    }
+    @ir.HotOp::LocalTee if @ir.hot_child_count(func, node_id) == 1 =>
+      precompute_propagate_known_heap_value_for_node(
+        ctx,
+        func,
+        ssa,
+        label_used,
+        @ir.hot_child_get(func, node_id, 0),
+        states,
+        allocations,
+        depth + 1,
+      )
+    _ => None
+  }
+}
+
+///|
+fn precompute_replace_with_known_emit(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.RefFunc(func_idx) => {
+      let type_idx = match ctx.module_ctx {
+        Some(module_ctx) =>
+          match @ir.hot_module_resolve_func_type_idx(module_ctx, func_idx) {
+            Some(type_idx) => type_idx
+            None => return false
+          }
+        None => return false
+      }
+      let ref_type = @lib.RefType::new(
+        false,
+        @lib.HeapType::new(type_idx),
+        exact=true,
+      )
+      let temp = @ir.hot_build_ref_func(func, func_idx, ref_type)
+      let replacement = @ir.hot_node_get(func, temp)
+      @ir.hot_delete_node(func, temp)
+      precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+      pass_mark_mutated(ctx, func)
+      true
+    }
+    _ => precompute_replace_with_const_instr(ctx, func, node_id, instr)
+  }
+}
+
+///|
+fn precompute_propagate_try_fold_known_heap_read(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
+  node_id : Int,
+  states : Array[Int],
+  allocations : Array[Int],
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructGet(_, _))
+    | Some(@lib.StructGetS(_, _))
+    | Some(@lib.StructGetU(_, _))
+    | Some(@lib.ArrayGet(_))
+    | Some(@lib.ArrayGetS(_))
+    | Some(@lib.ArrayGetU(_))
+    | Some(@lib.ArrayLen) => ()
+    _ => return false
+  }
+  match
+    precompute_propagate_known_heap_value_for_node(
+      ctx, func, ssa, label_used, node_id, states, allocations, 0,
+    ) {
+    Some(KnownEmit(instr)) =>
+      precompute_replace_with_known_emit(ctx, func, node_id, instr)
+    _ => false
+  }
+}
+
+///|
 fn precompute_propagate_allocation_for_node(
   func : @ir.HotFunc,
   ssa : @ir.HotLocalSsa,
@@ -8180,6 +9645,7 @@ fn precompute_propagate_prefix_fold_local_gets(
   let allocation_states = Array::make(ssa.value_types.length(), 0)
   let allocation_values = Array::make(ssa.value_types.length(), -1)
   let allocation_folds : Array[PrecomputePropagateAllocationFold] = []
+  let known_heap_read_folds : Array[Int] = []
   let identity_folds : Array[PrecomputePropagateIdentityFold] = []
   let result_if_arm_written = Array::make(@ir.hot_local_count(func), false)
   let result_if_direct_get_consts : Array[@ir.HotConstPayload?] = Array::make(
@@ -8229,7 +9695,8 @@ fn precompute_propagate_prefix_fold_local_gets(
       | Some(@lib.ArrayGet(_))
       | Some(@lib.ArrayGetS(_))
       | Some(@lib.ArrayGetU(_))
-      | Some(@lib.ArrayLen) =>
+      | Some(@lib.ArrayLen) => {
+        known_heap_read_folds.push(node_id)
         if @ir.hot_child_count(func, node_id) > 0 {
           let allocation_id = precompute_propagate_allocation_for_node(
             func,
@@ -8243,6 +9710,7 @@ fn precompute_propagate_prefix_fold_local_gets(
             allocation_folds.push({ node_id, allocation_id })
           }
         }
+      }
       Some(@lib.RefEq) =>
         if @ir.hot_child_count(func, node_id) == 2 {
           let lhs = @ir.hot_child_get(func, node_id, 0)
@@ -8291,6 +9759,14 @@ fn precompute_propagate_prefix_fold_local_gets(
         func,
         fold.node_id,
         fold.allocation_id,
+      ) {
+      changed = true
+    }
+  }
+  for node_id in known_heap_read_folds {
+    if @ir.hot_node_is_live(func, node_id) &&
+      precompute_propagate_try_fold_known_heap_read(
+        ctx, func, ssa, label_used, node_id, allocation_states, allocation_values,
       ) {
       changed = true
     }

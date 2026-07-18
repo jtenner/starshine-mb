@@ -38,10 +38,12 @@ pub enum AbsHeapType {
   AnyAbsHeapType
   ExternAbsHeapType
   FuncAbsHeapType
+  ContAbsHeapType
   NoneAbsHeapType
   NoExternAbsHeapType
   NoFuncAbsHeapType
   NoExnAbsHeapType
+  NoContAbsHeapType
 } derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
@@ -136,6 +138,7 @@ pub enum CompType {
   ArrayCompType(FieldType)
   StructCompType(Array[FieldType])
   FuncCompType(ResultType, ResultType)
+  ContCompType(TypeIdx)
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -564,6 +567,22 @@ pub fn LegacyCatch::all(body : Expr) -> LegacyCatch {
 }
 
 ///|
+pub enum ResumeHandler {
+  ResumeOnLabel(TagIdx, LabelIdx)
+  ResumeOnSwitch(TagIdx)
+} derive(Eq, Hash, Debug)
+
+///|
+pub fn ResumeHandler::on_label(tag : TagIdx, label : LabelIdx) -> ResumeHandler {
+  ResumeOnLabel(tag, label)
+}
+
+///|
+pub fn ResumeHandler::on_switch(tag : TagIdx) -> ResumeHandler {
+  ResumeOnSwitch(tag)
+}
+
+///|
 pub struct CodeSec(Array[Func]) derive(Eq, Hash, Debug)
 
 ///|
@@ -598,6 +617,7 @@ pub enum Instruction {
   If(BlockType, Array[Instruction], Array[Instruction]?)
   Throw(TagIdx)
   ThrowRef
+  Rethrow(LabelIdx)
   Br(LabelIdx)
   BrIf(LabelIdx)
   BrTable(Array[LabelIdx], LabelIdx)
@@ -608,6 +628,13 @@ pub enum Instruction {
   ReturnCallIndirect(TypeIdx, TableIdx)
   CallRef(TypeIdx)
   ReturnCallRef(TypeIdx)
+  ContNew(TypeIdx)
+  ContBind(TypeIdx, TypeIdx)
+  Suspend(TagIdx)
+  Resume(TypeIdx, Array[ResumeHandler])
+  ResumeThrow(TypeIdx, TagIdx, Array[ResumeHandler])
+  ResumeThrowRef(TypeIdx, Array[ResumeHandler])
+  StackSwitch(TypeIdx, TagIdx)
   Drop
   Select(Array[ValType]?)
   Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)
@@ -2686,6 +2713,11 @@ pub fn AbsHeapType::func() -> AbsHeapType {
 }
 
 ///|
+pub fn AbsHeapType::cont() -> AbsHeapType {
+  ContAbsHeapType
+}
+
+///|
 pub fn AbsHeapType::none() -> AbsHeapType {
   NoneAbsHeapType
 }
@@ -2703,6 +2735,11 @@ pub fn AbsHeapType::no_func() -> AbsHeapType {
 ///|
 pub fn AbsHeapType::no_exn() -> AbsHeapType {
   NoExnAbsHeapType
+}
+
+///|
+pub fn AbsHeapType::no_cont() -> AbsHeapType {
+  NoContAbsHeapType
 }
 
 ///|
@@ -3089,6 +3126,11 @@ pub fn Instruction::throw_ref() -> Instruction {
 }
 
 ///|
+pub fn Instruction::rethrow(catch_depth : LabelIdx) -> Instruction {
+  Rethrow(catch_depth)
+}
+
+///|
 pub fn Instruction::br(li : LabelIdx) -> Instruction {
   Br(li)
 }
@@ -3145,6 +3187,57 @@ pub fn Instruction::call_ref(ti : TypeIdx) -> Instruction {
 ///|
 pub fn Instruction::return_call_ref(ti : TypeIdx) -> Instruction {
   ReturnCallRef(ti)
+}
+
+///|
+pub fn Instruction::cont_new(type_idx : TypeIdx) -> Instruction {
+  ContNew(type_idx)
+}
+
+///|
+pub fn Instruction::cont_bind(
+  source_type : TypeIdx,
+  target_type : TypeIdx,
+) -> Instruction {
+  ContBind(source_type, target_type)
+}
+
+///|
+pub fn Instruction::suspend(tag : TagIdx) -> Instruction {
+  Suspend(tag)
+}
+
+///|
+pub fn Instruction::resume_(
+  type_idx : TypeIdx,
+  handlers : Array[ResumeHandler],
+) -> Instruction {
+  Resume(type_idx, handlers)
+}
+
+///|
+pub fn Instruction::resume_throw(
+  type_idx : TypeIdx,
+  tag : TagIdx,
+  handlers : Array[ResumeHandler],
+) -> Instruction {
+  ResumeThrow(type_idx, tag, handlers)
+}
+
+///|
+pub fn Instruction::resume_throw_ref(
+  type_idx : TypeIdx,
+  handlers : Array[ResumeHandler],
+) -> Instruction {
+  ResumeThrowRef(type_idx, handlers)
+}
+
+///|
+pub fn Instruction::stack_switch(
+  type_idx : TypeIdx,
+  tag : TagIdx,
+) -> Instruction {
+  StackSwitch(type_idx, tag)
 }
 
 ///|
@@ -8619,6 +8712,11 @@ pub fn CompType::struct_(fts : Array[FieldType]) -> CompType {
 ///|
 pub fn CompType::func(params : ResultType, results : ResultType) -> CompType {
   FuncCompType(params, results)
+}
+
+///|
+pub fn CompType::cont(func_type : TypeIdx) -> CompType {
+  ContCompType(func_type)
 }
 
 ///|

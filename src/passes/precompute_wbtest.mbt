@@ -175,6 +175,128 @@ test "precompute admits and folds Binaryen v131 shared ref.func fixture" {
 }
 
 ///|
+test "precompute family preserves legacy rethrow semantics" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func
+      #|    (try
+      #|      (do (throw $e))
+      #|      (catch $e (rethrow 0)))))
+      #|),
+    ),
+  )
+  match input.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Try(
+                  _,
+                  _,
+                  [
+                    @lib.LegacyCatch(
+                      _,
+                      @lib.Expr([@lib.Rethrow(@lib.LabelIdx(depth))])
+                    ),
+                  ],
+                  _
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => @debug.assert_eq(depth, 0U)
+    _ => fail("expected lowered legacy rethrow instruction")
+  }
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected \{pass_name} legacy rethrow success, got \{err}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{pass_name} legacy rethrow validation, got \{err}")
+    }
+    match optimized.code_sec {
+      Some(
+        @lib.CodeSec(
+          [
+            @lib.Func(
+              _,
+              @lib.Expr(
+                [
+                  @lib.Try(
+                    _,
+                    _,
+                    [
+                      @lib.LegacyCatch(
+                        _,
+                        @lib.Expr([@lib.Rethrow(@lib.LabelIdx(depth))])
+                      ),
+                    ],
+                    _
+                  ),
+                ]
+              )
+            ),
+          ]
+        )
+      ) => @debug.assert_eq(depth, 0U)
+      _ => fail("expected \{pass_name} to preserve legacy rethrow")
+    }
+  }
+}
+
+///|
+test "precompute family admits and preserves Binaryen v131 stack switching fixture" {
+  let wasm = Bytes::from_array([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 45, 10, 96, 0, 0, 93, 0, 96, 1, 100, 1, 1, 100,
+    1, 96, 1, 127, 0, 93, 3, 96, 1, 100, 1, 0, 93, 5, 96, 1, 100, 0, 1, 100, 1, 96,
+    1, 100, 4, 1, 100, 1, 96, 1, 100, 6, 0, 3, 7, 6, 7, 8, 0, 2, 2, 9, 13, 3, 1,
+    0, 0, 10, 66, 6, 6, 0, 32, 0, 224, 1, 11, 9, 0, 65, 0, 32, 0, 225, 4, 1, 11,
+    4, 0, 226, 0, 11, 16, 0, 2, 100, 1, 32, 0, 227, 1, 1, 0, 0, 0, 32, 0, 11, 11,
+    17, 0, 2, 100, 1, 32, 0, 228, 1, 0, 1, 0, 0, 0, 32, 0, 11, 11, 7, 0, 32, 0, 230,
+    6, 0, 11,
+  ])
+  let input = match @binary.decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected stack-switching fixture decode, got \{err}")
+  }
+  match @validate.validate_module(input) {
+    Ok(_) => ()
+    Err(err) => fail("expected stack-switching fixture validation, got \{err}")
+  }
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail("expected \{pass_name} stack-switching success, got \{err}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{pass_name} stack-switching validation, got \{err}")
+    }
+    let encoded = match @binary.encode_module(optimized) {
+      Ok(bytes) => bytes
+      Err(err) =>
+        fail("expected \{pass_name} stack-switching encode, got \{err}")
+    }
+    @debug.assert_eq(encoded, wasm)
+  }
+}
+
+///|
 test "precompute resolves nested typed branch flow" {
   let inner = @lib.Instruction::block(
     @lib.BlockType::val_type(
@@ -496,6 +618,39 @@ test "precompute recognizes fresh immutable array reads in HOT" {
         }
         _ => ()
       }
+    }
+  }
+  assert_true(found)
+}
+
+///|
+test "precompute recognizes recursively partial select conditions in HOT" {
+  let input = pass_test_module_from_wat(
+    "(module (func (param i32) (result i32) (select (i32.const 0) (i32.const 10) (i32.eqz (select (i32.const 0) (i32.const 20) (local.get 0))))))",
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let module_ctx = @ir.hot_module_context_from_module(input)
+  let ctx = HotPassContext::new(
+    precompute_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(module_ctx),
+  )
+  let mut found = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) ||
+      @ir.hot_child_count(func, node_id) != 3 {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Select =>
+        if precompute_try_partial_select_condition(ctx, func, node_id) {
+          found = true
+          break
+        }
+      _ => ()
     }
   }
   assert_true(found)

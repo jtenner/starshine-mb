@@ -339,6 +339,7 @@ fn dfe_comp_type_uses_remap(
     @lib.FuncCompType(params, results) =>
       dfe_val_types_use_remap(params, remap) ||
       dfe_val_types_use_remap(results, remap)
+    @lib.ContCompType(func_type) => dfe_type_idx_is_remapped(func_type, remap)
   }
 }
 
@@ -496,6 +497,11 @@ fn dfe_comp_type_mentions_type_idxs(comp_type : @lib.CompType) -> Bool {
     @lib.FuncCompType(params, results) =>
       dfe_val_types_mention_type_idxs(params) ||
       dfe_val_types_mention_type_idxs(results)
+    @lib.ContCompType(func_type) =>
+      match func_type {
+        @lib.TypeIdx(_) => true
+        @lib.RecIdx(_) => false
+      }
   }
 }
 
@@ -828,6 +834,8 @@ fn dfe_rewrite_comp_type(
         dfe_rewrite_result_type(params, remap),
         dfe_rewrite_result_type(results, remap),
       )
+    @lib.ContCompType(func_type) =>
+      @lib.CompType::cont(dfe_rewrite_type_idx(func_type, remap))
   }
 }
 

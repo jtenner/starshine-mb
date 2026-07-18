@@ -2883,6 +2883,13 @@ test "encode exact ref.test, ref.cast, and ref.cast_desc_eq immediates" {
 
 ///|
 test "Comp Types" {
+  roundtrip(CompType::cont(TypeIdx::new(0U)))
+  let cont_buf = @buffer.new()
+  match Encode::encode(CompType::cont(TypeIdx::new(0U)), cont_buf) {
+    Ok(_) => @debug.assert_eq(cont_buf.to_bytes(), b"\x5d\x00")
+    Err(err) =>
+      fail("expected continuation comp type encode success, got \{err}")
+  }
   roundtrip(
     CompType::array(FieldType::new(StorageType::val_type(ValType::i32()), Var)),
   )
@@ -3543,6 +3550,71 @@ test "decode_module rejects malformed function name map ordering inside name sec
     }
     Err(e) =>
       fail("expected spanned malformed name-section decode error, got \{e}")
+  }
+}
+
+///|
+test "stack switching instruction immediates roundtrip" {
+  let handlers = [
+    ResumeHandler::on_label(TagIdx::new(0U), LabelIdx::new(1U)),
+    ResumeHandler::on_switch(TagIdx::new(2U)),
+  ]
+  let cases : Array[(Bytes, Instruction)] = [
+    (b"\xe0\x01", Instruction::cont_new(TypeIdx::new(1U))),
+    (
+      b"\xe1\x04\x01",
+      Instruction::cont_bind(TypeIdx::new(4U), TypeIdx::new(1U)),
+    ),
+    (b"\xe2\x00", Instruction::suspend(TagIdx::new(0U))),
+    (
+      b"\xe3\x01\x02\x00\x00\x01\x01\x02",
+      Instruction::resume_(TypeIdx::new(1U), handlers),
+    ),
+    (
+      b"\xe4\x01\x00\x02\x00\x00\x01\x01\x02",
+      Instruction::resume_throw(TypeIdx::new(1U), TagIdx::new(0U), handlers),
+    ),
+    (
+      b"\xe5\x01\x02\x00\x00\x01\x01\x02",
+      Instruction::resume_throw_ref(TypeIdx::new(1U), handlers),
+    ),
+    (
+      b"\xe6\x06\x00",
+      Instruction::stack_switch(TypeIdx::new(6U), TagIdx::new(0U)),
+    ),
+  ]
+  for case in cases {
+    let (bytes, expected) = case
+    let (decoded, next) = match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok(value) => value
+      Err(err) => fail("expected stack-switching decode success, got \{err}")
+    }
+    @debug.assert_eq(next, bytes.length())
+    @debug.assert_eq(decoded, expected)
+    let buf = @buffer.new()
+    match Encode::encode(expected, buf) {
+      Ok(_) => @debug.assert_eq(buf.to_bytes(), bytes)
+      Err(err) => fail("expected stack-switching encode success, got \{err}")
+    }
+  }
+}
+
+///|
+test "legacy rethrow instruction immediate roundtrips" {
+  let bytes = b"\x09\x00"
+  let expected = Instruction::rethrow(LabelIdx::new(0U))
+  let (decoded, next) = match
+    (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+    Ok(value) => value
+    Err(err) => fail("expected legacy rethrow decode success, got \{err}")
+  }
+  @debug.assert_eq(next, bytes.length())
+  @debug.assert_eq(decoded, expected)
+  let buf = @buffer.new()
+  match Encode::encode(expected, buf) {
+    Ok(_) => @debug.assert_eq(buf.to_bytes(), bytes)
+    Err(err) => fail("expected legacy rethrow encode success, got \{err}")
   }
 }
 

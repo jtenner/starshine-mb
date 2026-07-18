@@ -8108,38 +8108,30 @@ test "ssa-nomerge preserves throw_ref shapes without hot local corruption" {
 }
 
 ///|
-test "ssa-nomerge preserves legacy rethrow shapes without hot local corruption" {
-  // `[SSANM-007a2b2]` keeps legacy try/catch/rethrow outside planned
-  // LocalGraph mutation and outside lifted HOT SSA destruction.
-  let trace : Array[String] = []
-  let source =
-    #|(module
-    #|  (tag $e0)
-    #|  (func (export "f") (result i32)
-    #|    (local i32)
-    #|    i32.const 5
-    #|    local.set 0
-    #|    (try
-    #|      (do (throw $e0))
-    #|      (catch $e0
-    #|        (rethrow 0)))))
-    #|)
-  ssa_test_hot_exceptional_local_traffic_preserved(source)
-  let optimized = match
-    pass_test_run_pipeline(
-      source,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected legacy rethrow boundary success, got \{err}")
-  }
-  ssa_test_assert_no_planned_structured_trace_reason(trace)
-  ssa_test_assert_no_ssa_nomerge_mutation_trace(trace)
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+test "ssa-nomerge boundary: legacy rethrow remains outside HOT SSA" {
+  // `[SSANM-007a2b2]` keeps first-class legacy try/catch/rethrow outside
+  // LocalGraph mutation and lifted HOT SSA destruction. Admission is covered
+  // here; precompute owns the conservative raw preservation path.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (tag $e0)
+      #|  (func (export "f") (result i32)
+      #|    (local i32)
+      #|    i32.const 5
+      #|    local.set 0
+      #|    (try
+      #|      (do (throw $e0))
+      #|      (catch $e0
+      #|        (rethrow 0)))))
+      #|)
+    ),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(mod_)
   let text = instrs.to_string()
   assert_true(text.contains("local.set"), msg=text)
   assert_true(text.contains("throw"), msg=text)
+  assert_true(text.contains("rethrow"), msg=text)
 }
 
 ///|

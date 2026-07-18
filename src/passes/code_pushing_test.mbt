@@ -4425,12 +4425,11 @@ test "code-pushing boundary keeps SFA set before multi-catch try_table and br_if
 }
 
 ///|
-test "code-pushing moves pure SFA set after legacy try-lowered block before later br_if" {
-  // Binaryen-positive movement: local Binaryen v130 moves the pure set after
-  // a legacy try/catch root and the later br_if push point. The local WAT
-  // fixture currently lowers this legacy try to a HOT block, so this guards the
-  // observable movement but does not claim native HotOp::Try barrier coverage.
-  let func = code_pushing_test_run_hot(
+test "code-pushing boundary: first-class legacy try is not a HOT movement scaffold" {
+  // Legacy try/catch now remains first-class in raw IR. Code-pushing does not
+  // yet lift old-EH regions, so do not use the former synthetic block lowering
+  // to claim movement across exception control.
+  let mod_ = pass_test_module_from_wat(
     (
       #|(module
       #|  (tag $e)
@@ -4449,22 +4448,15 @@ test "code-pushing moves pure SFA set after legacy try-lowered block before late
       #|      br_if $exit
       #|      local.get 1
       #|      drop)))
-      #|
     ),
   )
-
-  @debug.assert_eq(@ir.hot_root_count(func), 1)
-  let block_id = @ir.hot_root_get(func, 0)
-  code_pushing_expect_op(func, block_id, "block")
-  let body_ref = @ir.hot_region_body_ref(func, block_id)
-  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 5)
-  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
-  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "block")
-  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 2), "br_if")
-  let moved_set = @ir.hot_region_get(func, body_ref, 3)
-  code_pushing_expect_op(func, moved_set, "local.set")
-  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
-  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 4), "drop")
+  let text = match mod_.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, instrs)])) => instrs.to_string()
+    _ => fail("expected first-class legacy try module")
+  }
+  assert_true(text.contains("try"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("br_if"), msg=text)
 }
 
 ///|

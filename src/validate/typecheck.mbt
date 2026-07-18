@@ -1395,6 +1395,15 @@ fn typecheck_throw_ref(st : TcState) -> TcResult {
 }
 
 ///|
+fn typecheck_rethrow(st : TcState, catch_depth : LabelIdx) -> TcResult {
+  let LabelIdx(raw_depth) = catch_depth
+  if raw_depth.reinterpret_as_int() >= st.env.legacy_catch_depth {
+    return Err("invalid legacy rethrow catch depth")
+  }
+  Ok(st.set_unreachable())
+}
+
+///|
 fn tag_payload_types(env : Env, tag : TagIdx) -> Array[ValType] {
   let idx = tag.0
   // Guard against overflow - if idx >= 2^31, it would become negative when cast to Int
@@ -1537,7 +1546,7 @@ fn typecheck_legacy_try(
         catch_body
     }
     let catch_state = TcState::{
-      env: scoped_env,
+      env: scoped_env.with_legacy_catch_depth(scoped_env.legacy_catch_depth + 1),
       stack: tc_stack_from_types(initial_types),
       reachable: st1.reachable,
       escape: st1.escape,
@@ -3884,6 +3893,321 @@ fn typecheck_array_store_op(
 }
 
 ///|
+fn typecheck_cont_ref_type(
+  type_idx : TypeIdx,
+  nullable : Bool,
+  exact : Bool,
+) -> ValType {
+  ValType::ref_type(RefType::new(nullable, HeapType::new(type_idx), exact~))
+}
+
+///|
+fn typecheck_cont_func_type_idx(
+  st : TcState,
+  type_idx : TypeIdx,
+) -> Result[TypeIdx, String] {
+  match st.env.resolve_comptype(type_idx) {
+    Some(ContCompType(func_type)) => Ok(func_type)
+    _ => Err("expected a continuation type")
+  }
+}
+
+///|
+fn typecheck_cont_new(st : TcState, type_idx : TypeIdx) -> TcResult {
+  let func_type = match typecheck_cont_func_type_idx(st, type_idx) {
+    Ok(func_type) => func_type
+    Err(err) => return Err(err)
+  }
+  let expected_func = ValType::ref_type(
+    RefType::new(true, HeapType::new(func_type)),
+  )
+  match st.pop_expect(expected_func) {
+    Ok(next) => Ok(next.push1(typecheck_cont_ref_type(type_idx, false, true)))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_cont_bind(
+  st : TcState,
+  source_type : TypeIdx,
+  target_type : TypeIdx,
+) -> TcResult {
+  let FuncType(source_params, source_results) = match
+    st.env.resolve_cont_functype(source_type) {
+    Some(sig) => sig
+    None => return Err("cont.bind source type is not a continuation type")
+  }
+  let FuncType(target_params, target_results) = match
+    st.env.resolve_cont_functype(target_type) {
+    Some(sig) => sig
+    None => return Err("cont.bind target type is not a continuation type")
+  }
+  if source_params.length() < target_params.length() {
+    return Err("cont.bind source has fewer parameters than target")
+  }
+  let bound_count = source_params.length() - target_params.length()
+  for idx = 0; idx < target_params.length(); idx = idx + 1 {
+    if !Match::matches(
+        target_params[idx],
+        source_params[bound_count + idx],
+        st.env,
+      ) {
+      return Err("cont.bind remaining parameter type mismatch")
+    }
+  }
+  if !Match::matches(source_results, target_results, st.env) {
+    return Err("cont.bind result type mismatch")
+  }
+  let st1 = match
+    st.pop_expect(typecheck_cont_ref_type(source_type, true, false)) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  let bound_types : Array[ValType] = []
+  for idx = 0; idx < bound_count; idx = idx + 1 {
+    bound_types.push(source_params[idx])
+  }
+  match st1.pop_types(bound_types) {
+    Ok(next) =>
+      Ok(next.push1(typecheck_cont_ref_type(target_type, false, true)))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_suspend(st : TcState, tag : TagIdx) -> TcResult {
+  let FuncType(params, results) = match st.env.resolve_tag_functype(tag) {
+    Some(sig) => sig
+    None => return Err("suspend tag must exist and use a function type")
+  }
+  match st.pop_types(params) {
+    Ok(next) => Ok(next.push_types(results))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_resume_handler_cont(
+  st : TcState,
+  handler_type : ValType,
+  tag_results : Array[ValType],
+  cont_results : Array[ValType],
+) -> Result[Unit, String] {
+  let handler_cont_type = match handler_type {
+    RefTypeValType(HeapTypeRefType(_, _, HeapType(type_idx))) => type_idx
+    _ =>
+      return Err("resume handler label must receive a continuation reference")
+  }
+  let FuncType(handler_params, handler_results) = match
+    st.env.resolve_cont_functype(handler_cont_type) {
+    Some(sig) => sig
+    None => return Err("resume handler label continuation type is invalid")
+  }
+  if !Match::matches(handler_params, tag_results, st.env) ||
+    !Match::matches(tag_results, handler_params, st.env) {
+    return Err("resume handler continuation parameter type mismatch")
+  }
+  if !Match::matches(handler_results, cont_results, st.env) ||
+    !Match::matches(cont_results, handler_results, st.env) {
+    return Err("resume handler continuation result type mismatch")
+  }
+  Ok(())
+}
+
+///|
+fn typecheck_resume_handlers(
+  st : TcState,
+  cont_results : Array[ValType],
+  handlers : Array[ResumeHandler],
+) -> Result[Unit, String] {
+  for handler in handlers {
+    match handler {
+      ResumeOnLabel(tag, label) => {
+        let FuncType(tag_params, tag_results) = match
+          st.env.resolve_tag_functype(tag) {
+          Some(sig) => sig
+          None => return Err("resume handler tag must exist")
+        }
+        let label_types = match st.env.get_label_types(label) {
+          Some(types) => types
+          None => return Err("resume handler label must exist")
+        }
+        if label_types.length() != tag_params.length() + 1 {
+          return Err("resume handler label arity mismatch")
+        }
+        for idx = 0; idx < tag_params.length(); idx = idx + 1 {
+          if !Match::matches(tag_params[idx], label_types[idx], st.env) {
+            return Err("resume handler label tag payload mismatch")
+          }
+        }
+        match
+          typecheck_resume_handler_cont(
+            st,
+            label_types[label_types.length() - 1],
+            tag_results,
+            cont_results,
+          ) {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+      }
+      ResumeOnSwitch(tag) => {
+        let FuncType(tag_params, tag_results) = match
+          st.env.resolve_tag_functype(tag) {
+          Some(sig) => sig
+          None => return Err("resume switch handler tag must exist")
+        }
+        if !tag_params.is_empty() {
+          return Err("resume switch handler tag must have no parameters")
+        }
+        if tag_results != cont_results {
+          return Err("resume switch handler tag result mismatch")
+        }
+      }
+    }
+  }
+  Ok(())
+}
+
+///|
+fn typecheck_resume(
+  st : TcState,
+  type_idx : TypeIdx,
+  handlers : Array[ResumeHandler],
+) -> TcResult {
+  let FuncType(params, results) = match st.env.resolve_cont_functype(type_idx) {
+    Some(sig) => sig
+    None => return Err("resume type is not a continuation type")
+  }
+  match typecheck_resume_handlers(st, results, handlers) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  let st1 = match
+    st.pop_expect(typecheck_cont_ref_type(type_idx, true, false)) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st1.pop_types(params) {
+    Ok(next) => Ok(next.push_types(results))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_resume_throw(
+  st : TcState,
+  type_idx : TypeIdx,
+  tag : TagIdx,
+  handlers : Array[ResumeHandler],
+) -> TcResult {
+  let FuncType(_, results) = match st.env.resolve_cont_functype(type_idx) {
+    Some(sig) => sig
+    None => return Err("resume_throw type is not a continuation type")
+  }
+  let FuncType(tag_params, tag_results) = match
+    st.env.resolve_tag_functype(tag) {
+    Some(sig) => sig
+    None => return Err("resume_throw tag must exist")
+  }
+  if !tag_results.is_empty() {
+    return Err("resume_throw tag must have no results")
+  }
+  match typecheck_resume_handlers(st, results, handlers) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  let st1 = match
+    st.pop_expect(typecheck_cont_ref_type(type_idx, true, false)) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st1.pop_types(tag_params) {
+    Ok(next) => Ok(next.push_types(results))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_resume_throw_ref(
+  st : TcState,
+  type_idx : TypeIdx,
+  handlers : Array[ResumeHandler],
+) -> TcResult {
+  let FuncType(_, results) = match st.env.resolve_cont_functype(type_idx) {
+    Some(sig) => sig
+    None => return Err("resume_throw_ref type is not a continuation type")
+  }
+  match typecheck_resume_handlers(st, results, handlers) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  let st1 = match
+    st.pop_expect(typecheck_cont_ref_type(type_idx, true, false)) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st1.pop_expect(ValType::ref_null_exn()) {
+    Ok(next) => Ok(next.push_types(results))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_stack_switch(
+  st : TcState,
+  type_idx : TypeIdx,
+  tag : TagIdx,
+) -> TcResult {
+  let FuncType(source_params, source_results) = match
+    st.env.resolve_cont_functype(type_idx) {
+    Some(sig) => sig
+    None => return Err("switch type is not a continuation type")
+  }
+  if source_params.is_empty() {
+    return Err("switch continuation must have a next-continuation parameter")
+  }
+  let next_cont_type = match source_params[source_params.length() - 1] {
+    RefTypeValType(HeapTypeRefType(_, _, HeapType(type_idx))) => type_idx
+    _ =>
+      return Err(
+        "switch continuation last parameter must be a continuation reference",
+      )
+  }
+  let FuncType(target_params, target_results) = match
+    st.env.resolve_cont_functype(next_cont_type) {
+    Some(sig) => sig
+    None => return Err("switch next-continuation parameter type is invalid")
+  }
+  let FuncType(tag_params, tag_results) = match
+    st.env.resolve_tag_functype(tag) {
+    Some(sig) => sig
+    None => return Err("switch tag must exist")
+  }
+  if !tag_params.is_empty() {
+    return Err("switch tag must have no parameters")
+  }
+  if !Match::matches(source_results, tag_results, st.env) ||
+    !Match::matches(tag_results, target_results, st.env) {
+    return Err("switch tag or continuation result type mismatch")
+  }
+  let st1 = match
+    st.pop_expect(typecheck_cont_ref_type(type_idx, true, false)) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  let operand_types : Array[ValType] = []
+  for idx = 0; idx < source_params.length() - 1; idx = idx + 1 {
+    operand_types.push(source_params[idx])
+  }
+  match st1.pop_types(operand_types) {
+    Ok(next) => Ok(next.push_types(target_params))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 pub impl Typecheck for Instruction with fn typecheck(self, st) {
   match self {
     Unreachable => Ok(st.set_unreachable())
@@ -4092,8 +4416,19 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ReturnCall(fidx) => typecheck_return_call(st, fidx)
     ReturnCallIndirect(tidx, t) => typecheck_return_call_indirect(st, tidx, t)
     ReturnCallRef(tidx) => typecheck_return_call_ref(st, tidx)
+    ContNew(type_idx) => typecheck_cont_new(st, type_idx)
+    ContBind(source_type, target_type) =>
+      typecheck_cont_bind(st, source_type, target_type)
+    Suspend(tag) => typecheck_suspend(st, tag)
+    Resume(type_idx, handlers) => typecheck_resume(st, type_idx, handlers)
+    ResumeThrow(type_idx, tag, handlers) =>
+      typecheck_resume_throw(st, type_idx, tag, handlers)
+    ResumeThrowRef(type_idx, handlers) =>
+      typecheck_resume_throw_ref(st, type_idx, handlers)
+    StackSwitch(type_idx, tag) => typecheck_stack_switch(st, type_idx, tag)
     Throw(t) => typecheck_throw(st, t)
     ThrowRef => typecheck_throw_ref(st)
+    Rethrow(depth) => typecheck_rethrow(st, depth)
     Try(bt, body, catches, delegate) =>
       typecheck_legacy_try(st, bt, body, catches, delegate)
     TryTable(bt, cs, e) => typecheck_try_table(st, bt, cs, e)

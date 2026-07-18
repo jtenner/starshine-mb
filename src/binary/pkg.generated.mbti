@@ -209,6 +209,7 @@ pub impl Decode for @lib.NumType
 pub impl Decode for @lib.PackType
 pub impl Decode for @lib.RecType
 pub impl Decode for @lib.RefType
+pub impl Decode for @lib.ResumeHandler
 pub impl Decode for @lib.S33
 pub impl Decode for @lib.StartSec
 pub impl Decode for @lib.StorageType
@@ -293,6 +294,7 @@ pub impl Encode for @lib.NumType
 pub impl Encode for @lib.PackType
 pub impl Encode for @lib.RecType
 pub impl Encode for @lib.RefType
+pub impl Encode for @lib.ResumeHandler
 pub impl Encode for @lib.S33
 pub impl Encode for @lib.StartSec
 pub impl Encode for @lib.StorageType

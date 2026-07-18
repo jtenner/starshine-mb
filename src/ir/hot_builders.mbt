@@ -266,6 +266,21 @@ pub fn hot_build_ref_null(func : HotFunc, value : RefType) -> NodeId {
 }
 
 ///|
+pub fn hot_build_ref_func(
+  func : HotFunc,
+  func_idx : @lib.FuncIdx,
+  ref_type : RefType,
+) -> NodeId {
+  let @lib.FuncIdx(raw) = func_idx
+  hot_build_node(
+    func,
+    HotOp::RefFunc,
+    hot_type_intern_value(func, @lib.ValType::ref_type(ref_type)),
+    imm0=raw.reinterpret_as_int(),
+  )
+}
+
+///|
 pub fn hot_build_select(
   func : HotFunc,
   result_type : ValType,
@@ -590,6 +605,23 @@ pub fn hot_build_table_set(
   hot_build_node(func, HotOp::TableSet, hot_type_void(func), imm0=table_idx, children=[
     index, value,
   ])
+}
+
+///|
+pub fn hot_build_simd(
+  func : HotFunc,
+  result_types : Array[ValType],
+  instr : Instruction,
+  children : Array[NodeId],
+) -> NodeId {
+  let payload_id = hot_alloc_instr_payload(func, HotInstrPayload::new(instr))
+  hot_build_node(
+    func,
+    HotOp::Simd,
+    hot_builder_results_type(func, result_types),
+    imm0=payload_id,
+    children~,
+  )
 }
 
 ///|

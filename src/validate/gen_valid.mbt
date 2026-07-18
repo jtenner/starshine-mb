@@ -28498,6 +28498,7 @@ fn gen_valid_scan_comp_type(comp : CompType) -> (Bool, Bool) {
       }
       (uses_ref_types, uses_v128)
     }
+    ContCompType(_) => (true, false)
   }
 }
 

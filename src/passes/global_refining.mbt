@@ -57,6 +57,7 @@ fn gr_global_ref_type(global_type : @lib.GlobalType) -> @lib.RefType? {
 fn gr_null_bottom_type_for_comp(comp_type : @lib.CompType) -> @lib.AbsHeapType {
   match comp_type {
     @lib.FuncCompType(_, _) => @lib.AbsHeapType::no_func()
+    @lib.ContCompType(_) => @lib.AbsHeapType::no_cont()
     @lib.StructCompType(_) | @lib.ArrayCompType(_) => @lib.AbsHeapType::none()
   }
 }
@@ -83,6 +84,8 @@ fn gr_ref_null_result_type(
       let bottom = match abs {
         @lib.FuncAbsHeapType => @lib.AbsHeapType::no_func()
         @lib.NoFuncAbsHeapType => @lib.AbsHeapType::no_func()
+        @lib.ContAbsHeapType => @lib.AbsHeapType::no_cont()
+        @lib.NoContAbsHeapType => @lib.AbsHeapType::no_cont()
         @lib.ExternAbsHeapType => @lib.AbsHeapType::no_extern()
         @lib.NoExternAbsHeapType => @lib.AbsHeapType::no_extern()
         @lib.ExnAbsHeapType => @lib.AbsHeapType::no_exn()
@@ -201,6 +204,8 @@ fn gr_comptype_is_public(
     }
     @lib.ArrayCompType(field) =>
       gr_field_type_is_public(field, env, type_states)
+    @lib.ContCompType(func_type) =>
+      gr_typeidx_is_public(func_type, env, type_states)
   }
 }
 
@@ -359,6 +364,11 @@ fn gr_append_shape_heap_supertypes(
         out,
         @lib.HeapType::abs(@lib.AbsHeapType::func()),
       )
+    @lib.ContCompType(_) =>
+      gr_append_unique_heaptype(
+        out,
+        @lib.HeapType::abs(@lib.AbsHeapType::cont()),
+      )
   }
 }
 
@@ -462,6 +472,7 @@ fn gr_ref_type_is_nullable_bottom_for_heap(
     Some(subtype) =>
       match subtype.get_comptype() {
         @lib.FuncCompType(_, _) => bottom == @lib.AbsHeapType::no_func()
+        @lib.ContCompType(_) => bottom == @lib.AbsHeapType::no_cont()
         @lib.StructCompType(_) | @lib.ArrayCompType(_) =>
           bottom == @lib.AbsHeapType::none()
       }

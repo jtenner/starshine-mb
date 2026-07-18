@@ -62,6 +62,7 @@ fn ls_comptype_matches_abs(ct : @lib.CompType, abs : @lib.AbsHeapType) -> Bool {
       abs == @lib.AbsHeapType::any()
     @lib.FuncCompType(_, _) =>
       abs == @lib.AbsHeapType::func() || abs == @lib.AbsHeapType::any()
+    @lib.ContCompType(_) => abs == @lib.AbsHeapType::cont()
   }
 }
 

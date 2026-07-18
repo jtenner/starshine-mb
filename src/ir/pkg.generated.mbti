@@ -281,6 +281,8 @@ pub fn hot_build_node(HotFunc, HotOp, Int, imm0? : Int, imm1? : Int, children? :
 
 pub fn hot_build_nop(HotFunc) -> Int
 
+pub fn hot_build_ref_func(HotFunc, @lib.FuncIdx, @lib.RefType) -> Int
+
 pub fn hot_build_ref_null(HotFunc, @lib.RefType) -> Int
 
 pub fn hot_build_resolved_block(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType], Array[Int]) -> Int
@@ -294,6 +296,8 @@ pub fn hot_build_return_call_indirect(HotFunc, @lib.TypeIdx, @lib.TableIdx, Arra
 pub fn hot_build_return_call_ref(HotFunc, @lib.TypeIdx, Array[Int], Int) -> Int
 
 pub fn hot_build_select(HotFunc, @lib.ValType, Int, Int, Int) -> Int
+
+pub fn hot_build_simd(HotFunc, Array[@lib.ValType], @lib.Instruction, Array[Int]) -> Int
 
 pub fn hot_build_store(HotFunc, @lib.MemArg, Int, Int) -> Int
 

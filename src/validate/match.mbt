@@ -48,6 +48,8 @@ pub impl Match for CompType with fn matches(self, other, env) {
       true
     }
     (ArrayCompType(f0), ArrayCompType(f1)) => Match::matches(f0, f1, env)
+    (ContCompType(f0), ContCompType(f1)) =>
+      typeidx_leq_typeidx_with_fuel(f0, f1, env, 128)
     _ => false
   }
 }
@@ -88,6 +90,15 @@ pub impl Match for RefType with fn matches(self, other, env) {
             Some(st) =>
               match st.get_comptype() {
                 FuncCompType(_, _) => ()
+                _ => return false
+              }
+            None => return false
+          }
+        AbsHeapTypeHeapType(NoContAbsHeapType) =>
+          match env.resolve_heaptype_subtype(ht1) {
+            Some(st) =>
+              match st.get_comptype() {
+                ContCompType(_) => ()
                 _ => return false
               }
             None => return false
@@ -236,6 +247,8 @@ fn exact_comptype_matches_fuel(
     }
     (ArrayCompType(f0), ArrayCompType(f1)) =>
       exact_field_matches_fuel(f0, f1, env, fuel - 1, visited)
+    (ContCompType(f0), ContCompType(f1)) =>
+      exact_typeidx_matches_fuel(f0, f1, env, fuel - 1, visited)
     _ => false
   }
 }
@@ -385,8 +398,9 @@ pub impl Match for AbsHeapType with fn matches(self, other, _) {
     (NoneAbsHeapType, ArrayAbsHeapType) => true
     (NoneAbsHeapType, StringAbsHeapType) => true
 
-    // nofunc <: func
+    // nofunc <: func, nocont <: cont
     (NoFuncAbsHeapType, FuncAbsHeapType) => true
+    (NoContAbsHeapType, ContAbsHeapType) => true
 
     // string/noextern <: extern
     (StringAbsHeapType, ExternAbsHeapType) => true
@@ -517,6 +531,7 @@ fn comptype_matches_abs(ct : CompType, abs : AbsHeapType) -> Bool {
       abs == AbsHeapType::any()
     FuncCompType(_, _) =>
       abs == AbsHeapType::func() || abs == AbsHeapType::any()
+    ContCompType(_) => abs == AbsHeapType::cont()
   }
 }
 
@@ -573,6 +588,7 @@ fn abs_vs_typeidx_fuel(
         (NoneAbsHeapType, StructCompType(_)) => true
         (NoneAbsHeapType, ArrayCompType(_)) => true
         (NoFuncAbsHeapType, FuncCompType(_, _)) => true
+        (NoContAbsHeapType, ContCompType(_)) => true
         _ => false
       }
     None => false
@@ -607,6 +623,7 @@ fn deftype_matches_abs_fuel(
           abs == AbsHeapType::any()
         FuncCompType(_, _) =>
           abs == AbsHeapType::func() || abs == AbsHeapType::any()
+        ContCompType(_) => abs == AbsHeapType::cont()
       }
   }
 }
@@ -643,6 +660,7 @@ fn env_add_rec_group(env : Env, group : Array[SubType]) -> Env {
     locals: env.locals,
     labels: env.labels,
     return_type: env.return_type,
+    legacy_catch_depth: env.legacy_catch_depth,
   }
 }
 

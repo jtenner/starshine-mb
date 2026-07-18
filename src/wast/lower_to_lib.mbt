@@ -1726,17 +1726,17 @@ fn wt_instrs_to_lib(
 }
 
 ///|
-fn wt_legacy_synthetic_check_instrs(
+fn wt_legacy_try_to_lib(
   ctx : WTLowerCtx,
   lib_bt : @lib.BlockType,
   bt : BlockType,
-  bt_results : Array[@lib.ValType],
   body : Array[Instruction],
   catches : Array[LegacyCatchClause],
+  delegate_target : Index?,
   local_ids : Map[String, UInt],
   labels : Array[String?],
   legacy : WTLegacyCtx,
-) -> Result[Array[@lib.Instruction], String] {
+) -> Result[@lib.Instruction, String] {
   let try_labels = legacy.try_labels.copy()
   match bt.label {
     Some(label) => try_labels.push(label)
@@ -1749,23 +1749,21 @@ fn wt_legacy_synthetic_check_instrs(
   }
   let next_labels = labels.copy()
   next_labels.push(bt.label)
-
-  let checks : Array[@lib.Instruction] = []
-
   let lib_body = match
     wt_instrs_to_lib(ctx, body, local_ids, next_labels, nested_base) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  checks.push(@lib.Instruction::block(lib_bt, @lib.Expr::new(lib_body)))
-  for drop_instr in wt_drop_n_instrs(bt_results.length()) {
-    checks.push(drop_instr)
-  }
-
+  let lib_catches : Array[@lib.LegacyCatch] = []
   for clause in catches {
-    let (payload, catch_body) = match clause {
+    let catch_ctx : WTLegacyCtx = {
+      catch_depth: nested_base.catch_depth + 1U,
+      enclosing_try_count: nested_base.enclosing_try_count,
+      try_labels: nested_base.try_labels,
+    }
+    match clause {
       LegacyCatch(tag_idx, catch_body) => {
-        let ti = match
+        let tag = match
           wt_resolve_named_or_num_index(
             tag_idx,
             ctx.tag_ids,
@@ -1775,53 +1773,45 @@ fn wt_legacy_synthetic_check_instrs(
           Ok(v) => v
           Err(e) => return Err(e)
         }
-        let payload = match wt_tag_payload_types(ctx, ti) {
+        let lib_catch_body = match
+          wt_instrs_to_lib(ctx, catch_body, local_ids, next_labels, catch_ctx) {
           Ok(v) => v
           Err(e) => return Err(e)
         }
-        (payload, catch_body)
+        lib_catches.push(
+          @lib.LegacyCatch::tagged(
+            @lib.TagIdx::new(tag),
+            @lib.Expr::new(lib_catch_body),
+          ),
+        )
       }
-      LegacyCatchAll(catch_body) => ([], catch_body)
-    }
-
-    let catch_ctx : WTLegacyCtx = {
-      catch_depth: nested_base.catch_depth + 1U,
-      enclosing_try_count: nested_base.enclosing_try_count,
-      try_labels: nested_base.try_labels,
-    }
-    let lib_catch_body = match
-      wt_instrs_to_lib(ctx, catch_body, local_ids, next_labels, catch_ctx) {
-      Ok(v) => v
-      Err(e) => return Err(e)
-    }
-
-    for vt in payload {
-      let defaults = match wt_default_value_instrs_for_valtype(vt) {
-        Ok(v) => v
-        Err(e) => return Err(e)
+      LegacyCatchAll(catch_body) => {
+        let lib_catch_body = match
+          wt_instrs_to_lib(ctx, catch_body, local_ids, next_labels, catch_ctx) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        lib_catches.push(@lib.LegacyCatch::all(@lib.Expr::new(lib_catch_body)))
       }
-      for instr in defaults {
-        checks.push(instr)
-      }
-    }
-
-    let loop_type_idx = match
-      wt_find_matching_func_type_index(ctx, payload, bt_results) {
-      Some(idx) => idx
-      None => wt_append_lib_func_type(ctx, payload, bt_results)
-    }
-    checks.push(
-      @lib.Instruction::loop_(
-        @lib.BlockType::type_idx(@lib.TypeIdx::new(loop_type_idx)),
-        @lib.Expr::new(lib_catch_body),
-      ),
-    )
-    for drop_instr in wt_drop_n_instrs(bt_results.length()) {
-      checks.push(drop_instr)
     }
   }
-
-  Ok(checks)
+  let delegate : @lib.LabelIdx? = match delegate_target {
+    None => None
+    Some(Num(depth)) => Some(@lib.LabelIdx::new(depth))
+    Some(Id(name)) =>
+      match wt_resolve_label(Id(name), labels) {
+        Ok(depth) => Some(@lib.LabelIdx::new(depth))
+        Err(e) => return Err(e)
+      }
+  }
+  Ok(
+    @lib.Instruction::try_(
+      lib_bt,
+      @lib.Expr::new(lib_body),
+      lib_catches,
+      delegate~,
+    ),
+  )
 }
 
 ///|
@@ -2020,11 +2010,14 @@ fn wt_instr_to_lib(
     ThrowRef => Ok(@lib.Instruction::throw_ref())
     Rethrow(idx) =>
       if wt_legacy_rethrow_valid(idx, legacy) {
-        Ok(@lib.Instruction::unreachable_())
+        match idx {
+          Num(depth) => Ok(@lib.Instruction::rethrow(@lib.LabelIdx::new(depth)))
+          Id(_) => Err("named legacy rethrow labels are unsupported")
+        }
       } else {
         Err("invalid legacy rethrow label: \{wt_index_text(idx)}")
       }
-    TryLegacy(bt, body, catches, _) => {
+    TryLegacy(bt, body, catches, delegate_target) => {
       match wt_legacy_instr_invalid_reason(instr, legacy) {
         Some(reason) => return Err(reason)
         None => ()
@@ -2033,20 +2026,9 @@ fn wt_instr_to_lib(
         Ok(v) => v
         Err(e) => return Err(e)
       }
-      let bt_results = match wt_block_type_results(ctx, bt) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      let checks = match
-        wt_legacy_synthetic_check_instrs(
-          ctx, lib_bt, bt, bt_results, body, catches, local_ids, labels, legacy,
-        ) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      let block_body = checks.copy()
-      block_body.push(@lib.Instruction::unreachable_())
-      Ok(@lib.Instruction::block(lib_bt, @lib.Expr::new(block_body)))
+      wt_legacy_try_to_lib(
+        ctx, lib_bt, bt, body, catches, delegate_target, local_ids, labels, legacy,
+      )
     }
     Drop => Ok(@lib.Instruction::drop())
     Select(types) => {

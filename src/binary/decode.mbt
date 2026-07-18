@@ -210,6 +210,7 @@ pub impl Decode for HeapType with fn decode(bytes, i) {
 pub impl Decode for AbsHeapType with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x67) => Ok((AbsHeapType::string_(), i + 1))
+    Some(0x68) => Ok((AbsHeapType::cont(), i + 1))
     Some(0x69) => Ok((AbsHeapType::exn(), i + 1))
     Some(0x6A) => Ok((AbsHeapType::array(), i + 1))
     Some(0x6B) => Ok((AbsHeapType::struct_(), i + 1))
@@ -222,6 +223,7 @@ pub impl Decode for AbsHeapType with fn decode(bytes, i) {
     Some(0x72) => Ok((AbsHeapType::no_extern(), i + 1))
     Some(0x73) => Ok((AbsHeapType::no_func(), i + 1))
     Some(0x74) => Ok((AbsHeapType::no_exn(), i + 1))
+    Some(0x75) => Ok((AbsHeapType::no_cont(), i + 1))
     Some(_) => Err(BinaryDecodeError::InvalidAbstractHeapType)
     None => Err(BinaryDecodeError::IndexOutOfBounds)
   }
@@ -340,6 +342,11 @@ pub impl Decode for CompType with fn decode(bytes, i) {
             Ok((rets, i)) => Ok((CompType::func(props, rets), i))
             Err(err) => Err(err)
           }
+        Err(err) => Err(err)
+      }
+    Some(0x5D) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((func_type, i)) => Ok((CompType::cont(func_type), i))
         Err(err) => Err(err)
       }
     Some(_) => Err(BinaryDecodeError::InvalidCompType)
@@ -2401,6 +2408,28 @@ pub impl Decode for Bytes with fn decode(bytes, i) {
 }
 
 ///|
+pub impl Decode for ResumeHandler with fn decode(bytes, i) {
+  match bytes.get(i) {
+    Some(0x00) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((tag, i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((label, i)) => Ok((ResumeHandler::on_label(tag, label), i))
+            Err(err) => Err(err)
+          }
+        Err(err) => Err(err)
+      }
+    Some(0x01) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((tag, i)) => Ok((ResumeHandler::on_switch(tag), i))
+        Err(err) => Err(err)
+      }
+    Some(_) => Err(BinaryDecodeError::InvalidInstruction)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
+  }
+}
+
+///|
 pub impl Decode for Catch with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
@@ -2833,6 +2862,11 @@ fn decode_instruction_with_depth(
         Ok((tag, i)) => Ok((Instruction::throw_(tag), i))
         Err(t) => Err(t)
       }
+    Some(0x09) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((depth, i)) => Ok((Instruction::rethrow(depth), i))
+        Err(t) => Err(t)
+      }
     Some(0x0A) => Ok((Instruction::throw_ref(), i + 1))
     Some(0x0C) =>
       match Decode::decode(bytes, i + 1) {
@@ -2891,6 +2925,69 @@ fn decode_instruction_with_depth(
     Some(0x15) =>
       match Decode::decode(bytes, i + 1) {
         Ok((tidx, i)) => Ok((Instruction::return_call_ref(tidx), i))
+        Err(t) => Err(t)
+      }
+    Some(0xE0) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((type_idx, i)) => Ok((Instruction::cont_new(type_idx), i))
+        Err(t) => Err(t)
+      }
+    Some(0xE1) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((source_type, i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((target_type, i)) =>
+              Ok((Instruction::cont_bind(source_type, target_type), i))
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0xE2) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((tag, i)) => Ok((Instruction::suspend(tag), i))
+        Err(t) => Err(t)
+      }
+    Some(0xE3) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((type_idx, i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((handlers, i)) =>
+              Ok((Instruction::resume_(type_idx, handlers), i))
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0xE4) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((type_idx, i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((tag, i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((handlers, i)) =>
+                  Ok((Instruction::resume_throw(type_idx, tag, handlers), i))
+                Err(t) => Err(t)
+              }
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0xE5) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((type_idx, i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((handlers, i)) =>
+              Ok((Instruction::resume_throw_ref(type_idx, handlers), i))
+            Err(t) => Err(t)
+          }
+        Err(t) => Err(t)
+      }
+    Some(0xE6) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((type_idx, i)) =>
+          match Decode::decode(bytes, i) {
+            Ok((tag, i)) => Ok((Instruction::stack_switch(type_idx, tag), i))
+            Err(t) => Err(t)
+          }
         Err(t) => Err(t)
       }
     Some(0xD5) =>
