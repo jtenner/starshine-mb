@@ -1,9 +1,10 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-07-11
+status: planned
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -25,7 +26,7 @@ Use this harmless discovery command only to inspect the admitted roster:
 bun fuzz compare-pass --list-passes
 ```
 
-The 2026-07-11 upstream recheck also matters for future fixtures: current Binaryen permits explicit open-world invocation but freezes the mode-selected public heap-type surface. A future lane must not incorrectly encode the obsolete `version_130` rule that all open-world requests fail.
+Binaryen v131 permits explicit open-world invocation but freezes the mode-selected public heap-type surface. A future lane must cover that released behavior and must not encode the obsolete v130 rule that all open-world requests fail.
 
 ## Future runnable template
 

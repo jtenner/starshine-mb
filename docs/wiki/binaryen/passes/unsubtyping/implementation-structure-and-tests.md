@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -22,7 +23,7 @@ related:
 This page exists because `Unsubtyping.cpp` is not a self-contained algorithm.
 If you read only that one file, you will miss where several of the real rules come from.
 The direct tagged source and lit-test URLs in this page's source list retain the reviewed file map; the exact current Starshine status lives in [`./starshine-strategy.md`](./starshine-strategy.md).
-The 2026-07-11 current-main recheck found a material admission change: explicit open-world runs are now supported through a mode-aware public-type boundary. The file map below remains the source-correct algorithm map; the current owner and `unsubtyping-open-world.wast` fixture establish that version boundary.
+Binaryen v131 releases explicit open-world runs through a mode-aware public-type boundary. The file map below remains the source-correct algorithm map; the v131 owner and `unsubtyping-open-world.wast` establish that policy.
 
 ## File map
 
@@ -44,7 +45,7 @@ The 2026-07-11 current-main recheck found a material admission change: explicit 
 | `test/lit/passes/unsubtyping-desc-tnh.wast` | `trapsNeverHappen` descriptor-fixup differences |
 | `test/lit/passes/unsubtyping-jsinterop.wast` | JS-boundary flow, `any`-boundary cast, JS prototype keepalive, and `extern.convert_any` coverage |
 | `test/lit/passes/unsubtyping-stack-switching.wast` | Continuation, `cont.bind`, `suspend`, and `resume` coverage |
-| `test/lit/passes/unsubtyping-open-world.wast` | Current-main explicit-open-world admission plus mode-selected public-type freeze boundaries |
+| `test/lit/passes/unsubtyping-open-world.wast` | V131 explicit-open-world admission plus mode-selected public-type freeze boundaries |
 
 ## Important test-harness warning
 
@@ -252,7 +253,7 @@ A future port that ignores stack-switching would therefore be incomplete.
 
 ## 8. `unsubtyping-open-world.wast`
 
-This current-main fixture separates scheduling from admission. It proves that an explicit `--unsubtyping` request can run without `--closed-world`, while the requested `WorldMode` still freezes the appropriate public heap-type families. It is a visibility-policy suite; it does not replace the broader cast, descriptor, JS, or continuation suites.
+This v131 fixture separates scheduling from admission. It proves that an explicit `--unsubtyping` request can run without `--closed-world`, while the requested `WorldMode` still freezes the appropriate public heap-type families. It is a visibility-policy suite; it does not replace the broader cast, descriptor, JS, or continuation suites.
 
 ## The tests teach four misconceptions to avoid
 

@@ -1,10 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -69,10 +70,10 @@ It is **world-policy-aware subtype/descriptor graph minimization**: current Bina
 
 ## Most important durable takeaways
 
-- The 2026-07-11 recheck of Binaryen's current owner and `unsubtyping-open-world.wast` fixture established that, after `version_130`, explicit upstream `unsubtyping` became open-world-admitted. It now freezes the mode-selected public heap-type surface rather than failing every open-world request. The older May capture remains historical provenance.
+- Binaryen v131 releases explicit open-world `unsubtyping`. It freezes the mode-selected public heap-type surface rather than failing every open-world request; the older v130 fatal gate and May no-drift capture are historical.
 - `unsubtyping` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler still places it in the **closed-world GC/type cluster** after `gsi` and optional `abstract-type-refining`; that scheduler policy is separate from explicit pass admission.
-- Current `main` checks GC features, then derives frozen public types with the requested `WorldMode`. The `version_130` open-world fatal gate is historical, not current behavior.
+- V131 checks GC features, then derives frozen public types with the requested `WorldMode`. The `version_130` open-world fatal gate is historical.
 - The pass minimizes **descriptor** relations too, not only declared supertype edges.
 - The actual algorithm is a **fixed point** over:
   - validation constraints
@@ -83,7 +84,7 @@ It is **world-policy-aware subtype/descriptor graph minimization**: current Bina
 - Exact casts impose a smaller relation surface than ordinary casts.
 - Public types are frozen.
 - Descriptor-bearing allocations may need explicit fixups or synthetic globals when descriptor edges disappear.
-- The 2026-05-05 no-drift claim is historical. The 2026-07-11 recheck found material post-`version_130` open-world admission and public-visibility-policy drift; the source-backed relation algorithm remains otherwise the same on the reviewed surfaces.
+- The 2026-05-05 no-drift claim is historical. V131 includes the open-world admission and public-visibility-policy change; the relation fixed point remains otherwise the same on the reviewed owner surfaces.
 
 ## Beginner warning: what the name hides
 
@@ -138,17 +139,17 @@ What it actually is in `version_129`:
 - Keep this dossier clearly labeled as an **upstream-only boundary-only** pass for Starshine today.
 - Keep the page honest about scheduler and admission scope:
   - the default Binaryen pipeline places it in the closed-world GC/type cluster
-  - an explicit current-main request may run in open world with mode-aware public-type freezing
+  - an explicit v131 request may run in open world with mode-aware public-type freezing
   - it does **not** belong to the repo's current open-world no-DWARF optimize path
 - Keep the combo-test rule explicit:
   - many official lit files run `--unsubtyping --remove-unused-types`
   - disappearing type definitions in those files are not always a pure `unsubtyping` effect
-- Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
+- Keep the detailed `version_129` algorithm provenance separate from v131's released admission policy, and label any post-v131 trunk drift explicitly.
 
 ## Sources
 
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp>
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast>
+- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp>
+- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast>
 - [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

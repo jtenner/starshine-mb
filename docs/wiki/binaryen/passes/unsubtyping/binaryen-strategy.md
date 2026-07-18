@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Unsubtyping.cpp
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/unsubtyping-open-world.wast
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -22,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass. The direct tagged source, helper, and lit-test URLs below retain the reviewed source map; the 2026-05-05 and 2026-07-11 rechecks retain the later freshness and world-policy provenance.
+Use Binaryen `version_129` for the original detailed relation-fixed-point walkthrough and `version_131` for the released world-policy contract. The v131 owner and open-world fixture supersede the earlier trunk-only admission wording.
 
 Primary files:
 
@@ -52,7 +53,7 @@ The shipped lit surface is also part of the contract:
 - `test/lit/passes/unsubtyping-jsinterop.wast`
 - `test/lit/passes/unsubtyping-stack-switching.wast`
 
-The 2026-07-11 current-main recheck found material drift after `version_130`: explicit `unsubtyping` no longer fails in open world. Current `main` uses the requested `WorldMode` to find the frozen public heap-type surface; the fixed-point rewrite remains a GC/type relation-pruning pass, not a generic type optimizer. The current owner and focused `unsubtyping-open-world.wast` fixture are the primary evidence for this post-`version_130` boundary.
+Binaryen v131 no longer fails explicit `unsubtyping` in open world. It uses the requested `WorldMode` to find the frozen public heap-type surface; the fixed-point rewrite remains a GC/type relation-pruning pass, not a generic type optimizer. The v131 owner and `unsubtyping-open-world.wast` fixture are the primary evidence.
 
 ## High-level intent
 
@@ -116,7 +117,7 @@ That means `unsubtyping` is the **late relation-pruning step in the closed-world
 
 - `!wasm->features.hasGC()`
 
-In `version_130`, it then failed when `worldMode == WorldMode::Open`. Current `main` has removed that fatal gate. Instead, its public-type analysis calls `ModuleUtils::getPublicHeapTypes(wasm, getPassOptions().worldMode)` before the relation fixed point.
+In `version_130`, it then failed when `worldMode == WorldMode::Open`. V131 removes that fatal gate. Instead, public-type analysis calls `ModuleUtils::getPublicHeapTypes(wasm, getPassOptions().worldMode)` before the relation fixed point.
 
 This makes the current rule precise:
 
@@ -491,7 +492,7 @@ The changed type graph can force shared finalization logic to legalize or sharpe
 
 Binaryen `unsubtyping` in `version_129` does **not** do any of these:
 
-- it does not treat open world as permission to mutate the public heap-type surface; current `main` derives that frozen surface from `WorldMode`
+- it does not treat open world as permission to mutate the public heap-type surface; v131 derives that frozen surface from `WorldMode`
 - it does not refine field payload types or signature bodies the way earlier cluster passes do
 - it does not optimize public types
 - it does not do generic structural type merging
