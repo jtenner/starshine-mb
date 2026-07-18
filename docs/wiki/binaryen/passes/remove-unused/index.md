@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
   - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
   - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
@@ -29,7 +30,7 @@ related:
 
 ## Role
 
-- `remove-unused` is **not** a current public Binaryen pass name in the 2026-06-02 `version_130` / current-main spelling recheck.
+- `remove-unused` is **not** a current public Binaryen pass name. The 2026-06-02 v130/current-main spelling recheck established the modern roster, and the complete v130-to-v131 registration audit found no reintroduction.
 - It is currently **unimplemented** in Starshine and still lives in the local boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is also still listed in the local Batch 4 map in [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - The best source-backed explanation is that this local short name is a **legacy historical alias** for upstream Binaryen's old `remove-unused-functions` pass, which Binaryen later replaced with `remove-unused-module-elements`.

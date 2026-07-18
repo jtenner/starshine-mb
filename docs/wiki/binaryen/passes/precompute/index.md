@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
@@ -50,6 +51,10 @@ related:
 ---
 
 # `precompute`
+
+## Binaryen v131 renewal status
+
+`Precompute.cpp` did not change between v130 and v131, so plain `precompute` is not automatically reopened. Several expected tests changed through shared GC/effect helpers, and `[V131-SPOT]001` therefore requires a focused v131 probe before the v130 closeout is promoted to current-release evidence. Any remaining mismatch must be attributed to the shared helper contract before opening pass-local work.
 
 ## Role
 
@@ -155,7 +160,7 @@ What the documented upstream contract is (initially read at `version_129`, then 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Deep dive into the documented Binaryen implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope. The detailed algorithm read remains historically anchored at `version_129`; the release baseline and focused owner/scheduler recheck are now `version_130`/current main.
+  - Deep dive into the documented Binaryen implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope. The detailed algorithm read remains historically anchored at `version_129`; the latest focused owner/scheduler recheck is v130/current-main, while the repo-wide release baseline is v131.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Compact source-confirmed owner/test map for plain `precompute`, including the shared `Precompute.cpp` core, the public/scheduler split in `pass.cpp` and `opt-utils.h`, the helper ownership in `wasm-interpreter.h` / `properties.h` / `local-graph.h`, and the broad lit roster that proves the plain-pass contract instead of only the sibling `precompute-propagate` one.
 - [`./propagation-partial-precompute-and-gc-identity.md`](./propagation-partial-precompute-and-gc-identity.md)
@@ -171,7 +176,7 @@ What the documented upstream contract is (initially read at `version_129`, then 
 
 ## Historical post-`version_129` drift notes
 
-Binaryen `version_130` is now the public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
+Binaryen `version_131` is now the repo-wide public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
 
 Those newer facts remain useful, provided they stay labeled as newer than the tagged oracle:
 
@@ -205,7 +210,7 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 - Treat the retained 2026-05-05 research mirror, [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
-- Use Binaryen `version_130` as the current public release baseline for new conclusions. Keep the detailed `version_129` source reading as historical provenance until a behavior-specific v130 reread replaces that exact claim.
+- Use Binaryen `version_131` as the repo-wide public release baseline for new conclusions. Keep the detailed `version_129` and focused v130/current-main source readings as scoped provenance; `[V131-SPOT]001` owns targeted renewal.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`
@@ -244,7 +249,7 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/>
   - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/>
-- Binaryen `version_130` release baseline / focused source reread:
+- Binaryen `version_130` focused source reread, retained beneath the v131 release horizon:
   - <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>

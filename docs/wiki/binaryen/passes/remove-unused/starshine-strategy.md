@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
   - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
   - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
@@ -145,7 +146,7 @@ If Starshine ever implements a literal historical pass, the minimum validation m
 - no deletion of globals, memories, tables, tags, data segments, or types except where another explicitly requested pass owns that cleanup;
 - no accidental aliasing to current RUME behavior.
 
-The easiest parity oracle for current Binaryen is **not** a current public tag such as `version_130`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source at <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>; the current-main admission recheck does not provide that historical oracle.
+The easiest parity oracle for current Binaryen is **not** a current public tag such as `version_131`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source at <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>; the current-main admission recheck does not provide that historical oracle.
 
 ## Main caveat
 

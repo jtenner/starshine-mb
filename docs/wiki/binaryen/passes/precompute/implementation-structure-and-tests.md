@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
@@ -18,7 +19,7 @@ related:
 
 # `precompute`: implementation structure and tests
 
-This page is the compact source-confirmed map for Binaryen plain `precompute`. Its detailed owner/test reading originated at `version_129`, while `version_130` is now the current public release baseline.
+This page is the compact source-confirmed map for Binaryen plain `precompute`. Its detailed owner/test reading originated at `version_129`; the repo-wide public release baseline is now `version_131`, while this map's latest focused freshness read remains v130/current-main.
 The focused v130/current-main reread, together with this page's direct tagged URLs, preserves the historical owner/test provenance after the duplicate `version_129` manifest is consumed. The focused reread left this owner/test map unchanged on reviewed surfaces; it does not claim a full source diff.
 
 Its main job is to answer two practical questions:
