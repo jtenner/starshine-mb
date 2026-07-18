@@ -56927,6 +56927,89 @@ fn run_hot_pipeline_unchecked_verify_before_lower_skip_reason(
 }
 
 ///|
+fn run_hot_pipeline_raw_merge_locals_has_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx > 0 {
+      match (instrs[idx - 1], instrs[idx]) {
+        (
+          @lib.LocalGet(@lib.LocalIdx(source)),
+          @lib.LocalSet(@lib.LocalIdx(target))
+          | @lib.LocalTee(@lib.LocalIdx(target)),
+        ) => if source != target { return true }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_merge_locals_has_candidate(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_merge_locals_has_candidate(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_merge_locals_has_candidate(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_merge_locals(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "merge-locals" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(_, @lib.Expr(instrs)) = original
+  if !run_hot_pipeline_raw_merge_locals_has_candidate(instrs) {
+    return Some({
+      reason: "no-merge-locals-candidates",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let params = run_hot_pipeline_required_raw_func_params(
+    mod_, module_ctx, func_idx,
+  )
+  let rewrite = merge_locals_run_raw_straight_line_func(original, params)
+  if !rewrite.supported {
+    return None
+  }
+  Some({
+    reason: if rewrite.changed {
+      "raw-localgraph-copy-balance"
+    } else {
+      "raw-localgraph-no-change"
+    },
+    func: rewrite.func,
+    unchanged_original: !rewrite.changed,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -56935,6 +57018,13 @@ fn run_hot_pipeline_func(
   lower_state : HotPipelineLowerState,
   options : HotPipelineOptions,
 ) -> Result[HotPipelineFuncResult, String] {
+  match
+    run_hot_pipeline_raw_merge_locals(
+      mod_, func_idx, module_state, descriptor, options,
+    ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
   match
     run_hot_pipeline_raw_ssa_nomerge(
       mod_, func_idx, module_state, descriptor, options,
@@ -59021,40 +59111,14 @@ fn run_hot_pipeline_apply_coalesce_locals_to_oversized_defs(
 fn run_hot_pipeline_apply_merge_locals_to_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
+  options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return Ok(mod_)
-  }
-  let params = cl_defined_func_param_cache(mod_)
-  let mut rewritten : Array[@lib.Func]? = None
-  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-    if code_idx >= touched.length() || !touched[code_idx] {
-      continue
-    }
-    let func_params = match params.get(code_idx) {
-      Some(params) => params
-      None =>
-        return Err("missing defined function params for code index \{code_idx}")
-    }
-    match merge_locals_run_func(funcs[code_idx], func_params) {
-      Some(func) =>
-        match rewritten {
-          Some(copy) => copy[code_idx] = func
-          None => {
-            let copy = funcs.copy()
-            copy[code_idx] = func
-            rewritten = Some(copy)
-          }
-        }
-      None => ()
-    }
-  }
-  match rewritten {
-    Some(copy) =>
-      Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
-    None => Ok(mod_)
-  }
+  run_hot_pipeline_apply_hot_pass_to_touched(
+    mod_,
+    merge_locals_descriptor(),
+    touched,
+    options,
+  )
 }
 
 ///|
@@ -60350,7 +60414,6 @@ fn run_hot_pipeline_apply_module_pass(
         coalesce_locals_run_module_pass(mod_)
       }
     "local-cse" => local_cse_run_module_pass(mod_)
-    "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
     "strip-debug" => strip_debug_run_module_pass(mod_)
     "simplify-globals-optimizing" =>
@@ -60469,6 +60532,7 @@ fn hot_pass_run_with_aggregate_perf_timer(
     "flatten" => flatten_run(ctx, func)
     "ssa" => ssa_full_run(ctx, func)
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
+    "merge-locals" => merge_locals_run(ctx, func)
     "vacuum" =>
       if hot_pass_vacuum_should_skip_root_local_set_stack_hazard(func) {
         pipeline_trace_hook(

@@ -778,6 +778,14 @@ pub enum GenValidProfile {
   CoalesceLocalsStructuredProfile
   CoalesceLocalsLoopCopyThroughProfile
   CoalesceLocalsAllProfile
+  MergeLocalsForwardProfile
+  MergeLocalsReverseProfile
+  MergeLocalsControlProfile
+  MergeLocalsTeeProfile
+  MergeLocalsMergeBoundaryProfile
+  MergeLocalsTypeBoundaryProfile
+  MergeLocalsRollbackProfile
+  MergeLocalsAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
@@ -1012,6 +1020,14 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CoalesceLocalsStructuredProfile => "coalesce-locals-structured"
     CoalesceLocalsLoopCopyThroughProfile => "coalesce-locals-loop-copy-through"
     CoalesceLocalsAllProfile => "coalesce-locals-all"
+    MergeLocalsForwardProfile => "merge-locals-forward"
+    MergeLocalsReverseProfile => "merge-locals-reverse"
+    MergeLocalsControlProfile => "merge-locals-control"
+    MergeLocalsTeeProfile => "merge-locals-tee"
+    MergeLocalsMergeBoundaryProfile => "merge-locals-merge-boundary"
+    MergeLocalsTypeBoundaryProfile => "merge-locals-type-boundary"
+    MergeLocalsRollbackProfile => "merge-locals-rollback"
+    MergeLocalsAllProfile => "merge-locals-all"
     RemoveUnusedBrsControlProfile => "remove-unused-brs-control"
     RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
     RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
@@ -1086,6 +1102,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | Heap2LocalAllProfile
     | LocalSubtypingAllProfile
     | CoalesceLocalsAllProfile
+    | MergeLocalsAllProfile
     | RemoveUnusedBrsAllProfile
     | DuplicateImportEliminationAllProfile
     | SsaNomergeAllProfile
@@ -1256,6 +1273,16 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoalesceLocalsStructuredProfile, 2),
         GenValidProfileMember::new(CoalesceLocalsLoopCopyThroughProfile, 2),
       ]
+    MergeLocalsAllProfile =>
+      [
+        GenValidProfileMember::new(MergeLocalsForwardProfile, 1),
+        GenValidProfileMember::new(MergeLocalsReverseProfile, 1),
+        GenValidProfileMember::new(MergeLocalsControlProfile, 1),
+        GenValidProfileMember::new(MergeLocalsTeeProfile, 1),
+        GenValidProfileMember::new(MergeLocalsMergeBoundaryProfile, 1),
+        GenValidProfileMember::new(MergeLocalsTypeBoundaryProfile, 1),
+        GenValidProfileMember::new(MergeLocalsRollbackProfile, 1),
+      ]
     RemoveUnusedBrsAllProfile =>
       [
         GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
@@ -1390,6 +1417,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
         GenValidProfileMember::new(CoalesceLocalsAllProfile, 1),
+        GenValidProfileMember::new(MergeLocalsAllProfile, 1),
         GenValidProfileMember::new(DuplicateImportEliminationAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
@@ -1585,6 +1613,14 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CoalesceLocalsStructuredProfile,
     CoalesceLocalsLoopCopyThroughProfile,
     CoalesceLocalsAllProfile,
+    MergeLocalsForwardProfile,
+    MergeLocalsReverseProfile,
+    MergeLocalsControlProfile,
+    MergeLocalsTeeProfile,
+    MergeLocalsMergeBoundaryProfile,
+    MergeLocalsTypeBoundaryProfile,
+    MergeLocalsRollbackProfile,
+    MergeLocalsAllProfile,
     RemoveUnusedBrsControlProfile,
     RemoveUnusedBrsSwitchProfile,
     RemoveUnusedBrsGcProfile,
@@ -1733,6 +1769,11 @@ pub fn gen_valid_profile_by_name(
     "coalesce-locals-all-profiles" => Ok(CoalesceLocalsAllProfile)
     "cl" => Ok(CoalesceLocalsAllProfile)
     "cl-closeout" => Ok(CoalesceLocalsAllProfile)
+    "merge-locals" => Ok(MergeLocalsAllProfile)
+    "merge-locals-closeout" => Ok(MergeLocalsAllProfile)
+    "merge-locals-all-profiles" => Ok(MergeLocalsAllProfile)
+    "ml" => Ok(MergeLocalsAllProfile)
+    "ml-closeout" => Ok(MergeLocalsAllProfile)
     "remove-unused-brs" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-closeout" => Ok(RemoveUnusedBrsAllProfile)
     "remove-unused-brs-all-profiles" => Ok(RemoveUnusedBrsAllProfile)
@@ -3106,6 +3147,16 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_coalesce_locals_profile_config(
         CoalesceLocalsStraightLineProfile,
       )
+    MergeLocalsForwardProfile
+    | MergeLocalsReverseProfile
+    | MergeLocalsControlProfile
+    | MergeLocalsTeeProfile
+    | MergeLocalsMergeBoundaryProfile
+    | MergeLocalsTypeBoundaryProfile
+    | MergeLocalsRollbackProfile =>
+      gen_valid_merge_locals_profile_config(profile)
+    MergeLocalsAllProfile =>
+      gen_valid_merge_locals_profile_config(MergeLocalsForwardProfile)
     RemoveUnusedBrsControlProfile
     | RemoveUnusedBrsSwitchProfile
     | RemoveUnusedBrsGcProfile
@@ -4382,6 +4433,111 @@ fn gen_valid_coalesce_locals_profile_config(
       allow_heap_store_optimization_body_generator: false,
       allow_heap2local_body_generator: false,
     },
+  }
+}
+
+///|
+fn gen_valid_merge_locals_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let profile_tag = match profile {
+    MergeLocalsForwardProfile => 11
+    MergeLocalsReverseProfile => 12
+    MergeLocalsControlProfile => 13
+    MergeLocalsTeeProfile => 14
+    MergeLocalsMergeBoundaryProfile => 15
+    MergeLocalsTypeBoundaryProfile => 16
+    MergeLocalsRollbackProfile => 17
+    _ => 11
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == MergeLocalsTypeBoundaryProfile {
+      3
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    max_params: if profile == MergeLocalsReverseProfile ||
+      profile == MergeLocalsControlProfile ||
+      profile == MergeLocalsMergeBoundaryProfile {
+      1
+    } else {
+      0
+    },
+    max_results: 1,
+    max_locals: 2,
+    max_body_statements: profile_tag,
+    max_body_depth: if profile == MergeLocalsControlProfile ||
+      profile == MergeLocalsReverseProfile ||
+      profile == MergeLocalsMergeBoundaryProfile {
+      2
+    } else {
+      1
+    },
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: profile == MergeLocalsTypeBoundaryProfile,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: profile == MergeLocalsControlProfile,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: profile == MergeLocalsTypeBoundaryProfile,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_merge_locals_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(MergeLocalsForwardProfile) ||
+  config == GenValidConfig::for_profile(MergeLocalsReverseProfile) ||
+  config == GenValidConfig::for_profile(MergeLocalsControlProfile) ||
+  config == GenValidConfig::for_profile(MergeLocalsTeeProfile) ||
+  config == GenValidConfig::for_profile(MergeLocalsMergeBoundaryProfile) ||
+  config == GenValidConfig::for_profile(MergeLocalsTypeBoundaryProfile) ||
+  config == GenValidConfig::for_profile(MergeLocalsRollbackProfile)
+}
+
+///|
+pub fn gen_valid_merge_locals_profile_case_label(
+  profile : GenValidProfile,
+  seed : UInt64,
+) -> String? {
+  match profile {
+    MergeLocalsForwardProfile => Some("merge-locals:forward")
+    MergeLocalsReverseProfile => Some("merge-locals:reverse")
+    MergeLocalsControlProfile =>
+      Some("merge-locals:control-\{(seed % 3UL).to_int()}")
+    MergeLocalsTeeProfile => Some("merge-locals:tee")
+    MergeLocalsMergeBoundaryProfile => Some("merge-locals:merge-boundary")
+    MergeLocalsTypeBoundaryProfile => Some("merge-locals:type-boundary")
+    MergeLocalsRollbackProfile => Some("merge-locals:rollback")
+    _ => None
   }
 }
 
@@ -24968,6 +25124,242 @@ fn gen_valid_oi_trigger_profile_module(ctx : GenValidContext) -> Module {
 }
 
 ///|
+fn gen_valid_merge_locals_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  if config == GenValidConfig::for_profile(MergeLocalsReverseProfile) {
+    MergeLocalsReverseProfile
+  } else if config == GenValidConfig::for_profile(MergeLocalsControlProfile) {
+    MergeLocalsControlProfile
+  } else if config == GenValidConfig::for_profile(MergeLocalsTeeProfile) {
+    MergeLocalsTeeProfile
+  } else if config ==
+    GenValidConfig::for_profile(MergeLocalsMergeBoundaryProfile) {
+    MergeLocalsMergeBoundaryProfile
+  } else if config ==
+    GenValidConfig::for_profile(MergeLocalsTypeBoundaryProfile) {
+    MergeLocalsTypeBoundaryProfile
+  } else if config == GenValidConfig::for_profile(MergeLocalsRollbackProfile) {
+    MergeLocalsRollbackProfile
+  } else {
+    MergeLocalsForwardProfile
+  }
+}
+
+///|
+fn gen_valid_merge_locals_i32_module(
+  params : Array[ValType],
+  results : Array[ValType],
+  body : Array[Instruction],
+) -> Module {
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func(params, results)),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32(), ValType::i32()]),
+        Expr::new(body),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_locals_forward_module(seed : UInt64) -> Module {
+  let value = (seed % 97UL).to_int() + 1
+  gen_valid_merge_locals_i32_module([], [ValType::i32()], [
+    Instruction::i32_const(I32(value)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(1U)),
+  ])
+}
+
+///|
+fn gen_valid_merge_locals_reverse_module(seed : UInt64) -> Module {
+  let value = (seed % 89UL).to_int() + 1
+  gen_valid_merge_locals_i32_module([ValType::i32()], [ValType::i32()], [
+    Instruction::i32_const(I32(value)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(2U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(value + 1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ],
+      None,
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+  ])
+}
+
+///|
+fn gen_valid_merge_locals_control_module(seed : UInt64) -> Module {
+  let value = (seed % 83UL).to_int() + 1
+  let control = match (seed % 3UL).to_int() {
+    0 =>
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::drop(),
+        ]),
+      )
+    1 =>
+      Instruction::if_(
+        BlockType::void_(),
+        [Instruction::local_get(LocalIdx::new(1U)), Instruction::drop()],
+        Some([Instruction::local_get(LocalIdx::new(1U)), Instruction::drop()]),
+      )
+    _ =>
+      Instruction::loop_(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(1U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::br_if(LabelIdx::new(0U)),
+        ]),
+      )
+  }
+  let condition_prefix = if (seed % 3UL).to_int() == 1 {
+    [Instruction::local_get(LocalIdx::new(0U))]
+  } else {
+    []
+  }
+  let body : Array[Instruction] = [
+    Instruction::i32_const(I32(value)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(2U)),
+  ]
+  for instr in condition_prefix {
+    body.push(instr)
+  }
+  body.push(control)
+  body.push(Instruction::local_get(LocalIdx::new(2U)))
+  gen_valid_merge_locals_i32_module([ValType::i32()], [ValType::i32()], body)
+}
+
+///|
+fn gen_valid_merge_locals_tee_module(seed : UInt64) -> Module {
+  let value = (seed % 79UL).to_int() + 1
+  gen_valid_merge_locals_i32_module([], [ValType::i32()], [
+    Instruction::i32_const(I32(value)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::local_tee(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+  ])
+}
+
+///|
+fn gen_valid_merge_locals_merge_boundary_module(seed : UInt64) -> Module {
+  let value = (seed % 73UL).to_int() + 1
+  gen_valid_merge_locals_i32_module([ValType::i32()], [ValType::i32()], [
+    Instruction::i32_const(I32(value)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::local_set(LocalIdx::new(2U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(value + 1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ],
+      None,
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(2U)),
+  ])
+}
+
+///|
+fn gen_valid_merge_locals_type_boundary_module() -> Module {
+  let base = RecType::new(SubType::new(false, [], CompType::struct_([])))
+  let child = RecType::new(
+    SubType::new(false, [TypeIdx::new(0U)], CompType::struct_([])),
+  )
+  let base_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(0U))),
+  )
+  let child_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(TypeIdx::new(1U))),
+  )
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [base_ref])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([base, child, func_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([child_ref, base_ref]),
+        Expr::new([
+          Instruction::ref_null_type(
+            RefType::new(true, HeapType::new(TypeIdx::new(1U))),
+          ),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::drop(),
+          Instruction::local_get(LocalIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_locals_rollback_module(seed : UInt64) -> Module {
+  let value = (seed % 67UL).to_int() + 1
+  gen_valid_merge_locals_i32_module([], [ValType::i32()], [
+    Instruction::i32_const(I32(value)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::i32_const(I32(value + 1)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+  ])
+}
+
+///|
+fn gen_valid_merge_locals_profile_module(ctx : GenValidContext) -> Module {
+  match gen_valid_merge_locals_profile_kind(ctx.config) {
+    MergeLocalsReverseProfile =>
+      gen_valid_merge_locals_reverse_module(ctx.root_seed)
+    MergeLocalsControlProfile =>
+      gen_valid_merge_locals_control_module(ctx.root_seed)
+    MergeLocalsTeeProfile => gen_valid_merge_locals_tee_module(ctx.root_seed)
+    MergeLocalsMergeBoundaryProfile =>
+      gen_valid_merge_locals_merge_boundary_module(ctx.root_seed)
+    MergeLocalsTypeBoundaryProfile =>
+      gen_valid_merge_locals_type_boundary_module()
+    MergeLocalsRollbackProfile =>
+      gen_valid_merge_locals_rollback_module(ctx.root_seed)
+    _ => gen_valid_merge_locals_forward_module(ctx.root_seed)
+  }
+}
+
+///|
 fn gen_valid_reorder_locals_profile_kind(
   config : GenValidConfig,
 ) -> GenValidProfile {
@@ -25207,6 +25599,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
   if gen_valid_is_duplicate_import_elimination_profile_config(config) {
     return gen_valid_duplicate_import_elimination_profile_module(config)
+  }
+  if gen_valid_is_merge_locals_profile_config(config) {
+    return gen_valid_merge_locals_profile_module(ctx)
   }
   if gen_valid_is_reorder_locals_profile_config(config) {
     return gen_valid_reorder_locals_profile_module(config)

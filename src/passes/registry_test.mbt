@@ -118,7 +118,7 @@ test "pass registry classifies active, boundary-only, and removed names" {
   )
   @debug.assert_eq(
     pass_registry_category("merge-locals"),
-    Some(HotPassRegistryCategory::module_pass()),
+    Some(HotPassRegistryCategory::hot_pass()),
   )
   @debug.assert_eq(
     pass_registry_category("untee"),

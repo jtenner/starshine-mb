@@ -103,7 +103,7 @@ pub fn merge_blocks_descriptor() -> @ir.HotPassDescriptor
 
 pub fn merge_blocks_summary() -> String
 
-pub fn merge_locals_run_module_pass(@lib.Module) -> @lib.Module
+pub fn merge_locals_descriptor() -> @ir.HotPassDescriptor
 
 pub fn merge_locals_summary() -> String
 

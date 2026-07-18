@@ -5149,7 +5149,9 @@ fn inl_run_nested_cleanup_pass(
     return run_hot_pipeline_apply_reorder_locals_to_touched(mod_, def_touched)
   }
   if pass_name == "merge-locals" {
-    return run_hot_pipeline_apply_merge_locals_to_touched(mod_, def_touched)
+    return run_hot_pipeline_apply_merge_locals_to_touched(
+      mod_, def_touched, options,
+    )
   }
   if pass_name == "local-subtyping" {
     pipeline_trace_hook(options.trace, "local-subtyping", "start")

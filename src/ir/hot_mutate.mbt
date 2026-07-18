@@ -1252,6 +1252,25 @@ pub fn hot_label_owner_set(
 }
 
 ///|
+pub fn hot_local_node_id_set(
+  func : HotFunc,
+  node_id : NodeId,
+  local_id : LocalId,
+) -> Unit {
+  hot_mutate_require_live_node(func, node_id, "hot local_node_id_set node")
+  if hot_local_type(func, local_id) is None {
+    abort("hot local_node_id_set requires a valid local id")
+  }
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::LocalGet | HotOp::LocalSet | HotOp::LocalTee =>
+      hot_node_set(func, node_id, { ..node, imm0: local_id })
+    _ =>
+      abort("hot local_node_id_set requires local.get, local.set, or local.tee")
+  }
+}
+
+///|
 pub fn hot_branch_target_set(
   func : HotFunc,
   node_id : NodeId,

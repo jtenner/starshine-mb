@@ -2795,6 +2795,46 @@ test "emit gen-valid reorder-locals composite records selected subprofiles" {
 }
 
 ///|
+test "emit gen-valid merge-locals composite records every v131 family profile" {
+  let args = EmitGenValidBatchArgs::new(
+    28,
+    0x5eedUL,
+    "tmp/gen-valid-merge-locals",
+    profile="merge-locals-all",
+    max_attempts=112,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(selection.manifest.length(), 28)
+  let expected = [
+    "merge-locals-forward", "merge-locals-reverse", "merge-locals-control", "merge-locals-tee",
+    "merge-locals-merge-boundary", "merge-locals-type-boundary", "merge-locals-rollback",
+  ]
+  let selected_profiles : Array[String] = []
+  for item in selection.manifest {
+    @debug.assert_eq(item.config_label, "merge-locals-all")
+    assert_true(
+      expected.contains(item.selected_profile),
+      msg="unexpected merge-locals subprofile \{item.selected_profile}",
+    )
+    if !selected_profiles.contains(item.selected_profile) {
+      selected_profiles.push(item.selected_profile)
+    }
+  }
+  for profile in expected {
+    assert_true(
+      selected_profiles.contains(profile),
+      msg="merge-locals-all did not select \{profile}",
+    )
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(manifest.contains("\"config_label\":\"merge-locals-all\""))
+  assert_true(manifest.contains("\"selected_profile\":\"merge-locals-"))
+}
+
+///|
 test "emit gen-valid simplify-locals-nostructure composite records selected subprofiles" {
   let args = EmitGenValidBatchArgs::new(
     6,

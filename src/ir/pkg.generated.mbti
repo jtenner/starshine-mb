@@ -419,6 +419,8 @@ pub fn hot_local_count(HotFunc) -> Int
 
 pub fn hot_local_is_param(HotFunc, Int) -> Bool
 
+pub fn hot_local_node_id_set(HotFunc, Int, Int) -> Unit
+
 pub fn hot_local_param_count(HotFunc) -> Int
 
 pub fn hot_local_type(HotFunc, Int) -> @lib.ValType?

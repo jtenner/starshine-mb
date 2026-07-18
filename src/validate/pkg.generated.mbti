@@ -64,6 +64,8 @@ pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFact
 
 pub fn gen_valid_inlining_optimizing_profile_case_label(GenValidProfile, UInt64) -> String?
 
+pub fn gen_valid_merge_locals_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_merge_ssa_func_facts(GenValidSsaFuncFacts, GenValidSsaFuncFacts) -> GenValidSsaFuncFacts
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
@@ -1254,6 +1256,14 @@ pub enum GenValidProfile {
   CoalesceLocalsStructuredProfile
   CoalesceLocalsLoopCopyThroughProfile
   CoalesceLocalsAllProfile
+  MergeLocalsForwardProfile
+  MergeLocalsReverseProfile
+  MergeLocalsControlProfile
+  MergeLocalsTeeProfile
+  MergeLocalsMergeBoundaryProfile
+  MergeLocalsTypeBoundaryProfile
+  MergeLocalsRollbackProfile
+  MergeLocalsAllProfile
   RemoveUnusedBrsControlProfile
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
