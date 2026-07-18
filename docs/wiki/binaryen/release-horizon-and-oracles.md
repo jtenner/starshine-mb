@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/releases/tag/version_131
+  - https://github.com/WebAssembly/binaryen/compare/version_130...version_131
   - https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c
   - ../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
@@ -35,27 +38,31 @@ Use it when you need to answer a basic question like:
 
 The current answer is:
 
-- the newest public Binaryen release baseline is `version_130`, confirmed on 2026-06-04 by the official GitHub release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted `main` changelog;
-- the 2026-06-05 BrOn assertion/security recheck confirms `version_130` is after Binaryen commit `1251efb`, the April 2026 fix for a reachable assertion while parsing malformed `br_on*` / descriptor-branch operands;
-- the live `main` changelog and current primary-source refreshes are the drift watch for anything beyond `version_130`; the 2026-07-10 `memory-packing` imported-overlap change and the 2026-07-11 `mark-js-called` / `remove-exports` no-drift recheck are current concrete examples;
-- detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
+- the newest public Binaryen release baseline is `version_131`, published on **2026-07-15** and resolving to commit `1f903c14babf829745b421b92ff0f286e93e4209`;
+- the v130-to-v131 range contains `92` commits, adds public `constraint-analysis` plus hidden test pass `remove-start`, and leaves the default optimization scheduler unchanged;
+- six accepted Starshine implementation areas are reopened for released behavior changes: `optimize-instructions`, `memory-packing`, `remove-unused-module-elements`, `directize`, `heap2local`, and the shared `inlining` / `inlining-optimizing` engine;
+- `pick-load-signs` has already completed an explicit v131 audit and remains closed;
+- the live `main` changelog and pass-specific current-main reads are now the drift watch for anything beyond `version_131`;
+- detailed pass pages may still stay anchored to `version_129`, `version_130`, or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
-That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as [`mark-js-called`](passes/mark-js-called/index.md), [`remove-exports`](passes/remove-exports/index.md), Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier. Wide Arithmetic remains Binaryen/tool release evidence here; route Starshine support claims and proposal opcode caveats through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md).
+The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel `atomic.fence`, the JS parser API merge, and the new [`constraint-analysis`](passes/constraint-analysis/index.md) pass; the full tag diff also contains released pass behavior changes beyond the short changelog. Newly refreshed upstream-only routes include open-world [`remove-unused-types`](passes/remove-unused-types/index.md), open-world [`unsubtyping`](passes/unsubtyping/index.md), recursion-safe [`print-boundary`](passes/print-boundary/index.md), non-shared-atomic [`safe-heap`](passes/safe-heap/index.md), and public-type-safe [`merge-j2cl-itables`](passes/merge-j2cl-itables/index.md). Keep this page as the release-horizon anchor, but send exact algorithm questions to the owning dossier and the [v131 release-impact audit](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md).
 
 ## Supersession timeline
 
 - 2026-06-01: an earlier bridge capture treated the public release horizon as `version_130`, but later checks considered its evidence contradictory.
 - 2026-06-02: correction note 0698 temporarily moved the wiki baseline back to `version_125`; keep it as provenance, not as the current baseline.
-- 2026-06-04: the official GitHub `version_130` release page is reachable and marked latest, the official `main` changelog puts `v130` immediately below `Current Trunk`, and Chromium corroborates the tag/changelog ordering. This 0704 recheck supersedes both the 2026-06-01 bridge and the 2026-06-02 `version_125` correction for current release-horizon decisions.
+- 2026-06-04: the official GitHub `version_130` release page, changelog, and Chromium mirror re-established v130 as the stable baseline, superseding the temporary `version_125` correction.
+- 2026-07-15: Binaryen published `version_131` at tag commit `1f903c14babf829745b421b92ff0f286e93e4209`.
+- 2026-07-18: research note 1573 audited the complete v130-to-v131 range, confirmed the default pass order is unchanged, added the new pass to the tracker, and reopened the six affected Starshine implementation areas. This supersedes v130 for current release-horizon decisions.
 
 ## Source hierarchy
 
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
-| Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
+| Public release baseline | Official GitHub release page for `version_131` | The newest tagged public release horizon. |
 | Oracle/security boundary | Official Binaryen commit `1251efb` | The `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
-| Durable local evidence | research note 0704 plus the official release/changelog URLs below | The retained repo-authored summary and its primary sources for the latest release-horizon read. |
-| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past the newest tag in a way that matters to the docs. The 2026-07-10 `memory-packing` drift and the 2026-07-11 `mark-js-called` / `remove-exports` no-drift recheck are current examples. |
+| Durable local evidence | research note 1573 plus the official release/compare/changelog URLs below | The retained repo-authored summary, pass-impact classification, and reopening decisions for the latest release. |
+| Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_131` in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Superseded correction | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
 | Historical bridge | 2026-06-01 capture (ingested and removed) | Earlier `version_130` bridge; its useful facts are retained by the stronger 2026-06-04 recheck. |
@@ -66,7 +73,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## How to read Binaryen pages
 
-1. **If the question is "what is the latest public Binaryen release?"** use `version_130` and this page.
+1. **If the question is "what is the latest public Binaryen release?"** use `version_131` and this page.
 2. **If the question is "did trunk drift after the latest tag?"** use the official `main` changelog first, then the Chromium mirror as corroboration.
 3. **If the question is "what does this pass actually do?"** use the pass-specific dossier and its raw research notes, not the release-horizon page.
 4. **If the question is "what should I update in the wiki when a new release lands?"** update this page, the top-level catalog, the pass catalog/tracker pages, and any dossier that explicitly names the newest public tag.
@@ -74,9 +81,11 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-The 2026-06-04 recheck supersedes the earlier `version_125` correction. Direct official sources and Chromium corroboration now agree that `version_130` is the newest public tag. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
+Direct official sources establish `version_131` as the newest public tag. The v131 audit found no default scheduler change, so the existing no-DWARF 56-slot O4z roster remains current, but several direct-pass contracts changed and old v130 closeout evidence is not sufficient for those owners.
 
-The key wiki-maintenance consequence is that `version_130` is the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main or `version_130` reread. Conversely, a fresh current-main reread can expose a post-release change without changing the stable oracle: [`memory-packing`](passes/memory-packing/index.md) now records the merged imported-memory overlap exception separately from its `version_130` evidence.
+The key wiki-maintenance consequence is that `version_131` is the public release baseline, but it does **not** force every detailed pass dossier to pretend it has been re-audited. Keep older source anchors explicit until a dedicated v131 read exists. Current-main findings already captured before the release—such as `memory-packing` imported overlap, open-world `unsubtyping`, recursive-safe `print-boundary`, and toolchain inline hints—should now be relabeled as released v131 behavior rather than post-v130 drift.
+
+The local `wasm-opt` on `PATH` reported `version_116` on 2026-07-18. V131 parity evidence must use an explicit verified official v131 binary through `--wasm-opt-bin`; bare PATH resolution is not a valid oracle for this baseline.
 
 ## BrOn Assertion And Oracle-Failure Boundary
 
@@ -106,7 +115,10 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 - Historical 2026-06-01 bridge: ingested and removed; its release-horizon facts are retained in the 0704 recheck above.
 - Official BrOn assertion-fix commit: <https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c>
 - Current-main `memory-packing` drift bridge: [`../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
-- Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
+- V131 release-impact audit: [`../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md)
+- Official GitHub `version_131` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_131>
+- Official GitHub v130-to-v131 compare: <https://github.com/WebAssembly/binaryen/compare/version_130...version_131>
+- Historical official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
 - Chromium refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>
 - Chromium-hosted `main` changelog: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/refs/heads/main/CHANGELOG.md>

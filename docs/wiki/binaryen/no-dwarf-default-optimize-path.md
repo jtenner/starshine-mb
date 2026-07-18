@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-14
+last_reviewed: 2026-07-18
 sources:
+  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
   - ../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
@@ -30,7 +31,7 @@ related:
 - The MoonBit debug artifact at `tests/node/dist/starshine-debug-wasi.wasm` has a `name` section but no `.debug_*` sections, so Binaryen takes the unrestricted no-DWARF path.
 - Feature gates matter. The observed artifact enables the GC-, multivalue-, and string-gated passes that appear in the real pathway.
 - A `2026-04-09` source review found the open-world no-DWARF `-O` / `-Os` path for this artifact unchanged between the archived `version_125` note and upstream `version_129`.
-- The public Binaryen release horizon has since advanced to `version_130`; this page's detailed no-DWARF path audit still reflects the original `version_129` source set, so treat the older wording here as a historical baseline rather than newest-tag coverage.
+- The public Binaryen release horizon is now `version_131`. The v130-to-v131 `pass.cpp` diff changes only pass registration (`constraint-analysis` and hidden `remove-start`), so the default no-DWARF optimization order and the 56-slot O4z roster are unchanged.
 
 ## Canonical Top-Level Shape
 
@@ -41,15 +42,19 @@ related:
 - Post-pass phase:
   `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`
 
+## 2026-07-18 release-order refresh
+
+Binaryen `version_131` preserves the v130 default scheduler exactly. The detailed historical path below remains useful, while pass-local behavior must now be read against the v131 release-impact audit. In particular, unchanged order does not mean unchanged owner contracts: OI, memory-packing, RUME, directize, heap2local, and inlining are reopened separately.
+
 ## 2026-06-14 `ssa-nomerge` scheduling anchors
 
 `[SSANM-010a]` refreshed only the `ssa-nomerge` scheduling facts needed before the O4z no-op decision; it does not replace the whole historical `version_129` no-DWARF path audit above.
 
 | Anchor | Current fact | Source / proof surface |
 | --- | --- | --- |
-| Binaryen `version_130` registration | `pass.cpp` still registers public `ssa-nomerge` through `createSSAifyNoMergePass`. | [`../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md) confirms the registration did not drift from `version_129`; local `wasm-opt --version` reports `wasm-opt version 130 (version_130)`. |
-| Binaryen early function-pipeline slot | `addDefaultFunctionOptimizationPasses()` still schedules `ssa-nomerge` when `optimizeLevel >= 3 || shrinkLevel >= 1`, subject to DWARF gating. For `-O4z`, that condition is true before the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude and before `dce -> remove-unused-names -> remove-unused-brs`. | Same source refresh; it records the official `version_130` `src/passes/pass.cpp` source URL and the local downloaded-file comparison. |
-| Starshine public preset expansion | `optimize` and `shrink` both contain an early `ssa-nomerge` slot after `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> global-struct-inference`, then `dead-code-elimination -> remove-unused-names -> remove-unused-brs`. They do not currently add the Binaryen O4z-only `flatten` prelude. | [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) `optimize_preset_passes` / `shrink_preset_passes`; [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) `preset expansion stays on implemented active pass names`. |
+| Binaryen `version_131` registration | `pass.cpp` still registers public `ssa-nomerge` through `createSSAifyNoMergePass`. | Research note 1573 confirms no v130-to-v131 scheduler drift. |
+| Binaryen early function-pipeline slot | `addDefaultFunctionOptimizationPasses()` still schedules `ssa-nomerge` when `optimizeLevel >= 3 || shrinkLevel >= 1`, subject to DWARF gating. For `-O4z`, that condition is true before the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude and before `dce -> remove-unused-names -> remove-unused-brs`. | [`../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md). |
+| Starshine public preset expansion | `optimize` and `shrink` contain the early `ssa-nomerge -> flatten -> simplify-locals-notee-nostructure -> local-cse` aggressive prelude, followed by the ordinary cleanup cluster. | [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt), [`../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md). |
 | Starshine O4z no-op guard | Superseded on 2026-06-15 by `[SSANM-010c]` / `[SSANM-010d]`: the `o4z-ssa-nomerge-noop` raw-dispatch guard was removed, so `ssa-nomerge` now runs when the public preset queue reaches the early O4z-shaped slot. `-O4z` still resolves to a shrink preset with both optimize and shrink levels set. | [`../../../src/passes/pass_manager.mbt`](../../../src/passes/pass_manager.mbt) raw dispatch no longer contains the guard; [`../../../src/passes/ssa_nomerge_test.mbt`](../../../src/passes/ssa_nomerge_test.mbt) `ssa-nomerge runs in O4z scheduling mode`; [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) `resolve_optimize_levels`. |
 | Decision boundary | `[SSANM-010c]` is decided by explicit user approval on 2026-06-15: remove the broad O4z no-op and treat any exposed correctness issue as release-blocking follow-up work rather than silently bypassing the scheduled pass. Reopening criteria: restore or narrow a guard only for a minimized validation/correctness blocker with an owning test and documented scope. | [`../../../agent-todo.md`](../../../agent-todo.md) `[SSANM-010c]` / `[SSANM-010d]`. |
 
@@ -78,12 +83,12 @@ A matching Binaryen sanity pass with `wasm-opt --all-features` validates every p
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_130` as the upstream release baseline for new pass research; the 2026-06-04 release-horizon recheck 0704 supersedes both the temporary 2026-06-02 `version_125` correction and the earlier 2026-06-01 bridge (ingested and removed), and the older `version_129` path-reading notes remain historical until a dedicated `version_130` reread says otherwise.
+- Use Binaryen `version_131` as the upstream release baseline for new pass research; research note 1573 supersedes v130 for current release decisions while preserving older pass-specific source anchors as historical evidence.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
-- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_130` release baseline and the release-horizon note first.
-- As of the 2026-06-07 behavior-parity inventory, the local workspace `wasm-opt --version` reports `version_130`; older command-based evidence on this page remains tied to the `version_129` or earlier local oracle that produced it until rerun under the refreshed toolchain.
-- Earlier command-based evidence tied to `version_125` or `version_129` remains historical until rerun under the current local `version_130` oracle.
+- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_131` release baseline and the release-horizon note first.
+- On 2026-07-18, bare `wasm-opt --version` resolved to TinyGo's `version_116`. Current v131 evidence must pass an explicit verified official v131 binary through `--wasm-opt-bin`.
+- Earlier command-based evidence tied to `version_125`, `version_129`, or `version_130` remains historical until rerun against the explicit v131 oracle when the owning pass changed.
 - The post-SGO late-tail neighborhood `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` is directly oracle-proven for v0.1.0 scheduling purposes: the 10k ordered-neighborhood fuzz lane is green, same-input RUME comparisons are canonical-green on both SGO-side artifact inputs, and the remaining debug-artifact first diff is inherited SGO representation/function-layout drift feeding RUME before the later string/reorder/directize tail changes anything. Public `optimize` and `shrink` now append this accepted suffix; see [`../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and [`../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md).
 - `scripts/self-optimize-compare.ts` now runs `moon build --target native --release --package jtenner/starshine/cmd` and invokes the built `_build/native/release/build/cmd/cmd.exe` by default, so recorded Starshine command timings measure the native CLI rather than a `moon run` wrapper unless `--starshine-bin` overrides it.
 
@@ -91,9 +96,12 @@ A matching Binaryen sanity pass with `wasm-opt --all-features` validates every p
 
 - Archived research doc: [`../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
 - Superseded 2026-06-01 bridge: ingested and removed; use the 0704 recheck below for retained release-horizon evidence.
-- Binaryen `version_130` retained release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Binaryen `version_131` release-impact audit: [`../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md)
+- Historical Binaryen `version_130` release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Superseded Binaryen `version_125` correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
-- Binaryen `version_130` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
+- Binaryen `version_131` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_131>
+- Binaryen v130-to-v131 compare: <https://github.com/WebAssembly/binaryen/compare/version_130...version_131>
+- Historical Binaryen `version_130` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
 - Binaryen `version_129` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
 - Binaryen `version_129` preset source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

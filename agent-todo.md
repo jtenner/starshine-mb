@@ -3,23 +3,25 @@
 ## Scope And Rules
 
 - Keep only active unreleased work or explicitly deferred future work.
-- Binaryen `version_130` O4z means `wasm-opt --all-features -O4 --shrink-level 4`.
-- The current 56-slot oracle, Starshine preset diff, and per-pass status audit are recorded in `docs/wiki/raw/research/1568-2026-07-13-o4z-backlog-reconstruction.md`.
+- Binaryen `version_131` O4z means `wasm-opt --all-features -O4 --shrink-level 4`.
+- The v131 release leaves the existing 56-slot / 38-owner O4z scheduler unchanged; the v130-to-v131 pass-impact and reopening audit is `docs/wiki/raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`.
+- The detailed preset diff and per-pass roster remain recorded in `docs/wiki/raw/research/1568-2026-07-13-o4z-backlog-reconstruction.md`; read that note as the unchanged scheduler baseline, not as v131 direct-pass signoff.
+- Bare `wasm-opt` currently resolves to TinyGo's Binaryen `version_116`. Every v131 compare or self-opt command must pass an official verified v131 binary with `--wasm-opt-bin`; require `wasm-opt version 131 (version_131)` in the evidence.
 - Direct pass behavior comes before ordered-neighborhood proof; preset scheduling comes last.
 - Behavior parity is the target. Raw wasm/WAT equality is not required, but every remaining difference must be source-backed, measured, classified, and covered by reopening criteria.
 - A pass is not closed merely because an ordinary random lane found no mismatch. Source/docs breadth, pass-specific generation, validity, performance, and the required four-lane closeout matrix still apply.
 - Use `_build/native/release/build/cmd/cmd.exe` after a current native release build. Treat `target/native/...` as stale unless explicitly proven fresh.
 - Moon commands must run serially.
 
-## Binaryen v130 O4z Pass Ledger
+## Binaryen v131 O4z Pass Ledger
 
 This table covers every unique owner in the 56-slot top-level O4z path. Only rows marked **open** have active v0.1.0 work below.
 
 | Pass | Current Starshine status | Active work |
 | --- | --- | --- |
 | `duplicate-function-elimination` | Direct behavior closed; both slots scheduled. | None. |
-| `remove-unused-module-elements` | Direct behavior closed. | **Open scheduler gap:** second early slot. |
-| `memory-packing` | Closed. | None. |
+| `remove-unused-module-elements` | **Reopened for v131:** table initial values, null/wrong-type trap retention, and overlapping element segments changed upstream. | **Open v131 direct reassessment plus existing scheduler gap:** second early slot. |
+| `memory-packing` | **Reopened for v131:** the imported zero-filled in-bounds overlap path is now released oracle behavior. | **Open v131 implementation and closeout.** |
 | `once-reduction` | Closed. | None. |
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
@@ -30,7 +32,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `dead-code-elimination` / `dce` | Closed. | None. |
 | `remove-unused-names` | Closed. | None. |
 | `remove-unused-brs` | Direct behavior closed. | **Open scheduler reconciliation:** Starshine has one extra slot. |
-| `optimize-instructions` | Closed under the 2026-07-12 maintained parity contract. | None; reopen only under documented criteria. |
+| `optimize-instructions` | **Reopened for v131:** equal-ref, identical-select, idempotent-call/effect-order, and non-concrete-select behavior changed upstream. | **Open v131 focused parity and closeout.** |
 | `heap-store-optimization` | Closed. | None. |
 | `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
 | `precompute-propagate` | Public pass removed/unimplemented; private prefix helper exists. | **Open implementation and scheduling.** |
@@ -39,7 +41,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
 | `vacuum` | Direct behavior closed. | **Open scheduler placement:** remove/justify extra early slot and restore final slot. |
 | `reorder-locals` | Closed; three slots scheduled. | None. |
-| `heap2local` | Closed. | None. |
+| `heap2local` | **Reopened for v131:** upstream now rebuilds analysis after each successful candidate and handles unreachable type-flow repair. | **Open v131 focused parity and O4z slot recheck.** |
 | `merge-locals` | Closed at Binaryen-v131 parity; both orientations, CFG influence, rollback, profiles, timing, and slot-27 scheduling completed on 2026-07-18. | None. |
 | `optimize-casts` | Closed. | None. |
 | `local-subtyping` | Closed. | None. |
@@ -49,12 +51,77 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `merge-blocks` | Closed for the current v0.1.0 audit. | None. |
 | `redundant-set-elimination` / `rse` | Direct behavior and 1x timing closed. | **Open scheduler slot.** |
 | `dae-optimizing` | Active-partial; direct DAE remains raw-red; nested cleanup is incomplete. | **Open implementation and closeout.** |
-| `inlining-optimizing` | Direct audit and 1x timing closed. | Shared nested-scheduler proof only. |
+| `inlining-optimizing` | **Reopened with plain `inlining` for v131:** released `@binaryen.inline` Always/Never policy is not consumed locally. | **Open shared-engine v131 parity; nested-scheduler proof remains under `[O4Z-NESTED]001`.** |
 | `duplicate-import-elimination` | Closed and scheduled. | None. |
 | `simplify-globals-optimizing` | Closed and scheduled. | Shared nested-scheduler proof only. |
 | `string-gathering` | Accepted direct/preset status. | Non-blocking decoder/performance follow-up only. |
 | `reorder-globals` | Accepted direct/preset status. | None. |
-| `directize` | Accepted default direct/preset status. | Optional pass-arg breadth deferred. |
+| `directize` | **Reopened for v131:** table initial values now participate in known-target/trap/unknown classification. | **Open v131 direct and accepted late-tail suffix reassessment; optional pass-arg breadth remains separate.** |
+
+## Binaryen v131 Release Refresh
+
+### [V131-OI]001 - Reassess `optimize-instructions`
+
+- **Goal:** match v131's new equal-reference, identical-select, idempotent-call/effect-order, and non-concrete-select behavior.
+- **Deliverables:**
+  - [ ] Add red-first fixtures for one-evaluation `ref.eq`, scratch-local identical selects, deep-effect idempotent calls, directional effect barriers, and non-concrete arm bailout.
+  - [ ] Reconcile the OI family matrix and dedicated profile with `version_131` source/tests.
+  - [ ] Run the full four-lane matrix with explicit official v131 `--wasm-opt-bin` plus the scheduled O4z neighborhoods.
+- **Exit criteria:** no unclassified v131 OI family gap, validation failure, size-losing divergence without proof, or performance regression.
+
+### [V131-MP]001 - Implement released imported-overlap `memory-packing`
+
+- **Goal:** implement Binaryen v131's source-order trampling cleanup for overlapping active segments, including the imported-memory in-bounds gate.
+- **Deliverables:**
+  - [ ] Add red-first defined/imported, in-bounds/out-of-bounds, memory32/memory64, source-order, and partially trampled fixtures.
+  - [ ] Preserve checked arithmetic, page-size semantics, instantiation trap observability, data names, and segment-op rewrites.
+  - [ ] Refresh `memory-packing-all`, the full four-lane closeout, and O4z slot `3` evidence against explicit v131.
+- **Exit criteria:** released overlap behavior is implemented or a narrower source-backed blocker is recorded; the current unconditional overlap bailout is gone for admitted v131 cases.
+
+### [V131-RUME]001 - Reassess table-initial-value and overlap liveness
+
+- **Goal:** match v131 RUME retention for table initial values, null/wrong-type writes, overlapping/dynamic element segments, and TNH policy.
+- **Deliverables:**
+  - [ ] Add red-first direct and return-indirect call fixtures for initializer targets, wrong-type traps, null trampling, dynamic offsets, and `trapsNeverHappen`.
+  - [ ] Reconcile full RUME and non-function sibling behavior without over-rooting callable functions.
+  - [ ] Run the full direct matrix plus both early RUME neighborhoods and the accepted late-tail suffix using explicit v131.
+- **Exit criteria:** v131 liveness/trap semantics are classified and green; the existing second-early-slot scheduler gap remains separately visible.
+
+### [V131-DIR]001 - Reassess `directize` table initial contents
+
+- **Goal:** add v131 known/trap/unknown classification for table initializers while preserving growth/set/import boundaries.
+- **Deliverables:**
+  - [ ] Add red-first `ref.func`, null, `global.get`, imported-table, grow, set, in-range, and out-of-range initializer fixtures.
+  - [ ] Preserve child effects, subtype checks, tail-call form, select lowering, EH repair, and refinalization.
+  - [ ] Run the full direct matrix and `string-gathering -> reorder-globals -> directize` late-tail proof against explicit v131.
+- **Exit criteria:** default v131 directize behavior is green; optional `directize-initial-contents-immutable` pass-arg work remains separately deferred.
+
+### [V131-H2L]001 - Reassess sequential-candidate and unreachable flow safety
+
+- **Goal:** match v131's post-mutation analysis rebuild and unreachable type-flow behavior.
+- **Deliverables:**
+  - [ ] Add red-first multiple sequential struct/array candidate fixtures that would expose stale LocalGraph/parent/branch-target data.
+  - [ ] Add unreachable flow-through cases for adjusted allocation types.
+  - [ ] Run `heap2local-all`, the full four-lane matrix, timing, and O4z slot/neighborhood evidence against explicit v131.
+- **Exit criteria:** no stale-analysis or unreachable-flow mismatch remains and existing measured Starshine cleanup wins stay valid.
+
+### [V131-INL]001 - Consume released `@binaryen.inline` policy
+
+- **Goal:** align plain `inlining` and `inlining-optimizing` with v131 function-level toolchain Always/Never inline hints.
+- **Deliverables:**
+  - [ ] Confirm generic WAST/lowering carriage for `@binaryen.inline`, add focused coverage if absent, and add red-first inliner policy tests that distinguish it from `@metadata.code.inline` plus Starshine `no-inline*` markers.
+  - [ ] Honor Never/Always after `try_delegate` rejection and before normal full-inline heuristics; preserve and remap the annotation correctly, while documenting the separate upstream-only `strip-toolchain-annotations` boundary.
+  - [ ] Run both direct pass matrices and focused nested-suffix evidence against explicit v131.
+- **Exit criteria:** shared-engine v131 policy is green without conflating metadata, toolchain hints, and pass-level no-inline flags.
+
+### [V131-SPOT]001 - Renew shared-helper-sensitive closed-pass evidence
+
+- **Goal:** determine whether v131 shared effect/type/finalization changes alter closed passes whose owner file did not change.
+- **Targeted set:** `code-pushing`, `heap-store-optimization`, `precompute`, `remove-unused-brs`, all five `simplify-locals` variants, and `tuple-optimization`; DAE remains owned by its existing open slices.
+- **Deliverables:**
+  - [ ] Run focused v131 source/test probes before any full rerun.
+  - [ ] Keep a pass closed when the probe is green and the owner contract is unchanged; open a dedicated slice only for a classified mismatch or missing released family.
+- **Exit criteria:** every target has an explicit v131 renewed/unchanged verdict or an owning follow-up slice.
 
 ## v0.1.0 Primary O4z Work
 
