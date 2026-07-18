@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
+  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../binaryen/passes/safe-heap/index.md
   - ../wasm-linear-memory-threads-boundary.md
   - ../wasm-relaxed-atomics-boundary.md
   - https://github.com/WebAssembly/proposals
@@ -32,6 +34,7 @@ related:
   - ../fuzzing/generator-coverage-ledger.md
   - ../validate/module-validation-phases.md
   - ../wasm-relaxed-atomics-boundary.md
+  - ../binaryen/passes/safe-heap/index.md
 ---
 
 # Atomic Memory Instruction Authoring
@@ -43,6 +46,8 @@ Atomic memory instructions are the threads/proposal-backed operations that synch
 Do not use this page as the owner for every instruction whose name contains `atomic`. The Shared-Everything Threads proposal also has **shared-GC aggregate atomics** such as `struct.atomic.get*`. Starshine now has a focused WAST/core/binary/validator surface for `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u`; route the proposal boundary through [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md) and the local aggregate authoring details through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) instead of through `MemArg`-based memory rules. The official proposals tracker also now lists **Relaxed Atomics** as a separate active Phase-2 proposal for linear-memory ordering and `pause`; current Starshine ordinary atomics, `AtomicsFeature`, shared-GC `AtomicOrder::AcqRel`, and `RelaxedSimdFeature` are not evidence for relaxed-atomics support. Keep relaxed-atomics fixtures out of this page's positive examples until local AST/binary/validator/generator evidence exists, and route the detailed status vocabulary through [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md) plus [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md).
 
 Use this page when a fixture, pass, fuzzer row, or wiki claim mentions linear-memory atomics. Use [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md) when the claim spans Threads proposal status, shared linear memory, `MemType(..., shared)`, ordinary atomics, `atomic.fence`, and nearby proposal boundaries. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for ordinary scalar and bulk memory instructions, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `MemArg` alignment/offset/index rules, [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md) for Shared-Everything proposal status, [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) for `struct.atomic.get*`, [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for memory declarations/imports in WAST text, and [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for validator-side memory limits, memory64, and Starshine-local shared-memory maximum policy.
+
+Binaryen v131 now mirrors this non-shared-memory validation boundary in [`safe-heap`](../binaryen/passes/safe-heap/index.md): when atomics are enabled, naturally aligned integer atomic load/store helpers are generated regardless of the memory declaration's `shared` bit. That is instrumentation-pass evidence, not Starshine `safe-heap` support; Starshine still has no such pass.
 
 The current Threads/local evidence summarized by [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md) corrects the stale June local-policy claim: the threads draft validates ordinary `MemArg` atomics without a sharedness premise, and current Starshine's `memarg_check_atomic(...)` likewise checks memory existence, alignment, offset, and address width without rejecting unshared memory. The focused regression is [`Typecheck atomic load accepts non-shared memory`](../../../src/validate/typecheck_negative_tests.mbt). `AtomicFence` remains standalone `[] -> []` locally and in the draft. The older shared-memory and fence notes remain historical evidence for the shared-memory maximum rule, generator topology, and fence shape; they are superseded only for the current local unshared-atomic validation claim. The shared feature-status vocabulary for this Core-vs-proposal-vs-local distinction is [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md). The Shared-Everything proposal boundary is [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md).
 

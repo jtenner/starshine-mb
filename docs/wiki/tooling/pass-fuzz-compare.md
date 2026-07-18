@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
+  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
   - https://github.com/bytecodealliance/wasm-tools
@@ -36,7 +37,7 @@ related:
 
 `bun fuzz compare-pass` is Starshine's pass-local Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass asks whether one or more Starshine pass flags produce the same normalized output as the corresponding Binaryen `wasm-opt` flags on the same input modules.
 
-This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete current tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_130` baseline is after the fix. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
+This workflow is grounded in the Binaryen and `wasm-tools` projects, the WebAssembly validation specification, and the local script/test sources listed below. `wasm-smith` generated inputs remain independently validated before comparison. The Binaryen BrOn oracle boundary in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) adds a concrete tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_131` baseline is after the fix. On 2026-07-18 bare `wasm-opt` resolved to TinyGo's Binaryen v116, so v131 evidence must pass an explicit verified official binary with `--wasm-opt-bin`. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
 Beginner mental model:
 
@@ -62,6 +63,7 @@ bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
   --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin <official-version-131-wasm-opt> \
   [--wasm-smith] [--generator wasm-smith|gen-valid] \
   [--gen-valid-profile <profile>] \
   [--require-feature <feature>] [--exclude-feature <feature>] \
@@ -95,10 +97,12 @@ Run a long compare lane only when its pass is executable at **both** sides of th
 
 1. **Harness admission.** `bun fuzz compare-pass --list-passes` reports only names in `SUPPORTED_PASS_FLAGS` in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts). An absent name is rejected during argument parsing, before input generation or Binaryen execution.
 2. **Starshine admission.** The same flag must reach an active Starshine dispatcher. A registry entry in [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) can intentionally be `BoundaryOnly`; such a request terminates with a boundary-only error rather than exercising a transform.
-3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag. Use `binaryenPassFlags` in `result.json` to verify aliases; local aliases that pass through unchanged can otherwise make an invalid comparison setup.
+3. **Oracle admission.** The local spelling must map to the actual public Binaryen flag, and release signoff must use an explicit verified oracle. For v131, run `<path> --version` first and require `wasm-opt version 131 (version_131)`, then pass that path through `--wasm-opt-bin`. Use `binaryenPassFlags` and Binaryen identity fields in `result.json` to verify aliases and tool selection; a bare PATH lookup or local alias that passes through unchanged can invalidate the setup.
 4. **Surface admission.** The selected generator/profile must create modules on which the pass can act, and the run must set a meaningful `--min-compared` threshold. A green process with zero compared cases is not parity signoff.
 
 A pass that fails any of these checks has a **planned fuzzing profile**, not a runnable smoke lane. Its wiki page should document the status test and future command template, but must not label parser rejection, command failure, or zero comparisons as Binaryen-parity evidence. This is especially important for boundary-only registry entries: a Binaryen pass can be real while Starshine deliberately has no active implementation yet.
+
+Binaryen oracle path note: release evidence must state and verify the exact `--wasm-opt-bin`. Bare PATH resolution is acceptable only for exploratory work whose tool version is recorded and matches the intended oracle; it is not valid v131 signoff while PATH resolves to v116.
 
 Native binary path note: Starshine's current native-release policy is to pass `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd`. Both `_build/...` and older `target/native/...` artifacts can exist in a worktree; existence alone does not prove freshness. Do not use `target/native/release/build/cmd/cmd.exe` for signoff unless its timestamp or hash proves it is the same freshly built executable. This is local artifact policy, not a generic MoonBit CLI output-path guarantee; see [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md), and the harness implementation.
 

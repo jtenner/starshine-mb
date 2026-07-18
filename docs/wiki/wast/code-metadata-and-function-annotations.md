@@ -1,15 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://webassembly.github.io/spec/core/appendix/custom.html
   - https://webassembly.github.io/spec/metadata/code/
   - https://webassembly.github.io/spec/metadata/code/branch-hinting.html
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md
   - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
   - ../binaryen/passes/inlining/binaryen-strategy.md
   - ../../../src/wast/lexer.mbt
   - ../../../src/wast/parser.mbt
@@ -38,7 +40,7 @@ related:
 
 ## Overview
 
-Use this page when a fixture, pass, or CLI policy mentions `(@...)`, `@metadata.code.inline`, `@metadata.code.branch_hint`, `@binaryen.idempotent`, `@binaryen.js.called`, or Starshine's internal no-inline markers. The important split is:
+Use this page when a fixture, pass, or CLI policy mentions `(@...)`, `@metadata.code.inline`, v131 `@binaryen.inline`, `@metadata.code.branch_hint`, `@binaryen.idempotent`, `@binaryen.js.called`, or Starshine's internal no-inline markers. The important split is:
 
 - **Official WebAssembly custom annotation syntax and branch hinting** are finished/Core-3.0 metadata surfaces. `@name` / `@custom` live in the custom-section appendix, and branch hints use the code-metadata mechanism as `metadata.code.branch_hint`.
 - **WebAssembly/Binaryen code metadata** can describe instruction-location metadata such as inline hints, branch hints, and toolchain-owned annotations. Code metadata attaches to a concrete instruction location, not to a whole function by default.
@@ -55,7 +57,8 @@ The retained evidence is the Core custom-section appendix, official code-metadat
 | WebAssembly/Binaryen code metadata | Core/code-metadata plus Binaryen optimizer metadata | Starshine documents `metadata.code.inline` and branch hints through Binaryen pass pages, but has no general expression annotation model. Branch hints are now finished/Core-3.0 metadata. | Do not treat a pass WAT example containing `@metadata.code.branch_hint` as proof that Starshine can parse/lower that expression annotation or preserve byte-offset metadata sections. |
 | Compilation Hints | Active Phase-2 proposal over `metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets` | No first-class Starshine payload parser, byte-offset metadata model, structured WAST hint syntax, generator gate, or optimizer consumer. | Do not infer proposal support from raw function annotations, local no-inline markers, Binaryen metadata examples, or opaque custom-section preservation. |
 | Starshine WAST function annotations | Local WAST and in-memory metadata | `(@...)` immediately before a defined function or func import becomes `FuncAnnotationSec` keyed by absolute `FuncIdx`. | Do not assume annotations on globals, memories, tables, expressions, modules, arbitrary custom sections, or instruction offsets are supported. |
-| Starshine no-inline policy | Local optimizer policy | `no-inline*` passes add internal `starshine.no-full-inline` / `starshine.no-partial-inline` function annotations. | Do not confuse those markers with Binaryen `@metadata.code.inline` bytes. |
+| Binaryen v131 toolchain inline policy | Binaryen-owned function annotation | `@binaryen.inline "\00"` supplies `NeverInline`; `@binaryen.inline "\7f"` supplies `AlwaysInline`; `strip-toolchain-annotations` removes this field. Starshine can carry unknown function annotations but does not consume the policy. | Do not confuse it with `@metadata.code.inline`, Compilation Hints, or Starshine's `no-inline*` markers. |
+| Starshine no-inline policy | Local optimizer policy | `no-inline*` passes add internal `starshine.no-full-inline` / `starshine.no-partial-inline` function annotations. | Do not confuse those markers with either Binaryen inline metadata family. |
 
 ## Supported Starshine Shape
 
@@ -114,7 +117,7 @@ Starshine's no-inline passes deliberately avoid overloading `metadata.code.inlin
 - `starshine.no-full-inline`
 - `starshine.no-partial-inline`
 
-`no-inline=<pattern>` adds both markers, while `no-full-inline=<pattern>` and `no-partial-inline=<pattern>` add one marker each. [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt) reads those markers for the local direct inliner. The current Binaryen boundary is now three-way: `@metadata.code.inline` remains separate preserved metadata; current upstream `Inlining.cpp` also consumes a distinct function-level toolchain `AlwaysInline` / `NeverInline` field for full-inline profitability; and `no-inline*` remains separate full/partial suppression policy. Starshine implements only its internal `no-inline*` markers today. See [`../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md) and [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md).
+`no-inline=<pattern>` adds both markers, while `no-full-inline=<pattern>` and `no-partial-inline=<pattern>` add one marker each. [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt) reads those markers for the local direct inliner. The Binaryen v131 boundary is explicit: `@metadata.code.inline` remains separate preserved metadata; `@binaryen.inline "\00"` supplies function-level `NeverInline`, `@binaryen.inline "\7f"` supplies `AlwaysInline`, and `no-inline*` remains separate full/partial suppression policy. Starshine implements only its internal `no-inline*` markers today. See [`../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md) and the [v131 release-impact audit](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md).
 
 ### Function-index remaps
 
@@ -154,7 +157,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - **Compilation Hints is proposal metadata, not local optimizer policy.** Starshine's current no-inline/inlining annotations do not consume `metadata.code.compilation_priority`, `metadata.code.instr_freq`, `metadata.code.call_targets`, `never_opt`, or `always_opt`; use [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md).
 - **Binary roundtrip is absent for `FuncAnnotationSec`.** If a test needs annotation preservation after binary encode/decode, it must first implement and document the binary custom/code-metadata format or preserve an opaque custom section separately.
 - **Name-section and annotation-section repairs are separate.** A function can have a debug name, annotations, both, or neither. Rewriting one map does not repair the other automatically.
-- **Toolchain-stripping is not generic metadata stripping.** [`strip-toolchain-annotations`](../binaryen/passes/strip-toolchain-annotations/index.md) removes selected Binaryen-owned annotations and preserves `metadata.code.inline`; future local support should make the same subset boundary explicit.
+- **Toolchain-stripping is not generic metadata stripping.** V131 [`strip-toolchain-annotations`](../binaryen/passes/strip-toolchain-annotations/index.md) removes selected Binaryen-owned annotations including `@binaryen.inline`, while preserving `@metadata.code.inline`; future local support should make the same subset boundary explicit.
 - **Unknown annotations should be preserved by default.** Unless a pass owns a specific policy, keep annotation names/args unchanged and remap only the function index association.
 
 ## Validation And Signoff Guidance
@@ -171,8 +174,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Official custom/name/code-metadata/branch-hint sources: <https://webassembly.github.io/spec/core/appendix/custom.html>, <https://webassembly.github.io/spec/metadata/code/>, and <https://webassembly.github.io/spec/metadata/code/branch-hinting.html>.
 - Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md), with <https://github.com/WebAssembly/proposals> and <https://github.com/WebAssembly/compilation-hints/blob/main/proposals/compilation-hints/Overview.md>.
 - Binaryen `mark-js-called` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Current Binaryen behavior recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - WAST identifier/name boundary: [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
-- Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md), direct tagged URLs in [`../binaryen/passes/inlining/binaryen-strategy.md`](../binaryen/passes/inlining/binaryen-strategy.md), and the direct official source links in [`../binaryen/passes/strip-toolchain-annotations/index.md`](../binaryen/passes/strip-toolchain-annotations/index.md)
+- Binaryen v131 inlining and strip-toolchain evidence: [release-impact audit](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md), direct tagged URLs in [`../binaryen/passes/inlining/binaryen-strategy.md`](../binaryen/passes/inlining/binaryen-strategy.md), and the direct official source links in [`../binaryen/passes/strip-toolchain-annotations/index.md`](../binaryen/passes/strip-toolchain-annotations/index.md)
 - Starshine code: [`../../../src/wast/lexer.mbt`](../../../src/wast/lexer.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`../../../src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), [`../../../src/passes/duplicate_function_elimination.mbt`](../../../src/passes/duplicate_function_elimination.mbt), [`../../../src/passes/duplicate_import_elimination.mbt`](../../../src/passes/duplicate_import_elimination.mbt), [`../../../src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt)
