@@ -1,3 +1,11 @@
+## Absorbed developer notes
+
+Three one-off research conclusions are maintained here instead of as agent-only raw notes:
+
+- **Unsigned power-of-two division/remainder:** `i32/i64.div_u(x, 2^k)` lowers to `shr_u(x, k)` and `rem_u(x, 2^k)` lowers to `and(x, 2^k - 1)`. Signed operators, non-powers of two, and a constant on the left stay unchanged. The `rem_u(x, 1)` path must preserve an effectful `x`; lowering to `and(x, 0)` is valid when the ordinary zero fold cannot erase evaluation.
+- **Tuple selected-child evidence:** the old arity-27 boundary became positive when the selected-child localizer was generalized. Runtime-enabled direct/grouped probes for the arity ladder were equal despite raw wrapper differences; future coverage should test the generalized invariant, not create another per-arity note.
+- **Closeout coherence:** backlog state, living closeout pages, `pass-oi-all` profile aliases/tests, implementation behavior, and reopening criteria form one contract. Never remove or reopen only one of those surfaces. A future Binaryen release change may reopen OI—as v131 now has—but the docs, backlog, profiles, and validation matrix must move together.
+
 ## 2026-07-12 final closeout: maintainable parity and `[OI-INDEX]005`
 
 `[OI-INDEX]005` is complete. The final post-code-change matrix used a rebuilt native release and the required explicit binary with parallel workers:
