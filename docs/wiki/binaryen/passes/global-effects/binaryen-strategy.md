@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
@@ -135,7 +136,18 @@ So the generated summaries make later questions more precise, such as:
 
 Without this pass, later passes must be more conservative around calls.
 
-## Current-`main` drift
+## Binaryen v131 released drift
+
+V131 materially sharpens the SCC/call-graph contract:
+
+- only functions that are actually reference-addressed or exported are admitted as possible indirect-call targets;
+- `ref.func` uses are collected per function and through module code/element segments;
+- unaddressed functions no longer pollute indirect-call effect summaries;
+- referenced inexact imported functions contribute conservative effects to every applicable function subtype, because a downcasted reference may target the import.
+
+These are now stable-release requirements, not current-main-only observations. Starshine remains boundary-only, so this is a dossier correction rather than a newly reopened local pass.
+
+## Earlier current-`main` drift
 
 The 2026-04-24 primary-source capture also spot-checked current Binaryen `main`, and the 2026-05-06 recheck keeps that same teaching shape.
 The visible teaching drift is in implementation structure, not in the high-level contract:

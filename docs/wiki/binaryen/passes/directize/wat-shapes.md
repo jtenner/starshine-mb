@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
@@ -339,41 +341,25 @@ Why:
 
 This is the single most important positive shape for the pass arg.
 
-## Shape 12: hole inside the known prefix becomes `unreachable`
-
-Conceptually, if the known flattened prefix looks like:
-
-```text
-index: 0 1 2 3
-value: - A - B
-```
-
-then a call through constant index `0` or `2` can become:
+## Shape 12: a defined-table null default becomes `unreachable`
 
 ```wat
-unreachable
+(table $t 2 2 funcref)
+(call_indirect $t (type $sig) (i32.const 0))
 ```
 
-Why:
+With no element write and no explicit initializer, an in-bounds defined-table slot has the null default, so v131 can replace the call with `unreachable` while preserving operand effects.
 
-- those are known null slots inside the known prefix
-- Binaryen treats them as definite traps
-
-## Shape 13: beyond-known-prefix constant can still stay indirect
-
-Using the same conceptual table as above, a later constant index like `4` may stay as:
+## Shape 13: a `ref.func` default can become a direct call
 
 ```wat
-(call_indirect ... (i32.const 4))
+(table $t 1 1 funcref (ref.func $fallback))
+(call_indirect $t (type $sig) (i32.const 0))
 ```
 
-Why:
+If `$fallback` has a compatible type and no element segment overrides slot `0`, v131 rewrites this to `call $fallback`. A `global.get` default stays indirect because its value is unknown.
 
-- `4` is beyond the known flattened prefix
-- on a mutable/imported table, later growth might make that slot valid
-- so the answer is `Unknown`, not `Trap`
-
-This is one of the easiest directize corner cases to get wrong.
+An imported-table hole also stays indirect: the host may supply a non-null default. A constant beyond the declared initial size becomes `unreachable` only when growth cannot later populate it; otherwise it remains `Unknown`.
 
 ## Shape 14: `table.set` / `fill` / `init` block ordinary mode
 
@@ -535,14 +521,14 @@ The key lesson is:
 
 ## What this pass deliberately does not do
 
-- It does not optimize `call_ref` in `version_129`.
+- It does not optimize `call_ref` in v131.
 - It does not solve arbitrary symbolic or arithmetic target expressions.
 - It does not duplicate operand trees freely; it stores them in locals for the supported `select` case.
 - It does not assume imported/exported tables are safe by default.
 - It does not treat every suspicious table-layout case as a proved trap.
 - It does not widen one-known-one-unknown `select` cases into a partial rewrite.
 
-The 2026-05-05 current-main recheck and the 2026-04-26 port-readiness bridge did not change those non-goals. If you see those behaviors, you are probably looking at a different Binaryen helper or at a later upstream evolution, not this exact `version_129` pass.
+V131 does not change those non-goals. Its new behavior is narrower: constant `call_indirect` indices may resolve through table default initializers as well as element segments, with imported and unknown initializer cases remaining conservative.
 
 ## Sources
 

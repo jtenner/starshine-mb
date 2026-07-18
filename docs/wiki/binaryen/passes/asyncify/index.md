@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
   - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
@@ -26,6 +27,10 @@ related:
 ---
 
 # Binaryen pass: `asyncify`
+
+## Binaryen v131 note
+
+V131's Asyncify owner stops pre-escaping user list names before matching them against internal `Name` values. Exact names and wildcard patterns now use the corrected internal representation, and missing-name/nonmatching-pattern diagnostics quote the user spelling directly. This is an upstream-only dossier refresh; Starshine still has no Asyncify pass.
 
 ## Purpose
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
@@ -108,7 +110,7 @@ If any of those write to a table, `mayBeModified` becomes true.
 Important note:
 
 - the shipped `directize` lit tests clearly cover `table.set`, `table.fill`, and `table.init`
-- the 2026-05-05 current-main recheck still did not find an equally explicit directize-specific test for `table.copy`
+- the retained source checks still do not provide an equally explicit directize-specific test for `table.copy`
 - the source still makes destination `table.copy` a real barrier, so a future port should too
 
 ## What `initialContentsImmutable` actually means
@@ -126,9 +128,19 @@ So this mode is weaker than:
 
 That is why the pass arg is useful for things like LLVM-style output or environments where initial slots stay fixed even if later growth happens.
 
+## V131 table default initializers
+
+The flattened element-segment view is no longer the whole initial table state. V131 also inspects the table declaration's default initializer when no element segment supplies the indexed slot:
+
+- a defined table with `ref.func $f` can yield `Known($f)` for an in-bounds hole;
+- a defined table with no initializer has the ordinary null default, so an in-bounds hole can be a proved trap;
+- a non-`ref.func` initializer such as `global.get` remains unknown;
+- an imported table's host-supplied default remains unknown, even under the initial-contents-immutable pass arg;
+- element segments still override the default at the slots they write.
+
 ## The three target answers
 
-After table info is computed, `Directize.cpp` classifies a constant call target as one of:
+After table info and the v131 default-initializer layer are considered, `Directize.cpp` classifies a constant call target as one of:
 
 - `Known`
 - `Trap`
@@ -140,7 +152,7 @@ These are not arbitrary labels. They correspond to three genuinely different rew
 
 A constant target is `Known` when:
 
-- it lands on a concrete function name in the flattened table view, and
+- it lands on a concrete function name supplied by an element segment or an in-bounds `ref.func` table default, and
 - that function type is a subtype of the indirect call’s expected heap type
 
 This becomes a direct `call` / `return_call`.
@@ -151,9 +163,9 @@ A constant target is `Trap` when Binaryen can see the call will definitely fail.
 
 The main cases are:
 
-- the slot is a known null hole within the flattened known range
-- the slot names a function with an incompatible type
-- the index is out of bounds for a table that Binaryen knows cannot later change in a way that would make the entry valid
+- an in-bounds slot in a defined table has the null default and no element write
+- the resolved element/default function has an incompatible type
+- the index is beyond the table's initial size and Binaryen knows growth cannot later populate it
 
 This becomes `unreachable`, with side effects preserved.
 
@@ -164,49 +176,21 @@ A constant target is `Unknown` when Binaryen still does not know enough to be su
 The main cases are:
 
 - the target is not a constant at all
-- or the index is beyond the known flattened prefix on a table that may later change
+- an imported table supplies an unknown host default
+- a table initializer such as `global.get` is not a statically known function
+- or the index is beyond the initial size on a table that may later grow
 
 This keeps the original `call_indirect`.
 
-## The single most important nuance: hole vs beyond-known-prefix
+## The single most important nuance: a segment hole is not automatically null
 
-Many people expect these two situations to behave the same way:
+V131 distinguishes three cases that older segment-only explanations collapsed:
 
-1. a constant index points at a slot Binaryen can see is empty
-2. a constant index points past the end of the flattened known entries
+1. **In bounds, defined table:** use the declared default. `ref.func` may directize; no initializer means null and traps; `global.get` stays unknown.
+2. **In bounds, imported table:** the host may have supplied a value, so a segment hole is unknown rather than a proved null trap.
+3. **Beyond the initial size:** infer a trap only when growth cannot populate that index; otherwise keep the indirect call.
 
-Binaryen treats them differently.
-
-### In-range known hole
-
-If the index is inside `flatTable.names.size()` and the stored name is empty, Binaryen treats that as a known null slot.
-
-Result:
-
-- `Trap`
-- rewrite to `unreachable`
-
-### Beyond the known flattened prefix
-
-If the index is `>= flatTable.names.size()`, Binaryen asks whether the table may still change.
-
-- if the table cannot later change in the relevant way, the answer can be `Trap`
-- if the table may still be modified and Binaryen is only assuming immutable initial contents, the answer is `Unknown`
-
-Result:
-
-- keep the indirect call
-
-## Why this distinction exists
-
-A known hole inside the flattened prefix is part of the known initial layout.
-A later index beyond the known prefix might still be populated by later growth.
-
-So Binaryen is effectively saying:
-
-- “I know this known initial slot is null”
-- versus
-- “I do not know whether this later slot might exist later”
+The key boundary is therefore declared initial table state plus growth/mutation facts, not merely `flatTable.names.size()`.
 
 ## The best shipped example of that nuance
 
@@ -279,8 +263,8 @@ The GC tests are the best examples of that.
   - immutable-initial-contents mode can change the answer.
 - “Constant index” does **not** always mean “direct call.”
   - it may mean `Trap` or `Unknown` instead.
-- “Within declared table size” does **not** always mean “known forever.”
-  - beyond-known-prefix can still be `Unknown`.
+- “No segment entry” does **not** always mean null.
+  - v131 consults a defined table's default initializer, while imported-table and `global.get` defaults remain `Unknown`.
 - “Bad-looking element layout” does **not** always mean directize will prove a trap.
   - often the flattening step simply bails out.
 - “Known function” does **not** always mean safe call.
@@ -295,7 +279,7 @@ A faithful Starshine port should preserve:
 - `table.set`, `table.fill`, `table.copy`, and `table.init` as mutation barriers
 - the separate `initial-contents-immutable` concept
 - constant-offset and function-typed flat-table requirements
-- known-hole versus beyond-known-prefix behavior
+- table-default resolution plus beyond-initial-size growth behavior
 - subtype compatibility checks before classifying a slot as `Known`
 - conservative no-op behavior when flat-table construction fails
 
