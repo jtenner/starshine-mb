@@ -809,6 +809,32 @@ Or for impossible-success casts:
 
 This whole family is driven by compile-time cast-result classification, not by generic constant folding.
 
+## Shape family 17b: pure-local direct-call descriptor misses
+
+Before, for any source-proven argument counts:
+
+```wat
+;; evaluate N pure local arguments
+call $make_ref   ;; non-null strict subtype of $base
+;; evaluate M pure local arguments
+call $make_desc  ;; exact descriptor for $base
+ref.cast_desc_eq (ref $base)
+```
+
+After:
+
+```wat
+;; the same N arguments, in order
+call $make_ref
+drop
+;; the same M arguments, in order
+call $make_desc
+drop
+unreachable
+```
+
+The absorbed Binaryen v130 probe matrix covered all `(N,M)` pairs in `1..9 × 1..9` plus `(10,10)`, `(10,9)`, and `(9,10)`. The semantic boundary is not the number: Starshine derives each operand run's count, validates the corresponding direct-call signature and result relation, and preserves reference-before-descriptor evaluation. Do not generalize this shape to effectful/trapping argument expressions, indirect or tail calls, multivalue producers, escaping control/EH, nullable null-only descriptor casts, `ref.test_desc`, or descriptor BrOn operations without their own proofs.
+
 ## Shape family 18: `ref.eq` canonicalization and simplification
 
 Before:
