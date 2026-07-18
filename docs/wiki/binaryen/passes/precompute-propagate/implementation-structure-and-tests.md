@@ -136,7 +136,7 @@ Those tests matter here because the propagate variant is not allowed to violate 
 | `test/lit/passes/precompute-propagate_all-features.wast` | Behavioral oracle | The exact get/set consensus, fallthrough, join, zero-init, tee, and bailout surfaces are source-backed |
 | neighboring `precompute*` lit files | Shared-family oracle | Emitability, effects, GC identity, and other family boundaries still apply in propagate mode |
 | `src/passes/precompute.mbt` | Starshine implementation | Public descriptor, SSA consensus, fallthrough evaluation, result-`if` safety guard, and one rerun |
-| `src/passes/precompute_propagate_test.mbt` | Starshine behavior/regression suite | Nine positive, bailout, boundedness, stale-fact, and large-function boundaries |
+| `src/passes/precompute_propagate_test.mbt` | Starshine behavior/regression suite | Fifteen positive, bailout, boundedness, stale-fact, result-`if`, fence, loop, and large-function boundaries |
 | `src/passes/optimize.mbt` / `pass_manager.mbt` | Starshine public scheduling | Registry/dispatch, two aggressive PC slots, nested-prefix reuse, and writeback guards |
 | `src/validate/gen_valid.mbt` | Starshine generator | `precompute-propagate-local-facts` trigger profile |
 

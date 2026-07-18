@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
@@ -110,7 +111,7 @@ These guards prevented an invalid self-optimized output in function `2641`. They
 
 ### Shared plain-precompute scope
 
-The propagating member reuses Starshine's plain-precompute evaluator. The follow-up slice closes the reduced scalar, partial-`select`, fresh-GC, immutable-struct, result-`if`, large-function, and self-hosted tee gaps. Broader string, general `Flow`, complete heap-cache/array, side-effect-retention, emitability, and type-refinalization work remains shared evaluator architecture rather than propagation-specific local consensus.
+The propagating member reuses Starshine's plain-precompute evaluator. The July 18 follow-up closes the reduced returned-scalar, repeated partial-`select`, fresh-GC array/struct/default/packed-read, single-`local.tee` effect-retention, result-`if`, large-function, and self-hosted tee gaps. Broader string, general `Flow`, alias-aware heap-cache/nested-aggregate, multi-effect retention, emitability, and type-refinalization work remains shared evaluator architecture rather than propagation-specific local consensus.
 
 ## Tests
 

@@ -788,12 +788,88 @@ fn precompute_try_fold_binary(
 }
 
 ///|
+fn precompute_try_partial_select_unary_parent(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 ||
+    @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
+  let select_id = @ir.hot_child_get(func, node_id, 0)
+  if select_id < 0 ||
+    !@ir.hot_node_is_live(func, select_id) ||
+    @ir.hot_child_count(func, select_id) != 3 {
+    return false
+  }
+  match @ir.hot_node_get(func, select_id).op {
+    @ir.HotOp::Select => ()
+    _ => return false
+  }
+  let true_value = match
+    precompute_exact_const_instr(
+      ctx,
+      func,
+      @ir.hot_child_get(func, select_id, 0),
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let false_value = match
+    precompute_exact_const_instr(
+      ctx,
+      func,
+      @ir.hot_child_get(func, select_id, 1),
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let folded_true = match precompute_raw_try_fold_unary(true_value, instr) {
+    Some(value) => value
+    None => return false
+  }
+  let folded_false = match precompute_raw_try_fold_unary(false_value, instr) {
+    Some(value) => value
+    None => return false
+  }
+  let next_true = match precompute_build_const_instr(func, folded_true) {
+    Some(value) => value
+    None => return false
+  }
+  let next_false = match precompute_build_const_instr(func, folded_false) {
+    Some(value) => value
+    None => return false
+  }
+  let results = @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty)
+  if results.length() != 1 {
+    return false
+  }
+  let temp = @ir.hot_build_select(
+    func,
+    results[0],
+    next_true,
+    next_false,
+    @ir.hot_child_get(func, select_id, 2),
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
 fn precompute_try_partial_select_parent(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   instr : @lib.Instruction,
 ) -> Bool {
+  if @ir.hot_child_count(func, node_id) == 1 {
+    return precompute_try_partial_select_unary_parent(ctx, func, node_id, instr)
+  }
   if @ir.hot_child_count(func, node_id) != 2 ||
     @ir.hot_node_result_arity(func, node_id) != 1 {
     return false
@@ -877,6 +953,177 @@ fn precompute_try_partial_select_parent(
     next_true,
     next_false,
     condition_id,
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_delete_node(func, temp)
+  precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  pass_mark_mutated(ctx, func)
+  true
+}
+
+///|
+priv enum PrecomputeEffectfulChildKeep {
+  PrecomputeNoEffectKeep
+  PrecomputeKeepLocalSet(Int, Int)
+  PrecomputeKeepDrop(Int)
+}
+
+///|
+fn precompute_effectful_child_plan(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  child_id : Int,
+) -> (@lib.Instruction, PrecomputeEffectfulChildKeep)? {
+  match precompute_exact_const_instr(ctx, func, child_id) {
+    Some(value) => return Some((value, PrecomputeNoEffectKeep))
+    None => ()
+  }
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return None
+  }
+  let child = @ir.hot_node_get(func, child_id)
+  match child.op {
+    @ir.HotOp::LocalTee => {
+      if @ir.hot_child_count(func, child_id) != 1 {
+        return None
+      }
+      let value_id = @ir.hot_child_get(func, child_id, 0)
+      match precompute_exact_const_instr(ctx, func, value_id) {
+        Some(value) =>
+          Some((value, PrecomputeKeepLocalSet(child.imm0, value_id)))
+        None => None
+      }
+    }
+    @ir.HotOp::Block => {
+      if @ir.hot_node_result_arity(func, child_id) != 1 {
+        return None
+      }
+      let body_ref = @ir.hot_region_body_ref(func, child_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count < 2 {
+        return None
+      }
+      let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+      let value = match precompute_exact_const_instr(ctx, func, tail_id) {
+        Some(value) => value
+        None => return None
+      }
+      for slot = 0; slot + 1 < root_count; slot = slot + 1 {
+        let root_id = @ir.hot_region_get(func, body_ref, slot)
+        if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+          return None
+        }
+        match @ir.hot_node_get(func, root_id).op {
+          @ir.HotOp::Nop => ()
+          @ir.HotOp::LocalSet | @ir.HotOp::GlobalSet =>
+            if @ir.hot_child_count(func, root_id) != 1 ||
+              precompute_exact_const_instr(
+                ctx,
+                func,
+                @ir.hot_child_get(func, root_id, 0),
+              )
+              is None {
+              return None
+            }
+          _ => return None
+        }
+      }
+      Some((value, PrecomputeKeepDrop(child_id)))
+    }
+    _ => None
+  }
+}
+
+///|
+fn precompute_try_fold_effectful_parent(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  instr : @lib.Instruction,
+) -> Bool {
+  let child_count = @ir.hot_child_count(func, node_id)
+  if (child_count != 1 && child_count != 2) ||
+    @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
+  let plans : Array[(@lib.Instruction, PrecomputeEffectfulChildKeep)] = []
+  let mut has_effect = false
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    let plan = match precompute_effectful_child_plan(ctx, func, child_id) {
+      Some(plan) => plan
+      None => {
+        let child = if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
+          @ir.hot_node_get(func, child_id)
+        } else {
+          return false
+        }
+        match child.op {
+          @ir.HotOp::LocalGet => {
+            let mut prior_value : @lib.Instruction? = None
+            for prior_slot = 0; prior_slot < slot; prior_slot = prior_slot + 1 {
+              let prior_id = @ir.hot_child_get(func, node_id, prior_slot)
+              if prior_id >= 0 && @ir.hot_node_is_live(func, prior_id) {
+                let prior = @ir.hot_node_get(func, prior_id)
+                match prior.op {
+                  @ir.HotOp::LocalTee if prior.imm0 == child.imm0 =>
+                    prior_value = Some(plans[prior_slot].0)
+                  _ => ()
+                }
+              }
+            }
+            match prior_value {
+              Some(value) => (value, PrecomputeNoEffectKeep)
+              None => return false
+            }
+          }
+          _ => return false
+        }
+      }
+    }
+    match plan.1 {
+      PrecomputeNoEffectKeep => ()
+      _ => has_effect = true
+    }
+    plans.push(plan)
+  }
+  if !has_effect {
+    return false
+  }
+  let folded = if child_count == 1 {
+    match precompute_raw_try_fold_unary(plans[0].0, instr) {
+      Some(value) => value
+      None => return false
+    }
+  } else {
+    match precompute_raw_try_fold_binary(plans[0].0, plans[1].0, instr) {
+      Some(value) => value
+      None => return false
+    }
+  }
+  let folded_id = match precompute_build_const_instr(func, folded) {
+    Some(value) => value
+    None => return false
+  }
+  let kept : Array[Int] = []
+  for plan in plans {
+    match plan.1 {
+      PrecomputeNoEffectKeep => ()
+      PrecomputeKeepLocalSet(local_id, value_id) =>
+        kept.push(@ir.hot_build_local_set(func, local_id, value_id))
+      PrecomputeKeepDrop(child_id) =>
+        kept.push(@ir.hot_build_drop(func, child_id))
+    }
+  }
+  kept.push(folded_id)
+  let results = @ir.hot_type_results(func, @ir.hot_node_get(func, node_id).ty)
+  if results.length() != 1 {
+    return false
+  }
+  let temp = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(results[0]),
+    kept,
   )
   let replacement = @ir.hot_node_get(func, temp)
   @ir.hot_delete_node(func, temp)
@@ -978,16 +1225,24 @@ fn precompute_try_fold_fresh_struct_get(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  let (type_idx, raw_field) = match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.StructGet(type_idx, @lib.U32(raw_field))) => (type_idx, raw_field)
+  let (type_idx, raw_field, signed, unsigned) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructGet(type_idx, @lib.U32(raw_field))) =>
+      (type_idx, raw_field, false, false)
+    Some(@lib.StructGetS(type_idx, @lib.U32(raw_field))) =>
+      (type_idx, raw_field, true, false)
+    Some(@lib.StructGetU(type_idx, @lib.U32(raw_field))) =>
+      (type_idx, raw_field, false, true)
     _ => return false
   }
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
   let ref_id = @ir.hot_child_get(func, node_id, 0)
-  match @ir.hot_node_exact_instr(func, ref_id) {
-    Some(@lib.StructNew(new_type_idx)) if new_type_idx == type_idx => ()
+  let defaulted = match @ir.hot_node_exact_instr(func, ref_id) {
+    Some(@lib.StructNew(new_type_idx)) if new_type_idx == type_idx => false
+    Some(@lib.StructNewDefault(new_type_idx)) if new_type_idx == type_idx =>
+      true
     _ => return false
   }
   let module_ctx = match ctx.module_ctx {
@@ -1004,23 +1259,317 @@ fn precompute_try_fold_fresh_struct_get(
     Some(field) => field
     None => return false
   }
-  if field.is_mutable() ||
-    field.get_storage_type().is_packed() ||
-    @ir.hot_child_count(func, ref_id) != fields.length() {
+  if field.is_mutable() {
     return false
   }
-  for slot = 0; slot < @ir.hot_child_count(func, ref_id); slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, ref_id, slot)
-    if slot != field_idx && !precompute_is_discardable_value(func, child_id) {
+  let storage = field.get_storage_type()
+  let value = if defaulted {
+    if @ir.hot_child_count(func, ref_id) != 0 {
       return false
     }
+    match precompute_default_const_for_storage(storage) {
+      Some(value) => value
+      None => return false
+    }
+  } else {
+    if @ir.hot_child_count(func, ref_id) != fields.length() {
+      return false
+    }
+    for slot = 0; slot < @ir.hot_child_count(func, ref_id); slot = slot + 1 {
+      let child_id = @ir.hot_child_get(func, ref_id, slot)
+      if slot != field_idx && !precompute_is_discardable_value(func, child_id) {
+        return false
+      }
+    }
+    match
+      precompute_exact_const_instr(
+        ctx,
+        func,
+        @ir.hot_child_get(func, ref_id, field_idx),
+      ) {
+      Some(value) => value
+      None => return false
+    }
   }
-  let value_id = @ir.hot_child_get(func, ref_id, field_idx)
-  let value = match precompute_exact_const_instr(ctx, func, value_id) {
+  let unpacked = match
+    precompute_unpack_array_value(value, storage, signed, unsigned) {
     Some(value) => value
     None => return false
   }
-  precompute_replace_with_const_instr(ctx, func, node_id, value)
+  precompute_replace_with_const_instr(ctx, func, node_id, unpacked)
+}
+
+///|
+fn precompute_fresh_array_allocation_is_discardable(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.ArrayNew(_))
+    | Some(@lib.ArrayNewDefault(_))
+    | Some(@lib.ArrayNewFixed(_, _)) => ()
+    _ => return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !precompute_is_discardable_value(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///| Binaryen v130's interpreter rejects GC arrays whose literal count reaches
+
+///| its 1 GiB `DataLimit`. The v130 64-bit oracle uses 24-byte `Literal`s, so
+
+///|
+/// 44,739,242 is the first rejected length.
+fn precompute_fresh_array_length_is_interpretable(length : UInt) -> Bool {
+  length < 44739242U
+}
+
+///|
+fn precompute_fresh_array_length(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.I32? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.ArrayNewFixed(_, @lib.U32(length))) if precompute_fresh_array_length_is_interpretable(
+        length,
+      ) => Some(@lib.I32(length.reinterpret_as_int()))
+    Some(@lib.ArrayNew(_)) if @ir.hot_child_count(func, node_id) == 2 =>
+      match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 1),
+        ) {
+        Some(@lib.I32(length)) if length >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            length.reinterpret_as_uint(),
+          ) => Some(@lib.I32(length))
+        _ => None
+      }
+    Some(@lib.ArrayNewDefault(_)) if @ir.hot_child_count(func, node_id) == 1 =>
+      match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+        ) {
+        Some(@lib.I32(length)) if length >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            length.reinterpret_as_uint(),
+          ) => Some(@lib.I32(length))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn precompute_default_const_for_storage(
+  storage : @lib.StorageType,
+) -> @lib.Instruction? {
+  match storage {
+    @lib.PackTypeStorageType(_)
+    | @lib.ValTypeStorageType(@lib.NumTypeValType(@lib.I32NumType)) =>
+      Some(@lib.Instruction::i32_const(@lib.I32(0)))
+    @lib.ValTypeStorageType(@lib.NumTypeValType(@lib.I64NumType)) =>
+      Some(@lib.Instruction::i64_const(@lib.I64(0L)))
+    @lib.ValTypeStorageType(@lib.NumTypeValType(@lib.F32NumType)) =>
+      Some(
+        @lib.Instruction::f32_const(@lib.F32(Float::reinterpret_from_uint(0U))),
+      )
+    @lib.ValTypeStorageType(@lib.NumTypeValType(@lib.F64NumType)) =>
+      Some(@lib.Instruction::f64_const(@lib.F64(0.0)))
+    @lib.ValTypeStorageType(@lib.RefTypeValType(ref_type)) if ref_type.is_nullable() =>
+      Some(@lib.Instruction::ref_null_type(ref_type))
+    _ => None
+  }
+}
+
+///|
+fn precompute_fresh_array_get_value(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  allocation_id : Int,
+  type_idx : @lib.TypeIdx,
+  index : UInt,
+  storage : @lib.StorageType,
+) -> @lib.Instruction? {
+  match @ir.hot_node_exact_instr(func, allocation_id) {
+    Some(@lib.ArrayNewFixed(new_type_idx, @lib.U32(length))) if new_type_idx ==
+      type_idx &&
+      precompute_fresh_array_length_is_interpretable(length) &&
+      index < length => {
+      let slot = index.reinterpret_as_int()
+      if @ir.hot_child_count(func, allocation_id) != length.reinterpret_as_int() {
+        return None
+      }
+      precompute_exact_const_instr(
+        ctx,
+        func,
+        @ir.hot_child_get(func, allocation_id, slot),
+      )
+    }
+    Some(@lib.ArrayNew(new_type_idx)) if new_type_idx == type_idx &&
+      @ir.hot_child_count(func, allocation_id) == 2 => {
+      let length = match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, allocation_id, 1),
+        ) {
+        Some(@lib.I32(length)) if length >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            length.reinterpret_as_uint(),
+          ) => length.reinterpret_as_uint()
+        _ => return None
+      }
+      if index >= length {
+        return None
+      }
+      precompute_exact_const_instr(
+        ctx,
+        func,
+        @ir.hot_child_get(func, allocation_id, 0),
+      )
+    }
+    Some(@lib.ArrayNewDefault(new_type_idx)) if new_type_idx == type_idx &&
+      @ir.hot_child_count(func, allocation_id) == 1 => {
+      let length = match
+        precompute_i32_exact_const(
+          ctx,
+          func,
+          @ir.hot_child_get(func, allocation_id, 0),
+        ) {
+        Some(@lib.I32(length)) if length >= 0 &&
+          precompute_fresh_array_length_is_interpretable(
+            length.reinterpret_as_uint(),
+          ) => length.reinterpret_as_uint()
+        _ => return None
+      }
+      if index >= length {
+        return None
+      }
+      precompute_default_const_for_storage(storage)
+    }
+    _ => None
+  }
+}
+
+///|
+fn precompute_unpack_array_value(
+  value : @lib.Instruction,
+  storage : @lib.StorageType,
+  signed : Bool,
+  unsigned : Bool,
+) -> @lib.Instruction? {
+  match storage {
+    @lib.ValTypeStorageType(_) => Some(value)
+    @lib.PackTypeStorageType(pack_type) => {
+      let raw = match value {
+        @lib.I32Const(@lib.I32(raw)) => raw
+        _ => return None
+      }
+      match (pack_type, signed, unsigned) {
+        (@lib.I8PackType, true, false) =>
+          Some(@lib.Instruction::i32_const(@lib.I32(raw << 24 >> 24)))
+        (@lib.I8PackType, false, true) =>
+          Some(@lib.Instruction::i32_const(@lib.I32(raw & 0xff)))
+        (@lib.I16PackType, true, false) =>
+          Some(@lib.Instruction::i32_const(@lib.I32(raw << 16 >> 16)))
+        (@lib.I16PackType, false, true) =>
+          Some(@lib.Instruction::i32_const(@lib.I32(raw & 0xffff)))
+        _ => None
+      }
+    }
+  }
+}
+
+///|
+fn precompute_try_fold_fresh_array_len(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.ArrayLen) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let allocation_id = @ir.hot_child_get(func, node_id, 0)
+  if !precompute_fresh_array_allocation_is_discardable(func, allocation_id) {
+    return false
+  }
+  let length = match precompute_fresh_array_length(ctx, func, allocation_id) {
+    Some(length) => length
+    None => return false
+  }
+  precompute_replace_with_const_i32(ctx, func, node_id, length)
+  true
+}
+
+///|
+fn precompute_try_fold_fresh_array_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let (type_idx, signed, unsigned) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.ArrayGet(type_idx)) => (type_idx, false, false)
+    Some(@lib.ArrayGetS(type_idx)) => (type_idx, true, false)
+    Some(@lib.ArrayGetU(type_idx)) => (type_idx, false, true)
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let allocation_id = @ir.hot_child_get(func, node_id, 0)
+  if !precompute_fresh_array_allocation_is_discardable(func, allocation_id) {
+    return false
+  }
+  let index = match
+    precompute_i32_exact_const(ctx, func, @ir.hot_child_get(func, node_id, 1)) {
+    Some(@lib.I32(index)) => index.reinterpret_as_uint()
+    None => return false
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return false
+  }
+  let field = match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+    Some(field) => field
+    None => return false
+  }
+  if field.is_mutable() {
+    return false
+  }
+  let storage = field.get_storage_type()
+  let value = match
+    precompute_fresh_array_get_value(
+      ctx, func, allocation_id, type_idx, index, storage,
+    ) {
+    Some(value) => value
+    None => return false
+  }
+  let unpacked = match
+    precompute_unpack_array_value(value, storage, signed, unsigned) {
+    Some(value) => value
+    None => return false
+  }
+  precompute_replace_with_const_instr(ctx, func, node_id, unpacked)
 }
 
 ///|
@@ -1784,6 +2333,160 @@ fn precompute_raw_bool(value : Bool) -> @lib.Instruction {
 }
 
 ///|
+fn precompute_raw_f32_nearest(value : Float) -> Float {
+  if value.is_nan() ||
+    value >= Float::from_double(8388608.0) ||
+    value <= Float::from_double(-8388608.0) {
+    return value
+  }
+  let lower = value.floor()
+  let fraction = value - lower
+  let rounded = if fraction < Float::from_double(0.5) {
+    lower
+  } else if fraction > Float::from_double(0.5) {
+    lower + Float::from_double(1.0)
+  } else if (lower.to_int() & 1) == 0 {
+    lower
+  } else {
+    lower + Float::from_double(1.0)
+  }
+  if rounded == Float::from_double(0.0) &&
+    (value.reinterpret_as_uint() & 0x80000000U) != 0U {
+    Float::reinterpret_from_uint(0x80000000U)
+  } else {
+    rounded
+  }
+}
+
+///|
+fn precompute_raw_f64_nearest(value : Double) -> Double {
+  if value.is_nan() ||
+    value >= 4503599627370496.0 ||
+    value <= -4503599627370496.0 {
+    return value
+  }
+  let lower = value.floor()
+  let fraction = value - lower
+  let rounded = if fraction < 0.5 {
+    lower
+  } else if fraction > 0.5 {
+    lower + 1.0
+  } else if (lower.to_int64() & 1L) == 0L {
+    lower
+  } else {
+    lower + 1.0
+  }
+  if rounded == 0.0 &&
+    (value.reinterpret_as_uint64() & 0x8000000000000000UL) != 0UL {
+    0x8000000000000000UL.reinterpret_as_double()
+  } else {
+    rounded
+  }
+}
+
+///|
+fn precompute_raw_try_fold_i32_trunc(
+  value : Double,
+  signed : Bool,
+  saturating : Bool,
+) -> @lib.Instruction? {
+  if signed {
+    if saturating {
+      let result = if value.is_nan() {
+        0
+      } else if value <= -2147483648.0 {
+        -2147483647 - 1
+      } else if value >= 2147483648.0 {
+        2147483647
+      } else {
+        value.to_int()
+      }
+      return Some(@lib.Instruction::i32_const(@lib.I32(result)))
+    }
+    if value.is_nan() || value < -2147483648.0 || value >= 2147483648.0 {
+      return None
+    }
+    return Some(@lib.Instruction::i32_const(@lib.I32(value.to_int())))
+  }
+  if saturating {
+    let result = if value.is_nan() || value <= 0.0 {
+      0U
+    } else if value >= 4294967296.0 {
+      0xffffffffU
+    } else {
+      value.to_uint()
+    }
+    return Some(
+      @lib.Instruction::i32_const(@lib.I32(result.reinterpret_as_int())),
+    )
+  }
+  if value.is_nan() || value < 0.0 || value >= 4294967296.0 {
+    return None
+  }
+  Some(
+    @lib.Instruction::i32_const(@lib.I32(value.to_uint().reinterpret_as_int())),
+  )
+}
+
+///|
+fn precompute_trunc_double_to_uint64(value : Double) -> UInt64 {
+  if value < 9223372036854775808.0 {
+    value.to_int64().reinterpret_as_uint64()
+  } else {
+    (value - 9223372036854775808.0).to_int64().reinterpret_as_uint64() |
+    0x8000000000000000UL
+  }
+}
+
+///|
+fn precompute_raw_try_fold_i64_trunc(
+  value : Double,
+  signed : Bool,
+  saturating : Bool,
+) -> @lib.Instruction? {
+  if signed {
+    if saturating {
+      let result = if value.is_nan() {
+        0L
+      } else if value <= -9223372036854775808.0 {
+        -9223372036854775807L - 1L
+      } else if value >= 9223372036854775808.0 {
+        9223372036854775807L
+      } else {
+        value.to_int64()
+      }
+      return Some(@lib.Instruction::i64_const(@lib.I64(result)))
+    }
+    if value.is_nan() ||
+      value < -9223372036854775808.0 ||
+      value >= 9223372036854775808.0 {
+      return None
+    }
+    return Some(@lib.Instruction::i64_const(@lib.I64(value.to_int64())))
+  }
+  if saturating {
+    let result = if value.is_nan() || value <= 0.0 {
+      0UL
+    } else if value >= 18446744073709551616.0 {
+      0xffffffffffffffffUL
+    } else {
+      precompute_trunc_double_to_uint64(value)
+    }
+    return Some(
+      @lib.Instruction::i64_const(@lib.I64(result.reinterpret_as_int64())),
+    )
+  }
+  if value.is_nan() || value < 0.0 || value >= 18446744073709551616.0 {
+    return None
+  }
+  Some(
+    @lib.Instruction::i64_const(
+      @lib.I64(precompute_trunc_double_to_uint64(value).reinterpret_as_int64()),
+    ),
+  )
+}
+
+///|
 fn precompute_raw_try_fold_unary(
   operand : @lib.Instruction,
   instr : @lib.Instruction,
@@ -1791,11 +2494,337 @@ fn precompute_raw_try_fold_unary(
   match (instr, precompute_raw_i32_const(operand)) {
     (@lib.Instruction::I32Eqz, Some(v)) =>
       return Some(precompute_raw_bool(v == @lib.I32(0)))
+    (@lib.Instruction::I32Clz, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::i32_const(@lib.I32(v.reinterpret_as_uint().clz())),
+      )
+    (@lib.Instruction::I32Ctz, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::i32_const(@lib.I32(v.reinterpret_as_uint().ctz())),
+      )
+    (@lib.Instruction::I32Popcnt, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::i32_const(@lib.I32(v.reinterpret_as_uint().popcnt())),
+      )
+    (@lib.Instruction::I64ExtendI32S, Some(@lib.I32(v))) =>
+      return Some(@lib.Instruction::i64_const(@lib.I64(v.to_int64())))
+    (@lib.Instruction::I64ExtendI32U, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(v.reinterpret_as_uint().to_uint64().reinterpret_as_int64()),
+        ),
+      )
+    (@lib.Instruction::F32ConvertI32S, Some(@lib.I32(v))) =>
+      return Some(@lib.Instruction::f32_const(@lib.F32(Float::from_int(v))))
+    (@lib.Instruction::F32ConvertI32U, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(Float::from_uint(v.reinterpret_as_uint())),
+        ),
+      )
+    (@lib.Instruction::F64ConvertI32S, Some(@lib.I32(v))) =>
+      return Some(@lib.Instruction::f64_const(@lib.F64(v.to_double())))
+    (@lib.Instruction::F64ConvertI32U, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(v.reinterpret_as_uint().to_double()),
+        ),
+      )
+    (@lib.Instruction::F32ReinterpretI32, Some(@lib.I32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(Float::reinterpret_from_uint(v.reinterpret_as_uint())),
+        ),
+      )
+    (@lib.Instruction::I32Extend8S, Some(@lib.I32(v))) =>
+      return Some(@lib.Instruction::i32_const(@lib.I32(v << 24 >> 24)))
+    (@lib.Instruction::I32Extend16S, Some(@lib.I32(v))) =>
+      return Some(@lib.Instruction::i32_const(@lib.I32(v << 16 >> 16)))
     _ => ()
   }
   match (instr, precompute_raw_i64_const(operand)) {
     (@lib.Instruction::I64Eqz, Some(v)) =>
-      Some(precompute_raw_bool(v == @lib.I64(0L)))
+      return Some(precompute_raw_bool(v == @lib.I64(0L)))
+    (@lib.Instruction::I64Clz, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(v.reinterpret_as_uint64().clz().to_int64()),
+        ),
+      )
+    (@lib.Instruction::I64Ctz, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(v.reinterpret_as_uint64().ctz().to_int64()),
+        ),
+      )
+    (@lib.Instruction::I64Popcnt, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(v.reinterpret_as_uint64().popcnt().to_int64()),
+        ),
+      )
+    (@lib.Instruction::I32WrapI64, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(v.reinterpret_as_uint64().to_uint().reinterpret_as_int()),
+        ),
+      )
+    (@lib.Instruction::F32ConvertI64S, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(@lib.F32(Float::from_double(v.to_double()))),
+      )
+    (@lib.Instruction::F32ConvertI64U, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(Float::from_double(v.reinterpret_as_uint64().to_double())),
+        ),
+      )
+    (@lib.Instruction::F64ConvertI64S, Some(@lib.I64(v))) =>
+      return Some(@lib.Instruction::f64_const(@lib.F64(v.to_double())))
+    (@lib.Instruction::F64ConvertI64U, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(v.reinterpret_as_uint64().to_double()),
+        ),
+      )
+    (@lib.Instruction::F64ReinterpretI64, Some(@lib.I64(v))) =>
+      return Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(v.reinterpret_as_uint64().reinterpret_as_double()),
+        ),
+      )
+    (@lib.Instruction::I64Extend8S, Some(@lib.I64(v))) =>
+      return Some(@lib.Instruction::i64_const(@lib.I64(v << 56 >> 56)))
+    (@lib.Instruction::I64Extend16S, Some(@lib.I64(v))) =>
+      return Some(@lib.Instruction::i64_const(@lib.I64(v << 48 >> 48)))
+    (@lib.Instruction::I64Extend32S, Some(@lib.I64(v))) =>
+      return Some(@lib.Instruction::i64_const(@lib.I64(v << 32 >> 32)))
+    _ => ()
+  }
+  match (instr, precompute_raw_f32_const(operand)) {
+    (@lib.Instruction::F32Abs, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            Float::reinterpret_from_uint(v.reinterpret_as_uint() & 0x7fffffffU),
+          ),
+        ),
+      )
+    (@lib.Instruction::F32Neg, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            Float::reinterpret_from_uint(v.reinterpret_as_uint() ^ 0x80000000U),
+          ),
+        ),
+      )
+    (@lib.Instruction::F32Ceil, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if v.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              v.ceil()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F32Floor, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if v.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              v.floor()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F32Trunc, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if v.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              v.trunc()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F32Nearest, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if v.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              precompute_raw_f32_nearest(v)
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F32Sqrt, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if v.is_nan() || v < Float::from_double(0.0) {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              v.sqrt()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F64PromoteF32, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if v.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              v.to_double()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::I32ReinterpretF32, Some(@lib.F32(v))) =>
+      return Some(
+        @lib.Instruction::i32_const(
+          @lib.I32(v.reinterpret_as_uint().reinterpret_as_int()),
+        ),
+      )
+    (@lib.Instruction::I32TruncF32S, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i32_trunc(v.to_double(), true, false)
+    (@lib.Instruction::I32TruncF32U, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i32_trunc(v.to_double(), false, false)
+    (@lib.Instruction::I64TruncF32S, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i64_trunc(v.to_double(), true, false)
+    (@lib.Instruction::I64TruncF32U, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i64_trunc(v.to_double(), false, false)
+    (@lib.Instruction::I32TruncSatF32S, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i32_trunc(v.to_double(), true, true)
+    (@lib.Instruction::I32TruncSatF32U, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i32_trunc(v.to_double(), false, true)
+    (@lib.Instruction::I64TruncSatF32S, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i64_trunc(v.to_double(), true, true)
+    (@lib.Instruction::I64TruncSatF32U, Some(@lib.F32(v))) =>
+      return precompute_raw_try_fold_i64_trunc(v.to_double(), false, true)
+    _ => ()
+  }
+  match (instr, precompute_raw_f64_const(operand)) {
+    (@lib.Instruction::F64Abs, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            (v.reinterpret_as_uint64() & 0x7fffffffffffffffUL).reinterpret_as_double(),
+          ),
+        ),
+      )
+    (@lib.Instruction::F64Neg, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            (v.reinterpret_as_uint64() ^ 0x8000000000000000UL).reinterpret_as_double(),
+          ),
+        ),
+      )
+    (@lib.Instruction::F64Ceil, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if v.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              v.ceil()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F64Floor, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if v.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              v.floor()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F64Trunc, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if v.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              v.trunc()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F64Nearest, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if v.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              precompute_raw_f64_nearest(v)
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F64Sqrt, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if v.is_nan() || v < 0.0 {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              v.sqrt()
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::F32DemoteF64, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if v.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              Float::from_double(v)
+            },
+          ),
+        ),
+      )
+    (@lib.Instruction::I64ReinterpretF64, Some(@lib.F64(v))) =>
+      Some(
+        @lib.Instruction::i64_const(
+          @lib.I64(v.reinterpret_as_uint64().reinterpret_as_int64()),
+        ),
+      )
+    (@lib.Instruction::I32TruncF64S, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i32_trunc(v, true, false)
+    (@lib.Instruction::I32TruncF64U, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i32_trunc(v, false, false)
+    (@lib.Instruction::I64TruncF64S, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i64_trunc(v, true, false)
+    (@lib.Instruction::I64TruncF64U, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i64_trunc(v, false, false)
+    (@lib.Instruction::I32TruncSatF64S, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i32_trunc(v, true, true)
+    (@lib.Instruction::I32TruncSatF64U, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i32_trunc(v, false, true)
+    (@lib.Instruction::I64TruncSatF64S, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i64_trunc(v, true, true)
+    (@lib.Instruction::I64TruncSatF64U, Some(@lib.F64(v))) =>
+      precompute_raw_try_fold_i64_trunc(v, false, true)
     _ => None
   }
 }
@@ -1866,6 +2895,32 @@ fn precompute_raw_try_fold_binary(
       let shift = rhs.reinterpret_as_uint() & 31U
       return Some(
         @lib.Instruction::i32_const(@lib.I32(lhs >> shift.reinterpret_as_int())),
+      )
+    }
+    (@lib.Instruction::I32Rotl, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let shift = rhs.reinterpret_as_uint() & 31U
+      let value = lhs.reinterpret_as_uint()
+      let rotated = if shift == 0U {
+        value
+      } else {
+        (value << shift.reinterpret_as_int()) |
+        (value >> (32 - shift.reinterpret_as_int()))
+      }
+      return Some(
+        @lib.Instruction::i32_const(@lib.I32(rotated.reinterpret_as_int())),
+      )
+    }
+    (@lib.Instruction::I32Rotr, Some(@lib.I32(lhs)), Some(@lib.I32(rhs))) => {
+      let shift = rhs.reinterpret_as_uint() & 31U
+      let value = lhs.reinterpret_as_uint()
+      let rotated = if shift == 0U {
+        value
+      } else {
+        (value >> shift.reinterpret_as_int()) |
+        (value << (32 - shift.reinterpret_as_int()))
+      }
+      return Some(
+        @lib.Instruction::i32_const(@lib.I32(rotated.reinterpret_as_int())),
       )
     }
     (@lib.Instruction::I32Eq, Some(lhs), Some(rhs)) =>
@@ -2001,6 +3056,30 @@ fn precompute_raw_try_fold_binary(
       let shift = rhs.reinterpret_as_uint64() & 63UL
       return Some(@lib.Instruction::i64_const(@lib.I64(lhs >> shift.to_int())))
     }
+    (@lib.Instruction::I64Rotl, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let shift = rhs.reinterpret_as_uint64() & 63UL
+      let value = lhs.reinterpret_as_uint64()
+      let rotated = if shift == 0UL {
+        value
+      } else {
+        (value << shift.to_int()) | (value >> (64 - shift.to_int()))
+      }
+      return Some(
+        @lib.Instruction::i64_const(@lib.I64(rotated.reinterpret_as_int64())),
+      )
+    }
+    (@lib.Instruction::I64Rotr, Some(@lib.I64(lhs)), Some(@lib.I64(rhs))) => {
+      let shift = rhs.reinterpret_as_uint64() & 63UL
+      let value = lhs.reinterpret_as_uint64()
+      let rotated = if shift == 0UL {
+        value
+      } else {
+        (value >> shift.to_int()) | (value << (64 - shift.to_int()))
+      }
+      return Some(
+        @lib.Instruction::i64_const(@lib.I64(rotated.reinterpret_as_int64())),
+      )
+    }
     (@lib.Instruction::I64Eq, Some(lhs), Some(rhs)) =>
       return Some(precompute_raw_bool(lhs == rhs))
     (@lib.Instruction::I64Ne, Some(lhs), Some(rhs)) =>
@@ -2088,14 +3167,129 @@ fn precompute_raw_try_fold_binary(
       precompute_raw_f32_const(lhs_instr),
       precompute_raw_f32_const(rhs_instr),
     ) {
-    (@lib.Instruction::F32Add, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
-      return Some(@lib.Instruction::f32_const(@lib.F32(lhs + rhs)))
-    (@lib.Instruction::F32Sub, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
-      return Some(@lib.Instruction::f32_const(@lib.F32(lhs - rhs)))
-    (@lib.Instruction::F32Mul, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
-      return Some(@lib.Instruction::f32_const(@lib.F32(lhs * rhs)))
-    (@lib.Instruction::F32Div, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
-      return Some(@lib.Instruction::f32_const(@lib.F32(lhs / rhs)))
+    (@lib.Instruction::F32Add, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) => {
+      let value = lhs + rhs
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if value.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F32Sub, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) => {
+      let value = lhs - rhs
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if value.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F32Mul, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) => {
+      let value = lhs * rhs
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if value.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F32Div, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) => {
+      let value = lhs / rhs
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            if value.is_nan() {
+              Float::reinterpret_from_uint(0x7fc00000U)
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F32Min, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) => {
+      if lhs.is_nan() || rhs.is_nan() {
+        return Some(
+          @lib.Instruction::f32_const(
+            @lib.F32(Float::reinterpret_from_uint(0x7fc00000U)),
+          ),
+        )
+      }
+      let value = if lhs == rhs {
+        if lhs == Float::from_double(0.0) &&
+          (
+            (lhs.reinterpret_as_uint() | rhs.reinterpret_as_uint()) &
+            0x80000000U
+          ) !=
+          0U {
+          Float::reinterpret_from_uint(0x80000000U)
+        } else {
+          lhs
+        }
+      } else if lhs < rhs {
+        lhs
+      } else {
+        rhs
+      }
+      return Some(@lib.Instruction::f32_const(@lib.F32(value)))
+    }
+    (@lib.Instruction::F32Max, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) => {
+      if lhs.is_nan() || rhs.is_nan() {
+        return Some(
+          @lib.Instruction::f32_const(
+            @lib.F32(Float::reinterpret_from_uint(0x7fc00000U)),
+          ),
+        )
+      }
+      let value = if lhs == rhs {
+        if lhs == Float::from_double(0.0) {
+          if (
+              lhs.reinterpret_as_uint() &
+              rhs.reinterpret_as_uint() &
+              0x80000000U
+            ) !=
+            0U {
+            Float::reinterpret_from_uint(0x80000000U)
+          } else {
+            Float::reinterpret_from_uint(0U)
+          }
+        } else {
+          lhs
+        }
+      } else if lhs > rhs {
+        lhs
+      } else {
+        rhs
+      }
+      return Some(@lib.Instruction::f32_const(@lib.F32(value)))
+    }
+    (@lib.Instruction::F32Copysign, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
+      return Some(
+        @lib.Instruction::f32_const(
+          @lib.F32(
+            Float::reinterpret_from_uint(
+              (lhs.reinterpret_as_uint() & 0x7fffffffU) |
+              (rhs.reinterpret_as_uint() & 0x80000000U),
+            ),
+          ),
+        ),
+      )
     (@lib.Instruction::F32Eq, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
       return Some(precompute_raw_bool(lhs == rhs))
     (@lib.Instruction::F32Ne, Some(@lib.F32(lhs)), Some(@lib.F32(rhs))) =>
@@ -2116,14 +3310,127 @@ fn precompute_raw_try_fold_binary(
       precompute_raw_f64_const(lhs_instr),
       precompute_raw_f64_const(rhs_instr),
     ) {
-    (@lib.Instruction::F64Add, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
-      Some(@lib.Instruction::f64_const(@lib.F64(lhs + rhs)))
-    (@lib.Instruction::F64Sub, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
-      Some(@lib.Instruction::f64_const(@lib.F64(lhs - rhs)))
-    (@lib.Instruction::F64Mul, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
-      Some(@lib.Instruction::f64_const(@lib.F64(lhs * rhs)))
-    (@lib.Instruction::F64Div, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
-      Some(@lib.Instruction::f64_const(@lib.F64(lhs / rhs)))
+    (@lib.Instruction::F64Add, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) => {
+      let value = lhs + rhs
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if value.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F64Sub, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) => {
+      let value = lhs - rhs
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if value.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F64Mul, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) => {
+      let value = lhs * rhs
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if value.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F64Div, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) => {
+      let value = lhs / rhs
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            if value.is_nan() {
+              0x7ff8000000000000UL.reinterpret_as_double()
+            } else {
+              value
+            },
+          ),
+        ),
+      )
+    }
+    (@lib.Instruction::F64Min, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) => {
+      if lhs.is_nan() || rhs.is_nan() {
+        return Some(
+          @lib.Instruction::f64_const(
+            @lib.F64(0x7ff8000000000000UL.reinterpret_as_double()),
+          ),
+        )
+      }
+      let value = if lhs == rhs {
+        if lhs == 0.0 &&
+          (
+            (lhs.reinterpret_as_uint64() | rhs.reinterpret_as_uint64()) &
+            0x8000000000000000UL
+          ) !=
+          0UL {
+          0x8000000000000000UL.reinterpret_as_double()
+        } else {
+          lhs
+        }
+      } else if lhs < rhs {
+        lhs
+      } else {
+        rhs
+      }
+      Some(@lib.Instruction::f64_const(@lib.F64(value)))
+    }
+    (@lib.Instruction::F64Max, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) => {
+      if lhs.is_nan() || rhs.is_nan() {
+        return Some(
+          @lib.Instruction::f64_const(
+            @lib.F64(0x7ff8000000000000UL.reinterpret_as_double()),
+          ),
+        )
+      }
+      let value = if lhs == rhs {
+        if lhs == 0.0 {
+          if (
+              lhs.reinterpret_as_uint64() &
+              rhs.reinterpret_as_uint64() &
+              0x8000000000000000UL
+            ) !=
+            0UL {
+            0x8000000000000000UL.reinterpret_as_double()
+          } else {
+            0.0
+          }
+        } else {
+          lhs
+        }
+      } else if lhs > rhs {
+        lhs
+      } else {
+        rhs
+      }
+      Some(@lib.Instruction::f64_const(@lib.F64(value)))
+    }
+    (@lib.Instruction::F64Copysign, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
+      Some(
+        @lib.Instruction::f64_const(
+          @lib.F64(
+            ((lhs.reinterpret_as_uint64() & 0x7fffffffffffffffUL) |
+            (rhs.reinterpret_as_uint64() & 0x8000000000000000UL)).reinterpret_as_double(),
+          ),
+        ),
+      )
     (@lib.Instruction::F64Eq, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
       Some(precompute_raw_bool(lhs == rhs))
     (@lib.Instruction::F64Ne, Some(@lib.F64(lhs)), Some(@lib.F64(rhs))) =>
@@ -2758,6 +4065,39 @@ fn precompute_raw_try_mark_value_tail_after_infinite_loop(
 }
 
 ///|
+fn precompute_raw_try_partial_select_unary_tail(
+  out : Array[@lib.Instruction],
+) -> Bool {
+  if out.length() < 5 {
+    return false
+  }
+  let base = out.length() - 5
+  let select_instr = match out[base + 3] {
+    @lib.Select(_) => out[base + 3]
+    _ => return false
+  }
+  let folded_true = match
+    precompute_raw_try_fold_unary(out[base], out[base + 4]) {
+    Some(value) => value
+    None => return false
+  }
+  let folded_false = match
+    precompute_raw_try_fold_unary(out[base + 1], out[base + 4]) {
+    Some(value) => value
+    None => return false
+  }
+  let condition = out[base + 2]
+  while out.length() > base {
+    ignore(out.pop())
+  }
+  out.push(folded_true)
+  out.push(folded_false)
+  out.push(condition)
+  out.push(select_instr)
+  true
+}
+
+///|
 fn precompute_raw_try_partial_select_tail(
   out : Array[@lib.Instruction],
 ) -> Bool {
@@ -2824,11 +4164,138 @@ fn precompute_raw_try_partial_select_tail(
 }
 
 ///|
+fn precompute_raw_is_literal_const(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_effectful_block_const(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let body = match instr {
+    @lib.Block(_, @lib.Expr(body)) => body
+    _ => return None
+  }
+  if body.length() < 3 ||
+    !precompute_raw_is_literal_const(body[body.length() - 1]) {
+    return None
+  }
+  let mut slot = 0
+  while slot + 1 < body.length() {
+    if !precompute_raw_is_literal_const(body[slot]) {
+      return None
+    }
+    match body[slot + 1] {
+      @lib.LocalSet(_) | @lib.GlobalSet(_) => ()
+      _ => return None
+    }
+    slot = slot + 2
+  }
+  if slot != body.length() - 1 {
+    return None
+  }
+  Some(body[body.length() - 1])
+}
+
+///|
+fn precompute_write_utf8_scalar(buf : @buffer.Buffer, scalar : Int) -> Unit {
+  if scalar <= 0x7f {
+    buf.write_byte(scalar.to_byte())
+  } else if scalar <= 0x7ff {
+    buf.write_byte((0xc0 | (scalar >> 6)).to_byte())
+    buf.write_byte((0x80 | (scalar & 0x3f)).to_byte())
+  } else if scalar <= 0xffff {
+    buf.write_byte((0xe0 | (scalar >> 12)).to_byte())
+    buf.write_byte((0x80 | ((scalar >> 6) & 0x3f)).to_byte())
+    buf.write_byte((0x80 | (scalar & 0x3f)).to_byte())
+  } else {
+    buf.write_byte((0xf0 | (scalar >> 18)).to_byte())
+    buf.write_byte((0x80 | ((scalar >> 12) & 0x3f)).to_byte())
+    buf.write_byte((0x80 | ((scalar >> 6) & 0x3f)).to_byte())
+    buf.write_byte((0x80 | (scalar & 0x3f)).to_byte())
+  }
+}
+
+///|
+fn precompute_raw_try_fold_string_new_wtf16_tail(
+  out : Array[@lib.Instruction],
+) -> Bool {
+  if out.length() < 4 ||
+    out[out.length() - 1] != @lib.Instruction::string_new_wtf16_array() {
+    return false
+  }
+  let (start, length) = match (out[out.length() - 3], out[out.length() - 2]) {
+    (@lib.I32Const(@lib.I32(start)), @lib.I32Const(@lib.I32(length))) =>
+      (start, length)
+    _ => return false
+  }
+  if start < 0 || length < 0 {
+    return false
+  }
+  let count = match out[out.length() - 4] {
+    @lib.ArrayNewFixed(_, @lib.U32(count)) => count.reinterpret_as_int()
+    _ => return false
+  }
+  let value_start = out.length() - 4 - count
+  if value_start < 0 || start > count || length > count - start {
+    return false
+  }
+  let units : Array[Int] = []
+  for slot = 0; slot < count; slot = slot + 1 {
+    match out[value_start + slot] {
+      @lib.I32Const(@lib.I32(value)) => units.push(value & 0xffff)
+      _ => return false
+    }
+  }
+  let bytes = @buffer.new(size_hint=length * 3)
+  let end = start + length
+  let mut slot = start
+  while slot < end {
+    let unit = units[slot]
+    if unit >= 0xd800 && unit <= 0xdbff {
+      if slot + 1 >= end {
+        return false
+      }
+      let low = units[slot + 1]
+      if low < 0xdc00 || low > 0xdfff {
+        return false
+      }
+      let scalar = 0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)
+      precompute_write_utf8_scalar(bytes, scalar)
+      slot = slot + 2
+    } else if unit >= 0xdc00 && unit <= 0xdfff {
+      return false
+    } else {
+      precompute_write_utf8_scalar(bytes, unit)
+      slot = slot + 1
+    }
+  }
+  for pop_idx = 0; pop_idx < count + 4; pop_idx = pop_idx + 1 {
+    ignore(pop_idx)
+    ignore(out.pop())
+  }
+  out.push(@lib.Instruction::string_const(bytes.to_bytes()))
+  true
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
+  if precompute_raw_try_fold_string_new_wtf16_tail(out) {
+    return true
+  }
   if precompute_raw_try_fold_const_if_tail(out) {
     return true
   }
-  if precompute_raw_try_partial_select_tail(out) {
+  if precompute_raw_try_partial_select_unary_tail(out) ||
+    precompute_raw_try_partial_select_tail(out) {
     return true
   }
   if precompute_raw_try_mark_value_tail_after_infinite_loop(out) {
@@ -2927,6 +4394,157 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
         return true
       }
       None => ()
+    }
+  }
+  if out.length() >= 4 {
+    match (out[out.length() - 3], out[out.length() - 2]) {
+      (@lib.LocalTee(tee_local), @lib.LocalGet(get_local)) if tee_local ==
+        get_local =>
+        match
+          precompute_raw_try_fold_binary(
+            out[out.length() - 4],
+            out[out.length() - 4],
+            out[out.length() - 1],
+          ) {
+          Some(folded) => {
+            let value = out[out.length() - 4]
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            out.push(value)
+            out.push(@lib.Instruction::local_set(tee_local))
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 5 {
+    match (out[out.length() - 4], out[out.length() - 2]) {
+      (@lib.LocalTee(first_local), @lib.LocalTee(second_local)) =>
+        match
+          precompute_raw_try_fold_binary(
+            out[out.length() - 5],
+            out[out.length() - 3],
+            out[out.length() - 1],
+          ) {
+          Some(folded) => {
+            let first_value = out[out.length() - 5]
+            let second_value = out[out.length() - 3]
+            for i = 0; i < 5; i = i + 1 {
+              ignore(i)
+              ignore(out.pop())
+            }
+            out.push(first_value)
+            out.push(@lib.Instruction::local_set(first_local))
+            out.push(second_value)
+            out.push(@lib.Instruction::local_set(second_local))
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 3 {
+    match
+      (
+        precompute_raw_effectful_block_const(out[out.length() - 3]),
+        precompute_raw_effectful_block_const(out[out.length() - 2]),
+      ) {
+      (Some(lhs), Some(rhs)) =>
+        match precompute_raw_try_fold_binary(lhs, rhs, out[out.length() - 1]) {
+          Some(folded) => {
+            let lhs_block = out[out.length() - 3]
+            let rhs_block = out[out.length() - 2]
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            out.push(lhs_block)
+            out.push(@lib.Instruction::drop())
+            out.push(rhs_block)
+            out.push(@lib.Instruction::drop())
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 3 {
+    match out[out.length() - 2] {
+      @lib.LocalTee(local_idx) =>
+        match
+          precompute_raw_try_fold_unary(
+            out[out.length() - 3],
+            out[out.length() - 1],
+          ) {
+          Some(folded) => {
+            let value = out[out.length() - 3]
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            out.push(value)
+            out.push(@lib.Instruction::local_set(local_idx))
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  if out.length() >= 4 {
+    match out[out.length() - 3] {
+      @lib.LocalTee(local_idx) =>
+        match
+          precompute_raw_try_fold_binary(
+            out[out.length() - 4],
+            out[out.length() - 2],
+            out[out.length() - 1],
+          ) {
+          Some(folded) => {
+            let value = out[out.length() - 4]
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            out.push(value)
+            out.push(@lib.Instruction::local_set(local_idx))
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    match out[out.length() - 2] {
+      @lib.LocalTee(local_idx) =>
+        match
+          precompute_raw_try_fold_binary(
+            out[out.length() - 4],
+            out[out.length() - 3],
+            out[out.length() - 1],
+          ) {
+          Some(folded) => {
+            let value = out[out.length() - 3]
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            ignore(out.pop())
+            out.push(value)
+            out.push(@lib.Instruction::local_set(local_idx))
+            out.push(folded)
+            return true
+          }
+          None => ()
+        }
+      _ => ()
     }
   }
   if out.length() >= 3 {
@@ -3114,6 +4732,10 @@ fn precompute_raw_instr_has_hot_only_candidate(
     | @lib.StructGet(_, _)
     | @lib.StructGetS(_, _)
     | @lib.StructGetU(_, _)
+    | @lib.ArrayGet(_)
+    | @lib.ArrayGetS(_)
+    | @lib.ArrayGetU(_)
+    | @lib.ArrayLen
     | @lib.RefEq
     | @lib.RefTest(_, _, _) => true
     @lib.Nop => false
@@ -4020,7 +5642,9 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       }
       if precompute_try_fold_gc_identity(ctx, func, node_id) ||
         precompute_try_fold_fresh_ref_test(ctx, func, node_id) ||
-        precompute_try_fold_fresh_struct_get(ctx, func, node_id) {
+        precompute_try_fold_fresh_struct_get(ctx, func, node_id) ||
+        precompute_try_fold_fresh_array_len(ctx, func, node_id) ||
+        precompute_try_fold_fresh_array_get(ctx, func, node_id) {
         changed_round = true
         changed_any = true
         continue
@@ -4029,7 +5653,8 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         Some(instr) => instr
         None => continue
       }
-      if precompute_try_partial_select_parent(ctx, func, node_id, instr) {
+      if precompute_try_partial_select_parent(ctx, func, node_id, instr) ||
+        precompute_try_fold_effectful_parent(ctx, func, node_id, instr) {
         changed_round = true
         changed_any = true
         continue
@@ -4727,7 +6352,6 @@ fn precompute_propagate_prefix_fold_local_gets(
     ssa.value_types.length(),
     None,
   )
-  let local_written = Array::make(@ir.hot_local_count(func), false)
   let result_if_arm_written = Array::make(@ir.hot_local_count(func), false)
   let result_if_direct_get_consts : Array[@ir.HotConstPayload?] = Array::make(
     @ir.hot_node_count(func),
@@ -4746,19 +6370,6 @@ fn precompute_propagate_prefix_fold_local_gets(
       false,
       result_if_arm_written,
     )
-  }
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-        if node.imm0 >= 0 && node.imm0 < local_written.length() {
-          local_written[node.imm0] = true
-        }
-      _ => ()
-    }
   }
   let replacements : Array[PrecomputePropagatePrefixReplacement] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
@@ -4789,19 +6400,9 @@ fn precompute_propagate_prefix_fold_local_gets(
             _ => continue
           }
         }
-        // HOT SSA currently leaves branch-local writes nested under a
-        // result-producing expression out of some post-expression merges. A
-        // direct default-init origin is only trustworthy when the local is
-        // never written anywhere in the function; otherwise fail closed.
-        match @ir.ssa_value_origin(ssa, value_id) {
-          @ir.HotSsaValueOrigin::EntryDefaultInitDef(local_id) =>
-            if local_id >= 0 &&
-              local_id < local_written.length() &&
-              local_written[local_id] {
-              continue
-            }
-          _ => ()
-        }
+        // Outside result-producing if arms, trust the SSA origin directly.
+        // In particular, an entry-default read before a later write is a real
+        // constant, even when that local is written elsewhere in the function.
         match
           precompute_propagate_prefix_const_for_value(
             ctx, func, ssa, label_used, value_id, states, value_consts,

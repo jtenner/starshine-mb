@@ -880,7 +880,7 @@ test "precompute repairs stale MoonBit tlsf memory prologue and counters" {
   }
 
   let text = optimized.to_string()
-  assert_true(text.contains("LocalTee"), msg=text)
+  assert_false(text.contains("LocalTee"), msg=text)
   assert_true(text.contains("LocalSet"), msg=text)
   assert_true(text.contains("I32LtS"), msg=text)
 }
@@ -1108,4 +1108,626 @@ test "precompute folds immutable struct reads from fresh allocations" {
   assert_true(pretty.contains("I32(42)"), msg=pretty)
   assert_false(pretty.contains("struct.get"), msg=pretty)
   assert_false(pretty.contains("struct.new"), msg=pretty)
+}
+
+///|
+test "precompute folds returned integer unary rotate and conversion values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32) i32.const 8 i32.clz)
+        #|  (func (result i32) i32.const 1 i32.const 3 i32.rotl)
+        #|  (func (result i64) i32.const -1 i64.extend_i32_u))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected returned integer folds, got \{err}")
+  }
+  let clz = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let rotl = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let extended = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(clz.contains("I32(28)"), msg=clz)
+  assert_false(clz.contains("i32.clz"), msg=clz)
+  assert_true(rotl.contains("I32(8)"), msg=rotl)
+  assert_false(rotl.contains("i32.rotl"), msg=rotl)
+  assert_true(extended.contains("I64(4294967295)"), msg=extended)
+  assert_false(extended.contains("i64.extend_i32_u"), msg=extended)
+}
+
+///|
+test "precompute folds returned floating unary min and copysign values" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result f64) f64.const 9 f64.sqrt)
+        #|  (func (result f32) f32.const 1.5 f32.const 2.5 f32.min)
+        #|  (func (result f64) f64.const 4 f64.const -1 f64.copysign))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected returned floating folds, got \{err}")
+  }
+  let sqrt = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let min = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let copysign = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(sqrt.contains("F64(3"), msg=sqrt)
+  assert_false(sqrt.contains("f64.sqrt"), msg=sqrt)
+  assert_true(min.contains("F32(1.5"), msg=min)
+  assert_false(min.contains("f32.min"), msg=min)
+  assert_true(copysign.contains("F64(-4"), msg=copysign)
+  assert_false(copysign.contains("f64.copysign"), msg=copysign)
+}
+
+///|
+test "precompute folds fresh immutable array lengths and reads" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type, func_type, func_type, func_type, func_type, func_type, func_type,
+        func_type, func_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(42)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(1U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(-1)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(1U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(44739241)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(44739242)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::i32_const(@lib.I32(44739242)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+      ]),
+    )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected immutable array folds, got \{err}")
+  }
+  let get = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let len = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(get.contains("I32(42)"), msg="\{get}\ntrace=\{trace}")
+  assert_false(get.contains("array.get"), msg="\{get}\ntrace=\{trace}")
+  assert_false(get.contains("array.new_fixed"), msg=get)
+  assert_true(len.contains("I32(7)"), msg=len)
+  assert_false(len.contains("array.len"), msg=len)
+  assert_false(len.contains("array.new_default"), msg=len)
+  let negative_get = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let negative_len = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let negative_default = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let fixed_oob = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(
+    negative_get.contains("array.new") && negative_get.contains("array.get"),
+    msg=negative_get,
+  )
+  assert_true(
+    negative_len.contains("array.new") && negative_len.contains("array.len"),
+    msg=negative_len,
+  )
+  assert_true(
+    negative_default.contains("array.new_default") &&
+    negative_default.contains("array.get"),
+    msg=negative_default,
+  )
+  assert_true(fixed_oob.contains("array.get"), msg=fixed_oob)
+  let below_limit = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let at_limit_len = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let at_limit_get = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  assert_true(below_limit.contains("I32(44739241)"), msg=below_limit)
+  assert_false(below_limit.contains("array.len"), msg=below_limit)
+  assert_true(
+    at_limit_len.contains("array.new") && at_limit_len.contains("array.len"),
+    msg=at_limit_len,
+  )
+  assert_true(
+    at_limit_get.contains("array.new") && at_limit_get.contains("array.get"),
+    msg=at_limit_get,
+  )
+}
+
+///|
+test "precompute family keeps local writes while exposing exact parent values" {
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let pretty = match
+      pass_test_run_pipeline(
+        (
+          #|(module
+          #|  (func (result i32) (local i32)
+          #|    i32.const 1
+          #|    local.tee 0
+          #|    i32.const 2
+          #|    i32.add))
+          #|,
+        ),
+        [pass_name],
+      ) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+      Err(err) =>
+        fail("expected \{pass_name} effect-preserving fold, got \{err}")
+    }
+    assert_true(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(3)"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("i32.add"), msg="\{pass_name}: \{pretty}")
+  }
+}
+
+///|
+test "precompute family preserves multiple ordered local writes while folding parent" {
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let pretty = match
+      pass_test_run_pipeline(
+        (
+          #|(module
+          #|  (func (result i32) (local i32)
+          #|    i32.const 10
+          #|    local.tee 0
+          #|    i32.const 20
+          #|    local.tee 0
+          #|    i32.add))
+          #|,
+        ),
+        [pass_name],
+      ) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+      Err(err) =>
+        fail("expected \{pass_name} ordered multi-write fold, got \{err}")
+    }
+    assert_true(pretty.contains("I32(30)"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("i32.add"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(10)"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(20)"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
+  }
+}
+
+///|
+test "precompute reads a local written earlier in the same expression" {
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let pretty = match
+      pass_test_run_pipeline(
+        (
+          #|(module
+          #|  (func (result i32) (local i32)
+          #|    i32.const 10
+          #|    local.tee 0
+          #|    local.get 0
+          #|    i32.add))
+          #|,
+        ),
+        [pass_name],
+      ) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+      Err(err) => fail("expected \{pass_name} local-flow fold, got \{err}")
+    }
+    assert_true(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(20)"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("i32.add"), msg="\{pass_name}: \{pretty}")
+  }
+}
+
+///|
+test "precompute-propagate uses the default local before a later tee" {
+  let source =
+    #|(module
+    #|  (func (result i32) (local i32)
+    #|    local.get 0
+    #|    i32.const 10
+    #|    local.tee 0
+    #|    i32.add))
+    #|
+  let plain = match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected plain precompute boundary success, got \{err}")
+  }
+  let propagated = match
+    pass_test_run_pipeline(source, ["precompute-propagate"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected propagating local default fold, got \{err}")
+  }
+  assert_true(plain.contains("i32.add"), msg=plain)
+  assert_true(propagated.contains("local.set"), msg=propagated)
+  assert_true(propagated.contains("I32(10)"), msg=propagated)
+  assert_false(propagated.contains("i32.add"), msg=propagated)
+}
+
+///|
+test "precompute family preserves nested local and global writes while folding parent" {
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let pretty = match
+      pass_test_run_pipeline(
+        (
+          #|(module
+          #|  (global (mut i32) (i32.const 10))
+          #|  (func (result i32) (local i32)
+          #|    block (result i32)
+          #|      i32.const 10
+          #|      local.set 0
+          #|      i32.const 20
+          #|    end
+          #|    block (result i32)
+          #|      i32.const 30
+          #|      global.set 0
+          #|      i32.const 40
+          #|    end
+          #|    i32.add))
+          #|,
+        ),
+        [pass_name],
+      ) {
+      Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+      Err(err) => fail("expected \{pass_name} nested effect fold, got \{err}")
+    }
+    assert_true(pretty.contains("local.set"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("global.set"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(60)"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("i32.add"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(10)"), msg="\{pass_name}: \{pretty}")
+    assert_true(pretty.contains("I32(30)"), msg="\{pass_name}: \{pretty}")
+  }
+}
+
+///|
+test "precompute folds floating nearest signed zero and saturating conversions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i64)
+        #|    f64.const -0.1
+        #|    f64.nearest
+        #|    i64.reinterpret_f64)
+        #|  (func (result f64) f64.const 2.5 f64.nearest)
+        #|  (func (result i32) f64.const 1e40 i32.trunc_sat_f64_s)
+        #|  (func (result i64) f64.const 42.75 i64.trunc_f64_s)
+        #|  (func (result i64) f64.const 9223372036854775808 i64.trunc_f64_u)
+        #|  (func (result i64) f64.const 18446744073709549568 i64.trunc_f64_u))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected floating edge folds, got \{err}")
+  }
+  let negative_zero = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let ties_even = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let saturated = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let truncated = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let unsigned_high_bit = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let unsigned_high = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(
+    negative_zero.contains("I64(-9223372036854775808)"),
+    msg=negative_zero,
+  )
+  assert_false(negative_zero.contains("f64.nearest"), msg=negative_zero)
+  assert_true(ties_even.contains("F64(2"), msg=ties_even)
+  assert_false(ties_even.contains("f64.nearest"), msg=ties_even)
+  assert_true(saturated.contains("I32(2147483647)"), msg=saturated)
+  assert_false(saturated.contains("trunc_sat"), msg=saturated)
+  assert_true(truncated.contains("I64(42)"), msg=truncated)
+  assert_false(truncated.contains("i64.trunc_f64_s"), msg=truncated)
+  assert_true(
+    unsigned_high_bit.contains("I64(-9223372036854775808)"),
+    msg=unsigned_high_bit,
+  )
+  assert_true(unsigned_high.contains("I64(-2048)"), msg=unsigned_high)
+  assert_false(
+    unsigned_high_bit.contains("i64.trunc_f64_u"),
+    msg=unsigned_high_bit,
+  )
+  assert_false(unsigned_high.contains("i64.trunc_f64_u"), msg=unsigned_high)
+}
+
+///|
+test "precompute matches Binaryen floating NaN infinity and subnormal folds" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    f32.const nan
+        #|    f32.ceil
+        #|    i32.reinterpret_f32)
+        #|  (func (result i32)
+        #|    f32.const -1
+        #|    f32.sqrt
+        #|    i32.reinterpret_f32)
+        #|  (func (result i32)
+        #|    f32.const nan
+        #|    f32.const 1
+        #|    f32.min
+        #|    i32.reinterpret_f32)
+        #|  (func (result i64)
+        #|    f64.const inf
+        #|    f64.ceil
+        #|    i64.reinterpret_f64)
+        #|  (func (result i32)
+        #|    f32.const -1.401298464324817e-45
+        #|    f32.nearest
+        #|    i32.reinterpret_f32)
+        #|  (func (result i32)
+        #|    f64.const nan
+        #|    f32.demote_f64
+        #|    i32.reinterpret_f32)
+        #|  (func (result i64)
+        #|    f32.const nan
+        #|    f64.promote_f32
+        #|    i64.reinterpret_f64)
+        #|  (func (result i32)
+        #|    f32.const 0
+        #|    f32.const 0
+        #|    f32.div
+        #|    i32.reinterpret_f32)
+        #|  (func (result i64)
+        #|    f64.const 0
+        #|    f64.const 0
+        #|    f64.div
+        #|    i64.reinterpret_f64)
+        #|  (func (result i32)
+        #|    f32.const -0
+        #|    f32.const 0
+        #|    f32.max
+        #|    i32.reinterpret_f32)
+        #|  (func (result i64)
+        #|    f64.const -0
+        #|    f64.const 0
+        #|    f64.max
+        #|    i64.reinterpret_f64))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected floating edge folds, got \{err}")
+  }
+  let nan_ceil = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let negative_sqrt = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let nan_min = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let infinity = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let subnormal = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let demoted_nan = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  let promoted_nan = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  let f32_arithmetic_nan = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  let f64_arithmetic_nan = optimized.pretty_print_func(@lib.FuncIdx::new(8U))
+  let f32_max_zero = optimized.pretty_print_func(@lib.FuncIdx::new(9U))
+  let f64_max_zero = optimized.pretty_print_func(@lib.FuncIdx::new(10U))
+  assert_true(nan_ceil.contains("I32(2143289344)"), msg=nan_ceil)
+  assert_true(negative_sqrt.contains("I32(2143289344)"), msg=negative_sqrt)
+  assert_true(nan_min.contains("I32(2143289344)"), msg=nan_min)
+  assert_true(infinity.contains("I64(9218868437227405312)"), msg=infinity)
+  assert_true(subnormal.contains("I32(-2147483648)"), msg=subnormal)
+  assert_true(demoted_nan.contains("I32(2143289344)"), msg=demoted_nan)
+  assert_true(
+    promoted_nan.contains("I64(9221120237041090560)"),
+    msg=promoted_nan,
+  )
+  assert_true(
+    f32_arithmetic_nan.contains("I32(2143289344)"),
+    msg=f32_arithmetic_nan,
+  )
+  assert_true(
+    f64_arithmetic_nan.contains("I64(9221120237041090560)"),
+    msg=f64_arithmetic_nan,
+  )
+  assert_true(f32_max_zero.contains("I32(0)"), msg=f32_max_zero)
+  assert_true(f64_max_zero.contains("I64(0)"), msg=f64_max_zero)
+  for
+    pretty in [
+      nan_ceil, negative_sqrt, nan_min, infinity, subnormal, demoted_nan, promoted_nan,
+      f32_arithmetic_nan, f64_arithmetic_nan, f32_max_zero, f64_max_zero,
+    ] {
+    assert_false(pretty.contains("f32.ceil"), msg=pretty)
+    assert_false(pretty.contains("f32.sqrt"), msg=pretty)
+    assert_false(pretty.contains("f32.min"), msg=pretty)
+    assert_false(pretty.contains("f64.ceil"), msg=pretty)
+    assert_false(pretty.contains("f32.nearest"), msg=pretty)
+    assert_false(pretty.contains("f32.demote_f64"), msg=pretty)
+    assert_false(pretty.contains("f64.promote_f32"), msg=pretty)
+    assert_false(pretty.contains("f32.div"), msg=pretty)
+    assert_false(pretty.contains("f64.div"), msg=pretty)
+    assert_false(pretty.contains("f32.max"), msg=pretty)
+    assert_false(pretty.contains("f64.max"), msg=pretty)
+  }
+}
+
+///|
+test "precompute repeatedly evaluates unary parents through select arms" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    i32.const -3
+        #|    i32.const -2
+        #|    local.get 0
+        #|    select
+        #|    i32.const 3
+        #|    i32.add
+        #|    i32.eqz))
+        #|,
+      ),
+      ["precompute"],
+      options=HotPipelineOptions::new(optimize_level=2),
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected multi-parent select fold, got \{err}")
+  }
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("i32.eqz"), msg=pretty)
+}
+
+///|
+test "precompute folds default and packed fresh struct reads" {
+  let struct_type = @lib.TypeIdx::new(0U)
+  let packed_type = @lib.TypeIdx::new(1U)
+  let i32_func = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::pack_type(@lib.PackType::i8()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([i32_func, i32_func]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::struct_new_default(struct_type),
+            @lib.Instruction::struct_get(struct_type, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(255)),
+            @lib.Instruction::struct_new(packed_type),
+            @lib.Instruction::struct_get_s(packed_type, @lib.U32(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected fresh struct field folds, got \{err}")
+  }
+  let defaulted = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let packed = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(defaulted.contains("I32(0)"), msg=defaulted)
+  assert_false(defaulted.contains("struct.get"), msg=defaulted)
+  assert_true(packed.contains("I32(-1)"), msg=packed)
+  assert_false(packed.contains("struct.get_s"), msg=packed)
 }

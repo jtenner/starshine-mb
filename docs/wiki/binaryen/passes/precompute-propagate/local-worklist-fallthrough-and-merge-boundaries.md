@@ -335,4 +335,4 @@ then `precompute-propagate` means:
 
 - “solve a small local get/set consensus problem, feed the proven `local.get`s back into the same evaluator, and try one more full walk.”
 
-That is the real Binaryen `version_129` contract future Starshine work should preserve. Current Starshine has no implementation of this local-flow phase yet; see [`./starshine-strategy.md`](./starshine-strategy.md) before treating any local `precompute` code as sibling coverage.
+That is the real Binaryen contract the active Starshine port preserves. Current Starshine implements one SSA-backed local-consensus solve and one evaluator rerun in the public `precompute-propagate` pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for its exact boundaries rather than treating plain `precompute` alone as sibling coverage.

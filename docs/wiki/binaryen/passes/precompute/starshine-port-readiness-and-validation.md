@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
+  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
   - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
@@ -46,16 +47,19 @@ A later 2026-05-07 current-head rerun in [`../../../raw/research/0555-2026-05-07
 
 A 2026-06-20 release-gating refresh in [`../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md`](../../../raw/research/0785-2026-06-20-precompute-modern-signoff-refresh.md) reopened the status bar under the modern pass-audit standard. Direct `precompute` remains implemented and supported by the compare harness. The historical descriptor follow-up in [`../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md`](../../../raw/research/0786-2026-06-20-precompute-descriptor-split-audit.md) proved direct `precompute` is SSA-free while the then-private propagating helper required SSA. On 2026-07-17 that helper became the active public `precompute-propagate` descriptor and the private name was removed; see [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md). A follow-up in [`../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md`](../../../raw/research/0787-2026-06-20-precompute-dedicated-genvalid-profile.md) added the dedicated `precompute-all` GenValid composite profile and focused generator coverage. The O4z preset slot story is now partially narrowed by [`../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md`](../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md): changed `raw-scalar-folds` results run under `optimize_level >= 4 && shrink_level >= 1`, while HOT-only cleanup and hazardous/non-scalar raw paths still return `o4z-precompute-noop`. The native-path and bounded-evidence follow-up in [`../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md`](../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md) resolves the local explicit native path to `_build/native/release/build/cmd/cmd.exe`, keeps a `1000`-case `precompute-all` smoke green, and opens a regular GenValid behavior-parity mismatch family from `.tmp/pass-fuzz-precompute-native-path-policy-direct-100/failures/`. The first reduction in [`../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md`](../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md) fixes the sampled constant self-exiting `block br_if` gap. The next reduction in [`../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md`](../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md) fixes constant-true self-branching loop result tails in raw and HOT paths. The closeout-normalizer slice in [`../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md`](../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md) keeps constant-false loop / mixed root-debris cleanup as a Starshine size win, extends the PC normalizer for exact `loop (nop)` / empty void wrappers, and reruns the bounded regular lane with `0` mismatches. The O4z boundary slice in [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md) accepts the remaining `o4z-precompute-noop` surface for v0.1.0 with reopening criteria and records that historical slot19/slot43 replay fixtures are absent in this checkout. The final-evidence refresh in [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md) refreshes regular, dedicated, broad, and wasm-smith lanes; the first three are green at `10000`, while wasm-smith exposes one reachable-`atomic.fence` divergence now guarded by `precompute intentionally preserves reachable atomic fence before branch-to-end`. The final closeout in [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md) accepts that fence divergence as a narrow Starshine correctness boundary and runs the missing regular `100000` lane green. Direct pass closure is now recorded for v0.1.0, but O4z PC slots must still be described as the accepted fail-closed release boundary rather than full optimization parity.
 
+The focused July 18 shared-evaluator follow-up is recorded in [`../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md`](../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md). It closes Binaryen-backed returned scalar/count/rotate/floating/conversion gaps, fresh immutable array/default-struct and packed-read gaps, repeated unary-parent evaluation through `select`, and the reduced `local.tee` child-retention witness. Unsigned `f64 -> i64` conversion is target-independent above `2^63`; dynamic arrays retain negative lengths, out-of-bounds reads, and lengths at or above Binaryen v130's first rejected `DataLimit` length (`44,739,242`). Both plain and propagating `10000`-case aggregate lanes are green with zero mismatches; the refreshed random-all matrix has `2734` raw differences, all canonically smaller for Starshine. The refreshed self-optimization output is `4,585,838` bytes versus Binaryen's `4,666,022`, and the 15-run pass-local medians are `782.394 ms` versus `540.976 ms` (`1.446x`, within the maintained `<2x` ceiling).
+
 ## Current local contract
 
 Starshine `precompute` is an active HOT pass with a narrow, practical contract:
 
-- fold exact i32/i64 unary and binary expressions, including safe nontrapping division/remainder and rotates;
+- fold exact i32/i64 unary and binary expressions, including count operations, safe nontrapping division/remainder, rotates, wraps, sign extensions, conversions, and reinterpretations;
 - use a conservative raw stack-level fast path for no-candidate functions, nested nop-only control, adjacent scalar folds, branch-free constant-`if` arm picks, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result blocks with no branch to the rewritten label, and preserved effectful/trapping dropped tails with no remaining precompute candidate;
-- fold exact i32/i64 and f32/f64 arithmetic/comparisons to exact scalar constants, plus supported floating unary and conversion families;
+- fold exact i32/i64 and f32/f64 arithmetic/comparisons to returned scalar constants, including floating abs/neg/rounding/sqrt/min/max/copysign, bit-exact reinterpretation, signed-zero behavior, canonical v130 NaN results, and trapping/saturating conversions when their result is proven;
 - replace immutable defined `global.get` values with constants or `ref.null` where the module context can prove the initializer;
-- choose constant `if` arms, rebuild the chosen root shape, and partially evaluate supported parents through `select` arms;
-- fold fresh allocation/null identity, exact fresh-allocation `ref.test`, and immutable fresh-struct field reads;
+- choose constant `if` arms, rebuild the chosen root shape, and repeatedly evaluate supported unary/binary parents through `select` arms;
+- fold fresh allocation/null identity, exact fresh-allocation `ref.test`, immutable fresh-struct/default-struct field reads, and statically in-bounds fresh immutable array reads/lengths, including packed reads;
+- preserve a constant-valued `local.tee` write as `local.set` while exposing an exact unary/binary parent result;
 - remove pure dropped values and clean up `nop` residue that would otherwise make HOT writeback harder;
 - preserve Binaryen-visible dead-root `nop` sentinels before trailing `unreachable`, normalize empty void bodies to one `nop` at the direct pass boundary, remove exact constant self-exiting void blocks when both branch and fallthrough leave the same zero-arity block, and mark exact constant-true self-branching loop result tails unreachable;
 - validate suspicious lowered output before committing it back to the module;
@@ -70,10 +74,10 @@ Binaryen's plain `precompute` is much broader than the current Starshine pass. T
 
 - bounded compile-time execution via the `ConstantExpressionRunner` / interpreter family;
 - `Flow`-aware handling of values, breaks, and returns;
-- child-retention for local/global writes encountered during speculative computation;
-- emitability checks separate from “we know the value”; 
-- general multi-parent partial precompute beyond the supported scalar `select` parent path;
-- complete GC heap-cache and immutable array/nested-object reasoning;
+- general child retention for global writes, calls, traps, branches, multiple effectful children, and control-spanning speculative computation beyond the supported single exact `local.tee` parent;
+- emitability checks separate from “we know the value”;
+- general multi-parent partial precompute beyond the supported repeated scalar `select` parent path;
+- alias-aware GC heap caching, allocation identity through locals, and nested immutable aggregate reasoning beyond fresh local arrays/structs;
 - final refinalization after type-affecting rewrites.
 
 Starshine should keep those gaps explicit. The local pass is currently a HOT fold-and-cleanup fixpoint, not a miniature Binaryen interpreter.
@@ -92,21 +96,20 @@ Before changing rewrite semantics, keep these public surfaces green:
 
 The cheapest safe extensions are still direct, trap-free shapes adjacent to what the pass already handles:
 
-- additional integer bit operations with exact wasm wraparound semantics;
-- more comparisons when both operands are exact constants;
 - immutable-global literal families already representable in HOT;
+- fresh allocation-local aggregate shapes whose bounds and immutability are statically proven;
 - pure cleanup cases that preserve every side effect and trap.
 
-Each new family should add a focused `src/passes/precompute_test.mbt` case before implementation. Division/remainder, floating, selected GC identity/read, and atomic-fence-preserving cleanup now have focused proofs; new loads, atomics policy changes, or heap families still require explicit semantics evidence.
+Each new family should add a focused `src/passes/precompute_test.mbt` case before implementation. Division/remainder, returned scalar and floating edge families, selected GC identity/read, fresh immutable arrays/default structs, single-tee effect retention, and atomic-fence-preserving cleanup now have focused proofs; new loads, atomics policy changes, aliases, nested heap identities, or broader effect retention still require explicit semantics evidence.
 
 ### 3. Treat float, string, GC, and interpreter-like work as separate slices
 
 Do not smuggle the larger Binaryen contract into a small fold patch. These families need dedicated design and oracle tests:
 
 - `StringConst` and string helper surfaces;
-- complete immutable GC array/nested-object reads and heap-cache identity;
-- broader parent-stack partial precompute beyond supported scalar `select` parents;
-- general `Flow`-aware break/return interpretation and child-write retention;
+- alias-aware immutable GC nested-object reads and heap-cache identity beyond fresh arrays/structs;
+- broader parent-stack partial precompute beyond supported repeated scalar `select` parents;
+- general `Flow`-aware break/return interpretation and multi-effect child retention;
 - emitability separation and final type refinalization;
 - local-flow propagation remains owned by the active public `precompute-propagate` sibling.
 
@@ -139,9 +142,10 @@ Use this order for future work:
 | immutable defined `global.get` | Replaced with literal i32/i64/f32/f64/ref-null constants; `StringConst` is rejected. | Binaryen's emitability and string/GC behavior is broader and subtler. |
 | constant void/result `if` | HOT chooses the surviving arm and emits `nop`, a root, or a rebuilt block; raw direct execution now also folds branch-free stack-level constant-`if` tails before adjacent scalar folds, while label-relative branchy arms still defer to HOT. | Related to but narrower than Binaryen's flow-aware computation. |
 | `drop(pure-value)` / preserved effectful or trapping dropped value | Pure, side-effect-free, nontrapping values are replaced with `nop` or spliced away; flat scalar/global/select drop tails and safely voidable dropped result blocks can use the raw shortcut, and preserved effectful/trapping dropped tails can now skip HOT when no fold candidate remains, while dead exact roots before a trailing `unreachable` and still-unsupported pure drop families stay on the HOT/direct-boundary path. | Local HOT/raw cleanup and skip gating, not the full Binaryen child-retention algorithm. |
-| supported scalar parent over `select` | Rebuilds the `select` with separately folded constant arms. | Closes the reduced parent-add witness; Binaryen's general parent-stack algorithm remains broader. |
+| supported repeated scalar parents over `select` | Rebuilds the `select` with separately folded constant arms and can continue through another supported unary parent. | Closes the reduced add-then-`eqz` witness; Binaryen's general parent-stack algorithm remains broader. |
 | local-flow propagation | Plain `precompute` remains nonpropagating; the active public `precompute-propagate` sibling owns one SSA solve and one rerun. | Matches Binaryen's public family split. |
-| fresh GC identity / immutable fresh-struct read | Folds supported `ref.eq`, exact `ref.test`, and immutable fresh-struct scalar fields. | Complete heap-cache, arrays, nested interior refs, strings, and emitability remain broader upstream work. |
+| fresh GC identity / immutable fresh aggregate read | Folds supported `ref.eq`, exact `ref.test`, fresh struct/default-struct fields, and in-bounds fresh array reads/lengths, including packed reads. | Alias-aware heap caches, identity through locals, nested interior refs, strings, and emitability remain broader upstream work. |
+| exact parent over `local.tee` | Preserves the write as `local.set` and emits the exact parent constant; the reduced witness is one byte smaller than Binaryen. | This is a narrow effect-retention slice, not general `EffectAnalyzer` parity. |
 | reachable `atomic.fence` | Preserved while independent surrounding scalar debris may fold. | Intentional Starshine correctness boundary versus Binaryen v130's observed deletion. |
 
 ## Current representation drift classification

@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -46,10 +47,9 @@ Stable profile name:
 precompute-propagate-local-facts
 ```
 
-Compatibility aliases:
+Compatibility aliases `precompute-propagate` and `precompute-propagate-closeout` select the broader `precompute-all` aggregate so shared evaluator coverage cannot silently disappear. Use the exact `precompute-propagate-local-facts` name when only local-consensus generation is wanted.
 
-- `precompute-propagate`
-- `precompute-propagate-closeout`
+The aggregate adds returned scalar, fresh immutable aggregate, and effect-retention leaves to the local-facts and historical plain-precompute leaves.
 
 Each generated module includes:
 
@@ -78,6 +78,24 @@ bun scripts/pass-fuzz-compare.ts \
   --wasm-opt-bin .tmp/binaryen-version-130-bin/bin/wasm-opt \
   --max-failures 1000 --keep-going-after-command-failures
 ```
+
+## 2026-07-18 evaluator refresh
+
+All refreshed lanes used Binaryen `version_130`, the explicit rebuilt native Starshine binary, parallel workers, the persistent cache, and the three normalizers above.
+
+| Lane | Directory | Compared | Normalized | Cleanup-normalized | Mismatches | Failures |
+|---|---|---:|---:|---:|---:|---|
+| Regular GenValid, seed `0x5eed` | `.tmp/pass-fuzz-precompute-gap-close-final4-regular-10000` | `10000/10000` | `1915` | `8085` | `0` | none |
+| Expanded aggregate, seed `0x5eed` | `.tmp/pass-fuzz-precompute-gap-close-final4-aggregate-10000` | `10000/10000` | `7306` | `2694` | `0` | none |
+| Broad `pass-fuzz-stress`, seed `0x5555` | `.tmp/pass-fuzz-precompute-gap-close-final4-stress-10000` | `10000/10000` | `1921` | `8079` | `0` | none |
+| wasm-smith, seed `0x5eed` | `.tmp/pass-fuzz-precompute-gap-close-final4-wasm-smith-10000` | `9956/10000` | `9951` | `3` | `2` | `44` Binaryen parser/tool failures |
+| Random all profiles, seed `0x5555` | `.tmp/pass-fuzz-precompute-gap-close-final4-random-all-10000` | `10000/10000` | `4664` | `2602` | `2734` | none |
+
+A separate aggregate runtime/idempotence lane at `.tmp/pass-fuzz-precompute-gap-close-final4-runtime-1000` completed `1000/1000` idempotence checks, runtime-checked `955` cases, reported `45` unsupported runtime cases, and found zero semantic mismatches or property failures. Expanded scalar and GC leaves each matched `100/100` exactly; the effectful leaf matched `100/100` after the reviewed local-cleanup normalizer.
+
+All `2734` random-all raw differences are canonically smaller for Starshine: `920` `ssa-nomerge-smoke`, `916` `ssa-nomerge-parity`, `657` duplicate-function-import, and `241` duplicate-nonfunction-import cases. There are no equal-sized or Starshine-larger cases.
+
+The two wasm-smith differences and `44` Binaryen tool failures are unchanged from July 17.
 
 ## 2026-07-17 closeout matrix
 

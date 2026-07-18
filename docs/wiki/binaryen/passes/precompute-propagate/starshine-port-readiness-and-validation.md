@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../../../src/passes/precompute.mbt
@@ -32,9 +33,10 @@ The public Binaryen-compatible member landed on July 17, 2026. This page records
 - agreeing reaching-value consensus and defaultable-local entry values;
 - direct tee, unbranched block fallthrough, result-`if` phi consensus, and condition-tee facts used in selected arms;
 - one propagation solve followed by one evaluator rerun;
-- safe integer division/remainder, deterministic scalar floating arithmetic/comparisons, nontrapping unary/conversion cleanup, and rotate folding;
-- partial parent evaluation through `select`;
-- fresh GC allocation/null identity, exact fresh-allocation `ref.test`, and immutable fresh-struct field reads;
+- returned integer count/rotate values, safe integer division/remainder, deterministic floating unary/arithmetic/min/max/copysign, exact reinterpretation/sign extension/conversion, and trapping/saturating conversion folding when proven;
+- repeated unary/binary parent evaluation through `select`;
+- fresh GC allocation/null identity, exact fresh-allocation `ref.test`, immutable fresh struct/default-struct reads, and statically in-bounds immutable fresh array reads/lengths, including packed reads;
+- narrow effect-preserving exact parent folds that rewrite a constant-valued `local.tee` to `local.set` before the result constant;
 - conservative raw local propagation for owner-hazard, large-lowered, and selected structured `memory.grow` functions, including loop-invariant preservation and loop-carried-local invalidation;
 - raw scalar/control cleanup around reachable `atomic.fence` without deleting the fence;
 - both aggressive top-level PC slots and shared DAE/inlining nested-prefix use;
@@ -52,7 +54,7 @@ Keep direct tests for:
 6. stale-default and stale-prior result-`if` safety;
 7. agreeing result-`if` arm writes and condition-tee facts;
 8. high-local/large-lowered positive propagation;
-9. safe scalar, partial-`select`, GC identity, `ref.test`, and immutable-struct folds;
+9. returned scalar/floating edge, repeated partial-`select`, GC identity, `ref.test`, immutable fresh array/struct/default/packed reads, and single-tee effect-retention folds;
 10. reachable atomic-fence preservation with surrounding raw cleanup;
 11. raw loop invariants and loop-carried-local invalidation.
 
@@ -80,7 +82,7 @@ A reachable `atomic.fence` is an ordering barrier. Starshine may fold independen
 
 ### Remaining shared evaluator scope
 
-The reduced parity-gap witnesses for scalar folding, partial `select`, fresh GC identity, immutable `struct.get`, large local propagation, result-`if` consensus, and the self-hosted condition tee are closed. Broader string evaluation, general `Flow`-aware break/return interpretation, complete heap-cache/array evaluation, side-effecting child retention, emitability separation, and final type refinalization remain shared plain-`precompute` architecture work. They are not known size-losing families in the final random-all matrix.
+The reduced parity-gap witnesses for returned scalar folding, repeated partial `select`, fresh GC identity, immutable fresh array/struct/default/packed reads, single-`local.tee` effect retention, large local propagation, result-`if` consensus, and the self-hosted condition tee are closed. Broader string evaluation, general `Flow`-aware break/return interpretation, alias-aware heap caches and nested aggregate identity, multi-effect/global-write/call/trap/branch child retention, emitability separation, and final type refinalization remain shared plain-`precompute` architecture work. They are not known size-losing families in the refreshed random-all matrix.
 
 ## Signoff ladder
 
@@ -114,7 +116,18 @@ Require external validity, no stale-local substitution, classification of the fi
 
 ## Current evidence
 
-The final July 17, 2026 evidence is:
+The July 18, 2026 shared-evaluator refresh adds:
+
+- plain aggregate: `10000/10000`, zero mismatches/failures;
+- propagating aggregate: `10000/10000`, zero mismatches/failures;
+- regular GenValid and `pass-fuzz-stress`: `10000/10000` each, zero mismatches/failures;
+- runtime/idempotence: `1000/1000` idempotence matches, `955` runtime-checked, `45` unsupported, zero semantic mismatches/property failures;
+- wasm-smith: the same two classified differences and `44` Binaryen parser/tool failures;
+- random-all: `2734` raw differences, all canonically smaller for Starshine and none equal-sized or larger;
+- self-optimization: Starshine canonical `4,585,838` bytes versus Binaryen `4,666,022`, another `135`-byte improvement over July 17;
+- one-warmup/15-run pass-local medians: `782.394 ms` versus `540.976 ms` (`1.446x`, within the `<2x` contract); whole-command medians `7,799.692 ms` and `1,204.678 ms`.
+
+The original final July 17, 2026 propagation evidence remains:
 
 - regular GenValid: `100000/100000`, zero mismatches or failures;
 - dedicated local-facts profile: `10000/10000`, zero mismatches or failures;
@@ -126,7 +139,7 @@ The final July 17, 2026 evidence is:
 - repeated one-warmup/15-run benchmark: Starshine pass-local median `694.444 ms`, Binaryen `505.591 ms` (`1.374x` Binaryen advantage, within the `<2x` contract); whole-command medians `7,330.096 ms` and `1,110.672 ms` respectively;
 - the former defined-function `4` / absolute-function `31` condition-tee gap is closed; the first canonical difference moves to defined `24` / absolute `51`, where Starshine retains valid result typing instead of Binaryen's larger unreachable/refinalized shape.
 
-Detailed artifacts are under `.tmp/pass-fuzz-precompute-propagate-gap-close-final3-*`, `.tmp/pass-fuzz-precompute-propagate-gap-close-final4-*`, `.tmp/self-opt-precompute-propagate-gap-close-memorygrow`, and `.tmp/benchmark-precompute-propagate-gap-close-final-2026-07-17`.
+Detailed refresh artifacts are under `.tmp/pass-fuzz-precompute-gap-close-final4-*` and `.tmp/benchmark-precompute-gap-close-final2-2026-07-18`. Original closeout artifacts remain under `.tmp/pass-fuzz-precompute-propagate-gap-close-final3-*`, `.tmp/pass-fuzz-precompute-propagate-gap-close-final4-*`, `.tmp/self-opt-precompute-propagate-gap-close-memorygrow`, and `.tmp/benchmark-precompute-propagate-gap-close-final-2026-07-17`.
 
 ## Status rule
 

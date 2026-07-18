@@ -709,6 +709,9 @@ pub enum GenValidProfile {
   GsiDescCastUnreachableBoundaryProfile
   GsiDescCastAllProfile
   PrecomputeScalarProfile
+  PrecomputeScalarValueProfile
+  PrecomputeGcValueProfile
+  PrecomputeEffectfulValueProfile
   PrecomputeControlProfile
   PrecomputeGlobalProfile
   PrecomputeDropCleanupProfile
@@ -939,6 +942,9 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "gsi-desc-cast-unreachable-boundary"
     GsiDescCastAllProfile => "gsi-desc-cast"
     PrecomputeScalarProfile => "precompute-scalar"
+    PrecomputeScalarValueProfile => "precompute-scalar-values"
+    PrecomputeGcValueProfile => "precompute-gc-values"
+    PrecomputeEffectfulValueProfile => "precompute-effectful-values"
     PrecomputeControlProfile => "precompute-control"
     PrecomputeGlobalProfile => "precompute-global"
     PrecomputeDropCleanupProfile => "precompute-drop-cleanup"
@@ -1174,13 +1180,17 @@ pub fn gen_valid_profile_members(
       ]
     PrecomputeAllProfile =>
       [
-        GenValidProfileMember::new(PrecomputeScalarProfile, 3),
+        GenValidProfileMember::new(PrecomputeScalarProfile, 2),
+        GenValidProfileMember::new(PrecomputeScalarValueProfile, 3),
+        GenValidProfileMember::new(PrecomputeGcValueProfile, 2),
+        GenValidProfileMember::new(PrecomputeEffectfulValueProfile, 2),
         GenValidProfileMember::new(PrecomputeControlProfile, 2),
         GenValidProfileMember::new(PrecomputeGlobalProfile, 2),
         GenValidProfileMember::new(PrecomputeDropCleanupProfile, 2),
         GenValidProfileMember::new(PrecomputeEffectBoundaryProfile, 2),
         GenValidProfileMember::new(PrecomputeGcAtomicBoundaryProfile, 1),
         GenValidProfileMember::new(PrecomputeDirectPrefixWatchProfile, 1),
+        GenValidProfileMember::new(PrecomputePropagateLocalFactsProfile, 3),
       ]
     PickLoadSignsAllProfile =>
       [
@@ -1415,6 +1425,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
+        GenValidProfileMember::new(PrecomputeAllProfile, 1),
         GenValidProfileMember::new(DaeAllProfile, 1),
         GenValidProfileMember::new(Heap2LocalAllProfile, 1),
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
@@ -1546,6 +1557,9 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     GsiDescCastUnreachableBoundaryProfile,
     GsiDescCastAllProfile,
     PrecomputeScalarProfile,
+    PrecomputeScalarValueProfile,
+    PrecomputeGcValueProfile,
+    PrecomputeEffectfulValueProfile,
     PrecomputeControlProfile,
     PrecomputeGlobalProfile,
     PrecomputeDropCleanupProfile,
@@ -1729,8 +1743,11 @@ pub fn gen_valid_profile_by_name(
     "precompute" => Ok(PrecomputeAllProfile)
     "precompute-closeout" => Ok(PrecomputeAllProfile)
     "precompute-all-profiles" => Ok(PrecomputeAllProfile)
-    "precompute-propagate" => Ok(PrecomputePropagateLocalFactsProfile)
-    "precompute-propagate-closeout" => Ok(PrecomputePropagateLocalFactsProfile)
+    "precompute-scalar-values" => Ok(PrecomputeScalarValueProfile)
+    "precompute-gc-values" => Ok(PrecomputeGcValueProfile)
+    "precompute-effectful-values" => Ok(PrecomputeEffectfulValueProfile)
+    "precompute-propagate" => Ok(PrecomputeAllProfile)
+    "precompute-propagate-closeout" => Ok(PrecomputeAllProfile)
     "vacuum-closeout" => Ok(VacuumProfile)
     "vacuum-all" => Ok(VacuumProfile)
     "vacuum-all-profiles" => Ok(VacuumProfile)
@@ -3062,6 +3079,9 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     GsiDescCastAllProfile =>
       gen_valid_gsi_desc_cast_profile_config(GsiDescCastPositiveProfile)
     PrecomputeScalarProfile
+    | PrecomputeScalarValueProfile
+    | PrecomputeGcValueProfile
+    | PrecomputeEffectfulValueProfile
     | PrecomputeControlProfile
     | PrecomputeGlobalProfile
     | PrecomputeDropCleanupProfile
@@ -3705,6 +3725,9 @@ fn gen_valid_precompute_profile_config(
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let body_statements = match profile {
     PrecomputeScalarProfile => 11
+    PrecomputeScalarValueProfile => 19
+    PrecomputeGcValueProfile => 20
+    PrecomputeEffectfulValueProfile => 21
     PrecomputeControlProfile => 12
     PrecomputeGlobalProfile => 13
     PrecomputeDropCleanupProfile => 14
@@ -3725,13 +3748,19 @@ fn gen_valid_precompute_profile_config(
   }
   let max_type_defs = match profile {
     PrecomputeGcAtomicBoundaryProfile => 3
+    PrecomputeScalarValueProfile => 4
+    PrecomputeGcValueProfile => 5
     _ => 2
   }
   GenValidConfig::{
     ..base,
     max_type_defs,
     max_imports: 0,
-    max_defined_funcs: if profile == PrecomputeEffectBoundaryProfile ||
+    max_defined_funcs: if profile == PrecomputeScalarValueProfile {
+      26
+    } else if profile == PrecomputeGcValueProfile {
+      13
+    } else if profile == PrecomputeEffectBoundaryProfile ||
       profile == PrecomputePropagateLocalFactsProfile {
       2
     } else {
@@ -3749,12 +3778,16 @@ fn gen_valid_precompute_profile_config(
     } else {
       0
     },
-    max_results: if profile == PrecomputeDirectPrefixWatchProfile {
+    max_results: if profile == PrecomputeDirectPrefixWatchProfile ||
+      profile == PrecomputeScalarValueProfile ||
+      profile == PrecomputeGcValueProfile ||
+      profile == PrecomputeEffectfulValueProfile {
       1
     } else {
       0
     },
-    max_locals: if profile == PrecomputeDirectPrefixWatchProfile {
+    max_locals: if profile == PrecomputeDirectPrefixWatchProfile ||
+      profile == PrecomputeEffectfulValueProfile {
       1
     } else if profile == PrecomputePropagateLocalFactsProfile {
       6
@@ -3779,7 +3812,8 @@ fn gen_valid_precompute_profile_config(
       allow_memory64: false,
       allow_atomics: profile == PrecomputeGcAtomicBoundaryProfile,
       allow_shared_memories: false,
-      allow_ref_types: profile == PrecomputeGcAtomicBoundaryProfile,
+      allow_ref_types: profile == PrecomputeGcAtomicBoundaryProfile ||
+      profile == PrecomputeGcValueProfile,
       allow_v128: false,
       allow_relaxed_simd: false,
       allow_typed_body_generator: false,
@@ -3791,6 +3825,9 @@ fn gen_valid_precompute_profile_config(
 ///|
 fn gen_valid_is_precompute_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(PrecomputeScalarProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeScalarValueProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeGcValueProfile) ||
+  config == GenValidConfig::for_profile(PrecomputeEffectfulValueProfile) ||
   config == GenValidConfig::for_profile(PrecomputeControlProfile) ||
   config == GenValidConfig::for_profile(PrecomputeGlobalProfile) ||
   config == GenValidConfig::for_profile(PrecomputeDropCleanupProfile) ||
@@ -16767,7 +16804,14 @@ fn gen_valid_precompute_void_func_type() -> RecType {
 fn gen_valid_precompute_profile_kind(
   config : GenValidConfig,
 ) -> GenValidProfile {
-  if config == GenValidConfig::for_profile(PrecomputeControlProfile) {
+  if config == GenValidConfig::for_profile(PrecomputeScalarValueProfile) {
+    PrecomputeScalarValueProfile
+  } else if config == GenValidConfig::for_profile(PrecomputeGcValueProfile) {
+    PrecomputeGcValueProfile
+  } else if config ==
+    GenValidConfig::for_profile(PrecomputeEffectfulValueProfile) {
+    PrecomputeEffectfulValueProfile
+  } else if config == GenValidConfig::for_profile(PrecomputeControlProfile) {
     PrecomputeControlProfile
   } else if config == GenValidConfig::for_profile(PrecomputeGlobalProfile) {
     PrecomputeGlobalProfile
@@ -16981,6 +17025,463 @@ fn gen_valid_precompute_propagate_local_facts_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_precompute_scalar_value_module() -> Module {
+  let i32_result = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32()])),
+  )
+  let f64_result = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::f64()])),
+  )
+  let f32_result = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::f32()])),
+  )
+  let i64_result = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i64()])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([i32_result, f64_result, f32_result, i64_result]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(1U),
+      TypeIdx::new(2U),
+      TypeIdx::new(3U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(3U),
+      TypeIdx::new(3U),
+      TypeIdx::new(1U),
+      TypeIdx::new(0U),
+      TypeIdx::new(3U),
+      TypeIdx::new(3U),
+      TypeIdx::new(3U),
+      TypeIdx::new(2U),
+      TypeIdx::new(3U),
+      TypeIdx::new(3U),
+      TypeIdx::new(0U),
+      TypeIdx::new(3U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(3U),
+      TypeIdx::new(3U),
+      TypeIdx::new(0U),
+      TypeIdx::new(3U),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i32_const(I32(8)), Instruction::i32_clz()]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::i32_const(I32(3)),
+          Instruction::i32_rotl(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::f64_const(F64(9.0)), Instruction::f64_sqrt()]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::from_double(1.5))),
+          Instruction::f32_const(F32(Float::from_double(2.5))),
+          Instruction::f32_min(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(-1)),
+          Instruction::i64_extend_i32u(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::reinterpret_from_uint(0x7fc12345U))),
+          Instruction::f32_ceil(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::reinterpret_from_uint(0x80000001U))),
+          Instruction::f32_nearest(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::from_double(-1.0))),
+          Instruction::f32_sqrt(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(2.5)),
+          Instruction::f64_nearest(),
+          Instruction::i64_reinterpret_f64(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(0.0)),
+          Instruction::f64_const(
+            F64(0x8000000000000000UL.reinterpret_as_double()),
+          ),
+          Instruction::f64_max(),
+          Instruction::i64_reinterpret_f64(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(4.0)),
+          Instruction::f64_const(F64(-1.0)),
+          Instruction::f64_copysign(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(1.0e40)),
+          Instruction::i32_trunc_sat_f64s(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(42.75)),
+          Instruction::i64_trunc_f64s(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::i64_const(I64(8L)), Instruction::i64_ctz()]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i64_const(I64(1L)),
+          Instruction::i64_const(I64(63L)),
+          Instruction::i64_rotr(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i64_const(I64(0x3f800000L)),
+          Instruction::i32_wrap_i64(),
+          Instruction::f32_reinterpret_i32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(9223372036854775808.0)),
+          Instruction::i64_trunc_f64u(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(18446744073709549568.0)),
+          Instruction::i64_trunc_f64u(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(
+            F64(0x7ff123456789abcdUL.reinterpret_as_double()),
+          ),
+          Instruction::f32_demote_f64(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::reinterpret_from_uint(0x7fc12345U))),
+          Instruction::f64_promote_f32(),
+          Instruction::i64_reinterpret_f64(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::reinterpret_from_uint(0x7fc12345U))),
+          Instruction::f32_const(F32(Float::from_double(1.0))),
+          Instruction::f32_add(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::from_double(0.0))),
+          Instruction::f32_const(F32(Float::from_double(0.0))),
+          Instruction::f32_div(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(
+            F64(0x7ff123456789abcdUL.reinterpret_as_double()),
+          ),
+          Instruction::f64_const(F64(1.0)),
+          Instruction::f64_add(),
+          Instruction::i64_reinterpret_f64(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(F64(0.0)),
+          Instruction::f64_const(F64(0.0)),
+          Instruction::f64_div(),
+          Instruction::i64_reinterpret_f64(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f32_const(F32(Float::reinterpret_from_uint(0x80000000U))),
+          Instruction::f32_const(F32(Float::reinterpret_from_uint(0U))),
+          Instruction::f32_max(),
+          Instruction::i32_reinterpret_f32(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::f64_const(
+            F64(0x8000000000000000UL.reinterpret_as_double()),
+          ),
+          Instruction::f64_const(F64(0.0)),
+          Instruction::f64_max(),
+          Instruction::i64_reinterpret_f64(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_precompute_gc_value_module() -> Module {
+  let array_type = TypeIdx::new(0U)
+  let packed_array_type = TypeIdx::new(1U)
+  let struct_type = TypeIdx::new(2U)
+  let packed_struct_type = TypeIdx::new(3U)
+  let func_type = TypeIdx::new(4U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::val_type(ValType::i32()), Mut::const_()),
+          ),
+        ),
+      ),
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(
+              StorageType::pack_type(PackType::i8()),
+              Mut::const_(),
+            ),
+          ),
+        ),
+      ),
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(StorageType::val_type(ValType::i32()), Mut::const_()),
+          ]),
+        ),
+      ),
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(
+              StorageType::pack_type(PackType::i8()),
+              Mut::const_(),
+            ),
+          ]),
+        ),
+      ),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([
+      func_type, func_type, func_type, func_type, func_type, func_type, func_type,
+      func_type, func_type, func_type, func_type, func_type, func_type,
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(42)),
+          Instruction::array_new_fixed(array_type, U32(1U)),
+          Instruction::i32_const(I32(0)),
+          Instruction::array_get(array_type),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::array_new_default(array_type),
+          Instruction::array_len(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(255)),
+          Instruction::array_new_fixed(packed_array_type, U32(1U)),
+          Instruction::i32_const(I32(0)),
+          Instruction::array_get_s(packed_array_type),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::struct_new_default(struct_type),
+          Instruction::struct_get(struct_type, U32(0U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(255)),
+          Instruction::struct_new(packed_struct_type),
+          Instruction::struct_get_s(packed_struct_type, U32(0U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(3)),
+          Instruction::array_new(array_type),
+          Instruction::i32_const(I32(2)),
+          Instruction::array_get(array_type),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(-1)),
+          Instruction::array_new(array_type),
+          Instruction::i32_const(I32(0)),
+          Instruction::array_get(array_type),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(-1)),
+          Instruction::array_new(array_type),
+          Instruction::array_len(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(-1)),
+          Instruction::array_new_default(array_type),
+          Instruction::i32_const(I32(0)),
+          Instruction::array_get(array_type),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::array_new_fixed(array_type, U32(1U)),
+          Instruction::i32_const(I32(1)),
+          Instruction::array_get(array_type),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(44739241)),
+          Instruction::array_new(array_type),
+          Instruction::array_len(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(44739242)),
+          Instruction::array_new(array_type),
+          Instruction::array_len(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(44739242)),
+          Instruction::array_new(array_type),
+          Instruction::i32_const(I32(0)),
+          Instruction::array_get(array_type),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_precompute_effectful_value_module() -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::from_types([ValType::i32()]),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::local_tee(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(2)),
+          Instruction::i32_add(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_precompute_gc_atomic_types() -> Array[RecType] {
   let struct_type = RecType::new(
     SubType::comp_type(
@@ -17025,6 +17526,15 @@ fn gen_valid_precompute_gc_atomic_body() -> Array[Instruction] {
 ///|
 fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
   let kind = gen_valid_precompute_profile_kind(config)
+  if kind == PrecomputeScalarValueProfile {
+    return gen_valid_precompute_scalar_value_module()
+  }
+  if kind == PrecomputeGcValueProfile {
+    return gen_valid_precompute_gc_value_module()
+  }
+  if kind == PrecomputeEffectfulValueProfile {
+    return gen_valid_precompute_effectful_value_module()
+  }
   if kind == PrecomputeGcAtomicBoundaryProfile {
     return Module::new()
       .with_type_sec(TypeSec::new(gen_valid_precompute_gc_atomic_types()))

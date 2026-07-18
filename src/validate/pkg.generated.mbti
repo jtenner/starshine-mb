@@ -1187,6 +1187,9 @@ pub enum GenValidProfile {
   GsiDescCastUnreachableBoundaryProfile
   GsiDescCastAllProfile
   PrecomputeScalarProfile
+  PrecomputeScalarValueProfile
+  PrecomputeGcValueProfile
+  PrecomputeEffectfulValueProfile
   PrecomputeControlProfile
   PrecomputeGlobalProfile
   PrecomputeDropCleanupProfile

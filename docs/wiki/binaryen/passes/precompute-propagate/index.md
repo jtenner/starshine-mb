@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
@@ -37,12 +38,12 @@ related:
 - The exact public name is registered, dispatched, accepted by the compare harness, and covered by focused tests plus the `precompute-propagate-local-facts` GenValid profile.
 - Starshine's two aggressive top-level PC slots now use `precompute-propagate`; ordinary plain-`precompute` remains a separately requestable direct pass.
 - DAE and inlining nested optimization now use the same public implementation instead of the removed private `precompute-propagate-prefix` semantic fork.
-- The reduced scalar/select/GC/result-`if`/large/self-hosted gap set is closed; broader string, general `Flow`, complete heap-cache/array, side-effect-retention, emitability, and type-refinalization architecture remains shared with plain `precompute`.
+- The reduced returned-scalar/repeated-select/fresh-array/default-struct/packed-read/single-tee-effect/result-`if`/large/self-hosted gap set is closed; broader string, general `Flow`, alias-aware heap-cache/nested-aggregate, multi-effect retention, emitability, and type-refinalization architecture remains shared with plain `precompute`.
 
 ## Why this pass matters
 
 - The public family gap had a dedicated `[O4Z-PCP]001` backlog slice; the implementation and propagation-specific signoff are now complete.
-- The retained closeout evidence is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
+- The public-port closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md); the shared-evaluator refresh is [`../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md`](../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md).
 - The pass is already important in neighboring docs:
   - `dae-optimizing` and `inlining-optimizing` both depend on the `precompute-propagate` nested-rerun rule.
   - `simplify-globals-optimizing` is easier to teach once the contrast is explicit: it reruns the default function pipeline **without** prepending `precompute-propagate`.

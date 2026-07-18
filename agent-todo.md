@@ -35,7 +35,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `optimize-instructions` | **Reopened for v131:** equal-ref, identical-select, idempotent-call/effect-order, and non-concrete-select behavior changed upstream. | **Open v131 focused parity and closeout.** |
 | `heap-store-optimization` | Closed. | None. |
 | `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
-| `precompute-propagate` | Public/direct/nested scheduling and the bounded one-solve/one-rerun implementation are complete; the shared evaluator is reopened against the broader Binaryen v131 interpreter contract. | **Open v131 shared-evaluator parity and renewed closeout.** |
+| `precompute-propagate` | Reopened against Binaryen v131. The public/direct/nested bounded one-solve/one-rerun implementation is complete, but the broader v131 source/lit audit exposes shared evaluator gaps. | **Open:** `[O4Z-PCP131]001` general flow/effect retention, heap identity/emitability, refinalization, and full v131 closeout. |
 | `code-pushing` | Closed. | None. |
 | `tuple-optimization` | Closed with accepted performance exception. | None. |
 | `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
@@ -124,6 +124,22 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Exit criteria:** every target has an explicit v131 renewed/unchanged verdict or an owning follow-up slice.
 
 ## v0.1.0 Primary O4z Work
+
+### [O4Z-PCP131]001 - Bring `precompute` family to Binaryen v131 behavior parity
+
+- **Status:** active; v131 `Precompute.cpp` has the same SHA-256 as the reviewed v130 source, but the broader v131 lit matrix confirms that the previous generated-profile closeout did not exercise the full interpreter contract.
+- **Goal:** close direct plain `precompute` and `precompute-propagate` behavior gaps without changing the bounded one-local-solve/one-rerun public propagation contract.
+- **Current progress:** ordered multiple local/global effect retention, same-expression local-flow folding, trustworthy entry-default reads before later writes, and fresh valid WTF-16 array-to-`string.const` folding are under implementation with red-first tests.
+- **Deliverables:**
+  - [ ] Rebaseline all comparisons on `.tmp/binaryen-version-131-bin/bin/wasm-opt` with an isolated v131 cache.
+  - [ ] Close supported v131 `precompute-effects`, partial-select, GC identity/immutable heap, ref/function, control-flow, string, and refinalization families with focused tests.
+  - [ ] Separate known values from emitability and preserve allocation identity through locals, loops, and safe immutable nested reads.
+  - [ ] Add missing string/reference instruction surface only where required by v131 pass behavior, including decoder/encoder/typecheck support and direct fixtures.
+  - [ ] Preserve all effect, trap, branch, call, and write ordering while replacing proven parent values.
+  - [ ] Add v131-specific GenValid leaves and runtime/idempotence coverage for every new family.
+  - [ ] Complete the required four-lane closeout, self-optimization, and repeated pass-local benchmark against v131.
+- **Exit criteria:** no broad source-backed behavior disclaimer remains for either public variant, zero unclassified direct v131 residual families, valid/runtime-equivalent output, and Starshine pass-local median remains within `2x` Binaryen.
+
 
 ### [O4Z-CF]001 - Finish and schedule `code-folding`
 

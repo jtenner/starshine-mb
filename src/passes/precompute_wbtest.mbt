@@ -85,3 +85,124 @@ test "precompute rejects multi-root constant-if chosen regions" {
     precompute_constant_if_chosen_region_can_inline(func, else_region),
   )
 }
+
+///|
+test "precompute folds fresh valid WTF-16 arrays to string constants" {
+  let (rewritten, changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::i32_const(@lib.I32(65)),
+      @lib.Instruction::i32_const(@lib.I32(66)),
+      @lib.Instruction::i32_const(@lib.I32(67)),
+      @lib.Instruction::i32_const(@lib.I32(68)),
+      @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(0U), @lib.U32(4U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(4)),
+      @lib.Instruction::string_new_wtf16_array(),
+    ],
+    None,
+  )
+  assert_true(changed)
+  match rewritten {
+    [@lib.StringConst(bytes)] =>
+      @debug.assert_eq(bytes, Bytes::from_array([65, 66, 67, 68]))
+    _ => fail("expected one ABCD string.const, got \{rewritten}")
+  }
+
+  let (pair, pair_changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::i32_const(@lib.I32(0xd800)),
+      @lib.Instruction::i32_const(@lib.I32(0xdc00)),
+      @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(0U), @lib.U32(2U)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(2)),
+      @lib.Instruction::string_new_wtf16_array(),
+    ],
+    None,
+  )
+  assert_true(pair_changed)
+  match pair {
+    [@lib.StringConst(bytes)] =>
+      @debug.assert_eq(bytes, Bytes::from_array([0xf0, 0x90, 0x80, 0x80]))
+    _ => fail("expected one supplementary string.const, got \{pair}")
+  }
+
+  let invalid = [
+    @lib.Instruction::i32_const(@lib.I32(0xd800)),
+    @lib.Instruction::array_new_fixed(@lib.TypeIdx::new(0U), @lib.U32(1U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::string_new_wtf16_array(),
+  ]
+  let (retained, retained_changed) = precompute_raw_rewrite_instrs(
+    invalid,
+    None,
+  )
+  assert_false(retained_changed)
+  @debug.assert_eq(retained, invalid)
+}
+
+///|
+test "precompute recognizes fresh immutable array reads in HOT" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(42)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(1U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::array_get(array_type),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let module_ctx = @ir.hot_module_context_from_module(input)
+  let ctx = HotPassContext::new(
+    precompute_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(module_ctx),
+  )
+  let mut found = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.ArrayGet(_)) => {
+          found = true
+          assert_true(
+            precompute_try_fold_fresh_array_get(ctx, func, node_id),
+            msg="array.get children=\{@ir.hot_child_count(func, node_id)}",
+          )
+        }
+        _ => ()
+      }
+    }
+  }
+  assert_true(found)
+}
