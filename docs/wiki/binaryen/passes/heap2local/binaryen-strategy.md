@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap2local-rmw.wast
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
@@ -19,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass. The 2026-04-25 current-main source bridge found no new teaching-relevant drift beyond the earlier narrow array/cmpxchg/unreachable-`ref.test` caveat, so this page still describes the released `version_129` contract.
+Use Binaryen `version_131` as the released source oracle for this pass. The original `version_129` walkthrough remains useful for the core algorithm, but v131 adds per-allocation analysis resets and fixture-backed multi-allocation/cmpxchg correctness that the older contract did not include.
 
 Primary files:
 
@@ -88,17 +91,15 @@ The local saved `-O4z` debug log confirms that practical story:
 
 So a future scheduler model must not treat this pass as “one top-level slot only.”
 
-## Phase 0: per-function reusable analysis state
+## Phase 0: per-function resettable analysis state
 
-The `Heap2Local` helper struct owns the reusable per-function state:
+The v131 `Heap2Local` helper owns resettable per-function analyses:
 
-- `LazyLocalGraph localGraph`
-- `ScratchInfo scratchInfo`
-- `Parents parents`
-- `BranchUtils::BranchTargets branchTargets`
+- `std::unique_ptr<LazyLocalGraph> localGraph`
+- `std::unique_ptr<Parents> parents`
+- `std::unique_ptr<BranchUtils::BranchTargets> branchTargets`
 
-Those are built once per function and then reused across many candidate analyses.
-That is important because `heap2local` may inspect multiple allocations in the same function.
+They are built initially and reconstructed by `resetAnalysisData()` after each successful allocation rewrite. V131 removes the older `ScratchInfo` patch map because later candidates must see all newly inserted locals and rewritten parent/branch relationships through a fresh analysis.
 
 The file also runs an `AllocationFinder` walker first to collect:
 
@@ -355,15 +356,9 @@ A future Starshine port or refactor must keep these Binaryen-backed rules honest
 - `ReFinalize`, EH pop fixups, and nondefaultable-local repair are real pass-boundary work, not optional cleanup
 - single-iteration behavior is intentional and depends on later passes and reruns
 
-## Current freshness note
+## V131 freshness note
 
-A narrow 2026-04-20 check found small but real source drift on current `main` around:
-
-- array interaction precision
-- `array.cmpxchg` / `struct.cmpxchg` handling
-- unreachable `ref.test`
-
-The 2026-04-25 current-main source bridge rechecked the owner/test-map and found no additional teaching-relevant drift. The dedicated lit surface still only shows the already-known typo fix there, so `version_129` remains the best released oracle for this dossier.
+V131 absorbs the previously recorded array interaction, cmpxchg, and unreachable-flow refinements and adds a more important invariant: every successful scalarization invalidates and rebuilds `LazyLocalGraph`, `Parents`, and branch-target analysis before the next allocation. The v131 RMW fixture explicitly exercises scratch locals created while multiple allocations are optimized, and the main fixture adds unreachable-flow coverage. Treat this reset as correctness-critical, not an implementation detail.
 
 ## Sources
 

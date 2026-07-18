@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
   - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
@@ -42,6 +43,10 @@ related:
 ---
 
 # `heap2local`
+
+## Binaryen v131 status
+
+Direct parity is **reopened**. V131 rebuilds LocalGraph, parent, and branch-target analyses after each successful allocation rewrite and stops type-flow adjustment on already-unreachable paths. `[V131-H2L]001` owns sequential-candidate and unreachable-flow fixtures plus refreshed `heap2local-all`, timing, and O4z evidence.
 
 ## Role
 
@@ -119,9 +124,9 @@ What it sounds like:
 
 - replace GC objects with locals
 
-What it actually is in `version_129`:
+What it actually is in Binaryen v131:
 
-- a function-parallel pass with reusable per-function `Parents`, `BranchTargets`, and `LazyLocalGraph` analysis,
+- a function-parallel pass that rebuilds per-function `Parents`, `BranchTargets`, and `LazyLocalGraph` analysis after each successful allocation rewrite,
 - an `EscapeAnalyzer` that tracks child-parent flow and branch-sent values,
 - a struct rewrite engine that introduces locals, scratch temps, nullable placeholders, and exact rewrites for direct ref operations,
 - a separate array-to-struct lowering stage for small fixed-size arrays,
@@ -134,7 +139,7 @@ What it actually is in `version_129`:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Source-confirmed owner-file, helper, lit-test, and Starshine code-map page for `heap2local`, including exact local registry, dispatcher, candidate-analysis, rewrite, focused-test, and preset line ranges.
 - [`./validation-fixups-and-special-cases.md`](./validation-fixups-and-special-cases.md)
-  - Focused guide to the easiest parts to misunderstand: nondefaultable locals, `ReFinalize`, packed fields, atomics, descriptor families, and the small but real post-`version_129` drift on current `main`.
+  - Focused guide to the easiest parts to misunderstand: nondefaultable locals, `ReFinalize`, packed fields, atomics, descriptor families, prior corner-case refinements, and v131 stale-analysis repair.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering positive struct/array flows, bailout shapes, explicit trap families, and the important source-only corner cases.
 - [`./parity.md`](./parity.md)
@@ -144,23 +149,11 @@ What it actually is in `version_129`:
 - [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
   - Absorbed 2026-04-25 source/code-map follow-up retaining the tagged `version_129` release, source, and lit-test provenance used by this dossier.
 
-## Freshness note
+## V131 freshness note
 
-A 2026-04-22 re-check of the official Binaryen GitHub release surfaces recorded `version_129` as the reviewed release anchor for this dossier, with the release page showing publish date **2026-04-01**.
+The repo-wide release oracle is now Binaryen `version_131`. It includes the previously recorded array/cmpxchg/unreachable refinements and adds a broader correctness repair: after each successful array or struct scalarization, `heap2local` rebuilds `LazyLocalGraph`, `Parents`, and `BranchTargets` before analyzing the next allocation. This prevents scratch locals and rewritten parent/flow edges from being interpreted through stale analysis state.
 
-A 2026-04-25 current-main code-map refresh did not find new teaching-relevant drift beyond the already-recorded source caveat. A narrow direct source comparison still finds **real but limited** post-`version_129` drift in current `main`:
-
-- array interaction checks are slightly more precise
-- `array.cmpxchg` / `struct.cmpxchg` expected-vs-ref handling is more refined
-- `visitRefTest` now explicitly skips unreachable code
-
-The important nuance is that the dedicated `heap2local.wast` file on `main` changed only by a typo fix (`vaccum` -> `vacuum`).
-So the drift is visible in the owning source file, but not yet matched by obvious new dedicated lit coverage in that test file.
-
-Current durable rule:
-
-- treat Binaryen `version_129` as the released semantic oracle for this dossier
-- keep a small note that current trunk has already tightened a few array/cmpxchg/unreachable corner cases
+V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple optimized allocations around cmpxchg scratch locals and in `heap2local.wast` for unreachable control flow. Starshine's older v130 closeout evidence therefore no longer closes the released contract; `[V131-H2L]001` owns renewed focused and oracle parity.
 
 ## Current maintenance rule
 
@@ -172,7 +165,7 @@ Current durable rule:
 - Keep the 2026-07-02 GenValid profile boundary explicit: `heap2local-all` now exists for dedicated fuzzing of struct, array, and ref-fold families. The required `10000` dedicated lane now runs to completion and exposes raw output-shape/local-debris residuals after generated H2L traffic removal. The ordinary `100000` GenValid lane is green, wasm-smith is green under the standard `unreachable-control-debris` normalizer for one unrelated raw residual, and broad `random-all-profiles` only re-exposes the same H2L raw residual family. The normalizer/alignment decision is currently to keep that H2L family raw and explicitly classified rather than add a semantic H2L normalizer that could hide future generated operations. The pass still needs pass-local timing and slot/neighborhood evidence before closeout.
 - Keep the 2026-05-08 backlog-closure boundary explicit too: the old `[H2L]002` neighbor-slot work is done, while nondefaultable-local repair remains an upstream/source-contract note until Starshine accepts that validator surface.
 - Keep the exact local navigation path explicit too: registry / preset placement in `src/passes/optimize.mbt`, dispatch in `src/passes/pass_manager.mbt`, rewrite logic in `src/passes/heap2local.mbt`, proof coverage in the focused local test files, and the line-range map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
-- Keep the current-main drift note explicit unless a future released Binaryen tag absorbs those changes.
+- Keep the v131 per-allocation analysis reset explicit until `[V131-H2L]001` proves Starshine parity for multiple interacting allocations.
 
 ## Sources
 

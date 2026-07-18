@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap2local-rmw.wast
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
@@ -33,7 +36,7 @@ Use this page when you want to answer:
 
 ### `src/passes/Heap2Local.cpp`
 
-This is the whole upstream pass body. In `version_129` and current `main`, it owns these teaching-relevant pieces:
+This is the whole upstream pass body. In v131, it owns these teaching-relevant pieces:
 
 1. **Per-function setup**
    - `LazyLocalGraph`, scratch-local state, `Parents`, and branch-target state are prepared once per function.
@@ -108,17 +111,11 @@ The dedicated lit file is the main visible proof surface. It covers the user-fac
 Important evidence boundary:
 
 - The source is broader than the easiest-to-see lit snippets for descriptors, some cast families, and some atomic/RMW/cmpxchg details.
-- The 2026-04-25 current-main check did not find a new teaching family in the dedicated lit file beyond the already-known typo cleanup. Keep the source-vs-lit split explicit.
+- V131 adds direct fixture evidence beyond the old typo-only delta: `heap2local-rmw.wast` covers scratch locals and multiple optimized allocations, while `heap2local.wast` covers unreachable flow.
 
-## Current-main drift status
+## V131 release delta
 
-The 2026-04-25 current-main check did **not** change the teaching contract.
-
-Keep this exact interpretation:
-
-- `version_129` remains the released semantic oracle for the dossier.
-- Current `main` has narrower source-level refinements already recorded in the older freshness note: tighter array interaction handling, clearer cmpxchg expected-vs-ref handling, and an explicit unreachable-`ref.test` skip.
-- The dedicated lit file still does not visibly add a matching new broad teaching family.
+V131 changes the correctness contract for functions containing multiple optimizable allocations. After each successful array-to-struct or struct-to-local rewrite, the owner reconstructs `LazyLocalGraph`, `Parents`, and branch targets. The old scratch-info patching path is removed; later candidates are always analyzed against the rewritten function body. Starshine must prove this family under `[V131-H2L]001` rather than inheriting the older v130 closeout.
 
 ## Current Starshine implementation map
 

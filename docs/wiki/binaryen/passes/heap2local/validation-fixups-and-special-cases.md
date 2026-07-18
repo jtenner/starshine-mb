@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap2local-rmw.wast
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
@@ -15,7 +18,7 @@ related:
 
 # `heap2local` validation fixups and special cases
 
-This page covers the part of `heap2local` that is easiest to misunderstand. The 2026-04-25 source-map refresh keeps the same released `version_129` contract, adds a dedicated owner/test/code-map page at [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and keeps the small current-main drift caveat explicit.
+This page covers the part of `heap2local` that is easiest to misunderstand. The older source map still explains the core repair families, while v131 adds the correctness-critical per-allocation analysis reset and unreachable-flow bailout described below. The owner/test/code map lives at [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 This page focuses on:
 
@@ -187,13 +190,13 @@ Durable lesson:
 - the source surface is wider than the most obvious lit examples
 - future parity work should not shrink the pass contract down to only what one lit file happens to show visibly
 
-## Current-main drift to keep in mind
+## Released refinements to keep in mind
 
-A narrow 2026-04-20 direct comparison against current `main` found a few real changes after `version_129`:
+The older source comparison found several refinements after `version_129`, all now part of the released baseline:
 
 ### 1. array interaction precision improved
 
-Current `main` is more precise about when a nonconstant array index is an analysis barrier.
+The released owner is more precise about when a nonconstant array index is an analysis barrier.
 It now distinguishes more carefully between:
 
 - the optimized allocation flowing as the array `ref`
@@ -201,7 +204,7 @@ It now distinguishes more carefully between:
 
 ### 2. cmpxchg handling is cleaner and more explicit
 
-Current `main` more clearly separates:
+The released owner more clearly separates:
 
 - optimized-allocation-as-`ref`
 - optimized-allocation-as-`expected`
@@ -210,13 +213,12 @@ and preserves some dynamic-index behavior via scratch locals in a later array ca
 
 ### 3. unreachable `ref.test` is left alone
 
-Current `main` explicitly avoids rewriting unreachable `ref.test` to a concrete constant there.
+The released owner explicitly avoids rewriting unreachable `ref.test` to a concrete constant there.
 That is a small validation-safety clarification.
 
-### 4. the dedicated test file did not grow new matching coverage
+### 4. v131 resets analysis after every successful rewrite
 
-The owning `heap2local.wast` file on `main` only changed a typo (`vaccum` -> `vacuum`).
-So the drift is visible in source, but not yet obviously reflected in new dedicated lit coverage in that file.
+A successful scalarization can add locals and replace parent/flow edges. V131 therefore rebuilds `LazyLocalGraph`, `Parents`, and branch targets before analyzing the next allocation. `heap2local-rmw.wast` directly covers the former out-of-bounds/stale-graph risk around cmpxchg scratch locals, while `heap2local.wast` adds unreachable-flow coverage.
 
 ## What a future port must preserve
 
@@ -228,4 +230,4 @@ A future Starshine port should preserve all of these special-case rules honestly
 - EH nested-pop repair is part of the real pass boundary
 - packed access semantics must survive scalarization exactly
 - atomic/RMW/cmpxchg and descriptor families are part of the source-level contract even when dedicated test coverage is uneven
-- current `main` has already tightened some corner cases, so a future parity port should not assume `version_129` is the last word forever
+- v131's per-allocation analysis reset is part of correctness and requires renewed parity evidence under `[V131-H2L]001`
