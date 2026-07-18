@@ -559,6 +559,22 @@ test "precompute normalizes empty void bodies to one nop" {
 }
 
 ///|
+test "precompute collapses newly all-nop bodies to one stable nop" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func i32.const 1 drop i64.const 2 drop f32.const 3 drop))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected all-nop collapse success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(pretty.split("nop").length(), 2)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "precompute leaves a dead exact root nop before unreachable" {
   let optimized = match
     pass_test_run_pipeline(

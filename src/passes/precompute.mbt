@@ -2791,6 +2791,22 @@ fn precompute_trim_region_nops(
 }
 
 ///|
+fn precompute_node_is_nop_tree(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Nop => true
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      precompute_region_is_all_nops(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
 fn precompute_coalesce_all_root_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2802,9 +2818,8 @@ fn precompute_coalesce_all_root_nops(
   }
   for idx = 0; idx < root_count; idx = idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Nop => ()
-      _ => return false
+    if !precompute_node_is_nop_tree(func, node_id) {
+      return false
     }
   }
   let mut changed = false
@@ -5903,6 +5918,29 @@ fn precompute_raw_instrs_have_const_if_candidate(
 }
 
 ///|
+fn precompute_raw_instr_is_nop_tree(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Nop => true
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
+    | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) =>
+      precompute_raw_instrs_are_nop_trees(body)
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_are_nop_trees(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if !precompute_raw_instr_is_nop_tree(instr) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn precompute_raw_instrs_are_all_nops(instrs : Array[@lib.Instruction]) -> Bool {
   for instr in instrs {
     match instr {
@@ -6067,6 +6105,15 @@ fn precompute_run_raw_func(
     return None
   }
   let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
+  if precompute_raw_instrs_are_nop_trees(rewritten) && rewritten.length() > 1 {
+    return Some(
+      (
+        @lib.Func::new(locals, @lib.Expr::new([@lib.Instruction::nop()])),
+        true,
+        "raw-all-nop-collapse",
+      ),
+    )
+  }
   if (tlsf_repair_candidate || stale_typed_loop_candidate) && changed {
     return Some(
       (
