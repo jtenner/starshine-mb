@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/1357-2026-06-29-heap-store-optimization-final-closeout.md
   - ../../../raw/research/1356-2026-06-29-heap-store-optimization-raw-plain-fastpath.md
   - ../../../raw/research/1355-2026-06-29-heap-store-optimization-tiny-plain-fastpath.md
@@ -334,6 +335,10 @@ related:
 ---
 
 # `heap-store-optimization`
+
+## Binaryen v131 renewal status
+
+`HeapStoreOptimization.cpp` did not change between v130 and v131, so the pass is not reopened solely by owner drift. Its dedicated expected output changed under shared effect/type behavior, making a targeted v131 probe necessary before the large v130 closeout is cited as current-release evidence. `[V131-SPOT]001` owns that renewal and will open a dedicated slice only if the probe exposes a classified gap.
 
 ## Role
 

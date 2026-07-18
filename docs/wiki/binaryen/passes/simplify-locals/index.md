@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
@@ -44,6 +45,10 @@ related:
 ---
 
 # `simplify-locals`
+
+## Binaryen v131 renewal status
+
+The shared `SimplifyLocals.cpp` owner did not change in v131, so the five public variants remain closed under their v130 audits rather than automatically reopened. V131 changes shared global-effect, EH, and expected-output surfaces used by locals tests, so `[V131-SPOT]001` requires a focused renewal across all five policy combinations before current-release signoff. A failing probe should open only the affected variant/family, not reset the entire completed matrix by default.
 
 ## Role
 

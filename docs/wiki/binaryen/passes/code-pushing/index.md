@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: strong
-last_reviewed: 2026-06-25
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md
   - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
   - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
@@ -118,6 +119,10 @@ supersedes:
 ---
 
 # `code-pushing`
+
+## Binaryen v131 renewal status
+
+The owner file did not change between v130 and v131, so this pass is **not automatically reopened**. V131 did change shared effect/type expectations and the dedicated TNH output, however, so `[V131-SPOT]001` requires a focused source/test probe before older closeout evidence is used for a v131 release claim. Until that probe is filed, describe the existing evidence as v130-closed rather than v131-renewed.
 
 ## Role
 

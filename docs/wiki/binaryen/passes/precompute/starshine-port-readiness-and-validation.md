@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
   - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
@@ -171,7 +172,7 @@ Do not treat the older `.tmp/pc-artifact-branch-blockdrop-raw` `Canonical functi
 - The dedicated GenValid profile name and family split are fixed as `precompute-all`; the final closeout cites the current `10000`-case dedicated lane and selected-profile counts from `0794`.
 - Whether Starshine should grow a shared interpreter/constant-flow abstraction or keep `precompute` as a pragmatic HOT peephole-plus-cleanup pass. Reopen this as a new focused slice if the project chooses to chase Binaryen's temporary-local / expression-stack shaping rather than treating it as representation drift.
 - Whether future `precompute-propagate` work should be a separate pass from the start, matching the current local removed registry entry, or should first share helper analysis with plain `precompute`.
-- The public release baseline is now Binaryen `version_130`. Keep current-main drift labeled, and require a behavior-specific source reread before changing a detailed historical `version_129` algorithm claim.
+- The repo-wide public release baseline is Binaryen `version_131`. Keep detailed v129/v130 evidence labeled, and use `[V131-SPOT]001` for the targeted shared-helper renewal before changing or re-closing the pass contract.
 
 ## Sources
 
