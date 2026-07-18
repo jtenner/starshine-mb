@@ -97,27 +97,34 @@ fn hot_verify_branch_payload_arity(func : HotFunc, node_id : NodeId) -> Int? {
   let node = hot_node_get(func, node_id)
   match node.op {
     HotOp::Br | HotOp::Delegate => Some(node.child_count)
-    HotOp::BrOnNonNull | HotOp::BrOnCast | HotOp::BrOnCastFail =>
+    HotOp::BrOnNonNull =>
       if node.child_count == 0 {
         None
       } else {
-        // `br_on_non_null`, successful `br_on_cast`, and failing
-        // `br_on_cast_fail` carry the tested reference as the final taken-edge
-        // branch payload. Any explicit payload children are prefix values, and
-        // the guard child itself accounts for the final label result.
         Some(node.child_count)
+      }
+    HotOp::BrOnCast | HotOp::BrOnCastFail =>
+      if node.child_count == 0 {
+        None
+      } else {
+        // Descriptor casts carry an additional descriptor guard after the
+        // tested reference; only the reference contributes to branch arity.
+        match hot_node_exact_instr(func, node_id) {
+          Some(@lib.BrOnCastDescEq(_, _, _))
+          | Some(@lib.BrOnCastDescEqFail(_, _, _)) =>
+            if node.child_count < 2 {
+              None
+            } else {
+              Some(node.child_count - 1)
+            }
+          _ => Some(node.child_count)
+        }
       }
     HotOp::BrIf | HotOp::BrTable | HotOp::BrOnNull =>
       if node.child_count == 0 {
         None
       } else {
         Some(node.child_count - 1)
-      }
-    HotOp::BrOnNonNull | HotOp::BrOnCast | HotOp::BrOnCastFail =>
-      if node.child_count == 0 {
-        None
-      } else {
-        Some(node.child_count)
       }
     _ => Some(0)
   }
@@ -299,10 +306,13 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
                 Instruction::StructAtomicGet(_, _, _)
                 | Instruction::StructAtomicGetS(_, _, _)
                 | Instruction::StructAtomicGetU(_, _, _)
-                | Instruction::StructAtomicRmw(_, _, _)
-                | Instruction::StructAtomicCmpxchg(_, _)
-                | Instruction::ArrayAtomicRmw(_, _)
-                | Instruction::ArrayAtomicCmpxchg(_) => true
+                | Instruction::StructAtomicRmw(_, _, _, _)
+                | Instruction::StructAtomicCmpxchg(_, _, _)
+                | Instruction::ArrayAtomicGet(_, _)
+                | Instruction::ArrayAtomicGetS(_, _)
+                | Instruction::ArrayAtomicGetU(_, _)
+                | Instruction::ArrayAtomicRmw(_, _, _)
+                | Instruction::ArrayAtomicCmpxchg(_, _) => true
                 _ => false
               }
             } else {

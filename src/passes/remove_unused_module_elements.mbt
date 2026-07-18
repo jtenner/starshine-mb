@@ -2149,7 +2149,7 @@ fn rume_mark_heap_type(
   heap_type : @lib.HeapType,
 ) -> Unit {
   match heap_type {
-    @lib.AbsHeapTypeHeapType(_) => ()
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => ()
     @lib.HeapType(type_idx) => rume_mark_type_idx(used_types, type_idx)
     @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
       rume_mark_rec_type_types(used_types, rec_type)
@@ -2385,7 +2385,7 @@ fn rume_ref_type_mentions_type_idxs(ref_type : @lib.RefType) -> Bool {
 ///|
 fn rume_heap_type_mentions_type_idxs(heap_type : @lib.HeapType) -> Bool {
   match heap_type {
-    @lib.AbsHeapTypeHeapType(_) => false
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => false
     @lib.HeapType(_) => true
     @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
       rume_rec_type_mentions_type_idxs(rec_type)

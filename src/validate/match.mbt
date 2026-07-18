@@ -420,6 +420,10 @@ fn heaptype_matches_fuel(
   match (h1, h2) {
     (AbsHeapTypeHeapType(a1), AbsHeapTypeHeapType(a2)) =>
       Match::matches(a1, a2, env)
+    (SharedAbsHeapTypeHeapType(a1), SharedAbsHeapTypeHeapType(a2)) =>
+      Match::matches(a1, a2, env)
+    (AbsHeapTypeHeapType(_), SharedAbsHeapTypeHeapType(_))
+    | (SharedAbsHeapTypeHeapType(_), AbsHeapTypeHeapType(_)) => false
 
     // Spec: defined type judgement
     (DefTypeHeapType(dt1), DefTypeHeapType(dt2)) =>
@@ -433,12 +437,23 @@ fn heaptype_matches_fuel(
       }
     (_, HeapType(tidx)) => heap_vs_typeidx_fuel(h1, tidx, env, fuel - 1)
 
-    // deftype vs abs: use expansion-kind checks (struct/array/func → ...)
+    // deftype vs abs: use expansion-kind and shared-domain checks.
     (DefTypeHeapType(dt), AbsHeapTypeHeapType(abs)) =>
-      deftype_matches_abs_fuel(dt, abs, env, fuel - 1)
+      if dt.project().map(fn(st) { st.metadata().shared }).unwrap_or(false) {
+        false
+      } else {
+        deftype_matches_abs_fuel(dt, abs, env, fuel - 1)
+      }
+    (DefTypeHeapType(dt), SharedAbsHeapTypeHeapType(abs)) =>
+      if dt.project().map(fn(st) { st.metadata().shared }).unwrap_or(false) {
+        deftype_matches_abs_fuel(dt, abs, env, fuel - 1)
+      } else {
+        false
+      }
 
     // abs vs deftype: conservative (generally false in subtype direction)
-    (AbsHeapTypeHeapType(_), DefTypeHeapType(_)) => false
+    (AbsHeapTypeHeapType(_), DefTypeHeapType(_))
+    | (SharedAbsHeapTypeHeapType(_), DefTypeHeapType(_)) => false
   }
 }
 
@@ -457,13 +472,23 @@ fn subtype_as_heap_fuel(
     SubType(is_final, supers, _, ct) => (is_final, supers, ct)
   }
 
-  // 1) Direct shape match against abstract heap supertypes
+  // 1) Direct shape match against abstract heap supertypes in the same
+  // shared/unshared domain.
+  let source_shared = st.metadata().shared
   match target {
     AbsHeapTypeHeapType(abs) => {
-      if comptype_matches_abs(ct, abs) {
+      if !source_shared && comptype_matches_abs(ct, abs) {
         return true
       }
-      if is_final {
+      if is_final || source_shared {
+        return false
+      }
+    }
+    SharedAbsHeapTypeHeapType(abs) => {
+      if source_shared && comptype_matches_abs(ct, abs) {
+        return true
+      }
+      if is_final || !source_shared {
         return false
       }
     }
@@ -507,6 +532,7 @@ fn heap_vs_typeidx_fuel(
   }
   match h {
     AbsHeapTypeHeapType(abs) => abs_vs_typeidx_fuel(abs, target, env, fuel - 1)
+    SharedAbsHeapTypeHeapType(_) => false
     HeapType(tidx1) =>
       typeidx_leq_typeidx_with_fuel(tidx1, target, env, fuel - 1)
     DefTypeHeapType(dt1) =>

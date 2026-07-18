@@ -463,6 +463,8 @@ pub fn hot_module_resolve_func_type_idx(HotModuleContext, @lib.FuncIdx) -> @lib.
 
 pub fn hot_module_resolve_global_const_init(HotModuleContext, @lib.GlobalIdx) -> HotConstPayload?
 
+pub fn hot_module_resolve_global_init(HotModuleContext, @lib.GlobalIdx) -> @lib.Expr?
+
 pub fn hot_module_resolve_global_type(HotModuleContext, @lib.GlobalIdx) -> @lib.GlobalType?
 
 pub fn hot_module_resolve_mem_index_type(HotModuleContext, @lib.MemIdx) -> @lib.ValType?
@@ -1278,6 +1280,7 @@ pub struct HotModuleContext {
   tables : Array[@lib.TableType]
   mems : Array[@lib.MemType]
   globals : Array[@lib.GlobalType]
+  global_inits : Array[@lib.Expr?]
   global_const_inits : Array[HotConstPayload?]
   elems : Array[@lib.Elem]
   datas : Array[@lib.Data]

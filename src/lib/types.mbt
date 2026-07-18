@@ -47,6 +47,7 @@ pub enum AbsHeapType {
 ///|
 pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
+  SharedAbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
 } derive(Eq, Hash, Debug)
@@ -141,6 +142,7 @@ pub enum CompType {
 pub struct TypeMetadata {
   describes : TypeIdx?
   descriptor : TypeIdx?
+  shared : Bool
 } derive(Eq, Hash, Debug)
 
 ///|
@@ -805,8 +807,8 @@ pub enum Instruction {
   StructAtomicGet(AtomicOrder, TypeIdx, U32)
   StructAtomicGetS(AtomicOrder, TypeIdx, U32)
   StructAtomicGetU(AtomicOrder, TypeIdx, U32)
-  StructAtomicRmw(AggregateAtomicRmwOp, TypeIdx, U32)
-  StructAtomicCmpxchg(TypeIdx, U32)
+  StructAtomicRmw(AtomicOrder, AggregateAtomicRmwOp, TypeIdx, U32)
+  StructAtomicCmpxchg(AtomicOrder, TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -816,9 +818,14 @@ pub enum Instruction {
   ArrayGet(TypeIdx)
   ArrayGetS(TypeIdx)
   ArrayGetU(TypeIdx)
+  ArrayAtomicGet(AtomicOrder, TypeIdx)
+  ArrayAtomicGetS(AtomicOrder, TypeIdx)
+  ArrayAtomicGetU(AtomicOrder, TypeIdx)
   ArraySet(TypeIdx)
-  ArrayAtomicRmw(AggregateAtomicRmwOp, TypeIdx)
-  ArrayAtomicCmpxchg(TypeIdx)
+  ArrayAtomicRmw(AtomicOrder, AggregateAtomicRmwOp, TypeIdx)
+  ArrayAtomicCmpxchg(AtomicOrder, TypeIdx)
+  ArrayLoad(LoadOp, TypeIdx)
+  ArrayStore(StoreOp, TypeIdx)
   ArrayLen
   ArrayFill(TypeIdx)
   ArrayCopy(TypeIdx, TypeIdx)
@@ -831,6 +838,8 @@ pub enum Instruction {
   RefCastDescEq(Bool, Bool, HeapType)
   BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
   BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
+  BrOnCastDescEq(LabelIdx, RefType, RefType)
+  BrOnCastDescEqFail(LabelIdx, RefType, RefType)
   AnyConvertExtern
   ExternConvertAny
   RefI31
@@ -2681,6 +2690,21 @@ pub fn HeapType::abs(abs : AbsHeapType) -> HeapType {
 }
 
 ///|
+pub fn HeapType::shared_abs(abs : AbsHeapType) -> HeapType {
+  SharedAbsHeapTypeHeapType(abs)
+}
+
+///|
+pub fn HeapType::is_shared(self : HeapType) -> Bool {
+  match self {
+    SharedAbsHeapTypeHeapType(_) => true
+    DefTypeHeapType(DefType(rec, _)) =>
+      rec.get_subtype(0U).map(fn(st) { st.metadata().shared }).unwrap_or(false)
+    _ => false
+  }
+}
+
+///|
 pub fn TypeIdx::new(idx : UInt) -> TypeIdx {
   TypeIdx(idx)
 }
@@ -2823,8 +2847,22 @@ pub fn func_comp_type(props : ResultType, results : ResultType) -> CompType {
 pub fn TypeMetadata::new(
   describes? : TypeIdx? = None,
   descriptor? : TypeIdx? = None,
+  shared? : Bool = false,
 ) -> TypeMetadata {
-  { describes, descriptor }
+  { describes, descriptor, shared }
+}
+
+///|
+pub fn TypeMetadata::is_shared(self : TypeMetadata) -> Bool {
+  self.shared
+}
+
+///|
+pub fn TypeMetadata::with_shared(
+  self : TypeMetadata,
+  shared : Bool,
+) -> TypeMetadata {
+  { describes: self.describes, descriptor: self.descriptor, shared }
 }
 
 ///|
@@ -4202,16 +4240,18 @@ pub fn Instruction::struct_atomic_rmw(
   op : AggregateAtomicRmwOp,
   ty : TypeIdx,
   fi : U32,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
-  StructAtomicRmw(op, ty, fi)
+  StructAtomicRmw(order, op, ty, fi)
 }
 
 ///|
 pub fn Instruction::struct_atomic_cmpxchg(
   ty : TypeIdx,
   fi : U32,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
-  StructAtomicCmpxchg(ty, fi)
+  StructAtomicCmpxchg(order, ty, fi)
 }
 
 ///|
@@ -4270,6 +4310,30 @@ pub fn Instruction::array_get_u(ti : TypeIdx) -> Instruction {
 }
 
 ///|
+pub fn Instruction::array_atomic_get(
+  order : AtomicOrder,
+  ti : TypeIdx,
+) -> Instruction {
+  ArrayAtomicGet(order, ti)
+}
+
+///|
+pub fn Instruction::array_atomic_get_s(
+  order : AtomicOrder,
+  ti : TypeIdx,
+) -> Instruction {
+  ArrayAtomicGetS(order, ti)
+}
+
+///|
+pub fn Instruction::array_atomic_get_u(
+  order : AtomicOrder,
+  ti : TypeIdx,
+) -> Instruction {
+  ArrayAtomicGetU(order, ti)
+}
+
+///|
 pub fn Instruction::array_set(ti : TypeIdx) -> Instruction {
   ArraySet(ti)
 }
@@ -4278,13 +4342,27 @@ pub fn Instruction::array_set(ti : TypeIdx) -> Instruction {
 pub fn Instruction::array_atomic_rmw(
   op : AggregateAtomicRmwOp,
   ti : TypeIdx,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
 ) -> Instruction {
-  ArrayAtomicRmw(op, ti)
+  ArrayAtomicRmw(order, op, ti)
 }
 
 ///|
-pub fn Instruction::array_atomic_cmpxchg(ti : TypeIdx) -> Instruction {
-  ArrayAtomicCmpxchg(ti)
+pub fn Instruction::array_atomic_cmpxchg(
+  ti : TypeIdx,
+  order? : AtomicOrder = AtomicOrder::seq_cst(),
+) -> Instruction {
+  ArrayAtomicCmpxchg(order, ti)
+}
+
+///|
+pub fn Instruction::array_load(op : LoadOp, ti : TypeIdx) -> Instruction {
+  ArrayLoad(op, ti)
+}
+
+///|
+pub fn Instruction::array_store(op : StoreOp, ti : TypeIdx) -> Instruction {
+  ArrayStore(op, ti)
 }
 
 ///|
@@ -4394,6 +4472,24 @@ pub fn Instruction::br_on_cast_fail(
   ht1 : HeapType,
 ) -> Instruction {
   BrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1)
+}
+
+///|
+pub fn Instruction::br_on_cast_desc_eq(
+  li : LabelIdx,
+  source : RefType,
+  target : RefType,
+) -> Instruction {
+  BrOnCastDescEq(li, source, target)
+}
+
+///|
+pub fn Instruction::br_on_cast_desc_eq_fail(
+  li : LabelIdx,
+  source : RefType,
+  target : RefType,
+) -> Instruction {
+  BrOnCastDescEqFail(li, source, target)
 }
 
 ///|

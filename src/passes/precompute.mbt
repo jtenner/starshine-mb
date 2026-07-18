@@ -64,6 +64,12 @@ priv struct PrecomputePropagateAllocationFold {
 }
 
 ///|
+priv enum PrecomputeHeapIdentity {
+  HeapNode(Int)
+  HeapGlobal(@lib.GlobalIdx)
+} derive(Eq)
+
+///|
 fn precompute_global_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1147,7 +1153,10 @@ fn precompute_fresh_struct_allocation_is_discardable(
     return false
   }
   match @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.StructNew(_)) | Some(@lib.StructNewDefault(_)) => ()
+    Some(@lib.StructNew(_))
+    | Some(@lib.StructNewDefault(_))
+    | Some(@lib.StructNewDesc(_))
+    | Some(@lib.StructNewDefaultDesc(_)) => ()
     _ => return false
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
@@ -1158,6 +1167,272 @@ fn precompute_fresh_struct_allocation_is_discardable(
       return false
     }
   }
+  true
+}
+
+///|
+fn precompute_global_is_immutable(
+  module_ctx : @ir.HotModuleContext,
+  global_idx : @lib.GlobalIdx,
+) -> Bool {
+  match @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
+    Some(@lib.GlobalType(_, mutable)) => !mutable
+    None => false
+  }
+}
+
+///|
+fn precompute_global_heap_identity(
+  module_ctx : @ir.HotModuleContext,
+  global_idx : @lib.GlobalIdx,
+  depth : Int,
+) -> PrecomputeHeapIdentity? {
+  if depth > 32 || !precompute_global_is_immutable(module_ctx, global_idx) {
+    return None
+  }
+  match @ir.hot_module_resolve_global_init(module_ctx, global_idx) {
+    Some(@lib.Expr([@lib.GlobalGet(global_alias)])) =>
+      precompute_global_heap_identity(module_ctx, global_alias, depth + 1)
+    Some(@lib.Expr(instrs)) if instrs.length() > 0 =>
+      match instrs[instrs.length() - 1] {
+        @lib.StructNew(_)
+        | @lib.StructNewDefault(_)
+        | @lib.StructNewDesc(_)
+        | @lib.StructNewDefaultDesc(_)
+        | @lib.ArrayNew(_)
+        | @lib.ArrayNewDefault(_)
+        | @lib.ArrayNewFixed(_) => Some(HeapGlobal(global_idx))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn precompute_global_descriptor_identity(
+  module_ctx : @ir.HotModuleContext,
+  global_idx : @lib.GlobalIdx,
+  depth : Int,
+) -> PrecomputeHeapIdentity? {
+  if depth > 32 || !precompute_global_is_immutable(module_ctx, global_idx) {
+    return None
+  }
+  match @ir.hot_module_resolve_global_init(module_ctx, global_idx) {
+    Some(@lib.Expr([@lib.GlobalGet(global_alias)])) =>
+      precompute_global_descriptor_identity(module_ctx, global_alias, depth + 1)
+    Some(@lib.Expr(instrs)) if instrs.length() >= 2 =>
+      match instrs[instrs.length() - 1] {
+        @lib.StructNewDesc(_) | @lib.StructNewDefaultDesc(_) =>
+          match instrs[0] {
+            @lib.GlobalGet(descriptor) =>
+              precompute_global_heap_identity(module_ctx, descriptor, depth + 1)
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn precompute_heap_identity_for_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth : Int,
+) -> PrecomputeHeapIdentity? {
+  if depth > 32 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.RefGetDesc(_)) => {
+      if @ir.hot_child_count(func, node_id) != 1 {
+        return None
+      }
+      let source_id = @ir.hot_child_get(func, node_id, 0)
+      match @ir.hot_node_exact_instr(func, source_id) {
+        Some(@lib.StructNewDesc(_)) | Some(@lib.StructNewDefaultDesc(_)) =>
+          if @ir.hot_child_count(func, source_id) > 0 {
+            precompute_heap_identity_for_node(
+              ctx,
+              func,
+              @ir.hot_child_get(func, source_id, 0),
+              depth + 1,
+            )
+          } else {
+            None
+          }
+        _ => {
+          let source = @ir.hot_node_get(func, source_id)
+          match source.op {
+            @ir.HotOp::GlobalGet =>
+              match ctx.module_ctx {
+                Some(module_ctx) =>
+                  precompute_global_descriptor_identity(
+                    module_ctx,
+                    @lib.GlobalIdx::new(source.imm0.reinterpret_as_uint()),
+                    depth + 1,
+                  )
+                None => None
+              }
+            _ => None
+          }
+        }
+      }
+    }
+    _ =>
+      match node.op {
+        @ir.HotOp::GlobalGet =>
+          match ctx.module_ctx {
+            Some(module_ctx) =>
+              precompute_global_heap_identity(
+                module_ctx,
+                @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+                depth + 1,
+              )
+            None => None
+          }
+        @ir.HotOp::Block => {
+          let label = @ir.hot_control_node_label(func, node_id)
+          let body_ref = @ir.hot_region_body_ref(func, node_id)
+          for slot = 0
+              slot < @ir.hot_region_root_count(func, body_ref)
+              slot = slot + 1 {
+            let root_id = @ir.hot_region_get(func, body_ref, slot)
+            let mut branch_id = root_id
+            if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
+              let root = @ir.hot_node_get(func, root_id)
+              match root.op {
+                @ir.HotOp::Drop if root.child_count == 1 =>
+                  branch_id = @ir.hot_child_get(func, root_id, 0)
+                _ => ()
+              }
+            }
+            if branch_id >= 0 && @ir.hot_node_is_live(func, branch_id) {
+              let branch = @ir.hot_node_get(func, branch_id)
+              match branch.op {
+                @ir.HotOp::Br if branch.imm0 == label && branch.child_count == 1 =>
+                  return precompute_heap_identity_for_node(
+                    ctx,
+                    func,
+                    @ir.hot_child_get(func, branch_id, 0),
+                    depth + 1,
+                  )
+                _ => ()
+              }
+            }
+          }
+          None
+        }
+        _ =>
+          if precompute_fresh_struct_allocation_is_discardable(func, node_id) ||
+            precompute_fresh_array_allocation_is_discardable(func, node_id) {
+            Some(HeapNode(node_id))
+          } else {
+            None
+          }
+      }
+  }
+}
+
+///|
+fn precompute_descriptor_identity_for_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  depth : Int,
+) -> PrecomputeHeapIdentity? {
+  if depth > 32 || node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructNewDesc(_)) | Some(@lib.StructNewDefaultDesc(_)) =>
+      if @ir.hot_child_count(func, node_id) > 0 {
+        precompute_heap_identity_for_node(
+          ctx,
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+          depth + 1,
+        )
+      } else {
+        None
+      }
+    _ => {
+      let node = @ir.hot_node_get(func, node_id)
+      match node.op {
+        @ir.HotOp::GlobalGet =>
+          match ctx.module_ctx {
+            Some(module_ctx) =>
+              precompute_global_descriptor_identity(
+                module_ctx,
+                @lib.GlobalIdx::new(node.imm0.reinterpret_as_uint()),
+                depth + 1,
+              )
+            None => None
+          }
+        _ => None
+      }
+    }
+  }
+}
+
+///|
+fn precompute_try_fold_descriptor_branch(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let (target, branch_on_equal) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.BrOnCastDescEq(_, _, _)) =>
+      (@ir.hot_node_get(func, node_id).imm0, true)
+    Some(@lib.BrOnCastDescEqFail(_, _, _)) =>
+      (@ir.hot_node_get(func, node_id).imm0, false)
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let source_id = @ir.hot_child_get(func, node_id, 0)
+  let descriptor_id = @ir.hot_child_get(func, node_id, 1)
+  let source_descriptor = match
+    precompute_descriptor_identity_for_node(ctx, func, source_id, 0) {
+    Some(identity) => identity
+    None => return false
+  }
+  let supplied_descriptor = match
+    precompute_heap_identity_for_node(ctx, func, descriptor_id, 0) {
+    Some(identity) => identity
+    None => return false
+  }
+  let taken = (source_descriptor == supplied_descriptor) == branch_on_equal
+  if taken {
+    let owner = @ir.hot_label_owner(func, target)
+    if owner >= 0 &&
+      @ir.hot_node_is_live(func, owner) &&
+      (match @ir.hot_node_get(func, owner).op {
+        @ir.HotOp::Block => true
+        _ => false
+      }) {
+      let body_ref = @ir.hot_region_body_ref(func, owner)
+      if @ir.hot_region_root_count(func, body_ref) == 1 &&
+        @ir.hot_region_get(func, body_ref, 0) == node_id {
+        @ir.hot_region_replace_body(func, body_ref, [source_id])
+        @ir.hot_delete_node(func, node_id)
+        pass_mark_mutated(ctx, func)
+        return true
+      }
+    }
+    let replacement_id = @ir.hot_build_br(func, target, values=[source_id])
+    let replacement = @ir.hot_node_get(func, replacement_id)
+    @ir.hot_delete_node(func, replacement_id)
+    precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  } else {
+    let replacement = @ir.hot_node_get(func, source_id)
+    precompute_replace_node_rehoming_control_label(func, node_id, replacement)
+  }
+  pass_mark_mutated(ctx, func)
   true
 }
 
@@ -1188,14 +1463,30 @@ fn precompute_try_fold_gc_identity(
       @ir.HotOp::RefNull => true
       _ => false
     })
+  let lhs_identity = precompute_heap_identity_for_node(ctx, func, lhs, 0)
+  let rhs_identity = precompute_heap_identity_for_node(ctx, func, rhs, 0)
+  match (lhs_identity, rhs_identity) {
+    (Some(lhs_identity), Some(rhs_identity)) => {
+      precompute_replace_with_const_i32(
+        ctx,
+        func,
+        node_id,
+        @lib.I32(if lhs_identity == rhs_identity { 1 } else { 0 }),
+      )
+      return true
+    }
+    _ => ()
+  }
   let lhs_allocation = precompute_fresh_struct_allocation_is_discardable(
       func, lhs,
     ) ||
-    precompute_fresh_array_allocation_is_discardable(func, lhs)
+    precompute_fresh_array_allocation_is_discardable(func, lhs) ||
+    lhs_identity is Some(_)
   let rhs_allocation = precompute_fresh_struct_allocation_is_discardable(
       func, rhs,
     ) ||
-    precompute_fresh_array_allocation_is_discardable(func, rhs)
+    precompute_fresh_array_allocation_is_discardable(func, rhs) ||
+    rhs_identity is Some(_)
   if (lhs_null && rhs_allocation) || (rhs_null && lhs_allocation) {
     precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32(0))
     return true
@@ -1242,21 +1533,55 @@ fn precompute_try_fold_fresh_ref_test(
 }
 
 ///|
+fn precompute_atomic_aggregate_read_can_fold(
+  ctx : HotPassContext,
+  order : @lib.AtomicOrder,
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match order {
+    @lib.SeqCst => false
+    @lib.AcqRel => {
+      let module_ctx = match ctx.module_ctx {
+        Some(module_ctx) => module_ctx
+        None => return false
+      }
+      match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+        Some(subtype) => !subtype.metadata().is_shared()
+        None => false
+      }
+    }
+  }
+}
+
+///|
 fn precompute_try_fold_fresh_struct_get_from_allocation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
   allocation_id : Int,
 ) -> Bool {
-  let (type_idx, raw_field, signed, unsigned) = match
+  let (type_idx, raw_field, signed, unsigned, atomic_order) = match
     @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.StructGet(type_idx, @lib.U32(raw_field))) =>
-      (type_idx, raw_field, false, false)
+      (type_idx, raw_field, false, false, None)
     Some(@lib.StructGetS(type_idx, @lib.U32(raw_field))) =>
-      (type_idx, raw_field, true, false)
+      (type_idx, raw_field, true, false, None)
     Some(@lib.StructGetU(type_idx, @lib.U32(raw_field))) =>
-      (type_idx, raw_field, false, true)
+      (type_idx, raw_field, false, true, None)
+    Some(@lib.StructAtomicGet(order, type_idx, @lib.U32(raw_field))) =>
+      (type_idx, raw_field, false, false, Some(order))
+    Some(@lib.StructAtomicGetS(order, type_idx, @lib.U32(raw_field))) =>
+      (type_idx, raw_field, true, false, Some(order))
+    Some(@lib.StructAtomicGetU(order, type_idx, @lib.U32(raw_field))) =>
+      (type_idx, raw_field, false, true, Some(order))
     _ => return false
+  }
+  match atomic_order {
+    Some(order) =>
+      if !precompute_atomic_aggregate_read_can_fold(ctx, order, type_idx) {
+        return false
+      }
+    None => ()
   }
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
@@ -1584,12 +1909,25 @@ fn precompute_try_fold_fresh_array_get_from_allocation(
   node_id : Int,
   allocation_id : Int,
 ) -> Bool {
-  let (type_idx, signed, unsigned) = match
+  let (type_idx, signed, unsigned, atomic_order) = match
     @ir.hot_node_exact_instr(func, node_id) {
-    Some(@lib.ArrayGet(type_idx)) => (type_idx, false, false)
-    Some(@lib.ArrayGetS(type_idx)) => (type_idx, true, false)
-    Some(@lib.ArrayGetU(type_idx)) => (type_idx, false, true)
+    Some(@lib.ArrayGet(type_idx)) => (type_idx, false, false, None)
+    Some(@lib.ArrayGetS(type_idx)) => (type_idx, true, false, None)
+    Some(@lib.ArrayGetU(type_idx)) => (type_idx, false, true, None)
+    Some(@lib.ArrayAtomicGet(order, type_idx)) =>
+      (type_idx, false, false, Some(order))
+    Some(@lib.ArrayAtomicGetS(order, type_idx)) =>
+      (type_idx, true, false, Some(order))
+    Some(@lib.ArrayAtomicGetU(order, type_idx)) =>
+      (type_idx, false, true, Some(order))
     _ => return false
+  }
+  match atomic_order {
+    Some(order) =>
+      if !precompute_atomic_aggregate_read_can_fold(ctx, order, type_idx) {
+        return false
+      }
+    None => ()
   }
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
@@ -1855,6 +2193,68 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
     }
     _ => false
   }
+}
+
+///|
+fn precompute_try_simplify_self_branch_value_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 {
+    return false
+  }
+  let mut first_value = 0
+  while first_value < root_count {
+    let root_id = @ir.hot_region_get(func, body_ref, first_value)
+    if root_id >= 0 &&
+      @ir.hot_node_is_live(func, root_id) &&
+      (match @ir.hot_node_get(func, root_id).op {
+        @ir.HotOp::Nop => true
+        _ => false
+      }) {
+      first_value += 1
+    } else {
+      break
+    }
+  }
+  if first_value >= root_count {
+    return false
+  }
+  let branch_id = @ir.hot_region_get(func, body_ref, first_value)
+  if branch_id < 0 || !@ir.hot_node_is_live(func, branch_id) {
+    return false
+  }
+  let branch = @ir.hot_node_get(func, branch_id)
+  match branch.op {
+    @ir.HotOp::Br => ()
+    _ => {
+      if first_value + 1 == root_count && first_value > 0 {
+        @ir.hot_region_replace_body(func, body_ref, [branch_id])
+        pass_mark_mutated(ctx, func)
+        return true
+      }
+      return false
+    }
+  }
+  if branch.imm0 != @ir.hot_control_node_label(func, node_id) ||
+    branch.child_count != 1 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, branch_id, 0)
+  @ir.hot_region_replace_body(func, body_ref, [value_id])
+  @ir.hot_delete_node(func, branch_id)
+  pass_mark_mutated(ctx, func)
+  true
 }
 
 ///|
@@ -5065,6 +5465,79 @@ fn precompute_raw_rewrite_instr(
 }
 
 ///|
+fn precompute_raw_instr_terminates_sequence(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Br(_) | @lib.Return | @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instr_is_one_value_leaf(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_terminal_branch_prefix(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if instrs.length() == 0 {
+    return None
+  }
+  let branch_idx = instrs.length() - 1
+  let out : Array[@lib.Instruction] = []
+  for i in 0..<branch_idx {
+    let instr = instrs[i]
+    if instr == @lib.Instruction::nop() {
+      continue
+    }
+    out.push(instr)
+    if i + 1 < branch_idx && precompute_raw_instr_is_one_value_leaf(instr) {
+      out.push(@lib.Instruction::drop())
+    }
+  }
+  Some(out)
+}
+
+///|
+fn precompute_raw_block_terminal_branch_depth(
+  instrs : Array[@lib.Instruction],
+) -> UInt? {
+  if instrs.length() == 0 {
+    return None
+  }
+  let depth = match instrs[instrs.length() - 1] {
+    @lib.Br(@lib.LabelIdx(depth)) => depth
+    _ => return None
+  }
+  for i in 0..<(instrs.length() - 1) {
+    match instrs[i] {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _) => return None
+      _ => ()
+    }
+  }
+  Some(depth)
+}
+
+///|
 fn precompute_raw_block_has_flat_return_flow(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -5114,15 +5587,42 @@ fn precompute_raw_rewrite_instrs(
     let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
       instr, module_ctx,
     )
+    let mut terminates = false
     match rewritten {
-      @lib.Block(block_type, @lib.Expr(body)) if block_type ==
-        @lib.BlockType::void_() &&
-        precompute_raw_block_has_flat_return_flow(body) => {
-        for child in body {
-          out.push(child)
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        match precompute_raw_block_terminal_branch_depth(body) {
+          Some(depth) => {
+            let prefix = match precompute_raw_terminal_branch_prefix(body) {
+              Some(prefix) => prefix
+              None => {
+                out.push(rewritten)
+                continue
+              }
+            }
+            for child in prefix {
+              out.push(child)
+              while precompute_raw_fold_output_tail(out) {
+                changed = true
+              }
+            }
+            if depth > 0U {
+              out.push(@lib.Instruction::br(@lib.LabelIdx::new(depth - 1U)))
+              terminates = true
+            }
+            changed = true
+          }
+          None =>
+            if block_type == @lib.BlockType::void_() &&
+              precompute_raw_block_has_flat_return_flow(body) {
+              for child in body {
+                out.push(child)
+              }
+              changed = true
+              terminates = true
+            } else {
+              out.push(rewritten)
+            }
         }
-        changed = true
-      }
       _ => out.push(rewritten)
     }
     if nested_changed {
@@ -5130,6 +5630,17 @@ fn precompute_raw_rewrite_instrs(
     }
     while precompute_raw_fold_output_tail(out) {
       changed = true
+    }
+    if !terminates &&
+      out.length() > 0 &&
+      precompute_raw_instr_terminates_sequence(out[out.length() - 1]) {
+      terminates = true
+      if instr != instrs[instrs.length() - 1] {
+        changed = true
+      }
+    }
+    if terminates {
+      break
     }
   }
   if precompute_raw_try_repair_tlsf_memory_prologue(out) {
@@ -5152,6 +5663,9 @@ fn precompute_raw_instr_has_hot_only_candidate(
     | @lib.ArrayGet(_)
     | @lib.ArrayGetS(_)
     | @lib.ArrayGetU(_)
+    | @lib.ArrayAtomicGet(_, _)
+    | @lib.ArrayAtomicGetS(_, _)
+    | @lib.ArrayAtomicGetU(_, _)
     | @lib.ArrayLen
     | @lib.RefEq
     | @lib.RefTest(_, _, _)
@@ -5269,6 +5783,9 @@ fn precompute_raw_instr_is_preserved_dropped_effect(
     | @lib.ArrayGet(_)
     | @lib.ArrayGetS(_)
     | @lib.ArrayGetU(_)
+    | @lib.ArrayAtomicGet(_, _)
+    | @lib.ArrayAtomicGetS(_, _)
+    | @lib.ArrayAtomicGetU(_, _)
     | @lib.ArrayLen
     | @lib.I31GetS
     | @lib.I31GetU
@@ -6042,6 +6559,11 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       if !@ir.hot_node_is_live(func, node_id) {
         continue
       }
+      if precompute_try_simplify_self_branch_value_block(ctx, func, node_id) {
+        changed_round = true
+        changed_any = true
+        continue
+      }
       if precompute_try_inline_transparent_value_block_child(
           ctx, func, node_id, label_used,
         ) {
@@ -6066,6 +6588,7 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       }
       if precompute_try_fold_string_slice(ctx, func, node_id) ||
         precompute_try_fold_fresh_string_new_wtf16(ctx, func, node_id) ||
+        precompute_try_fold_descriptor_branch(ctx, func, node_id) ||
         precompute_try_fold_gc_identity(ctx, func, node_id) ||
         precompute_try_fold_fresh_ref_test(ctx, func, node_id) ||
         precompute_try_fold_fresh_struct_get(ctx, func, node_id) ||

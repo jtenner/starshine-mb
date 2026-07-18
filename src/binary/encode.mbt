@@ -18,6 +18,7 @@ pub suberror BinaryEncodeError {
   RawNameCustomSectionUnsupported
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
+  UnsupportedBackingArrayMemoryOp
 } derive(Eq, Debug)
 
 ///|
@@ -55,6 +56,8 @@ pub impl Show for BinaryEncodeError with fn output(self, logger) {
       logger.write_string("CannotEncodeStringConstWithoutModuleContext")
     StringConstLiteralMissingFromSection =>
       logger.write_string("StringConstLiteralMissingFromSection")
+    UnsupportedBackingArrayMemoryOp =>
+      logger.write_string("UnsupportedBackingArrayMemoryOp")
   }
 }
 
@@ -117,6 +120,10 @@ pub impl Encode for NumType with fn encode(val, buf) {
 pub impl Encode for HeapType with fn encode(val, buf) {
   match val {
     AbsHeapTypeHeapType(ht) => Encode::encode(ht, buf)
+    SharedAbsHeapTypeHeapType(ht) => {
+      buf.write_byte(0x65)
+      Encode::encode(ht, buf)
+    }
     HeapType(TypeIdx(i)) => Encode::encode(@lib.S33(i), buf)
     HeapType(RecIdx(_)) =>
       Err(BinaryEncodeError::CannotEncodeRecursiveIndexHeapType)
@@ -296,6 +303,17 @@ pub impl Encode for AtomicOrder with fn encode(val, buf) {
 }
 
 ///|
+fn encode_aggregate_atomic_rmw_order(
+  order : AtomicOrder,
+  buf : @buffer.Buffer,
+) -> Unit {
+  match order {
+    SeqCst => buf.write_byte(0x00)
+    AcqRel => buf.write_byte(0x11)
+  }
+}
+
+///|
 pub impl Encode for RecType with fn encode(val, buf) {
   match val {
     SingleRecType(st) => Encode::encode(st, buf)
@@ -335,6 +353,9 @@ pub impl Encode for SubType with fn encode(val, buf) {
         }
         None => ()
       }
+      if meta.shared {
+        buf.write_byte(0x65)
+      }
       Encode::encode(ct, buf)
     }
     CompTypeSubType(meta, ct) => {
@@ -355,6 +376,9 @@ pub impl Encode for SubType with fn encode(val, buf) {
           }
         }
         None => ()
+      }
+      if meta.shared {
+        buf.write_byte(0x65)
       }
       Encode::encode(ct, buf)
     }
@@ -1930,6 +1954,51 @@ fn atomic_cmpxchg_op_id(op : AtomicCmpxchgOp) -> UInt {
 }
 
 ///|
+fn encode_backing_array_load_opcode(
+  op : @lib.LoadOp,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  match op {
+    @lib.I32LoadOp => buf.write_byte(0x28)
+    @lib.I64LoadOp => buf.write_byte(0x29)
+    @lib.F32LoadOp => buf.write_byte(0x2A)
+    @lib.F64LoadOp => buf.write_byte(0x2B)
+    @lib.I32Load8SOp => buf.write_byte(0x2C)
+    @lib.I32Load8UOp => buf.write_byte(0x2D)
+    @lib.I32Load16SOp => buf.write_byte(0x2E)
+    @lib.I32Load16UOp => buf.write_byte(0x2F)
+    @lib.I64Load8SOp => buf.write_byte(0x30)
+    @lib.I64Load8UOp => buf.write_byte(0x31)
+    @lib.I64Load16SOp => buf.write_byte(0x32)
+    @lib.I64Load16UOp => buf.write_byte(0x33)
+    @lib.I64Load32SOp => buf.write_byte(0x34)
+    @lib.I64Load32UOp => buf.write_byte(0x35)
+    _ => return Err(BinaryEncodeError::UnsupportedBackingArrayMemoryOp)
+  }
+  Ok(())
+}
+
+///|
+fn encode_backing_array_store_opcode(
+  op : @lib.StoreOp,
+  buf : @buffer.Buffer,
+) -> Result[Unit, BinaryEncodeError] {
+  match op {
+    @lib.I32StoreOp => buf.write_byte(0x36)
+    @lib.I64StoreOp => buf.write_byte(0x37)
+    @lib.F32StoreOp => buf.write_byte(0x38)
+    @lib.F64StoreOp => buf.write_byte(0x39)
+    @lib.I32Store8Op => buf.write_byte(0x3A)
+    @lib.I32Store16Op => buf.write_byte(0x3B)
+    @lib.I64Store8Op => buf.write_byte(0x3C)
+    @lib.I64Store16Op => buf.write_byte(0x3D)
+    @lib.I64Store32Op => buf.write_byte(0x3E)
+    _ => return Err(BinaryEncodeError::UnsupportedBackingArrayMemoryOp)
+  }
+  Ok(())
+}
+
+///|
 pub impl Encode for Instruction with fn encode(val, buf) {
   match val {
     Unreachable => buf.write_byte(0x00)
@@ -2664,52 +2733,52 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    StructAtomicGet(_, i, idx) => {
+    StructAtomicGet(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5C), buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
-        return Err(t)
-      }
     }
-    StructAtomicGetS(_, i, idx) => {
+    StructAtomicGetS(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5D), buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
-        return Err(t)
-      }
     }
-    StructAtomicGetU(_, i, idx) => {
+    StructAtomicGetU(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x5E), buf) is Err(t) {
         return Err(t)
       }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
-        return Err(t)
-      }
     }
-    StructAtomicRmw(op, i, idx) => {
+    StructAtomicRmw(order, op, i, idx) => {
       let id = match op {
         AggregateAtomicRmwAdd => 0x60U
         AggregateAtomicRmwSub => 0x61U
@@ -2722,28 +2791,24 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(@lib.U32(id), buf) is Err(t) {
         return Err(t)
       }
+      encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
-        return Err(t)
-      }
     }
-    StructAtomicCmpxchg(i, idx) => {
+    StructAtomicCmpxchg(order, i, idx) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x66), buf) is Err(t) {
         return Err(t)
       }
+      encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(idx, buf) is Err(t) {
-        return Err(t)
-      }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
         return Err(t)
       }
     }
@@ -2840,6 +2905,42 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
+    ArrayAtomicGet(order, i) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x67), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ArrayAtomicGetS(order, i) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x68), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ArrayAtomicGetU(order, i) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x69), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
     ArraySet(i) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(14), buf) is Err(t) {
@@ -2849,7 +2950,7 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
     }
-    ArrayAtomicRmw(op, i) => {
+    ArrayAtomicRmw(order, op, i) => {
       let id = match op {
         AggregateAtomicRmwAdd => 0x6BU
         AggregateAtomicRmwSub => 0x6CU
@@ -2862,22 +2963,40 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(@lib.U32(id), buf) is Err(t) {
         return Err(t)
       }
+      encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
-        return Err(t)
-      }
     }
-    ArrayAtomicCmpxchg(i) => {
+    ArrayAtomicCmpxchg(order, i) => {
       buf.write_byte(0xFE)
       if Encode::encode(@lib.U32(0x71), buf) is Err(t) {
         return Err(t)
       }
+      encode_aggregate_atomic_rmw_order(order, buf)
       if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(@lib.U32(0U), buf) is Err(t) {
+    }
+    ArrayLoad(op, i) => {
+      if encode_backing_array_load_opcode(op, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(@lib.U32(0x20U), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    ArrayStore(op, i) => {
+      if encode_backing_array_store_opcode(op, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(@lib.U32(0x20U), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -3143,6 +3262,54 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         return Err(t)
       }
       if Encode::encode(ht1, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    BrOnCastDescEq(l, source, target) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(37), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(
+          CastOp::new(source.is_nullable(), target.is_nullable()),
+          buf,
+        )
+        is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(l, buf) is Err(t) {
+        return Err(t)
+      }
+      if encode_ref_heap_type(source.is_exact(), source.get_heap_type(), buf)
+        is Err(t) {
+        return Err(t)
+      }
+      if encode_ref_heap_type(target.is_exact(), target.get_heap_type(), buf)
+        is Err(t) {
+        return Err(t)
+      }
+    }
+    BrOnCastDescEqFail(l, source, target) => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(38), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(
+          CastOp::new(source.is_nullable(), target.is_nullable()),
+          buf,
+        )
+        is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(l, buf) is Err(t) {
+        return Err(t)
+      }
+      if encode_ref_heap_type(source.is_exact(), source.get_heap_type(), buf)
+        is Err(t) {
+        return Err(t)
+      }
+      if encode_ref_heap_type(target.is_exact(), target.get_heap_type(), buf)
+        is Err(t) {
         return Err(t)
       }
     }

@@ -32,7 +32,7 @@ With the July 18 scalar/array follow-up still applied:
 - `.tmp/pass-fuzz-precompute-v131-progress-random-all-1000` completes `1000/1000` with `497` normalized, `243` compare-normalized, and `260` raw structural differences; all `260` normalized wasm files are smaller for Starshine (`83` `ssa-nomerge-smoke`, `81` `ssa-nomerge-parity`, `69` duplicate-function-import, `27` duplicate-nonfunction-import cases), with zero validation/property/generator/command failures;
 - comparisons use isolated cache `.tmp/pass-fuzz-cache-v131` so v130 oracle artifacts cannot mask v131 results.
 
-The direct v131 lit admission inventory is recorded at `.tmp/precompute-v131-lit-matrix/status.tsv`. Several failures are currently parser/decoder/type-surface boundaries rather than pass output differences, including descriptors, shared types, stringref, stack switching, and selected GC atomic forms. Supported lit modules remain useful but are not sufficient to claim full parity.
+The direct v131 lit admission inventory is recorded at `.tmp/precompute-v131-lit-matrix/status.tsv`. Shared function types, descriptor casts, stringref, shared-GC atomic reads/RMW operations, and GC backing-array multibyte loads/stores are now represented and admitted. The official `precompute-ref-func.wast`, `precompute-desc.wast`, `precompute-gc-atomics.wast`, `precompute-gc-atomics-rmw.wast`, and `precompute-gc-multibyte.wast` fixtures decode, optimize, validate, and match normalized Binaryen v131 output. Remaining admission boundaries are legacy `try` in `precompute-effects.wast`, continuation types and stack-switching opcodes, and one unresolved general-GC decode path.
 
 ## First reopened behavior slices
 
@@ -46,15 +46,20 @@ Red-first focused tests now cover and implementation closes:
 6. immutable fresh struct/array values transported through exact SSA local identities, including repeated field reads, array reads/lengths, and allocation-identity `ref.eq` while rejecting distinct-identity phi merges;
 7. non-shared `ref.func` return flow through transparent blocks;
 8. the v131 stringref binary/type surface used by `precompute-strings.wast`: the current `0x67` string heap type, measure/concat/equality, `string.as_wtf16`, code-unit reads, slices, and their binary opcodes;
-9. direct v131 WTF-16 string interpretation with canonical supplementary encoding, invalid-surrogate emitability rejection, and `stringref <: externref` matching.
+9. direct v131 WTF-16 string interpretation with canonical supplementary encoding, invalid-surrogate emitability rejection, and `stringref <: externref` matching;
+10. shared type metadata and the `0x65` shared composite wrapper used by the official shared `ref.func` fixture;
+11. descriptor heap metadata, exact descriptor cast branch opcodes `0x25` / `0x26`, immutable global GC identity, descriptor extraction, and typed branch-produced values;
+12. shared-GC atomic order/immediate preservation plus Binaryen-compatible folding of unordered and provably unshared `acqrel` reads;
+13. GC backing-array multibyte load/store representation and binary immediates.
 
 The effect-retention implementation remains conservative: it recognizes exact unary/binary parents and effect blocks containing ordered constant local/global writes. Branching, calls, traps, and arbitrary effectful expression reconstruction remain open until they have dedicated flow/effect proofs.
 
 ## Active parity fronts
 
-- full v131 effect-child retention and control `Flow` outcomes;
-- heap identity through locals and safe merges, immutable global/nested aggregate reads, and temporary speculative heap caches;
-- reference/function constants and explicit known-value-versus-emitability handling;
+- legacy `try` admission for the official effects fixture, then full effect-child retention and general control `Flow` outcomes;
+- nested immutable aggregate reads, loop/safe-merge identities, and temporary speculative heap caches beyond exact local/global allocation identities;
+- reference/function constants and explicit known-value-versus-emitability handling beyond the admitted shared `ref.func`, descriptor, and string cases;
+- continuation types and stack-switching instruction admission;
 - remaining string operations outside the v131 precompute fixture and additional `array.new` / `array.new_data` immediate string construction shapes;
 - final type refinalization after break/control replacement;
 - v131-specific GenValid/runtime leaves and the required four-lane closeout;
@@ -62,6 +67,6 @@ The effect-retention implementation remains conservative: it recognizes exact un
 
 The official v131 `precompute-strings.wast` now decodes, optimizes, re-encodes, and validates end-to-end. All value-producing cases match the oracle; retained textual differences are either smaller removal of dropped constants/scratch locals or equivalent simplification of the two intentionally non-emittable surrogate-splitting slices. Immediate fresh mutable WTF-16 arrays fold to the same `string.const` results as Binaryen.
 
-Focused formatting/build evidence at the latest checkpoint is green: `moon fmt`; `precompute_wbtest.mbt` `7/7`; `precompute_test.mbt` `56/56`; `precompute_propagate_test.mbt` `15/15`; string binary roundtrip coverage; and refreshed native release CLI builds. The existing warnings are unrelated unused-field/reserved-name/pass-manager warnings.
+Focused evidence at the latest checkpoint is green: binary roundtrips `106/106`; `precompute_wbtest.mbt` `9/9`; `precompute_test.mbt` `56/56`; `precompute_propagate_test.mbt` `15/15`; `moon check`; native release CLI builds; and direct normalized v131 matches for the shared `ref.func`, descriptor, shared-GC atomic/RMW, and GC multibyte fixtures. The existing warnings are unrelated unused-field/reserved-name/pass-manager warnings.
 
 This note is an active contract, not a closeout. Keep `[O4Z-PCP131]001` open until every broad source-backed family is implemented or reduced to a narrow user-approved boundary.

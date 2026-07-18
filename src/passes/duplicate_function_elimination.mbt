@@ -245,7 +245,7 @@ fn dfe_heap_type_uses_remap(
   remap : Map[UInt, UInt],
 ) -> Bool {
   match heap_type {
-    @lib.AbsHeapTypeHeapType(_) => false
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => false
     @lib.HeapType(type_idx) => dfe_type_idx_is_remapped(type_idx, remap)
     @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
       dfe_rec_type_uses_remap(rec_type, remap)
@@ -408,7 +408,7 @@ fn dfe_type_metadata_mentions_type_idxs(metadata : @lib.TypeMetadata) -> Bool {
 ///|
 fn dfe_heap_type_mentions_type_idxs(heap_type : @lib.HeapType) -> Bool {
   match heap_type {
-    @lib.AbsHeapTypeHeapType(_) => false
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => false
     @lib.HeapType(_) => true
     @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
       dfe_rec_type_mentions_type_idxs(rec_type)
@@ -648,7 +648,7 @@ fn dfe_rewrite_type_metadata(
   metadata : @lib.TypeMetadata,
   remap : Map[UInt, UInt],
 ) -> @lib.TypeMetadata {
-  let { describes, descriptor } = metadata
+  let { describes, descriptor, shared } = metadata
   @lib.TypeMetadata::new(
     describes=match describes {
       Some(idx) => Some(dfe_rewrite_type_idx(idx, remap))
@@ -658,6 +658,7 @@ fn dfe_rewrite_type_metadata(
       Some(idx) => Some(dfe_rewrite_type_idx(idx, remap))
       None => None
     },
+    shared~,
   )
 }
 
@@ -667,7 +668,7 @@ fn dfe_rewrite_heap_type(
   remap : Map[UInt, UInt],
 ) -> @lib.HeapType {
   match heap_type {
-    @lib.AbsHeapTypeHeapType(_) => heap_type
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => heap_type
     @lib.HeapType(type_idx) =>
       @lib.HeapType::new(dfe_rewrite_type_idx(type_idx, remap))
     @lib.DefTypeHeapType(@lib.DefType(rec_type, idx)) =>

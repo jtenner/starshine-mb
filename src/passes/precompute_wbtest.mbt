@@ -142,6 +142,82 @@ test "precompute flattens blocks whose concrete flow returns" {
 }
 
 ///|
+test "precompute admits and folds Binaryen v131 shared ref.func fixture" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x11, 0x03, 0x65, 0x60,
+        0x00, 0x01, 0x63, 0x65, 0x70, 0x60, 0x00, 0x01, 0x70, 0x60, 0x00, 0x01, 0x64,
+        0x00, 0x03, 0x04, 0x03, 0x01, 0x00, 0x02, 0x09, 0x06, 0x01, 0x03, 0x00, 0x02,
+        0x00, 0x01, 0x0a, 0x21, 0x03, 0x05, 0x00, 0xd2, 0x00, 0x0f, 0x0b, 0x05, 0x00,
+        0xd2, 0x01, 0x0f, 0x0b, 0x13, 0x00, 0x02, 0x64, 0x00, 0x02, 0x64, 0x01, 0xd2,
+        0x00, 0xd2, 0x01, 0x0c, 0x01, 0x0b, 0x1a, 0xd2, 0x01, 0x0b, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected shared ref.func fixture decode, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected shared ref.func fixture optimization, got \{err}")
+  }
+  let text = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(text.contains("ref.func"), msg="\{text}\ntrace=\{trace}")
+  assert_false(text.contains("block"), msg="\{text}\ntrace=\{trace}")
+  assert_false(text.contains("br "), msg="\{text}\ntrace=\{trace}")
+}
+
+///|
+test "precompute resolves nested typed branch flow" {
+  let inner = @lib.Instruction::block(
+    @lib.BlockType::val_type(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          exact=true,
+        ),
+      ),
+    ),
+    @lib.Expr::new([
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+      @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+    ]),
+  )
+  let outer = @lib.Instruction::block(
+    @lib.BlockType::val_type(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+    ),
+    @lib.Expr::new([
+      inner,
+      @lib.Instruction::drop(),
+      @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+    ]),
+  )
+  let (rewritten, changed) = precompute_raw_rewrite_instrs([outer], None)
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
 test "precompute folds Binaryen v131 WTF-16 string operations" {
   let (equal, equal_changed) = precompute_raw_rewrite_instrs(
     [

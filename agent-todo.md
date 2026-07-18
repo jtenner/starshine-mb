@@ -35,7 +35,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `optimize-instructions` | **Reopened for v131:** equal-ref, identical-select, idempotent-call/effect-order, and non-concrete-select behavior changed upstream. | **Open v131 focused parity and closeout.** |
 | `heap-store-optimization` | Closed. | None. |
 | `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
-| `precompute-propagate` | Reopened against Binaryen v131. The public/direct/nested bounded one-solve/one-rerun implementation is complete, but the broader v131 source/lit audit exposes shared evaluator gaps. | **Open:** `[O4Z-PCP131]001` general flow/effect retention, heap identity/emitability, refinalization, and full v131 closeout. |
+| `precompute-propagate` | Reopened against Binaryen v131. Shared function types, descriptor casts, shared-GC atomics, GC backing-array multibyte operations, strings, and exact local/global heap identities are now admitted; v131 `Precompute.cpp` remains byte-identical to v130. | **Open:** `[O4Z-PCP131]001` legacy effects, general flow/effect retention, nested heap reads, stack switching, refinalization, and full v131 profile/fuzz/runtime/performance closeout. |
 | `code-pushing` | Closed. | None. |
 | `tuple-optimization` | Closed with accepted performance exception. | None. |
 | `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
@@ -129,7 +129,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - **Status:** active; v131 `Precompute.cpp` has the same SHA-256 as the reviewed v130 source, but the broader v131 lit matrix confirms that the previous generated-profile closeout did not exercise the full interpreter contract.
 - **Goal:** close direct plain `precompute` and `precompute-propagate` behavior gaps without changing the bounded one-local-solve/one-rerun public propagation contract.
-- **Current progress:** ordered multiple local/global effect retention, same-expression/default-local flow, immutable aggregate and allocation identity through exact SSA locals, non-shared `ref.func` return flow, and the full v131 `precompute-strings.wast` instruction/binary/type/interpreter surface now have red-first coverage and green focused validation. Shared function types, general break flow, nested heap aliases, remaining GC fixture encodings, and final closeout remain open.
+- **Current progress:** ordered multiple local/global effect retention, same-expression/default-local flow, immutable aggregate identity through exact SSA locals and immutable globals, shared function/type decoding, descriptor extraction/casts/branch flow, shared-GC atomics, backing-array multibyte operations, transparent typed branch flow, and the full v131 string fixture now have focused coverage and direct oracle matches. Legacy `try` admission for `precompute-effects`, broader nested heap reads, stack switching, general effect/control flow, refinalization, and final closeout remain open.
 - **Deliverables:**
   - [ ] Rebaseline all comparisons on `.tmp/binaryen-version-131-bin/bin/wasm-opt` with an isolated v131 cache.
   - [ ] Close supported v131 `precompute-effects`, partial-select, GC identity/immutable heap, ref/function, control-flow, string, and refinalization families with focused tests.

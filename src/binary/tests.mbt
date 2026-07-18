@@ -1998,7 +1998,7 @@ test "struct atomic get instruction encode decode opcodes" {
         TypeIdx::new(1U),
         U32(2U),
       ),
-      b"\xFE\x5D\x01\x02\x00",
+      b"\xFE\x5D\x00\x01\x02",
     ),
     (
       "struct.atomic.get_u orderless",
@@ -2007,7 +2007,7 @@ test "struct atomic get instruction encode decode opcodes" {
         TypeIdx::new(2U),
         U32(3U),
       ),
-      b"\xFE\x5E\x02\x03\x00",
+      b"\xFE\x5E\x00\x02\x03",
     ),
   ]
   for case in cases {
@@ -3098,6 +3098,163 @@ test "exact ref.test and ref.cast module roundtrip preserves exactness" {
     Err(e) => fail("expected exact ref.test/cast re-decode success, got \{e}")
   }
   @debug.assert_eq(reparsed, decoded)
+}
+
+///|
+test "shared function heap and definition types roundtrip" {
+  let (heap, heap_next) = match
+    (Decode::decode(b"\x65\x70", 0) : Result[(HeapType, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(err) => fail("expected shared func heap decode, got \{err}")
+  }
+  @debug.assert_eq(heap_next, 2)
+  @debug.assert_eq(heap, HeapType::shared_abs(AbsHeapType::func()))
+  let heap_buf = @buffer.new()
+  match Encode::encode(heap, heap_buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected shared func heap encode, got \{err}")
+  }
+  @debug.assert_eq(heap_buf.to_bytes(), b"\x65\x70")
+
+  let (subtype, subtype_next) = match
+    (
+      Decode::decode(b"\x65\x60\x00\x00", 0) :
+      Result[(SubType, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(err) => fail("expected shared func definition decode, got \{err}")
+  }
+  @debug.assert_eq(subtype_next, 4)
+  assert_true(subtype.metadata().is_shared())
+  let subtype_buf = @buffer.new()
+  match Encode::encode(subtype, subtype_buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected shared func definition encode, got \{err}")
+  }
+  @debug.assert_eq(subtype_buf.to_bytes(), b"\x65\x60\x00\x00")
+
+  let (shared_sub, shared_sub_next) = match
+    (
+      Decode::decode(b"\x50\x00\x65\x5f\x00", 0) :
+      Result[(SubType, Int), BinaryDecodeError]) {
+    Ok(v) => v
+    Err(err) => fail("expected shared explicit subtype decode, got \{err}")
+  }
+  @debug.assert_eq(shared_sub_next, 5)
+  assert_true(shared_sub.metadata().is_shared())
+  let shared_sub_buf = @buffer.new()
+  match Encode::encode(shared_sub, shared_sub_buf) {
+    Ok(_) => ()
+    Err(err) => fail("expected shared explicit subtype encode, got \{err}")
+  }
+  @debug.assert_eq(shared_sub_buf.to_bytes(), b"\x50\x00\x65\x5f\x00")
+}
+
+///|
+test "descriptor branch cast instruction roundtrip" {
+  let source = RefType::new(false, HeapType::new(TypeIdx::new(0U)))
+  let target = RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true)
+  let cases = [
+    (
+      b"\xfb\x25\x00\x00\x00\x62\x00",
+      Instruction::br_on_cast_desc_eq(LabelIdx::new(0U), source, target),
+    ),
+    (
+      b"\xfb\x26\x00\x00\x00\x62\x00",
+      Instruction::br_on_cast_desc_eq_fail(LabelIdx::new(0U), source, target),
+    ),
+  ]
+  for pair in cases {
+    let (bytes, expected) = pair
+    let (decoded, next) = match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok(v) => v
+      Err(err) => fail("expected descriptor branch decode, got \{err}")
+    }
+    @debug.assert_eq(next, bytes.length())
+    @debug.assert_eq(decoded, expected)
+    let buf = @buffer.new()
+    match Encode::encode(decoded, buf) {
+      Ok(_) => ()
+      Err(err) => fail("expected descriptor branch encode, got \{err}")
+    }
+    @debug.assert_eq(buf.to_bytes(), bytes)
+  }
+}
+
+///|
+test "GC backing-array multibyte load and store roundtrip" {
+  let cases = [
+    (
+      b"\x35\x20\x00",
+      Instruction::array_load(@lib.LoadOp::i64_load32u(), TypeIdx::new(0U)),
+    ),
+    (
+      b"\x3e\x20\x00",
+      Instruction::array_store(@lib.StoreOp::i64_store32(), TypeIdx::new(0U)),
+    ),
+  ]
+  for pair in cases {
+    let (bytes, expected) = pair
+    let (decoded, next) = match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok(v) => v
+      Err(err) => fail("expected backing-array memory op decode, got \{err}")
+    }
+    @debug.assert_eq(next, bytes.length())
+    @debug.assert_eq(decoded, expected)
+    let buf = @buffer.new()
+    match Encode::encode(decoded, buf) {
+      Ok(_) => ()
+      Err(err) => fail("expected backing-array memory op encode, got \{err}")
+    }
+    @debug.assert_eq(buf.to_bytes(), bytes)
+  }
+}
+
+///|
+test "shared GC atomic order roundtrip" {
+  let cases = [
+    (
+      b"\xfe\x5c\x01\x01\x00",
+      Instruction::struct_atomic_get(
+        AtomicOrder::acq_rel(),
+        TypeIdx::new(1U),
+        U32::new(0U),
+      ),
+    ),
+    (
+      b"\xfe\x65\x11\x01\x00",
+      Instruction::struct_atomic_rmw(
+        @lib.AggregateAtomicRmwOp::xchg(),
+        TypeIdx::new(1U),
+        U32::new(0U),
+        order=AtomicOrder::acq_rel(),
+      ),
+    ),
+    (
+      b"\xfe\x71\x11\x02",
+      Instruction::array_atomic_cmpxchg(
+        TypeIdx::new(2U),
+        order=AtomicOrder::acq_rel(),
+      ),
+    ),
+  ]
+  for pair in cases {
+    let (bytes, expected) = pair
+    let (decoded, next) = match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok(v) => v
+      Err(err) => fail("expected shared atomic decode, got \{err}")
+    }
+    @debug.assert_eq(next, bytes.length())
+    @debug.assert_eq(decoded, expected)
+    let buf = @buffer.new()
+    match Encode::encode(decoded, buf) {
+      Ok(_) => ()
+      Err(err) => fail("expected shared atomic encode, got \{err}")
+    }
+    @debug.assert_eq(buf.to_bytes(), bytes)
+  }
 }
 
 ///|

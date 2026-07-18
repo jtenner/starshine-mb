@@ -185,12 +185,23 @@ pub impl Decode for NumType with fn decode(buf, idx) {
 
 ///|
 pub impl Decode for HeapType with fn decode(bytes, i) {
-  match Decode::decode(bytes, i) {
-    Ok((abs, i)) => Ok((HeapType::abs(abs), i))
-    Err(_) =>
-      match Decode::decode(bytes, i) {
-        Ok((@lib.S33(s), i)) => Ok((HeapType::new(TypeIdx::new(s)), i))
+  match bytes.get(i) {
+    Some(0x65) =>
+      match
+        (
+          Decode::decode(bytes, i + 1) :
+          Result[(AbsHeapType, Int), BinaryDecodeError]) {
+        Ok((abs, next)) => Ok((HeapType::shared_abs(abs), next))
         Err(err) => Err(err)
+      }
+    _ =>
+      match Decode::decode(bytes, i) {
+        Ok((abs, i)) => Ok((HeapType::abs(abs), i))
+        Err(_) =>
+          match Decode::decode(bytes, i) {
+            Ok((@lib.S33(s), i)) => Ok((HeapType::new(TypeIdx::new(s)), i))
+            Err(err) => Err(err)
+          }
       }
   }
 }
@@ -381,6 +392,19 @@ pub impl Decode for AtomicOrder with fn decode(bytes, i) {
 }
 
 ///|
+fn decode_aggregate_atomic_rmw_order(
+  bytes : Bytes,
+  i : Int,
+) -> Result[(AtomicOrder, Int), BinaryDecodeError] {
+  match bytes.get(i) {
+    Some(0x00) => Ok((AtomicOrder::seq_cst(), i + 1))
+    Some(0x11) => Ok((AtomicOrder::acq_rel(), i + 1))
+    Some(_) => Err(BinaryDecodeError::InvalidAtomicInstruction)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
+  }
+}
+
+///|
 fn decode_aggregate_atomic_reserved_zero(
   bytes : Bytes,
   i : Int,
@@ -457,8 +481,37 @@ fn decode_descriptor_clauses(
 }
 
 ///|
+fn decode_shared_comptype(
+  buf : Bytes,
+  i : Int,
+  metadata : TypeMetadata,
+) -> Result[(CompType, TypeMetadata, Int), BinaryDecodeError] {
+  let (cursor, metadata) = if buf.get(i) == Some(0x65) {
+    (i + 1, metadata.with_shared(true))
+  } else {
+    (i, metadata)
+  }
+  match Decode::decode(buf, cursor) {
+    Ok((ct, next)) => Ok((ct, metadata, next))
+    Err(err) => Err(err)
+  }
+}
+
+///|
 pub impl Decode for SubType with fn decode(buf, i) {
   match buf.get(i) {
+    // Shared definition wrapper.
+    Some(0x65) =>
+      match
+        (Decode::decode(buf, i + 1) : Result[(SubType, Int), BinaryDecodeError]) {
+        Ok((SubType(f, supers, meta, ct), next)) =>
+          Ok(
+            (SubType::new(f, supers, ct, metadata=meta.with_shared(true)), next),
+          )
+        Ok((CompTypeSubType(meta, ct), next)) =>
+          Ok((SubType::comp_type(ct, metadata=meta.with_shared(true)), next))
+        Err(err) => Err(err)
+      }
     // Final
     Some(0x4F) =>
       match Decode::decode(buf, i + 1) {
@@ -467,8 +520,9 @@ pub impl Decode for SubType with fn decode(buf, i) {
             Ok(v) => v
             Err(err) => return Err(err)
           }
-          match Decode::decode(buf, next) {
-            Ok((ct, i)) => Ok((SubType::new(true, idxs, ct, metadata=meta), i))
+          match decode_shared_comptype(buf, next, meta) {
+            Ok((ct, meta, i)) =>
+              Ok((SubType::new(true, idxs, ct, metadata=meta), i))
             Err(err) => Err(err)
           }
         }
@@ -482,8 +536,9 @@ pub impl Decode for SubType with fn decode(buf, i) {
             Ok(v) => v
             Err(err) => return Err(err)
           }
-          match Decode::decode(buf, next) {
-            Ok((ct, i)) => Ok((SubType::new(false, idxs, ct, metadata=meta), i))
+          match decode_shared_comptype(buf, next, meta) {
+            Ok((ct, meta, i)) =>
+              Ok((SubType::new(false, idxs, ct, metadata=meta), i))
             Err(err) => Err(err)
           }
         }
@@ -495,8 +550,8 @@ pub impl Decode for SubType with fn decode(buf, i) {
         Ok(v) => v
         Err(err) => return Err(err)
       }
-      match Decode::decode(buf, next) {
-        Ok((ct, i)) => Ok((SubType::comp_type(ct, metadata=meta), i))
+      match decode_shared_comptype(buf, next, meta) {
+        Ok((ct, meta, i)) => Ok((SubType::comp_type(ct, metadata=meta), i))
         Err(err) => Err(err)
       }
     }
@@ -2816,9 +2871,26 @@ fn decode_instruction_with_depth(
         Err(t) => Err(t)
       }
     Some(0x35) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_load32u(m), i))
-        Err(t) => Err(t)
+      match
+        (
+          Decode::decode(bytes, i + 1) :
+          Result[(@lib.U32, Int), BinaryDecodeError]) {
+        Ok((@lib.U32(0x20U), next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((type_idx, next)) =>
+              Ok(
+                (
+                  Instruction::array_load(@lib.LoadOp::i64_load32u(), type_idx),
+                  next,
+                ),
+              )
+            Err(t) => Err(t)
+          }
+        _ =>
+          match Decode::decode(bytes, i + 1) {
+            Ok((m, i)) => Ok((Instruction::i64_load32u(m), i))
+            Err(t) => Err(t)
+          }
       }
     Some(0x36) =>
       match Decode::decode(bytes, i + 1) {
@@ -2861,9 +2933,29 @@ fn decode_instruction_with_depth(
         Err(t) => Err(t)
       }
     Some(0x3E) =>
-      match Decode::decode(bytes, i + 1) {
-        Ok((m, i)) => Ok((Instruction::i64_store32(m), i))
-        Err(t) => Err(t)
+      match
+        (
+          Decode::decode(bytes, i + 1) :
+          Result[(@lib.U32, Int), BinaryDecodeError]) {
+        Ok((@lib.U32(0x20U), next)) =>
+          match Decode::decode(bytes, next) {
+            Ok((type_idx, next)) =>
+              Ok(
+                (
+                  Instruction::array_store(
+                    @lib.StoreOp::i64_store32(),
+                    type_idx,
+                  ),
+                  next,
+                ),
+              )
+            Err(t) => Err(t)
+          }
+        _ =>
+          match Decode::decode(bytes, i + 1) {
+            Ok((m, i)) => Ok((Instruction::i64_store32(m), i))
+            Err(t) => Err(t)
+          }
       }
     Some(0x3F) =>
       match Decode::decode(bytes, i + 1) {
@@ -3311,6 +3403,57 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         }
+        Ok((@lib.U32(id), i)) if id == 37U || id == 38U => {
+          let castop : Result[(CastOp, Int), BinaryDecodeError] = Decode::decode(
+            bytes, i,
+          )
+          match castop {
+            Ok((CastOp(source_nullable, target_nullable), i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((label, i)) =>
+                  match decode_ref_heap_type(bytes, i) {
+                    Ok((source_exact, source_heap, i)) =>
+                      match decode_ref_heap_type(bytes, i) {
+                        Ok((target_exact, target_heap, i)) => {
+                          let source = RefType::new(
+                            source_nullable,
+                            source_heap,
+                            exact=source_exact,
+                          )
+                          let target = RefType::new(
+                            target_nullable,
+                            target_heap,
+                            exact=target_exact,
+                          )
+                          if id == 37U {
+                            Ok(
+                              (
+                                Instruction::br_on_cast_desc_eq(
+                                  label, source, target,
+                                ),
+                                i,
+                              ),
+                            )
+                          } else {
+                            Ok(
+                              (
+                                Instruction::br_on_cast_desc_eq_fail(
+                                  label, source, target,
+                                ),
+                                i,
+                              ),
+                            )
+                          }
+                        }
+                        Err(t) => Err(t)
+                      }
+                    Err(t) => Err(t)
+                  }
+                Err(t) => Err(t)
+              }
+            Err(t) => Err(t)
+          }
+        }
         Ok((U32(26), i)) => Ok((Instruction::any_convert_extern(), i))
         Ok((U32(27), i)) => Ok((Instruction::extern_convert_any(), i))
         Ok((U32(28), i)) => Ok((Instruction::ref_i31(), i))
@@ -3492,85 +3635,107 @@ fn decode_instruction_with_depth(
           }
         Ok((@lib.U32(id), i)) if id >= 0x5C && id <= 0x5E =>
           match Decode::decode(bytes, i) {
-            Ok((type_idx, i)) =>
+            Ok((order, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((field_idx, i)) => {
-                  let i = match
-                    decode_aggregate_atomic_reserved_zero(bytes, i) {
-                    Ok(next) => next
-                    Err(t) => return Err(t)
+                Ok((type_idx, i)) =>
+                  match Decode::decode(bytes, i) {
+                    Ok((field_idx, i)) => {
+                      let instr = match id {
+                        0x5C =>
+                          Instruction::struct_atomic_get(
+                            order, type_idx, field_idx,
+                          )
+                        0x5D =>
+                          Instruction::struct_atomic_get_s(
+                            order, type_idx, field_idx,
+                          )
+                        _ =>
+                          Instruction::struct_atomic_get_u(
+                            order, type_idx, field_idx,
+                          )
+                      }
+                      Ok((instr, i))
+                    }
+                    Err(t) => Err(t)
                   }
-                  // Current shared-GC aggregate atomic-get binaries carry a
-                  // reserved zero after the aggregate indices, not a semantic
-                  // local ordering selector. Keep SeqCst internally for the
-                  // older local representation.
-                  let order = AtomicOrder::seq_cst()
-                  let instr = match id {
-                    0x5C =>
-                      Instruction::struct_atomic_get(order, type_idx, field_idx)
-                    0x5D =>
-                      Instruction::struct_atomic_get_s(
-                        order, type_idx, field_idx,
-                      )
-                    _ =>
-                      Instruction::struct_atomic_get_u(
-                        order, type_idx, field_idx,
-                      )
-                  }
-                  Ok((instr, i))
-                }
                 Err(t) => Err(t)
               }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(id), i)) if id >= 0x60 && id <= 0x66 =>
-          match Decode::decode(bytes, i) {
-            Ok((type_idx, i)) =>
+          match decode_aggregate_atomic_rmw_order(bytes, i) {
+            Ok((order, i)) =>
               match Decode::decode(bytes, i) {
-                Ok((field_idx, i)) => {
-                  let i = match
-                    decode_aggregate_atomic_reserved_zero(bytes, i) {
-                    Ok(next) => next
-                    Err(t) => return Err(t)
+                Ok((type_idx, i)) =>
+                  match Decode::decode(bytes, i) {
+                    Ok((field_idx, i)) => {
+                      let instr = match id {
+                        0x60 =>
+                          Instruction::struct_atomic_rmw(
+                            @lib.AggregateAtomicRmwOp::add(),
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                        0x61 =>
+                          Instruction::struct_atomic_rmw(
+                            @lib.AggregateAtomicRmwOp::sub(),
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                        0x62 =>
+                          Instruction::struct_atomic_rmw(
+                            @lib.AggregateAtomicRmwOp::and_(),
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                        0x63 =>
+                          Instruction::struct_atomic_rmw(
+                            @lib.AggregateAtomicRmwOp::or_(),
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                        0x64 =>
+                          Instruction::struct_atomic_rmw(
+                            @lib.AggregateAtomicRmwOp::xor(),
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                        0x65 =>
+                          Instruction::struct_atomic_rmw(
+                            @lib.AggregateAtomicRmwOp::xchg(),
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                        _ =>
+                          Instruction::struct_atomic_cmpxchg(
+                            type_idx,
+                            field_idx,
+                            order~,
+                          )
+                      }
+                      Ok((instr, i))
+                    }
+                    Err(t) => Err(t)
                   }
+                Err(t) => Err(t)
+              }
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(id), i)) if id >= 0x67 && id <= 0x69 =>
+          match Decode::decode(bytes, i) {
+            Ok((order, i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((type_idx, i)) => {
                   let instr = match id {
-                    0x60 =>
-                      Instruction::struct_atomic_rmw(
-                        @lib.AggregateAtomicRmwOp::add(),
-                        type_idx,
-                        field_idx,
-                      )
-                    0x61 =>
-                      Instruction::struct_atomic_rmw(
-                        @lib.AggregateAtomicRmwOp::sub(),
-                        type_idx,
-                        field_idx,
-                      )
-                    0x62 =>
-                      Instruction::struct_atomic_rmw(
-                        @lib.AggregateAtomicRmwOp::and_(),
-                        type_idx,
-                        field_idx,
-                      )
-                    0x63 =>
-                      Instruction::struct_atomic_rmw(
-                        @lib.AggregateAtomicRmwOp::or_(),
-                        type_idx,
-                        field_idx,
-                      )
-                    0x64 =>
-                      Instruction::struct_atomic_rmw(
-                        @lib.AggregateAtomicRmwOp::xor(),
-                        type_idx,
-                        field_idx,
-                      )
-                    0x65 =>
-                      Instruction::struct_atomic_rmw(
-                        @lib.AggregateAtomicRmwOp::xchg(),
-                        type_idx,
-                        field_idx,
-                      )
-                    _ => Instruction::struct_atomic_cmpxchg(type_idx, field_idx)
+                    0x67 => Instruction::array_atomic_get(order, type_idx)
+                    0x68 => Instruction::array_atomic_get_s(order, type_idx)
+                    _ => Instruction::array_atomic_get_u(order, type_idx)
                   }
                   Ok((instr, i))
                 }
@@ -3579,47 +3744,53 @@ fn decode_instruction_with_depth(
             Err(t) => Err(t)
           }
         Ok((@lib.U32(id), i)) if id >= 0x6B && id <= 0x71 =>
-          match Decode::decode(bytes, i) {
-            Ok((type_idx, i)) => {
-              let i = match decode_aggregate_atomic_reserved_zero(bytes, i) {
-                Ok(next) => next
-                Err(t) => return Err(t)
+          match decode_aggregate_atomic_rmw_order(bytes, i) {
+            Ok((order, i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((type_idx, i)) => {
+                  let instr = match id {
+                    0x6B =>
+                      Instruction::array_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::add(),
+                        type_idx,
+                        order~,
+                      )
+                    0x6C =>
+                      Instruction::array_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::sub(),
+                        type_idx,
+                        order~,
+                      )
+                    0x6D =>
+                      Instruction::array_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::and_(),
+                        type_idx,
+                        order~,
+                      )
+                    0x6E =>
+                      Instruction::array_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::or_(),
+                        type_idx,
+                        order~,
+                      )
+                    0x6F =>
+                      Instruction::array_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::xor(),
+                        type_idx,
+                        order~,
+                      )
+                    0x70 =>
+                      Instruction::array_atomic_rmw(
+                        @lib.AggregateAtomicRmwOp::xchg(),
+                        type_idx,
+                        order~,
+                      )
+                    _ => Instruction::array_atomic_cmpxchg(type_idx, order~)
+                  }
+                  Ok((instr, i))
+                }
+                Err(t) => Err(t)
               }
-              let instr = match id {
-                0x6B =>
-                  Instruction::array_atomic_rmw(
-                    @lib.AggregateAtomicRmwOp::add(),
-                    type_idx,
-                  )
-                0x6C =>
-                  Instruction::array_atomic_rmw(
-                    @lib.AggregateAtomicRmwOp::sub(),
-                    type_idx,
-                  )
-                0x6D =>
-                  Instruction::array_atomic_rmw(
-                    @lib.AggregateAtomicRmwOp::and_(),
-                    type_idx,
-                  )
-                0x6E =>
-                  Instruction::array_atomic_rmw(
-                    @lib.AggregateAtomicRmwOp::or_(),
-                    type_idx,
-                  )
-                0x6F =>
-                  Instruction::array_atomic_rmw(
-                    @lib.AggregateAtomicRmwOp::xor(),
-                    type_idx,
-                  )
-                0x70 =>
-                  Instruction::array_atomic_rmw(
-                    @lib.AggregateAtomicRmwOp::xchg(),
-                    type_idx,
-                  )
-                _ => Instruction::array_atomic_cmpxchg(type_idx)
-              }
-              Ok((instr, i))
-            }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(23), i)) =>

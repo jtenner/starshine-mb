@@ -1261,6 +1261,53 @@ fn typecheck_br_on_cast(
 }
 
 ///|
+fn typecheck_br_on_cast_desc_eq(
+  st : TcState,
+  l : LabelIdx,
+  source : RefType,
+  target : RefType,
+  fail : Bool,
+) -> TcResult {
+  let descriptor_idx = match target.get_heap_type() {
+    HeapType(type_idx) =>
+      match st.env.resolve_subtype(type_idx) {
+        Some(subtype) =>
+          match subtype.descriptor_type() {
+            Some(descriptor_idx) => descriptor_idx
+            None => return Err("descriptor cast target has no descriptor type")
+          }
+        None => return Err("descriptor cast target type does not exist")
+      }
+    _ => return Err("descriptor cast target must be a defined type")
+  }
+  let descriptor_type = ValType::ref_type(
+    RefType::new(true, HeapType::new(descriptor_idx), exact=target.is_exact()),
+  )
+  let st1 = match st.pop_expect(descriptor_type) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  let op = CastOp::new(source.is_nullable(), target.is_nullable())
+  if fail {
+    typecheck_br_on_cast_fail(
+      st1,
+      l,
+      op,
+      source.get_heap_type(),
+      target.get_heap_type(),
+    )
+  } else {
+    typecheck_br_on_cast(
+      st1,
+      l,
+      op,
+      source.get_heap_type(),
+      target.get_heap_type(),
+    )
+  }
+}
+
+///|
 fn typecheck_br_on_cast_fail(
   st : TcState,
   l : LabelIdx,
@@ -1960,7 +2007,7 @@ fn typecheck_ref_func(st : TcState, f : FuncIdx) -> TcResult {
   let heap_type = inferred_ref_func_heap_type(st.env, f)
   let exact = match heap_type {
     HeapType(_) | DefTypeHeapType(_) => true
-    AbsHeapTypeHeapType(_) => false
+    AbsHeapTypeHeapType(_) | SharedAbsHeapTypeHeapType(_) => false
   }
   Ok(st.push1(ValType::ref_type(RefType::new(false, heap_type, exact~))))
 }
@@ -3636,6 +3683,111 @@ fn typecheck_stringview_wtf16_slice(st : TcState) -> TcResult {
 }
 
 ///|
+fn typecheck_array_load_result(op : @lib.LoadOp) -> ValType? {
+  match op {
+    @lib.I32LoadOp
+    | @lib.I32Load8SOp
+    | @lib.I32Load8UOp
+    | @lib.I32Load16SOp
+    | @lib.I32Load16UOp => Some(ValType::i32())
+    @lib.I64LoadOp
+    | @lib.I64Load8SOp
+    | @lib.I64Load8UOp
+    | @lib.I64Load16SOp
+    | @lib.I64Load16UOp
+    | @lib.I64Load32SOp
+    | @lib.I64Load32UOp => Some(ValType::i64())
+    @lib.F32LoadOp => Some(ValType::f32())
+    @lib.F64LoadOp => Some(ValType::f64())
+    _ => None
+  }
+}
+
+///|
+fn typecheck_array_store_value(op : @lib.StoreOp) -> ValType? {
+  match op {
+    @lib.I32StoreOp | @lib.I32Store8Op | @lib.I32Store16Op =>
+      Some(ValType::i32())
+    @lib.I64StoreOp
+    | @lib.I64Store8Op
+    | @lib.I64Store16Op
+    | @lib.I64Store32Op => Some(ValType::i64())
+    @lib.F32StoreOp => Some(ValType::f32())
+    @lib.F64StoreOp => Some(ValType::f64())
+    _ => None
+  }
+}
+
+///|
+fn typecheck_backing_array_field(
+  st : TcState,
+  type_idx : TypeIdx,
+  require_mutable : Bool,
+) -> Result[Unit, String] {
+  let field = match st.env.resolve_array_field(type_idx) {
+    Ok(field) => field
+    Err(err) => return Err(err)
+  }
+  let FieldType(storage, mutability) = field
+  if storage != StorageType::pack_type(PackType::i8()) {
+    return Err("backing-array memory operations require i8 array elements")
+  }
+  if require_mutable && mutability != Mut::var_() {
+    return Err("backing-array stores require mutable array elements")
+  }
+  Ok(())
+}
+
+///|
+fn typecheck_array_load_op(
+  st : TcState,
+  op : @lib.LoadOp,
+  type_idx : TypeIdx,
+) -> TcResult {
+  let result = match typecheck_array_load_result(op) {
+    Some(result) => result
+    None => return Err("unsupported backing-array load opcode")
+  }
+  match typecheck_backing_array_field(st, type_idx, false) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  let st1 = match st.pop_expect(ValType::i32()) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st1.pop_expect(ValType::ref_array_nullable(type_idx)) {
+    Ok(next) => Ok(next.push1(result))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_array_store_op(
+  st : TcState,
+  op : @lib.StoreOp,
+  type_idx : TypeIdx,
+) -> TcResult {
+  let value = match typecheck_array_store_value(op) {
+    Some(value) => value
+    None => return Err("unsupported backing-array store opcode")
+  }
+  match typecheck_backing_array_field(st, type_idx, true) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
+  let st1 = match st.pop_expect(value) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  let st2 = match st1.pop_expect(ValType::i32()) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  st2.pop_expect(ValType::ref_array_nullable(type_idx))
+}
+
+///|
 pub impl Typecheck for Instruction with fn typecheck(self, st) {
   match self {
     Unreachable => Ok(st.set_unreachable())
@@ -3823,6 +3975,20 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
         Err(err) => Err(err)
       }
     }
+    BrOnCastDescEq(l, source, target) => {
+      let was_reachable = st.reachable
+      match typecheck_br_on_cast_desc_eq(st, l, source, target, false) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
+    BrOnCastDescEqFail(l, source, target) => {
+      let was_reachable = st.reachable
+      match typecheck_br_on_cast_desc_eq(st, l, source, target, true) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
     Return => typecheck_return(st)
     Call(f) => typecheck_call(st, f)
     CallIndirect(tidx, t) => typecheck_call_indirect(st, tidx, t)
@@ -3905,8 +4071,8 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
       typecheck_struct_atomic_get_s(st, order, x, i)
     StructAtomicGetU(order, x, i) =>
       typecheck_struct_atomic_get_u(st, order, x, i)
-    StructAtomicRmw(op, x, i) => typecheck_struct_atomic_rmw(st, op, x, i)
-    StructAtomicCmpxchg(x, i) => typecheck_struct_atomic_cmpxchg(st, x, i)
+    StructAtomicRmw(_, op, x, i) => typecheck_struct_atomic_rmw(st, op, x, i)
+    StructAtomicCmpxchg(_, x, i) => typecheck_struct_atomic_cmpxchg(st, x, i)
     StructSet(x, i) => typecheck_struct_set(st, x, i)
     ArrayNew(x) => typecheck_array_new(st, x)
     ArrayNewDefault(x) => typecheck_array_new_default(st, x)
@@ -3914,9 +4080,14 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ArrayGet(x) => typecheck_array_get(st, x)
     ArrayGetS(x) => typecheck_array_get_s(st, x)
     ArrayGetU(x) => typecheck_array_get_u(st, x)
+    ArrayAtomicGet(_, x) => typecheck_array_get(st, x)
+    ArrayAtomicGetS(_, x) => typecheck_array_get_s(st, x)
+    ArrayAtomicGetU(_, x) => typecheck_array_get_u(st, x)
     ArraySet(x) => typecheck_array_set(st, x)
-    ArrayAtomicRmw(op, x) => typecheck_array_atomic_rmw(st, op, x)
-    ArrayAtomicCmpxchg(x) => typecheck_array_atomic_cmpxchg(st, x)
+    ArrayAtomicRmw(_, op, x) => typecheck_array_atomic_rmw(st, op, x)
+    ArrayAtomicCmpxchg(_, x) => typecheck_array_atomic_cmpxchg(st, x)
+    ArrayLoad(op, x) => typecheck_array_load_op(st, op, x)
+    ArrayStore(op, x) => typecheck_array_store_op(st, op, x)
     ArrayLen => typecheck_array_len(st)
     ArrayFill(x) => typecheck_array_fill(st, x)
     ArrayCopy(x, y) => typecheck_array_copy(st, x, y)

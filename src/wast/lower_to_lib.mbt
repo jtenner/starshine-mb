@@ -7397,7 +7397,7 @@ test "wast_to_binary_module lowers string array instructions and stringref types
     #|(module
     #|  (type $u16 (array i16))
     #|  (type $u8 (array (mut i8)))
-    #|  (func $build (param (ref null $u16) i32 i32) (result stringref)
+    #|  (func $build (param (ref null $u16) i32 i32) (result externref)
     #|    local.get 0
     #|    local.get 1
     #|    local.get 2
@@ -7420,7 +7420,7 @@ test "wast_to_binary_module lowers string array instructions and stringref types
             _,
             @lib.CompType::FuncCompType(_, [result])
           )
-        ) => @debug.assert_eq(result, @lib.ValType::stringref())
+        ) => @debug.assert_eq(result, @lib.ValType::externref())
         _ => fail("expected lowered string builder functype")
       }
     }

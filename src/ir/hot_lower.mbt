@@ -262,12 +262,13 @@ fn hot_lower_impl_input_info(func : HotFunc, id : NodeId) -> HotLowerInputs {
         }
       }
       let pop_count = match node.op {
-        HotOp::BrIf
-        | HotOp::BrTable
-        | HotOp::BrOnNull
-        | HotOp::BrOnNonNull
-        | HotOp::BrOnCast
-        | HotOp::BrOnCastFail => 1
+        HotOp::BrIf | HotOp::BrTable | HotOp::BrOnNull | HotOp::BrOnNonNull => 1
+        HotOp::BrOnCast | HotOp::BrOnCastFail =>
+          match hot_node_exact_instr(func, id) {
+            Some(@lib.BrOnCastDescEq(_, _, _))
+            | Some(@lib.BrOnCastDescEqFail(_, _, _)) => 2
+            _ => 1
+          }
         _ => out.length()
       }
       { nodes: out, pop_count }
@@ -376,6 +377,10 @@ fn hot_lower_impl_lower_br_on_cast(
       Instruction::br_on_cast_fail(
         label_idx, src_nullable, src_ht, dst_nullable, dst_ht,
       )
+    Instruction::BrOnCastDescEq(_, source, target) =>
+      Instruction::br_on_cast_desc_eq(label_idx, source, target)
+    Instruction::BrOnCastDescEqFail(_, source, target) =>
+      Instruction::br_on_cast_desc_eq_fail(label_idx, source, target)
     other =>
       abort(
         "hot lower expected br_on_cast exact payload for \{node.op}, got \{other}",

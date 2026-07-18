@@ -4028,7 +4028,7 @@ test "precompute raw-removes dropped pure block results with nested branch witho
 }
 
 ///|
-test "precompute raw-defers dropped result blocks with branch to rewritten label" {
+test "precompute raw-removes dropped result blocks with branch to rewritten label" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -4047,9 +4047,12 @@ test "precompute raw-defers dropped result blocks with branch to rewritten label
   }
 
   let text = perf_test_join_lines(lines)
-  assert_false(text.contains("pass[precompute]:skip-raw"), msg=text)
-  assert_true(text.contains("perf:timer name=lift"), msg=text)
-  assert_true(text.contains("perf:timer name=pass:precompute"), msg=text)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
 }
 
 ///|

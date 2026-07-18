@@ -952,6 +952,7 @@ pub impl Show for GlobalType
 
 pub enum HeapType {
   AbsHeapTypeHeapType(AbsHeapType)
+  SharedAbsHeapTypeHeapType(AbsHeapType)
   HeapType(TypeIdx)
   DefTypeHeapType(DefType)
 } derive(Eq, Hash, @debug.Debug)
@@ -960,8 +961,10 @@ pub fn HeapType::bottom() -> Self
 pub fn HeapType::def_type(DefType) -> Self
 pub fn HeapType::is_array(Self) -> Bool
 pub fn HeapType::is_gc_aggregate(Self) -> Bool
+pub fn HeapType::is_shared(Self) -> Bool
 pub fn HeapType::is_struct(Self) -> Bool
 pub fn HeapType::new(TypeIdx) -> Self
+pub fn HeapType::shared_abs(AbsHeapType) -> Self
 pub impl PrettyPrint for HeapType
 pub impl Show for HeapType
 pub impl @quickcheck.Arbitrary for HeapType
@@ -1233,8 +1236,8 @@ pub enum Instruction {
   StructAtomicGet(AtomicOrder, TypeIdx, U32)
   StructAtomicGetS(AtomicOrder, TypeIdx, U32)
   StructAtomicGetU(AtomicOrder, TypeIdx, U32)
-  StructAtomicRmw(AggregateAtomicRmwOp, TypeIdx, U32)
-  StructAtomicCmpxchg(TypeIdx, U32)
+  StructAtomicRmw(AtomicOrder, AggregateAtomicRmwOp, TypeIdx, U32)
+  StructAtomicCmpxchg(AtomicOrder, TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -1244,9 +1247,14 @@ pub enum Instruction {
   ArrayGet(TypeIdx)
   ArrayGetS(TypeIdx)
   ArrayGetU(TypeIdx)
+  ArrayAtomicGet(AtomicOrder, TypeIdx)
+  ArrayAtomicGetS(AtomicOrder, TypeIdx)
+  ArrayAtomicGetU(AtomicOrder, TypeIdx)
   ArraySet(TypeIdx)
-  ArrayAtomicRmw(AggregateAtomicRmwOp, TypeIdx)
-  ArrayAtomicCmpxchg(TypeIdx)
+  ArrayAtomicRmw(AtomicOrder, AggregateAtomicRmwOp, TypeIdx)
+  ArrayAtomicCmpxchg(AtomicOrder, TypeIdx)
+  ArrayLoad(LoadOp, TypeIdx)
+  ArrayStore(StoreOp, TypeIdx)
   ArrayLen
   ArrayFill(TypeIdx)
   ArrayCopy(TypeIdx, TypeIdx)
@@ -1259,6 +1267,8 @@ pub enum Instruction {
   RefCastDescEq(Bool, Bool, HeapType)
   BrOnCast(LabelIdx, CastOp, HeapType, HeapType)
   BrOnCastFail(LabelIdx, CastOp, HeapType, HeapType)
+  BrOnCastDescEq(LabelIdx, RefType, RefType)
+  BrOnCastDescEqFail(LabelIdx, RefType, RefType)
   AnyConvertExtern
   ExternConvertAny
   RefI31
@@ -1540,8 +1550,11 @@ pub enum Instruction {
   I32x4RelaxedDotI8x16I7x16AddS
 } derive(Eq, Hash, @debug.Debug)
 pub fn Instruction::any_convert_extern() -> Self
-pub fn Instruction::array_atomic_cmpxchg(TypeIdx) -> Self
-pub fn Instruction::array_atomic_rmw(AggregateAtomicRmwOp, TypeIdx) -> Self
+pub fn Instruction::array_atomic_cmpxchg(TypeIdx, order? : AtomicOrder) -> Self
+pub fn Instruction::array_atomic_get(AtomicOrder, TypeIdx) -> Self
+pub fn Instruction::array_atomic_get_s(AtomicOrder, TypeIdx) -> Self
+pub fn Instruction::array_atomic_get_u(AtomicOrder, TypeIdx) -> Self
+pub fn Instruction::array_atomic_rmw(AggregateAtomicRmwOp, TypeIdx, order? : AtomicOrder) -> Self
 pub fn Instruction::array_copy(TypeIdx, TypeIdx) -> Self
 pub fn Instruction::array_fill(TypeIdx) -> Self
 pub fn Instruction::array_get(TypeIdx) -> Self
@@ -1550,12 +1563,14 @@ pub fn Instruction::array_get_u(TypeIdx) -> Self
 pub fn Instruction::array_init_data(TypeIdx, DataIdx) -> Self
 pub fn Instruction::array_init_elem(TypeIdx, ElemIdx) -> Self
 pub fn Instruction::array_len() -> Self
+pub fn Instruction::array_load(LoadOp, TypeIdx) -> Self
 pub fn Instruction::array_new(TypeIdx) -> Self
 pub fn Instruction::array_new_data(TypeIdx, DataIdx) -> Self
 pub fn Instruction::array_new_default(TypeIdx) -> Self
 pub fn Instruction::array_new_elem(TypeIdx, ElemIdx) -> Self
 pub fn Instruction::array_new_fixed(TypeIdx, U32) -> Self
 pub fn Instruction::array_set(TypeIdx) -> Self
+pub fn Instruction::array_store(StoreOp, TypeIdx) -> Self
 pub fn Instruction::atomic_cmpxchg(AtomicCmpxchgOp, MemArg) -> Self
 pub fn Instruction::atomic_fence() -> Self
 pub fn Instruction::atomic_rmw(AtomicRmwOp, MemArg) -> Self
@@ -1563,6 +1578,8 @@ pub fn Instruction::block(BlockType, Expr) -> Self
 pub fn Instruction::br(LabelIdx) -> Self
 pub fn Instruction::br_if(LabelIdx) -> Self
 pub fn Instruction::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType) -> Self
+pub fn Instruction::br_on_cast_desc_eq(LabelIdx, RefType, RefType) -> Self
+pub fn Instruction::br_on_cast_desc_eq_fail(LabelIdx, RefType, RefType) -> Self
 pub fn Instruction::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType) -> Self
 pub fn Instruction::br_on_non_null(LabelIdx) -> Self
 pub fn Instruction::br_on_null(LabelIdx) -> Self
@@ -2032,11 +2049,11 @@ pub fn Instruction::string_new_wtf16_array() -> Self
 pub fn Instruction::string_new_wtf8_array() -> Self
 pub fn Instruction::stringview_wtf16_get_codeunit() -> Self
 pub fn Instruction::stringview_wtf16_slice() -> Self
-pub fn Instruction::struct_atomic_cmpxchg(TypeIdx, U32) -> Self
+pub fn Instruction::struct_atomic_cmpxchg(TypeIdx, U32, order? : AtomicOrder) -> Self
 pub fn Instruction::struct_atomic_get(AtomicOrder, TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get_s(AtomicOrder, TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get_u(AtomicOrder, TypeIdx, U32) -> Self
-pub fn Instruction::struct_atomic_rmw(AggregateAtomicRmwOp, TypeIdx, U32) -> Self
+pub fn Instruction::struct_atomic_rmw(AggregateAtomicRmwOp, TypeIdx, U32, order? : AtomicOrder) -> Self
 pub fn Instruction::struct_get(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_s(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_u(TypeIdx, U32) -> Self
@@ -2564,8 +2581,11 @@ pub impl @quickcheck.Arbitrary for TypeIdx
 pub struct TypeMetadata {
   describes : TypeIdx?
   descriptor : TypeIdx?
+  shared : Bool
 } derive(Eq, Hash, @debug.Debug)
-pub fn TypeMetadata::new(describes? : TypeIdx?, descriptor? : TypeIdx?) -> Self
+pub fn TypeMetadata::is_shared(Self) -> Bool
+pub fn TypeMetadata::new(describes? : TypeIdx?, descriptor? : TypeIdx?, shared? : Bool) -> Self
+pub fn TypeMetadata::with_shared(Self, Bool) -> Self
 
 pub struct TypeSec(Array[RecType]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
 pub fn TypeSec::new(Array[RecType]) -> Self

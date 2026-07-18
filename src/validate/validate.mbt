@@ -461,7 +461,8 @@ pub impl Validate for TypeIdx with fn validate(self, env) {
 ///|
 pub impl Validate for HeapType with fn validate(self, env) {
   match self {
-    AbsHeapTypeHeapType(abs) => Validate::validate(abs, env)
+    AbsHeapTypeHeapType(abs) | SharedAbsHeapTypeHeapType(abs) =>
+      Validate::validate(abs, env)
     HeapType(tidx) => Validate::validate(tidx, env)
     DefTypeHeapType(dt) => Validate::validate(dt, env)
   }
@@ -2107,6 +2108,7 @@ fn normalize_subtype_for_global_env(
     descriptor=metadata.descriptor.map(fn(idx) {
       normalize_rectype_typeidx_for_global_env(idx, base, group_len)
     }),
+    shared=metadata.shared,
   )
   let normalized_supers = st
     .super_types()
@@ -5276,7 +5278,7 @@ fn gen_valid_gc_surface_facts_instr(
     | StructAtomicGetS(_, _, _)
     | StructAtomicGetU(_, _, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true }
-    StructAtomicRmw(_, _, _) | StructAtomicCmpxchg(_, _) =>
+    StructAtomicRmw(_, _, _, _) | StructAtomicCmpxchg(_, _, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
         has_struct_get: true,
@@ -5307,9 +5309,14 @@ fn gen_valid_gc_surface_facts_instr(
         has_array_new: true,
         has_string_new: true,
       }
-    ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) =>
+    ArrayGet(_)
+    | ArrayGetS(_)
+    | ArrayGetU(_)
+    | ArrayAtomicGet(_, _)
+    | ArrayAtomicGetS(_, _)
+    | ArrayAtomicGetU(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_get: true }
-    ArrayAtomicRmw(_, _) | ArrayAtomicCmpxchg(_) =>
+    ArrayAtomicRmw(_, _, _) | ArrayAtomicCmpxchg(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
         has_array_get: true,

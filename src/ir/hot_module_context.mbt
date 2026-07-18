@@ -9,6 +9,7 @@ pub struct HotModuleContext {
   tables : Array[TableType]
   mems : Array[@lib.MemType]
   globals : Array[GlobalType]
+  global_inits : Array[@lib.Expr?]
   global_const_inits : Array[HotConstPayload?]
   elems : Array[Elem]
   datas : Array[Data]
@@ -153,6 +154,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
   let tables : Array[TableType] = []
   let mems : Array[@lib.MemType] = []
   let globals : Array[GlobalType] = []
+  let global_inits : Array[@lib.Expr?] = []
   let global_const_inits : Array[HotConstPayload?] = []
   let elems : Array[Elem] = []
   let datas : Array[Data] = []
@@ -171,6 +173,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
           @lib.Import(_, _, @lib.MemExternType(mem_type)) => mems.push(mem_type)
           @lib.Import(_, _, @lib.GlobalExternType(global_type)) => {
             globals.push(global_type)
+            global_inits.push(None)
             global_const_inits.push(None)
           }
           @lib.Import(_, _, @lib.TagExternType(tag_type)) => tags.push(tag_type)
@@ -207,6 +210,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
       for global in defs {
         let @lib.Global(global_type, init) = global
         globals.push(global_type)
+        global_inits.push(Some(init))
         global_const_inits.push(
           hot_module_context_eval_global_const_init(
             global_type, init, global_const_inits,
@@ -252,6 +256,7 @@ pub fn hot_module_context_from_module(mod_ : Module) -> HotModuleContext {
     tables,
     mems,
     globals,
+    global_inits,
     global_const_inits,
     elems,
     datas,
@@ -396,6 +401,18 @@ pub fn hot_module_resolve_global_type(
 ) -> GlobalType? {
   let @lib.GlobalIdx(raw) = global_idx
   ctx.globals.get(raw.reinterpret_as_int())
+}
+
+///|
+pub fn hot_module_resolve_global_init(
+  ctx : HotModuleContext,
+  global_idx : @lib.GlobalIdx,
+) -> @lib.Expr? {
+  let @lib.GlobalIdx(raw) = global_idx
+  match ctx.global_inits.get(raw.reinterpret_as_int()) {
+    Some(init) => init
+    None => None
+  }
 }
 
 ///|

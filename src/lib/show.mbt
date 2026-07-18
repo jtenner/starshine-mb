@@ -91,6 +91,11 @@ pub impl Show for HeapType with fn output(self, logger) {
       Show::output(ht, logger)
       logger.write_char(')')
     }
+    SharedAbsHeapTypeHeapType(ht) => {
+      logger.write_string("(HeapType Shared ")
+      Show::output(ht, logger)
+      logger.write_char(')')
+    }
     HeapType(TypeIdx(t)) => {
       logger.write_string("(HeapType Idx ")
       Show::output(t, logger)
@@ -1430,17 +1435,21 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(i, logger)
       logger.write_char(')')
     }
-    StructAtomicRmw(op, t, i) => {
+    StructAtomicRmw(order, op, t, i) => {
       logger.write_string("(struct.atomic.rmw.")
       Show::output(op, logger)
+      logger.write_char(' ')
+      Show::output(order, logger)
       logger.write_char(' ')
       Show::output(t, logger)
       logger.write_char(' ')
       Show::output(i, logger)
       logger.write_char(')')
     }
-    StructAtomicCmpxchg(t, i) => {
+    StructAtomicCmpxchg(order, t, i) => {
       logger.write_string("(struct.atomic.rmw.cmpxchg ")
+      Show::output(order, logger)
+      logger.write_char(' ')
       Show::output(t, logger)
       logger.write_char(' ')
       Show::output(i, logger)
@@ -1521,20 +1530,59 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(i, logger)
       logger.write_char(')')
     }
+    ArrayAtomicGet(order, i) => {
+      logger.write_string("(array.atomic.get ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    ArrayAtomicGetS(order, i) => {
+      logger.write_string("(array.atomic.get_s ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    ArrayAtomicGetU(order, i) => {
+      logger.write_string("(array.atomic.get_u ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
     ArraySet(i) => {
       logger.write_string("(array.set ")
       Show::output(i, logger)
       logger.write_char(')')
     }
-    ArrayAtomicRmw(op, i) => {
+    ArrayAtomicRmw(order, op, i) => {
       logger.write_string("(array.atomic.rmw.")
+      Show::output(op, logger)
+      logger.write_char(' ')
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    ArrayAtomicCmpxchg(order, i) => {
+      logger.write_string("(array.atomic.rmw.cmpxchg ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    ArrayLoad(op, i) => {
+      logger.write_string("(array.load ")
       Show::output(op, logger)
       logger.write_char(' ')
       Show::output(i, logger)
       logger.write_char(')')
     }
-    ArrayAtomicCmpxchg(i) => {
-      logger.write_string("(array.atomic.rmw.cmpxchg ")
+    ArrayStore(op, i) => {
+      logger.write_string("(array.store ")
+      Show::output(op, logger)
+      logger.write_char(' ')
       Show::output(i, logger)
       logger.write_char(')')
     }
@@ -1606,6 +1654,24 @@ pub impl Show for Instruction with fn output(self, logger) {
       HeapTypeRefType(l, false, lht).output(logger)
       logger.write_char(' ')
       HeapTypeRefType(r, false, rht).output(logger)
+      logger.write_char(')')
+    }
+    BrOnCastDescEq(i, source, target) => {
+      logger.write_string("(br_on_cast_desc_eq ")
+      Show::output(i, logger)
+      logger.write_char(' ')
+      Show::output(source, logger)
+      logger.write_char(' ')
+      Show::output(target, logger)
+      logger.write_char(')')
+    }
+    BrOnCastDescEqFail(i, source, target) => {
+      logger.write_string("(br_on_cast_desc_eq_fail ")
+      Show::output(i, logger)
+      logger.write_char(' ')
+      Show::output(source, logger)
+      logger.write_char(' ')
+      Show::output(target, logger)
       logger.write_char(')')
     }
     AnyConvertExtern => logger.write_string("any.convert_extern")

@@ -149,7 +149,7 @@ pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
 ///|
 pub fn Env::resolve_heaptype_subtype(env : Env, ht : HeapType) -> SubType? {
   match ht {
-    AbsHeapTypeHeapType(_) => None
+    AbsHeapTypeHeapType(_) | SharedAbsHeapTypeHeapType(_) => None
     HeapType(ti) => env.resolve_subtype(ti)
     DefTypeHeapType(dt) => dt.project()
   }

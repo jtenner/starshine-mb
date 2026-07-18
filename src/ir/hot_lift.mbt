@@ -687,7 +687,7 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
         | Instruction::StructAtomicGetU(_, _, _) => Some(1)
         Instruction::MemoryAtomicNotify(_)
         | Instruction::AtomicRmw(_, _)
-        | Instruction::StructAtomicRmw(_, _, _)
+        | Instruction::StructAtomicRmw(_, _, _, _)
         | Instruction::I32AtomicStore(_)
         | Instruction::I64AtomicStore(_)
         | Instruction::I32AtomicStore8(_)
@@ -698,9 +698,12 @@ fn hot_lift_impl_known_pop_count(instr : Instruction, env : Env) -> Int? {
         Instruction::MemoryAtomicWait32(_)
         | Instruction::MemoryAtomicWait64(_)
         | Instruction::AtomicCmpxchg(_, _)
-        | Instruction::StructAtomicCmpxchg(_, _)
-        | Instruction::ArrayAtomicRmw(_, _) => Some(3)
-        Instruction::ArrayAtomicCmpxchg(_) => Some(4)
+        | Instruction::StructAtomicCmpxchg(_, _, _)
+        | Instruction::ArrayAtomicRmw(_, _, _) => Some(3)
+        Instruction::ArrayAtomicGet(_, _)
+        | Instruction::ArrayAtomicGetS(_, _)
+        | Instruction::ArrayAtomicGetU(_, _) => Some(2)
+        Instruction::ArrayAtomicCmpxchg(_, _) => Some(4)
         _ => None
       }
     _ => None
@@ -809,8 +812,10 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     Instruction::RefCast(_, _, _) => Some(HotOp::RefCast)
     Instruction::RefTestDesc(_, _) => Some(HotOp::RefTestDesc)
     Instruction::RefCastDescEq(_, _, _) => Some(HotOp::RefCastDescEq)
-    Instruction::BrOnCast(_, _, _, _) => Some(HotOp::BrOnCast)
-    Instruction::BrOnCastFail(_, _, _, _) => Some(HotOp::BrOnCastFail)
+    Instruction::BrOnCast(_, _, _, _) | Instruction::BrOnCastDescEq(_, _, _) =>
+      Some(HotOp::BrOnCast)
+    Instruction::BrOnCastFail(_, _, _, _)
+    | Instruction::BrOnCastDescEqFail(_, _, _) => Some(HotOp::BrOnCastFail)
     Instruction::StringMeasureWtf16
     | Instruction::StringConcat
     | Instruction::StringEq
@@ -838,10 +843,13 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::StructAtomicGet(_, _, _)
     | Instruction::StructAtomicGetS(_, _, _)
     | Instruction::StructAtomicGetU(_, _, _)
-    | Instruction::StructAtomicRmw(_, _, _)
-    | Instruction::StructAtomicCmpxchg(_, _)
-    | Instruction::ArrayAtomicRmw(_, _)
-    | Instruction::ArrayAtomicCmpxchg(_)
+    | Instruction::StructAtomicRmw(_, _, _, _)
+    | Instruction::StructAtomicCmpxchg(_, _, _)
+    | Instruction::ArrayAtomicGet(_, _)
+    | Instruction::ArrayAtomicGetS(_, _)
+    | Instruction::ArrayAtomicGetU(_, _)
+    | Instruction::ArrayAtomicRmw(_, _, _)
+    | Instruction::ArrayAtomicCmpxchg(_, _)
     | Instruction::I32AtomicStore(_)
     | Instruction::I64AtomicStore(_)
     | Instruction::I32AtomicStore8(_)
@@ -1455,10 +1463,13 @@ fn hot_lift_impl_exact_node_shape(
     Instruction::StructAtomicGet(_, _, _)
     | Instruction::StructAtomicGetS(_, _, _)
     | Instruction::StructAtomicGetU(_, _, _)
-    | Instruction::StructAtomicRmw(_, _, _)
-    | Instruction::StructAtomicCmpxchg(_, _)
-    | Instruction::ArrayAtomicRmw(_, _)
-    | Instruction::ArrayAtomicCmpxchg(_) => (op, ty, 0, payload_id)
+    | Instruction::StructAtomicRmw(_, _, _, _)
+    | Instruction::StructAtomicCmpxchg(_, _, _)
+    | Instruction::ArrayAtomicGet(_, _)
+    | Instruction::ArrayAtomicGetS(_, _)
+    | Instruction::ArrayAtomicGetU(_, _)
+    | Instruction::ArrayAtomicRmw(_, _, _)
+    | Instruction::ArrayAtomicCmpxchg(_, _) => (op, ty, 0, payload_id)
     Instruction::MemoryAtomicNotify(memarg)
     | Instruction::MemoryAtomicWait32(memarg)
     | Instruction::MemoryAtomicWait64(memarg)
@@ -1486,7 +1497,9 @@ fn hot_lift_impl_exact_node_shape(
     | Instruction::RefTestDesc(_, _)
     | Instruction::RefCastDescEq(_, _, _)
     | Instruction::BrOnCast(_, _, _, _)
-    | Instruction::BrOnCastFail(_, _, _, _) => (op, ty, 0, payload_id)
+    | Instruction::BrOnCastFail(_, _, _, _)
+    | Instruction::BrOnCastDescEq(_, _, _)
+    | Instruction::BrOnCastDescEqFail(_, _, _) => (op, ty, 0, payload_id)
     _ => (op, ty, payload_id, 0)
   }
 }
@@ -2459,6 +2472,75 @@ fn hot_lift_impl_lift_instruction(
         HotOp::BrOnNonNull,
         hot_lift_impl_result_type(func, pushed_types),
         imm0=target,
+        children~,
+      )
+      hot_lift_impl_push_node(
+        roots, values, concrete_values, node_id, pushed_types,
+      )
+      return Ok(after_state)
+    }
+    Instruction::BrOnCastDescEq(label_idx, _, _)
+    | Instruction::BrOnCastDescEqFail(label_idx, _, _) => {
+      let before_types = hot_lift_impl_copy_val_types(tc_state.stack)
+      let after_state = match hot_lift_impl_typecheck(instr, tc_state) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      let target = match
+        hot_lift_impl_resolve_label(label_frames, label_stack_head, label_idx) {
+        Ok(label_id) => label_id
+        Err(err) => return Err(err)
+      }
+      let payload_count = match
+        hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
+        Ok(count) => count - 1
+        Err(err) => return Err(err)
+      }
+      if !hot_lift_impl_can_materialize_unreachable_instr(
+          instr,
+          tc_state,
+          concrete_values,
+          payload_count + 2,
+        ) {
+        return Ok(after_state)
+      }
+      let descriptor_id = match
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_on_cast_desc_eq descriptor",
+        ) {
+        Ok(id) => id
+        Err(err) => return Err(err)
+      }
+      let source_id = match
+        hot_lift_impl_pop_value_for_instr(
+          instr, values, concrete_values, "br_on_cast_desc_eq source",
+        ) {
+        Ok(id) => id
+        Err(err) => return Err(err)
+      }
+      let children = hot_lift_impl_peek_values_with_extra(
+        values, payload_count, source_id,
+      )
+      children.push(descriptor_id)
+      let pushed_types = hot_lift_impl_pushed_types(
+        before_types,
+        after_state.stack,
+        payload_count + 2,
+      )
+      let op = match instr {
+        Instruction::BrOnCastDescEq(_, _, _) => HotOp::BrOnCast
+        _ => HotOp::BrOnCastFail
+      }
+      let payload_id = hot_alloc_instr_payload(
+        func,
+        HotInstrPayload::new(instr),
+      )
+      let node_id = hot_build_node(
+        func,
+        op,
+        hot_lift_impl_result_type(func, pushed_types),
+        imm0=target,
+        imm1=payload_id,
         children~,
       )
       hot_lift_impl_push_node(

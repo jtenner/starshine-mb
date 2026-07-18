@@ -1424,8 +1424,9 @@ fn OiI31HeapTargetFact::from_target(
       } else {
         I31HeapTargetNoKnownRelation
       }
-    @lib.HeapType::HeapType(_) | @lib.HeapType::DefTypeHeapType(_) =>
-      I31HeapTargetMisses
+    @lib.HeapType::SharedAbsHeapTypeHeapType(_)
+    | @lib.HeapType::HeapType(_)
+    | @lib.HeapType::DefTypeHeapType(_) => I31HeapTargetMisses
   }
   { kind, }
 }
@@ -9522,7 +9523,7 @@ fn OiMaxBitsBlockPrefixFact::from_root(
           match @ir.hot_node_exact_instr(func, child_id) {
             Some(@lib.Instruction::AtomicCmpxchg(_, _)) =>
               Some({ kind: MaxBitsBlockPrefixDropAtomicCmpxchg, root_id })
-            Some(@lib.Instruction::ArrayAtomicRmw(_, _)) =>
+            Some(@lib.Instruction::ArrayAtomicRmw(_, _, _)) =>
               Some({ kind: MaxBitsBlockPrefixDropArrayAtomicRmw, root_id })
             Some(
               @lib.Instruction::MemoryAtomicWait32(_)
@@ -21796,10 +21797,13 @@ fn OiMemoryOffsetFoldFact::from_node(
     @lib.Instruction::StructAtomicGet(_, _, _)
     | @lib.Instruction::StructAtomicGetS(_, _, _)
     | @lib.Instruction::StructAtomicGetU(_, _, _)
-    | @lib.Instruction::StructAtomicRmw(_, _, _)
-    | @lib.Instruction::StructAtomicCmpxchg(_, _)
-    | @lib.Instruction::ArrayAtomicRmw(_, _)
-    | @lib.Instruction::ArrayAtomicCmpxchg(_) => return None
+    | @lib.Instruction::StructAtomicRmw(_, _, _, _)
+    | @lib.Instruction::StructAtomicCmpxchg(_, _, _)
+    | @lib.Instruction::ArrayAtomicGet(_, _)
+    | @lib.Instruction::ArrayAtomicGetS(_, _)
+    | @lib.Instruction::ArrayAtomicGetU(_, _)
+    | @lib.Instruction::ArrayAtomicRmw(_, _, _)
+    | @lib.Instruction::ArrayAtomicCmpxchg(_, _) => return None
     _ => ()
   }
   let @lib.MemArg(align, mem, @lib.U64(offset)) = @ir.hot_memarg_get(
@@ -22777,7 +22781,7 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
     None => return false
   }
   match instr {
-    @lib.Instruction::StructAtomicRmw(op, type_idx, field_idx) => {
+    @lib.Instruction::StructAtomicRmw(_, op, type_idx, field_idx) => {
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
@@ -22787,7 +22791,7 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
         ctx, func, dead, node_id, op, field_fact,
       )
     }
-    @lib.Instruction::StructAtomicCmpxchg(type_idx, field_idx) => {
+    @lib.Instruction::StructAtomicCmpxchg(_, type_idx, field_idx) => {
       let field_fact = match
         OiStructAtomicFieldFact::from_index(ctx, type_idx, field_idx) {
         Some(fact) => fact
@@ -22797,8 +22801,11 @@ fn optimize_instructions_try_rewrite_aggregate_atomic(
         ctx, func, dead, node_id, field_fact,
       )
     }
-    @lib.Instruction::ArrayAtomicRmw(_, _)
-    | @lib.Instruction::ArrayAtomicCmpxchg(_) => false
+    @lib.Instruction::ArrayAtomicGet(_, _)
+    | @lib.Instruction::ArrayAtomicGetS(_, _)
+    | @lib.Instruction::ArrayAtomicGetU(_, _)
+    | @lib.Instruction::ArrayAtomicRmw(_, _, _)
+    | @lib.Instruction::ArrayAtomicCmpxchg(_, _) => false
     _ => false
   }
 }
@@ -40399,8 +40406,8 @@ fn OiUnsupportedAggregateAtomicReceiverFact::from_func(
       continue
     }
     match @ir.hot_node_exact_instr(func, node_id) {
-      Some(@lib.Instruction::StructAtomicRmw(_, _, _))
-      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _)) =>
+      Some(@lib.Instruction::StructAtomicRmw(_, _, _, _))
+      | Some(@lib.Instruction::StructAtomicCmpxchg(_, _, _)) =>
         if @ir.hot_child_count(func, node_id) == 0 {
           return { found_unsupported_receiver: true }
         }

@@ -146,6 +146,8 @@ fn pretty_def_type(def_type : DefType) -> String {
 fn pretty_heap_type(heap_type : HeapType) -> String {
   match heap_type {
     AbsHeapTypeHeapType(abs_heap_type) => pretty_abs_heap_type(abs_heap_type)
+    SharedAbsHeapTypeHeapType(abs_heap_type) =>
+      "(Shared " + pretty_abs_heap_type(abs_heap_type) + ")"
     HeapType(type_idx) => pretty_type_idx(type_idx)
     DefTypeHeapType(def_type) => pretty_def_type(def_type)
   }

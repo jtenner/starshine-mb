@@ -247,7 +247,7 @@ fn gr_heaptype_is_public(
   type_states : Array[Int],
 ) -> Bool {
   match heap_type {
-    @lib.AbsHeapTypeHeapType(_) => true
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => true
     @lib.HeapType(type_idx) => gr_typeidx_is_public(type_idx, env, type_states)
     @lib.DefTypeHeapType(def_type) =>
       match def_type.project() {
@@ -380,6 +380,7 @@ fn gr_collect_heaptype_candidates(
     match current {
       @lib.AbsHeapTypeHeapType(abs) =>
         gr_append_abs_heap_supertypes(abstract_fallbacks, abs)
+      @lib.SharedAbsHeapTypeHeapType(_) => ()
       @lib.HeapType(type_idx) =>
         match env.resolve_subtype(type_idx) {
           Some(subtype) => {
@@ -440,7 +441,7 @@ fn gr_join_heaptypes(
 fn gr_heaptype_supports_exact(heap_type : @lib.HeapType) -> Bool {
   match heap_type {
     @lib.HeapType(_) | @lib.DefTypeHeapType(_) => true
-    @lib.AbsHeapTypeHeapType(_) => false
+    @lib.AbsHeapTypeHeapType(_) | @lib.SharedAbsHeapTypeHeapType(_) => false
   }
 }
 

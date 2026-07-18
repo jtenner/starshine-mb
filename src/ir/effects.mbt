@@ -73,7 +73,10 @@ fn effects_mask_for_atomic_exact(instr : Instruction?) -> EffectMask {
     | Some(Instruction::I64AtomicLoad32U(_))
     | Some(Instruction::StructAtomicGet(_, _, _))
     | Some(Instruction::StructAtomicGetS(_, _, _))
-    | Some(Instruction::StructAtomicGetU(_, _, _)) =>
+    | Some(Instruction::StructAtomicGetU(_, _, _))
+    | Some(Instruction::ArrayAtomicGet(_, _))
+    | Some(Instruction::ArrayAtomicGetS(_, _))
+    | Some(Instruction::ArrayAtomicGetU(_, _)) =>
       EFFECT_MASK_MEMORY_READ | EFFECT_MASK_TRAP
     Some(Instruction::I32AtomicStore(_))
     | Some(Instruction::I64AtomicStore(_))
@@ -85,10 +88,10 @@ fn effects_mask_for_atomic_exact(instr : Instruction?) -> EffectMask {
       EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
     Some(Instruction::AtomicRmw(_, _))
     | Some(Instruction::AtomicCmpxchg(_, _))
-    | Some(Instruction::StructAtomicRmw(_, _, _))
-    | Some(Instruction::StructAtomicCmpxchg(_, _))
-    | Some(Instruction::ArrayAtomicRmw(_, _))
-    | Some(Instruction::ArrayAtomicCmpxchg(_)) =>
+    | Some(Instruction::StructAtomicRmw(_, _, _, _))
+    | Some(Instruction::StructAtomicCmpxchg(_, _, _))
+    | Some(Instruction::ArrayAtomicRmw(_, _, _))
+    | Some(Instruction::ArrayAtomicCmpxchg(_, _)) =>
       EFFECT_MASK_MEMORY_READ | EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
     _ => EFFECT_MASK_MEMORY_READ | EFFECT_MASK_MEMORY_WRITE | EFFECT_MASK_TRAP
   }
