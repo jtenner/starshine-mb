@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
@@ -128,7 +131,7 @@ It directly proves:
 - multi-table coverage
 - ordinary imported/exported-table conservatism
 - the `directize-initial-contents-immutable` mode
-- the hole-versus-beyond-known-prefix distinction
+- defined/imported/default-initializer and beyond-initial-size distinctions
 - select lowering to `if` with fresh locals
 - and conservative no-ops when flat-table reasoning fails
 
@@ -137,6 +140,15 @@ It also directly covers mutation barriers for at least:
 - `table.set`
 - `table.fill`
 - `table.init`
+
+## `test/lit/passes/directize_init.wast`
+
+V131 adds this dedicated table-default fixture. It proves:
+
+- an in-bounds `ref.func` table default can directize;
+- an in-bounds `global.get` default remains indirect;
+- an element segment overrides the declared default at its written slot; and
+- an out-of-initial-range constant traps when growth cannot populate it.
 
 ## `test/lit/passes/directize-gc.wast`
 

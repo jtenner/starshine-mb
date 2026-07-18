@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
@@ -44,7 +45,7 @@ For the first-slice order and validation ladder, use [`./starshine-port-readines
 
 ## The honest current status
 
-`directize` is now implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`, with direct Binaryen oracle evidence for the default pass behavior.
+`directize` is implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`. Its existing oracle evidence closes the pre-v131 segment-driven default behavior, but v131 table-initial-value classification reopens direct parity under `[V131-DIR]001`.
 
 The current local strategy is still deliberately conservative where the upstream pass is policy-sensitive:
 
@@ -117,17 +118,18 @@ It also handles the two important non-direct-call target classes from the defaul
 - known holes / out-of-range / wrong-type targets become `unreachable`
 - the narrow known-target `select` index shape becomes an `if` with direct-call arms and fresh locals for operands
 
-### 3. The remaining work is pass-arg and broader-widening integration, not core default-pass parity
+### 3. V131 table-initial-value parity is now core default-pass work
 
 `agent-todo.md` no longer needs a dedicated `DIR` replay blocker because the neighboring `string-gathering -> reorder-globals -> directize` sequence is now locally replayable.
 
-The active remaining local work is narrower:
+The active local work is:
 
-- keep direct Binaryen oracle evidence current
-- keep any broader late-tail widening beyond the accepted public suffix gated on fresh neighboring evidence
-- decide how Starshine should expose Binaryen-style pass args before adding `directize-initial-contents-immutable`
+- implement and test v131 table initializer target/trap/unknown classification;
+- renew direct Binaryen oracle evidence and the accepted late-tail suffix;
+- keep broader late-tail widening gated on fresh neighboring evidence;
+- decide optional Binaryen-style pass args separately from the released default behavior.
 
-That framing keeps the implemented explicit pass separate from still-unscheduled broader tail integration.
+That framing keeps the implemented segment-driven core while making the new released gap explicit.
 
 ## The right future Starshine implementation shape
 

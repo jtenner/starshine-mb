@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
@@ -29,8 +32,7 @@ For the compact owner/test map, use [`./implementation-structure-and-tests.md`](
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 - The retained 2026-05-05 current-`main` recheck is recorded in [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md).
 - The retained 2026-04-26 port-readiness digest is [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it reuses the same upstream source families to derive the local implementation slice order rather than changing the algorithm contract.
-- Those rechecks found no teaching-relevant drift in `Directize.cpp`, `pass.cpp`, `passes.h`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, or the three dedicated `directize*` lit files.
-- Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-05-05 current-main bridge as a no-drift freshness check.
+- Those older rechecks describe the pre-v131 segment-driven contract. Use Binaryen `version_131` as the released source oracle: it adds table default-initializer classification and a dedicated `directize_init.wast` fixture.
 - The core implementation lives in `src/passes/Directize.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.
@@ -41,6 +43,7 @@ For the compact owner/test map, use [`./implementation-structure-and-tests.md`](
   - `test/lit/passes/directize_all-features.wast`
   - `test/lit/passes/directize-gc.wast`
   - `test/lit/passes/directize-wasm64.wast`
+  - `test/lit/passes/directize_init.wast`
 
 Primary source URLs:
 
@@ -54,7 +57,8 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/directize_all-features.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/directize-gc.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/directize-wasm64.wast>
-- Current-main bridge: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Directize.cpp>
+- V131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp>
+- V131 initializer fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast>
 
 ## High-level intent
 
@@ -241,34 +245,29 @@ Given a target expression, relevant table info, and the original indirect call, 
 
 Binaryen returns `Unknown` when:
 
-- the target expression is not a constant
-- or the constant index is beyond the flattened known-prefix size and the table may still be modified later
+- the target expression is not a constant;
+- no element writes the slot and an imported table may have a host-supplied default;
+- the declared default is not a statically known function, such as `global.get`; or
+- the index is beyond the initial size and later growth may populate it.
 
 ### `Trap`
 
 Binaryen returns `Trap` when:
 
-- the constant index names a known-null hole within the known flattened prefix
-- or the constant index names a function whose type is **not** a subtype of the required indirect-call heap type
-- or the index is out of bounds for a table whose relevant range cannot later become valid
+- an in-bounds slot on a defined table resolves to the null default;
+- the resolved element/default function type is **not** a subtype of the required indirect-call heap type; or
+- the index is beyond the initial size and the table cannot grow into that range.
 
 ### `Known`
 
 Binaryen returns `Known{name}` when:
 
-- the index lands on a known function name
-- and that function’s type is a subtype of the indirect-call type
+- the index lands on a function supplied by an element segment or an in-bounds `ref.func` table default; and
+- that function's type is a subtype of the indirect-call type.
 
-## Important subtlety: hole vs beyond-known-prefix
+## Important subtlety: a segment hole is not automatically null
 
-This is one of the easiest facts to miss.
-
-Binaryen treats these differently on mutable-but-immutable-initial-contents tables:
-
-- a **hole inside the known flattened prefix** is a known trap
-- an **index beyond the known flattened prefix** is still unknown, because later appends may populate it
-
-That is exactly why one of the imported-table tests can rewrite some indices to `unreachable`, some to direct calls, and still leave a later constant index indirect.
+V131 resolves a missing flattened entry through the table declaration. A defined table with no initializer has a null default and can prove a trap; a defined `ref.func` default can prove a direct target; a `global.get` default remains unknown; and an imported-table hole remains unknown because the host may supply a value. Beyond the declared initial size, growth decides whether the result is `Trap` or `Unknown`.
 
 ## Stage 7: direct constant rewrites
 
@@ -339,7 +338,7 @@ The helper contains source-level TODOs that matter for future ports:
 - nested selects / more than two targets are not supported here
 - one known arm plus one unknown arm is not lowered to a partial direct-call shape
 
-The 2026-05-05 current-main recheck did not find a teaching-relevant change to this helper boundary, so a faithful port should preserve that narrow scope instead of silently widening it and calling the result “parity”.
+V131 does not change this helper boundary, so a faithful port should preserve that narrow scope instead of silently widening it and calling the result “parity”.
 
 ## Stage 9: `ReFinalize()` is the chosen repair strategy
 

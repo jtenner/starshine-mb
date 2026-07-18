@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
@@ -154,7 +154,7 @@ This slice is now landed and revalidated for the explicit default pass:
 
 - `directize` is an active module pass,
 - explicit requests run the module-pass path,
-- focused tests demonstrate constant known-target rewrites, mutable-table bailout, known-hole trap rewrite, and select lowering,
+- focused tests demonstrate pre-v131 element-target rewrites, mutable-table bailout, defined null-hole trap rewrite, and select lowering; v131 declared-default cases remain open under `[V131-DIR]001`,
 - the 2026-05-06 mixed-generator lane `.tmp/pass-fuzz-directize` compared 6759 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not broadening beyond the accepted public suffix without replaying the neighboring late tail.
@@ -184,15 +184,17 @@ Add a named classifier with the three Binaryen outcomes:
 | Outcome | Meaning | Later rewrite |
 | --- | --- | --- |
 | `Known` | constant index names a compatible function | direct `call` / `return_call` |
-| `Trap` | target is a known hole, out-of-range immutable trap, or wrong type | preserve effects then `unreachable` |
+| `Trap` | defined-table null default, non-growable out-of-range index, or wrong resolved function type | preserve effects then `unreachable` |
 | `Unknown` | target expression or table entry is not provable | leave indirect call unchanged |
 
 Minimum reduced cases:
 
-- known function slot,
-- known null / missing slot inside known prefix,
-- beyond-known-prefix under mutable-but-initial-immutable assumptions,
-- wrong-function-type slot,
+- known function from an element slot,
+- known function from a `ref.func` table default,
+- defined-table null default,
+- imported-table hole and `global.get` default stay unknown,
+- beyond-initial-size with and without growth,
+- wrong-function-type element/default slot,
 - nonconstant target expression,
 - wasm64 large index stays width-correct if/when memory64/table64 support is active for the test.
 

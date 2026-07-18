@@ -2,8 +2,9 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
   - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
@@ -31,6 +32,10 @@ related:
 ---
 
 # `directize`
+
+## Binaryen v131 status
+
+Default direct-pass parity is **reopened**. V131 classifies constant indirect-call targets using table initial values as well as element segments, distinguishing `ref.func`, null/default holes, unknown imported or `global.get` initializers, later sets, and growth. `[V131-DIR]001` owns focused implementation and late-tail reassessment; optional pass-arg support remains separate.
 
 ## Role
 
@@ -76,13 +81,12 @@ That is much closer to the real pass than either:
 
 ## Current durable takeaways
 
-- The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-- The retained 2026-04-26 port-readiness bridge and 2026-05-05 current-`main` recheck preserve direct `version_129` and current source/test URLs for this dossier.
-- The focused 2026-05-05 current-`main` recheck recorded in [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md) found no teaching-relevant drift from the `version_129` contract while keeping the source-only `table.copy` mutation-barrier caveat explicit.
+- Binaryen `version_131` is the released oracle; older v129/current-main notes remain historical provenance for the segment-driven contract and `table.copy` mutation barrier.
+- V131 extends constant-index classification to table initial values: `ref.func` defaults can directize, null/default holes can prove traps on defined tables, imported-table defaults remain unknown, and `global.get` defaults remain unknown.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
-- The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
+- The refreshed dossier has a compact owner/test map across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, the older directize fixtures, and v131's new `directize_init.wast` default-initializer coverage.
 - The retained 2026-04-26 repo-authored port-readiness digest is [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
-- In `version_129`, the main implementation lives in `src/passes/Directize.cpp`.
+- In v131, the main implementation lives in `src/passes/Directize.cpp`.
 - It computes module-wide table facts first with `TableUtils::computeTableInfo(...)`.
 - It only visits `CallIndirect` nodes.
   - That includes the tail-call form via `isReturn`, but it does **not** mean `call_ref` is handled here.
