@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md
   - ../../../raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md
@@ -494,7 +494,7 @@ The local file now models the first `visitTupleExtract(...)` family for one-use 
 - when non-selected siblings have effects or traps and produce at most one value, Starshine preserves/drops earlier effects before the selected lane, localizes the selected lane to a temp local when later effects exist, preserves/drops later effects or trapping loads, then reloads the selected value; the combined selected-trapping earlier-plus-later sibling fixture locks the `drop(Call); LocalSet(i32.load); drop(Call); LocalGet` order, the two-later-sibling fixture extends that coverage to `drop(Call); LocalSet(i32.load); drop(Call); drop(Call); LocalGet`, the two-earlier-sibling fixture locks `drop(Call); drop(Call); i32.load` when no later effect requires a temp, and the two-earlier-plus-one-later fixture locks `drop(Call); drop(Call); LocalSet(i32.load); drop(Call); LocalGet` against Binaryen's tuple-scratch oracle;
 - local-carried/multi-use tuple extraction is now an explicit Binaryen-matching keep-spelling boundary for the probed shape;
 - multi-result non-selected siblings are a current tuple-scratch localization boundary: Binaryen `version_130` materializes tuple scratch and scalar drops for the probed shapes, including both later and earlier multi-result siblings, while Starshine keeps the direct-HOT tuple spelling until a safe multi-result sibling localizer exists;
-- multi-result selected children in direct one-use `tuple.extract(tuple.make(...))` shapes now use a generalized selected-child localizer: Starshine allocates one scratch local per selected-child scalar result, stores lanes in stack-pop order, and reloads the requested lane. The Binaryen `version_130` source audit found no explicit arity cap in `OptimizeInstructions.cpp::visitTupleExtract` or the delegated `getDroppedChildrenAndAppend` helper; the implementation is still bounded by Starshine's direct-HOT preconditions and excludes multi-result non-selected siblings, multi-use tuple producers, control/branch/EH siblings, and broader tuple-scratch reconstruction.
+- multi-result selected children in direct one-use `tuple.extract(tuple.make(...))` shapes use a generalized selected-child localizer: Starshine allocates one scratch local per scalar result, stores lanes in stack-pop order, and reloads the requested lane. The absorbed arity-15-through-27 probe ladder established one invariant rather than 13 distinct transforms, and Binaryen source has no explicit arity cap. Do not restore a hardcoded accepted-result-count list; retain structural/type/ownership admission and fail closed for multi-result non-selected siblings, multi-use tuple producers, control/branch/EH siblings, and broader tuple-scratch reconstruction.
 - broader tee/drop reconstruction, multi-use tuple proof, public text-surface coverage, and non-selected sibling tuple-scratch localization are explicit SB003/SB004 keep/fail-closed boundaries. The remaining SB005 direct-HOT wrapper differences are accepted only as source/runtime/size-backed Starshine wins; reopen on the OI-M matrix criteria rather than treating these as an active broad parity gap.
 
 ## 6. First local sign-extension facts, but not full Binaryen `LocalScanner`
