@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
@@ -106,11 +107,11 @@ It refuses to optimize when:
 - there are zero memories or multiple memories;
 - the only memory is imported and `zeroFilledMemory` is false;
 - there are multiple active segments and some active offset is nonconstant; or
-- active segments overlap **unless** the current-main imported-memory exception below is proven.
+- active segments overlap **unless** the released v131 imported-memory exception below is proven.
 
-### Current-main imported-overlap exception
+### V131 imported-overlap exception
 
-`version_129` / `version_130` reject every active overlap. Current Binaryen `main` changed that on 2026-07-10: an overlap can proceed only when `zeroFilledMemory` is enabled, the sole memory is imported, and each overlapping active segment is provably inside the imported memory's declared initial allocation. The source then calls `zeroOutTrampledData(...)` before range selection so an earlier payload does not survive where a later active segment overwrote it. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+`version_129` / `version_130` reject every active overlap. Binaryen v131 adds one released path: an overlap can proceed only when `zeroFilledMemory` is enabled, the sole memory is imported, and each overlapping active segment is provably inside the imported memory's declared initial allocation. The source then calls `zeroOutTrampledData(...)` before range selection so an earlier payload does not survive where a later active segment overwrote it. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 This is deliberately narrow. Dynamic offsets, non-imported memory, absent `zeroFilledMemory`, and non-provably-in-bounds overlap still bail out. In particular, “overlap is safe because memory starts zeroed” is wrong: source order remains observable until the pass neutralizes the trampled earlier bytes.
 
@@ -351,10 +352,10 @@ Taken together, those tests show that the pass is much more about semantic bookk
 The original 2026-04-22 check found no teaching-relevant drift from `version_129`. That is now historical, not a current-main conclusion:
 
 - the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**;
-- `version_130` remains the public release baseline;
-- current `main` gained the imported-memory, in-allocation overlap exception in merged PR #8882 on 2026-07-10.
+- existing local closeout evidence remains tied to `version_130`;
+- the imported-memory, in-allocation overlap exception from PR #8882 is released in `version_131` and is now required parity behavior.
 
-Treat `version_129` / `version_130` as the released semantic oracle for existing Starshine evidence, and treat the new rule as a clearly labeled trunk-parity watchpoint until a future release adopts it. Do not claim current `main` is unchanged. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+Treat `version_129` / `version_130` as the historical oracle for existing Starshine closeout evidence and v131 as the current required contract. The imported-overlap path is a released parity gap, not a trunk watchpoint. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 ## What a future port must preserve
 

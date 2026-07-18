@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap2local-rmw.wast
   - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
@@ -300,8 +302,8 @@ Why this blocks the main array optimization path:
 
 Important freshness note:
 
-- current `main` is a little more precise about which operand positions need that const-index barrier
-- but the beginner rule for `version_129` remains: dynamic indexing is a bailout for the main accessed-array path
+- the released v131 owner is more precise about which operand positions need that const-index barrier
+- but the beginner rule remains: dynamic indexing is a bailout for the main accessed-array path
 
 ## Negative family 8: arrays of size `>= 20`
 

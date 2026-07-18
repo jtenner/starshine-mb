@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - https://github.com/WebAssembly/binaryen/commit/db30c15
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
@@ -31,6 +32,10 @@ related:
 ---
 
 # `memory-packing`
+
+## Binaryen v131 status
+
+Direct parity is **reopened**. The imported zero-filled, provably in-bounds active-overlap path previously documented as current-main drift is included in `version_131`; Starshine still rejects every overlap. `[V131-MP]001` owns source-order trampling cleanup, checked memory32/memory64 bounds, focused fixtures, and fresh four-lane/O4z evidence.
 
 ## Role
 
@@ -79,18 +84,18 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 ## Most important durable takeaways
 
 - Upstream `memory-packing` is not just “split active data segments around zeroes.”
-- The folder retains direct tagged source links, the current-main overlap refresh, and a refreshed exact Starshine code-map page, so future readers no longer need to reconstruct release provenance or MoonBit navigation from prose alone.
+- The folder retains direct tagged source links, the pre-release overlap refresh now identified as v131 behavior, and an exact Starshine code-map page, so future readers no longer need to reconstruct release provenance or MoonBit navigation from prose alone.
 - The real safety story starts with a whole-module legality gate:
   - exactly one memory only
   - imported memory only when `zeroFilledMemory` is enabled
-  - overlapping active segments bail out
+  - overlapping active segments bail out unless v131 proves the narrow zero-filled imported-memory in-allocation path and neutralizes source-order trampling
   - multiple active segments with dynamic offsets bail out
 - Passive segments are a major part of the real pass contract.
 - Upstream rewrites `memory.init` and `data.drop`, not just raw segment bytes.
 - Preserving trap behavior is mandatory unless `trapsNeverHappen` is allowed.
 - GC awareness exists here already, but mostly as a conservative boundary:
   - `array.new_data` and `array.init_data` users inhibit splitting today
-- `version_129` / `version_130` remain the released oracle, but current `main` has a 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. This is current-main drift, not a retroactive change to release-based Starshine signoff; see [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
+- V131 is the current released oracle and includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Existing v130 Starshine signoff is therefore historical and the released gap is owned by `[V131-MP]001`; see [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
 
 ## Biggest beginner correction
 
@@ -143,17 +148,17 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-The 2026-04-22 direct comparison is retained as historical provenance, but its no-drift conclusion is now stale for `main`:
+The 2026-04-22 direct comparison and v130 closeout remain historical provenance, but the former current-main drift is now released in `version_131`:
 
 - the reviewed Binaryen `version_129` release page showed publish date **2026-04-01**;
-- `version_130` remains the public release baseline used by existing local evidence;
-- current `main` gained a narrow imported-memory overlapping-active-segment path in merged PR #8882 on 2026-07-10.
+- existing local closeout evidence used `version_130`;
+- PR #8882's narrow imported-memory overlapping-active-segment path landed in `version_131`.
 
 So the durable rule is:
 
-- treat the reviewed release tag as the oracle for release-anchored Starshine signoff;
-- treat PR #8882 as a current-main parity watchpoint, not proof that arbitrary overlap is optimizable; and
-- keep the exact imported/zero-filled/in-allocation/source-order conditions explicit whenever this folder discusses overlap.
+- use v131 for current release-anchored Starshine signoff;
+- treat the imported/zero-filled/in-allocation/source-order path as required released behavior, not arbitrary-overlap permission; and
+- keep checked bounds, page-size, memory64, source-order, and instantiation-trap conditions explicit whenever this folder discusses overlap.
 
 ## Current maintenance rule
 

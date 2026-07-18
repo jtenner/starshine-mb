@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
@@ -78,9 +79,9 @@ Important source-backed blockers include:
 - multiple memories,
 - imported memory without `zeroFilledMemory`,
 - multiple active segments with dynamic offsets,
-- overlapping active segments—except for the current-main imported-memory exception.
+- overlapping active segments—except for the released v131 imported-memory exception.
 
-The released `version_129` / `version_130` rule is an unconditional overlap bailout. Current Binaryen `main` adds one constrained path: `zeroFilledMemory`, one imported memory, and a checked proof that the overlapping active segments are within the declared initial allocation. It then zeroes earlier bytes trampled by later segments before ordinary range analysis. This is a source-order rewrite, not a relaxed overlap predicate; see [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+The historical `version_129` / `version_130` rule is an unconditional overlap bailout. Binaryen v131 adds one constrained path: `zeroFilledMemory`, one imported memory, and a checked proof that the overlapping active segments are within the declared initial allocation. It then zeroes earlier bytes trampled by later segments before ordinary range analysis. This is a source-order rewrite, not a relaxed overlap predicate; see [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 Beginner takeaway:
 
@@ -192,7 +193,7 @@ This is the last phase that makes the earlier planning observable in module code
 
 ## `DisjointSpans`
 
-Used to discover active-segment overlap during the whole-module legality phase. In released sources an overlap is a bailout. In current `main`, the imported-memory exception uses the discovered overlap together with `zeroOutTrampledData(...)` and an in-allocation proof; it does not discard the ordering information.
+Used to discover active-segment overlap during the whole-module legality phase. In v129/v130 an overlap is a bailout. In v131, the imported-memory exception uses the discovered overlap together with `zeroOutTrampledData(...)` and an in-allocation proof; it does not discard the ordering information.
 
 ## `ModuleUtils::ParallelFunctionAnalysis`
 
@@ -258,7 +259,7 @@ This file proves the imported-memory gate in memory32 mode:
 
 - imported memory is only optimizable when the pass is told it starts zero-filled.
 
-Current-main PR #8882 adds a nearby imported-memory overlap fixture/contract: zero-filled imported memory may take the new path only when the overlapping segments are provably within allocation and their source-order trampling is handled. That current-main evidence is not yet a `version_130` release claim.
+PR #8882's imported-memory overlap fixture/contract is released in v131: zero-filled imported memory may take the path only when overlapping segments are provably within allocation and source-order trampling is handled. It is now required current-oracle behavior, not merely a post-v130 source note.
 
 ## `memory-packing_zero-filled-memory64.wast`
 
@@ -305,4 +306,4 @@ That phase structure is the most important thing this page pins down.
 
 ## Freshness note
 
-The 2026-04-22 no-drift check remains useful historical provenance, but current `main` is no longer identical on this owner surface. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10; `version_130` remains the release baseline. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
+The 2026-04-22 no-drift check remains useful historical provenance. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10, and that behavior is released in `version_131`; v130 remains only the baseline for the existing local closeout evidence. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
