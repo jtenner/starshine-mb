@@ -292,7 +292,7 @@ test "gen_invalid_ast_generate supports function-section invalid type index stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef2UL),
-      GenInvalidAstParams::repro_seed(InvalidFuncTypeIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFuncTypeIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -320,7 +320,7 @@ test "gen_invalid_ast_generate supports data-section invalid offset strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef5UL),
-      GenInvalidAstParams::repro_seed(NonConstantDataOffset),
+      GenInvalidAstParams::minimal_seed(NonConstantDataOffset),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -348,7 +348,7 @@ test "gen_invalid_ast_generate supports data-section invalid offset type strateg
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef87UL),
-      GenInvalidAstParams::repro_seed(InvalidDataOffsetType),
+      GenInvalidAstParams::minimal_seed(InvalidDataOffsetType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -376,7 +376,7 @@ test "gen_invalid_ast_generate supports invalid global initializer type strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef41UL),
-      GenInvalidAstParams::repro_seed(InvalidGlobalInitType),
+      GenInvalidAstParams::minimal_seed(InvalidGlobalInitType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -404,7 +404,7 @@ test "gen_invalid_ast_generate supports import-section invalid func type strateg
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef6UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedFuncTypeIndex),
+      GenInvalidAstParams::minimal_seed(InvalidImportedFuncTypeIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -432,7 +432,7 @@ test "gen_invalid_ast_generate supports element-section invalid offset strategy"
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef8UL),
-      GenInvalidAstParams::repro_seed(NonConstantElemOffset),
+      GenInvalidAstParams::minimal_seed(NonConstantElemOffset),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -460,7 +460,7 @@ test "gen_invalid_ast_generate supports data-section active memory index strateg
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef82UL),
-      GenInvalidAstParams::repro_seed(InvalidDataActiveMemoryIndex),
+      GenInvalidAstParams::minimal_seed(InvalidDataActiveMemoryIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -488,7 +488,7 @@ test "gen_invalid_ast_generate supports element-section active table index strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef81UL),
-      GenInvalidAstParams::repro_seed(InvalidElementActiveTableIndex),
+      GenInvalidAstParams::minimal_seed(InvalidElementActiveTableIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -517,7 +517,7 @@ test "gen_invalid_ast_generate supports element-section function index strategy"
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef83UL),
-      GenInvalidAstParams::repro_seed(InvalidElementFuncIndex),
+      GenInvalidAstParams::minimal_seed(InvalidElementFuncIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -545,7 +545,7 @@ test "gen_invalid_ast_generate supports element-section typed expression type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef84UL),
-      GenInvalidAstParams::repro_seed(InvalidElementTypedExprType),
+      GenInvalidAstParams::minimal_seed(InvalidElementTypedExprType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -573,7 +573,7 @@ test "gen_invalid_ast_generate supports element-section table ref-type mismatch 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef841UL),
-      GenInvalidAstParams::repro_seed(InvalidElementTableRefTypeMismatch),
+      GenInvalidAstParams::minimal_seed(InvalidElementTableRefTypeMismatch),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -607,7 +607,7 @@ test "gen_invalid_ast_generate supports table-section invalid init expression ty
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef86UL),
-      GenInvalidAstParams::repro_seed(InvalidTableInitExprType),
+      GenInvalidAstParams::minimal_seed(InvalidTableInitExprType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -635,7 +635,7 @@ test "gen_invalid_ast_generate supports memory-section invalid limit range strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef85UL),
-      GenInvalidAstParams::repro_seed(InvalidMemoryLimitRange),
+      GenInvalidAstParams::minimal_seed(InvalidMemoryLimitRange),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -663,7 +663,7 @@ test "gen_invalid_ast_generate supports table-section invalid limit range strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef86UL),
-      GenInvalidAstParams::repro_seed(InvalidTableLimitRange),
+      GenInvalidAstParams::minimal_seed(InvalidTableLimitRange),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -691,7 +691,7 @@ test "gen_invalid_ast_generate supports imported memory invalid limit range stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef87UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedMemoryLimitRange),
+      GenInvalidAstParams::minimal_seed(InvalidImportedMemoryLimitRange),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -720,7 +720,7 @@ test "gen_invalid_ast_generate supports imported table invalid limit range strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef88UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedTableLimitRange),
+      GenInvalidAstParams::minimal_seed(InvalidImportedTableLimitRange),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -749,7 +749,7 @@ test "gen_invalid_ast_generate supports imported shared memory without max strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef89UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedSharedMemoryWithoutMax),
+      GenInvalidAstParams::minimal_seed(InvalidImportedSharedMemoryWithoutMax),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -780,7 +780,7 @@ test "gen_invalid_ast_generate supports imported shared memory64 without max str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef8aUL),
-      GenInvalidAstParams::repro_seed(InvalidImportedSharedMemory64WithoutMax),
+      GenInvalidAstParams::minimal_seed(InvalidImportedSharedMemory64WithoutMax),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -811,7 +811,7 @@ test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efaUL),
-      GenInvalidAstParams::repro_seed(InvalidTagTypeIndex),
+      GenInvalidAstParams::minimal_seed(InvalidTagTypeIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -839,7 +839,7 @@ test "gen_invalid_ast_generate supports tag-section result type strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef8bUL),
-      GenInvalidAstParams::repro_seed(InvalidTagResultType),
+      GenInvalidAstParams::minimal_seed(InvalidTagResultType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -867,7 +867,7 @@ test "gen_invalid_ast_generate supports imported tag result type strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5ef8cUL),
-      GenInvalidAstParams::repro_seed(InvalidImportedTagResultType),
+      GenInvalidAstParams::minimal_seed(InvalidImportedTagResultType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -895,7 +895,7 @@ test "gen_invalid_ast_generate supports datacount-section invalid strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efcUL),
-      GenInvalidAstParams::repro_seed(DataCountWithoutDataSec),
+      GenInvalidAstParams::minimal_seed(DataCountWithoutDataSec),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -923,7 +923,7 @@ test "gen_invalid_ast_generate supports invalid export func index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efdUL),
-      GenInvalidAstParams::repro_seed(InvalidExportFuncIndex),
+      GenInvalidAstParams::minimal_seed(InvalidExportFuncIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -944,7 +944,7 @@ test "gen_invalid_ast_generate supports invalid export func wrong-kind index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd01UL),
-      GenInvalidAstParams::repro_seed(InvalidExportFuncWrongKindIndex),
+      GenInvalidAstParams::minimal_seed(InvalidExportFuncWrongKindIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -973,7 +973,7 @@ test "gen_invalid_ast_generate supports invalid imported start func param strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd1UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncParam),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncParam),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -994,7 +994,7 @@ test "gen_invalid_ast_generate supports invalid imported start func result strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd2UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncResult),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncResult),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1016,7 +1016,7 @@ test "gen_invalid_ast_generate supports invalid imported start func param-result
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd21UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncParamResult),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncParamResult),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1038,7 +1038,7 @@ test "gen_invalid_ast_generate supports invalid imported start func multi-param 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd22UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncMultiParam),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncMultiParam),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1060,7 +1060,7 @@ test "gen_invalid_ast_generate supports invalid imported start func f32-param st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd23UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncF32Param),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncF32Param),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1082,7 +1082,7 @@ test "gen_invalid_ast_generate supports invalid imported start func externref-pa
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd24UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncExternrefParam),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncExternrefParam),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1106,7 +1106,7 @@ test "gen_invalid_ast_generate supports invalid imported start func funcref-para
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd25UL),
-      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncFuncrefParam),
+      GenInvalidAstParams::minimal_seed(InvalidImportedStartFuncFuncrefParam),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1130,7 +1130,7 @@ test "gen_invalid_ast_generate supports start func wrong-kind index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd26UL),
-      GenInvalidAstParams::repro_seed(StartFuncWrongKindIndex),
+      GenInvalidAstParams::minimal_seed(StartFuncWrongKindIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1158,7 +1158,7 @@ test "gen_invalid_ast_generate supports invalid local name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd3UL),
-      GenInvalidAstParams::repro_seed(InvalidLocalNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidLocalNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1179,7 +1179,7 @@ test "gen_invalid_ast_generate supports invalid label name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd4UL),
-      GenInvalidAstParams::repro_seed(InvalidLabelNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidLabelNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1200,7 +1200,7 @@ test "gen_invalid_ast_generate supports invalid local-name function index strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd41UL),
-      GenInvalidAstParams::repro_seed(InvalidLocalNameSectionFuncIndex),
+      GenInvalidAstParams::minimal_seed(InvalidLocalNameSectionFuncIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1222,7 +1222,7 @@ test "gen_invalid_ast_generate supports invalid label-name function index strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5efd42UL),
-      GenInvalidAstParams::repro_seed(InvalidLabelNameSectionFuncIndex),
+      GenInvalidAstParams::minimal_seed(InvalidLabelNameSectionFuncIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1244,7 +1244,7 @@ test "gen_invalid_ast_generate supports missing-datacount data.drop strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5effUL),
-      GenInvalidAstParams::repro_seed(MissingDataCountDataDrop),
+      GenInvalidAstParams::minimal_seed(MissingDataCountDataDrop),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1265,7 +1265,7 @@ test "gen_invalid_ast_generate supports codesec without funcsec strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f01UL),
-      GenInvalidAstParams::repro_seed(CodeSecWithoutFuncSec),
+      GenInvalidAstParams::minimal_seed(CodeSecWithoutFuncSec),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1286,7 +1286,7 @@ test "gen_invalid_ast_generate supports codesec length too small strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f011UL),
-      GenInvalidAstParams::repro_seed(CodeSecLengthMismatchTooSmall),
+      GenInvalidAstParams::minimal_seed(CodeSecLengthMismatchTooSmall),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1314,7 +1314,7 @@ test "gen_invalid_ast_generate supports codesec length too large strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f012UL),
-      GenInvalidAstParams::repro_seed(CodeSecLengthMismatchTooLarge),
+      GenInvalidAstParams::minimal_seed(CodeSecLengthMismatchTooLarge),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1342,7 +1342,7 @@ test "gen_invalid_ast_generate supports codesec imported body strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f013UL),
-      GenInvalidAstParams::repro_seed(CodeSecIncludesImportedBody),
+      GenInvalidAstParams::minimal_seed(CodeSecIncludesImportedBody),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1370,7 +1370,7 @@ test "gen_invalid_ast_generate supports invalid table name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f02UL),
-      GenInvalidAstParams::repro_seed(InvalidTableNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidTableNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1391,7 +1391,7 @@ test "gen_invalid_ast_generate supports invalid global name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f03UL),
-      GenInvalidAstParams::repro_seed(InvalidGlobalNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidGlobalNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1412,7 +1412,7 @@ test "gen_invalid_ast_generate supports invalid type name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f04UL),
-      GenInvalidAstParams::repro_seed(InvalidTypeNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidTypeNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1433,7 +1433,7 @@ test "gen_invalid_ast_generate supports invalid field name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f041UL),
-      GenInvalidAstParams::repro_seed(InvalidFieldNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFieldNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1454,7 +1454,7 @@ test "gen_invalid_ast_generate supports invalid elem name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f05UL),
-      GenInvalidAstParams::repro_seed(InvalidElemNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidElemNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1475,7 +1475,7 @@ test "gen_invalid_ast_generate supports invalid data name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f06UL),
-      GenInvalidAstParams::repro_seed(InvalidDataNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidDataNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1496,7 +1496,7 @@ test "gen_invalid_ast_generate supports invalid export table index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f07UL),
-      GenInvalidAstParams::repro_seed(InvalidExportTableIndex),
+      GenInvalidAstParams::minimal_seed(InvalidExportTableIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1517,7 +1517,7 @@ test "gen_invalid_ast_generate supports invalid export global index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f08UL),
-      GenInvalidAstParams::repro_seed(InvalidExportGlobalIndex),
+      GenInvalidAstParams::minimal_seed(InvalidExportGlobalIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1538,7 +1538,7 @@ test "gen_invalid_ast_generate supports invalid export memory index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f091UL),
-      GenInvalidAstParams::repro_seed(InvalidExportMemoryIndex),
+      GenInvalidAstParams::minimal_seed(InvalidExportMemoryIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1559,7 +1559,7 @@ test "gen_invalid_ast_generate supports invalid export tag index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f09UL),
-      GenInvalidAstParams::repro_seed(InvalidExportTagIndex),
+      GenInvalidAstParams::minimal_seed(InvalidExportTagIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1580,7 +1580,7 @@ test "gen_invalid_ast_generate supports invalid tag name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0aUL),
-      GenInvalidAstParams::repro_seed(InvalidTagNameSectionIndex),
+      GenInvalidAstParams::minimal_seed(InvalidTagNameSectionIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1601,7 +1601,7 @@ test "gen_invalid_ast_generate supports invalid imported tag type index strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0aaUL),
-      GenInvalidAstParams::repro_seed(InvalidImportedTagTypeIndex),
+      GenInvalidAstParams::minimal_seed(InvalidImportedTagTypeIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1622,7 +1622,7 @@ test "gen_invalid_ast_generate supports invalid imported table ref type strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0abUL),
-      GenInvalidAstParams::repro_seed(InvalidImportedTableRefType),
+      GenInvalidAstParams::minimal_seed(InvalidImportedTableRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1643,7 +1643,7 @@ test "gen_invalid_ast_generate supports invalid imported global ref type strateg
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0acUL),
-      GenInvalidAstParams::repro_seed(InvalidImportedGlobalRefType),
+      GenInvalidAstParams::minimal_seed(InvalidImportedGlobalRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1664,7 +1664,7 @@ test "gen_invalid_ast_generate supports invalid table ref type strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0adUL),
-      GenInvalidAstParams::repro_seed(InvalidTableRefType),
+      GenInvalidAstParams::minimal_seed(InvalidTableRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1685,7 +1685,7 @@ test "gen_invalid_ast_generate supports invalid descriptor field ref type strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0afUL),
-      GenInvalidAstParams::repro_seed(InvalidDescriptorFieldRefType),
+      GenInvalidAstParams::minimal_seed(InvalidDescriptorFieldRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1706,7 +1706,7 @@ test "gen_invalid_ast_generate supports invalid subtype super cycle strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020a5UL),
-      GenInvalidAstParams::repro_seed(InvalidSubtypeSuperCycle),
+      GenInvalidAstParams::minimal_seed(InvalidSubtypeSuperCycle),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1727,7 +1727,7 @@ test "gen_invalid_ast_generate supports invalid global ref type strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0aeUL),
-      GenInvalidAstParams::repro_seed(InvalidGlobalRefType),
+      GenInvalidAstParams::minimal_seed(InvalidGlobalRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1748,7 +1748,7 @@ test "gen_invalid_ast_generate supports datacount mismatch too-small strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0bUL),
-      GenInvalidAstParams::repro_seed(DataCountMismatchTooSmall),
+      GenInvalidAstParams::minimal_seed(DataCountMismatchTooSmall),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1769,7 +1769,7 @@ test "gen_invalid_ast_generate supports datacount mismatch too-large strategy" {
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0cUL),
-      GenInvalidAstParams::repro_seed(DataCountMismatchTooLarge),
+      GenInvalidAstParams::minimal_seed(DataCountMismatchTooLarge),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1790,7 +1790,7 @@ test "gen_invalid_ast_generate supports function-body invalid local index strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyLocalIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyLocalIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1811,7 +1811,7 @@ test "gen_invalid_ast_generate supports function-body invalid global index strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyGlobalIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyGlobalIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1833,7 +1833,7 @@ test "gen_invalid_ast_generate supports function-body invalid table index strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f0fUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1854,7 +1854,7 @@ test "gen_invalid_ast_generate supports function-body invalid memory index strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f10UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1876,7 +1876,7 @@ test "gen_invalid_ast_generate supports function-body invalid function index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f11UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyCallIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyCallIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1897,7 +1897,7 @@ test "gen_invalid_ast_generate supports function-body invalid branch label index
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f12UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrLabelIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyBrLabelIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1919,7 +1919,7 @@ test "gen_invalid_ast_generate supports function-body invalid branch payload str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f13UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrPayloadMismatch),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyBrPayloadMismatch),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1943,7 +1943,7 @@ test "gen_invalid_ast_generate supports function-body call payload mismatch stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f14UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyCallPayloadMismatch),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyCallPayloadMismatch),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1967,7 +1967,7 @@ test "gen_invalid_ast_generate supports function-body br_if payload mismatch str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f15UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrIfPayloadMismatch),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyBrIfPayloadMismatch),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1991,7 +1991,9 @@ test "gen_invalid_ast_generate supports function-body br_table payload mismatch 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f16UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrTablePayloadMismatch),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyBrTablePayloadMismatch,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2015,7 +2017,7 @@ test "gen_invalid_ast_generate supports function-body br_table multi-value paylo
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020e1UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch,
       ),
     ) {
@@ -2042,7 +2044,7 @@ test "gen_invalid_ast_generate supports function-body memory64 address type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f1aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemory64AddressType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemory64AddressType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2066,7 +2068,9 @@ test "gen_invalid_ast_generate supports function-body memory store address type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d36UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreAddressType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemoryStoreAddressType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2090,7 +2094,7 @@ test "gen_invalid_ast_generate supports function-body memory64 store address typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d37UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyMemory64StoreAddressType,
       ),
     ) {
@@ -2116,7 +2120,7 @@ test "gen_invalid_ast_generate supports function-body memory store value type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f1bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryStoreValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2140,7 +2144,9 @@ test "gen_invalid_ast_generate supports function-body memory64 store value type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d38UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemory64StoreValueType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemory64StoreValueType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2164,7 +2170,9 @@ test "gen_invalid_ast_generate supports function-body memory64.copy length type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d39UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemory64CopyLengthType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemory64CopyLengthType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2188,7 +2196,9 @@ test "gen_invalid_ast_generate supports function-body memory64.copy source type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d3aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemory64CopySourceType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemory64CopySourceType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2212,7 +2222,7 @@ test "gen_invalid_ast_generate supports function-body memory64.copy dest type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d3bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemory64CopyDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemory64CopyDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2236,7 +2246,7 @@ test "gen_invalid_ast_generate supports function-body memory64.init dest type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemory64InitDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemory64InitDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2260,7 +2270,7 @@ test "gen_invalid_ast_generate supports function-body local.set value type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ca1UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyLocalSetValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyLocalSetValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2284,7 +2294,7 @@ test "gen_invalid_ast_generate supports function-body local.tee value type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce2UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyLocalTeeValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyLocalTeeValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2308,7 +2318,7 @@ test "gen_invalid_ast_generate supports function-body table.set value type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f1cUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableSetValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableSetValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2332,7 +2342,7 @@ test "gen_invalid_ast_generate supports function-body table.set index type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cfbUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableSetIndexType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableSetIndexType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2356,7 +2366,9 @@ test "gen_invalid_ast_generate supports function-body call_indirect index type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cfcUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyCallIndirectIndexType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyCallIndirectIndexType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2380,7 +2392,7 @@ test "gen_invalid_ast_generate supports function-body call_indirect table elemen
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020e2UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyCallIndirectTableElementType,
       ),
     ) {
@@ -2406,7 +2418,7 @@ test "gen_invalid_ast_generate supports function-body return_call_indirect table
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020e3UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyReturnCallIndirectTableElementType,
       ),
     ) {
@@ -2432,7 +2444,7 @@ test "gen_invalid_ast_generate supports function-body return_call_indirect index
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cfdUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyReturnCallIndirectIndexType,
       ),
     ) {
@@ -2458,7 +2470,7 @@ test "gen_invalid_ast_generate supports function-body return_call_ref ref type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cfeUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyReturnCallRefType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyReturnCallRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2482,7 +2494,7 @@ test "gen_invalid_ast_generate supports function-body call_ref ref type strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cffUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyCallRefType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyCallRefType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2504,7 +2516,7 @@ test "gen_invalid_ast_generate supports function-body ref.cast input type strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d00UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefCastInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyRefCastInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2528,7 +2540,7 @@ test "gen_invalid_ast_generate supports function-body ref.test input type strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d01UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefTestInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyRefTestInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2552,7 +2564,7 @@ test "gen_invalid_ast_generate supports function-body ref.test_desc input type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d02UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefTestDescInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyRefTestDescInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2576,7 +2588,9 @@ test "gen_invalid_ast_generate supports function-body ref.cast_desc_eq input typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d03UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefCastDescEqInputType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyRefCastDescEqInputType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2600,7 +2614,7 @@ test "gen_invalid_ast_generate supports function-body ref.get_desc input type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d06UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefGetDescInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyRefGetDescInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2624,7 +2638,7 @@ test "gen_invalid_ast_generate supports function-body ref.eq input type strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d07UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyRefEqInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyRefEqInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2646,7 +2660,7 @@ test "gen_invalid_ast_generate supports function-body br_on_cast input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d04UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrOnCastInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyBrOnCastInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2670,7 +2684,9 @@ test "gen_invalid_ast_generate supports function-body br_on_cast target subtype 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d73UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrOnCastTargetSubtype),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyBrOnCastTargetSubtype,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2694,7 +2710,9 @@ test "gen_invalid_ast_generate supports function-body br_on_cast_fail input type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d05UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyBrOnCastFailInputType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyBrOnCastFailInputType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2718,7 +2736,7 @@ test "gen_invalid_ast_generate supports function-body table.get index type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce4UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableGetIndexType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableGetIndexType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2742,7 +2760,7 @@ test "gen_invalid_ast_generate supports function-body table.grow value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce5UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableGrowValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableGrowValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2766,7 +2784,7 @@ test "gen_invalid_ast_generate supports function-body table.fill value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce6UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableFillValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableFillValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2790,7 +2808,7 @@ test "gen_invalid_ast_generate supports function-body memory load alignment stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d44UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryLoadAlignment),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryLoadAlignment),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2814,7 +2832,7 @@ test "gen_invalid_ast_generate supports function-body memory store alignment str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d45UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreAlignment),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryStoreAlignment),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2838,7 +2856,9 @@ test "gen_invalid_ast_generate supports function-body memory load offset range s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d46UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryLoadOffsetRange),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemoryLoadOffsetRange,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2862,7 +2882,9 @@ test "gen_invalid_ast_generate supports function-body memory store offset range 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d47UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreOffsetRange),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemoryStoreOffsetRange,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2886,7 +2908,7 @@ test "gen_invalid_ast_generate supports function-body memory.copy destination in
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d48UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryCopyDestIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryCopyDestIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2910,7 +2932,9 @@ test "gen_invalid_ast_generate supports function-body memory.copy source index s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d49UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryCopySourceIndex),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyMemoryCopySourceIndex,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2934,7 +2958,7 @@ test "gen_invalid_ast_generate supports function-body memory load memarg index s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d4cUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryLoadIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryLoadIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2956,7 +2980,7 @@ test "gen_invalid_ast_generate supports function-body memory store memarg index 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d4dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryStoreIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryStoreIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -2978,7 +3002,7 @@ test "gen_invalid_ast_generate supports function-body atomic load memarg index s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d4eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicLoadIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicLoadIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3000,7 +3024,7 @@ test "gen_invalid_ast_generate supports function-body atomic store memarg index 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d4fUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicStoreIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicStoreIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3022,7 +3046,7 @@ test "gen_invalid_ast_generate supports function-body atomic notify memarg index
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d50UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicNotifyIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicNotifyIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3046,7 +3070,7 @@ test "gen_invalid_ast_generate supports function-body atomic wait memarg index s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d51UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicWaitIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicWaitIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3068,7 +3092,7 @@ test "gen_invalid_ast_generate supports function-body atomic rmw memarg index st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d52UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicRmwIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicRmwIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3090,7 +3114,7 @@ test "gen_invalid_ast_generate supports function-body atomic cmpxchg memarg inde
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d53UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicCmpxchgIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicCmpxchgIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3114,7 +3138,7 @@ test "gen_invalid_ast_generate supports function-body SIMD extract lane index st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d54UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdExtractLaneIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdExtractLaneIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3135,7 +3159,7 @@ test "gen_invalid_ast_generate supports function-body SIMD replace lane index st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d55UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdReplaceLaneIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdReplaceLaneIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3156,7 +3180,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load lane index strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d56UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdLoadLaneIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdLoadLaneIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3177,7 +3201,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store lane index stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d57UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdStoreLaneIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdStoreLaneIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3198,7 +3222,7 @@ test "gen_invalid_ast_generate supports function-body SIMD splat input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d58UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdSplatInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdSplatInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3219,7 +3243,7 @@ test "gen_invalid_ast_generate supports function-body SIMD swizzle input type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d59UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdSwizzleInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdSwizzleInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3240,7 +3264,9 @@ test "gen_invalid_ast_generate supports function-body SIMD bitselect mask type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d5aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdBitselectMaskType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodySimdBitselectMaskType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3261,7 +3287,9 @@ test "gen_invalid_ast_generate supports function-body SIMD bitselect left type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdBitselectLeftType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodySimdBitselectLeftType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3282,7 +3310,9 @@ test "gen_invalid_ast_generate supports function-body SIMD bitselect right type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdBitselectRightType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodySimdBitselectRightType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3303,7 +3333,7 @@ test "gen_invalid_ast_generate supports function-body SIMD extract input type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d5bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdExtractInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdExtractInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3324,7 +3354,9 @@ test "gen_invalid_ast_generate supports function-body SIMD replace vector type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d5cUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdReplaceVectorType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodySimdReplaceVectorType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3345,7 +3377,7 @@ test "gen_invalid_ast_generate supports function-body SIMD replace value type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d5dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdReplaceValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdReplaceValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3366,7 +3398,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load address type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d5eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdLoadAddressType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdLoadAddressType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3387,7 +3419,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store address type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d5fUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdStoreAddressType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdStoreAddressType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3408,7 +3440,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d60UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdStoreValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdStoreValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3429,7 +3461,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load-extend address t
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d61UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdLoadExtendAddressType,
       ),
     ) {
@@ -3452,7 +3484,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load-splat address ty
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d62UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdLoadSplatAddressType,
       ),
     ) {
@@ -3475,7 +3507,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load-zero address typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d63UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdLoadZeroAddressType,
       ),
     ) {
@@ -3498,7 +3530,7 @@ test "gen_invalid_ast_generate supports function-body SIMD unary input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d64UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdUnaryInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdUnaryInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3519,7 +3551,7 @@ test "gen_invalid_ast_generate supports function-body SIMD binary left type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d65UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdBinaryLeftType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdBinaryLeftType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3540,7 +3572,7 @@ test "gen_invalid_ast_generate supports function-body relaxed SIMD swizzle left 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020c3UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyRelaxedSimdSwizzleLeftType,
       ),
     ) {
@@ -3563,7 +3595,7 @@ test "gen_invalid_ast_generate supports function-body relaxed SIMD laneselect ma
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1022b9UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyRelaxedSimdLaneselectMaskType,
       ),
     ) {
@@ -3586,7 +3618,7 @@ test "gen_invalid_ast_generate supports function-body SIMD binary right type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d66UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdBinaryRightType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdBinaryRightType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3607,7 +3639,7 @@ test "gen_invalid_ast_generate supports function-body SIMD shift vector type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d67UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdShiftVectorType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdShiftVectorType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3628,7 +3660,7 @@ test "gen_invalid_ast_generate supports function-body SIMD shift count type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d68UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdShiftCountType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdShiftCountType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3649,7 +3681,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load-lane address typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d69UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdLoadLaneAddressType,
       ),
     ) {
@@ -3672,7 +3704,9 @@ test "gen_invalid_ast_generate supports function-body SIMD load-lane vector type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdLoadLaneVectorType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodySimdLoadLaneVectorType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3693,7 +3727,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store-lane address ty
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6bUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdStoreLaneAddressType,
       ),
     ) {
@@ -3716,7 +3750,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store-lane vector typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6cUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdStoreLaneVectorType,
       ),
     ) {
@@ -3739,7 +3773,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load memory index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdLoadMemoryIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdLoadMemoryIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3760,7 +3794,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store memory index st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySimdStoreMemoryIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySimdStoreMemoryIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3781,7 +3815,7 @@ test "gen_invalid_ast_generate supports function-body SIMD load-lane memory inde
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d6fUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdLoadLaneMemoryIndex,
       ),
     ) {
@@ -3804,7 +3838,7 @@ test "gen_invalid_ast_generate supports function-body SIMD store-lane memory ind
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d70UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodySimdStoreLaneMemoryIndex,
       ),
     ) {
@@ -3827,7 +3861,7 @@ test "gen_invalid_ast_generate supports function-body memory.init data index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d4aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryInitDataIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryInitDataIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3851,7 +3885,7 @@ test "gen_invalid_ast_generate supports function-body table.init elem index stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d4bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableInitElemIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableInitElemIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3875,7 +3909,7 @@ test "gen_invalid_ast_generate supports function-body table.init table index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d71UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableInitTableIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableInitTableIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3899,7 +3933,7 @@ test "gen_invalid_ast_generate supports function-body if condition type strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d42UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyIfConditionType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyIfConditionType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3921,7 +3955,7 @@ test "gen_invalid_ast_generate supports function-body if branch result type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d43UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyIfBranchResultType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyIfBranchResultType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3945,7 +3979,7 @@ test "gen_invalid_ast_generate supports function-body select condition type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d40UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySelectConditionType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySelectConditionType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3969,7 +4003,7 @@ test "gen_invalid_ast_generate supports function-body select operand type strate
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d41UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodySelectOperandType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodySelectOperandType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -3993,7 +4027,7 @@ test "gen_invalid_ast_generate supports function-body memory.size index strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d3cUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemorySizeIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemorySizeIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4015,7 +4049,7 @@ test "gen_invalid_ast_generate supports function-body memory.grow index strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d3dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryGrowIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryGrowIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4037,7 +4071,7 @@ test "gen_invalid_ast_generate supports function-body memory.grow delta type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce7UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryGrowDeltaType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryGrowDeltaType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4061,7 +4095,7 @@ test "gen_invalid_ast_generate supports function-body memory.fill value type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce8UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryFillValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryFillValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4085,7 +4119,7 @@ test "gen_invalid_ast_generate supports function-body memory.fill dest type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d3eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryFillDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryFillDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4109,7 +4143,7 @@ test "gen_invalid_ast_generate supports function-body memory.fill length type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d3fUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryFillLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryFillLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4133,7 +4167,7 @@ test "gen_invalid_ast_generate supports function-body memory.copy length type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce9UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryCopyLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryCopyLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4157,7 +4191,7 @@ test "gen_invalid_ast_generate supports function-body memory.copy source type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ceaUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryCopySourceType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryCopySourceType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4181,7 +4215,7 @@ test "gen_invalid_ast_generate supports function-body memory.copy dest type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cebUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryCopyDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryCopyDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4205,7 +4239,7 @@ test "gen_invalid_ast_generate supports function-body memory.init length type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cecUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryInitLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryInitLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4229,7 +4263,7 @@ test "gen_invalid_ast_generate supports function-body memory.init source type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cedUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryInitSourceType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryInitSourceType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4253,7 +4287,7 @@ test "gen_invalid_ast_generate supports function-body memory.init dest type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ceeUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyMemoryInitDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyMemoryInitDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4277,7 +4311,7 @@ test "gen_invalid_ast_generate supports function-body table.copy length type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cefUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableCopyLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableCopyLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4301,7 +4335,7 @@ test "gen_invalid_ast_generate supports function-body table.copy source type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf0UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableCopySourceType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableCopySourceType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4325,7 +4359,7 @@ test "gen_invalid_ast_generate supports function-body table.copy dest type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf1UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableCopyDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableCopyDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4349,7 +4383,7 @@ test "gen_invalid_ast_generate supports function-body table.copy dest index stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d70UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableCopyDestIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableCopyDestIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4373,7 +4407,7 @@ test "gen_invalid_ast_generate supports function-body table.copy source index st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d71UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableCopySourceIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableCopySourceIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4397,7 +4431,7 @@ test "gen_invalid_ast_generate supports function-body table.init length type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf2UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableInitLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableInitLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4421,7 +4455,7 @@ test "gen_invalid_ast_generate supports function-body table.init source type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf3UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableInitSourceType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableInitSourceType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4445,7 +4479,7 @@ test "gen_invalid_ast_generate supports function-body table.init dest type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf4UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableInitDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableInitDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4469,7 +4503,7 @@ test "gen_invalid_ast_generate supports function-body data.drop index strategy" 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf5UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyDataDropIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyDataDropIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4491,7 +4525,7 @@ test "gen_invalid_ast_generate supports function-body elem.drop index strategy" 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf6UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyElemDropIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyElemDropIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4513,7 +4547,7 @@ test "gen_invalid_ast_generate supports function-body table.size index strategy"
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf7UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableSizeIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableSizeIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4535,7 +4569,7 @@ test "gen_invalid_ast_generate supports function-body table.fill dest type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf9UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableFillDestType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableFillDestType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4559,7 +4593,7 @@ test "gen_invalid_ast_generate supports function-body table.fill length type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cfaUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableFillLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableFillLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4583,7 +4617,7 @@ test "gen_invalid_ast_generate supports function-body table.grow delta type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10cf8UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyTableGrowDeltaType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyTableGrowDeltaType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4607,7 +4641,7 @@ test "gen_invalid_ast_generate supports function-body return value type strategy
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10ce3UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyReturnValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyReturnValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4629,7 +4663,7 @@ test "gen_invalid_ast_generate supports function-body array.fill input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d0bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayFillInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayFillInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4653,7 +4687,7 @@ test "gen_invalid_ast_generate supports function-body array.fill value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d0cUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayFillValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayFillValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4677,7 +4711,7 @@ test "gen_invalid_ast_generate supports function-body array.fill length type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d0dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayFillLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayFillLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4701,7 +4735,7 @@ test "gen_invalid_ast_generate supports function-body array.copy input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d0eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayCopyInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayCopyInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4725,7 +4759,7 @@ test "gen_invalid_ast_generate supports function-body array.copy source input ty
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d0fUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyArrayCopySourceInputType,
       ),
     ) {
@@ -4751,7 +4785,7 @@ test "gen_invalid_ast_generate supports function-body array.copy length type str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d10UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayCopyLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayCopyLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4775,7 +4809,9 @@ test "gen_invalid_ast_generate supports function-body array.init_data input type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d11UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayInitDataInputType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayInitDataInputType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4799,7 +4835,9 @@ test "gen_invalid_ast_generate supports function-body array.init_data dest type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d12UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayInitDataDestType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayInitDataDestType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4823,7 +4861,7 @@ test "gen_invalid_ast_generate supports function-body array.init_data source typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d13UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyArrayInitDataSourceType,
       ),
     ) {
@@ -4849,7 +4887,7 @@ test "gen_invalid_ast_generate supports function-body array.init_data length typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d14UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyArrayInitDataLengthType,
       ),
     ) {
@@ -4875,7 +4913,9 @@ test "gen_invalid_ast_generate supports function-body array.init_elem input type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d15UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayInitElemInputType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayInitElemInputType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4899,7 +4939,9 @@ test "gen_invalid_ast_generate supports function-body array.init_elem dest type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d16UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayInitElemDestType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayInitElemDestType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4923,7 +4965,7 @@ test "gen_invalid_ast_generate supports function-body array.init_elem source typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d17UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyArrayInitElemSourceType,
       ),
     ) {
@@ -4949,7 +4991,7 @@ test "gen_invalid_ast_generate supports function-body array.init_elem length typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d18UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyArrayInitElemLengthType,
       ),
     ) {
@@ -4975,7 +5017,7 @@ test "gen_invalid_ast_generate supports function-body array.new value type strat
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d19UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayNewValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -4999,7 +5041,7 @@ test "gen_invalid_ast_generate supports function-body array.new length type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d1aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewLengthType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyArrayNewLengthType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5023,7 +5065,7 @@ test "gen_invalid_ast_generate supports function-body array.new_default length t
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d1bUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyArrayNewDefaultLengthType,
       ),
     ) {
@@ -5049,7 +5091,9 @@ test "gen_invalid_ast_generate supports function-body array.new_fixed value type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d1cUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewFixedValueType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayNewFixedValueType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5073,7 +5117,9 @@ test "gen_invalid_ast_generate supports function-body array.new_data source type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d1dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewDataSourceType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayNewDataSourceType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5097,7 +5143,9 @@ test "gen_invalid_ast_generate supports function-body array.new_data length type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d1eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewDataLengthType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayNewDataLengthType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5121,7 +5169,9 @@ test "gen_invalid_ast_generate supports function-body array.new_elem source type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d1fUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewElemSourceType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayNewElemSourceType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5145,7 +5195,9 @@ test "gen_invalid_ast_generate supports function-body array.new_elem length type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d20UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyArrayNewElemLengthType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyArrayNewElemLengthType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5169,7 +5221,7 @@ test "gen_invalid_ast_generate supports function-body struct.new value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d21UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyStructNewValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyStructNewValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5193,7 +5245,7 @@ test "gen_invalid_ast_generate supports function-body struct.get input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d22UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyStructGetInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyStructGetInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5217,7 +5269,7 @@ test "gen_invalid_ast_generate supports function-body struct.set input type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d23UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyStructSetInputType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyStructSetInputType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5241,7 +5293,7 @@ test "gen_invalid_ast_generate supports function-body struct.set value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d24UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyStructSetValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyStructSetValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5265,7 +5317,7 @@ test "gen_invalid_ast_generate supports function-body struct.get field index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d25UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyStructGetFieldIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyStructGetFieldIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5289,7 +5341,7 @@ test "gen_invalid_ast_generate supports function-body struct.set field index str
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d26UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyStructSetFieldIndex),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyStructSetFieldIndex),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5313,7 +5365,7 @@ test "gen_invalid_ast_generate supports function-body struct.set immutable field
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d27UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyStructSetImmutableField,
       ),
     ) {
@@ -5339,7 +5391,7 @@ test "gen_invalid_ast_generate supports function-body struct.get signed field ty
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d28UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyStructGetSignedFieldType,
       ),
     ) {
@@ -5365,7 +5417,7 @@ test "gen_invalid_ast_generate supports function-body packed struct.get plain ac
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020f3UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyStructGetPackedFieldPlainAccessor,
       ),
     ) {
@@ -5391,7 +5443,9 @@ test "gen_invalid_ast_generate supports function-body atomic.notify count type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d29UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicNotifyCountType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyAtomicNotifyCountType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5415,7 +5469,9 @@ test "gen_invalid_ast_generate supports function-body atomic.wait timeout type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d2aUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicWaitTimeoutType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyAtomicWaitTimeoutType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5439,7 +5495,7 @@ test "gen_invalid_ast_generate supports function-body atomic.rmw value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d2bUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicRmwValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicRmwValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5463,7 +5519,7 @@ test "gen_invalid_ast_generate supports function-body atomic.cmpxchg replacement
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d2cUL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyAtomicCmpxchgReplacementType,
       ),
     ) {
@@ -5489,7 +5545,9 @@ test "gen_invalid_ast_generate supports function-body atomic.load address type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d2dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicLoadAddressType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyAtomicLoadAddressType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5513,7 +5571,7 @@ test "gen_invalid_ast_generate keeps atomic.load non-shared strategy invalid via
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d36UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyAtomicLoadNonSharedMemory,
       ),
     ) {
@@ -5539,7 +5597,7 @@ test "gen_invalid_ast_generate supports function-body atomic.load alignment stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x1020e5UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicLoadAlignment),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicLoadAlignment),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5563,7 +5621,9 @@ test "gen_invalid_ast_generate supports function-body atomic.store address type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d2eUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicStoreAddressType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyAtomicStoreAddressType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5587,7 +5647,7 @@ test "gen_invalid_ast_generate supports function-body atomic.store value type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d2fUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicStoreValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicStoreValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5611,7 +5671,7 @@ test "gen_invalid_ast_generate supports function-body atomic.notify address type
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d30UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyAtomicNotifyAddressType,
       ),
     ) {
@@ -5637,7 +5697,9 @@ test "gen_invalid_ast_generate supports function-body atomic.wait address type s
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d31UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicWaitAddressType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyAtomicWaitAddressType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5661,7 +5723,9 @@ test "gen_invalid_ast_generate supports function-body atomic.wait expected type 
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d32UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicWaitExpectedType),
+      GenInvalidAstParams::minimal_seed(
+        InvalidFunctionBodyAtomicWaitExpectedType,
+      ),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5685,7 +5749,7 @@ test "gen_invalid_ast_generate supports function-body atomic.rmw address type st
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d33UL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyAtomicRmwAddressType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyAtomicRmwAddressType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -5709,7 +5773,7 @@ test "gen_invalid_ast_generate supports function-body atomic.cmpxchg address typ
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d34UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyAtomicCmpxchgAddressType,
       ),
     ) {
@@ -5735,7 +5799,7 @@ test "gen_invalid_ast_generate supports function-body atomic.cmpxchg expected ty
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x10d35UL),
-      GenInvalidAstParams::repro_seed(
+      GenInvalidAstParams::minimal_seed(
         InvalidFunctionBodyAtomicCmpxchgExpectedType,
       ),
     ) {
@@ -5761,7 +5825,7 @@ test "gen_invalid_ast_generate supports function-body global.set value type stra
   let generated = match
     gen_invalid_ast_generate(
       @splitmix.new(seed=0x5f1dUL),
-      GenInvalidAstParams::repro_seed(InvalidFunctionBodyGlobalSetValueType),
+      GenInvalidAstParams::minimal_seed(InvalidFunctionBodyGlobalSetValueType),
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)

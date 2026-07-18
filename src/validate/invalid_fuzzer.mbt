@@ -420,7 +420,9 @@ fn validate_invalid_ast_strategy_spec(
 }
 
 ///|
-pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] {
+fn validate_invalid_ast_registry_entries() -> Array[
+  ValidateInvalidAstStrategySpec,
+] {
   [
     validate_invalid_ast_strategy_spec(
       DuplicateExportName,
@@ -2264,27 +2266,46 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
 }
 
 ///|
+priv struct ValidateInvalidAstRegistryCache {
+  entries : Array[ValidateInvalidAstStrategySpec]
+  stable_id_lookup : @hashmap.HashMap[String, Int]
+}
+
+///|
+fn ValidateInvalidAstRegistryCache::new() -> ValidateInvalidAstRegistryCache {
+  let entries = validate_invalid_ast_registry_entries()
+  let stable_id_lookup : @hashmap.HashMap[String, Int] = @hashmap.new(
+    capacity=entries.length() * 2 + 1,
+  )
+  for idx, spec in entries {
+    stable_id_lookup.set(spec.stable_id, idx)
+  }
+  { entries, stable_id_lookup }
+}
+
+///|
+let validate_invalid_ast_registry_cache : ValidateInvalidAstRegistryCache = ValidateInvalidAstRegistryCache::new()
+
+///|
+pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] {
+  validate_invalid_ast_registry_entries()
+}
+
+///|
 pub fn validate_invalid_ast_strategy_spec_by_id(
   id : ValidateInvalidAstStrategyId,
 ) -> ValidateInvalidAstStrategySpec? {
-  for spec in validate_invalid_ast_registry() {
-    if spec.id == id {
-      return Some(spec)
-    }
-  }
-  None
+  validate_invalid_ast_strategy_by_stable_id(gen_invalid_ast_strategy_label(id))
 }
 
 ///|
 pub fn validate_invalid_ast_strategy_by_stable_id(
   stable_id : String,
 ) -> ValidateInvalidAstStrategySpec? {
-  for spec in validate_invalid_ast_registry() {
-    if spec.stable_id == stable_id {
-      return Some(spec)
-    }
+  match validate_invalid_ast_registry_cache.stable_id_lookup.get(stable_id) {
+    Some(idx) => Some(validate_invalid_ast_registry_cache.entries[idx])
+    None => None
   }
-  None
 }
 
 ///|
@@ -11883,7 +11904,9 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
 fn invalid_ast_test_base_module(seed : UInt64) -> Module {
   gen_valid_module_with_config(
     @splitmix.new(seed~),
-    gen_invalid_coverage_seed_generator_config(),
+    gen_invalid_small_gen_valid_config(
+      gen_invalid_coverage_seed_generator_config(),
+    ),
   )
 }
 
@@ -11893,17 +11916,26 @@ fn invalid_ast_expect_strategy_rejects_with_family(
   seed : UInt64,
   expected_family : ValidationIssueFamily,
 ) -> Result[Unit, String] {
-  let base = invalid_ast_test_base_module(seed)
-  match validate_module(base) {
-    Ok(_) => ()
-    Err(err) =>
-      return Err(
-        "expected base gen-valid module to validate before AST mutation: \{validation_error_message(err)}",
-      )
-  }
-  let mutation = match apply_validate_invalid_ast_strategy(strategy, base) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
+  let mutation = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed~),
+      GenInvalidAstParams::minimal_seed(strategy),
+    ) {
+    Ok(generated) => generated.mutation
+    Err(_) => {
+      let base = invalid_ast_test_base_module(seed)
+      match validate_module(base) {
+        Ok(_) => ()
+        Err(err) =>
+          return Err(
+            "expected base gen-valid module to validate before AST mutation: \{validation_error_message(err)}",
+          )
+      }
+      match apply_validate_invalid_ast_strategy(strategy, base) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+    }
   }
   if !mutation.applicable {
     return Err("expected AST mutation to be applicable")

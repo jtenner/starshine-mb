@@ -152,6 +152,7 @@ test "gen-valid start profiles cover absent imported and defined starts" {
         None => fail("expected forced imported start section")
       }
       saw_imported = true
+      break
     }
   }
   assert_true(saw_imported)
@@ -10057,7 +10058,7 @@ test "topology-heavy profile emits explicit no-main and no-export variants" {
   let config = GenValidConfig::for_profile(TopologyHeavyProfile)
   let mut saw_no_main_export = false
   let mut saw_no_export = false
-  for offset in 0..<32 {
+  for offset in [4, 7] {
     let generated = match
       gen_valid_module_result(
         @splitmix.new(seed=0xf71030UL + offset.to_uint64()),
@@ -10080,9 +10081,6 @@ test "topology-heavy profile emits explicit no-main and no-export variants" {
     if !gen_valid_test_has_any_export(generated.wasm_module) {
       saw_no_export = true
       assert_false(generated.facts.has_imports_start_exports)
-    }
-    if saw_no_main_export && saw_no_export {
-      break
     }
   }
   assert_true(

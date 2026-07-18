@@ -1399,13 +1399,25 @@ pub fn validate_invalid_text_dynamic_attempt_seed(
 }
 
 ///|
+let validate_invalid_text_dynamic_base_source_cache : Ref[(UInt64, String)?] = Ref::new(
+  None,
+)
+
+///|
 fn validate_invalid_text_dynamic_base_source(
   seed : UInt64,
 ) -> Result[String, String] {
+  match validate_invalid_text_dynamic_base_source_cache.val {
+    Some((cached_seed, cached_source)) if cached_seed == seed =>
+      return Ok(cached_source)
+    _ => ()
+  }
   let generated = match
     gen_valid_module_result_from_seed(
       seed,
-      GenValidConfig::wat_text_roundtrip_default(),
+      @validate.gen_invalid_small_gen_valid_config(
+        GenValidConfig::wat_text_roundtrip_default(),
+      ),
     ) {
     Ok(v) => v
     Err(failure) => return Err(failure.validation_error_message)
@@ -1424,7 +1436,10 @@ fn validate_invalid_text_dynamic_base_source(
     Err(msg) => return Err("generated valid WAT did not lower: \{msg}")
   }
   match validate_module(lowered) {
-    Ok(_) => Ok(text)
+    Ok(_) => {
+      validate_invalid_text_dynamic_base_source_cache.val = Some((seed, text))
+      Ok(text)
+    }
     Err(err) =>
       Err(
         "generated valid WAT did not validate: \{validation_error_message(err)}",
