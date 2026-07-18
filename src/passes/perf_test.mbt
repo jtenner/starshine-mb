@@ -3960,7 +3960,7 @@ test "precompute raw-folds branchy constant if without hot lift" {
 
   let text = perf_test_join_lines(lines)
   assert_true(
-    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    text.contains("pass[precompute]:skip-raw reason=raw-control-flow-folds"),
     msg=text,
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)
@@ -4020,7 +4020,7 @@ test "precompute raw-removes dropped pure block results with nested branch witho
   assert_false(pretty.contains("br"), msg=pretty)
   let text = perf_test_join_lines(lines)
   assert_true(
-    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    text.contains("pass[precompute]:skip-raw reason=raw-control-flow-folds"),
     msg=text,
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)
@@ -4048,7 +4048,7 @@ test "precompute raw-removes dropped result blocks with branch to rewritten labe
 
   let text = perf_test_join_lines(lines)
   assert_true(
-    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    text.contains("pass[precompute]:skip-raw reason=raw-control-flow-folds"),
     msg=text,
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)

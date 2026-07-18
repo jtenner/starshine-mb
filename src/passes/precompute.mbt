@@ -5715,25 +5715,54 @@ fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool 
     Some(value) => value
     None => return false
   }
-  let selected = match out[out.length() - 1] {
-    @lib.If(_, then_body, else_body) =>
-      if cond == @lib.I32(0) {
-        match else_body {
-          Some(body) => body
-          None => []
-        }
-      } else {
-        then_body
-      }
+  let (block_type, selected) = match out[out.length() - 1] {
+    @lib.If(block_type, then_body, else_body) =>
+      (
+        block_type,
+        if cond == @lib.I32(0) {
+          match else_body {
+            Some(body) => body
+            None => []
+          }
+        } else {
+          then_body
+        },
+      )
     _ => return false
   }
+  ignore(out.pop())
+  ignore(out.pop())
   if precompute_raw_instrs_have_label_relative_branch(selected) {
-    return false
-  }
-  ignore(out.pop())
-  ignore(out.pop())
-  for instr in selected {
-    out.push(instr)
+    match precompute_raw_block_terminal_branch_depth(selected) {
+      Some(depth) => {
+        let prefix = match precompute_raw_terminal_branch_prefix(selected) {
+          Some(prefix) => prefix
+          None => {
+            out.push(
+              @lib.Instruction::block(
+                block_type,
+                @lib.Expr::new(selected.copy()),
+              ),
+            )
+            return true
+          }
+        }
+        for instr in prefix {
+          out.push(instr)
+        }
+        if depth > 0U {
+          out.push(@lib.Instruction::br(@lib.LabelIdx::new(depth - 1U)))
+        }
+      }
+      None =>
+        out.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(selected.copy())),
+        )
+    }
+  } else {
+    for instr in selected {
+      out.push(instr)
+    }
   }
   true
 }
@@ -6782,6 +6811,104 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn precompute_raw_fold_block_local_constants(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let fact_locals : Array[Int] = []
+  let fact_values : Array[@lib.Instruction?] = []
+  let mut changed = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw_local))
+      | @lib.LocalTee(@lib.LocalIdx(raw_local)) => {
+        let local_id = raw_local.reinterpret_as_int()
+        let value = if idx > 0 &&
+          precompute_raw_is_literal_const(instrs[idx - 1]) {
+          Some(instrs[idx - 1])
+        } else {
+          None
+        }
+        fact_locals.push(local_id)
+        fact_values.push(value)
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw_local)) => {
+        let local_id = raw_local.reinterpret_as_int()
+        let mut fact_idx = fact_locals.length() - 1
+        while fact_idx >= 0 {
+          if fact_locals[fact_idx] == local_id {
+            match fact_values[fact_idx] {
+              Some(value) => {
+                instrs[idx] = value
+                changed = true
+              }
+              None => ()
+            }
+            break
+          }
+          fact_idx = fact_idx - 1
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) => {
+        let mut straight_line = true
+        for nested in body {
+          match nested {
+            @lib.Block(_, _)
+            | @lib.Loop(_, _)
+            | @lib.If(_, _, _)
+            | @lib.Try(_, _, _, _)
+            | @lib.TryTable(_, _, _)
+            | @lib.Br(_)
+            | @lib.BrIf(_)
+            | @lib.BrTable(_, _)
+            | @lib.Return
+            | @lib.Unreachable => straight_line = false
+            _ => ()
+          }
+        }
+        if straight_line {
+          for nested_idx = 0
+              nested_idx < body.length()
+              nested_idx = nested_idx + 1 {
+            match body[nested_idx] {
+              @lib.LocalSet(@lib.LocalIdx(raw_local))
+              | @lib.LocalTee(@lib.LocalIdx(raw_local)) => {
+                fact_locals.push(raw_local.reinterpret_as_int())
+                fact_values.push(
+                  if nested_idx > 0 &&
+                    precompute_raw_is_literal_const(body[nested_idx - 1]) {
+                    Some(body[nested_idx - 1])
+                  } else {
+                    None
+                  },
+                )
+              }
+              _ => ()
+            }
+          }
+        } else {
+          fact_locals.clear()
+          fact_values.clear()
+        }
+      }
+      @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.Unreachable => {
+        fact_locals.clear()
+        fact_values.clear()
+      }
+      _ => ()
+    }
+  }
+  changed
+}
+
+///|
 fn precompute_raw_void_block_is_selector_only_self_br_table(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -6819,7 +6946,11 @@ fn precompute_raw_rewrite_instr(
         None => (instr, false)
       }
     @lib.Block(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
+      let (next_body, nested_changed) = precompute_raw_rewrite_instrs(
+        body, module_ctx,
+      )
+      let local_changed = precompute_raw_fold_block_local_constants(next_body)
+      let changed = nested_changed || local_changed
       match (block_type, next_body) {
         (
           @lib.ValTypeBlockType(_),
@@ -6828,6 +6959,16 @@ fn precompute_raw_rewrite_instr(
               @lib.VoidBlockType,
               @lib.Expr([value, @lib.Br(@lib.LabelIdx(1U))])
             ),
+          ],
+        ) if precompute_raw_is_literal_const(value) => return (value, true)
+        (
+          @lib.ValTypeBlockType(_),
+          [
+            @lib.Loop(
+              @lib.VoidBlockType,
+              @lib.Expr([value, @lib.Br(@lib.LabelIdx(1U))])
+            ),
+            @lib.Unreachable,
           ],
         ) if precompute_raw_is_literal_const(value) => return (value, true)
         _ => ()
@@ -6916,10 +7057,24 @@ fn precompute_raw_rewrite_instr(
 }
 
 ///|
+fn precompute_raw_instr_branches_out_of_enclosing_sequence(
+  instr : @lib.Instruction,
+) -> Bool {
+  let body = match instr {
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) => body
+    _ => return false
+  }
+  match precompute_raw_block_terminal_branch_depth(body) {
+    Some(depth) => depth.reinterpret_as_int() > 0
+    None => false
+  }
+}
+
+///|
 fn precompute_raw_instr_terminates_sequence(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Br(_) | @lib.Return | @lib.Unreachable => true
-    _ => false
+    _ => precompute_raw_instr_branches_out_of_enclosing_sequence(instr)
   }
 }
 
@@ -6952,18 +7107,47 @@ fn precompute_raw_instrs_are_nops_then_unreachable(
 }
 
 ///|
-fn precompute_raw_instr_is_one_value_leaf(instr : @lib.Instruction) -> Bool {
+fn precompute_raw_terminal_prefix_stack_effect(
+  instr : @lib.Instruction,
+) -> (Int, Int)? {
+  if precompute_raw_instr_is_flat_discardable_value(instr) {
+    return Some((0, 1))
+  }
+  if precompute_raw_instr_is_nontrapping_unary_op(instr) {
+    return Some((1, 1))
+  }
+  if precompute_raw_instr_is_nontrapping_binary_op(instr) {
+    return Some((2, 1))
+  }
   match instr {
-    @lib.I32Const(_)
-    | @lib.I64Const(_)
-    | @lib.F32Const(_)
-    | @lib.F64Const(_)
-    | @lib.LocalGet(_)
-    | @lib.GlobalGet(_)
-    | @lib.RefNull(_)
-    | @lib.RefFunc(_)
-    | @lib.StringConst(_) => true
-    _ => false
+    @lib.Nop => Some((0, 0))
+    @lib.Drop | @lib.LocalSet(_) | @lib.GlobalSet(_) => Some((1, 0))
+    @lib.LocalTee(_) => Some((1, 1))
+    @lib.Select(_) => Some((3, 1))
+    @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.RefAsNonNull
+    | @lib.RefCast(_, _, _) => Some((1, 1))
+    @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.RefEq => Some((2, 1))
+    @lib.Block(@lib.VoidBlockType, _) | @lib.Loop(@lib.VoidBlockType, _) =>
+      Some((0, 0))
+    @lib.Block(@lib.ValTypeBlockType(_), _)
+    | @lib.Loop(@lib.ValTypeBlockType(_), _) => Some((0, 1))
+    _ => None
   }
 }
 
@@ -6975,15 +7159,46 @@ fn precompute_raw_terminal_branch_prefix(
     return None
   }
   let branch_idx = instrs.length() - 1
-  let out : Array[@lib.Instruction] = []
+  let starts : Array[Int] = []
+  let ends : Array[Int] = []
   for i in 0..<branch_idx {
     let instr = instrs[i]
-    if instr == @lib.Instruction::nop() {
-      continue
+    let (pops, pushes) = match
+      precompute_raw_terminal_prefix_stack_effect(instr) {
+      Some(effect) => effect
+      None => return None
     }
-    out.push(instr)
-    if i + 1 < branch_idx && precompute_raw_instr_is_one_value_leaf(instr) {
+    if starts.length() < pops {
+      return None
+    }
+    let mut start = i
+    if pops > 0 {
+      start = starts[starts.length() - pops]
+      for _ in 0..<pops {
+        ignore(starts.pop())
+        ignore(ends.pop())
+      }
+    }
+    if pushes == 1 {
+      starts.push(start)
+      ends.push(i)
+    } else if pushes != 0 {
+      return None
+    }
+  }
+  if starts.length() == 0 {
+    return None
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut live_idx = 0
+  for i in 0..<branch_idx {
+    let instr = instrs[i]
+    if instr != @lib.Instruction::nop() {
+      out.push(instr)
+    }
+    while live_idx + 1 < ends.length() && ends[live_idx] == i {
       out.push(@lib.Instruction::drop())
+      live_idx += 1
     }
   }
   Some(out)
@@ -7586,11 +7801,6 @@ fn precompute_run_raw_func(
   let stale_typed_loop_candidate = precompute_raw_instrs_have_stale_typed_loop_param_candidate(
     instrs,
   )
-  if !tlsf_repair_candidate &&
-    !stale_typed_loop_candidate &&
-    precompute_raw_instrs_have_hot_only_candidate(instrs, module_ctx) {
-    return None
-  }
   if precompute_raw_root_nop_cleanup_candidate(instrs) {
     return None
   }
@@ -7604,6 +7814,11 @@ fn precompute_run_raw_func(
       ),
     )
   }
+  if !tlsf_repair_candidate &&
+    !stale_typed_loop_candidate &&
+    precompute_raw_instrs_have_hot_only_candidate(rewritten, module_ctx) {
+    return None
+  }
   if (tlsf_repair_candidate || stale_typed_loop_candidate) && changed {
     return Some(
       (
@@ -7613,16 +7828,25 @@ fn precompute_run_raw_func(
       ),
     )
   }
-  if precompute_raw_instrs_have_drop_needing_hot(rewritten) ||
-    precompute_raw_instrs_have_const_if_candidate(rewritten) ||
-    precompute_raw_root_nop_cleanup_candidate(rewritten) {
+  let retains_raw_control_flow = changed &&
+    precompute_raw_instrs_have_label_relative_branch(instrs)
+  if precompute_raw_root_nop_cleanup_candidate(rewritten) {
+    return None
+  }
+  if (
+      precompute_raw_instrs_have_drop_needing_hot(rewritten) ||
+      precompute_raw_instrs_have_const_if_candidate(rewritten)
+    ) &&
+    !retains_raw_control_flow {
     return None
   }
   Some(
     (
       @lib.Func::new(locals, @lib.Expr::new(rewritten)),
       changed,
-      if changed {
+      if retains_raw_control_flow {
+        "raw-control-flow-folds"
+      } else if changed {
         "raw-scalar-folds"
       } else {
         "no-precompute-candidates"

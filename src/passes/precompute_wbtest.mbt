@@ -67,6 +67,93 @@ test "precompute raw tlsf prologue repair produces valid lowered function" {
 }
 
 ///|
+test "precompute raw flow keeps trapping prefixes and folds an escaping br_if" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (result f64)
+      #|    (block $out (result f64)
+      #|      (drop (i64.div_s (i64.const 1) (i64.const 0)))
+      #|      (f64.mul
+      #|        (br_if $out (f64.const 4) (i32.const 1))
+      #|        (f64.const 5)))))
+      #|,
+    ),
+  )
+  let func = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => defs[0]
+    None => fail("expected code section")
+  }
+  let (rewritten, changed, reason) = match precompute_run_raw_func(func, None) {
+    Some(result) => result
+    None => fail("expected raw escaping-flow rewrite")
+  }
+  assert_true(changed, msg=reason)
+  let pretty = mod_
+    .with_code_sec(@lib.CodeSec::new([rewritten]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.div_s"), msg=pretty)
+  assert_true(pretty.contains("F64(4"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("f64.mul"), msg=pretty)
+}
+
+///|
+test "precompute raw flow reaches an escaping branch behind a trapping dropped prefix" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (result f64)
+      #|    (block $out (result f64)
+      #|      (i32.store8
+      #|        (i32.const 0)
+      #|        (if (result i32) (i32.const 1)
+      #|          (then
+      #|            (block $inner (result i32)
+      #|              (drop
+      #|                (i64.and
+      #|                  (i64.trunc_f32_u (f32.const 70847791997969805621592064))
+      #|                  (i64.const 729618461987467893)))
+      #|              (br_if $inner
+      #|                (i32.const 3)
+      #|                (f32.eq
+      #|                  (f32.demote_f64
+      #|                    (f64.mul
+      #|                      (br_if $out (f64.const 4) (i32.const 1))
+      #|                      (f64.const 5)))
+      #|                  (f32.const 6)))))
+      #|          (else (i32.const 7))))
+      #|      (f64.const 8))))
+      #|,
+    ),
+  )
+  let func = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => defs[0]
+    None => fail("expected code section")
+  }
+  let (rewritten, changed, reason) = match precompute_run_raw_func(func, None) {
+    Some(result) => result
+    None => fail("expected raw nested escaping-flow rewrite")
+  }
+  assert_true(changed, msg=reason)
+  assert_eq(reason, "raw-control-flow-folds")
+  let candidate = mod_.with_code_sec(@lib.CodeSec::new([rewritten]))
+  match @validate.validate_module(candidate) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected valid nested raw flow rewrite, got \{err}; mod=\{candidate}",
+      )
+  }
+  let pretty = candidate.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.trunc_f32u"), msg=pretty)
+  assert_true(pretty.contains("F64(4"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("f64.mul"), msg=pretty)
+}
+
+///|
 test "precompute rejects multi-root constant-if chosen regions" {
   let func = @ir.HotFunc::new()
   let if_id = @ir.hot_build_if(

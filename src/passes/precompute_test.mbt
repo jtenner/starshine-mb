@@ -63,7 +63,7 @@ test "precompute runs narrow raw scalar folds under O4z gate" {
 }
 
 ///|
-test "precompute keeps O4z hot-only cleanup no-op until ownership hazards are safe" {
+test "precompute applies proven selector-only O4z control cleanup" {
   let trace : Array[String] = []
   let optimized = match
     pass_test_run_pipeline(
@@ -79,11 +79,11 @@ test "precompute keeps O4z hot-only cleanup no-op until ownership hazards are sa
     Err(err) => fail("expected O4z precompute skip success, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("br_table"), msg=pretty)
-  assert_true(pretty.contains("(block"), msg=pretty)
+  assert_false(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
   assert_true(
     trace.any(fn(line) {
-      line.contains("pass[precompute]:skip-raw reason=o4z-precompute-noop")
+      line.contains("pass[precompute]:skip-raw reason=raw-control-flow-folds")
     }),
     msg=trace.to_string(),
   )
@@ -205,6 +205,90 @@ test "precompute-propagate folds constant-true branches after loop effects" {
 }
 
 ///|
+test "precompute propagates an escaping branch through constant if and numeric parents" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (memory 1)
+        #|  (func (result f64)
+        #|    (block $out (result f64)
+        #|      (i32.store8
+        #|        (i32.const 0)
+        #|        (if (result i32) (i32.const 1)
+        #|          (then
+        #|            (block $inner (result i32)
+        #|              (drop
+        #|                (i64.and
+        #|                  (i64.trunc_f32_u (f32.const 70847791997969805621592064))
+        #|                  (i64.const 729618461987467893)))
+        #|              (br_if $inner
+        #|                (i32.const 3)
+        #|                (f32.eq
+        #|                  (f32.demote_f64
+        #|                    (f64.mul
+        #|                      (br_if $out (f64.const 4) (i32.const 1))
+        #|                      (f64.const 5)))
+        #|                  (f32.const 6)))))
+        #|          (else (i32.const 7))))
+        #|      (f64.const 8))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected escaping branch flow fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("F64(4"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("f64.mul"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "precompute does not treat a conditionally self-exiting block as an outer terminator" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    (block $outer
+        #|      (block $inner
+        #|        (br_if $inner (local.get 0))
+        #|        (br $outer))
+        #|      (return (i32.const 1)))
+        #|    (i32.const 2)))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected conditional block flow preservation, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+  assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "precompute folds a block-local read after preserving its constant write" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i64) (local i64) (block (result i64) (local.set 0 (i64.const 42)) (local.get 0))))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected block-local constant fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("I64(42)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+}
+
+///|
 test "precompute folds loop-carried constant breaks to the enclosing result" {
   let optimized = match
     pass_test_run_pipeline(
@@ -213,6 +297,49 @@ test "precompute folds loop-carried constant breaks to the enclosing result" {
     ) {
     Ok(mod_) => mod_
     Err(err) => fail("expected loop break result fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("loop"), msg=pretty)
+  assert_false(pretty.contains("br ("), msg=pretty)
+}
+
+///|
+test "precompute preserves label depth while folding a constant if with an escaping value" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    (block $out (result i32)
+        #|      (i32.add
+        #|        (if (result i32) (i32.const 1)
+        #|          (then (br $out (i32.const 7)))
+        #|          (else (i32.const 8)))
+        #|        (i32.const 9)))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected escaping constant-if fold, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_false(pretty.contains("if "), msg=pretty)
+  assert_false(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "precompute folds loop-carried constant breaks before an unreachable tail" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result i32) (loop (br 1 (i32.const 1))) (unreachable))))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected loop break with unreachable tail fold, got \{err}")
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("I32(1)"), msg=pretty)

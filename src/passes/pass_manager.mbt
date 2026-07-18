@@ -35114,7 +35114,8 @@ fn run_hot_pipeline_raw_precompute(
   match precompute_run_raw_func(original, module_ctx) {
     Some((rewritten, changed, reason)) =>
       if o4z_precompute_gate {
-        if changed && reason == "raw-scalar-folds" {
+        if changed &&
+          (reason == "raw-scalar-folds" || reason == "raw-control-flow-folds") {
           Some({
             reason,
             func: rewritten,
