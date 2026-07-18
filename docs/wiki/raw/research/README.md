@@ -1,39 +1,51 @@
-# Research Archive
+# Numbered Research Workspace
 
-This directory holds repo-authored numbered investigations that are no longer kept in `docs/`. New research notes use the next unused zero-padded serial after scanning `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/`; historical duplicate serial prefixes are stable provenance and must not be reused for new files.
+Current status: **empty of numbered research notes as of 2026-07-18**. The 1,757 investigations present at the start of the closeout were absorbed into living wiki pages and removed. [`../../research-archive-closeout.md`](../../research-archive-closeout.md) records the result and ownership policy. Exact deleted text remains available through git history.
 
-## When To Archive
+This directory remains the temporary workspace for substantial repo-authored investigations that need a numbered document while active. It is not a permanent agent-only archive.
 
-Move a numbered note here when its durable conclusions live in `docs/wiki/` or when it otherwise stops being the active normative contract. Keep active repo policy, schema, ADRs, and live handoffs in `docs/`; keep completed investigations, execution plans, source reconciliations, and debugging ledgers here.
+## Serial policy
 
-Treat archived research notes as source material, not the main living answer. A living wiki page should summarize the current contract and cite the archived note only for provenance, detailed evidence, or superseded history.
+New notes use `[serial]-[YYYY-MM-DD]-[kebab-title].md` with the next zero-padded serial after checking:
 
-## Move Checklist
+- active numbered documents in `docs/`, `docs/wiki/`, and this directory;
+- repository history for deleted or moved serials;
+- historical duplicate prefixes.
 
-- Keep the original numbered filename stable when moving a research note here, even if it uses a historical duplicate serial prefix.
-- Before moving, search `docs/`, `docs/wiki/`, `agent-todo.md`, and the current diff for references to the old path.
-- Repoint live references to the new `docs/wiki/raw/research/...` path so backlog notes, wiki sources, and catalog entries stay valid.
-- Rewrite internal links in the moved note so they still resolve from this directory. Source-code links usually need to move from `../src/...` to `../../../../src/...`; wiki-page links usually need to move from `./wiki/...` to `../../...`; same-directory research-note links should stay `./...` instead of escaping back through `docs/wiki/raw/research/...`.
-- If old audit-log entries intentionally keep the historical path, leave them unchanged; add a new `docs/wiki/log.md` entry for the archival move instead of rewriting history.
-- Do not leave a full duplicate copy in `docs/`. If an old public path must keep working for a short transition, replace it with a tiny forwarding stub and remove that stub once live references no longer need it.
-- When adding a fresh investigation directly to this archive, compute the next available serial from the union of `docs/`, `docs/wiki/`, and this directory; do not fill historical holes or reuse duplicate prefixes just because an old collision already exists.
-- Treat archived notes as committed sources: after archival, only edit them for redaction, format normalization, or link repair needed by the move.
+Deleted and historical serials remain reserved. Do not fill holes or reuse a number because this directory is empty.
 
-## Forwarding Stub Hygiene
+## Investigation lifecycle
 
-Forwarding stubs are transitional compatibility shims, not living documentation. They are allowed only when an older public path is still useful for repo-local tests, historical references, or external links that cannot be repointed in the same change. A valid stub should be tiny: title, archived raw-note link, living wiki-page link, and a warning not to add new references there.
+1. Start a numbered note here only when the work is substantial enough to need an investigation, audit, benchmark ledger, or execution plan outside an existing living page.
+2. Link the active note from the relevant backlog, tracker, or living dossier while the investigation is in progress.
+3. Keep direct source, test, command, uncertainty, contradiction, and supersession evidence in the active note.
+4. As conclusions stabilize, update the maintained `docs/wiki/` owner pages instead of growing a permanent per-probe ladder.
+5. At closeout, repoint live references, verify the living owner contains the durable contract and reopening criteria, then delete the numbered note in the same change.
+6. Use git history when exact old text is needed. Recheck that text against current source before restoring any conclusion.
 
-Current intentional stubs in `docs/`:
+Do not keep a completed note merely as a citation target. Prefer living owner pages, repository source/tests, and retained primary-source captures under sibling `docs/wiki/raw/` directories.
 
-| Legacy path | Archived note | Living page | Current reason to keep |
-| --- | --- | --- | --- |
-| [`../../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../0063-2026-03-24-pass-port-batches-and-registry-map.md) | [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](0063-2026-03-24-pass-port-batches-and-registry-map.md) | [`../../ir2/registry-map.md`](../../ir2/registry-map.md), [`../../ir2/execution-plan.md`](../../ir2/execution-plan.md) | Legacy compatibility for old pass-port links; living wiki and pass dossiers should cite the archive or IR2 pages instead. |
-| [`../../../0064-2026-03-24-ir2-test-matrix.md`](../../../0064-2026-03-24-ir2-test-matrix.md) | [`0064-2026-03-24-ir2-test-matrix.md`](0064-2026-03-24-ir2-test-matrix.md) | [`../../ir2/test-matrix.md`](../../ir2/test-matrix.md) | Legacy compatibility; new references should use the living test matrix. |
-| [`../../../0065-2026-03-24-ir2-execution-plan.md`](../../../0065-2026-03-24-ir2-execution-plan.md) | [`0065-2026-03-24-ir2-execution-plan.md`](0065-2026-03-24-ir2-execution-plan.md) | [`../../ir2/execution-plan.md`](../../ir2/execution-plan.md) | Legacy compatibility plus repo test coverage that still checks the old handoff path exists. |
-| [`../../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) | [`0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) | [`../../validate/fuzz-hardening.md`](../../validate/fuzz-hardening.md) | Legacy compatibility; new references should use the living validator-fuzz hardening page. |
+## Closeout checklist
 
-Health-check rules:
+- Durable conclusions, measurements, caveats, and reopening criteria are present in maintained wiki pages.
+- The wiki index, tracker/backlog, and log route readers to those owners.
+- All `raw/research/<numbered-note>` links, source entries, comments, fixtures, and machine-readable evidence paths are repointed.
+- No deleted numbered filename remains as a live raw-note citation.
+- Frontmatter is valid and every `sources:` list remains nonempty.
+- Newly introduced relative links resolve.
+- The numbered note is deleted; git history preserves exact provenance.
 
-- Search for each legacy `docs/[serial]-...` path during wiki-health runs. New matches outside stubs, old log entries, or explicit compatibility tests should be repointed to the archive or living page.
-- Remove a stub only after repo-local tests and live references no longer require it. When removing one, update this table, [`../../index.md`](../../index.md), and [`../../log.md`](../../log.md) in the same change.
-- Do not create a stub for every moved note by default. Prefer direct repointing; use a stub only when compatibility has a concrete owner.
+## Forwarding stub hygiene
+
+Forwarding stubs under `docs/` are transitional compatibility shims, not research archives or living documentation. A valid stub should be tiny: title, living wiki-page link, and a warning not to add new references there. It must not link to a deleted numbered note.
+
+Current intentional stubs:
+
+| Legacy path | Living page | Current reason to keep |
+| --- | --- | --- |
+| [`../../../0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../0063-2026-03-24-pass-port-batches-and-registry-map.md) | [`../../ir2/registry-map.md`](../../ir2/registry-map.md), [`../../ir2/execution-plan.md`](../../ir2/execution-plan.md) | Compatibility for old pass-port links. |
+| [`../../../0064-2026-03-24-ir2-test-matrix.md`](../../../0064-2026-03-24-ir2-test-matrix.md) | [`../../ir2/test-matrix.md`](../../ir2/test-matrix.md) | Compatibility for the old test-matrix path. |
+| [`../../../0065-2026-03-24-ir2-execution-plan.md`](../../../0065-2026-03-24-ir2-execution-plan.md) | [`../../ir2/execution-plan.md`](../../ir2/execution-plan.md) | Compatibility plus repo tests that still check the old handoff path. |
+| [`../../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../../../0089-2026-04-15-fuzz-stack-hardening-execution-plan.md) | [`../../validate/fuzz-hardening.md`](../../validate/fuzz-hardening.md) | Compatibility for the old validator-fuzz plan path. |
+
+Remove a stub only after repo-local tests and live references no longer require it. Update this table, [`../../index.md`](../../index.md), and [`../../log.md`](../../log.md) in the same change.

@@ -18,7 +18,7 @@ Read the relevant sources before substantial pass work:
 - `docs/wiki/ir2/pass-porting-checklist.md` for the living IR2 pass-author contract.
 - `docs/0062-2026-03-24-pass-porting-checklist.md` for the numbered source behind the checklist when needed.
 - `agent-todo.md` for active pass blockers, exact slices, known failures, behavior-parity inventory links, and artifact status.
-- `docs/wiki/raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md` when deciding whether a previously audited/removed pass can stay closed under the behavior-parity standard.
+- `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` when deciding whether a previously audited/removed pass can stay closed under the behavior-parity standard.
 - `src/passes/pass_common.mbt` for shared analysis, mutation, and verification helpers.
 - `src/passes/pass_test_helpers.mbt` for WAT fixture and public-pipeline test helpers.
 - `src/passes/optimize.mbt` for registry entries, pass categories, and preset expansion.

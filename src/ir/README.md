@@ -24,7 +24,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - Canonical IR2 handoff plan: [`docs/wiki/ir2/execution-plan.md`](../../docs/wiki/ir2/execution-plan.md)
 - Pass-port checklist and registry map: [`docs/wiki/ir2/pass-porting-checklist.md`](../../docs/wiki/ir2/pass-porting-checklist.md), [`docs/wiki/ir2/registry-map.md`](../../docs/wiki/ir2/registry-map.md)
 - Shared IR2 test matrix: [`docs/wiki/ir2/test-matrix.md`](../../docs/wiki/ir2/test-matrix.md)
-- Archived March source notes remain under [`docs/wiki/raw/research/`](../../docs/wiki/raw/research/) and should be cited as provenance rather than as the freshest navigation surface.
+- The March source notes were absorbed into the living IR2 pages and removed during the 2026-07-18 research closeout. Use those living pages as the navigation surface; consult git history only when the exact old investigation text is required.
 
 ## Module Map
 

@@ -1,18 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
-  - ../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
-  - ../raw/research/0065-2026-03-24-ir2-execution-plan.md
-  - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../binaryen/passes/reorder-locals/index.md
+  - ./registry-map.md
   - ../../../src/ir/README.md
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/registry_test.mbt
   - ../../../src/passes/optimize_test.mbt
 related:
   - ./architecture-rules.md
+  - ./local-ssa-policy.md
   - ./registry-map.md
   - ./pass-porting-checklist.md
   - ./test-matrix.md
@@ -64,8 +63,8 @@ reorder-globals -> directize -> strip-debug
 
 Slot caveats:
 
-- The aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude is scheduled immediately after `ssa-nomerge` in both presets. The measured `1,140 us` flatten cost is accepted under a pass-specific timing exception; see [`../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
-- `reorder-locals` now uses the public three-slot Binaryen-shaped cleanup schedule: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. [`../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) is the current reconciliation source for that live policy.
+- The aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` prelude is scheduled immediately after `ssa-nomerge` in both presets. The measured `1,140 us` flatten cost is accepted under a pass-specific timing exception; see [research note 1570](../binaryen/passes/flatten/index.md).
+- `reorder-locals` now uses the public three-slot Binaryen-shaped cleanup schedule: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. [research note 1561](../binaryen/passes/reorder-locals/index.md) is the current reconciliation source for that live policy.
 - `optimize` and `shrink` should stay identical until a tested size-specific divergence lands.
 - The current shared late tail is `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`; this is registry- and slot-tested and should not be shortened in docs when summarizing the live preset.
 
@@ -116,9 +115,9 @@ Boundary-only families, such as closed-world type/signature passes, ABI/lowering
 
 ## Sources
 
-- Reorder-locals preset-scheduling reconciliation: [`../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
-- Numbered handoff doc: [`../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../raw/research/0065-2026-03-24-ir2-execution-plan.md)
-- Registry map: [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Reorder-locals preset-scheduling reconciliation: [research note 0709](../binaryen/passes/reorder-locals/index.md)
+- Numbered handoff doc: research note 0065
+- Registry map: [research note 0063](./registry-map.md)
 - Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
 - Live registry: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Registry and preset coverage: [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt), [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)

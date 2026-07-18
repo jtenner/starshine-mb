@@ -38,7 +38,7 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 - Cite supporting numbered docs, raw sources, tests, or source files.
 - Record uncertainty, contradictions, and supersession explicitly; do not silently overwrite stale claims.
 - Treat completed debugging, research, and design threads as sources; file durable conclusions back into the wiki.
-- Once a research note in `docs/` has been fully absorbed and is no longer the active normative contract, move it to `docs/wiki/raw/research/` and repoint live references.
+- Use `docs/wiki/raw/research/` only as a temporary numbered-investigation workspace. Once a note is fully absorbed and no longer normative, repoint live references, delete the note, and rely on git history for exact provenance.
 - Never commit secrets, credentials, tokens, or other private material into `docs/wiki/` or `docs/wiki/raw/`.
 
 #### Working On Passes
@@ -81,8 +81,8 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 
 #### Research, Backlog, And MoonBit Style
 
-- Research docs use the next zero-padded serial with commit date and short kebab title after scanning `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` for overlaps.
-- Substantial investigations belong in `docs/wiki/raw/research/`; keep durable conclusions live in `docs/wiki/` when they should remain reusable.
+- Research docs use the next zero-padded serial with commit date and short kebab title after scanning `docs/`, `docs/wiki/`, `docs/wiki/raw/research/`, and git history for overlaps; deleted serials remain reserved.
+- Substantial investigations may begin in `docs/wiki/raw/research/`, but durable conclusions belong in `docs/wiki/`; absorb and delete completed notes promptly instead of retaining a permanent agent-only archive.
 - Keep `agent-todo.md` grouped by release target and IR2 slice id, with only active unreleased work plus goal, why, deliverables, tasks, required APIs, invariants, dependencies, exit criteria, and suggested tests.
 - Keep release blockers and known test failures visible until resolved.
 - MoonBit style: use block-structured `///|`, prefer constructor methods over open-struct literals, and keep deprecated behavior in `deprecated.mbt` with `#deprecated`.
@@ -119,7 +119,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 
 - The wiki exists to accumulate durable WebAssembly knowledge for this repo: spec semantics, Binaryen parity findings, Starshine invariants, pass behavior, debugging lessons, tooling quirks, and decision history.
 - Keep `docs/` for normative docs only: schema, policies, ADRs, and active handoff docs.
-- Use numbered `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md` files for one-off research, plans, audits, and benchmarks.
+- Use numbered `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md` files as temporary work products for substantial one-off research, plans, audits, and benchmarks; absorb stable conclusions into living pages and delete the numbered note afterward.
 - Use `docs/wiki/` for living pages that should be updated over time instead of replaced.
 
 ### Architecture
@@ -127,7 +127,7 @@ Use this section for lower-frequency details that help humans and agents orient 
 Keep three layers in the wiki architecture:
 
 - Raw sources: immutable inputs captured under `docs/wiki/raw/` when they belong in the repo.
-- Research archive: repo-authored numbered investigations under `docs/wiki/raw/research/`.
+- Research workspace: temporary repo-authored numbered investigations under `docs/wiki/raw/research/`; completed notes are absorbed into living pages and removed, with git preserving exact history.
 - Wiki pages: maintained markdown under `docs/wiki/`.
 - Schema: this file, which defines layout, workflows, and quality standards.
 - Treat raw sources as read-only after capture except for redaction or format normalization needed to remove sensitive data.
@@ -158,8 +158,8 @@ Keep three layers in the wiki architecture:
 - Add or refresh the relevant entry in `docs/wiki/index.md`.
 - Append a dated entry to `docs/wiki/log.md`.
 - If the source changes an existing belief, mark the previous claim stale or superseded instead of silently overwriting history.
-- If an old numbered doc in `docs/` has become absorbed research rather than active policy or handoff material, move it into `docs/wiki/raw/research/` in the same change.
-- Prefer direct reference repointing over forwarding stubs. A tiny `docs/` forwarding stub is allowed only for a concrete compatibility reason, must link both the archived raw note and the living wiki page, and must be tracked in `docs/wiki/raw/research/README.md` until removal.
+- If an old numbered doc in `docs/` has become completed research rather than active policy or handoff material, move its durable conclusions into the living wiki and delete the numbered note; use `docs/wiki/raw/research/` only while additional investigation is still active.
+- Prefer direct reference repointing over forwarding stubs. A tiny `docs/` forwarding stub is allowed only for a concrete compatibility reason, must link the living wiki page without pointing at a deleted note, and must be tracked in `docs/wiki/raw/research/README.md` until removal.
 
 ### Query Rules
 
@@ -229,7 +229,7 @@ Keep three layers in the wiki architecture:
 
 - Completed research, debugging, or design threads are sources too.
 - Distill them into durable digests that capture the question, findings, files involved, lessons learned, and follow-up questions.
-- Use numbered `docs/wiki/raw/research/` docs when the output is a substantial investigation; use `docs/wiki/` when the result is a living concept or decision page.
+- Use numbered `docs/wiki/raw/research/` docs while a substantial investigation is active; use `docs/wiki/` for its durable concept or decision, then delete the absorbed numbered note.
 
 ### Wasm-Specific Priorities
 

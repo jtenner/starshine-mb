@@ -28,7 +28,7 @@
 - Cite supporting numbered docs, raw sources, tests, or source files.
 - Record uncertainty, contradictions, and supersession explicitly; do not silently overwrite stale claims.
 - Treat completed debugging, research, and design threads as sources; file durable conclusions back into the wiki.
-- Once a research note in `docs/` has been fully absorbed and is no longer the active normative contract, move it to `docs/wiki/raw/research/` and repoint live references.
+- Use `docs/wiki/raw/research/` only as a temporary numbered-investigation workspace. Once a note is fully absorbed and no longer normative, repoint live references, delete the note, and rely on git history for exact provenance.
 - Never commit secrets, credentials, tokens, or other private material into `docs/wiki/` or `docs/wiki/raw/`.
 
 ## Working On Passes
@@ -71,8 +71,8 @@
 
 ## Research, Backlog, And MoonBit Style
 
-- Research docs use the next zero-padded serial with commit date and short kebab title after scanning `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` for overlaps.
-- Substantial investigations belong in `docs/wiki/raw/research/`; keep durable conclusions live in `docs/wiki/` when they should remain reusable.
+- Research docs use the next zero-padded serial with commit date and short kebab title after scanning `docs/`, `docs/wiki/`, `docs/wiki/raw/research/`, and git history for overlaps; deleted serials remain reserved.
+- Substantial investigations may begin in `docs/wiki/raw/research/`, but durable conclusions belong in `docs/wiki/`; absorb and delete completed notes promptly instead of retaining a permanent agent-only archive.
 - Keep `agent-todo.md` grouped by release target and IR2 slice id, with only active unreleased work plus goal, why, deliverables, tasks, required APIs, invariants, dependencies, exit criteria, and suggested tests.
 - Keep release blockers and known test failures visible until resolved.
 - MoonBit style: use block-structured `///|`, prefer constructor methods over open-struct literals, and keep deprecated behavior in `deprecated.mbt` with `#deprecated`.
