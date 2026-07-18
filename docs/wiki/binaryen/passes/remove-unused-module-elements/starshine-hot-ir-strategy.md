@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
@@ -164,7 +164,7 @@ The extraction helper is not the public pass itself, but it matters for maintain
 ## Current local boundaries
 
 - this is a direct module rewrite, not a lifted per-function HOT pass
-- Binaryen's default current-main owner preserves mutable indirect-call table elements when removing one could change a wrong-type trap into a null-entry trap. Starshine is conservatively aligned by retaining every active elem on a used table, but it has no `trapsNeverHappen` policy or focused wrong-type-trap fixture; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+- Binaryen v131 preserves table-default and overlapping element writes when removing them could expose a callable value and eliminate an indirect-call trap. Starshine is conservative by retaining every active elem on a used table, but it has no `trapsNeverHappen` policy or focused default/overlap trap fixtures; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 - any future HOT-IR-adjacent work would still need a module reconciliation phase at the end
 - the boundary-only sibling `remove-unused-non-function-elements` is **not** the same thing as the active implemented pass; keep that split explicit in docs
 

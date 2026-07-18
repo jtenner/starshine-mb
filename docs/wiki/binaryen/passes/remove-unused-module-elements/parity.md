@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
@@ -58,10 +59,14 @@ related:
 - Debug-artifact pass-local timing: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements --timing-only --out-dir .tmp/rume-debug-artifact-timing-declonly` reported canonical wasm equality, Starshine pass runtime `25.198 ms`, Binaryen pass runtime `38.936 ms`, and no raw skip.
 - The prior 2026-05-06 revalidation remains useful historical evidence; see [`../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md`](../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md).
 
-## Remaining Gap
+## Binaryen v131 gap
 
-- The remaining post-fix compare noise is not currently a known RUME semantic mismatch.
-- The current-main source recheck surfaced a test gap, not a claimed mismatch: Starshine has no focused wrong-type `call_indirect` trap fixture. Its table-to-active-elem retention is conservative for default semantics, but it is broader than Binaryen's trap-sensitive policy and has no `trapsNeverHappen` mode. Treat this as an unmeasured output-shape/coverage boundary until a fixture and parity measurement exist; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+V131 adds table-initial-value roots plus overlap/null/wrong-type segment retention needed to preserve indirect-call traps. Starshine's prior direct fixtures and compare lanes do not establish those families. `[V131-RUME]001` reopens direct RUME and its ordered neighborhoods.
+
+## Historical remaining gap
+
+- The remaining post-fix v130 compare noise was not a known RUME semantic mismatch.
+- V131 turns the former test gap into a released parity obligation: Starshine needs focused table-default callable-root, wrong-type/default trap, null/overlap, and `trapsNeverHappen`-policy boundary fixtures. Its retain-all-active-elems rule is conservative under default semantics but broader than Binaryen and does not prove v131 output parity; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 - The saved backlog classifies the remaining failures as parser-compatibility and decoder or validator coverage work outside the pass's intended semantics.
 - Historical direct-smoke evidence from `2026-04-11` still matters: `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --count 200 --seed 0x5eed ...` reported `199 / 200` compared, `199` normalized matches, `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`), and `0` mismatches.
 - The later RUME blocker record is stronger and more specific after the semantic cleanup: `.tmp/pass-fuzz-rume-live-nullfuncref-rerun` reached `165 / 165` comparable `wasm-smith` cases with `0` mismatches before the `20` command-failure cutoff.
@@ -74,7 +79,7 @@ related:
 
 ## Practical Rule
 
-- Treat current RUME work as maintenance and coverage-hardening, not as an unresolved core semantic port.
+- Treat the v130 core as implemented, but treat v131 table-initial-value and overlap/trap behavior as active parity work rather than coverage-only maintenance.
 - If a new mismatch appears, debug it as either:
   - liveness decision drift
   - imported-parent retention drift
@@ -86,4 +91,4 @@ related:
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
 - Implementation: [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - Focused tests: [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)
-- Current-main trap-policy source: [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp)
+- V131 trap-policy source: [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp)

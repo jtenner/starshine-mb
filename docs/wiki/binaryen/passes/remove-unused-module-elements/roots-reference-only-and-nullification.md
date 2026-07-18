@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/element-utils.h
@@ -85,7 +87,7 @@ The pass first asks whether the segment is meaningfully doing anything.
 ### Active elem parent retention
 
 A parent table can be kept alive by an active elem segment when the elem payload still matters.
-But a null-only active elem payload can become a no-op and stop retaining the table.
+A null-only active elem payload can become a no-op only when removing its write cannot expose a callable table default or earlier overlapping value and eliminate a trap. V131 keeps the write conservatively when those table semantics are possible.
 
 ### Active data parent retention
 
@@ -94,11 +96,11 @@ But zero-byte active data can become a no-op and stop retaining the memory.
 
 That is why the pass is more precise than “active segment mentions parent, so parent is live.”
 
-## `call_indirect` can retain a table initializer to preserve a trap
+## `call_indirect` can retain table writes to preserve a trap
 
-There is one different reason an otherwise uninteresting active element can survive: a mutable table used by `call_indirect` may have a non-null entry whose function type is wrong for the call. Deleting that initializer can turn a wrong-type trap into a null-entry trap.
+V131 treats a table-level `ref.func` initializer as a possible callee. An active element that overwrites that compatible default with null or a wrong-type function may be needed solely because deleting the write would expose the default and make a previously trapping `call_indirect` succeed. Possibly overlapping segments get the same conservative treatment because a later write may trample an earlier callable value.
 
-Binaryen's default RUME policy preserves this distinction. Only `trapsNeverHappen` is allowed to opt into the more aggressive outcome. Do not collapse this rule into either strong direct-call liveness or reference-only reachability; it is a trap-semantics constraint. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+Binaryen does not require preservation of the *kind* of trap: if removing a wrong-type write only changes the failure to a null-entry trap, pruning can still be legal. The important invariant is that default-mode cleanup must not eliminate a trap. `trapsNeverHappen` is allowed to opt into the more aggressive outcome. Do not collapse this rule into either strong direct-call liveness or reference-only reachability; it is a trap-semantics constraint. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
 ## Why `call_ref` matters so much here
 
@@ -182,9 +184,9 @@ It also follows flat tables, elem contents, and heap-type structure.
 
 For non-function elements, reference-only can instead mean nullify or otherwise weaken.
 
-### Mistake 5: treating wrong-type and null indirect-call entries as equivalent traps
+### Mistake 5: preserving trap kind instead of trap existence
 
-They are different observable table states. Default cleanup must preserve the distinction unless a documented traps-never-happen policy says otherwise.
+Binaryen can replace a wrong-type trap with a null-entry trap when no successful call becomes reachable. The default-mode obligation is to avoid eliminating the trap by exposing a compatible table default or earlier overlapping write; `trapsNeverHappen` relaxes that obligation.
 
 ## Bottom line
 

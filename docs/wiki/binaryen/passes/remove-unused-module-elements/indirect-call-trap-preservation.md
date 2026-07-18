@@ -1,9 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-closed-tnh.wast
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
 related:
@@ -16,18 +19,13 @@ related:
   - ./parity.md
 ---
 
-# RUME, `call_indirect`, and wrong-type trap preservation
+# RUME, table defaults, overlaps, and `call_indirect` traps
 
 ## The short rule
 
-A module cleanup pass must not remove a table initializer merely because no direct call names its function. A later `call_indirect` can observe whether the selected table entry is:
+Binaryen v131 asks whether removing an element write can change a trapping `call_indirect` into a successful call. A table-level `ref.func` initializer is a possible callee. If an element segment overwrites that default with null or a wrong-type function, the write may be needed solely to preserve the trap. Likewise, overlapping segments can overwrite a callable value with null or a wrong-type value.
 
-1. null, which traps because there is no function; or
-2. non-null but has the wrong function type, which traps for a different reason.
-
-Binaryen RUME preserves that distinction by retaining relevant active element segments for a mutable indirect-call table unless the optimizer is explicitly allowed to disregard traps with `trapsNeverHappen`.
-
-This is a **trap-preservation** rule, not an assertion that every table entry is an ordinary call-graph root.
+This is a **trap-preservation** rule, not an assertion that every written function is callable. If removing a wrong-type write merely changes the trap to a null-entry trap because no callable default exists, Binaryen may still prune it. `trapsNeverHappen` is the explicit mode that permits more aggressive removal of trap-only writes.
 
 ## A concrete shape
 
@@ -35,7 +33,8 @@ This is a **trap-preservation** rule, not an assertion that every table entry is
 (module
   (type $want (func (result i32)))
   (type $other (func (result i64)))
-  (table $t 1 funcref)
+  (table $t 1 funcref (ref.func $ok))
+  (func $ok (type $want) (i32.const 1))
   (func $wrong (type $other) (i64.const 7))
   (elem (table $t) (i32.const 0) func $wrong)
   (func (export "run") (result i32)
@@ -44,9 +43,9 @@ This is a **trap-preservation** rule, not an assertion that every table entry is
 )
 ```
 
-At index `0`, `$wrong` is non-null but incompatible with `$want`. Removing the active element would make the entry null instead. Both executions trap, but they are not the same table state and optimizers must not generally replace one observable trap condition with another.
+At index `0`, `$wrong` overwrites the compatible table default `$ok`. The original call traps on the wrong type. Removing the active element would expose `$ok` and make the call succeed, so default v131 RUME must retain the segment. Without the callable default, replacing the wrong-type entry with null would still trap and can be legal under Binaryen's trap model.
 
-Binaryen's current owner therefore treats a mutable indirect-call table specially when traps matter. The `trapsNeverHappen` mode is the explicit opt-in boundary that can allow a more aggressive cleanup result.
+V131 also conservatively retains all active segments for a table when their spans may overlap and traps matter, because a later null or wrong-type write may be the only reason an indirect call traps. The `trapsNeverHappen` mode is the explicit opt-in boundary for more aggressive cleanup.
 
 ## What this does and does not keep
 
@@ -75,12 +74,12 @@ The focused local suite covers active-element keep/drop and imported-parent rete
 
 - **not a known semantic mismatch:** the current local table policy is conservative for this shape;
 - **not a parity win claim:** no size or pass-local measurement proves that the coarser local policy is better;
-- **open coverage/output-shape boundary:** add direct wrong-type-versus-null indirect-call fixtures before making table-retention cleanup more aggressive or adding a traps-never-happen mode.
+- **open coverage/output-shape boundary:** add direct compatible-default-overwritten-by-wrong-type/null plus overlapping-segment fixtures before making table-retention cleanup more aggressive or adding a traps-never-happen mode.
 
 A future fixture should assert both that the module validates after RUME and that the element/function needed to preserve the wrong-type table state remains present under default semantics. If a traps-never-happen mode is added, it needs a separately documented policy and must not reuse default-mode parity evidence.
 
 ## Sources
 
-- Binaryen [current-main `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp) and [all-features fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/remove-unused-module-elements_all-features.wast)
+- Binaryen v131 [`RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp), [`remove-unused-module-elements-tables-init.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast), and [`remove-unused-module-elements-closed-tnh.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-closed-tnh.wast)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)

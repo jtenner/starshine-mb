@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
@@ -25,9 +27,9 @@ related:
 - Active element segments can keep imported tables alive.
 - Active data segments can keep imported memories alive.
 - Zero-byte active data should not keep a memory alive by itself.
-- Effect-free null-only active elem initializers should not keep an imported table alive by themselves.
+- Null-only active elem writes can be removed only when doing so cannot expose a callable default or earlier overlapping value and eliminate a trap; imported-table defaults remain unknown.
 - A live `ref.func` still needs a declaration source after function compaction; declaration-only active elem segments whose parent table is otherwise dead should be rewritten to declarative elems instead of retaining the dead table.
-- A used `call_indirect` / `return_call_indirect` table conservatively retains every mapped active elem in the current local liveness walk. This preserves the default wrong-type-versus-null trap distinction, but is broader than Binaryen's explicit trap-sensitive policy and has no local `trapsNeverHappen` mode; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+- A used `call_indirect` / `return_call_indirect` table conservatively retains every mapped active elem in the current local liveness walk. This preserves v131 default/overlap trap semantics, but is broader than Binaryen's precise policy and has no local `trapsNeverHappen` mode; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
 ## Current In-Tree Rewrite Surface
 
@@ -66,4 +68,4 @@ related:
 
 - For RUME, an apparently small liveness bug usually becomes a larger rewrite bug if remaps are incomplete.
 - When adding or debugging coverage, pair every "drop or keep" fixture with at least one assertion about the surviving rewritten indices.
-- For table cleanup, also state whether an indirect call can observe a wrong-type non-null entry versus a null entry; do not treat two trapping outcomes as automatically interchangeable.
+- For table cleanup, state whether removing a default or overlapping write can expose a callable value and eliminate an indirect-call trap. Binaryen may change one trap kind into another; it may not silently remove the trap under default semantics.
