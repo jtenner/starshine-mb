@@ -14681,6 +14681,38 @@ test "raw vacuum preclean collapses constant void if after debris cleanup" {
 }
 
 ///|
+test "vacuum local-tee admission memoizes shared expression DAG" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let mut shared = @ir.hot_build_const_i32(func, @lib.I32(1))
+  for _depth = 0; _depth < 24; _depth = _depth + 1 {
+    shared = @ir.hot_build_binary(func, @lib.ValType::i32(), shared, shared)
+  }
+  @ir.hot_root_append(func, shared)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_local_tee(func, 0, @ir.hot_build_const_i32(func, @lib.I32(2))),
+  )
+
+  let seen = Array::make(@ir.hot_node_count(func), false)
+  assert_true(
+    hot_pass_vacuum_region_contains_local_tee_memoized(
+      func,
+      @ir.HotRegionRef::root(),
+      seen,
+    ),
+  )
+  let mut visited_nodes = 0
+  for was_seen in seen {
+    if was_seen {
+      visited_nodes += 1
+    }
+  }
+  @debug.assert_eq(visited_nodes, 26)
+}
+
+///|
 test "raw vacuum preclean collapses constant void if with nested block-local branch" {
   let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
     [

@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
+  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ./index.md
   - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/pass_manager.mbt
@@ -57,6 +59,8 @@ The rewrite logic is currently centered on two HOT helpers in `src/passes/pass_m
 
 - `hot_pass_vacuum_remove_local_only_void_body(ctx, func)`, which can canonicalize an otherwise side-effect-free/local-only void function body to Binaryen's single `nop` body when the body contains local-only tee/write/control debris and no calls, memory/table mutation, throwing/trapping operations, or externally observable state changes
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`, which handles the ordinary recursive region cleanup
+
+The local-only-body admission path first asks whether any `local.tee` is reachable. Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) found that this existence query recursively revisited shared HOT expression children and became exponential on current-artifact Func `151` despite the function containing only `179` HOT nodes. The query now threads one node-count-sized `seen` bitmap through child and control-region recursion. This changes only traversal complexity: invalid/deleted/revisited nodes contribute no new evidence, every transform/effect/trap/branch/writeback rule is unchanged, extracted output is byte-identical, and full direct vacuum now completes in `4.092s` instead of timing out after `600s`.
 
 The recursive region helper walks a region root list and now handles these cleanup families:
 

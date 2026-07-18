@@ -678,33 +678,42 @@ fn hot_pass_vacuum_can_remove_local_only_region(
 }
 
 ///|
-fn hot_pass_vacuum_node_contains_local_tee(
+fn hot_pass_vacuum_node_contains_local_tee_memoized(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  seen : Array[Bool],
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if node_id < 0 ||
+    node_id >= seen.length() ||
+    seen[node_id] ||
+    !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  seen[node_id] = true
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalTee => return true
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
-      if hot_pass_vacuum_region_contains_local_tee(
+      if hot_pass_vacuum_region_contains_local_tee_memoized(
           func,
           @ir.hot_region_body_ref(func, node_id),
+          seen,
         ) {
         return true
       }
     @ir.HotOp::If => {
-      if hot_pass_vacuum_region_contains_local_tee(
+      if hot_pass_vacuum_region_contains_local_tee_memoized(
           func,
           @ir.hot_region_then_ref(func, node_id),
+          seen,
         ) {
         return true
       }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) =>
-          if hot_pass_vacuum_region_contains_local_tee(func, else_ref) {
+          if hot_pass_vacuum_region_contains_local_tee_memoized(
+              func, else_ref, seen,
+            ) {
             return true
           }
         None => ()
@@ -713,9 +722,28 @@ fn hot_pass_vacuum_node_contains_local_tee(
     _ => ()
   }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if hot_pass_vacuum_node_contains_local_tee(
+    if hot_pass_vacuum_node_contains_local_tee_memoized(
         func,
         @ir.hot_child_get(func, node_id, slot),
+        seen,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_pass_vacuum_region_contains_local_tee_memoized(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  seen : Array[Bool],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if hot_pass_vacuum_node_contains_local_tee_memoized(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        seen,
       ) {
       return true
     }
@@ -728,15 +756,11 @@ fn hot_pass_vacuum_region_contains_local_tee(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if hot_pass_vacuum_node_contains_local_tee(
-        func,
-        @ir.hot_region_get(func, region_ref, idx),
-      ) {
-      return true
-    }
-  }
-  false
+  hot_pass_vacuum_region_contains_local_tee_memoized(
+    func,
+    region_ref,
+    Array::make(@ir.hot_node_count(func), false),
+  )
 }
 
 ///|

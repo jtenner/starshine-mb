@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
+  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -72,6 +74,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - flipping empty-then/live-else void `if`s to Binaryen's one-armed double-`eqz` form
   - raw large-function precleaning for cheap pure `const`/`drop` and `nop` debris inside lowered structured bodies
   - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
+- Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) closed a newly proven current-artifact wall-time owner without changing those transforms. The local-only-body `local.tee` admission query now visits each HOT DAG node at most once. Extracted Func `151` fell from `38.845s` to `0.674s` with byte-identical valid output; whole-artifact direct vacuum fell from a `600s` timeout to `4.092s`, and public optimize/shrink then advanced into HSO.
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
   - that change is already present in Binaryen `version_129`
@@ -108,8 +111,8 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
-- Treat the current direct-pass and checked ordered-neighborhood audit as closed for v0.1.0: the direct `100000` regular GenValid lane is green, the explicit wasm-smith lane is classified, the broad random-all-profiles lane is green, and the reconstructed checked slot23 replay reached normalized WAT equality plus canonical function compare equality on 2026-07-04.
-- Treat the direct `version_129` source/test URLs, retained research, and refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
+- Treat the recorded count-100000 regular GenValid, classified wasm-smith, broad random-all-profiles, and 2026-07-04 slot23 equality results as historical closeout evidence for their recorded generator/oracle state. The 2026-07-18 current harness exposed pre-existing regular constant-div/rem-drop and dedicated wrapper parity gaps; note `1649` proved the DAG-admission performance fix did not change any of the `115` observed Starshine outputs, but a future behavior slice must reconcile the current corpus before claiming a fresh full green direct closeout.
+- Treat the raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change

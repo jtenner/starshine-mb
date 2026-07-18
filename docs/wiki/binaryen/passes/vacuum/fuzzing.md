@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
@@ -11,7 +12,9 @@ sources:
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass.
 
-For the current v0.1.0 direct-pass audit, the required closeout lanes are already in place: regular GenValid is green at `100000/100000`, explicit wasm-smith is classified with one inspected non-pass Binaryen materialization / Starshine-size-win residual plus `44` Binaryen/tool failures, the dedicated `vacuum` aggregate leaves are smoke-green, and broad random-all-profiles is green at `10000/10000`.
+The all-green statements below are historical results for their recorded generator/oracle state, not a claim that the 2026-07-18 current corpus is green. Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) records bounded current runs that stopped at the mismatch cap: regular compared `65` with `65` parity gaps, while the dedicated aggregate compared `386`, normalized `336`, and left `50` parity gaps; neither lane had validation/generator/property/command failures. A pre-change/final-binary replay proved all `115` observed Starshine raw outputs byte-identical, so the shared-DAG performance fix creates no new mismatch family, but fresh full green closeout remains open.
+
+For the recorded v0.1.0 direct-pass audit, the required historical closeout lanes are in place: regular GenValid was green at `100000/100000`, explicit wasm-smith was classified with one inspected non-pass Binaryen materialization / Starshine-size-win residual plus `44` Binaryen/tool failures, the dedicated `vacuum` aggregate leaves were smoke-green, and broad random-all-profiles was green at `10000/10000`.
 
 Reference command:
 
@@ -19,7 +22,11 @@ Reference command:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
 
-Latest direct closeout evidence:
+Latest current-artifact performance evidence:
+
+- 2026-07-18: the explicit native binary SHA-256 `9ec46fa0dc46b209478d71e2357ffeddbee180b05b1dcc8d92d2572a5f42c8c6` completes extracted Func `151` in `0.674s` and the full current artifact in `4.092s`; both outputs validate, the extracted output is byte-identical to the pre-fix output, and all `115` current bounded-compare mismatch inputs are byte-identical under pre-change and final Starshine binaries. See note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md).
+
+Latest historical direct closeout evidence:
 
 - 2026-06-29: `.tmp/pass-fuzz-vacuum-genvalid-100000-after-case003694-classification` ran `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum-genvalid-100000-after-case003694-classification --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` after `moon build --target native --release src/cmd` reported the current native binary was up to date. Result: compared `100000/100000`, normalized matches `100000`, cleanup-normalized `0`, mismatches `0`, validation/property/generator/command failures `0`, Binaryen cache `10332` hits / `89668` misses.
 - 2026-06-29: `.tmp/pass-fuzz-vacuum-audit-after-const-if-10000-current` used `_build/native/release/build/cmd/cmd.exe` after `moon build --target native --release src/cmd` because the stale `target/native/...` copy was not refreshed in this worktree. Command: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum-audit-after-const-if-10000-current --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures`. Result: compared `10000/10000`, normalized matches `10000`, mismatches `0`, validation failures `0`, property failures `0`, generator failures `0`, command failures `0`, Binaryen cache `1002` hits / `8998` misses. This supersedes the old 2026-06-05 timeout and verifies the constant-condition void-`if` cleanup parity fix.
