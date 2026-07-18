@@ -169,6 +169,18 @@ This file proves the multivalue and tuple-related cleanup families, including th
 
 The local direct-HOT regression suite formerly advanced multi-result selected-child support one arity at a time through results 15–27. Every Binaryen probe produced the same algorithmic shape: materialize the selected child through tuple scratch, store scalar lanes in stack-pop order, and reload the requested lane. The implementation now uses a generalized non-empty scalar-result predicate rather than an arity list. Maintain one low-arity structural test, one high-arity regression, and the explicit unsupported ownership/sibling boundaries; adding another per-arity research note is not useful evidence.
 
+### Consolidated pure-local descriptor-call proof matrix
+
+The former OI-J research ladder recorded 84 direct-call exact descriptor-miss pairs: every reference/descriptor argument-count pair in `1..9 × 1..9`, then `(10,10)`, `(10,9)`, and `(9,10)`. All probes established the same semantic algorithm, not 84 distinct transformations:
+
+1. evaluate the reference call's pure local arguments in source order;
+2. call the producer whose non-null result is a strict subtype of the cast target, then drop that result;
+3. evaluate the descriptor call's pure local arguments in source order;
+4. call the producer of an exact descriptor for the target, then drop that result;
+5. replace the impossible descriptor equality cast with `unreachable`.
+
+Current Starshine derives both argument counts from `RawOiDescriptorCallValueGraphFact` and checks them against the resolved function signatures in `RawOiDescriptorDirectCallMissFact`; it does not dispatch through an arity-pair table. Keep representative low, high, equal, and asymmetric tests. Treat non-local/trapping arguments, indirect or return calls, multivalue, control/EH, nullable null-only casts, descriptor tests, and descriptor branch forms as different proof families.
+
 ### `test/lit/passes/optimize-instructions_branch-hints-fold.wast`
 
 This file proves the branch-hint-aware arm-flip surface and helps keep the `eqz`/arm-swap behavior tied to an actual shipped test rather than only a source-reading claim.
