@@ -429,6 +429,12 @@ pub enum Instruction {
   RefIsNull
   RefFunc(Index)
   StringConst(Bytes)
+  StringMeasureWtf16
+  StringConcat
+  StringEq
+  StringAsWtf16
+  StringViewWtf16GetCodeunit
+  StringViewWtf16Slice
   StringNewUtf8Array
   StringNewWtf16Array
   StringEncodeUtf8Array
@@ -2288,6 +2294,12 @@ fn WastParser::parse_opcode_instruction(
       let text = self.expect(Text, "expected string.const literal")
       StringConst(self.decode_string(self.get_text(text)))
     }
+    StringMeasureWtf16 => StringMeasureWtf16
+    StringConcat => StringConcat
+    StringEq => StringEq
+    StringAsWtf16 => StringAsWtf16
+    StringViewWtf16GetCodeunit => StringViewWtf16GetCodeunit
+    StringViewWtf16Slice => StringViewWtf16Slice
     StringNewUtf8Array => StringNewUtf8Array
     StringNewWtf16Array => StringNewWtf16Array
     StringEncodeUtf8Array => StringEncodeUtf8Array

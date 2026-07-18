@@ -1165,6 +1165,140 @@ test "precompute folds returned floating unary min and copysign values" {
 }
 
 ///|
+test "precompute-propagate reads immutable fresh aggregates through locals" {
+  let struct_type = @lib.TypeIdx::new(0U)
+  let array_type = @lib.TypeIdx::new(1U)
+  let func_type = @lib.TypeIdx::new(2U)
+  let nullable_struct = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(struct_type)),
+  )
+  let nullable_array = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(array_type)),
+  )
+  let array_allocation = fn() {
+    [
+      @lib.Instruction::i32_const(@lib.I32(10)),
+      @lib.Instruction::i32_const(@lib.I32(20)),
+      @lib.Instruction::i32_const(@lib.I32(30)),
+      @lib.Instruction::array_new_fixed(array_type, @lib.U32(3U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    ]
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::const_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([func_type, func_type, func_type, func_type, func_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_struct]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(42)),
+            @lib.Instruction::struct_new(struct_type),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(struct_type, @lib.U32(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_array]),
+          @lib.Expr::new(
+            array_allocation() +
+            [
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::i32_const(@lib.I32(2)),
+              @lib.Instruction::array_get(array_type),
+            ],
+          ),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_array]),
+          @lib.Expr::new(
+            array_allocation() +
+            [
+              @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+              @lib.Instruction::array_len(),
+            ],
+          ),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_struct, nullable_struct]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::struct_new(struct_type),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::struct_new(struct_type),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::struct_new(struct_type),
+            @lib.Instruction::ref_eq(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected immutable local aggregate propagation, got \{err}")
+  }
+  let struct_get = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  let array_get = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let array_len = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let equal = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let unequal = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(struct_get.contains("I32(42)"), msg=struct_get)
+  assert_false(struct_get.contains("struct.get"), msg=struct_get)
+  assert_true(array_get.contains("I32(30)"), msg=array_get)
+  assert_false(array_get.contains("array.get"), msg=array_get)
+  assert_true(array_len.contains("I32(3)"), msg=array_len)
+  assert_false(array_len.contains("array.len"), msg=array_len)
+  assert_true(equal.contains("I32(1)"), msg=equal)
+  assert_false(equal.contains("ref.eq"), msg=equal)
+  assert_true(unequal.contains("I32(0)"), msg=unequal)
+  assert_false(unequal.contains("ref.eq"), msg=unequal)
+}
+
+///|
 test "precompute folds fresh immutable array lengths and reads" {
   let array_type = @lib.TypeIdx::new(0U)
   let func_type = @lib.TypeIdx::new(1U)

@@ -3552,7 +3552,7 @@ fn typecheck_string_new_array(
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  Ok(st3.push1(ValType::stringref()))
+  Ok(st3.push1(ValType::externref()))
 }
 
 ///|
@@ -3578,8 +3578,61 @@ fn typecheck_string_encode_array(
 }
 
 ///|
+fn typecheck_nonnull_string_type() -> ValType {
+  ValType::ref_type(RefType::new(false, HeapType::abs(AbsHeapType::string_())))
+}
+
+///|
 fn typecheck_string_const(st : TcState) -> TcResult {
-  Ok(st.push1(ValType::stringref()))
+  Ok(st.push1(typecheck_nonnull_string_type()))
+}
+
+///|
+fn typecheck_string_measure_wtf16(st : TcState) -> TcResult {
+  match st.pop_expect(ValType::stringref()) {
+    Ok(next) => Ok(next.push1(ValType::i32()))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_string_binary(st : TcState, result : ValType) -> TcResult {
+  let st1 = match st.pop_expect(ValType::stringref()) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st1.pop_expect(ValType::stringref()) {
+    Ok(next) => Ok(next.push1(result))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_stringview_wtf16_get_codeunit(st : TcState) -> TcResult {
+  let st1 = match st.pop_expect(ValType::i32()) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st1.pop_expect(ValType::stringref()) {
+    Ok(next) => Ok(next.push1(ValType::i32()))
+    Err(err) => Err(err)
+  }
+}
+
+///|
+fn typecheck_stringview_wtf16_slice(st : TcState) -> TcResult {
+  let st1 = match st.pop_expect(ValType::i32()) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  let st2 = match st1.pop_expect(ValType::i32()) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  match st2.pop_expect(ValType::stringref()) {
+    Ok(next) => Ok(next.push1(typecheck_nonnull_string_type()))
+    Err(err) => Err(err)
+  }
 }
 
 ///|
@@ -3787,6 +3840,16 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     RefAsNonNull => typecheck_ref_as_non_null(st)
     RefEq => typecheck_ref_eq(st)
     StringConst(_) => typecheck_string_const(st)
+    StringMeasureWtf16 => typecheck_string_measure_wtf16(st)
+    StringConcat => typecheck_string_binary(st, typecheck_nonnull_string_type())
+    StringEq => typecheck_string_binary(st, ValType::i32())
+    StringAsWtf16 =>
+      match st.pop_expect(ValType::stringref()) {
+        Ok(next) => Ok(next.push1(typecheck_nonnull_string_type()))
+        Err(err) => Err(err)
+      }
+    StringViewWtf16GetCodeunit => typecheck_stringview_wtf16_get_codeunit(st)
+    StringViewWtf16Slice => typecheck_stringview_wtf16_slice(st)
     StringNewUtf8Array =>
       typecheck_string_new_array(st, StorageType::pack_type(PackType::i8()))
     StringNewWtf16Array =>
@@ -8288,7 +8351,7 @@ test "Typecheck StringNewWtf16Array" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_stack(final_state, [ValType::stringref()])
+  assert_stack(final_state, [ValType::externref()])
 }
 
 ///|
@@ -8296,7 +8359,7 @@ test "Typecheck StringConst" {
   let state = make_state(empty_env(), [])
   let result = Typecheck::typecheck(Instruction::string_const(b"hello"), state)
   let final_state = assert_ok(result)
-  assert_stack(final_state, [ValType::stringref()])
+  assert_stack(final_state, [typecheck_nonnull_string_type()])
 }
 
 ///|

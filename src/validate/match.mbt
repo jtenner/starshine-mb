@@ -388,7 +388,8 @@ pub impl Match for AbsHeapType with fn matches(self, other, _) {
     // nofunc <: func
     (NoFuncAbsHeapType, FuncAbsHeapType) => true
 
-    // noextern <: extern
+    // string/noextern <: extern
+    (StringAbsHeapType, ExternAbsHeapType) => true
     (NoExternAbsHeapType, ExternAbsHeapType) => true
 
     // noexn <: exn

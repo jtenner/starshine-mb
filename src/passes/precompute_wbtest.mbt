@@ -87,6 +87,141 @@ test "precompute rejects multi-root constant-if chosen regions" {
 }
 
 ///|
+test "precompute flattens blocks whose concrete flow returns" {
+  let input = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::return_(),
+      ]),
+    ),
+  ]
+  let (rewritten, changed) = precompute_raw_rewrite_instrs(input, None)
+  assert_true(changed)
+  @debug.assert_eq(rewritten, [
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::return_(),
+  ])
+
+  let type_idx = @lib.TypeIdx::new(0U)
+  let input_module = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::funcref()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(input)),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input_module, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected ref.func return-flow pipeline success, got \{err}")
+  }
+  let text = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(text.contains("ref.func"), msg=text)
+  assert_true(text.contains("return"), msg=text)
+  assert_false(text.contains("block"), msg=text)
+}
+
+///|
+test "precompute folds Binaryen v131 WTF-16 string operations" {
+  let (equal, equal_changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::string_const(Bytes::from_array([97, 98])),
+      @lib.Instruction::string_const(Bytes::from_array([97, 98])),
+      @lib.Instruction::string_eq(),
+    ],
+    None,
+  )
+  assert_true(equal_changed)
+  @debug.assert_eq(equal, [@lib.Instruction::i32_const(@lib.I32(1))])
+
+  let (concat, concat_changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::string_const(Bytes::from_array([97])),
+      @lib.Instruction::string_const(Bytes::from_array([98])),
+      @lib.Instruction::string_concat(),
+    ],
+    None,
+  )
+  assert_true(concat_changed)
+  @debug.assert_eq(concat, [
+    @lib.Instruction::string_const(Bytes::from_array([97, 98])),
+  ])
+
+  let unicode = Bytes::from_array([
+    0x24, 0x5f, 0xc2, 0xa3, 0x5f, 0xe2, 0x82, 0xac, 0x5f, 0xf0, 0x90, 0x8d, 0x88,
+  ])
+  let (measured, measured_changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::string_const(unicode),
+      @lib.Instruction::string_measure_wtf16(),
+    ],
+    None,
+  )
+  assert_true(measured_changed)
+  @debug.assert_eq(measured, [@lib.Instruction::i32_const(@lib.I32(8))])
+
+  let (codeunit, codeunit_changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::string_const(unicode),
+      @lib.Instruction::i32_const(@lib.I32(6)),
+      @lib.Instruction::stringview_wtf16_get_codeunit(),
+    ],
+    None,
+  )
+  assert_true(codeunit_changed)
+  @debug.assert_eq(codeunit, [@lib.Instruction::i32_const(@lib.I32(0xd800))])
+
+  let source = Bytes::from_array([97, 98, 99, 100, 0xc2, 0xa3, 102, 103, 104])
+  let (slice, slice_changed) = precompute_raw_rewrite_instrs(
+    [
+      @lib.Instruction::string_const(source),
+      @lib.Instruction::i32_const(@lib.I32(3)),
+      @lib.Instruction::i32_const(@lib.I32(6)),
+      @lib.Instruction::stringview_wtf16_slice(),
+    ],
+    None,
+  )
+  assert_true(slice_changed)
+  @debug.assert_eq(slice, [
+    @lib.Instruction::string_const(Bytes::from_array([100, 0xc2, 0xa3, 102])),
+  ])
+
+  let supplementary = Bytes::from_array([97, 0xf0, 0x90, 0x8d, 0x86, 98])
+  let invalid = [
+    @lib.Instruction::string_const(supplementary),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::stringview_wtf16_slice(),
+  ]
+  let (retained, retained_changed) = precompute_raw_rewrite_instrs(
+    invalid,
+    None,
+  )
+  assert_false(retained_changed)
+  @debug.assert_eq(retained, invalid)
+}
+
+///|
 test "precompute folds fresh valid WTF-16 arrays to string constants" {
   let (rewritten, changed) = precompute_raw_rewrite_instrs(
     [
@@ -139,6 +274,89 @@ test "precompute folds fresh valid WTF-16 arrays to string constants" {
   )
   assert_false(retained_changed)
   @debug.assert_eq(retained, invalid)
+}
+
+///|
+test "precompute recognizes fresh WTF-16 strings in HOT" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::pack_type(@lib.PackType::i16()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::externref()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(65)),
+            @lib.Instruction::i32_const(@lib.I32(66)),
+            @lib.Instruction::i32_const(@lib.I32(67)),
+            @lib.Instruction::i32_const(@lib.I32(68)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32(4U)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::string_new_wtf16_array(),
+          ]),
+        ),
+      ]),
+    )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let module_ctx = @ir.hot_module_context_from_module(input)
+  let ctx = HotPassContext::new(
+    precompute_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+    module_ctx=Some(module_ctx),
+  )
+  let mut found = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.StringNewWtf16Array) => {
+          found = true
+          assert_true(
+            precompute_try_fold_fresh_string_new_wtf16(ctx, func, node_id),
+            msg="string.new children=\{@ir.hot_child_count(func, node_id)}",
+          )
+        }
+        _ => ()
+      }
+    }
+  }
+  assert_true(found)
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected string pipeline success, got \{err}")
+  }
+  let text = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(text.contains("string.const"), msg="\{text}\ntrace=\{trace}")
+  assert_false(text.contains("string.new_wtf16_array"), msg=text)
 }
 
 ///|

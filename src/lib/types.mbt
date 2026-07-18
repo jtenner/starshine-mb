@@ -779,6 +779,12 @@ pub enum Instruction {
   RefEq
   RefAsNonNull
   StringConst(Bytes)
+  StringMeasureWtf16
+  StringConcat
+  StringEq
+  StringAsWtf16
+  StringViewWtf16GetCodeunit
+  StringViewWtf16Slice
   BrOnNull(LabelIdx)
   BrOnNonNull(LabelIdx)
   StringNewUtf8Array
@@ -4052,6 +4058,36 @@ pub fn Instruction::ref_eq() -> Instruction {
 ///|
 pub fn Instruction::string_const(bytes : Bytes) -> Instruction {
   StringConst(bytes)
+}
+
+///|
+pub fn Instruction::string_measure_wtf16() -> Instruction {
+  StringMeasureWtf16
+}
+
+///|
+pub fn Instruction::string_concat() -> Instruction {
+  StringConcat
+}
+
+///|
+pub fn Instruction::string_eq() -> Instruction {
+  StringEq
+}
+
+///|
+pub fn Instruction::string_as_wtf16() -> Instruction {
+  StringAsWtf16
+}
+
+///|
+pub fn Instruction::stringview_wtf16_get_codeunit() -> Instruction {
+  StringViewWtf16GetCodeunit
+}
+
+///|
+pub fn Instruction::stringview_wtf16_slice() -> Instruction {
+  StringViewWtf16Slice
 }
 
 ///|

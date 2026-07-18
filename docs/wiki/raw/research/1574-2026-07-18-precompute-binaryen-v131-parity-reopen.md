@@ -42,7 +42,11 @@ Red-first focused tests now cover and implementation closes:
 2. nested local/global writes under value blocks, retained in source evaluation order while exposing the parent constant;
 3. a `local.get` that reads a `local.tee` earlier in the same expression;
 4. a genuine entry-default read before a later local write in `precompute-propagate`, using SSA origin rather than rejecting every written local;
-5. immediate fresh `array.new_fixed i16` plus `string.new_wtf16_array`, emitting `string.const` only for a valid selected UTF-16 range, including supplementary scalar encoding and rejection of unpaired surrogates.
+5. immediate fresh `array.new_fixed i16` plus `string.new_wtf16_array`, emitting `string.const` only for a valid selected UTF-16 range, including supplementary scalar encoding and rejection of unpaired surrogates;
+6. immutable fresh struct/array values transported through exact SSA local identities, including repeated field reads, array reads/lengths, and allocation-identity `ref.eq` while rejecting distinct-identity phi merges;
+7. non-shared `ref.func` return flow through transparent blocks;
+8. the v131 stringref binary/type surface used by `precompute-strings.wast`: the current `0x67` string heap type, measure/concat/equality, `string.as_wtf16`, code-unit reads, slices, and their binary opcodes;
+9. direct v131 WTF-16 string interpretation with canonical supplementary encoding, invalid-surrogate emitability rejection, and `stringref <: externref` matching.
 
 The effect-retention implementation remains conservative: it recognizes exact unary/binary parents and effect blocks containing ordered constant local/global writes. Branching, calls, traps, and arbitrary effectful expression reconstruction remain open until they have dedicated flow/effect proofs.
 
@@ -51,11 +55,13 @@ The effect-retention implementation remains conservative: it recognizes exact un
 - full v131 effect-child retention and control `Flow` outcomes;
 - heap identity through locals and safe merges, immutable global/nested aggregate reads, and temporary speculative heap caches;
 - reference/function constants and explicit known-value-versus-emitability handling;
-- string operations and any required parser/binary/typecheck instruction surface beyond the already represented array new/encode forms;
+- remaining string operations outside the v131 precompute fixture and additional `array.new` / `array.new_data` immediate string construction shapes;
 - final type refinalization after break/control replacement;
 - v131-specific GenValid/runtime leaves and the required four-lane closeout;
 - self-optimization and repeated performance comparison against v131.
 
-Focused formatting/build evidence at this checkpoint is green: `moon fmt`; `precompute_wbtest.mbt` `4/4`; `precompute_test.mbt` `55/55`; `precompute_propagate_test.mbt` `15/15`; and a refreshed native release CLI build. The existing warnings are unrelated unused-field/reserved-name/pass-manager warnings.
+The official v131 `precompute-strings.wast` now decodes, optimizes, re-encodes, and validates end-to-end. All value-producing cases match the oracle; retained textual differences are either smaller removal of dropped constants/scratch locals or equivalent simplification of the two intentionally non-emittable surrogate-splitting slices. Immediate fresh mutable WTF-16 arrays fold to the same `string.const` results as Binaryen.
+
+Focused formatting/build evidence at the latest checkpoint is green: `moon fmt`; `precompute_wbtest.mbt` `7/7`; `precompute_test.mbt` `56/56`; `precompute_propagate_test.mbt` `15/15`; string binary roundtrip coverage; and refreshed native release CLI builds. The existing warnings are unrelated unused-field/reserved-name/pass-manager warnings.
 
 This note is an active contract, not a closeout. Keep `[O4Z-PCP131]001` open until every broad source-backed family is implemented or reduced to a narrow user-approved boundary.

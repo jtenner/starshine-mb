@@ -129,7 +129,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - **Status:** active; v131 `Precompute.cpp` has the same SHA-256 as the reviewed v130 source, but the broader v131 lit matrix confirms that the previous generated-profile closeout did not exercise the full interpreter contract.
 - **Goal:** close direct plain `precompute` and `precompute-propagate` behavior gaps without changing the bounded one-local-solve/one-rerun public propagation contract.
-- **Current progress:** ordered multiple local/global effect retention, same-expression local-flow folding, trustworthy entry-default reads before later writes, and fresh valid WTF-16 array-to-`string.const` folding are under implementation with red-first tests.
+- **Current progress:** ordered multiple local/global effect retention, same-expression/default-local flow, immutable aggregate and allocation identity through exact SSA locals, non-shared `ref.func` return flow, and the full v131 `precompute-strings.wast` instruction/binary/type/interpreter surface now have red-first coverage and green focused validation. Shared function types, general break flow, nested heap aliases, remaining GC fixture encodings, and final closeout remain open.
 - **Deliverables:**
   - [ ] Rebaseline all comparisons on `.tmp/binaryen-version-131-bin/bin/wasm-opt` with an isolated v131 cache.
   - [ ] Close supported v131 `precompute-effects`, partial-select, GC identity/immutable heap, ref/function, control-flow, string, and refinalization families with focused tests.

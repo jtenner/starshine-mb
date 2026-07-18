@@ -287,6 +287,12 @@ pub enum Instruction {
   RefIsNull
   RefFunc(Index)
   StringConst(Bytes)
+  StringMeasureWtf16
+  StringConcat
+  StringEq
+  StringAsWtf16
+  StringViewWtf16GetCodeunit
+  StringViewWtf16Slice
   StringNewUtf8Array
   StringNewWtf16Array
   StringEncodeUtf8Array
@@ -507,6 +513,12 @@ pub enum Opcode {
   RefEq
   RefAsNonNull
   StringConst
+  StringMeasureWtf16
+  StringConcat
+  StringEq
+  StringAsWtf16
+  StringViewWtf16GetCodeunit
+  StringViewWtf16Slice
   StringNewUtf8Array
   StringNewWtf16Array
   StringEncodeUtf8Array

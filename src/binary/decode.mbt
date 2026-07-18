@@ -198,7 +198,7 @@ pub impl Decode for HeapType with fn decode(bytes, i) {
 ///|
 pub impl Decode for AbsHeapType with fn decode(bytes, i) {
   match bytes.get(i) {
-    Some(0x64) => Ok((AbsHeapType::string_(), i + 1))
+    Some(0x67) => Ok((AbsHeapType::string_(), i + 1))
     Some(0x69) => Ok((AbsHeapType::exn(), i + 1))
     Some(0x6A) => Ok((AbsHeapType::array(), i + 1))
     Some(0x6B) => Ok((AbsHeapType::struct_(), i + 1))
@@ -3200,6 +3200,14 @@ fn decode_instruction_with_depth(
               }
             Err(t) => Err(t)
           }
+        Ok((@lib.U32(0x85), i)) => Ok((Instruction::string_measure_wtf16(), i))
+        Ok((@lib.U32(0x88), i)) => Ok((Instruction::string_concat(), i))
+        Ok((@lib.U32(0x89), i)) => Ok((Instruction::string_eq(), i))
+        Ok((@lib.U32(0x98), i)) => Ok((Instruction::string_as_wtf16(), i))
+        Ok((@lib.U32(0x9A), i)) =>
+          Ok((Instruction::stringview_wtf16_get_codeunit(), i))
+        Ok((@lib.U32(0x9C), i)) =>
+          Ok((Instruction::stringview_wtf16_slice(), i))
         Ok((@lib.U32(0xB0), i)) => Ok((Instruction::string_new_utf8_array(), i))
         Ok((@lib.U32(0xB1), i)) =>
           Ok((Instruction::string_new_wtf16_array(), i))

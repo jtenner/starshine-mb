@@ -148,6 +148,12 @@ fn wast_arbitrary_count_instructions(
       | RefIsNull
       | RefFunc(_)
       | StringConst(_)
+      | StringMeasureWtf16
+      | StringConcat
+      | StringEq
+      | StringAsWtf16
+      | StringViewWtf16GetCodeunit
+      | StringViewWtf16Slice
       | StringNewUtf8Array
       | StringNewWtf16Array
       | StringEncodeUtf8Array

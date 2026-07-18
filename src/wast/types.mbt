@@ -232,6 +232,12 @@ pub enum Opcode {
   RefEq
   RefAsNonNull
   StringConst
+  StringMeasureWtf16
+  StringConcat
+  StringEq
+  StringAsWtf16
+  StringViewWtf16GetCodeunit
+  StringViewWtf16Slice
   StringNewUtf8Array
   StringNewWtf16Array
   StringEncodeUtf8Array
@@ -780,6 +786,13 @@ pub impl Show for Opcode with fn output(self, logger) {
     RefEq => logger.write_string("RefEq")
     RefAsNonNull => logger.write_string("RefAsNonNull")
     StringConst => logger.write_string("StringConst")
+    StringMeasureWtf16 => logger.write_string("StringMeasureWtf16")
+    StringConcat => logger.write_string("StringConcat")
+    StringEq => logger.write_string("StringEq")
+    StringAsWtf16 => logger.write_string("StringAsWtf16")
+    StringViewWtf16GetCodeunit =>
+      logger.write_string("StringViewWtf16GetCodeunit")
+    StringViewWtf16Slice => logger.write_string("StringViewWtf16Slice")
     StringNewUtf8Array => logger.write_string("StringNewUtf8Array")
     StringNewWtf16Array => logger.write_string("StringNewWtf16Array")
     StringEncodeUtf8Array => logger.write_string("StringEncodeUtf8Array")

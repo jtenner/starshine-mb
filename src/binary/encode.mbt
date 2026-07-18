@@ -128,7 +128,7 @@ pub impl Encode for HeapType with fn encode(val, buf) {
 pub impl Encode for AbsHeapType with fn encode(val, buf) {
   match val {
     ExnAbsHeapType => buf.write_byte(0x69)
-    StringAbsHeapType => buf.write_byte(0x64)
+    StringAbsHeapType => buf.write_byte(0x67)
     ArrayAbsHeapType => buf.write_byte(0x6A)
     StructAbsHeapType => buf.write_byte(0x6B)
     I31AbsHeapType => buf.write_byte(0x6C)
@@ -2942,6 +2942,42 @@ pub impl Encode for Instruction with fn encode(val, buf) {
         Err(err) => return Err(err)
       }
       if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringMeasureWtf16 => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x85), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringConcat => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x88), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringEq => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x89), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringAsWtf16 => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x98), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringViewWtf16GetCodeunit => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x9A), buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StringViewWtf16Slice => {
+      buf.write_byte(0xFB)
+      if Encode::encode(@lib.U32(0x9C), buf) is Err(t) {
         return Err(t)
       }
     }

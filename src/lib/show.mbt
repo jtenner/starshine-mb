@@ -1489,6 +1489,13 @@ pub impl Show for Instruction with fn output(self, logger) {
       Show::output(bytes, logger)
       logger.write_char(')')
     }
+    StringMeasureWtf16 => logger.write_string("string.measure_wtf16")
+    StringConcat => logger.write_string("string.concat")
+    StringEq => logger.write_string("string.eq")
+    StringAsWtf16 => logger.write_string("string.as_wtf16")
+    StringViewWtf16GetCodeunit =>
+      logger.write_string("stringview_wtf16.get_codeunit")
+    StringViewWtf16Slice => logger.write_string("stringview_wtf16.slice")
     StringNewUtf8Array => logger.write_string("string.new_utf8_array")
     StringNewWtf16Array => logger.write_string("string.new_wtf16_array")
     StringEncodeUtf8Array => logger.write_string("string.encode_utf8_array")

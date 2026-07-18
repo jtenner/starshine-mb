@@ -811,7 +811,13 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     Instruction::RefCastDescEq(_, _, _) => Some(HotOp::RefCastDescEq)
     Instruction::BrOnCast(_, _, _, _) => Some(HotOp::BrOnCast)
     Instruction::BrOnCastFail(_, _, _, _) => Some(HotOp::BrOnCastFail)
-    Instruction::StringNewUtf8Array
+    Instruction::StringMeasureWtf16
+    | Instruction::StringConcat
+    | Instruction::StringEq
+    | Instruction::StringAsWtf16
+    | Instruction::StringViewWtf16GetCodeunit
+    | Instruction::StringViewWtf16Slice
+    | Instruction::StringNewUtf8Array
     | Instruction::StringNewWtf16Array
     | Instruction::StringEncodeUtf8Array
     | Instruction::StringEncodeWtf16Array

@@ -1319,6 +1319,13 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     RefEq => Ok(@lib.Instruction::ref_eq())
     RefAsNonNull => Ok(@lib.Instruction::ref_as_non_null())
     StringConst => Err("string.const requires a literal")
+    StringMeasureWtf16 => Ok(@lib.Instruction::string_measure_wtf16())
+    StringConcat => Ok(@lib.Instruction::string_concat())
+    StringEq => Ok(@lib.Instruction::string_eq())
+    StringAsWtf16 => Ok(@lib.Instruction::string_as_wtf16())
+    StringViewWtf16GetCodeunit =>
+      Ok(@lib.Instruction::stringview_wtf16_get_codeunit())
+    StringViewWtf16Slice => Ok(@lib.Instruction::stringview_wtf16_slice())
     StringNewUtf8Array => Ok(@lib.Instruction::string_new_utf8_array())
     StringNewWtf16Array => Ok(@lib.Instruction::string_new_wtf16_array())
     StringEncodeUtf8Array => Ok(@lib.Instruction::string_encode_utf8_array())
@@ -2409,6 +2416,13 @@ fn wt_instr_to_lib(
       Ok(@lib.Instruction::ref_func(@lib.FuncIdx::new(fi)))
     }
     StringConst(bytes) => Ok(@lib.Instruction::string_const(bytes))
+    StringMeasureWtf16 => Ok(@lib.Instruction::string_measure_wtf16())
+    StringConcat => Ok(@lib.Instruction::string_concat())
+    StringEq => Ok(@lib.Instruction::string_eq())
+    StringAsWtf16 => Ok(@lib.Instruction::string_as_wtf16())
+    StringViewWtf16GetCodeunit =>
+      Ok(@lib.Instruction::stringview_wtf16_get_codeunit())
+    StringViewWtf16Slice => Ok(@lib.Instruction::stringview_wtf16_slice())
     StringNewUtf8Array => Ok(@lib.Instruction::string_new_utf8_array())
     StringNewWtf16Array => Ok(@lib.Instruction::string_new_wtf16_array())
     StringEncodeUtf8Array => Ok(@lib.Instruction::string_encode_utf8_array())

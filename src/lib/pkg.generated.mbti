@@ -1207,6 +1207,12 @@ pub enum Instruction {
   RefEq
   RefAsNonNull
   StringConst(Bytes)
+  StringMeasureWtf16
+  StringConcat
+  StringEq
+  StringAsWtf16
+  StringViewWtf16GetCodeunit
+  StringViewWtf16Slice
   BrOnNull(LabelIdx)
   BrOnNonNull(LabelIdx)
   StringNewUtf8Array
@@ -2011,15 +2017,21 @@ pub fn Instruction::return_call(FuncIdx) -> Self
 pub fn Instruction::return_call_indirect(TypeIdx, TableIdx) -> Self
 pub fn Instruction::return_call_ref(TypeIdx) -> Self
 pub fn Instruction::select(types? : Array[ValType]?) -> Self
+pub fn Instruction::string_as_wtf16() -> Self
+pub fn Instruction::string_concat() -> Self
 pub fn Instruction::string_const(Bytes) -> Self
 pub fn Instruction::string_encode_lossy_utf8_array() -> Self
 pub fn Instruction::string_encode_utf8_array() -> Self
 pub fn Instruction::string_encode_wtf16_array() -> Self
 pub fn Instruction::string_encode_wtf8_array() -> Self
+pub fn Instruction::string_eq() -> Self
+pub fn Instruction::string_measure_wtf16() -> Self
 pub fn Instruction::string_new_lossy_utf8_array() -> Self
 pub fn Instruction::string_new_utf8_array() -> Self
 pub fn Instruction::string_new_wtf16_array() -> Self
 pub fn Instruction::string_new_wtf8_array() -> Self
+pub fn Instruction::stringview_wtf16_get_codeunit() -> Self
+pub fn Instruction::stringview_wtf16_slice() -> Self
 pub fn Instruction::struct_atomic_cmpxchg(TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get(AtomicOrder, TypeIdx, U32) -> Self
 pub fn Instruction::struct_atomic_get_s(AtomicOrder, TypeIdx, U32) -> Self

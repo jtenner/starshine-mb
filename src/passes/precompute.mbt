@@ -58,6 +58,12 @@ priv struct PrecomputePropagatePrefixReplacement {
 }
 
 ///|
+priv struct PrecomputePropagateAllocationFold {
+  node_id : Int
+  allocation_id : Int
+}
+
+///|
 fn precompute_global_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1182,9 +1188,25 @@ fn precompute_try_fold_gc_identity(
       @ir.HotOp::RefNull => true
       _ => false
     })
-  if (lhs_null && precompute_fresh_struct_allocation_is_discardable(func, rhs)) ||
-    (rhs_null && precompute_fresh_struct_allocation_is_discardable(func, lhs)) {
+  let lhs_allocation = precompute_fresh_struct_allocation_is_discardable(
+      func, lhs,
+    ) ||
+    precompute_fresh_array_allocation_is_discardable(func, lhs)
+  let rhs_allocation = precompute_fresh_struct_allocation_is_discardable(
+      func, rhs,
+    ) ||
+    precompute_fresh_array_allocation_is_discardable(func, rhs)
+  if (lhs_null && rhs_allocation) || (rhs_null && lhs_allocation) {
     precompute_replace_with_const_i32(ctx, func, node_id, @lib.I32(0))
+    return true
+  }
+  if lhs_allocation && rhs_allocation {
+    precompute_replace_with_const_i32(
+      ctx,
+      func,
+      node_id,
+      @lib.I32(if lhs == rhs { 1 } else { 0 }),
+    )
     return true
   }
   false
@@ -1220,10 +1242,11 @@ fn precompute_try_fold_fresh_ref_test(
 }
 
 ///|
-fn precompute_try_fold_fresh_struct_get(
+fn precompute_try_fold_fresh_struct_get_from_allocation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
+  allocation_id : Int,
 ) -> Bool {
   let (type_idx, raw_field, signed, unsigned) = match
     @ir.hot_node_exact_instr(func, node_id) {
@@ -1238,7 +1261,7 @@ fn precompute_try_fold_fresh_struct_get(
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
-  let ref_id = @ir.hot_child_get(func, node_id, 0)
+  let ref_id = allocation_id
   let defaulted = match @ir.hot_node_exact_instr(func, ref_id) {
     Some(@lib.StructNew(new_type_idx)) if new_type_idx == type_idx => false
     Some(@lib.StructNewDefault(new_type_idx)) if new_type_idx == type_idx =>
@@ -1297,6 +1320,23 @@ fn precompute_try_fold_fresh_struct_get(
     None => return false
   }
   precompute_replace_with_const_instr(ctx, func, node_id, unpacked)
+}
+
+///|
+fn precompute_try_fold_fresh_struct_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  precompute_try_fold_fresh_struct_get_from_allocation(
+    ctx,
+    func,
+    node_id,
+    @ir.hot_child_get(func, node_id, 0),
+  )
 }
 
 ///|
@@ -1496,10 +1536,11 @@ fn precompute_unpack_array_value(
 }
 
 ///|
-fn precompute_try_fold_fresh_array_len(
+fn precompute_try_fold_fresh_array_len_from_allocation(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
+  allocation_id : Int,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, node_id) {
     Some(@lib.ArrayLen) => ()
@@ -1508,7 +1549,6 @@ fn precompute_try_fold_fresh_array_len(
   if @ir.hot_child_count(func, node_id) != 1 {
     return false
   }
-  let allocation_id = @ir.hot_child_get(func, node_id, 0)
   if !precompute_fresh_array_allocation_is_discardable(func, allocation_id) {
     return false
   }
@@ -1521,10 +1561,28 @@ fn precompute_try_fold_fresh_array_len(
 }
 
 ///|
-fn precompute_try_fold_fresh_array_get(
+fn precompute_try_fold_fresh_array_len(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  precompute_try_fold_fresh_array_len_from_allocation(
+    ctx,
+    func,
+    node_id,
+    @ir.hot_child_get(func, node_id, 0),
+  )
+}
+
+///|
+fn precompute_try_fold_fresh_array_get_from_allocation(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  allocation_id : Int,
 ) -> Bool {
   let (type_idx, signed, unsigned) = match
     @ir.hot_node_exact_instr(func, node_id) {
@@ -1536,7 +1594,6 @@ fn precompute_try_fold_fresh_array_get(
   if @ir.hot_child_count(func, node_id) != 2 {
     return false
   }
-  let allocation_id = @ir.hot_child_get(func, node_id, 0)
   if !precompute_fresh_array_allocation_is_discardable(func, allocation_id) {
     return false
   }
@@ -1570,6 +1627,126 @@ fn precompute_try_fold_fresh_array_get(
     None => return false
   }
   precompute_replace_with_const_instr(ctx, func, node_id, unpacked)
+}
+
+///|
+fn precompute_try_fold_fresh_array_get(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  precompute_try_fold_fresh_array_get_from_allocation(
+    ctx,
+    func,
+    node_id,
+    @ir.hot_child_get(func, node_id, 0),
+  )
+}
+
+///|
+fn precompute_try_fold_string_slice(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StringViewWtf16Slice) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 3 {
+    return false
+  }
+  let bytes = match
+    precompute_exact_const_instr(ctx, func, @ir.hot_child_get(func, node_id, 0)) {
+    Some(@lib.StringConst(bytes)) => bytes
+    _ => return false
+  }
+  let start = match
+    precompute_i32_exact_const(ctx, func, @ir.hot_child_get(func, node_id, 1)) {
+    Some(@lib.I32(value)) => value
+    None => return false
+  }
+  let end = match
+    precompute_i32_exact_const(ctx, func, @ir.hot_child_get(func, node_id, 2)) {
+    Some(@lib.I32(value)) => value
+    None => return false
+  }
+  let units = match precompute_string_bytes_to_utf16(bytes) {
+    Some(units) => units
+    None => return false
+  }
+  if start < 0 || end < start || end > units.length() {
+    return false
+  }
+  let sliced = match
+    precompute_utf16_units_to_valid_utf8(units, start, end - start) {
+    Some(bytes) => bytes
+    None => return false
+  }
+  precompute_replace_with_const_instr(
+    ctx,
+    func,
+    node_id,
+    @lib.Instruction::string_const(sliced),
+  )
+}
+
+///|
+fn precompute_try_fold_fresh_string_new_wtf16(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StringNewWtf16Array) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 3 {
+    return false
+  }
+  let allocation = @ir.hot_child_get(func, node_id, 0)
+  let count = match @ir.hot_node_exact_instr(func, allocation) {
+    Some(@lib.ArrayNewFixed(_, @lib.U32(count))) => count.reinterpret_as_int()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, allocation) != count {
+    return false
+  }
+  let start = match
+    precompute_i32_exact_const(ctx, func, @ir.hot_child_get(func, node_id, 1)) {
+    Some(@lib.I32(value)) => value
+    None => return false
+  }
+  let length = match
+    precompute_i32_exact_const(ctx, func, @ir.hot_child_get(func, node_id, 2)) {
+    Some(@lib.I32(value)) => value
+    None => return false
+  }
+  let units : Array[Int] = []
+  for slot = 0; slot < count; slot = slot + 1 {
+    match
+      precompute_i32_exact_const(
+        ctx,
+        func,
+        @ir.hot_child_get(func, allocation, slot),
+      ) {
+      Some(@lib.I32(value)) => units.push(value & 0xffff)
+      None => return false
+    }
+  }
+  let bytes = match precompute_utf16_units_to_valid_utf8(units, start, length) {
+    Some(bytes) => bytes
+    None => return false
+  }
+  precompute_replace_with_const_instr(
+    ctx,
+    func,
+    node_id,
+    @lib.Instruction::string_const(bytes),
+  )
 }
 
 ///|
@@ -2491,6 +2668,16 @@ fn precompute_raw_try_fold_unary(
   operand : @lib.Instruction,
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
+  match (instr, operand) {
+    (@lib.StringAsWtf16, @lib.StringConst(_)) => return Some(operand)
+    (@lib.StringMeasureWtf16, @lib.StringConst(bytes)) =>
+      match precompute_string_bytes_to_utf16(bytes) {
+        Some(units) =>
+          return Some(@lib.Instruction::i32_const(@lib.I32(units.length())))
+        None => return None
+      }
+    _ => ()
+  }
   match (instr, precompute_raw_i32_const(operand)) {
     (@lib.Instruction::I32Eqz, Some(v)) =>
       return Some(precompute_raw_bool(v == @lib.I32(0)))
@@ -2835,6 +3022,50 @@ fn precompute_raw_try_fold_binary(
   rhs_instr : @lib.Instruction,
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
+  match (instr, lhs_instr, rhs_instr) {
+    (@lib.StringConcat, @lib.StringConst(lhs), @lib.StringConst(rhs)) => {
+      let lhs_units = match precompute_string_bytes_to_utf16(lhs) {
+        Some(units) => units
+        None => return None
+      }
+      let rhs_units = match precompute_string_bytes_to_utf16(rhs) {
+        Some(units) => units
+        None => return None
+      }
+      let units = lhs_units + rhs_units
+      return match
+        precompute_utf16_units_to_valid_utf8(units, 0, units.length()) {
+        Some(bytes) => Some(@lib.Instruction::string_const(bytes))
+        None => None
+      }
+    }
+    (@lib.StringEq, @lib.StringConst(lhs), @lib.StringConst(rhs)) => {
+      let lhs_units = match precompute_string_bytes_to_utf16(lhs) {
+        Some(units) => units
+        None => return None
+      }
+      let rhs_units = match precompute_string_bytes_to_utf16(rhs) {
+        Some(units) => units
+        None => return None
+      }
+      return Some(precompute_raw_bool(lhs_units == rhs_units))
+    }
+    (
+      @lib.StringViewWtf16GetCodeunit,
+      @lib.StringConst(bytes),
+      @lib.I32Const(@lib.I32(index)),
+    ) => {
+      let units = match precompute_string_bytes_to_utf16(bytes) {
+        Some(units) => units
+        None => return None
+      }
+      if index < 0 || index >= units.length() {
+        return None
+      }
+      return Some(@lib.Instruction::i32_const(@lib.I32(units[index])))
+    }
+    _ => ()
+  }
   match
     (
       instr,
@@ -4206,6 +4437,118 @@ fn precompute_raw_effectful_block_const(
 }
 
 ///|
+fn precompute_string_bytes_to_utf16(bytes : Bytes) -> Array[Int]? {
+  let units : Array[Int] = []
+  let mut i = 0
+  while i < bytes.length() {
+    let first = bytes[i].to_int()
+    if first <= 0x7f {
+      units.push(first)
+      i = i + 1
+      continue
+    }
+    if first >= 0xc2 && first <= 0xdf {
+      if i + 1 >= bytes.length() {
+        return None
+      }
+      let second = bytes[i + 1].to_int()
+      if second < 0x80 || second > 0xbf {
+        return None
+      }
+      units.push(((first & 0x1f) << 6) | (second & 0x3f))
+      i = i + 2
+      continue
+    }
+    if first >= 0xe0 && first <= 0xef {
+      if i + 2 >= bytes.length() {
+        return None
+      }
+      let second = bytes[i + 1].to_int()
+      let third = bytes[i + 2].to_int()
+      if second < 0x80 ||
+        second > 0xbf ||
+        third < 0x80 ||
+        third > 0xbf ||
+        (first == 0xe0 && second < 0xa0) {
+        return None
+      }
+      units.push(
+        ((first & 0x0f) << 12) | ((second & 0x3f) << 6) | (third & 0x3f),
+      )
+      i = i + 3
+      continue
+    }
+    if first >= 0xf0 && first <= 0xf4 {
+      if i + 3 >= bytes.length() {
+        return None
+      }
+      let second = bytes[i + 1].to_int()
+      let third = bytes[i + 2].to_int()
+      let fourth = bytes[i + 3].to_int()
+      if second < 0x80 ||
+        second > 0xbf ||
+        third < 0x80 ||
+        third > 0xbf ||
+        fourth < 0x80 ||
+        fourth > 0xbf ||
+        (first == 0xf0 && second < 0x90) ||
+        (first == 0xf4 && second > 0x8f) {
+        return None
+      }
+      let scalar = ((first & 0x07) << 18) |
+        ((second & 0x3f) << 12) |
+        ((third & 0x3f) << 6) |
+        (fourth & 0x3f)
+      let offset = scalar - 0x10000
+      units.push(0xd800 | (offset >> 10))
+      units.push(0xdc00 | (offset & 0x3ff))
+      i = i + 4
+      continue
+    }
+    return None
+  }
+  Some(units)
+}
+
+///|
+fn precompute_utf16_units_to_valid_utf8(
+  units : Array[Int],
+  start : Int,
+  length : Int,
+) -> Bytes? {
+  if start < 0 ||
+    length < 0 ||
+    start > units.length() ||
+    length > units.length() - start {
+    return None
+  }
+  let bytes = @buffer.new(size_hint=length * 3)
+  let end = start + length
+  let mut slot = start
+  while slot < end {
+    let unit = units[slot] & 0xffff
+    if unit >= 0xd800 && unit <= 0xdbff {
+      if slot + 1 >= end {
+        return None
+      }
+      let low = units[slot + 1] & 0xffff
+      if low < 0xdc00 || low > 0xdfff {
+        return None
+      }
+      let scalar = 0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00)
+      precompute_write_utf8_scalar(bytes, scalar)
+      slot = slot + 2
+    } else if unit >= 0xdc00 && unit <= 0xdfff {
+      return None
+    } else {
+      precompute_write_utf8_scalar(bytes, unit)
+      slot = slot + 1
+    }
+  }
+  Some(bytes.to_bytes())
+}
+
+///|
 fn precompute_write_utf8_scalar(buf : @buffer.Buffer, scalar : Int) -> Unit {
   if scalar <= 0x7f {
     buf.write_byte(scalar.to_byte())
@@ -4287,7 +4630,48 @@ fn precompute_raw_try_fold_string_new_wtf16_tail(
 }
 
 ///|
+fn precompute_raw_try_fold_string_slice_tail(
+  out : Array[@lib.Instruction],
+) -> Bool {
+  if out.length() < 4 {
+    return false
+  }
+  let base = out.length() - 4
+  let (bytes, start, end) = match
+    (out[base], out[base + 1], out[base + 2], out[base + 3]) {
+    (
+      @lib.StringConst(bytes),
+      @lib.I32Const(@lib.I32(start)),
+      @lib.I32Const(@lib.I32(end)),
+      @lib.StringViewWtf16Slice,
+    ) => (bytes, start, end)
+    _ => return false
+  }
+  let units = match precompute_string_bytes_to_utf16(bytes) {
+    Some(units) => units
+    None => return false
+  }
+  if start < 0 || end < start || end > units.length() {
+    return false
+  }
+  let sliced = match
+    precompute_utf16_units_to_valid_utf8(units, start, end - start) {
+    Some(bytes) => bytes
+    None => return false
+  }
+  for pop_idx = 0; pop_idx < 4; pop_idx = pop_idx + 1 {
+    ignore(pop_idx)
+    ignore(out.pop())
+  }
+  out.push(@lib.Instruction::string_const(sliced))
+  true
+}
+
+///|
 fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
+  if precompute_raw_try_fold_string_slice_tail(out) {
+    return true
+  }
   if precompute_raw_try_fold_string_new_wtf16_tail(out) {
     return true
   }
@@ -4681,6 +5065,29 @@ fn precompute_raw_rewrite_instr(
 }
 
 ///|
+fn precompute_raw_block_has_flat_return_flow(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() == 0 ||
+    instrs[instrs.length() - 1] != @lib.Instruction::return_() {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.TryTable(_, _, _) => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn precompute_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
@@ -4707,7 +5114,17 @@ fn precompute_raw_rewrite_instrs(
     let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
       instr, module_ctx,
     )
-    out.push(rewritten)
+    match rewritten {
+      @lib.Block(block_type, @lib.Expr(body)) if block_type ==
+        @lib.BlockType::void_() &&
+        precompute_raw_block_has_flat_return_flow(body) => {
+        for child in body {
+          out.push(child)
+        }
+        changed = true
+      }
+      _ => out.push(rewritten)
+    }
     if nested_changed {
       changed = true
     }
@@ -4737,7 +5154,14 @@ fn precompute_raw_instr_has_hot_only_candidate(
     | @lib.ArrayGetU(_)
     | @lib.ArrayLen
     | @lib.RefEq
-    | @lib.RefTest(_, _, _) => true
+    | @lib.RefTest(_, _, _)
+    | @lib.StringMeasureWtf16
+    | @lib.StringConcat
+    | @lib.StringEq
+    | @lib.StringAsWtf16
+    | @lib.StringViewWtf16GetCodeunit
+    | @lib.StringViewWtf16Slice
+    | @lib.StringNewWtf16Array => true
     @lib.Nop => false
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       precompute_raw_instrs_have_hot_only_candidate(body, module_ctx)
@@ -5640,7 +6064,9 @@ fn precompute_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
         changed_any = true
         continue
       }
-      if precompute_try_fold_gc_identity(ctx, func, node_id) ||
+      if precompute_try_fold_string_slice(ctx, func, node_id) ||
+        precompute_try_fold_fresh_string_new_wtf16(ctx, func, node_id) ||
+        precompute_try_fold_gc_identity(ctx, func, node_id) ||
         precompute_try_fold_fresh_ref_test(ctx, func, node_id) ||
         precompute_try_fold_fresh_struct_get(ctx, func, node_id) ||
         precompute_try_fold_fresh_array_len(ctx, func, node_id) ||
@@ -6341,6 +6767,139 @@ fn precompute_propagate_mark_result_if_direct_const_gets(
 }
 
 ///|
+fn precompute_propagate_allocation_for_node(
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
+  node_id : Int,
+  states : Array[Int],
+  allocations : Array[Int],
+) -> Int {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return -1
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.StructNew(_))
+    | Some(@lib.StructNewDefault(_))
+    | Some(@lib.ArrayNew(_))
+    | Some(@lib.ArrayNewDefault(_))
+    | Some(@lib.ArrayNewFixed(_, _)) => return node_id
+    _ => ()
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet => {
+      let value_id = ssa.local_get_values[node_id]
+      if value_id >= 0 {
+        return precompute_propagate_allocation_for_value(
+          func, ssa, label_used, value_id, states, allocations,
+        )
+      }
+    }
+    @ir.HotOp::LocalTee =>
+      if @ir.hot_child_count(func, node_id) == 1 {
+        return precompute_propagate_allocation_for_node(
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+        )
+      }
+    @ir.HotOp::Block => {
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      let body = @ir.hot_region_body_ref(func, node_id)
+      let count = @ir.hot_region_root_count(func, body)
+      if @ir.hot_node_result_arity(func, node_id) == 1 &&
+        !pass_label_is_used(label_id, label_used) &&
+        count > 0 {
+        return precompute_propagate_allocation_for_node(
+          func,
+          ssa,
+          label_used,
+          @ir.hot_region_get(func, body, count - 1),
+          states,
+          allocations,
+        )
+      }
+    }
+    _ => ()
+  }
+  -1
+}
+
+///|
+fn precompute_propagate_allocation_for_value(
+  func : @ir.HotFunc,
+  ssa : @ir.HotLocalSsa,
+  label_used : @bitset.BitSet,
+  value_id : Int,
+  states : Array[Int],
+  allocations : Array[Int],
+) -> Int {
+  if value_id < 0 || value_id >= states.length() {
+    return -1
+  }
+  match states[value_id] {
+    1 => return -1
+    2 => return allocations[value_id]
+    _ => ()
+  }
+  states[value_id] = 1
+  let resolved = match @ir.ssa_value_origin(ssa, value_id) {
+    @ir.HotSsaValueOrigin::LocalSetDef(node_id)
+    | @ir.HotSsaValueOrigin::LocalTeeDef(node_id) =>
+      if @ir.hot_child_count(func, node_id) == 1 {
+        precompute_propagate_allocation_for_node(
+          func,
+          ssa,
+          label_used,
+          @ir.hot_child_get(func, node_id, 0),
+          states,
+          allocations,
+        )
+      } else {
+        -1
+      }
+    @ir.HotSsaValueOrigin::PhiDef(phi_id) => {
+      let inputs = @ir.ssa_phi_inputs(ssa, phi_id)
+      let mut candidate = -1
+      let mut ok = inputs.length() > 0
+      for input in inputs {
+        let allocation = precompute_propagate_allocation_for_value(
+          func,
+          ssa,
+          label_used,
+          input.value_id,
+          states,
+          allocations,
+        )
+        if allocation < 0 {
+          ok = false
+        } else if candidate < 0 {
+          candidate = allocation
+        } else if candidate != allocation {
+          ok = false
+        }
+        if !ok {
+          break
+        }
+      }
+      if ok {
+        candidate
+      } else {
+        -1
+      }
+    }
+    @ir.HotSsaValueOrigin::EntryParamDef(_)
+    | @ir.HotSsaValueOrigin::EntryDefaultInitDef(_) => -1
+  }
+  states[value_id] = 2
+  allocations[value_id] = resolved
+  resolved
+}
+
+///|
 fn precompute_propagate_prefix_fold_local_gets(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6352,6 +6911,9 @@ fn precompute_propagate_prefix_fold_local_gets(
     ssa.value_types.length(),
     None,
   )
+  let allocation_states = Array::make(ssa.value_types.length(), 0)
+  let allocation_values = Array::make(ssa.value_types.length(), -1)
+  let allocation_folds : Array[PrecomputePropagateAllocationFold] = []
   let result_if_arm_written = Array::make(@ir.hot_local_count(func), false)
   let result_if_direct_get_consts : Array[@ir.HotConstPayload?] = Array::make(
     @ir.hot_node_count(func),
@@ -6375,6 +6937,67 @@ fn precompute_propagate_prefix_fold_local_gets(
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(@lib.StructGet(_, _))
+      | Some(@lib.StructGetS(_, _))
+      | Some(@lib.StructGetU(_, _))
+      | Some(@lib.ArrayGet(_))
+      | Some(@lib.ArrayGetS(_))
+      | Some(@lib.ArrayGetU(_))
+      | Some(@lib.ArrayLen) =>
+        if @ir.hot_child_count(func, node_id) > 0 {
+          let ref_id = @ir.hot_child_get(func, node_id, 0)
+          let ref_is_local_get = ref_id >= 0 &&
+            @ir.hot_node_is_live(func, ref_id) &&
+            (match @ir.hot_node_get(func, ref_id).op {
+              @ir.HotOp::LocalGet => true
+              _ => false
+            })
+          if ref_is_local_get {
+            let value_id = ssa.local_get_values[ref_id]
+            let allocation_id = precompute_propagate_allocation_for_value(
+              func, ssa, label_used, value_id, allocation_states, allocation_values,
+            )
+            if allocation_id >= 0 {
+              allocation_folds.push({ node_id, allocation_id })
+            }
+          }
+        }
+      Some(@lib.RefEq) =>
+        if @ir.hot_child_count(func, node_id) == 2 {
+          let lhs = @ir.hot_child_get(func, node_id, 0)
+          let rhs = @ir.hot_child_get(func, node_id, 1)
+          let children_are_local_gets = lhs >= 0 &&
+            rhs >= 0 &&
+            @ir.hot_node_is_live(func, lhs) &&
+            @ir.hot_node_is_live(func, rhs) &&
+            (match @ir.hot_node_get(func, lhs).op {
+              @ir.HotOp::LocalGet => true
+              _ => false
+            }) &&
+            (match @ir.hot_node_get(func, rhs).op {
+              @ir.HotOp::LocalGet => true
+              _ => false
+            })
+          if children_are_local_gets {
+            let lhs_allocation = precompute_propagate_allocation_for_node(
+              func, ssa, label_used, lhs, allocation_states, allocation_values,
+            )
+            let rhs_allocation = precompute_propagate_allocation_for_node(
+              func, ssa, label_used, rhs, allocation_states, allocation_values,
+            )
+            if lhs_allocation >= 0 && rhs_allocation >= 0 {
+              replacements.push({
+                node_id,
+                payload: @ir.HotConstPayload::i32_const(
+                  @lib.I32(if lhs_allocation == rhs_allocation { 1 } else { 0 }),
+                ),
+              })
+            }
+          }
+        }
+      _ => ()
     }
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::LocalGet => {
@@ -6414,8 +7037,31 @@ fn precompute_propagate_prefix_fold_local_gets(
       _ => ()
     }
   }
-  if replacements.length() == 0 {
-    return false
+  let mut changed = false
+  for fold in allocation_folds {
+    if !@ir.hot_node_is_live(func, fold.node_id) {
+      continue
+    }
+    if precompute_try_fold_fresh_struct_get_from_allocation(
+        ctx,
+        func,
+        fold.node_id,
+        fold.allocation_id,
+      ) ||
+      precompute_try_fold_fresh_array_len_from_allocation(
+        ctx,
+        func,
+        fold.node_id,
+        fold.allocation_id,
+      ) ||
+      precompute_try_fold_fresh_array_get_from_allocation(
+        ctx,
+        func,
+        fold.node_id,
+        fold.allocation_id,
+      ) {
+      changed = true
+    }
   }
   for replacement in replacements {
     if !@ir.hot_node_is_live(func, replacement.node_id) {
@@ -6443,8 +7089,9 @@ fn precompute_propagate_prefix_fold_local_gets(
       next_node,
     )
     pass_mark_mutated(ctx, func)
+    changed = true
   }
-  true
+  changed
 }
 
 ///|
