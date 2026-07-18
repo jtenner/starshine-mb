@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/remove-unused-types.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
@@ -18,7 +20,7 @@ related:
 # `remove-unused-types` WAT shapes
 
 This page is the beginner-friendly module-shape catalog for Binaryen `remove-unused-types`.
-The 2026-07-11 current-main bridge keeps these survivor/rebuild families but makes the older direct-open-world-wrapper wording stale.
+Binaryen v131 keeps these survivor/rebuild families and adds a released open-world distinction: exposed types and required identity relatives stay public, while unrelated private types may still be removed or regrouped.
 
 ## Read this page with one mental model
 
@@ -384,7 +386,7 @@ The historically documented optimization context is:
 wasm-opt --closed-world --remove-unused-types input.wasm
 ```
 
-Current Binaryen passes pass-option world mode into `GlobalTypeRewriter`; the 2026-07-11 reread therefore does not support repeating the older categorical statement that the wrapper itself fatally rejects every open-world call. A focused helper-and-fixture review must establish the current Binaryen explicit-open-world result.
+Binaryen v131 passes pass-option world mode into `GlobalTypeRewriter` and ships an explicit open-world fixture. Open world preserves exposed function types and required identity closure; closed world can classify more of that graph as private and regroup it. The old categorical wrapper fatal is no longer part of the released contract.
 
 Future Starshine behavior should still choose an explicit API shape:
 
@@ -419,7 +421,7 @@ When testing this pass or a future Starshine port, include:
 
 ## Sources
 
-- Binaryen current-main fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/remove-unused-types.wast>
+- Binaryen v131 fixtures: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types.wast> and <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast>
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for old group-retention wording: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:

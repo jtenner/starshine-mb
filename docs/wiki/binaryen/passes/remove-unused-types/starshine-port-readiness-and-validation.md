@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
@@ -29,7 +31,7 @@ related:
 # Starshine Port Readiness And Validation For `remove-unused-types`
 
 This page turns the existing source-correct `remove-unused-types` dossier into an implementation-readiness checklist. The current Starshine status is still **boundary-only and unimplemented**; this page says how to move safely from that state to a faithful module pass when the repo chooses to build shared closed-world type-graph infrastructure.
-The 2026-07-11 current-main bridge keeps the module-pass sequencing but makes the older direct wrapper open-world-rejection wording stale.
+Binaryen v131 keeps the module-pass sequencing and resolves the older admission uncertainty: explicit open-world runs are supported through mode-aware public-type retention.
 
 Use it with:
 
@@ -46,7 +48,7 @@ The current Binaryen wrapper is deceptively small:
 2. construct `GlobalTypeRewriter(*module, getPassOptions().worldMode)`,
 3. call `update()`.
 
-The exact current explicit-open-world result belongs to helper-and-fixture reconciliation, not to a stale wrapper shortcut. The real transform is the helper-owned module rewrite: public rec groups anchor the boundary, unused private heap types disappear, surviving private heap types are dependency-sorted and rebuilt into fresh private grouping, and every affected type use in the module is remapped. A Starshine port that starts by walking HOT expressions would miss the pass's actual unit of correctness.
+The v131 open-world fixture proves the explicit policy: exposed types retain identity-sensitive public closure while unrelated private types may still be rebuilt or removed. The real transform is the helper-owned module rewrite: public rec groups anchor the boundary, unused private heap types disappear, surviving private heap types are dependency-sorted and rebuilt into fresh private grouping, and every affected type use in the module is remapped. A Starshine port that starts by walking HOT expressions would miss the pass's actual unit of correctness.
 
 ## Current local starting point
 

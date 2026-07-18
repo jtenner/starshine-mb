@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
@@ -37,7 +39,7 @@ related:
 
 ## Role
 
-`remove-unused-types` is an upstream Binaryen **closed-world GC module pass**.
+`remove-unused-types` is an upstream Binaryen **world-mode-aware GC module pass**. Binaryen schedules it only in the closed-world GC/type cluster, but v131 also supports explicit open-world invocation.
 
 In current Starshine it is **unimplemented** and kept as a boundary-only registry name in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 There is no `src/passes/remove_unused_types.mbt` owner file today.
@@ -50,14 +52,14 @@ A good beginner summary is:
 - and rewrites every module-wide type use through the new mapping.
 
 So this pass is not just type-section garbage collection.
-It is **closed-world private heap-type cleanup plus whole-module heap-type rewriting**.
-A 2026-07-11 current-main bridge keeps the helper-owned type-graph contract but identifies a world-mode constructor drift that the living pages now treat explicitly.
+It is **world-policy-aware private heap-type cleanup plus whole-module heap-type rewriting**.
+Binaryen v131 resolves the earlier current-main uncertainty: the wrapper passes `WorldMode` into `GlobalTypeRewriter`, and the focused open-world fixture proves that exposed types remain public while still-private types may be removed or regrouped.
 
 ## 2026-04-24 source correction
 
 The older research note [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md) is useful history, but its phase-by-phase algorithm reading is now superseded.
 
-The retained correction research records the historical wrapper reading, but its direct-open-world-rejection wording is now stale. The 2026-07-11 current-main bridge shows that `RemoveUnusedTypes.cpp` passes `getPassOptions().worldMode` into `GlobalTypeRewriter`; do not describe the wrapper itself as directly rejecting every open-world invocation until the helper's current world-mode branches are reconciled with its fixtures.
+The retained correction research records the historical wrapper reading, but its direct-open-world-rejection wording is now stale. Binaryen v131 passes `getPassOptions().worldMode` into `GlobalTypeRewriter`, and `remove-unused-types-open.wast` establishes the released policy: open-world exposed types and their required identity closure stay public, while unrelated private types remain eligible for cleanup.
 
 The durable correction remains:
 
@@ -89,7 +91,7 @@ This correction changes the teaching emphasis:
 - It is **not** the same pass as [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md).
 - The pass is GC/type-graph work whose historical scheduler home is the closed-world GC/type optimization neighborhood:
   - no-GC modules return unchanged,
-  - current-main passes world mode to the helper, so the exact explicit-open-world result is pending helper-and-fixture reconciliation,
+  - v131 passes world mode to the helper and explicitly supports open-world runs with mode-aware public-type retention,
   - it remains outside Starshine's current open-world no-DWARF path.
 - Public type groups are anchors and are not freely reshaped away.
 - Private types that are not used by the surviving IR can disappear.
@@ -134,7 +136,7 @@ That means the changed surface can include:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-types` research in this repo.
-- Cite the retained 2026-04-24 correction research and the 2026-07-11 bridge for the corrected source reading, current wrapper interface, and admission wording; keep the direct tagged URLs below as the primary-source anchors.
+- Cite the retained 2026-04-24 correction research for the algorithm correction and the v131 release audit plus open-world fixture for the released wrapper/admission policy.
 - Keep the 0149 research note as history only; do not reuse its superseded pass-local scanner / whole-old-rec-group explanation as the current algorithm.
 - Keep the page honest about scheduler scope:
   - closed-world GC/type cluster in Binaryen,
@@ -143,7 +145,8 @@ That means the changed surface can include:
 
 ## Sources
 
-- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp>
+- Binaryen v131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp>
+- Binaryen v131 open-world fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast>
 - [`../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md`](../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for algorithm details: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)

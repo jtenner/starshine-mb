@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
@@ -35,8 +38,8 @@ related:
 
 # Starshine Strategy For `remove-unused-types`
 
-Use this page together with the retained 2026-04-24 correction research, Binaryen's current-main owner source, and the local registry/harness sources cited below.
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve. The new bridge leaves the local boundary-only status unchanged while flagging current Binaryen's helper world-mode interface for future policy review.
+Use this page together with the retained 2026-04-24 correction research, Binaryen's v131 owner/open-world fixture, and the local registry/harness sources cited below.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve. V131 leaves the local boundary-only status unchanged while making open-world public-type retention a required future policy surface rather than an unresolved upstream question.
 
 ## The honest current status
 

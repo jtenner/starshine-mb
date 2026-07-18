@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
   - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
   - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
@@ -42,7 +43,7 @@ This dossier is unusual because the important file map is split across **histori
 
 | File | Why it matters | What it proves |
 | --- | --- | --- |
-| `version_130/src/passes/pass.cpp` plus current `main/src/passes/pass.cpp` and `wasm-opt.test` refresh | Current public pass roster | There is no current `remove-unused` or `remove-unused-functions` registration; the 2026-07-11 review again shows the modern names only on the reviewed registration/help surfaces |
+| `version_130/src/passes/pass.cpp`, the v130-to-v131 registration audit, and current `main/src/passes/pass.cpp` / `wasm-opt.test` refresh | Current public pass roster | There is no current `remove-unused` or `remove-unused-functions` registration; v131 adds `constraint-analysis` but does not restore either historical spelling |
 | `version_125/src/passes/passes.h` | Older factory-roster spot check | There is no `createRemoveUnusedFunctionsPass()` in the checked modern factory surface |
 | `version_130/test/lit/help/wasm-opt.test` | Current CLI oracle | Help output lists the modern remove-unused family names, but not `remove-unused` |
 | `version_129/test/lit/help/wasm-metadce.test` | Secondary help oracle | Same absence on another tool surface |
