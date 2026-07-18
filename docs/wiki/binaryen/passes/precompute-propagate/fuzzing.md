@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -21,7 +22,7 @@ related:
 
 ## Current state
 
-The direct lane is active and maps the exact Starshine public name to Binaryen `version_130`'s `--precompute-propagate`.
+The direct lane is active and maps the exact Starshine public name to Binaryen `version_131`'s `--precompute-propagate`.
 
 Use the rebuilt native CLI:
 
@@ -75,11 +76,26 @@ bun scripts/pass-fuzz-compare.ts \
   --out-dir .tmp/pass-fuzz-precompute-propagate-smoke \
   --jobs auto \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin .tmp/binaryen-version-130-bin/bin/wasm-opt \
+  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
   --max-failures 1000 --keep-going-after-command-failures
 ```
 
-## 2026-07-18 evaluator refresh
+## Final 2026-07-18 v131 matrix
+
+All final lanes use explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`, `_build/native/release/build/cmd/cmd.exe`, isolated cache `.tmp/pass-fuzz-cache-v131`, parallel workers, and the reviewed local/unreachable cleanup normalizers.
+
+| Lane | Directory | Compared | Direct | Cleanup-normalized | Classified differences | Failures |
+|---|---|---:|---:|---:|---:|---|
+| Regular GenValid, seed `0x5eed` | `.tmp/pass-fuzz-precompute-propagate-v131-final-regular-100000` | `100000/100000` | `41287` | `58713` | `0` | none |
+| Dedicated `precompute-all`, seed `0x5eed` | `.tmp/pass-fuzz-precompute-propagate-v131-final-dedicated-10000` | `10000/10000` | `7306` | `2694` | `0` | none |
+| Random all profiles, seed `0x5555` | `.tmp/pass-fuzz-precompute-propagate-v131-final-random-all-10000` | `10000/10000` | `5076` | `2190` | `2734` smaller | none |
+| wasm-smith, seed `0x5eed` | `.tmp/pass-fuzz-precompute-propagate-v131-final-wasm-smith-10000` | `9956/10000` | `9951` | `2` | `3` Starshine wins | `44` Binaryen tool failures |
+
+All `2734` random-all differences are smaller by `2..18` bytes and save `33,282` bytes total. They occur only in `ssa-nomerge-smoke` (`920`), `ssa-nomerge-parity` (`916`), duplicate-function-import (`657`), and duplicate-nonfunction-import (`241`) leaves. The wasm-smith differences are a smaller exact scratch-local form, preservation of a reachable `atomic.fence`, and removal of nontrapping `memory.size` debris before `unreachable`.
+
+Runtime/idempotence completed `500/500` with zero semantic/property/validation/command failures; unsupported Node GC/reference cases remain separately classified. Self-optimization validates and produces `4,581,251` canonical bytes versus Binaryen's `4,671,312`. One warmup plus 15 runs gives pass-local medians `1,042.358 ms` versus `525.378 ms`, ratio `1.984x`, inside the required `2x` ceiling.
+
+## Historical 2026-07-18 v130 evaluator refresh
 
 All refreshed lanes used Binaryen `version_130`, the explicit rebuilt native Starshine binary, parallel workers, the persistent cache, and the three normalizers above.
 
@@ -97,7 +113,7 @@ All `2734` random-all raw differences are canonically smaller for Starshine: `92
 
 The two wasm-smith differences and `44` Binaryen tool failures are unchanged from July 17.
 
-## 2026-07-17 closeout matrix
+## Historical 2026-07-17 v130 closeout matrix
 
 All final lanes used Binaryen `version_130`, the explicit current native Starshine binary, `--jobs auto`, the default persistent cache, and the three normalizers above.
 
@@ -123,7 +139,7 @@ The two raw mismatches are agent-classified, not harness-proven:
 
 See the retained closeout note for full rationale and artifacts.
 
-## Random-all classification
+## Historical v130 random-all classification
 
 The completed `random-all-profiles` lane has `2973` raw mismatches and no failures. Agent-side canonical size classification found:
 

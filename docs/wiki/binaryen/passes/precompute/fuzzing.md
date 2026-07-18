@@ -3,6 +3,7 @@ kind: workflow
 status: working
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -14,7 +15,7 @@ sources:
 
 ## Current release-gating status
 
-`precompute` now has a dedicated pass-specific GenValid profile: `precompute-all`. Under the modern pass closeout standard, `[O4Z-AUDIT-PC]` is closed for v0.1.0. The 2026-06-20 final-evidence refresh has green current `10000`-case dedicated `precompute-all` and `10000`-case broad `pass-fuzz-stress` lanes with PC normalizers and `_build/native/release/build/cmd/cmd.exe`; the final closeout then adds the missing regular GenValid `100000` lane at `.tmp/pass-fuzz-precompute-final-regular-100000`, which compared `100000/100000` with `15491` normalized, `84509` cleanup-normalized, and `0` mismatches/failures. The explicit wasm-smith `10000` lane found one mismatch where Binaryen erases a reachable `atomic.fence` before a branch-to-end and Starshine preserves it as an ordering barrier; this is accepted as a narrow Starshine correctness boundary backed by local atomics docs and focused test coverage. The O4z no-op gate is decided as an accepted v0.1.0 fail-closed boundary, not as full O4z PC-slot parity.
+`precompute` has the dedicated `precompute-all` profile and is closed at Binaryen-v131-or-better behavior parity. The final matrix uses explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`, `_build/native/release/build/cmd/cmd.exe`, isolated cache `.tmp/pass-fuzz-cache-v131`, and the reviewed local/unreachable cleanup normalizers. Regular `100000`, dedicated `10000`, random all-profiles `10000`, and wasm-smith `10000` request lanes are complete. The only wasm-smith difference is the intentional reachable-`atomic.fence` correctness win.
 
 The final closeout is recorded in [research note 0795](./index.md). The 2026-06-20 refresh in [research note 0785](./index.md) found the profile gap. The follow-up in [research note 0787](./index.md) added `precompute-all` in `src/validate/gen_valid.mbt` plus focused `src/validate/gen_valid_tests.mbt` coverage. The O4z follow-up in [research note 0788](./index.md) recovered only changed raw scalar folds under the O4z gate. The native-path follow-up in [research note 0789](./index.md) makes `_build/native/release/build/cmd/cmd.exe` the accepted explicit native compare path for this checkout after native build, records a green `1000`-case `precompute-all` smoke, and records an open regular GenValid blocker. The first reduction in [research note 0790](./index.md) fixes the sampled constant self-exiting `block br_if` subgap. The next reduction in [research note 0791](./index.md) fixes the constant-true self-branching loop result-tail subgap. The closeout-normalizer follow-up in [research note 0792](./index.md) classifies the remaining constant-false loop / mixed root-debris family as a Starshine no-op-control cleanup win and reruns the bounded regular lane with `0` mismatches. The O4z boundary follow-up in [research note 0793](./index.md) accepts only changed `raw-scalar-folds` under O4z and documents that remaining `o4z-precompute-noop` reasons are release boundaries with reopening criteria. The broad named GenValid lane currently available for the fourth closeout slot remains `pass-fuzz-stress`.
 
@@ -56,11 +57,11 @@ Focused generator tests prove the profile resolves through `precompute` / `preco
 
 ## Required final closeout lanes
 
-The final direct closeout reports these lanes separately:
+The final v131 direct closeout reports these lanes separately:
 
-1. regular GenValid: `.tmp/pass-fuzz-precompute-final-regular-100000` (`--count 100000 --seed 0x5eed --pass precompute`) with the documented PC cleanup normalizers compared `100000/100000`, normalized `15491`, cleanup-normalized `84509`, and had `0` mismatches/failures.
-2. explicit wasm-smith: `.tmp/pass-fuzz-precompute-final-refresh-wasm-smith-10000` (`--wasm-smith --count 10000 --seed 0x5eed --pass precompute`) compared `9956/10000`, normalized `9952`, cleanup-normalized `3`, command failures `44` in Binaryen/oracle classes, and one accepted reachable-`atomic.fence` Starshine correctness-boundary mismatch.
-3. dedicated precompute GenValid: `.tmp/pass-fuzz-precompute-final-refresh-precompute-all-10000` (`--count 10000 --seed 0x5eed --pass precompute --gen-valid-profile precompute-all`) compared `10000/10000`, normalized `5413`, cleanup-normalized `4587`, and had `0` mismatches/failures; all seven leaves were sampled.
-4. broad named GenValid: `.tmp/pass-fuzz-precompute-final-refresh-pass-fuzz-stress-10000` (`--count 10000 --seed 0x5555 --pass precompute --gen-valid-profile pass-fuzz-stress`) compared `10000/10000`, normalized `1529`, cleanup-normalized `8471`, and had `0` mismatches/failures.
+1. regular GenValid: `.tmp/pass-fuzz-precompute-v131-final-regular-100000`, `100000/100000`, `63268` direct plus `36732` cleanup-normalized, zero mismatches or failures;
+2. explicit wasm-smith: `.tmp/pass-fuzz-precompute-v131-final-wasm-smith-10000`, `9956/10000` compared, `9955` direct, one accepted reachable-`atomic.fence` Starshine correctness win, and `44` Binaryen tool failures;
+3. dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-v131-final-dedicated-10000`, `10000/10000`, `9132` direct plus `868` cleanup-normalized, zero mismatches or failures;
+4. random all-profiles: `.tmp/pass-fuzz-precompute-v131-final-random-all-10000`, `10000/10000`, `4698` direct, `901` cleanup-normalized, and `4401` inspected smaller outputs. Every difference is smaller by `2..49` bytes and saves `69,598` bytes total.
 
-Report future reruns with requested count, compared count, normalized and cleanup-normalized matches, raw mismatches, generator/validation/property failures, command-failure classes, cache counters, selected-profile counts, and pass-local timings separately for each lane.
+Runtime/idempotence samples complete `500/500` with zero semantic/property failures. Self-optimization validates. Plain pass-local timing is `27.317 ms` versus Binaryen's `142.883 ms` (`0.191x`). Report future reruns with requested and compared counts, direct and cleanup-normalized matches, agent-classified differences, validation/generator/property/command failures, cache counters, selected-profile counts, and pass-local timings.

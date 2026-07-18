@@ -80,9 +80,9 @@ Raw propagation is deliberately narrower than HOT evaluation. It is used where H
 
 A reachable `atomic.fence` is an ordering barrier. Starshine may fold independent values around it but does not copy Binaryen v130's observed fence deletion.
 
-### Remaining shared evaluator scope
+### Closed shared evaluator scope
 
-The reduced parity-gap witnesses for returned scalar folding, repeated partial `select`, fresh GC identity, immutable fresh array/struct/default/packed reads, single-`local.tee` effect retention, large local propagation, result-`if` consensus, and the self-hosted condition tee are closed. Broader string evaluation, general `Flow`-aware break/return interpretation, alias-aware heap caches and nested aggregate identity, multi-effect/global-write/call/trap/branch child retention, emitability separation, and final type refinalization remain shared plain-`precompute` architecture work. They are not known size-losing families in the refreshed random-all matrix.
+The Binaryen-v131 shared evaluator contract is closed for both public variants. It covers scalar and floating evaluation, strings, descriptors, deterministic SIMD, partial selects, exact heap identities and nested immutable aggregates, value-carrying branch/control `Flow`, ordered local/global writes and trapping prefixes, explicit emitability, and narrow exact-cast refinalization. Legacy EH and stack switching are conservatively admitted and preserved rather than executed speculatively.
 
 ## Signoff ladder
 
@@ -98,7 +98,7 @@ moon test --package jtenner/starshine/validate --file gen_valid_precompute_propa
 
 ### Direct fuzz
 
-Use Binaryen `version_130`, an explicitly rebuilt release native Starshine binary, parallel workers, the persistent cache, and the three reviewed normalizers. The exact final lanes are recorded in [`./fuzzing.md`](./fuzzing.md).
+Use Binaryen `version_131`, an explicitly rebuilt release native Starshine binary, parallel workers, the isolated v131 cache, and only the reviewed cleanup normalizers. The exact final lanes are recorded in [`./fuzzing.md`](./fuzzing.md).
 
 ### Artifact/performance
 
@@ -107,7 +107,7 @@ bun scripts/self-optimize-compare.ts \
   tests/node/dist/starshine-debug-wasi.wasm \
   --out-dir .tmp/self-opt-precompute-propagate-gap-close-memorygrow \
   --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --wasm-opt-bin .tmp/binaryen-version-130-bin/bin/wasm-opt \
+  --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt \
   --canonicalize-binaryen-output \
   --precompute-propagate
 ```
@@ -116,31 +116,19 @@ Require external validity, no stale-local substitution, classification of the fi
 
 ## Current evidence
 
-The July 18, 2026 shared-evaluator refresh adds:
+The final July 18, 2026 v131 evidence is:
 
-- plain aggregate: `10000/10000`, zero mismatches/failures;
-- propagating aggregate: `10000/10000`, zero mismatches/failures;
-- regular GenValid and `pass-fuzz-stress`: `10000/10000` each, zero mismatches/failures;
-- runtime/idempotence: `1000/1000` idempotence matches, `955` runtime-checked, `45` unsupported, zero semantic mismatches/property failures;
-- wasm-smith: the same two classified differences and `44` Binaryen parser/tool failures;
-- random-all: `2734` raw differences, all canonically smaller for Starshine and none equal-sized or larger;
-- self-optimization: Starshine canonical `4,585,838` bytes versus Binaryen `4,666,022`, another `135`-byte improvement over July 17;
-- one-warmup/15-run pass-local medians: `782.394 ms` versus `540.976 ms` (`1.446x`, within the `<2x` contract); whole-command medians `7,799.692 ms` and `1,204.678 ms`.
+- regular GenValid: `.tmp/pass-fuzz-precompute-propagate-v131-final-regular-100000`, `100000/100000`, `41287` direct and `58713` cleanup-normalized, zero mismatches or failures;
+- dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-propagate-v131-final-dedicated-10000`, `10000/10000`, `7306` direct and `2694` cleanup-normalized, zero mismatches or failures;
+- random all-profiles: `.tmp/pass-fuzz-precompute-propagate-v131-final-random-all-10000`, `10000/10000`, `5076` direct, `2190` cleanup-normalized, and `2734` inspected unrelated SSA/duplicate-import differences; every difference is smaller by `2..18` bytes and saves `33,282` bytes total;
+- wasm-smith: `.tmp/pass-fuzz-precompute-propagate-v131-final-wasm-smith-10000`, `9956` compared, `9951` direct, `2` cleanup-normalized, three classified Starshine wins, and `44` Binaryen tool failures;
+- runtime/idempotence: `500/500`, zero property, validation, command, or semantic failures; unsupported Node GC/reference cases are separate;
+- self-optimization: valid Starshine canonical output `4,581,251` bytes versus Binaryen `4,671,312`, saving `90,061` bytes;
+- one-warmup/15-run pass-local medians: `1,042.358 ms` versus `525.378 ms`, ratio `1.984x`, within the required `2x` contract;
+- full tests: `9415/9415`, with `moon fmt`, `moon check`, `moon info`, native release build, and `git diff --check` green.
 
-The original final July 17, 2026 propagation evidence remains:
-
-- regular GenValid: `100000/100000`, zero mismatches or failures;
-- dedicated local-facts profile: `10000/10000`, zero mismatches or failures;
-- `pass-fuzz-stress`: `10000/10000`, zero mismatches or failures;
-- wasm-smith: `9956/10000` compared, two previously classified differences, zero validation/property failures, and `44` Binaryen parser/tool failures;
-- random-all profiles: `10000/10000`, `2973` raw mismatches, all `2973` with smaller canonical Starshine output and none equal-sized or larger;
-- all six original reduced behavior witnesses now match Binaryen exactly except partial `select`, where Starshine performs the requested fold and is smaller, and the structured self-hosted prefix witness, where Starshine is also smaller;
-- valid self-optimization output: Starshine canonical `4,585,973` bytes versus direct Binaryen `4,666,022` bytes;
-- repeated one-warmup/15-run benchmark: Starshine pass-local median `694.444 ms`, Binaryen `505.591 ms` (`1.374x` Binaryen advantage, within the `<2x` contract); whole-command medians `7,330.096 ms` and `1,110.672 ms` respectively;
-- the former defined-function `4` / absolute-function `31` condition-tee gap is closed; the first canonical difference moves to defined `24` / absolute `51`, where Starshine retains valid result typing instead of Binaryen's larger unreachable/refinalized shape.
-
-Detailed refresh artifacts are under `.tmp/pass-fuzz-precompute-gap-close-final4-*` and `.tmp/benchmark-precompute-gap-close-final2-2026-07-18`. Original closeout artifacts remain under `.tmp/pass-fuzz-precompute-propagate-gap-close-final3-*`, `.tmp/pass-fuzz-precompute-propagate-gap-close-final4-*`, `.tmp/self-opt-precompute-propagate-gap-close-memorygrow`, and `.tmp/benchmark-precompute-propagate-gap-close-final-2026-07-17`.
+The three wasm-smith differences preserve a reachable `atomic.fence` that Binaryen removes, retain a smaller exact local-value form, and remove nontrapping `memory.size` debris before `unreachable`. None is a semantic or size parity gap.
 
 ## Status rule
 
-The public propagation member, its reduced behavior-gap set, and its no-size-loss random-all matrix are closed. Reopen for a semantic failure, a size-losing mismatch, a focused evaluator family with Binaryen-backed evidence, or a pass-local regression beyond `2x` Binaryen. Do not call the remaining smaller structural differences parity bugs merely because the WAT differs.
+The public propagation member and shared v131 evaluator are closed at Binaryen-v131-or-better behavior parity. Reopen for a semantic/validation failure, a pass-owned size-losing family without measured benefit, a new source-backed evaluator gap, or a pass-local regression beyond `2x` Binaryen. Do not call smaller validated structural differences parity bugs merely because the WAT differs.

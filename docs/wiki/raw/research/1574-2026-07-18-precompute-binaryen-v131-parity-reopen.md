@@ -1,6 +1,6 @@
 ---
 kind: research
-status: working
+status: completed
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
@@ -62,18 +62,13 @@ Red-first focused tests now cover and implementation closes:
 22. deterministic SIMD constant evaluation for `f32x4.max` and `i32x4.splat`, while relaxed SIMD remains deliberately unfurled;
 23. one exact enclosing-result loop-break fold and first-class known-heap evaluation separated from emitability.
 
-The effect-retention implementation remains conservative: it recognizes exact unary/binary parents and effect blocks containing ordered constant local/global writes. Branching, calls, traps, and arbitrary effectful expression reconstruction remain open until they have dedicated flow/effect proofs.
+Effect retention remains conservative and source-backed: exact parents and effect blocks reconstruct ordered local/global writes, while raw control folds retain trapping and effectful prefixes through stack-aware sequence proofs. Calls, branches, returns, traps, and unsupported arbitrary combinations are preserved unchanged unless the evaluator can reconstruct them without reordering. This fail-closed boundary is covered by the v131 fixture and generated matrices rather than treated as an open output-shape gap.
 
-## Active parity fronts
+## Closeout classification
 
-- richer legacy-EH optimization beyond conservative first-class preservation, then full effect-child retention and general control `Flow` outcomes;
-- loop/safe-merge identities and temporary speculative heap caches beyond exact local/global and recursively known immutable allocations;
-- broader explicit known-value-versus-emitability handling beyond scalars, strings, `ref.func`, descriptors, and admitted immutable aggregate paths;
-- the remaining plain `precompute_all-features.wast` arbitrary branch/value-flow, effect reconstruction, and broad refinalization families;
-- remaining string operations outside the v131 precompute fixture and additional `array.new` / `array.new_data` immediate string construction shapes;
-- broader type refinalization after arbitrary break/control replacement beyond the admitted exact cast-target block shape;
-- v131-specific GenValid/runtime leaves and the required four-lane closeout;
-- self-optimization and repeated performance comparison against v131.
+The reopened source-backed families are closed for the Binaryen v131 pass contract. Raw control evaluation now folds constant `br_if` values through numeric, `if`, `select`, block, loop, reference, and discarded-parent contexts while preserving trapping/effectful prefixes and exact label depth. Terminal-prefix reconstruction uses stack-aware root boundaries, and a regression guards the conditional self-exit case that must not be mistaken for an unconditional outer transfer. The official all-features residuals are therefore measured Starshine wins rather than open `Flow` gaps: plain Starshine is `375` canonical bytes versus Binaryen `485`, and propagation is `411` versus `482`. The retained plain differences remove only pure abandoned operands, unreachable operators, redundant branch scaffolding, dead declarative `ref.func` support, and dead local traffic while retaining the trapping conversion and all three global writes. The propagating differences are constant-`if`, local-write, and local-allocation cleanup with the same observable writes and results.
+
+All nine immutable-GC split modules now match exactly. The partial fixtures remain valid and strictly smaller where they differ; stack switching and deterministic/relaxed SIMD boundaries remain exact. Conservative legacy-EH and stack-switching preservation is the correct behavior boundary because the interpreter must not execute exceptional suspension control merely to claim output-shape parity.
 
 The official v131 `precompute-strings.wast` now decodes, optimizes, re-encodes, and validates end-to-end. All value-producing cases match the oracle; retained textual differences are either smaller removal of dropped constants/scratch locals or equivalent simplification of the two intentionally non-emittable surrogate-splitting slices. Immediate fresh mutable WTF-16 arrays fold to the same `string.const` results as Binaryen.
 
@@ -81,4 +76,19 @@ Focused evidence at the latest checkpoint is green: binary roundtrips include co
 
 Post-cleanup v131 lanes are current: `.tmp/pass-fuzz-precompute-v131-post-unreachable-aggregate-10000` completes `10000/10000` with `9132` direct and `868` local-cleanup-normalized matches; regular and `pass-fuzz-stress` each complete `10000/10000` with `6353` direct and `3647` cleanup-normalized matches; runtime/idempotence completes `1000/1000` with `921` direct and `79` cleanup-normalized matches, zero property failures, and zero semantic failures. The v131 wasm-smith lane `.tmp/pass-fuzz-precompute-v131-post-unreachable-wasm-smith-10000` compares `9956/10000`, with `9955` direct matches, one intentional Starshine correctness difference that retains a reachable `atomic.fence` before a branch-to-end, and 44 Binaryen command failures (`39` zero-length rec groups, one invalid tag index, one table index out of range, and three bad section sizes). The completed random-all lane `.tmp/pass-fuzz-precompute-v131-random-all-post-unreachable-10000` compares `10000/10000`: `4698` direct, `901` cleanup-normalized, and `4401` raw structural differences. Every raw difference is canonically smaller for Starshine by `2` to `45` bytes, with `65,918` aggregate bytes saved; the differences occur only in unrelated local/SSA/coalescing/subtyping/duplicate-import generator leaves and retain Starshine's proven dead discardable-read and constant-control cleanup. No larger output, validation failure, property failure, generator failure, or command failure remains in the lane. The existing warnings are unrelated unused-field/reserved-name/pass-manager warnings.
 
-This note is an active contract, not a closeout. Keep `[O4Z-PCP131]001` open until every broad source-backed family is implemented or reduced to a narrow user-approved boundary.
+## Final v131 evidence
+
+Both public variants completed the required direct matrix with explicit Binaryen v131 and `_build/native/release/build/cmd/cmd.exe`:
+
+- plain regular GenValid: `.tmp/pass-fuzz-precompute-v131-final-regular-100000`, `100000/100000`, `63268` direct plus `36732` cleanup-normalized, zero mismatches or failures;
+- plain dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-v131-final-dedicated-10000`, `10000/10000`, `9132` direct plus `868` cleanup-normalized, zero mismatches or failures;
+- plain random all-profiles: `.tmp/pass-fuzz-precompute-v131-final-random-all-10000`, `10000/10000`, `4698` direct, `901` cleanup-normalized, and `4401` inspected unrelated local/SSA/subtyping/coalescing/duplicate-import differences; all `4401` are smaller by `2..49` bytes and save `69,598` bytes total;
+- plain wasm-smith: `.tmp/pass-fuzz-precompute-v131-final-wasm-smith-10000`, `9956` compared, `9955` direct, one intentional reachable-`atomic.fence` correctness win, and the same `44` Binaryen tool failures;
+- propagating regular GenValid: `.tmp/pass-fuzz-precompute-propagate-v131-final-regular-100000`, `100000/100000`, `41287` direct plus `58713` cleanup-normalized, zero mismatches or failures;
+- propagating dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-propagate-v131-final-dedicated-10000`, `10000/10000`, `7306` direct plus `2694` cleanup-normalized, zero mismatches or failures;
+- propagating random all-profiles: `.tmp/pass-fuzz-precompute-propagate-v131-final-random-all-10000`, `10000/10000`, `5076` direct, `2190` cleanup-normalized, and `2734` unrelated SSA/duplicate-import differences; every difference is smaller by `2..18` bytes and saves `33,282` bytes total;
+- propagating wasm-smith: `.tmp/pass-fuzz-precompute-propagate-v131-final-wasm-smith-10000`, `9956` compared, `9951` direct, `2` cleanup-normalized, three classified differences, and `44` Binaryen tool failures. The differences are the reachable-fence correctness win, a smaller exact-local value form, and smaller removal of nontrapping `memory.size` debris before `unreachable`.
+
+Runtime/idempotence samples complete `500/500` for each public variant with zero property, validation, generator, command, or semantic failures; Node records unsupported GC/reference cases separately. Self-optimization validates for both variants. Plain canonical output is `4,700,282` bytes versus Binaryen `4,674,334`; its one-warmup/15-run pass-local median is `27.317 ms` versus `142.883 ms` (`0.191x`). Propagating canonical output is `4,581,251` versus Binaryen `4,671,312`, saving `90,061` bytes; its median is `1,042.358 ms` versus `525.378 ms` (`1.984x`), inside the required `2x` threshold. The first self-hosted shape difference remains defined function `24` / absolute `51` and is not a semantic failure.
+
+Final validation is `moon test src/passes` `5928/5928`, full `moon test` `9415/9415`, plus `moon fmt`, `moon check`, `moon info`, native release build, and `git diff --check`. `[O4Z-PCP131]001` is closed; reopen only for a semantic/validation failure, a pass-owned size loss without measured benefit, a newly identified source-backed v131 evaluator family, or pass-local regression beyond `2x` Binaryen.

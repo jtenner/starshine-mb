@@ -38,7 +38,7 @@ related:
 - The exact public name is registered, dispatched, accepted by the compare harness, and covered by focused tests plus the `precompute-propagate-local-facts` GenValid profile.
 - Starshine's two aggressive top-level PC slots now use `precompute-propagate`; ordinary plain-`precompute` remains a separately requestable direct pass.
 - DAE and inlining nested optimization now use the same public implementation instead of the removed private `precompute-propagate-prefix` semantic fork.
-- The reduced returned-scalar/repeated-select/fresh-array/default-struct/packed-read/single-tee-effect/result-`if`/large/self-hosted gap set is closed; broader string, general `Flow`, alias-aware heap-cache/nested-aggregate, multi-effect retention, emitability, and type-refinalization architecture remains shared with plain `precompute`.
+- The shared Binaryen-v131 evaluator contract is closed: strings, general constant control `Flow`, immutable nested heaps and exact identities, ordered multi-effect retention, emitability, deterministic SIMD, descriptor/reference behavior, and exact cast refinalization are covered. Conservative legacy-EH and stack-switching preservation remains intentional. Propagation itself stays bounded to one SSA local-consensus solve and one evaluator rerun.
 
 ## Why this pass matters
 
@@ -67,7 +67,7 @@ So the pass is best taught as:
 
 ## Most important durable takeaways
 
-- `precompute-propagate` is a real public pass name in Binaryen `version_130`, not just an internal mode nickname, and Starshine now exposes that exact public name.
+- `precompute-propagate` is a real public pass name in Binaryen `version_131`, not just an internal mode nickname, and Starshine exposes that exact public name.
 - It shares the same `Precompute.cpp` core as plain `precompute`, but the propagate variant adds a real extra phase.
 - That extra phase uses `LazyLocalGraph` to learn concrete values for some `local.get`s and then reruns the main precompute walk once.
 - The propagation step is stricter than the name alone suggests:
@@ -115,10 +115,11 @@ So the pass is best taught as:
   - one solve plus one evaluator rerun, not generic unbounded SCCP
   - both aggressive top-level PC slots use the propagating member
   - DAE/inlining nested prefixes reuse the public pass
-  - retained shared string/Flow/heap-cache/emitability/refinalization boundaries remain visible
+  - the closed v131 string/Flow/heap-identity/emitability/refinalization contract and conservative EH/stack-switching boundaries remain visible
 
 ## Sources
 
+- [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md)
 - [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md)
 - [`../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md`](../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md)
 - [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md)

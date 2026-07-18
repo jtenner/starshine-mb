@@ -111,7 +111,7 @@ These guards prevented an invalid self-optimized output in function `2641`. They
 
 ### Shared plain-precompute scope
 
-The propagating member reuses Starshine's plain-precompute evaluator. The July 18 follow-up closes the reduced returned-scalar, repeated partial-`select`, fresh-GC array/struct/default/packed-read, single-`local.tee` effect-retention, result-`if`, large-function, and self-hosted tee gaps. Broader string, general `Flow`, alias-aware heap-cache/nested-aggregate, multi-effect retention, emitability, and type-refinalization work remains shared evaluator architecture rather than propagation-specific local consensus.
+The propagating member reuses Starshine's plain-precompute evaluator. The July 18 v131 closeout covers returned scalars, partial `select`, strings, exact heap identity and nested immutable aggregates, ordered multi-effect retention, result-`if`, general constant control `Flow`, emitability, exact cast refinalization, large functions, and the self-hosted tee/control cases. Legacy EH and stack switching remain intentionally conservative. Propagation-specific behavior remains exactly one SSA consensus solve followed by one evaluator rerun.
 
 ## Tests
 

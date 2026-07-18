@@ -55,7 +55,7 @@ related:
 ## Role
 
 - `precompute` is an active implemented **hot pass** in Starshine.
-- The Binaryen `version_130`/current-main source reconciliation confirms the real upstream family still has **two public names**:
+- The Binaryen `version_131` source and executable reconciliation confirms the real upstream family still has **two public names**:
   - `precompute`
   - `precompute-propagate`
   The older `version_129` investigation remains historical provenance; it is no longer the current release baseline.
@@ -113,7 +113,7 @@ So this pass is not just “integer constant folding.”
   - The pass keeps a heap-value cache so `ref.eq`, immutable field reads, and nested immutable-object reasoning do not accidentally confuse “same contents” with “same allocation.”
 - Emitability is also part of the contract.
   - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
-- Current Starshine's shared plain evaluator models a conservative scalar/control subset of the upstream behavior, with returned integer/floating/conversion folds, raw scalar/no-candidate shortcuts, constant-`if` arm picks, module-proven immutable `global.get` constants, repeated supported scalar parents through `select`, fresh immutable array/struct/default/packed reads, narrow `local.tee` effect retention, dropped nontrapping expressions, result-block cleanup, and preserved effectful/trapping boundaries. The separate public `precompute-propagate` member is active and adds one SSA local-consensus solve plus one evaluator rerun; it still does not claim Binaryen's complete `Flow`, alias-aware heap-cache, general effect-retention, emitability, or refinalization surface.
+- Starshine's shared evaluator is closed at Binaryen-v131-or-better behavior parity. It covers scalar/floating/conversion evaluation, partial selects, immutable nested heap values and exact identities, strings, descriptors, deterministic SIMD, effect/trap-preserving parent replacement, constant control `Flow`, exact cast refinalization, legacy EH admission, and continuation/stack-switching preservation. Plain `precompute` may produce smaller output than Binaryen when abandoned operands are pure and a branch already determines control; `precompute-propagate` adds exactly one SSA local-consensus solve and one evaluator rerun.
 - The direct debug-artifact representation drift is classified at `.tmp/pc-artifact-drift-classified` and rechecked at `.tmp/pc001-final-recheck`: after fixing the compare fallback to ignore parentheses inside WAT data strings, the first function-body drift is defined `4` / absolute `21`, where Binaryen emits temporary-local/block scaffolding plus dropped intermediate constants around `memory.size` / `local.tee` scalar folding while Starshine leaves the compact stack expression. Type-index ordering also differs across `1913 / 4671` defined functions because Binaryen's `precompute` output reorders the function types. The active `[PC]001` backlog slice is closed because direct semantic parity remains green and the remaining shape gap is not a small raw shortcut candidate; whole-command runtime belongs to `[WALL]001`.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
@@ -172,7 +172,7 @@ What the documented upstream contract is (initially read at `version_129`, then 
 
 ## Historical post-`version_129` drift notes
 
-Binaryen `version_130` is now the public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
+Binaryen `version_131` is the public release baseline, but this folder should not silently forget the post-`version_129` upstream drift that the earlier landing page recorded. The 2026-07-11 focused v130/current-main source reread found no additional behavior-bearing change in the reviewed owner, registration, scheduler, and representative-test surfaces.
 
 Those newer facts remain useful, provided they stay labeled as newer than the tagged oracle:
 
@@ -183,7 +183,9 @@ Those newer facts remain useful, provided they stay labeled as newer than the ta
 
 Treat those as dated drift notes, not as silent edits to the historical `version_129` algorithm reading. Use the 2026-07-11 v130/current-main reconciliation before calling an older tag the current baseline.
 
-## Release-gating status as of 2026-06-20
+## Historical release-gating status as of 2026-06-20
+
+This section preserves the June boundary history. It is superseded for current status by the July 18 v131 closeout in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md): both public variants are closed at v131-or-better behavior parity, both required four-lane matrices are current, self-optimization validates, and pass-local timing meets the `2x` threshold.
 
 `precompute` is closed for the v0.1.0 `-O4z` per-pass audit under the repo's current pass-audit/signoff standard. The older branch-heavy 10000-case direct compare evidence remains useful, the dedicated profile gap is closed by `precompute-all`, and the first O4z recovery slice allows only changed `raw-scalar-folds` results under `optimize_level >= 4 && shrink_level >= 1`. The remaining O4z no-op surface is an explicit v0.1.0 release boundary rather than full O4z PC-slot optimization parity: HOT-only cleanup, load/call ownership hazards, large lowered functions, br_table/parser stack hazards, unchanged raw no-candidate cases, and changed non-scalar repair reasons stay fail-closed as `o4z-precompute-noop` until a focused artifact/fixture reopens them. The native path decision is explicit for this checkout: after `moon build --target native --release src/cmd`, use `_build/native/release/build/cmd/cmd.exe` for precompute compare lanes because `target/native/release/build/cmd/cmd.exe` remains absent. The bounded regular GenValid mismatch family has been reduced: constant self-exiting `block br_if` debris and constant-true self-branching loop result tails are fixed in pass code, while the remaining constant-false loop / mixed root-debris family is classified as a focused-test-backed Starshine size win with explicit PC normalizer coverage. The final closeout in [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md) adds the missing regular GenValid `100000` lane: `.tmp/pass-fuzz-precompute-final-regular-100000` compared `100000/100000`, normalized `15491`, cleanup-normalized `84509`, and had `0` mismatches or failures. The prior final-evidence refresh records green `10000` dedicated `precompute-all` and `10000` broad `pass-fuzz-stress` lanes, plus the explicit wasm-smith `10000` lane. Its sole mismatch, `case-006523-wasm-smith`, is accepted as a narrow Starshine correctness boundary: Binaryen erases a reachable `atomic.fence` before branch-to-end, while Starshine preserves the ordering barrier as required by the local atomics docs and focused boundary test.
 
@@ -202,23 +204,23 @@ The durable modern status refresh is [`../../../raw/research/0785-2026-06-20-pre
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
-- Treat Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp), and [`opt-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h), plus their current-main counterparts, as the release/source/test provenance bridge; they supersede the consumed duplicate `version_129` manifest as the active routing surface.
+- Treat Binaryen [`version_131` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Precompute.cpp) and the explicit local v131 executable as the direct release oracle. Keep v130/current-main sources only as historical no-drift provenance.
 - Treat the retained 2026-05-05 research mirror, [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md), as historical freshness evidence; the newer reconciliation confirms no behavior-bearing drift on its focused reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
-- Use Binaryen `version_130` as the current public release baseline for new conclusions. Keep the detailed `version_129` source reading as historical provenance until a behavior-specific v130 reread replaces that exact claim.
+- Use Binaryen `version_131` as the current public release baseline for new conclusions. Keep the detailed `version_129` algorithm reading and v130 reconciliation as historical provenance.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`
 - Keep the landing page honest about the artifact story:
   - the saved slot-19 `func 108` invalid-output witness is retired
   - the later rooted slot-43 continuation witness (`func 3867`, extracted as `func 15`) is also retired by HOT-lower carried-prefix label guarding rather than by a new pass-local `precompute` rewrite
-  - the remaining work is documentation depth, parity breadth, and runtime honesty, not an open hard-corruption blocker
+  - no pass-owned v131 parity blocker remains; reopen only under the documented semantic, validation, size, source-family, or performance criteria
 - Keep dated upstream drift notes explicit instead of silently rewriting the historical `version_129` algorithm reading or overstating the limited v130/current-main reconciliation.
 
 ## Sources
 
-- Binaryen [`version_130` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/Precompute.cpp), [`pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp), and [`opt-utils.h`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h), plus current-main equivalents
+- Binaryen [`version_131` `Precompute.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Precompute.cpp) and the explicit v131 `wasm-opt` oracle
 - [`../../../raw/research/0795-2026-06-20-precompute-final-closeout.md`](../../../raw/research/0795-2026-06-20-precompute-final-closeout.md)
 - [`../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md`](../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md)
 - [`../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md`](../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md)
