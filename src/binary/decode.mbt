@@ -2510,10 +2510,24 @@ fn i8x16_shuffle_from_lanes(lanes : FixedArray[LaneIdx]) -> Instruction {
 }
 
 ///|
+priv enum LegacyCatchDecodeFrame {
+  LegacyTaggedCatchFrame(TagIdx, Array[Instruction])
+  LegacyCatchAllFrame(Array[Instruction])
+}
+
+///|
 priv enum StructuredDecodeFrame {
   BlockFrame(BlockType, Int, Array[Instruction])
   LoopFrame(BlockType, Int, Array[Instruction])
   IfFrame(BlockType, Int, Array[Instruction], Array[Instruction]?)
+  LegacyTryFrame(
+    BlockType,
+    Int,
+    Array[Instruction],
+    Array[@lib.LegacyCatch],
+    LegacyCatchDecodeFrame?,
+    LabelIdx?
+  )
   TryTableFrame(BlockType, Array[Catch], Int, Array[Instruction])
 }
 
@@ -2525,6 +2539,7 @@ fn structured_frame_body_instruction_depth(
     BlockFrame(_, body_depth, _) => body_depth
     LoopFrame(_, body_depth, _) => body_depth
     IfFrame(_, body_depth, _, _) => body_depth
+    LegacyTryFrame(_, body_depth, _, _, _, _) => body_depth
     TryTableFrame(_, _, body_depth, _) => body_depth
   }
 }
@@ -2554,6 +2569,35 @@ fn structured_frame_push_instruction(
           IfFrame(bt, body_depth, then_body, None)
         }
       }
+    LegacyTryFrame(bt, body_depth, body, catches, active_catch, delegate) =>
+      match active_catch {
+        Some(LegacyTaggedCatchFrame(tag, catch_body)) => {
+          catch_body.push(inst)
+          LegacyTryFrame(
+            bt,
+            body_depth,
+            body,
+            catches,
+            Some(LegacyTaggedCatchFrame(tag, catch_body)),
+            delegate,
+          )
+        }
+        Some(LegacyCatchAllFrame(catch_body)) => {
+          catch_body.push(inst)
+          LegacyTryFrame(
+            bt,
+            body_depth,
+            body,
+            catches,
+            Some(LegacyCatchAllFrame(catch_body)),
+            delegate,
+          )
+        }
+        None => {
+          body.push(inst)
+          LegacyTryFrame(bt, body_depth, body, catches, active_catch, delegate)
+        }
+      }
     TryTableFrame(bt, catches, body_depth, body) => {
       body.push(inst)
       TryTableFrame(bt, catches, body_depth, body)
@@ -2571,6 +2615,16 @@ fn structured_frame_finish(frame : StructuredDecodeFrame) -> Instruction {
         Some(else_body) => Instruction::if_(bt, then_body, Some(else_body))
         None => Instruction::if_(bt, then_body, None)
       }
+    LegacyTryFrame(bt, _, body, catches, active_catch, delegate) => {
+      match active_catch {
+        Some(LegacyTaggedCatchFrame(tag, catch_body)) =>
+          catches.push(@lib.LegacyCatch::tagged(tag, Expr::new(catch_body)))
+        Some(LegacyCatchAllFrame(catch_body)) =>
+          catches.push(@lib.LegacyCatch::all(Expr::new(catch_body)))
+        None => ()
+      }
+      Instruction::try_(bt, Expr::new(body), catches, delegate~)
+    }
     TryTableFrame(bt, catches, _, body) =>
       Instruction::try_table(bt, catches, Expr::new(body))
   }
@@ -2600,6 +2654,12 @@ fn decode_structured_frame_header(
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
         Ok((bt, next)) => Ok((IfFrame(bt, body_depth, [], None), next))
+        Err(err) => Err(err)
+      }
+    Some(0x06) =>
+      match Decode::decode(bytes, i + 1) {
+        Ok((bt, next)) =>
+          Ok((LegacyTryFrame(bt, body_depth, [], [], None, None), next))
         Err(err) => Err(err)
       }
     Some(0x1F) =>
@@ -2636,6 +2696,78 @@ fn decode_structured_instruction_with_depth(
         pos += 1
         frames.push(IfFrame(bt, body_depth, then_body, Some([])))
       }
+      (
+        LegacyTryFrame(bt, body_depth, body, catches, active_catch, None),
+        Some(0x07),
+      ) => {
+        match active_catch {
+          Some(LegacyTaggedCatchFrame(tag, catch_body)) =>
+            catches.push(@lib.LegacyCatch::tagged(tag, Expr::new(catch_body)))
+          Some(LegacyCatchAllFrame(_)) =>
+            return Err(BinaryDecodeError::InvalidInstruction)
+          None => ()
+        }
+        match Decode::decode(bytes, pos + 1) {
+          Ok((tag, next)) => {
+            frames.push(
+              LegacyTryFrame(
+                bt,
+                body_depth,
+                body,
+                catches,
+                Some(LegacyTaggedCatchFrame(tag, [])),
+                None,
+              ),
+            )
+            pos = next
+          }
+          Err(err) => return Err(err)
+        }
+      }
+      (
+        LegacyTryFrame(bt, body_depth, body, catches, active_catch, None),
+        Some(0x19),
+      ) => {
+        match active_catch {
+          Some(LegacyTaggedCatchFrame(tag, catch_body)) =>
+            catches.push(@lib.LegacyCatch::tagged(tag, Expr::new(catch_body)))
+          Some(LegacyCatchAllFrame(_)) =>
+            return Err(BinaryDecodeError::InvalidInstruction)
+          None => ()
+        }
+        frames.push(
+          LegacyTryFrame(
+            bt,
+            body_depth,
+            body,
+            catches,
+            Some(LegacyCatchAllFrame([])),
+            None,
+          ),
+        )
+        pos += 1
+      }
+      (LegacyTryFrame(bt, _, body, catches, None, None), Some(0x18)) => {
+        if catches.length() > 0 {
+          return Err(BinaryDecodeError::InvalidInstruction)
+        }
+        let (delegate, next) = match Decode::decode(bytes, pos + 1) {
+          Ok(decoded) => decoded
+          Err(err) => return Err(err)
+        }
+        let inst = Instruction::try_(
+          bt,
+          Expr::new(body),
+          [],
+          delegate=Some(delegate),
+        )
+        pos = next
+        if frames.is_empty() {
+          return Ok((inst, pos))
+        }
+        let parent = frames.pop().unwrap()
+        frames.push(structured_frame_push_instruction(parent, inst))
+      }
       (frame, Some(0x0B)) => {
         let inst = structured_frame_finish(frame)
         pos += 1
@@ -2648,6 +2780,7 @@ fn decode_structured_instruction_with_depth(
       (frame, Some(0x02))
       | (frame, Some(0x03))
       | (frame, Some(0x04))
+      | (frame, Some(0x06))
       | (frame, Some(0x1F)) => {
         let body_depth = structured_frame_body_instruction_depth(frame)
         frames.push(frame)
@@ -2693,7 +2826,7 @@ fn decode_instruction_with_depth(
         Ok((vts, i)) => Ok((Instruction::select(types=Some(vts)), i))
         Err(t) => Err(t)
       }
-    Some(0x02) | Some(0x03) | Some(0x04) | Some(0x1F) =>
+    Some(0x02) | Some(0x03) | Some(0x04) | Some(0x06) | Some(0x1F) =>
       decode_structured_instruction_with_depth(bytes, i, depth)
     Some(0x08) =>
       match Decode::decode(bytes, i + 1) {

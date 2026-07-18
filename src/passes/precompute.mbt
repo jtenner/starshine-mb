@@ -6719,6 +6719,39 @@ fn precompute_run_raw_func(
 }
 
 ///|
+fn precompute_raw_instr_has_legacy_try(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Try(_, _, _, _) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_legacy_try(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_legacy_try(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_legacy_try(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_legacy_try(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_legacy_try(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn precompute_raw_instr_has_atomic_fence(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.AtomicFence => true

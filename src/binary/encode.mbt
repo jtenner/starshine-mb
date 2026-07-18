@@ -19,6 +19,7 @@ pub suberror BinaryEncodeError {
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
   UnsupportedBackingArrayMemoryOp
+  InvalidLegacyTryShape
 } derive(Eq, Debug)
 
 ///|
@@ -58,6 +59,7 @@ pub impl Show for BinaryEncodeError with fn output(self, logger) {
       logger.write_string("StringConstLiteralMissingFromSection")
     UnsupportedBackingArrayMemoryOp =>
       logger.write_string("UnsupportedBackingArrayMemoryOp")
+    InvalidLegacyTryShape => logger.write_string("InvalidLegacyTryShape")
   }
 }
 
@@ -1120,6 +1122,44 @@ fn binary_encode_rewrite_instruction(
       }
       out.push(Instruction::if_(bt, next_then, next_else))
     }
+    Try(bt, body, catches, delegate) => {
+      let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
+        body, subtypes, env,
+      )
+      let (prefix, next_body) = binary_encode_take_value_prefix(
+        body_instrs,
+        binary_encode_block_param_count(bt, subtypes),
+        env,
+      )
+      let next_catches : Array[@lib.LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag, catch_body) =>
+            next_catches.push(
+              @lib.LegacyCatch::tagged(
+                tag,
+                binary_encode_rewrite_typed_expr_to_raw(
+                  catch_body, subtypes, env,
+                ),
+              ),
+            )
+          @lib.LegacyCatchAll(catch_body) =>
+            next_catches.push(
+              @lib.LegacyCatch::all(
+                binary_encode_rewrite_typed_expr_to_raw(
+                  catch_body, subtypes, env,
+                ),
+              ),
+            )
+        }
+      }
+      for seed in prefix {
+        out.push(seed)
+      }
+      out.push(
+        Instruction::try_(bt, Expr::new(next_body), next_catches, delegate~),
+      )
+    }
     TryTable(bt, catches, body) => {
       let Expr(body_instrs) = binary_encode_rewrite_typed_expr_to_raw(
         body, subtypes, env,
@@ -1617,6 +1657,19 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
         for child in instrs {
           collect_instruction(child, out)
         }
+      Try(_, Expr(instrs), catches, _) => {
+        for child in instrs {
+          collect_instruction(child, out)
+        }
+        for catch_ in catches {
+          let Expr(catch_instrs) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          for child in catch_instrs {
+            collect_instruction(child, out)
+          }
+        }
+      }
       If(_, if_block, else_block) => {
         for child in if_block {
           collect_instruction(child, out)
@@ -2118,6 +2171,55 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       buf.write_byte(0x1C)
       if Encode::encode(vts, buf) is Err(t) {
         return Err(t)
+      }
+    }
+    Try(bt, @lib.Expr(body), catches, delegate) => {
+      if (catches.length() == 0 && delegate is None) ||
+        (catches.length() > 0 && delegate is Some(_)) {
+        return Err(BinaryEncodeError::InvalidLegacyTryShape)
+      }
+      buf.write_byte(0x06)
+      if Encode::encode(bt, buf) is Err(err) {
+        return Err(err)
+      }
+      for instr in body {
+        if Encode::encode(instr, buf) is Err(err) {
+          return Err(err)
+        }
+      }
+      match delegate {
+        Some(label) => {
+          buf.write_byte(0x18)
+          if Encode::encode(label, buf) is Err(err) {
+            return Err(err)
+          }
+        }
+        None => {
+          for catch_ in catches {
+            match catch_ {
+              @lib.LegacyCatch(tag, @lib.Expr(catch_body)) => {
+                buf.write_byte(0x07)
+                if Encode::encode(tag, buf) is Err(err) {
+                  return Err(err)
+                }
+                for instr in catch_body {
+                  if Encode::encode(instr, buf) is Err(err) {
+                    return Err(err)
+                  }
+                }
+              }
+              @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+                buf.write_byte(0x19)
+                for instr in catch_body {
+                  if Encode::encode(instr, buf) is Err(err) {
+                    return Err(err)
+                  }
+                }
+              }
+            }
+          }
+          buf.write_byte(0x0B)
+        }
       }
     }
     TryTable(bt, c, e) => {

@@ -2228,6 +2228,24 @@ fn instr_uses_bulk_memory_data_count(ins : Instruction) -> Bool {
       }
       false
     }
+    Try(_, Expr(body), catches, _) => {
+      for inner in body {
+        if instr_uses_bulk_memory_data_count(inner) {
+          return true
+        }
+      }
+      for catch_ in catches {
+        let Expr(catch_body) = match catch_ {
+          LegacyCatch(_, catch_body) | LegacyCatchAll(catch_body) => catch_body
+        }
+        for inner in catch_body {
+          if instr_uses_bulk_memory_data_count(inner) {
+            return true
+          }
+        }
+      }
+      false
+    }
     TryTable(_, _, Expr(body)) => {
       for inner in body {
         if instr_uses_bulk_memory_data_count(inner) {
@@ -2349,6 +2367,16 @@ fn validate_name_sec_instr_label_count(instr : Instruction) -> Int {
   match instr {
     Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
       1 + validate_name_sec_expr_label_count(body)
+    Try(_, body, catches, _) => {
+      let mut total = 1 + validate_name_sec_expr_label_count(body)
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          LegacyCatch(_, catch_body) | LegacyCatchAll(catch_body) => catch_body
+        }
+        total += validate_name_sec_expr_label_count(catch_body)
+      }
+      total
+    }
     If(_, then_instrs, else_instrs) => {
       let else_count = match else_instrs {
         Some(instrs) => validate_name_sec_instrs_label_count(instrs)
@@ -2646,6 +2674,19 @@ fn mark_declared_ref_funcs_in_instr(
         None => ()
       }
     }
+    Try(_, Expr(body), catches, _) => {
+      for inner in body {
+        mark_declared_ref_funcs_in_instr(inner, declared)
+      }
+      for catch_ in catches {
+        let Expr(catch_body) = match catch_ {
+          LegacyCatch(_, catch_body) | LegacyCatchAll(catch_body) => catch_body
+        }
+        for inner in catch_body {
+          mark_declared_ref_funcs_in_instr(inner, declared)
+        }
+      }
+    }
     TryTable(_, _, Expr(body)) =>
       for inner in body {
         mark_declared_ref_funcs_in_instr(inner, declared)
@@ -2772,6 +2813,26 @@ fn validate_ref_func_declarations_in_instr(
             }
           }
         None => ()
+      }
+      Ok(())
+    }
+    Try(_, Expr(body), catches, _) => {
+      for inner in body {
+        if validate_ref_func_declarations_in_instr(inner, env, declared)
+          is Err(e) {
+          return Err(e)
+        }
+      }
+      for catch_ in catches {
+        let Expr(catch_body) = match catch_ {
+          LegacyCatch(_, catch_body) | LegacyCatchAll(catch_body) => catch_body
+        }
+        for inner in catch_body {
+          if validate_ref_func_declarations_in_instr(inner, env, declared)
+            is Err(e) {
+            return Err(e)
+          }
+        }
       }
       Ok(())
     }

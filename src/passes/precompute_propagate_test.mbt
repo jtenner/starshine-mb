@@ -309,6 +309,48 @@ test "precompute-propagate raw-cleans supported values around unsupported atomic
 }
 
 ///|
+test "precompute-propagate preserves legacy catch-all try flow" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+              [
+                @lib.LegacyCatch::all(
+                  @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+                ),
+              ],
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected legacy try preservation success, got \{err}")
+  }
+  assert_true(pretty.contains("(try"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
 test "precompute-propagate keeps condition tee facts despite unrelated result-if arm writes" {
   let source =
     #|(module

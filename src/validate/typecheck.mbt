@@ -1483,6 +1483,102 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
 }
 
 ///|
+fn typecheck_legacy_try(
+  st : TcState,
+  bt : BlockType,
+  body : Expr,
+  catches : Array[@lib.LegacyCatch],
+  delegate : LabelIdx?,
+) -> TcResult {
+  if catches.length() > 0 && delegate is Some(_) {
+    return Err("legacy try cannot mix catches and delegate")
+  }
+  if catches.length() == 0 && delegate is None {
+    return Err("legacy try requires a catch or delegate")
+  }
+  let (params, results) = match st.env.expand_blocktype(bt) {
+    Err(err) => return Err(err)
+    Ok(types) => types
+  }
+  let st1 = match st.pop_types(params) {
+    Err(err) => return Err(err)
+    Ok(next) => next
+  }
+  let scoped_env = st1.env.with_label(results)
+  let body_state = TcState::{
+    env: scoped_env,
+    stack: tc_stack_from_types(params),
+    reachable: st1.reachable,
+    escape: st1.escape,
+    reachable_escape_depths: [],
+    initialized_locals: st1.initialized_locals.copy(),
+  }
+  let checked_body = match Typecheck::typecheck(body, body_state) {
+    Err(err) => return Err(err)
+    Ok(next) => next
+  }
+  match validate_end_stack(checked_body, results) {
+    Err(err) => return Err(err)
+    Ok(_) => ()
+  }
+  let mut any_reachable = checked_body.reachable
+  for catch_ in catches {
+    let initial_types = match catch_ {
+      @lib.LegacyCatch(tag, _) => {
+        if Validate::validate(tag, st.env) is Err(err) {
+          return Err(err)
+        }
+        tag_payload_types(st.env, tag)
+      }
+      @lib.LegacyCatchAll(_) => []
+    }
+    let catch_body = match catch_ {
+      @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+        catch_body
+    }
+    let catch_state = TcState::{
+      env: scoped_env,
+      stack: tc_stack_from_types(initial_types),
+      reachable: st1.reachable,
+      escape: st1.escape,
+      reachable_escape_depths: [],
+      initialized_locals: st1.initialized_locals.copy(),
+    }
+    let checked_catch = match Typecheck::typecheck(catch_body, catch_state) {
+      Err(err) => return Err(err)
+      Ok(next) => next
+    }
+    match validate_end_stack(checked_catch, results) {
+      Err(err) => return Err(err)
+      Ok(_) => ()
+    }
+    if checked_catch.reachable {
+      any_reachable = true
+    }
+  }
+  match delegate {
+    Some(label) =>
+      match st.env.get_catch_label_types(label) {
+        Some(_) => ()
+        None => return Err("invalid legacy try delegate label")
+      }
+    None => ()
+  }
+  Ok(
+    TcState::{
+      env: st.env,
+      stack: st1.stack,
+      reachable: any_reachable,
+      escape: checked_body.escape,
+      reachable_escape_depths: st.reachable_escape_depths,
+      initialized_locals: st1.initialized_locals,
+    }
+    .merge_child_reachable_escape_depths(checked_body)
+    .push_types(results),
+  )
+}
+
+///|
 fn typecheck_try_table(
   st : TcState,
   bt : BlockType,
@@ -3998,6 +4094,8 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     ReturnCallRef(tidx) => typecheck_return_call_ref(st, tidx)
     Throw(t) => typecheck_throw(st, t)
     ThrowRef => typecheck_throw_ref(st)
+    Try(bt, body, catches, delegate) =>
+      typecheck_legacy_try(st, bt, body, catches, delegate)
     TryTable(bt, cs, e) => typecheck_try_table(st, bt, cs, e)
     Loop(bt, e) => typecheck_loop(st, bt, e)
     RefNull(ht) => typecheck_ref_null(st, ht)

@@ -789,6 +789,24 @@ pub impl Show for Catch with fn output(self, logger) {
 }
 
 ///|
+pub impl Show for LegacyCatch with fn output(self, logger) {
+  match self {
+    LegacyCatch(tag, body) => {
+      logger.write_string("(catch ")
+      Show::output(tag, logger)
+      logger.write_char(' ')
+      Show::output(body, logger)
+      logger.write_char(')')
+    }
+    LegacyCatchAll(body) => {
+      logger.write_string("(catch_all ")
+      Show::output(body, logger)
+      logger.write_char(')')
+    }
+  }
+}
+
+///|
 pub impl Show for MemArg with fn output(self, logger) {
   let MemArg(a, m, o) = self
   logger.write_string("align=")
@@ -924,6 +942,25 @@ pub impl Show for Instruction with fn output(self, logger) {
       for vt in vts {
         logger.write_char(' ')
         Show::output(vt, logger)
+      }
+      logger.write_char(')')
+    }
+    Try(bt, body, catches, delegate) => {
+      logger.write_string("(try ")
+      Show::output(bt, logger)
+      logger.write_char(' ')
+      Show::output(body, logger)
+      for catch_ in catches {
+        logger.write_char(' ')
+        Show::output(catch_, logger)
+      }
+      match delegate {
+        Some(label) => {
+          logger.write_string(" (delegate ")
+          Show::output(label, logger)
+          logger.write_char(')')
+        }
+        None => ()
       }
       logger.write_char(')')
     }

@@ -3547,6 +3547,48 @@ test "decode_module rejects malformed function name map ordering inside name sec
 }
 
 ///|
+test "legacy delegate try binary roundtrips" {
+  let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x05\x01\x60\x00\x01\x7f\x03\x02\x01\x00\x0a\x0a\x01\x08\x00\x06\x7f\x41\x01\x18\x00\x0b"
+  let decoded = match decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected delegated legacy try decode success, got \{err}")
+  }
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected delegated legacy try encode success, got \{err}")
+  }
+  @debug.assert_eq(reencoded, wasm)
+}
+
+///|
+test "legacy tagged catch try binary roundtrips" {
+  let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x08\x02\x60\x00\x01\x7f\x60\x00\x00\x03\x02\x01\x00\x0d\x03\x01\x00\x01\x0a\x0d\x01\x0b\x00\x06\x7f\x41\x01\x07\x00\x41\x02\x0b\x0b"
+  let decoded = match decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected tagged legacy try decode success, got \{err}")
+  }
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected tagged legacy try encode success, got \{err}")
+  }
+  @debug.assert_eq(reencoded, wasm)
+}
+
+///|
+test "legacy catch-all try binary roundtrips" {
+  let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x05\x01\x60\x00\x01\x7f\x03\x02\x01\x00\x0a\x0c\x01\x0a\x00\x06\x7f\x41\x01\x19\x41\x02\x0b\x0b"
+  let decoded = match decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy try decode success, got \{err}")
+  }
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected legacy try encode success, got \{err}")
+  }
+  @debug.assert_eq(reencoded, wasm)
+}
+
+///|
 test "FUZ1056A4 malformed name section detail carries custom section id and span" {
   let bad = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x0e\x04name\x01\x07\x02\x01\x01b\x00\x01a"
   match decode_module_with_detail(bad, 0) {
