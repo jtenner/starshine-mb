@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/1387-2026-06-30-tuple-optimization-closeout-soft-exception.md
   - ../../../raw/research/1386-2026-06-30-tuple-optimization-direct-root-fast-path.md
   - ../../../raw/research/1385-2026-06-30-tuple-optimization-precollect-root-fast-path.md
@@ -65,6 +66,10 @@ related:
 ---
 
 # `tuple-optimization`
+
+## Binaryen v131 renewal status
+
+`TupleOptimization.cpp` did not change between v130 and v131, so the pass is not automatically reopened. Its dedicated expected output changed through shared typing/finalization behavior, and `[V131-SPOT]001` requires a focused v131 probe before the existing closeout is cited as current-release evidence. Open new implementation work only for a classified failing family.
 
 ## Role
 

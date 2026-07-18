@@ -2,8 +2,9 @@
 kind: entity
 status: supported
 starshine_status: removed
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -39,7 +40,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `dataflow-optimization` / `dfo` slice**.
-- Binaryen `version_130` is the current public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reconciliation found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: upstream remains a flat-input DataFlow SSA IR pass, while Starshine only tracks the local removed spelling `dataflow-optimization`.
+- Binaryen `version_131` is the repo-wide public release baseline. This pass's latest bounded evidence remains the 2026-07-11 `version_130`/current-`main` reconciliation, which found no behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surfaces: upstream remains a flat-input DataFlow SSA IR pass, while Starshine only tracks the local removed spelling `dataflow-optimization`.
 - The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md).
 
 ## Why this pass matters

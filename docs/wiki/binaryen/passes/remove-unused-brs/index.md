@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
@@ -45,6 +46,10 @@ related:
 ---
 
 # `remove-unused-brs`
+
+## Binaryen v131 renewal status
+
+The owner file is unchanged from v130, so direct behavior is not automatically reopened. V131 updates the multivalue expected surface through shared typing/finalization behavior, and `[V131-SPOT]001` requires a focused probe before the v130 closeout is treated as renewed. The separate Starshine scheduler reconciliation remains open regardless of that direct-pass verdict.
 
 ## Role
 

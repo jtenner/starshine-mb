@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
@@ -19,7 +20,7 @@ related:
 # Implementation structure and tests for `dataflow-optimization` / `dfo`
 
 Use this page with the [`version_130` owner](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp), [current-main owner](https://github.com/WebAssembly/binaryen/blob/main/src/passes/DataFlowOpts.cpp), and direct historical `version_129` source URLs cataloged in [`./binaryen-strategy.md`](./binaryen-strategy.md).
-Binaryen `version_130` is the public release baseline. The bounded 2026-07-11 `version_130`/current-`main` reconciliation did not surface behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Binaryen `version_131` is the repo-wide public release baseline. This implementation map's latest bounded evidence remains the 2026-07-11 `version_130`/current-`main` reconciliation, which did not surface behavior-bearing drift in the reviewed owner, graph, registration, or combo-test surface described here. For Starshine test sequencing, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Core pass file
 
