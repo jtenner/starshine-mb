@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-19
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0876-2026-06-25-optimize-instructions-oi-g-local-dynamic-bulk.md
@@ -906,7 +906,11 @@ After, conceptually:
   chosen-lane)
 ```
 
-The actual implementation uses a temp local and dropped-children rebuilding so the selected lane survives while the rest of the tuple side effects remain honest. Current Starshine coverage includes pure omitted siblings, selected lanes that may trap such as `i32.load`, the selected trapping lane after one or two earlier effectful siblings, the selected trapping lane plus a later effectful sibling, the selected trapping lane with both earlier and later effectful siblings, the selected trapping lane with two later effectful siblings, the selected trapping lane with two earlier plus one, two, three, four, five, six, seven, or eight later effectful siblings, and single-result effectful or trapping siblings before and after the selected lane: earlier effects/trapping loads are dropped before the selected lane, later effects/trapping loads force a selected-lane `local.set`, then later effects/trapping loads are dropped before reloading the selected value. A 2026-06-25 neighbor test proves that this covered single-result effectful-sibling spelling remains explicit after `simplify-locals-nostructure`. Full `simplify-locals` and dedicated `tuple-optimization` on the public multivalue-block probe are not parity yet: Binaryen reconstructs tuple scratch plus scalar locals, while Starshine keeps the block/drop spelling and direct-HOT replay of the full-simplify shape currently hits `InvalidChildRef`. Other 2026-06-25 boundary tests lock local-carried / multi-use tuple extraction as a keep-spelling shape and multi-result non-selected siblings (including the earlier-sibling variant) and multi-result selected children (including the covered selected-second, selected-third, and selected-fourth lanes) as tuple-scratch localization boundaries under Binaryen `version_130`; implementation of multi-result selected/sibling scratch/drop reconstruction, any future safe multi-use tuple proof, public tuple text coverage, and broader tee/drop reconstruction remain open.
+The implementation uses temp locals and dropped-children rebuilding so the selected lane survives while tuple side effects remain honest. For single-result siblings, earlier effects/trapping loads execute before the selected lane; later effects force the selected value into a local, execute afterward, and then reload it. Focused coverage extends through two earlier plus eight later effectful siblings, and a neighbor test keeps the resulting spelling explicit after `simplify-locals-nostructure`.
+
+For a **multi-result selected child** in a direct one-use `tuple.extract(tuple.make(...))`, Starshine now uses one scratch local per scalar result, stores the results in stack-pop order, and reloads the requested lane. The former arity-by-arity probes from 15 through 27 all demonstrated the same Binaryen shape and were absorbed into this generalized invariant; there is no source-backed arity cap. Do not reintroduce a numeric allowlist. The safety boundary is structural: direct one-use producer, scalar result lanes, valid selected index, and no unsupported control/EH ownership.
+
+Multi-result **non-selected** siblings, local-carried or multi-use tuple producers, public tuple-text coverage, and broader tee/drop reconstruction remain separate boundaries. Binaryen can reconstruct tuple scratch plus scalar drops for those shapes while Starshine still fails closed or keeps the original spelling.
 
 ## Negative / bailout families
 
