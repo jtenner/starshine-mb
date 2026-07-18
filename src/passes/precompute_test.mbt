@@ -293,6 +293,90 @@ test "precompute intentionally preserves reachable atomic fence before branch-to
 }
 
 ///|
+test "precompute raw-cleans supported values around unsupported atomic fences" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::atomic_fence(),
+            @lib.Instruction::i32_const(@lib.I32(84)),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::i32_div_s(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::f64_const(@lib.F64(1.5)),
+            @lib.Instruction::f64_const(@lib.F64(2.25)),
+            @lib.Instruction::f64_add(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32(0)),
+                @lib.Instruction::br_table(
+                  [@lib.LabelIdx::new(0U)],
+                  @lib.LabelIdx::new(0U),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected plain atomic raw cleanup success, got \{err}")
+  }
+  assert_true(pretty.contains("atomic.fence"), msg=pretty)
+  assert_false(pretty.contains("i32.div_s"), msg=pretty)
+  assert_false(pretty.contains("f64.add"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "precompute raw-collapses an unreachable value block after an atomic fence" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::atomic_fence(),
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([@lib.Instruction::unreachable_()]),
+            ),
+            @lib.Instruction::atomic_fence(),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) =>
+      fail("expected raw unreachable block cleanup success, got \{err}")
+  }
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  @debug.assert_eq(pretty.split("atomic.fence").length(), 2)
+}
+
+///|
 test "precompute folds constant false void ifs away" {
   let optimized = match
     pass_test_run_pipeline(
@@ -568,6 +652,21 @@ test "precompute leaves late cleanup-ready nops around dead exact roots" {
 }
 
 ///|
+test "precompute removes direct self-targeting branch blocks" {
+  let optimized = match
+    pass_test_run_pipeline("(module (func block br 0 end))", ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected direct self-target branch cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br ("), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+}
+
+///|
 test "precompute removes selector-only self-targeting br_table blocks" {
   let optimized = match
     pass_test_run_pipeline(
@@ -623,6 +722,63 @@ test "precompute collapses newly all-nop bodies to one stable nop" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   @debug.assert_eq(pretty.split("nop").length(), 2)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "precompute replaces orphan scalar values before unreachable with stable nops" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i64) nop i32.const 1 f32.const 0 unreachable))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected orphan-value unreachable cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("F32("), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "precompute collapses typed blocks with only dead values before unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (result i32) memory.size drop (block (result i64) f64.const 1 unreachable) unreachable))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected typed unreachable block cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.size"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("F64("), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+}
+
+///|
+test "precompute removes orphan values across empty try tables before unreachable" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func f32.const 0 (try_table (catch_all 0)) unreachable))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected empty try-table unreachable cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("F32("), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
 }
 

@@ -5976,7 +5976,16 @@ fn precompute_raw_rewrite_instr(
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
-      if changed {
+      if next_body.length() == 0 {
+        (
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new([@lib.Instruction::nop()]),
+          ),
+          true,
+        )
+      } else if changed {
         (
           @lib.Instruction::try_table(
             block_type,
@@ -5999,6 +6008,34 @@ fn precompute_raw_instr_terminates_sequence(instr : @lib.Instruction) -> Bool {
     @lib.Br(_) | @lib.Return | @lib.Unreachable => true
     _ => false
   }
+}
+
+///|
+fn precompute_raw_instr_is_transparent_before_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Nop => true
+    @lib.TryTable(@lib.VoidBlockType, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_are_all_nops(body)
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_are_nops_then_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() == 0 ||
+    instrs[instrs.length() - 1] != @lib.Instruction::unreachable_() {
+    return false
+  }
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    if instrs[idx] != @lib.Instruction::nop() {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -6116,8 +6153,33 @@ fn precompute_raw_rewrite_instrs(
     let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
       instr, module_ctx,
     )
+    if rewritten == @lib.Instruction::unreachable_() {
+      let mut trailing_idx = out.length() - 1
+      while trailing_idx >= 0 {
+        if precompute_raw_instr_is_flat_discardable_value(out[trailing_idx]) {
+          out[trailing_idx] = @lib.Instruction::nop()
+          trailing_idx = trailing_idx - 1
+          changed = true
+        } else if precompute_raw_instr_is_transparent_before_unreachable(
+            out[trailing_idx],
+          ) {
+          trailing_idx = trailing_idx - 1
+        } else {
+          break
+        }
+      }
+    }
     let mut terminates = false
     match rewritten {
+      @lib.Block(_, @lib.Expr(body)) if precompute_raw_instrs_are_nops_then_unreachable(
+          body,
+        ) => {
+        for child in body {
+          out.push(child)
+        }
+        terminates = true
+        changed = true
+      }
       @lib.Block(block_type, @lib.Expr(body)) =>
         match precompute_raw_block_terminal_branch_depth(body) {
           Some(depth) => {
