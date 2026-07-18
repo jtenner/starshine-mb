@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: complete
-last_reviewed: 2026-07-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
@@ -28,7 +29,7 @@ related:
 
 `inlining-optimizing` is a **partial active module pass** in Starshine. It is owned by [`src/passes/inlining.mbt`](../../../../../src/passes/inlining.mbt), shares its core with plain `inlining`, and adds the local optimizing-mode cleanup approximation.
 
-The current v0.1.0 audit scope is complete and accepted. This is not universal Binaryen inliner parity: broader partial-splitting and residual name/annotation repair are deferred to v0.2.0. The standard direct seed-`0x5eed` mismatch frontier is green:
+The v130 audit scope was complete and accepted. Binaryen v131 reopens the shared engine for `@binaryen.inline` Always/Never policy under `[V131-INL]001`. This is not universal Binaryen inliner parity: broader partial-splitting and residual name/annotation repair are deferred to v0.2.0. The standard direct seed-`0x5eed` mismatch frontier is green:
 
 ```text
 .tmp/pass-fuzz-inlining-seed-0x5eed-after-four-func-frontier
@@ -125,5 +126,5 @@ The correct local mental model is:
 - **validation-clean in latest compared lanes, and command-clean for Starshine on the latest seed `0x1eed` lane**;
 - **direct seed-`0x5eed` and seed-`0x1eed` compares are green over the compared ranges**;
 - **core direct-call subset plus cleanup approximation**;
-- **no active v0.1.0 INL implementation blocker**;
+- **`[V131-INL]001` is an active v0.1.0 shared-engine blocker for released `@binaryen.inline` policy**;
 - **`[INL]005` and residual `[INL]006` are v0.2.0 backlog only unless new evidence justifies reopening them**.

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
@@ -20,9 +21,9 @@ related:
 This page covers the most non-obvious part of Binaryen `string-lowering`: how literal payloads survive after defining string globals stop being real `StringConst` initializers.
 For Starshine implementation sequencing, especially the split between default JSON, magic imports, and assert mode, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-## Current-source status
+## V131 status
 
-The 2026-07-11 official Binaryen `main` reread confirms that the default JSON path, magic-import fallback, assert-mode failure, and `string-lowering.wast` proof split described here remain current. Its only behavior-bearing finding is elsewhere in the pass: singleton public tag payload types now receive the same `string`-to-`extern` repair as affected function signatures. That type-repair expansion does not change this page's JSON/import-mode contract; see [`./binaryen-strategy.md`](./binaryen-strategy.md) for the type boundary and [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md) for source provenance.
+Binaryen v131 keeps the default JSON path, magic-import fallback, assert-mode failure, and `string-lowering.wast` proof split described here. Its behavior-bearing delta is elsewhere in the pass: singleton public tag payload types now receive the same `string`-to-`extern` repair as affected function signatures. That type-repair expansion does not change this page's JSON/import-mode contract; see [`./binaryen-strategy.md`](./binaryen-strategy.md) for the type boundary and [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md) for source provenance.
 
 ## The problem this page answers
 

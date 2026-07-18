@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../wasm-js-string-builtins-boundary.md
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/StringLowering.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
@@ -85,10 +87,10 @@ That is much more accurate than saying either:
 - Invalid / non-usable strings still fall back to JSON in plain magic-import mode.
 - The assert variant makes those invalid strings fatal.
 - Binaryen lowers `HeapType::string` to `HeapType::ext`, preserving nullability.
-- Current Binaryen `main` manually repairs public singleton-rec-group function **and tag** types containing strings before `TypeMapper`; its explicit TODO still leaves broader public-type cases unresolved.
+- Binaryen v131 manually repairs public singleton-rec-group function **and tag** types containing strings before `TypeMapper`; its explicit TODO still leaves broader public-type cases unresolved.
 - The supported op surface in `version_129` is narrow and explicit, not universal. Some `string.new*` and `string.encode*` variants still hit upstream `TODO` / `WASM_UNREACHABLE` paths.
 - After lowering, Binaryen runs `ReFinalize()` and disables `FeatureSet::Strings`.
-- The 2026-07-11 owner/registration/fixture reread found the helper, JSON/magic-import, and opcode contracts unchanged but found a behavior-bearing type-repair expansion: current `main` also repairs tag payload types. The current source passes the runner's world mode to `TypeMapper`; this dossier does not infer a broader semantic effect from that call alone.
+- V131 releases the behavior-bearing type-repair expansion first observed on main: tag payload types now receive the same singleton-signature string-to-extern repair as functions. The owner passes the runner's world mode to `TypeMapper`; this dossier does not infer a broader semantic effect from that call alone.
 - A future port therefore needs explicit string-bearing tag payload coverage before it removes the Strings feature, while retaining Binaryen's broader-public-type TODO as a real boundary.
 - A 2026-06-05 JS String Builtins boundary refresh separates the finished/Core-3.0 + JS API `wasm:js-string` / `importedStringConstants` ABI from the active Phase-1 `stringref` proposal and from Starshine's local `StringRefsSec`; see [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md).
 - Starshine currently supports `string.const` textual, binary, validation, and HOT roundtrip plumbing plus some string new/encode array opcodes, and the Node wasm-gc runtime opts into JS string builtins, but it has no `string-lowering` pass, no local registry spelling, no `importedStringConstants` runtime option, no `wasm:js-string` helper-call source surface, and no active backlog slice for the broader ABI-lowering transform.
@@ -119,7 +121,8 @@ That is much more accurate than saying either:
 ## Sources
 
 - [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
-- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
+- Binaryen v131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/StringLowering.cpp>
+- Binaryen v131 tag fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast>
 - [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
@@ -136,11 +139,8 @@ That is much more accurate than saying either:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lowering.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lowering.js>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/CHANGELOG.md>
-- Current `main` reread and `version_130` comparison:
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/string-gathering.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/string-lowering.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/StringLowering.cpp>
+- Released v131 delta:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/StringLowering.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast>
 - JS string builtins proposal context:
   - <https://github.com/WebAssembly/js-string-builtins/blob/main/proposals/js-string-builtins/Overview.md>

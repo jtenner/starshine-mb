@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
@@ -22,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the detailed tagged oracle for this folder, with `version_130` as the current public release baseline and the 2026-07-11 current-main bridge as the freshness anchor.
+Use Binaryen `version_129` as the original detailed tagged oracle for this folder, with `version_131` as the current public release baseline. V131 additionally rewrites string-bearing tag signatures through the same singleton-signature type fixup used for functions; older pages that described only functions are incomplete.
 On 2026-04-24 the official GitHub `version_129` release page showed publish date **2026-04-01 14:31**. The older 2026-04-24 and 2026-04-26 captures remain provenance for the original contract and port map.
 The main sources are:
 
@@ -124,8 +125,8 @@ The implementation comments explain a subtle limitation:
 
 - `TypeMapper` will not handle public types the way this pass needs.
 - `version_129` and `version_130` manually fix singleton-rec-group **function** types that still mention strings.
-- Current `main` factors the fixup into a shared helper and applies it to both functions and exception **tags** before it runs `TypeMapper`.
-- The current owner also passes the pass runner's world mode to `TypeMapper`; source review alone does not establish a broader semantic consequence from that call.
+- V131 factors the fixup into a shared helper and applies it to both functions and exception **tags** before it runs `TypeMapper`.
+- The v131 owner also passes the pass runner's world mode to `TypeMapper`; source review alone does not establish a broader semantic consequence from that call.
 - The file retains an explicit TODO saying broader public-type cases would need more work.
 
 That means the current contract is not "general public type lowering." It is a narrower, source-confirmed special case with a later tag-payload expansion.
@@ -284,11 +285,11 @@ The changelog and public pass names make these sibling surfaces explicit:
 
 So `string-lowering` should be taught as one half of a bidirectional public family, not as an isolated curiosity.
 
-## Current-main drift check
+## V131 release delta
 
-The 2026-07-11 reread of `main` and comparison with `version_130` keeps the public names, phase order, helper roster, JSON/magic-import behavior, and unsupported-op boundary taught here intact. It supersedes the older no-drift wording.
+The `version_130` to `version_131` comparison keeps the public names, phase order, helper roster, JSON/magic-import behavior, and unsupported-op boundary taught here intact.
 
-It also found one behavior-bearing change in `updateTypes`: the public singleton-rec-group repair now covers exception tags as well as functions. Current `main` passes world mode to `TypeMapper`; that source-level call is recorded, but no wider world-mode behavior is asserted without focused evidence.
+V131 releases one behavior-bearing `updateTypes` change: public singleton-rec-group repair now covers exception tags as well as functions. The owner passes world mode to `TypeMapper`; that source-level call is recorded, but no wider world-mode behavior is asserted without focused evidence.
 
 The durable conclusion is:
 
@@ -299,7 +300,8 @@ The durable conclusion is:
 
 ## Sources
 
-- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
+- Binaryen v131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/StringLowering.cpp>
+- Binaryen v131 tag fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast>
 - [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
