@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
@@ -21,7 +23,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle. The public release horizon reaches `version_130`; the 2026-04-25 bridge still supports the optimizing **suffix** contract, but it cannot be read as a no-drift claim for the shared inliner. The 2026-07-11 reread found a function-level toolchain `AlwaysInline` / `NeverInline` override in `Inlining.cpp` before generic full-inline profitability. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
+Use Binaryen `version_129` for the original detailed suffix walkthrough and `version_131` for the released shared-inliner policy. V131 consumes function-level `@binaryen.inline` `NeverInline` (`"\00"`) / `AlwaysInline` (`"\7f"`) before generic full-inline profitability. The owner is shared `src/passes/Inlining.cpp`; the unique optimizing suffix remains in `src/passes/opt-utils.h`.
 
 Primary URLs:
 
@@ -43,7 +45,7 @@ The optimizing variant inherits every core obligation from [`../inlining/binarye
 - module-wide function summaries;
 - root/ref/use accounting;
 - direct `call` / `return_call` chosen-action planning in reviewed `version_129`;
-- layered toolchain-hint/tiny/one-use/trivial/flexible full-inline policy, where `try_delegate` bails out before `NeverInline` / `AlwaysInline` and the toolchain hint's producer format remains unreviewed;
+- layered toolchain-hint/tiny/one-use/trivial/flexible full-inline policy, where `try_delegate` bails out before released v131 `@binaryen.inline "\00"` / `"\7f"` Never/Always policy;
 - optional narrow partial Pattern A/B splitting;
 - structured callsite rewrite;
 - local, label, return, tail-call, reachability, EH, and type repair;

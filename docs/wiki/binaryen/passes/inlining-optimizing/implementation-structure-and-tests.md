@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../../../src/passes/inlining.mbt
@@ -30,7 +32,7 @@ related:
 
 | File | Role |
 | --- | --- |
-| `src/passes/Inlining.cpp` | shared inliner: summaries including current-main function-level toolchain inline hints, full-inline heuristics, planner, splitter, rewrite, repair, helper cleanup |
+| `src/passes/Inlining.cpp` | shared inliner: summaries including released v131 `@binaryen.inline` toolchain hints, full-inline heuristics, planner, splitter, rewrite, repair, helper cleanup |
 | `src/passes/pass.cpp` | public registration of `inlining` / `inlining-optimizing`; late post-pass scheduling |
 | `src/passes/opt-utils.h` | optimizing suffix: `precompute-propagate` + default function pipeline on changed functions |
 | `src/pass.h` | heuristic defaults |

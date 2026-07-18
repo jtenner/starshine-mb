@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../../../src/passes/inlining.mbt
@@ -36,7 +37,7 @@ Current behavior:
 - same implementation file also powers `inlining-optimizing` with `optimize=true`;
 - plain mode does not emit or run the optimizing nested-cleanup approximation.
 
-Current status is **direct-surface signed off for v0.1.0 but not universal Binaryen inliner parity**. Former `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]002` is accepted as representation/factoring drift, `[INL]007` is accepted for the current supported plain direct surface, and `[INL]003` / `[INL]004` are accepted for the current heuristic and no-inline policy surfaces. Deferred unsupported direct-inliner breadth now lives in the v0.2.0 backlog under `[INL]005` and residual `[INL]006`. Do not treat those as the next task after DAE without new evidence.
+Current status is **v130 direct-surface signed off, but v131 parity reopened for `@binaryen.inline` policy and still not universal Binaryen inliner parity**. Former `[INL]001` is accepted for the current supported optimizing direct surface, `[INL]002` is accepted as representation/factoring drift, `[INL]007` is accepted for the current supported plain direct surface, and `[INL]003` / `[INL]004` are accepted for the current heuristic and no-inline policy surfaces. Deferred unsupported direct-inliner breadth now lives in the v0.2.0 backlog under `[INL]005` and residual `[INL]006`. Do not treat those as the next task after DAE without new evidence.
 
 ## Exact local code map
 
@@ -141,5 +142,5 @@ The correct local mental model is:
 - **plain mode stops after rewrite/helper cleanup plus the narrow no-call unreachable value-block cleanup**;
 - **plain `[INL]007` direct surface accepted with locals-only representation drift**;
 - **not universal Binaryen-inliner parity complete**;
-- **no active v0.1.0 INL implementation blocker remains**;
+- **`[V131-INL]001` is now an active v0.1.0 shared-engine blocker for released `@binaryen.inline` policy**;
 - **`[INL]005` and residual `[INL]006` are v0.2.0 backlog only unless new correctness, validation, user-facing, performance, or code-size evidence justifies them**.

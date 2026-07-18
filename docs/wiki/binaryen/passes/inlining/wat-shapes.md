@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -20,7 +22,7 @@ related:
 
 # `inlining` WAT Shapes
 
-The examples below are conceptual. Binaryen may print wrapper blocks, fresh locals, drops, label scaffolding, or post-repair type forms. Plain `inlining` deliberately leaves more debris than `inlining-optimizing`. The 2026-06-02 recheck still supports these existing shape families, but it is not a blanket current-main no-drift claim: the later reread adds a function-level toolchain `AlwaysInline` / `NeverInline` eligibility override. Its source/WAT producer syntax was outside that narrow reread, so this catalog intentionally does not invent a fixture spelling; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md).
+The examples below are conceptual. Binaryen may print wrapper blocks, fresh locals, drops, label scaffolding, or post-repair type forms. Plain `inlining` deliberately leaves more debris than `inlining-optimizing`. The older recheck still supports these shape families, while v131 adds an exact function-level policy spelling: `(@binaryen.inline "\00")` means NeverInline and `(@binaryen.inline "\7f")` means AlwaysInline. See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md).
 
 ## Shape 1: tiny no-param helper disappears
 
