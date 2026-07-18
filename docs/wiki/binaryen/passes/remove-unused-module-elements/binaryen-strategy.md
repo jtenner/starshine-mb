@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
@@ -25,7 +28,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the tagged algorithm anchor for this pass. The 2026-07-11 current-main reread refreshes the under-documented `call_indirect` trap-preservation rule without claiming that every current-main implementation detail is new relative to that tag.
+Use Binaryen `version_129` for the original graph-algorithm walkthrough and `version_131` for the released table semantics. V131 treats table default initializers as possible callees and conservatively retains element writes when defaults or overlapping segments mean pruning could eliminate an indirect-call trap.
 
 Primary files:
 
@@ -189,16 +192,16 @@ The retained rule is closer to:
 
 - meaningful active elem segments can keep their parent table alive
 - meaningful active data segments can keep their parent memory alive
-- all-null active elem payloads can stop retaining the table
+- all-null active elem payloads can stop retaining the table only when default/overlap semantics do not make the write trap-preserving
 - zero-byte active data can stop retaining the memory
 
 That nuance is a major source-backed reason this pass needs a real shape catalog.
 
 ### Indirect-call tables add a trap-preservation constraint
 
-An active element can matter even when it seems to contain no direct-call root. A mutable table reached by `call_indirect` can hold a **wrong-type non-null** function entry. Replacing that entry with null by deleting its active initializer changes the trap reason from type mismatch to null entry.
+An active element can matter even when it seems to contain no direct-call root. In v131, a table default or earlier overlapping segment may contain a compatible function, while a later null or wrong-type write is the only reason `call_indirect` traps. Removing that write would expose the callable value and eliminate the trap.
 
-Current Binaryen RUME keeps the relevant element state unless `trapsNeverHappen` explicitly permits trap-changing optimization. This is not generic table stickiness; it is a correctness constraint on indirect-call table state. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+Binaryen RUME keeps the relevant element state unless `trapsNeverHappen` explicitly permits trap-removing optimization. It may still replace one trap kind with another when no callable value is exposed. This is not generic table stickiness; it is a correctness constraint on indirect-call table state. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
 ## Phase 6: removal order is part of the strategy
 
@@ -282,9 +285,9 @@ What it actually is:
 
 That is the behavior a future Starshine parity port must preserve.
 
-## Current-main freshness boundary
+## V131 release boundary
 
-The 2026-07-11 reread found the public full and non-function names, queue/`usedReferenced` model, and indirect-call trap rule present on the inspected current-main owner, registration, and fixtures. It is a focused source check, not a claim of exhaustive current-main equivalence or an unreviewed upstream history diff.
+The public full and non-function names and queue/`usedReferenced` model remain intact. The v131 delta is table-specific: callable `ref.func` defaults enter the indirect-call graph; wrong-type/null writes are retained when removing them would reveal a compatible default; and possibly overlapping segments are retained conservatively when traps matter. With `trapsNeverHappen`, the pass may prune those trap-only writes more aggressively.
 
 ## Bottom line
 

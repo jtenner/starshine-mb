@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-closed-tnh.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
@@ -162,7 +165,7 @@ If a future explanation of RUME never mentions those, it is probably too shallow
 
 ### Trap-sensitive indirect-call extension
 
-The current owner adds a constraint that should be read with the reference fixture: a wrong-type non-null table entry and a null table entry are not interchangeable at an indirect call. The owner retains relevant mutable-table active elements by default so cleanup does not change that trap distinction; `trapsNeverHappen` is the explicit boundary for more aggressive removal. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+V131 adds a constraint that should be read with the table-init fixtures: removing a null or wrong-type write must not expose a compatible table default or earlier overlapping value and turn a trapping indirect call into a successful call. The owner may change one trap kind into another; `trapsNeverHappen` is the explicit boundary for removing trap-only writes more aggressively. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
 ## `remove-unused-module-elements-eh-old.wast`
 
@@ -189,15 +192,9 @@ They are teaching files for the deeper rules:
 - non-function weakening
 - and broad index-rewrite honesty
 
-## Narrow source-trust rule for this dossier
+## Source-trust rule for this dossier
 
-This dossier keeps `version_129` as its tagged algorithm anchor. The 2026-07-11 raw manifest is a narrow current-main freshness layer for the owner, public registration, fixtures, and indirect-call trap rule.
-
-The campaign work here did **not** try to prove a whole-repo current-main equivalence claim. So the safe maintenance rule is:
-
-- keep `version_129` as the explicit release oracle;
-- use the current-main manifest for the documented indirect-call rule; and
-- record other later source drift only in a deliberate follow-up.
+Keep `version_129` as historical provenance for the original graph algorithm, but use `version_131` as the release oracle. The v131 owner and fixtures directly prove table-default call roots, wrong-type/default trap preservation, overlap conservatism, and the `trapsNeverHappen` relaxation. Those families require renewed Starshine evidence under `[V131-RUME]001`.
 
 ## Most important implementation takeaway
 

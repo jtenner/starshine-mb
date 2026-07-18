@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
@@ -44,7 +45,8 @@ The implementation is small and direct:
 1. Walk functions with a postwalker.
 2. Visit relaxed SIMD expressions in the AST.
 3. Replace each matched expression with a block that evaluates/localizes child effects and then executes `unreachable`.
-4. Refinalize the walked function.
+4. Explicitly type the replacement block as `unreachable` (a v131 correctness fix).
+5. Refinalize the walked function.
 
 The important helper is `ChildLocalizer`.
 Without it, replacing a relaxed expression by `unreachable` could erase the evaluation of side-effecting operands.

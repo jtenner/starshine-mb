@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
@@ -28,10 +29,14 @@ related:
 
 # `remove-unused-module-elements`
 
+## Binaryen v131 status
+
+Direct parity is **reopened**. V131 adds table-initial-value callable roots plus conservative retention for null/wrong-type and overlapping element-segment writes when those writes preserve indirect-call traps. `[V131-RUME]001` owns the direct pass, both early neighborhoods, and accepted late-tail reassessment; the separate second-early-slot scheduler gap remains open.
+
 ## Role
 
 - `remove-unused-module-elements` is an active implemented **module pass** in Starshine.
-- In upstream Binaryen `version_129`, it is the main whole-module dead-element cleanup pass for:
+- In upstream Binaryen `version_131`, it is the main whole-module dead-element cleanup pass for:
   - functions
   - globals
   - tables
@@ -55,7 +60,7 @@ That is much closer to the official source than “remove dead functions.”
 ## Why this pass matters
 
 - The old tracker queues are now clear enough that this thread had to justify an already-`deep` fallback pick.
-- `remove-unused-module-elements` stayed worth revisiting because the upstream-side dossier needed durable source routing and an exact Starshine code-location map for the current MoonBit registry / dispatcher / liveness / rewrite / type-cleanup flow. The retained 2026-07-11 current-main capture and direct tagged URLs below now carry the active source routing after the duplicate historical manifest is consumed.
+- `remove-unused-module-elements` stayed worth revisiting because the upstream-side dossier needed durable source routing and an exact Starshine code-location map for the current MoonBit registry / dispatcher / liveness / rewrite / type-cleanup flow. V131 source and fixtures now own the table-initializer and overlapping-element trap-preservation boundary.
 - The canonical no-DWARF `-O` / `-Os` scheduler still runs the pass **three** times:
   - pre slot `2`
   - pre slot `6`
@@ -75,7 +80,7 @@ That is much closer to the official source than “remove dead functions.”
   4. remove unused function types before later non-function cleanup
   5. either delete, keep, or weaken declarations while rewriting all surviving users
   6. preserve `ref.func` declaration validity after function compaction, including active-to-declarative elem weakening when the active parent table is otherwise dead
-  7. preserve a mutable indirect-call table's non-null wrong-type entries when changing them could turn a type-mismatch trap into a null-entry trap
+  7. preserve table initial-value call roots and retain null/wrong-type or overlapping element writes when removing them could expose a callable default/earlier value and eliminate an indirect-call trap
 - The helper surface matters a lot:
   - `ModuleUtils`
   - `ElementUtils`
@@ -84,7 +89,7 @@ That is much closer to the official source than “remove dead functions.”
   - `FunctionTypeUtils`
   - `NullifyRemovableElement`
 - The pass has a real sibling mode, `remove-unused-nonfunction-module-elements`, which reuses the same graph core and changes only the final deletion boundary.
-- The source still carries a disabled `prepare()` fast path behind a FIXME about missing references hidden inside unreachable code, so the shipped `version_129` algorithm is the conservative scan-and-fixpoint path.
+- The source still carries a disabled `prepare()` fast path behind a FIXME about missing references hidden inside unreachable code, so the shipped v131 algorithm is the conservative scan-and-fixpoint path.
 
 ## Beginner warning: what the name hides
 
@@ -114,7 +119,7 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 - [`./roots-reference-only-and-nullification.md`](./roots-reference-only-and-nullification.md)
   - Focused guide to the hardest part of the pass: strong roots versus reference-only roots, active-segment parent retention, and when Binaryen weakens a declaration instead of deleting it.
 - [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md)
-  - Why a table entry with the wrong function type is not interchangeable with a null entry, how Binaryen's default RUME policy preserves that trap distinction, and Starshine's current conservative table-to-active-element mapping.
+  - How table defaults and overlapping element writes affect whether pruning preserves or eliminates an indirect-call trap, plus Starshine's current conservative table-to-active-element mapping.
 - [`./retention-and-index-rewrites.md`](./retention-and-index-rewrites.md)
   - Current in-tree Starshine rewrite surface for surviving func/global/table/memory/tag/elem/data/name/annotation indices, plus the local dead-type-cleanup path that now runs after pruning.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
@@ -129,14 +134,15 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
   - `binaryen-strategy.md` for the overall upstream algorithm
   - `implementation-structure-and-tests.md` for file/test mapping
   - `roots-reference-only-and-nullification.md` for the most easily misunderstood semantic core
-- Keep the direct `version_129` URLs below as the tagged algorithm anchor and use the 2026-07-11 current-main recheck for the `call_indirect` wrong-type-trap rule; record future source drift explicitly instead of silently rewriting either layer.
+- Keep older v129 URLs as historical algorithm provenance, but use v131 source and `remove-unused-module-elements-tables{,-init}.wast` for current table-initializer, overlap, and trap-preservation semantics.
 - If new Starshine work changes the local retention or remap surface, update both:
   - [`./retention-and-index-rewrites.md`](./retention-and-index-rewrites.md)
   - [`./parity.md`](./parity.md)
 
 ## Sources
 
-- Binaryen [current-main `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp)
+- Binaryen v131 [`RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp)
+- Binaryen v131 [`remove-unused-module-elements-tables-init.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast)
 - [`../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md`](../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

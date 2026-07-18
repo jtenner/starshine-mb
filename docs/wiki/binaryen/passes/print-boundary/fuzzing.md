@@ -1,8 +1,11 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PrintBoundary.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/print-boundary.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/PrintBoundary.cpp
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -33,4 +36,4 @@ A port needs a dedicated stdout snapshot lane, not only a Wasm-diff lane:
 
 Only add a harness lane after the command schema, output channel, cutoff policy, active registry/dispatcher route, and a JSON-aware oracle are all defined. A successful ordinary `wasm-opt -S` comparison is insufficient because it ignores the signal this pass exists to produce.
 
-The upstream owner/fixture and current recursive-type repair are documented by [`PrintBoundary.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/PrintBoundary.cpp), the [focused fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/print-boundary.wast), and [PR #8786](https://github.com/WebAssembly/binaryen/pull/8786).
+The released v131 owner/fixture and recursive-type repair are documented by [`PrintBoundary.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PrintBoundary.cpp), the [focused fixture](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/print-boundary.wast), and [PR #8786](https://github.com/WebAssembly/binaryen/pull/8786).
