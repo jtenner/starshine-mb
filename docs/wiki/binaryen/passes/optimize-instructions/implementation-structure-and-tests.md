@@ -165,6 +165,10 @@ It matters because several cast and bulk-memory rewrites are only valid under re
 
 This file proves the multivalue and tuple-related cleanup families, including the part of the pass that reaches into tuple extraction.
 
+### Consolidated selected-child proof ladder
+
+The local direct-HOT regression suite formerly advanced multi-result selected-child support one arity at a time through results 15–27. Every Binaryen probe produced the same algorithmic shape: materialize the selected child through tuple scratch, store scalar lanes in stack-pop order, and reload the requested lane. The implementation now uses a generalized non-empty scalar-result predicate rather than an arity list. Maintain one low-arity structural test, one high-arity regression, and the explicit unsupported ownership/sibling boundaries; adding another per-arity research note is not useful evidence.
+
 ### `test/lit/passes/optimize-instructions_branch-hints-fold.wast`
 
 This file proves the branch-hint-aware arm-flip surface and helps keep the `eqz`/arm-swap behavior tied to an actual shipped test rather than only a source-reading claim.
