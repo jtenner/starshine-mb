@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/module-utils.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/ir/type-updating.h
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
@@ -20,7 +23,7 @@ related:
 # `remove-unused-types`: closed-world visibility and private-group rewrite rules
 
 This page covers the part of `remove-unused-types` that is easiest to misunderstand.
-The 2026-07-11 current-main bridge preserves this public/private rebuild model but flags a wrapper-interface change in world-mode handling.
+Binaryen v131 preserves this public/private rebuild model and releases the world-mode distinction: closed world anchors directly exposed reachable groups, while open world also protects identity-sensitive subtype/exposure closure.
 
 The pass is not mainly asking:
 
@@ -199,7 +202,8 @@ The best one-sentence explanation of the corrected `remove-unused-types` contrac
 
 ## Sources
 
-- Binaryen current-main type updater: <https://github.com/WebAssembly/binaryen/blob/main/src/ir/type-updating.h>
+- Binaryen v131 type updater: <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/type-updating.h>
+- Binaryen v131 visibility analysis: <https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/module-utils.cpp>
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for the whole-old-rec-group model: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:

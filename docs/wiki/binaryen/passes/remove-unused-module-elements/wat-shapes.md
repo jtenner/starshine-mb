@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-module-elements_all-features.wast
@@ -276,13 +278,14 @@ A function that looks unused in direct code can still stay relevant if:
 
 That is why naive “no direct calls means dead function” logic will drift from Binaryen.
 
-## 15. Wrong-type `call_indirect` table entries are not removable as null-equivalents
+## 15. Table defaults and overlapping writes can make trap-only elems live
 
 ```wat
 (module
   (type $want (func (result i32)))
   (type $other (func (result i64)))
-  (table $t 1 funcref)
+  (table $t 1 funcref (ref.func $ok))
+  (func $ok (type $want) (i32.const 1))
   (func $wrong (type $other) (i64.const 7))
   (elem (table $t) (i32.const 0) func $wrong)
   (func (export "run") (result i32)
@@ -291,7 +294,7 @@ That is why naive “no direct calls means dead function” logic will drift fro
 )
 ```
 
-The entry is non-null but wrong for `$want`. Deleting its initializer turns the indirect-call state into a null entry instead. Binaryen's default RUME policy preserves the active element when needed to retain that distinction; only the explicit `trapsNeverHappen` assumption permits a trap-changing cleanup. This is separate from ordinary direct-call liveness and is detailed in [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+The element overwrites the compatible default `$ok` with a wrong-type function. Deleting the element would expose `$ok` and turn a trapping call into a successful call, so default v131 RUME keeps the write. The same conservative rule applies when overlapping segments may trample a callable value with null or a wrong-type function. Without a callable default/earlier value, changing a wrong-type trap to a null trap can still be legal; the invariant is trap preservation, not trap-kind identity. This is detailed in [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
 ## Practical reading rules
 
@@ -301,7 +304,7 @@ The entry is non-null but wrong for `$want`. Deleting its initializer turns the 
   2. is it strongly used by code or segment-user ops?
   3. is it only still referenced through `ref.func`, `call_ref`, flat tables, elem contents, or heap types?
   4. is an active segment actually meaningful, or a semantic no-op?
-  5. could an indirect call distinguish a wrong-type non-null entry from a null entry?
+  5. could removing a table default/overlapping write eliminate an indirect-call trap?
   6. after removal, which surviving indices still need rewriting?
 
 ## Bottom line

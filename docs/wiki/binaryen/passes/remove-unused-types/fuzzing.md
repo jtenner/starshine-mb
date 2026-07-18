@@ -1,9 +1,11 @@
 ---
 kind: workflow
 status: planned
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
@@ -49,10 +51,10 @@ bun fuzz compare-pass \
 
 1. **Harness:** add the canonical spelling to `SUPPORTED_PASS_FLAGS` and test its Binaryen flag mapping.
 2. **Starshine:** replace the boundary-only entry with an active module-pass dispatcher and focused tests; an owner file must exist.
-3. **Oracle:** confirm the exact Binaryen invocation and world-mode requirements on targeted fixtures. The current-main helper interface needs a separate world-mode semantic review before this page claims a final open-world policy.
+3. **Oracle:** cover both released v131 modes explicitly: ordinary open-world invocation with public-type closure preserved, and `--closed-world` invocation where additional types may become private and regroupable.
 4. **Reachability:** add a GC/rec-group-aware input profile or fixtures that actually reach private/public heap-type rebuilding, and set a nonzero `--min-compared` threshold.
 
-Before a general generator lane exists, use targeted upstream preparation fixtures with `wasm-opt --closed-world --remove-unused-types` as described in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). Those fixtures test Binaryen's transform shape; they do not make the absent Starshine pass comparable.
+Before a general generator lane exists, use both v131 open-world and `--closed-world` targeted fixtures as described in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). Those fixtures test Binaryen's transform and visibility policy; they do not make the absent Starshine pass comparable.
 
 ## Future coverage priorities
 

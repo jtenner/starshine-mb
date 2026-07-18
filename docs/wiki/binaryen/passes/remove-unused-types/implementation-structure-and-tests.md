@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/remove-unused-types.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
@@ -18,14 +20,14 @@ related:
 # `remove-unused-types`: implementation structure and tests
 
 This page exists because `RemoveUnusedTypes.cpp` is much smaller than the real pass contract.
-The 2026-07-11 current-main bridge keeps the wrapper/helper split but corrects its interface: the wrapper now passes pass-option world mode to `GlobalTypeRewriter`.
+Binaryen v131 keeps the wrapper/helper split but releases the corrected interface: the wrapper passes pass-option world mode to `GlobalTypeRewriter`, and a dedicated open-world fixture locks the resulting visibility policy.
 The corrected implementation map is:
 
 - tiny pass file,
 - scheduler-side placement,
 - shared type-info collection,
 - shared global type rewriter,
-- one focused lit file.
+- a baseline lit file plus a focused open-world policy file.
 
 ## File map
 
@@ -35,19 +37,20 @@ The corrected implementation map is:
 | `src/passes/pass.cpp` | Registers the CLI pass name `remove-unused-types` and places it in the broader closed-world GC/type optimization neighborhood |
 | `src/ir/type-updating.h` | Owns `GlobalTypeRewriter`, the real algorithm for collecting used/private/public type facts, rebuilding private types, preserving public groups, and remapping the module |
 | `src/ir/module-utils.h` | Supplies shared heap-type information and visibility analysis used by the type-rewriting helper |
-| `test/lit/passes/remove-unused-types.wast` | Dedicated lit surface for private removal, public retention, group-rewrite, and closed-world contract cases |
+| `test/lit/passes/remove-unused-types.wast` | Baseline private removal, public retention, group-rewrite, and closed-world contract cases |
+| `test/lit/passes/remove-unused-types-open.wast` | V131 explicit-open-world admission and exposed-function-type retention versus closed-world private regrouping |
 
 ## Corrected call graph
 
 ### 1. `RemoveUnusedTypes::run(Module* module)`
 
-On current `main`, the pass method does three things:
+In v131, the pass method does three things:
 
 1. return if the module has no GC features,
 2. construct `GlobalTypeRewriter(*module, getPassOptions().worldMode)`,
 3. run `update()`.
 
-The older direct `!module->closedWorld` wrapper claim is stale. The exact current open-world outcome belongs to the helper-and-fixture review; the older dossier's custom scanner / private builder / whole-rec-group loop still does not exist in the pass file.
+The older direct open-world rejection claim is stale. V131's helper and open-world fixture establish mode-aware public-type retention; the older dossier's custom scanner, private builder, and whole-rec-group loop still do not exist in the pass file.
 
 ### 2. `pass.cpp` registration and scheduling
 
@@ -166,7 +169,8 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
-- Binaryen current-main fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/remove-unused-types.wast>
+- Binaryen v131 baseline fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types.wast>
+- Binaryen v131 open-world fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast>
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for the corrected file map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:
