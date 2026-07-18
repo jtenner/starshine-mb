@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/rse_all-features.wast
-  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
-  - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
+  - ./index.md
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
   - ../../../../../src/passes/registry_test.mbt

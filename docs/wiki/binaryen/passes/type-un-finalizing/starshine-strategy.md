@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
-  - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
-  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/parser.mbt
@@ -15,7 +14,7 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -59,7 +58,7 @@ So this page is a **status and future-port map**, not an implementation guide fo
 | WAT parser/lowering | `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, `src/wast/module_wast_tests.mbt` | Existing surfaces for `sub`, `final`, recursive types, globals, locals, function heap types, and text-fixture coverage |
 | Validator | `src/validate/env.mbt`, `src/validate/typecheck.mbt` | Owns heap-type environments and post-rewrite type checking |
 | Binary roundtrip | `src/binary/encode.mbt`, `src/binary/decode.mbt` | Any future open/final bit rewrite must remain encodable and decodable |
-| Port-batch classification | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Records `type-un-finalizing` among boundary-only type/global/signature shaping names |
+| Port-batch classification | `docs/wiki/ir2/registry-map.md` | Records `type-un-finalizing` among boundary-only type/global/signature shaping names |
 | Backlog status | `agent-todo.md` | No active dedicated slice currently exists |
 
 ## Mapping Binaryen strategy to a future Starshine port
@@ -137,8 +136,8 @@ If a future port lands, use the repo's standard signoff:
 For the full source-backed chain, read in this order:
 
 1. [Binaryen current-main `TypeFinalizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp)
-2. [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
-3. [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
+2. [research note 0427](./index.md)
+3. [research note 0314](./index.md)
 4. [`./binaryen-strategy.md`](./binaryen-strategy.md)
 5. [`./private-boundaries-sibling-split-and-no-leaf-rule.md`](./private-boundaries-sibling-split-and-no-leaf-rule.md)
 6. [`./wat-shapes.md`](./wat-shapes.md)

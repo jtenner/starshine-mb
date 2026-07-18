@@ -3,10 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
-  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
-  - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
@@ -34,7 +33,7 @@ related:
 
 # Starshine Strategy For `string-lowering`
 
-Use this page together with its original `version_129` source URLs and the released v131 tag-type repair captured in the [v131 release-impact audit](../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md).
+Use this page together with its original `version_129` source URLs and the released v131 tag-type repair captured in the [v131 release-impact audit](../../release-horizon-and-oracles.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code surfaces that already handle wasm strings, and the main uncertainty a future parity port must resolve.
 
 ## The honest current status

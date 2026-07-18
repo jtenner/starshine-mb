@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
-  - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-context.wast
@@ -311,7 +311,7 @@ Those four questions explain most of the positive and negative families above.
 
 ## Sources
 
-- [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
+- [research note 0176](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-context.wast>

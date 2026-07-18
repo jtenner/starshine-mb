@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
-  - ../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md
-  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
-  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/ir/hot_builders.mbt

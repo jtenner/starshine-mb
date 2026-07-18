@@ -1,15 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-08
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
-  - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
-  - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
-  - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
-  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
-  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -151,7 +144,7 @@ So the durable rule is:
 
 ## Current behavior-gap inventory
 
-The 2026-06-08 audit [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md) rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file are unchanged from `version_129` for this pass. The follow-ups added focused tests and implemented or confirmed the covered behavior families: imported idempotent functions, idempotent-adjacent wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision for the covered shapes, dangerous recursive-cycle order preservation, `return_call` divergence, nonzero initial globals, near-once negative bodies, nonconstant/zero write negatives, direct call-chain summaries, mixed once/non-once globals, and non-once callee summary directionality. `[O4Z-AUDIT-OR]` is signed off and removed from `agent-todo.md` after focused tests passed `37/37`, `moon test src/passes` passed `2015/2015`, and the current final 100000-case direct compare normalized `99751/99751` compared cases with `0` mismatches.
+The 2026-06-08 audit research note 0717 rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file are unchanged from `version_129` for this pass. The follow-ups added focused tests and implemented or confirmed the covered behavior families: imported idempotent functions, idempotent-adjacent wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision for the covered shapes, dangerous recursive-cycle order preservation, `return_call` divergence, nonzero initial globals, near-once negative bodies, nonconstant/zero write negatives, direct call-chain summaries, mixed once/non-once globals, and non-once callee summary directionality. `[O4Z-AUDIT-OR]` is signed off and removed from `agent-todo.md` after focused tests passed `37/37`, `moon test src/passes` passed `2015/2015`, and the current final 100000-case direct compare normalized `99751/99751` compared cases with `0` mismatches.
 
 ## Current maintenance rule
 
@@ -162,17 +155,17 @@ The 2026-06-08 audit [`../../../raw/research/0717-2026-06-08-once-reduction-beha
 
 ## Sources
 
-- [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
-- [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
-- [`../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md`](../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md)
-- [`../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md)
+- research note 0138
+- research note 0202
+- research note 0256
+- research note 0536
+- research note 0701
 - [`../../../../../src/passes/once_reduction.mbt`](../../../../../src/passes/once_reduction.mbt)
 - [`../../../../../src/passes/once_reduction_test.mbt`](../../../../../src/passes/once_reduction_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- Saved generated-artifact and O4z replay evidence is preserved through the committed audit note [`../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md); older local `.artifacts` paths are replay identifiers, not durable wiki sources.
+- Saved generated-artifact and O4z replay evidence is preserved through the committed audit note research note 0701; older local `.artifacts` paths are replay identifiers, not durable wiki sources.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

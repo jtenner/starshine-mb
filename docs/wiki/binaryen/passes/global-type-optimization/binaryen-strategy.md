@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
-  - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
-  - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -21,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the retained 2026-06-02 current-main recheck in [`../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md); the direct tagged URLs below preserve the earlier source catalog after its manifest is consumed.
+Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the retained 2026-06-02 current-main recheck in [research note 0694](./index.md); the direct tagged URLs below preserve the earlier source catalog after its manifest is consumed.
 
 Primary files:
 
@@ -590,8 +587,8 @@ The public one-line summary in `pass.cpp` hides that entire story.
 
 ## Sources
 
-- [`../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
+- [research note 0306](./index.md)
+- [research note 0153](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/GlobalTypeOptimization.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

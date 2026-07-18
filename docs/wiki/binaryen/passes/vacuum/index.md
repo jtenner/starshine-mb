@@ -1,18 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
-  - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
-  - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -121,16 +117,16 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 
 ## Sources
 
-- [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
-- [`../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md`](../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md)
-- [`../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md`](../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md`](../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md)
+- research note 0130
+- research note 0210
+- research note 0249
+- research note 0520
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` audit root and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` audit root and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Vacuum.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

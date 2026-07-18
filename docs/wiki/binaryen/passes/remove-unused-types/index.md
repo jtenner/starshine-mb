@@ -5,11 +5,7 @@ last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
-  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
-  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/parser.mbt
@@ -57,7 +53,7 @@ Binaryen v131 resolves the earlier current-main uncertainty: the wrapper passes 
 
 ## 2026-04-24 source correction
 
-The older research note [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md) is useful history, but its phase-by-phase algorithm reading is now superseded.
+The older research note research note 0149 is useful history, but its phase-by-phase algorithm reading is now superseded.
 
 The retained correction research records the historical wrapper reading, but its direct-open-world-rejection wording is now stale. Binaryen v131 passes `getPassOptions().worldMode` into `GlobalTypeRewriter`, and `remove-unused-types-open.wast` establishes the released policy: open-world exposed types and their required identity closure stay public, while unrelated private types remain eligible for cleanup.
 
@@ -147,9 +143,9 @@ That means the changed surface can include:
 
 - Binaryen v131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp>
 - Binaryen v131 open-world fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast>
-- [`../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md`](../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md)
-- [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
-- Historical, superseded for algorithm details: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
+- research note 0405
+- research note 0298
+- Historical, superseded for algorithm details: research note 0149
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Binaryen `version_129` sources:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/RemoveUnusedTypes.cpp>

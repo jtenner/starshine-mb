@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
-  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -22,7 +19,7 @@ sources:
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/wast/parser.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md

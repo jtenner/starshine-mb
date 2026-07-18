@@ -1,14 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
-  - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
-  - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
-  - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
-  - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
-  - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
   - ../../../../../src/passes/remove_unused_names.mbt
   - ../../../../../src/passes/remove_unused_names_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -21,7 +16,6 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/README.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.txt
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.wast
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.txt
 related:
@@ -160,14 +154,14 @@ That is deliberately narrow. It does not claim that every neighboring cleanup-co
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedNames.cpp>
-- [`../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
-- [`../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md`](../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md)
+- research note 0143
+- research note 0235
 - [`../../../../../src/passes/remove_unused_names.mbt`](../../../../../src/passes/remove_unused_names.mbt)
 - [`../../../../../src/passes/remove_unused_names_test.mbt`](../../../../../src/passes/remove_unused_names_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- Saved generated-artifact slot facts are preserved in the committed audit note [`../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md`](../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md); old `.artifacts` paths are local replay identifiers rather than durable source links.
+- Saved generated-artifact slot facts are preserved in the committed audit note research note 0703; old `.artifacts` paths are local replay identifiers rather than durable source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

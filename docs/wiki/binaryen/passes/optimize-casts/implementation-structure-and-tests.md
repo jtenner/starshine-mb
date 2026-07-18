@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
-  - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
-  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
-  - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
-  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -51,7 +47,7 @@ Binaryen `optimize-casts` is small enough to summarize as one owner file plus he
 | `src/ir/utils.h` | `ReFinalize` helper used after both rewrite halves. |
 | `test/lit/passes/optimize-casts.wast` | Official examples for positive rewrites, same-index barriers, side-effect/call barriers, and unsupported nearby families. |
 
-The 2026-07-02 source refresh for Binaryen `version_130` found no teaching-relevant drift from the two-phase `version_129` dossier, but it did provide the closeout lit family checklist used by the 2026-07-03 Starshine source/docs review. See [`../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md`](../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md).
+The 2026-07-02 source refresh for Binaryen `version_130` found no teaching-relevant drift from the two-phase `version_129` dossier, but it did provide the closeout lit family checklist used by the 2026-07-03 Starshine source/docs review. See [research note 1403](./index.md).
 
 ## Upstream owner file
 
@@ -263,7 +259,7 @@ Those may be useful future work, but they are not the reviewed `optimize-casts` 
 
 ## Sources
 
-- [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
-- [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
+- [research note 0364](./index.md)
+- [research note 0469](./index.md)
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/OptimizeCasts.cpp>
 - Binaryen current-main lit test: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/optimize-casts.wast>

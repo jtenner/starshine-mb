@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
-  - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
-  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
   - ../../../../../src/passes/heap_store_optimization_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -20,8 +17,6 @@ related:
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
-  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
-  - ../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md
 ---
 
 # Current Starshine `heap-store-optimization` validation bridge
@@ -112,9 +107,9 @@ That matters because this pass is allowed to skip work when there is no plausibl
 
 ### 4. Binaryen oracle check
 
-The current-main source spotcheck in [`../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md`](../../../raw/research/0511-2026-05-06-heap-store-optimization-validation-bridge.md) keeps the upstream contract visible while the local implementation evolves.
+The current-main source spotcheck in [research note 0511](./index.md) keeps the upstream contract visible while the local implementation evolves.
 
-The refreshed direct oracle lane in [`../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md`](../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md) ran:
+The refreshed direct oracle lane in [research note 0530](./index.md) ran:
 
 - `moon info`
 - `moon fmt`

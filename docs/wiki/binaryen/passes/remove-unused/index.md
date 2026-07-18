@@ -3,14 +3,10 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
-  - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
-  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
-  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
-  - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../tracker.md
   - ../index.md
 related:
@@ -32,7 +28,7 @@ related:
 
 - `remove-unused` is **not** a current public Binaryen pass name. The 2026-06-02 v130/current-main spelling recheck established the modern roster, and the complete v130-to-v131 registration audit found no reintroduction.
 - It is currently **unimplemented** in Starshine and still lives in the local boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It is also still listed in the local Batch 4 map in [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md).
+- It is also still listed in the local Batch 4 map in [research note 0063](../../../ir2/registry-map.md).
 - The best source-backed explanation is that this local short name is a **legacy historical alias** for upstream Binaryen's old `remove-unused-functions` pass, which Binaryen later replaced with `remove-unused-module-elements`.
 - The 2026-07-11 current-main/admission recheck confirms the same absence on the reviewed registration/help surfaces and also catches a stale fuzzing claim: local `remove-unused` remains boundary-only and absent from the compare-pass allowlist. The first local action is therefore still a registry-hygiene decision: keep rejecting, remove/rename, implement the historical function-only pass literally, or intentionally alias to modern RUME.
 
@@ -105,11 +101,11 @@ A safe beginner mental model is:
 ## Sources
 
 - Binaryen [current-main `pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp) and [CLI help fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/help/wasm-opt.test)
-- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
-- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
-- [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
+- research note 0420
+- research note 0339
+- research note 0195
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
 - Current upstream surfaces:

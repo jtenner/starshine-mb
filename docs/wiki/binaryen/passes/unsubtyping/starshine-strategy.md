@@ -4,12 +4,11 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/module_wast_tests.mbt
   - ../../../../../src/wast/ref_null_exact_surface_test.mbt
@@ -71,7 +70,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/cmd/fuzz_harness_wbtest.mbt#L198-L217`](../../../../../src/cmd/fuzz_harness_wbtest.mbt#L198-L217)
     - the current representative boundary-only request test uses `global-struct-inference-desc-cast`, not `unsubtyping`
 - registry-planning breadcrumb
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59)
+  - [research note 0063](../../../ir2/registry-map.md)
     - `unsubtyping` is grouped with boundary-only type/global/signature shaping names
 - type-section representation a future port would have to rewrite
   - [`src/lib/types.mbt#L29-L130`](../../../../../src/lib/types.mbt#L29-L130)
@@ -223,7 +222,7 @@ Current Starshine `unsubtyping` strategy is honest boundary-only tracking plus a
 - the pass name is preserved at [`src/passes/optimize.mbt#L127-L139`](../../../../../src/passes/optimize.mbt#L127-L139)
 - active requests are rejected at [`src/passes/optimize.mbt#L446-L462`](../../../../../src/passes/optimize.mbt#L446-L462)
 - current generic boundary-only request coverage exists at [`src/cmd/fuzz_harness_wbtest.mbt#L198-L217`](../../../../../src/cmd/fuzz_harness_wbtest.mbt#L198-L217), but there is no `unsubtyping`-specific request test today
-- the pass-port map keeps it boundary-only at [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59)
+- the pass-port map keeps it boundary-only at [research note 0063](../../../ir2/registry-map.md)
 - the active backlog still has no dedicated slice
 - there is no local owner file yet
 

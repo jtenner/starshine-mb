@@ -1,14 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
-  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
-  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ../late-pipeline-dispatch.md
+  - ../reorder-globals/index.md
+  - ./index.md
   - ../../../../../src/passes/string_gathering.mbt
   - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -22,7 +19,6 @@ sources:
   - ../../../strings/string-const-surface.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
-  - ../reorder-globals/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -36,7 +32,7 @@ related:
 
 # Starshine Strategy For `string-gathering`
 
-Use this page together with the tagged `version_129` source URLs listed below and the archived 2026-05-04 current-main recheck in [`../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md).
+Use this page together with the tagged `version_129` source URLs listed below and the archived 2026-05-04 current-main recheck in [research note 0431](./index.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for the accepted public late-tail suffix and any broader widening beyond it. For the validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status

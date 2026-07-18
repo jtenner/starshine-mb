@@ -4,10 +4,8 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -20,7 +18,7 @@ related:
 # `unsubtyping` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `unsubtyping`.
-Use it with the retained relation/cast research follow-up in [`../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md), the released v131 world-policy fixture [`unsubtyping-open-world.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast), the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md), and the port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use it with the retained relation/cast research follow-up in [research note 0444](./index.md), the released v131 world-policy fixture [`unsubtyping-open-world.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast), the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md), and the port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 
@@ -618,7 +616,7 @@ That is what future port work must match.
 
 ## Sources
 
-- [`../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
+- [research note 0154](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Unsubtyping.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/subtype-exprs.h>

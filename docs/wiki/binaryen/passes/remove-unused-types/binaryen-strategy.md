@@ -5,10 +5,8 @@ last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
-  - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -224,8 +222,8 @@ Do not teach it as:
 
 - Binaryen v131 owner: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp>
 - Binaryen v131 open-world fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast>
-- [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
-- Historical, superseded for the corrected phase map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
+- [research note 0298](./index.md)
+- Historical, superseded for the corrected phase map: [research note 0149](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/RemoveUnusedTypes.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

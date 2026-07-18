@@ -1,17 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
-  - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
-  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
-  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
-  - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
-  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
-  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
+  - ./index.md
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/reorder_locals_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -46,7 +38,7 @@ This page is the bridge from the algorithm pages to validation work. Use it when
 
 ## Current Starshine status
 
-The 2026-07-02 O4Z closeout re-proved the explicit pass against the local `version_130` oracle: dedicated `reorder-locals-all`, ordinary GenValid, and `random-all-profiles` GenValid lanes each compared/normalized `10000/10000` with zero failures. The external wasm-smith lane compared `9956/10000` with one `unreachable-control-debris` compare-normalized residual, zero remaining mismatches, and `44` Binaryen/oracle command failures; see [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md).
+The 2026-07-02 O4Z closeout re-proved the explicit pass against the local `version_130` oracle: dedicated `reorder-locals-all`, ordinary GenValid, and `random-all-profiles` GenValid lanes each compared/normalized `10000/10000` with zero failures. The external wasm-smith lane compared `9956/10000` with one `unreachable-control-debris` compare-normalized residual, zero remaining mismatches, and `44` Binaryen/oracle command failures; see [research note 1401](./index.md).
 
 A 2026-05-07 stable-boundary replay on the checked-in debug artifact kept the policy honest: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` still reported `Binaryen no-pass converged: no` and `Canonical wasm equal: no`, but it also reported `Normalized WAT equal: yes` and `Canonical function compare equal: yes`. That confirms the remaining full-artifact raw drift still belongs to the Binaryen multivalue-call writeback boundary documented in [`./multivalue-call-scope.md`](./multivalue-call-scope.md), not to the standalone sorter contract.
 
@@ -66,7 +58,7 @@ code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> r
 local-subtyping -> coalesce-locals -> local-cse -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum -> merge-blocks
 ```
 
-Current preset tests lock that state by name: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` checks the early neighborhood order, `optimize and shrink presets schedule Binaryen-shaped reorder-locals cleanup slots` checks the three public `reorder-locals` occurrences and their immediate neighbors, and `optimize and shrink presets keep the late simplify-locals reorder sandwich together` checks the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. The 2026-07-12 scheduling note [`1561`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) supersedes the earlier one-slot public policy from [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md).
+Current preset tests lock that state by name: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` checks the early neighborhood order, `optimize and shrink presets schedule Binaryen-shaped reorder-locals cleanup slots` checks the three public `reorder-locals` occurrences and their immediate neighbors, and `optimize and shrink presets keep the late simplify-locals reorder sandwich together` checks the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. The 2026-07-12 scheduling note [`1561`](./index.md) supersedes the earlier one-slot public policy from [`0709`](./index.md).
 
 That means new work should no longer treat repeated top-level public `reorder-locals` scheduling as an open RL policy gap by itself. Remaining preset work is now about the neighboring no-DWARF owners that still diverge from Binaryen, not the `reorder-locals` slot count.
 
@@ -143,9 +135,9 @@ Start with small, semantic checks before running broader parity:
 
 ## Sources
 
-- Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
+- Current preset-scheduling reconciliation: [research note 0709](./index.md)
 - [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- [`../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)
+- [research note 0430](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)

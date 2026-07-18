@@ -1,10 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - ../legalize-js-interface/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -93,8 +91,8 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md`](../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md`](../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md)
+- research note 0292
+- research note 0224
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../legalize-js-interface/index.md`](../legalize-js-interface/index.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

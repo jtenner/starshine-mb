@@ -3,12 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
-  - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
-  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -16,7 +12,7 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
 supersedes:
-  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
+  - ./index.md
 ---
 
 # Binaryen strategy for `remove-relaxed-simd`
@@ -36,7 +32,7 @@ This avoids pretending that one deterministic SIMD sequence is a faithful substi
 The same tag declares `createRemoveRelaxedSIMDPass()` in `src/passes/passes.h` and implements the pass in `src/passes/RemoveRelaxedSIMD.cpp`.
 The tagged changelog records the pass as a `version_126` addition.
 
-Current `main`, rechecked again on 2026-05-06 for freshness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The retained research recheck is [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md).
+Current `main`, rechecked again on 2026-05-06 for freshness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The retained research recheck is [research note 0501](./index.md).
 
 ## Core rewrite algorithm
 
@@ -143,11 +139,11 @@ Before porting, source-confirm whether Starshine should add a separate metadata 
 
 ## Sources
 
-- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
-- [`../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md`](../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md)
+- [research note 0501](./index.md)
+- [research note 0482](./index.md)
+- [research note 0437](./index.md)
+- [research note 0355](./index.md)
+- [research note 0322](./index.md)
 - Binaryen `RemoveRelaxedSIMD.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveRelaxedSIMD.cpp>
 - Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - WebAssembly relaxed SIMD overview: <https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md>

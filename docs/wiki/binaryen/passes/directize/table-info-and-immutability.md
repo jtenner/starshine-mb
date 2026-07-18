@@ -3,13 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
-  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
-  - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
-  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -285,11 +281,11 @@ A faithful Starshine port should preserve:
 
 ## Sources
 
-- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
-- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
-- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
-- [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
-- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
+- [research note 0476](./index.md)
+- [research note 0380](./index.md)
+- [research note 0350](./index.md)
+- [research note 0126](./index.md)
+- [research note 0265](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Directize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/table-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/table-utils.cpp>

@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
-  - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
-  - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -20,7 +17,7 @@ related:
 # `signature-pruning` WAT shapes
 
 This page is a beginner-friendly catalog of the main WAT / module-shape families Binaryen `signature-pruning` rewrites, preserves, or bails out on.
-It is anchored to the retained 2026-04-24 source follow-up in [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md), the 2026-07-11 `version_130` / current-main source recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), and the Starshine implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+It is anchored to the retained 2026-04-24 source follow-up in [research note 0304](./index.md), the 2026-07-11 `version_130` / current-main source recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), and the Starshine implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The pass is shape-driven, but the important shapes are not just inside one function body.
 They often include:
@@ -430,8 +427,8 @@ Those are the shapes a future port must preserve if it wants to match upstream B
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md)
-- [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
+- [research note 0304](./index.md)
+- [research note 0151](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>

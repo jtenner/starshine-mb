@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
-  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
-  - ../../../raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md
-  - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
-  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt

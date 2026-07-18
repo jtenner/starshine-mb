@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
 related:
   - ./index.md

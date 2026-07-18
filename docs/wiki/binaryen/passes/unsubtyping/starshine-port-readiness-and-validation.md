@@ -5,16 +5,14 @@ last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/module_wast_tests.mbt
   - ../../../../../src/wast/ref_null_exact_surface_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -48,7 +46,7 @@ The current code surfaces are still only:
 - type graph representation: [`src/lib/types.mbt#L29-L130`](../../../../../src/lib/types.mbt#L29-L130)
 - type-section and descriptor roundtrip fixtures: [`src/wast/module_wast_tests.mbt#L308-L407`](../../../../../src/wast/module_wast_tests.mbt#L308-L407)
 - exact / bottom descriptor refs: [`src/wast/ref_null_exact_surface_test.mbt#L1-L85`](../../../../../src/wast/ref_null_exact_surface_test.mbt#L1-L85)
-- pass-port batch breadcrumb: [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59)
+- pass-port batch breadcrumb: [research note 0063](../../../ir2/registry-map.md)
 - active backlog gap: [`agent-todo.md`](../../../../../agent-todo.md)
 
 There is still no owner file or dedicated `unsubtyping` request test.
@@ -185,5 +183,5 @@ Until then, keep the boundary-only status described in [`./starshine-strategy.md
 - Shape catalog: [`./wat-shapes.md`](./wat-shapes.md)
 - Current Starshine status: [`./starshine-strategy.md`](./starshine-strategy.md)
 - Released v131 open-world primary sources: [Binaryen `Unsubtyping.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp) and [`unsubtyping-open-world.wast`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast)
-- Earlier research follow-up: [`../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md)
-- Legacy research follow-up: [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
+- Earlier research follow-up: [research note 0444](./index.md)
+- Legacy research follow-up: [research note 0289](./index.md)

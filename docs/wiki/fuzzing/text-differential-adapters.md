@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/bytecodealliance/wasm-tools#tools-included
   - https://github.com/WebAssembly/wabt#readme

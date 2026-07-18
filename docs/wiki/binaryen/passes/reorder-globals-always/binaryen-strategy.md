@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
-  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
-  - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
-  - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp
@@ -190,9 +188,9 @@ A future implementation must preserve:
 
 ## Sources
 
-- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
-- [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
-- [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
+- [research note 0336](./index.md)
+- [research note 0188](./index.md)
+- [research note 0214](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>

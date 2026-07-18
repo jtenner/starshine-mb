@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -104,13 +104,10 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
-  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
-  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
-  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/execution-plan.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
@@ -167,9 +164,9 @@ Current signoff is:
 - wasm-smith: 6,719 comparable, zero mismatches and no Starshine command failures;
 - idempotence: 1,000/1,000.
 
-The compare contract uses `drop-consts`, `unreachable-control-debris`, and `local-cleanup-debris`, each backed by exact fixtures and inspected discrepancy families. See [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
+The compare contract uses `drop-consts`, `unreachable-control-debris`, and `local-cleanup-debris`, each backed by exact fixtures and inspected discrepancy families. See [`./fuzzing.md`](./fuzzing.md) and [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
 
-Current native-release requalification measures `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function representative (`4.00x`). The approximately `1.14 ms` absolute cost is accepted under a maintainer-reviewed pass-specific exception; the relative result remains useful optional optimization evidence. See [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+Current native-release requalification measures `1,140 us` versus Binaryen v130's `285.236 us` on the historical 120-function representative (`4.00x`). The approximately `1.14 ms` absolute cost is accepted under a maintainer-reviewed pass-specific exception; the relative result remains useful optional optimization evidence. See [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).
 
 ## Historical pre-admission code and doc map (superseded)
 
@@ -189,9 +186,9 @@ The following map is retained as staged implementation history. The current acti
   - `src/passes/pass_manager.mbt`
     - no active `flatten` match exists today
 - current batch intent
-  - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70`
+  - `docs/wiki/ir2/execution-plan.md:69-70`
     - `flatten` still leads the preferred Batch 2 implementation order
-  - `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108`
+  - `docs/wiki/ir2/registry-map.md:107-108`
     - `flatten` still sits in Batch 2 removed-until-implemented planning
 - active backlog truth
   - `agent-todo.md`
@@ -233,8 +230,8 @@ That matters for two reasons:
 
 The repo still has real planning intent for `flatten`:
 
-- `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md` still puts it first in the next-wave Batch 2 order
-- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records it as a Batch 2 removed pass
+- `docs/wiki/ir2/execution-plan.md` still puts it first in the next-wave Batch 2 order
+- `docs/wiki/ir2/registry-map.md` still records it as a Batch 2 removed pass
 
 But the active backlog surface is intentionally less mature:
 
@@ -603,4 +600,4 @@ Current Starshine `flatten` is an active, compared, and top-level preset-schedul
 - the WAST frontend's non-executable legacy-try validation scaffold is detected before mutation and intentionally left unchanged;
 - the current 120-function native-release benchmark measures `1,140 us` versus Binaryen v130's `285.236 us`, or `4.00x`.
 
-Behavior, top-level scheduling, and timing review are closed. `[O4Z-FLAT]001` is closed with an explicit exception because `1,140 us` over 120 functions is operationally acceptable even though Binaryen is `4.00x` faster on the representative. The scheduling and accepted measurement source is [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+Behavior, top-level scheduling, and timing review are closed. `[O4Z-FLAT]001` is closed with an explicit exception because `1,140 us` over 120 functions is operationally acceptable even though Binaryen is `4.00x` faster on the representative. The scheduling and accepted measurement source is [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).

@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
-  - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
-  - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
-  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -166,11 +162,11 @@ A faithful port should make that choice visible in tests.
 
 ## Sources
 
-- [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
-- [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
-- [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
-- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [research note 0554](./index.md)
+- [research note 0544](./index.md)
+- [research note 0333](./index.md)
+- [research note 0129](./index.md)
+- [research note 0489](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
+  - ./index.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PickLoadSigns.cpp

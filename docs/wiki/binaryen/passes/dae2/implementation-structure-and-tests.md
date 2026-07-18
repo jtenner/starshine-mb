@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
-  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
-  - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -51,7 +47,7 @@ The 2026-05-05 current-main recheck and GitHub web spotcheck did not find teachi
 
 ## Exact source anchors
 
-- [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md) keeps the reviewed upstream file pages and the current-main recheck together.
+- [research note 0486](./index.md) keeps the reviewed upstream file pages and the current-main recheck together.
 - `DeadArgumentElimination2.cpp` is the single owner file for the core analysis and rewrite engine.
 - `pass.cpp` proves `dae2` is a public pass name rather than a sibling alias.
 - `dae2.wast` is the proof surface for direct, recursive, indirect/reference, replacement-type, and effect-preserving behavior.
@@ -252,8 +248,8 @@ It needs to preserve:
 
 The retained source bridge, current-main recheck, and local status page provide the upstream source map and Starshine status context:
 
-- [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
-- [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md)
+- [research note 0337](./index.md)
+- [research note 0486](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 
 The source map above remains the same; the new files close the provenance and local-follow-along gap rather than changing the upstream algorithm.

@@ -1,14 +1,9 @@
 ---
 kind: comparison
 status: signed-off
-last_reviewed: 2026-06-08
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
-  - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
-  - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
-  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
-  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
+  - ./index.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -51,7 +46,7 @@ The current Starshine subset clearly covers:
 
 ## 2026-06-08 behavior-gap inventory
 
-The latest source audit is [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md). It checked local Binaryen `wasm-opt version 130 (version_130)` and found that `version_130` `OnceReduction.cpp` plus the dedicated lit file are unchanged from the `version_129` sources this dossier already used.
+The latest source audit is [research note 0717](./index.md). It checked local Binaryen `wasm-opt version 130 (version_130)` and found that `version_130` `OnceReduction.cpp` plus the dedicated lit file are unchanged from the `version_129` sources this dossier already used.
 
 The audit originally kept `[O4Z-AUDIT-OR]` open with nine concrete red-test families: imported idempotent roots, idempotent-adjacent wrapper cleanup, negative once writes, CFG/dominator merge drift, branch exits, loop propagation, EH/`try_table`, dangerous recursive cycles, and `return_call` divergence. The same 2026-06-08 follow-up implemented those covered families, then a later test expansion added 12 more source/lit-surface fixtures.
 
@@ -135,9 +130,9 @@ Treat `once-reduction` as signed off for v0.1.0 behavior parity:
 
 ## Sources
 
-- [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
-- [`../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md)
-- [`../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md)
+- [research note 0138](./index.md)
+- [research note 0536](./index.md)
+- [research note 0701](./index.md)
 - Saved generated-artifact slot and Binaryen debug-log facts are copied into that committed O4z audit note; any older `.artifacts` path is a local replay identifier, not a durable source link.
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
 - Binaryen `version_129` annotation helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/intrinsics.h>

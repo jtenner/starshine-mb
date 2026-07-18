@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
-  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
-  - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -26,7 +22,7 @@ related:
 - Use Binaryen `version_129` as the reviewed tagged source oracle for `dae2`; the 2026-05-05 source review is a historical freshness check, not a claim about the current public release baseline.
 - The reviewed `version_129` source map is retained through the 2026-05-05 current-main recheck and direct tagged Binaryen URLs below.
 - The absorbed 2026-05-05 current-main recheck found no teaching-relevant drift and recorded an official GitHub spotcheck of the upstream `main` source pages. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the current implementation-readiness guidance.
-- The 2026-05-05 source-anchor refresh note is [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md).
+- The 2026-05-05 source-anchor refresh note is [research note 0486](./index.md).
 - The core implementation is `src/passes/DeadArgumentElimination2.cpp`.
 - Public registration lives in `src/passes/pass.cpp`.
 - The reviewed official test surface is `test/lit/passes/dae2.wast`.
@@ -41,7 +37,7 @@ related:
 
 ## Exact source anchors
 
-- [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md) keeps the reviewed upstream file pages and the current-main recheck together.
+- [research note 0486](./index.md) keeps the reviewed upstream file pages and the current-main recheck together.
 - `DeadArgumentElimination2.cpp` is the main contract surface for the backward fixed point, forwarding graph, blockers, and global type repair.
 - `pass.cpp` is the public registration proof that `dae2` is a separate pass name.
 - `dae2.wast` is the canonical behavior surface for cycles, indirect/reference cases, replacement types, and effect-preserving removals.
@@ -300,8 +296,8 @@ Binaryen `dae2` is best taught as:
 
 ## Sources
 
-- Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
-- Original research note: [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
+- Source bridge: [research note 0337](./index.md)
+- Original research note: [research note 0218](./index.md)
 - Binaryen `DeadArgumentElimination2.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination2.cpp>
 - Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `dae2.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae2.wast>

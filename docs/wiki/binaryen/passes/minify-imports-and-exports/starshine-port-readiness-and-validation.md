@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md

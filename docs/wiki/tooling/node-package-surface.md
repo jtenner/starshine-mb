@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - https://webassembly.github.io/esm-integration/js-api/index.html
   - https://nodejs.org/api/wasi.html
@@ -16,7 +16,6 @@ sources:
   - https://nodejs.org/api/packages.html
   - https://www.typescriptlang.org/docs/handbook/modules/reference.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html
-  - ../raw/research/0110-2026-04-18-node-package-api-audit.md
   - ../../../node/package.json
   - ../../../node/README.md
   - ../../../node/internal/.gitignore
@@ -119,7 +118,7 @@ This keeps package health checks small and reviewable. A broad “mirror all `pk
 
 ## What Changed Since The 2026-04-18 Audit
 
-The archived audit at [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md) correctly identified `cmd` as the most urgent drift point at that time.
+The archived audit at research note 0110 correctly identified `cmd` as the most urgent drift point at that time.
 That specific status is now stale:
 
 - [`node/cmd.d.ts`](../../../node/cmd.d.ts) declares `CmdFuzzStats`, `runCmdFuzzHarness(...)`, and `runCmdFuzzHarnessProfile(...)`.
@@ -221,7 +220,7 @@ The comparison must start from the `exports` allowlist, not from every file in `
 - JS String Builtins runtime boundary: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js)
 - npm trusted-publishing, provenance, and OIDC evidence: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers), [npm provenance](https://docs.npmjs.com/generating-provenance-statements), [GitHub Actions OIDC guidance](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect), [`../../../.github/workflows/node-wasm-tests.yml`](../../../.github/workflows/node-wasm-tests.yml), [`../../../.github/workflows/fuzz.yml`](../../../.github/workflows/fuzz.yml), [`../../../.github/workflows/readme-api-sync.yml`](../../../.github/workflows/readme-api-sync.yml)
 - Node/TypeScript package-resolution evidence: official [Node package documentation](https://nodejs.org/api/packages.html), official [TypeScript module-resolution reference](https://www.typescriptlang.org/docs/handbook/modules/reference.html), and the local package metadata/wrapper/test sources listed below
-- Archived baseline audit: [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md)
+- Archived baseline audit: research note 0110
 - Package metadata and README: [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)
 - Current Node parity and smoke tests: [`../../../node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs), [`../../../node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs), [`../../../node/test/examples.test.mjs`](../../../node/test/examples.test.mjs)
 - Build/generation boundary: [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs)

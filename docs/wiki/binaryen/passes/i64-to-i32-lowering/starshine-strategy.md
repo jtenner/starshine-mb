@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
-  - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -18,7 +15,7 @@ sources:
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/validate/env.mbt
   - ../../../../../src/validate/typecheck.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -45,7 +42,7 @@ The exact local status is:
 - The same file's pass expansion rejects boundary-only names before dispatching any pass, with the diagnostic that the flag is not implemented in the hot pipeline.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) has active module-pass dispatch for the implemented module passes only (`duplicate-function-elimination`, `remove-unused-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, and `reorder-locals`). There is no `i64-to-i32-lowering` case.
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) covers active, boundary-only, and removed category behavior, but there is no pass-specific `i64-to-i32-lowering` implementation or parity test.
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) still lists the pass in Batch 3 under whole-module or layout transforms.
+- [research note 0063](../../../ir2/registry-map.md) still lists the pass in Batch 3 under whole-module or layout transforms.
 - [`agent-todo.md`](../../../../../agent-todo.md) currently has no dedicated active `i64-to-i32-lowering` slice.
 
 So the honest one-line summary is:
@@ -180,10 +177,10 @@ For this pass, read in this order:
 
 ## Sources
 
-- [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
-- [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
-- [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)
+- [research note 0412](./index.md)
+- [research note 0299](./index.md)
+- [research note 0175](./index.md)
+- [research note 0197](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
@@ -195,5 +192,5 @@ For this pass, read in this order:
 - [`../../../../../src/binary/encode.mbt`](../../../../../src/binary/encode.mbt)
 - [`../../../../../src/validate/env.mbt`](../../../../../src/validate/env.mbt)
 - [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

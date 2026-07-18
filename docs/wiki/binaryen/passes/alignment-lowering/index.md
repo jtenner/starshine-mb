@@ -1,17 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
-  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
-  - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
-  - ../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md
-  - ../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
@@ -94,13 +89,13 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md)
-- [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
-- [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
-- [`../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md`](../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md)
-- [`../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md)
+- research note 0496
+- research note 0379
+- research note 0171
+- research note 0200
+- research note 0273
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../tracker.md`](../tracker.md)

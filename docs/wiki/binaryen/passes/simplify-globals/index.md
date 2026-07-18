@@ -1,13 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
-  - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
-  - ../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md
-  - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -86,7 +82,7 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 
 ## Page map
 
-- [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md)
+- research note 0461
   Retained current-main recheck for the shared owner and public-pass split; the direct tagged release, source, and test URLs remain listed below.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: phases, helper dependencies, scheduler placement, and what the plain pass really owns.
@@ -110,10 +106,10 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 ## Sources
 
 - Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp)
-- [`../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md`](../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md)
-- [`../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md`](../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md)
-- [`../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md)
+- research note 0160
+- research note 0222
+- research note 0275
+- research note 0461
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

@@ -1,14 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
-  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
-  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
-  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
-  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
-  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/reorder_locals.mbt
@@ -120,9 +115,9 @@ Starshine now implements this pass as an active direct module pass. The relevant
 | `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic the coalescer must compose with. |
 | `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4126`, `src/passes/simplify_locals.mbt:4191`, `src/passes/simplify_locals.mbt:4245`, `src/passes/simplify_locals.mbt:4348` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF pipeline still records both `coalesce-locals` slots. |
-| `docs/wiki/raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md` | Current ordered O4z neighborhood proof and hardening note: structured `local.tee` coalescing, self-copy cleanup, bounded copy-chain forwarding, derived branch-carrier consume-forwarding, destination-read-after-source-write guarding, source-write/destination-read interference restoration, path-disjoint branch-result slot reuse, branch-aware effective-write cleanup, effective-copy weighting/copy-connected coloring, structured-scalar slot-order preference, loop unread-local scratch coalescing, loop adjacent/non-adjacent copy-through coalescing, structured ineffective-write cleanup, narrow concrete-ref direct-struct-get packing, preferred-first GC-ref ordering, immediate tee/drop debris cleanup, nested nonlocal block-escape live-write preservation, label-aware terminal/branch continuation liveness, and top-level tail param reuse after ineffective dead writes reduce/classify the startup-map GC/local prefix drift and broad neighboring-profile gaps; the dense non-loop coloring path is bounded at 4096 flattened locals; the `coalesce-locals-all` dedicated profile is green at 10k; and final direct closeout is green across regular GenValid, dedicated profile, random all-profiles, and cleanup-normalized wasm-smith lanes with the raw wasm-smith no-local unreachable debris boundary documented. |
-| `docs/wiki/raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md` | Direct-refresh proof: structured param-slot reuse, loop unused-local coalescing, and a 10k regular GenValid direct lane with zero mismatches. |
-| `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` | Ordered-slot proof: in-tree neighborhood regressions, refreshed 10k direct parity, and current-head debug-artifact replay for the reorder sandwich. |
+| `docs/wiki/binaryen/passes/coalesce-locals/index.md` | Current ordered O4z neighborhood proof and hardening note: structured `local.tee` coalescing, self-copy cleanup, bounded copy-chain forwarding, derived branch-carrier consume-forwarding, destination-read-after-source-write guarding, source-write/destination-read interference restoration, path-disjoint branch-result slot reuse, branch-aware effective-write cleanup, effective-copy weighting/copy-connected coloring, structured-scalar slot-order preference, loop unread-local scratch coalescing, loop adjacent/non-adjacent copy-through coalescing, structured ineffective-write cleanup, narrow concrete-ref direct-struct-get packing, preferred-first GC-ref ordering, immediate tee/drop debris cleanup, nested nonlocal block-escape live-write preservation, label-aware terminal/branch continuation liveness, and top-level tail param reuse after ineffective dead writes reduce/classify the startup-map GC/local prefix drift and broad neighboring-profile gaps; the dense non-loop coloring path is bounded at 4096 flattened locals; the `coalesce-locals-all` dedicated profile is green at 10k; and final direct closeout is green across regular GenValid, dedicated profile, random all-profiles, and cleanup-normalized wasm-smith lanes with the raw wasm-smith no-local unreachable debris boundary documented. |
+| `docs/wiki/binaryen/passes/coalesce-locals/index.md` | Direct-refresh proof: structured param-slot reuse, loop unused-local coalescing, and a 10k regular GenValid direct lane with zero mismatches. |
+| `docs/wiki/binaryen/passes/coalesce-locals/index.md` | Ordered-slot proof: in-tree neighborhood regressions, refreshed 10k direct parity, and current-head debug-artifact replay for the reorder sandwich. |
 
 ## What this page rules out
 

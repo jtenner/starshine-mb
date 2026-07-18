@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
-  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -23,7 +21,7 @@ related:
 
 Use Binaryen `version_129` as the current source oracle for this pass family.
 
-The retained [`2026-05-05 archived research recheck`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md) records the current comparison anchors. The tagged `version_129` source catalog retained from the consumed manifest is:
+The retained [`2026-05-05 archived research recheck`](./index.md) records the current comparison anchors. The tagged `version_129` source catalog retained from the consumed manifest is:
 
 - [`src/passes/ConstantFieldPropagation.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ConstantFieldPropagation.cpp)
 - [`src/passes/pass.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp)
@@ -412,9 +410,9 @@ That is why the pass matters and why it deserved a dedicated dossier.
 
 ## Sources
 
-- [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
-- [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
+- [research note 0474](./index.md)
+- [research note 0301](./index.md)
+- [research note 0158](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - Binaryen `version_129`:

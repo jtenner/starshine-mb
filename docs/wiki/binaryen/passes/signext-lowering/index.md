@@ -1,14 +1,9 @@
 ---
 kind: pass
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignExtLowering.cpp
-  - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
-  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
-  - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
-  - ../../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/validate/typecheck.mbt

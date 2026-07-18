@@ -1,19 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
-  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
-  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
-  - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
-  - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
@@ -99,7 +92,7 @@ That is much closer to the real pass than either:
   - `reorder-globals-always` remains a boundary-only tracked name
 - The active pass implements the public production policy, including the `<128` total-global no-op, dependency-aware candidate ordering, true ULEB-size scoring, import-prefix preservation, and numeric `GlobalIdx` remapping across module/code/name surfaces.
 - On 2026-05-06, refreshed direct-pass signoff in `.tmp/pass-fuzz-reorder-globals` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- The public optimize/shrink presets now schedule the accepted late-tail suffix. The inner `string-gathering -> reorder-globals -> directize` triple has explicit regression coverage plus a current-head debug-artifact replay at [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md). The broader `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is directly oracle-proven with standard 10k ordered-neighborhood fuzz and same-input RUME isolation; the remaining artifact frontier is inherited SGO representation/function-layout drift, not a late string/reorder/directize mismatch. See [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md).
+- The public optimize/shrink presets now schedule the accepted late-tail suffix. The inner `string-gathering -> reorder-globals -> directize` triple has explicit regression coverage plus a current-head debug-artifact replay at research note 0549. The broader `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is directly oracle-proven with standard 10k ordered-neighborhood fuzz and same-input RUME isolation; the remaining artifact frontier is inherited SGO representation/function-layout drift, not a late string/reorder/directize mismatch. See [research note 0571](../late-pipeline-dispatch.md) and [research note 0572](../late-pipeline-dispatch.md).
 
 Keep preserving the distinction between the public pass and the `always` helper instead of collapsing them accidentally.
 
@@ -127,15 +120,15 @@ Keep preserving the distinction between the public pass and the `always` helper 
 
 ## Sources
 
-- [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md)
-- [`../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md`](../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md)
-- [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
-- [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
-- [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
+- research note 0689
+- research note 0525
+- research note 0367
+- research note 0125
+- research note 0270
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` implementation and test sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>

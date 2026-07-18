@@ -1,13 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -46,7 +45,7 @@ This is intentionally different from an unknown pass. The name is preserved so f
 | Active-pass rejection | [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) `run_hot_pipeline_expand_passes(...)` | Returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline` for `inline-main`. |
 | Default presets | [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) `optimize_preset_passes(...)` and `shrink_preset_passes(...)` | Neither preset includes `inline-main`. |
 | Option surface | [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) `InliningOptions` and `OptimizeOptions` | `InliningOptions` is currently a placeholder; no dedicated `inline-main` implementation hook exists. |
-| Compatibility map | [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) | Lists `inline-main` in Batch 4 compatibility / boundary pass names. |
+| Compatibility map | [research note 0063](../../../ir2/registry-map.md) | Lists `inline-main` in Batch 4 compatibility / boundary pass names. |
 | Backlog | [`../../../../../agent-todo.md`](../../../../../agent-todo.md) | No active `inline-main` slice was found during the 2026-04-24 review. |
 
 ## How this maps to the Binaryen strategy
@@ -132,9 +131,9 @@ Use the living pass implementation rules in [`../../../../../AGENTS.md`](../../.
 
 ## Sources
 
-- [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
+- [research note 0319](./index.md)
+- [research note 0177](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

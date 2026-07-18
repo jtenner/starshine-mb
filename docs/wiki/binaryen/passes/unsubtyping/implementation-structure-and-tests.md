@@ -5,10 +5,8 @@ last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Unsubtyping.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/unsubtyping-open-world.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
-  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -321,7 +319,7 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
-- [`../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
+- [research note 0154](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Unsubtyping.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

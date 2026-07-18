@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
-  - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -464,7 +461,7 @@ The most important beginner correction is:
 
 ## Sources
 
-- Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
-- Original research note: [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
+- Source bridge: [research note 0337](./index.md)
+- Original research note: [research note 0218](./index.md)
 - Binaryen `dae2.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae2.wast>
 - Starshine status bridge: [`./starshine-strategy.md`](./starshine-strategy.md)

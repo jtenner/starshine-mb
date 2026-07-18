@@ -1,13 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
-  - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
   - ../../../../../src/validate/gen_valid.mbt
@@ -139,11 +134,11 @@ Treat the retained 2026-05-04 current-main research digest and the 2026-04-26 re
 
 ## Sources
 
-- [`../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md)
-- [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
-- [`../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
-- [`../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md`](../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md)
+- research note 0435
+- research note 0406
+- research note 0293
+- research note 0159
+- research note 0230
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

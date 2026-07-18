@@ -3,11 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
-  - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
-  - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
@@ -143,8 +140,8 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 
 - Binaryen v131 [`RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp)
 - Binaryen v131 [`remove-unused-module-elements-tables-init.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast)
-- [`../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md`](../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)
+- research note 0243
+- research note 0145
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)

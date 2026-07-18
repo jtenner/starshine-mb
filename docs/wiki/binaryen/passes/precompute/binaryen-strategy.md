@@ -3,11 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
-  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
-  - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
-  - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

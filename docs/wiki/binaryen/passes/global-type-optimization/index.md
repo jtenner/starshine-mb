@@ -1,12 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
-  - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
-  - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -80,7 +76,7 @@ It is **closed-world private-struct mutability and layout cleanup**.
 - Field removal is hierarchy-aware and may reorder parent fields so children can still append compatible layouts.
 - Instruction rewrite happens before type rewrite.
 - Removed writes preserve value side effects and null-trap ordering, and removed trapping module-initializer operands become fresh globals.
-- A 2026-06-02 current-main recheck, captured in [`../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md), plus the earlier 2026-04-24 primary-source manifest, found no teaching-relevant drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
+- A 2026-06-02 current-main recheck, captured in research note 0694, plus the earlier 2026-04-24 primary-source manifest, found no teaching-relevant drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
 
 ## Beginner warning: what the name hides
 
@@ -145,8 +141,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
+- research note 0306
+- research note 0153
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

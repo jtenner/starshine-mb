@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
+  - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
   - ../../../../../src/fuzz/main_wbtest.mbt

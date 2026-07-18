@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
-  - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
-  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
-  - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
   - ../../../../../src/passes/registry_test.mbt

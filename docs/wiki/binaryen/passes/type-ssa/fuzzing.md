@@ -1,9 +1,9 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
+  - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt

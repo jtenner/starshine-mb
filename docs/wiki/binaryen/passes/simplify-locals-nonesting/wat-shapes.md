@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.txt
@@ -311,8 +310,8 @@ Use these shapes with the local first-slice plan in [`./starshine-port-readiness
 
 ## Sources
 
-- [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)
+- [research note 0331](./index.md)
+- [research note 0186](./index.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast>

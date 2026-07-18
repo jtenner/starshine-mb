@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
-  - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
-  - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -33,7 +31,7 @@ related:
 
 # Starshine port-readiness and validation for `global-type-optimization`
 
-Use this page together with [`./starshine-strategy.md`](./starshine-strategy.md), the Binaryen contract pages in [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./field-removal-subtyping-js-interop-and-traps.md`](./field-removal-subtyping-js-interop-and-traps.md), and [`./wat-shapes.md`](./wat-shapes.md), plus the freshness bridge in [`../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md).
+Use this page together with [`./starshine-strategy.md`](./starshine-strategy.md), the Binaryen contract pages in [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./field-removal-subtyping-js-interop-and-traps.md`](./field-removal-subtyping-js-interop-and-traps.md), and [`./wat-shapes.md`](./wat-shapes.md), plus the freshness bridge in [research note 0694](./index.md).
 
 This is a **future-port** page, not an implementation page.
 Starshine still does not implement `global-type-optimization`.

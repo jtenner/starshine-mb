@@ -1,10 +1,10 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
-  - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
+  - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---

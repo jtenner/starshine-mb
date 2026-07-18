@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -50,7 +48,7 @@ The recheck did **not** find a new Binaryen strategy. It made the Starshine land
 - local IR/validator surfaces already expose the call/type/reference forms a future implementation must analyze;
 - the first safe implementation path should be analyzer-first, not a blind alias to plain DAE.
 
-Research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md). Freshness evidence: [`../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md`](../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md).
+Research note: [research note 0410](./index.md). Freshness evidence: [research note 0452](./index.md).
 
 ## Exact local code map
 
@@ -189,8 +187,8 @@ When this page changes, also check:
 
 ## Sources
 
-- Research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
-- Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
+- Research note: [research note 0410](./index.md)
+- Source bridge: [research note 0337](./index.md)
 - Starshine registry source: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Starshine module dispatcher: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Starshine core IR/types: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

@@ -1,12 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
-  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
-  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -129,11 +125,11 @@ For a future Starshine port, use [`starshine-port-readiness-and-validation.md`](
 
 ## Sources
 
-- [`../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md)
-- [`../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md`](../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md)
-- [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md)
+- research note 0450
+- research note 0424
+- research note 0387
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 
-[^source-correction]: See [`../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md) and [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md). The older 2026-04-25 manifest remains provenance but is superseded for the plain-pass mechanics.
+[^source-correction]: See research note 0450 and research note 0387. The older 2026-04-25 manifest remains provenance but is superseded for the plain-pass mechanics.
 [^starshine-code]: Current local status is grounded in `src/passes/optimize.mbt:127-144`, `src/passes/optimize.mbt:513-513`, and `src/passes/pass_manager.mbt:8939-8941`.

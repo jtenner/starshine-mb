@@ -1,10 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -95,7 +93,7 @@ A faithful implementation must preserve these invariants:
 ## Notable edge cases
 
 - **Threshold-zero confusion:** upstream `--monomorphize --pass-arg=monomorphize-min-benefit@0` is closely related, but `monomorphize-always` remains a distinct public pass name.
-- **Lit-test precision:** [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md) corrects the older loose wording: `monomorphize-types.wast` directly runs `--monomorphize-always`; `monomorphize-benefit.wast` supports the threshold-policy story but does not directly execute the sibling.
+- **Lit-test precision:** research note 0318 corrects the older loose wording: `monomorphize-types.wast` directly runs `--monomorphize-always`; `monomorphize-benefit.wast` supports the threshold-policy story but does not directly execute the sibling.
 - **Starshine option plumbing:** Starshine parses and carries `monomorphize_min_benefit`, but that does not implement either `monomorphize` or `monomorphize-always`.
 - **No default-pipeline role:** this folder is a widened registry-pass dossier, not evidence that the pass is required in the open-world no-DWARF parity path.
 
@@ -130,7 +128,7 @@ Keep this folder as the canonical home for `monomorphize-always` research. Keep 
 
 ## Sources
 
-- [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
+- research note 0318
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>

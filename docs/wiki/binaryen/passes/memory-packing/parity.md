@@ -3,14 +3,10 @@ kind: comparison
 status: working
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md
-  - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
-  - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
-  - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
-  - ../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md
+  - ../ssa-nomerge/index.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -189,12 +185,12 @@ Keep these as reopening watchpoints only if future evidence shows observability;
 
 ## Sources
 
-- [`../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md`](../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md)
-- [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
-- [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md)
-- [`../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md`](../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md)
-- Saved generated-artifact slot and Binaryen debug-log facts are copied into the committed O4z audit note [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md); any older `.artifacts` path is a local replay identifier, not a durable source link.
+- [research note 0715](./index.md)
+- [research note 0137](./index.md)
+- [research note 0252](./index.md)
+- [research note 0700](./index.md)
+- [research note 0556](./index.md)
+- Saved generated-artifact slot and Binaryen debug-log facts are copied into the committed O4z audit note [research note 0700](./index.md); any older `.artifacts` path is a local replay identifier, not a durable source link.
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
 - Binaryen `version_130` pass source used for the 2026-06-07 gap audit: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MemoryPacking.cpp>
 - Imported-overlap source refresh, now released in v131: [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)

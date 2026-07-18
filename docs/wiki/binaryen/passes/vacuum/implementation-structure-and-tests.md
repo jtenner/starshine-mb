@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
-  - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Vacuum.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -261,8 +260,8 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
-- [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
-- [`../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md`](../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md)
+- [research note 0130](./index.md)
+- [research note 0210](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Vacuum.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

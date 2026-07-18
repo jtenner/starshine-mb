@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
+  - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
@@ -291,7 +290,7 @@ If the answer to the last question is yes, do not put that cleanup in plain DAE.
 
 ## Sources
 
-- [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
+- [research note 0406](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`./wat-shapes.md`](./wat-shapes.md)

@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
-  - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/global_struct_inference.mbt
@@ -142,9 +140,9 @@ Agent classification: the final matrix has zero Starshine semantic mismatches an
 
 ## Sources
 
-- [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
-- [`../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
+- [research note 0488](./index.md)
+- [research note 0326](./index.md)
+- [research note 0488](./index.md)
 - [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)
 - [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

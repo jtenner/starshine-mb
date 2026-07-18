@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-19
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

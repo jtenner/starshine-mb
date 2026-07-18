@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
-  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -34,7 +30,7 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
-- The current local oracle reports `wasm-opt version 130 (version_130)`. The 2026-06-30 refresh of `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, helper files, and the dedicated no-structure / neighbor tests found no new no-structure test family versus `version_129`. The core no-structure source contract remains the same except for unordered container implementation drift in `SimplifyLocals.cpp`; helper diffs in effect and linear-execution analysis remain important audit inputs. See [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md).
+- The current local oracle reports `wasm-opt version 130 (version_130)`. The 2026-06-30 refresh of `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, helper files, and the dedicated no-structure / neighbor tests found no new no-structure test family versus `version_129`. The core no-structure source contract remains the same except for unordered container implementation drift in `SimplifyLocals.cpp`; helper diffs in effect and linear-execution analysis remain important audit inputs. See [research note 1399](./index.md).
 
 Primary source URLs:
 
@@ -227,7 +223,7 @@ It blocks motion across conflicts such as:
 - trap versus global-state mutation hazards
 - dangling `pop`
 
-A faithful port should preserve this directional barrier idea instead of collapsing it into one generic “has side effects” bit. The 2026-06-30 probes in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md) show several concrete boundaries: distinct globals are precise enough that `global.get $g` may sink across `global.set $h`, dynamic read-only loads may commute with other read-only loads, table writes remain broad barriers even for a `table.get` from a different table, locally-defined direct calls remain barriers for const/load carriers, and nullable-local `ref.as_non_null` may sink across a read-only load.
+A faithful port should preserve this directional barrier idea instead of collapsing it into one generic “has side effects” bit. The 2026-06-30 probes in [research note 1399](./index.md) show several concrete boundaries: distinct globals are precise enough that `global.get $g` may sink across `global.set $h`, dynamic read-only loads may commute with other read-only loads, table writes remain broad barriers even for a `table.get` from a different table, locally-defined direct calls remain barriers for const/load carriers, and nullable-local `ref.as_non_null` may sink across a read-only load.
 
 ## Phase 8: `try` / `try_table` has an extra explicit throwing-value barrier
 
@@ -237,7 +233,7 @@ Reason:
 
 - moving a throwing value into the `try` / `try_table` would change where the throw could be caught
 
-The 2026-06-30 v130 probes in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md) demonstrate this for `try_table`: a pure pending `i32.const` sinks into the body, while a pending `call` result remains outside the handler.
+The 2026-06-30 v130 probes in [research note 1399](./index.md) demonstrate this for `try_table`: a pure pending `i32.const` sinks into the body, while a pending `call` result remains outside the handler.
 
 This is a pass-specific correctness rule worth preserving explicitly.
 
@@ -412,10 +408,10 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
-- [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md)
-- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
-- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
+- [research note 1399](./index.md)
+- [research note 0368](./index.md)
+- [research note 0263](./index.md)
+- [research note 0117](./index.md)
 - Binaryen `version_130` pass source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp>
 - Binaryen `version_130` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
 - Binaryen `version_130` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>

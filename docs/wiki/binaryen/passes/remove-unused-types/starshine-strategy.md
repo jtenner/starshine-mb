@@ -5,11 +5,9 @@ last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedTypes.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedTypes.cpp
-  - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
-  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
-  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt

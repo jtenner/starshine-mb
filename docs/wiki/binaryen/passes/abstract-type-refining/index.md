@@ -1,11 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/AbstractTypeRefining.cpp
-  - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -154,8 +152,8 @@ What it actually is in `version_129`:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md`](../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md)
-- [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
+- research note 0295
+- research note 0155
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

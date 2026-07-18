@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
+  - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -143,7 +143,7 @@ The real question is:
 
 ## Sources
 
-- Archived research doc: [`../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md`](../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md)
+- Durable owner: [research note 0071](./index.md)
 - Pattern inventory: [`./pattern-catalog.md`](./pattern-catalog.md)
 - Related strategy page: [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 - Related parity page: [`./parity.md`](./parity.md)

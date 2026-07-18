@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
-  - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
+  - ./index.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt

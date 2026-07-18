@@ -1,16 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - descriptor-instruction-surface.md
-  - ../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md
-  - ../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md
-  - ../raw/research/0024-2026-03-22-wast-struct-get-surface.md
-  - ../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md
-  - ../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md
-  - ../raw/research/0027-2026-03-22-exact-ref-null-immediates.md
-  - ../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/wast/module_wast.mbt
@@ -157,5 +150,5 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 
 - Current instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current primary-source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
-- Archived fixture-path research: [`../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md`](../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md), [`../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md`](../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md), [`../raw/research/0024-2026-03-22-wast-struct-get-surface.md`](../raw/research/0024-2026-03-22-wast-struct-get-surface.md), [`../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md`](../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md), [`../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md`](../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md), [`../raw/research/0027-2026-03-22-exact-ref-null-immediates.md`](../raw/research/0027-2026-03-22-exact-ref-null-immediates.md), [`../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md`](../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md)
+- Archived fixture-path research: research note 0022, research note 0023, research note 0024, research note 0025, research note 0026, research note 0027, research note 0028
 - Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt); shared bottom-value contract: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)

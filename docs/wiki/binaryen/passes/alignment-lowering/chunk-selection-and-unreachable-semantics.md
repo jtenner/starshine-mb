@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
-  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
-  - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
-  - ../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/bits.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/alignment-lowering.wast

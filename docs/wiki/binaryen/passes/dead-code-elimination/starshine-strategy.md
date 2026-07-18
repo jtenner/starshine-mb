@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
-  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
-  - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
+  - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
@@ -28,7 +25,7 @@ related:
 
 # Starshine Strategy For `dead-code-elimination`
 
-Use this page together with the retained current-main recheck in [`../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md), the upstream strategy in [`./binaryen-strategy.md`](./binaryen-strategy.md), the source map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the exact HOT code map in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
+Use this page together with the retained current-main recheck in [research note 0449](./index.md), the upstream strategy in [`./binaryen-strategy.md`](./binaryen-strategy.md), the source map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the exact HOT code map in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 
 ## Current status
 
@@ -119,10 +116,10 @@ That keeps the pass honest for Starshine today while leaving the upstream Binary
 
 ## Sources
 
-- [`../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md`](../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md)
-- [`../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md)
-- [`../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md`](../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md`](../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md)
+- [research note 0528](./index.md)
+- [research note 0449](./index.md)
+- [research note 0250](./index.md)
+- [research note 0203](./index.md)
 - [`../../../../../src/passes/dead_code_elimination.mbt`](../../../../../src/passes/dead_code_elimination.mbt)
 - [`../../../../../src/passes/dead_code_elimination_test.mbt`](../../../../../src/passes/dead_code_elimination_test.mbt)
 - [`../../../../../src/passes/dead_code_elimination_live_repro_test.mbt`](../../../../../src/passes/dead_code_elimination_live_repro_test.mbt)

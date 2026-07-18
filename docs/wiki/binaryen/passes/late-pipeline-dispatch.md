@@ -3,21 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md
-  - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../release-horizon-and-oracles.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
-  - ../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
-  - ../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
-  - ../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
-  - ../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md
-  - ../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md
-  - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
-  - ../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
+  - ./remove-exports/index.md
+  - ./vacuum/index.md
   - ../../../../src/cli/cli.mbt
   - ../../../../src/cmd/cmd.mbt
   - ../../../../src/passes/optimize.mbt
@@ -48,17 +37,23 @@ related:
 
 - The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots.
 - All 7 hard corruption slots are now retired on the current tree; there is no remaining open hard-failure cluster from that saved audit.
-- The later rooted continuation chain under `.tmp/o4z-post-5d2fd48/current-chain/` is also green on the current tree: slot `43` was retired by the HOT-lower carried-prefix own-label guard in [`0268`](../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md), and downstream implemented slots `44`, `45`, `47`, `50`, and `53` all validate successfully from that same chain.
+- The later rooted continuation chain under `.tmp/o4z-post-5d2fd48/current-chain/` is also green on the current tree: slot `43` was retired by the HOT-lower carried-prefix own-label guard in `0268`, and downstream implemented slots `44`, `45`, `47`, `50`, and `53` all validate successfully from that same chain.
 - The retired blockers are now explicitly tracked in the living wiki:
-  - `remove-unused-brs` early slot `14` was fixed by the large non-reorder-safe plain-`br` condition guard in [`0102`](../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md)
-  - `optimize-instructions` early slot `16` was fixed by the paired HOT-lower carrier/parent-exit guards in [`0103`](../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md) and [`0104`](../../raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md)
-  - `precompute` early slot `19` was retired by the writeback guards in [`0105`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
-  - `vacuum` slot `23` was retired by the follow-up replay confirmation in [`0106`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md), which showed the old `Func 652` failure disappeared with the earlier HOT-lower carrier-wrapper guard from [`0103`](../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md)
-  - `vacuum` slot `33` was retired by the validator-escape and guarded-writeback follow-up in [`0107`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md), which showed the saved predecessor now replays to a `wasm-tools`-valid module and canonically matches Binaryen even though the underlying repair lived in validation and pass-manager writeback hygiene rather than a new `vacuum`-local cleanup rewrite
-  - `remove-unused-brs` later slot `40` was retired by the conservative tail value-`if` rewrite guard in [`0108`](../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md)
-  - `optimize-instructions` later slot `44` was retired by the current-tree replay verification in [`0109`](../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md), which showed the exact saved predecessor from [`0100`](../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md) now emits valid wasm and matches Binaryen at the normalized-WAT and canonical-function level without a new pass-local mutator change in this run
+  - `remove-unused-brs` early slot `14` was fixed by the large non-reorder-safe plain-`br` condition guard in `0102`
+  - `optimize-instructions` early slot `16` was fixed by the paired HOT-lower carrier/parent-exit guards in `0103` and `0104`
+  - `precompute` early slot `19` was retired by the writeback guards in `0105`
+  - `vacuum` slot `23` was retired by the follow-up replay confirmation in `0106`, which showed the old `Func 652` failure disappeared with the earlier HOT-lower carrier-wrapper guard from `0103`
+  - `vacuum` slot `33` was retired by the validator-escape and guarded-writeback follow-up in `0107`, which showed the saved predecessor now replays to a `wasm-tools`-valid module and canonically matches Binaryen even though the underlying repair lived in validation and pass-manager writeback hygiene rather than a new `vacuum`-local cleanup rewrite
+  - `remove-unused-brs` later slot `40` was retired by the conservative tail value-`if` rewrite guard in `0108`
+  - `optimize-instructions` later slot `44` was retired by the current-tree replay verification in `0109`, which showed the exact saved predecessor from `0100` now emits valid wasm and matches Binaryen at the normalized-WAT and canonical-function level without a new pass-local mutator change in this run
 - The expensive-but-successful cluster is unchanged: `simplify-locals`, `dead-code-elimination`, `tuple-optimization`, `ssa-nomerge`, and `heap2local` still need runtime work, but they are not current corruption blockers.
-- Slot-specific raw follow-ups are [`0094`](../../raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md) through [`0100`](../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md), with retirement confirmations in [`0105`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md), [`0106`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md), [`0107`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md), [`0108`](../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md), and [`0109`](../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md); use those notes for the exact failing states or the later green replays when reducing one corruption slot at a time.
+- Slot-specific raw follow-ups are `0094` through `0100`, with retirement confirmations in `0105`, `0106`, `0107`, `0108`, and `0109`; use those notes for the exact failing states or the later green replays when reducing one corruption slot at a time.
+
+## Absorbed historical witnesses and preset experiment
+
+The initial slot-16 witness failed final validation at `Func 652` after early `optimize-instructions`. Later reduction proved this was a HOT-lower carrier-wrapper stackification bug, not a generally invalid predecessor; the carrier guard retired `Func 652`, exposed an independent `Func 1818` family, and the subsequent parent-exit guard plus full replay retired the slot. Keep the origin failure and retirement chain together when diagnosing similar ordered-pipeline underflows.
+
+A separate JSON-AS preset experiment measured `duplicate-function-elimination -> remove-unused-module-elements -> code-folding -> redundant-set-elimination -> remove-unused-module-elements` after Starshine O4. All three analyzed artifacts validated and passed Node runtime smoke. The suffix saved `16,510`, `1,963`, and `21,214` bytes versus Starshine O4, while the incremental code-folding/RSE portion saved `396`, `399`, and `1,017` bytes after DFE/RUME. This is evidence for a safe incremental size suffix, not Binaryen O4 parity: function/type/code counts remained substantially larger, DFE's incidental name-section stripping is not a substitute for explicit `strip-debug`, and any scheduling change still needs preset-order tests plus fresh artifact/runtime validation.
 
 ## Compact Roster
 
@@ -84,12 +79,12 @@ related:
 
 ## Sources
 
-- Archived audit: [`../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md`](../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md)
-- Current ordered audit: [`../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
-- Retired slot-19 follow-up: [`../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
-- Retired slot-23 follow-up: [`../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md)
-- Retired slot-33 follow-up: [`../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md)
-- Rooted continuation retirement: [`../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md`](../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md)
+- Durable audit summary: research note 0080
+- Current ordered audit: research note 0093
+- Retired slot-19 follow-up: research note 0105
+- Retired slot-23 follow-up: research note 0106
+- Retired slot-33 follow-up: research note 0107
+- Rooted continuation retirement: research note 0268
 - [`../../../../src/cli/cli.mbt`](../../../../src/cli/cli.mbt)
 - [`../../../../src/cmd/cmd.mbt`](../../../../src/cmd/cmd.mbt)
 - [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)
@@ -118,14 +113,14 @@ related:
 - Binaryen Chromium mirror refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>
 - Binaryen Chromium mirror `main` changelog: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/refs/heads/main/CHANGELOG.md>
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
-- Binaryen `version_131` release-impact audit: [`../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`](../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md)
-- Historical Binaryen `version_130` release-horizon recheck: [`../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Binaryen `version_131` release-impact audit: [research note 1573](../release-horizon-and-oracles.md)
+- Historical Binaryen `version_130` release-horizon recheck: [research note 0704](../release-horizon-and-oracles.md)
 - Binaryen `mark-js-called` / `remove-exports` current-main recheck: [`../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Retained `mark-js-called` / `remove-exports` tracker expansion: [`../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
-- Superseded Binaryen `version_125` correction: [`../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
-- Binaryen late-pipeline package-surface recheck: [`../../raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`](../../raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md)
+- Retained `mark-js-called` / `remove-exports` tracker expansion: [research note 0706](./remove-exports/index.md)
+- Superseded Binaryen `version_125` correction: [research note 0698](../release-horizon-and-oracles.md)
+- Binaryen late-pipeline package-surface recheck: research note 0699
 - Superseded 2026-06-01 bridge: ingested and removed; use the retained 2026-06-04 release-horizon sources above.
-- Superseded `version_125` release-horizon correction: [`../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
+- Superseded `version_125` release-horizon correction: [research note 0698](../release-horizon-and-oracles.md)
 - Binaryen official GitHub release page for `version_119`: <https://github.com/WebAssembly/binaryen/releases/tag/version_119>
 - Binaryen official GitHub release page for `version_124`: <https://github.com/WebAssembly/binaryen/releases/tag/version_124>
 - Binaryen official GitHub release page for `version_125`: <https://github.com/WebAssembly/binaryen/releases/tag/version_125>

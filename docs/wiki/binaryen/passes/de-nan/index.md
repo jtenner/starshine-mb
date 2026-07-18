@@ -1,14 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/DeNaN.cpp
-  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
-  - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
-  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
@@ -117,6 +112,10 @@ What it actually is in `version_129`:
 - [`./fuzzing.md`](./fuzzing.md)
   Current planned-only compare-pass status: exact harness/registry/alias admission failures, why generic valid modules are insufficient, future scalar/SIMD lane templates, and the targeted signoff matrix.
 
+## Absorbed freshness conclusion
+
+The previously uncited 2026-05-04 current-main recheck found no teaching-relevant drift from the tagged dossier: `denan` remained NaN-to-zero instrumentation, constants still became zeros, nonconstant scalar/SIMD values still used helpers, defined-function float/vector parameters were sanitized on entry, local/fallthrough shells stayed skipped, helper names remained collision-safe, helper calls added effects, and SIMD still used lane-wise scalar checks. Later retained source refreshes supersede that date as freshness evidence, but not the contract.
+
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `de-nan` / `denan` research and port planning.
@@ -127,10 +126,10 @@ What it actually is in `version_129`:
 ## Sources
 
 - Binaryen current-main [`DeNaN.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/DeNaN.cpp)
-- [`../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
-- [`../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md)
-- [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
+- research note 0478
+- research note 0512
+- research note 0283
+- research note 0184
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

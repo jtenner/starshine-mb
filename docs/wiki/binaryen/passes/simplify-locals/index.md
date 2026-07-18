@@ -3,12 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
-  - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
-  - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
-  - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
-  - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -191,9 +186,9 @@ So the current durable rule is:
 
 ## Sources
 
-- [`../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md`](../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md)
-- [`../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md`](../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md)
-- [`../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md`](../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
+- research note 0148
+- research note 0241
+- research note 0076
 - [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
 - [`../../../../../src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

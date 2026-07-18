@@ -2,10 +2,10 @@
 kind: entity
 status: supported
 starshine_status: upstream-only
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
+  - ../remove-exports/index.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
@@ -85,6 +85,6 @@ Current [`fuzzing.md`](fuzzing.md) is deliberately **planned-only**: `mark-js-ca
 ## Sources
 
 - Current-main recheck: [`../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Tracker-expansion note: [`../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
+- Tracker-expansion note: [research note 0706](../remove-exports/index.md)
 - Local annotation representation: [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - Local WAST parse/lower/test surface: [`../../../../../src/wast/parser.mbt`](../../../../../src/wast/parser.mbt), [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt), [`../../../../../src/wast/module_wast_tests.mbt`](../../../../../src/wast/module_wast_tests.mbt)

@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
-  - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md
-  - ../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md
-  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -168,10 +164,10 @@ A parity-minded local implementation should mirror these structural facts first:
 
 ## Sources
 
-- [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
-- [`../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md`](../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md)
-- [`../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md`](../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md)
+- [research note 0488](./index.md)
+- [research note 0326](./index.md)
+- [research note 0170](./index.md)
+- [research note 0212](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>

@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
-  - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
-  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -145,7 +143,7 @@ The 2026-04-22 source review rechecked the official release page, `OnceReduction
 
 ## Sources
 
-- [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
+- [research note 0202](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/intrinsics.h>

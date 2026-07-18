@@ -1,13 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
-  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
-  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
-  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
@@ -102,7 +97,7 @@ So the pass is best taught as:
   - different public pass name
   - different scheduler usage
   - different reachable fixed points because of the extra propagation phase
-- Treat the retained 2026-04-24 follow-up research [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md) and direct tagged URLs as the source provenance anchor, and its retained research mirror [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md) as the current-main freshness anchor.
+- Treat the retained 2026-04-24 follow-up research research note 0296 and direct tagged URLs as the source provenance anchor, and its retained research mirror research note 0440 as the current-main freshness anchor.
 - Keep the exact local-worklist contract explicit too:
   - not generic SCCP
   - not an unbounded fixed-point loop
@@ -115,11 +110,11 @@ So the pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md)
-- [`../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md`](../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md)
-- [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md`](../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md)
-- [`../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md`](../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md)
+- research note 0440
+- research note 0375
+- research note 0296
+- research note 0167
+- research note 0198
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

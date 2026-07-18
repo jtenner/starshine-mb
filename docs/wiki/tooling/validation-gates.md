@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
@@ -21,7 +21,7 @@ sources:
   - ../../../scripts/lib/self-optimized-artifacts.mjs
   - ../../../scripts/lib/run-self-optimized-spec-suite.mjs
   - ../../../scripts/lib/moonbit-wasi-runner.mjs
-  - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
+  - ../binaryen/passes/dae-optimizing/index.md
   - ../../../scripts/test/task-family-commands.ts
 related:
   - ./wasi-runner-and-preview-boundary.md

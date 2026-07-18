@@ -3,15 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Directize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/directize_init.wast
-  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
-  - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
-  - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
-  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -30,8 +25,8 @@ For the compact owner/test map, use [`./implementation-structure-and-tests.md`](
 ## Upstream source rule
 
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-- The retained 2026-05-05 current-`main` recheck is recorded in [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md).
-- The retained 2026-04-26 port-readiness digest is [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it reuses the same upstream source families to derive the local implementation slice order rather than changing the algorithm contract.
+- The retained 2026-05-05 current-`main` recheck is recorded in [research note 0476](./index.md).
+- The retained 2026-04-26 port-readiness digest is [research note 0380](./index.md); it reuses the same upstream source families to derive the local implementation slice order rather than changing the algorithm contract.
 - Those older rechecks describe the pre-v131 segment-driven contract. Use Binaryen `version_131` as the released source oracle: it adds table default-initializer classification and a dedicated `directize_init.wast` fixture.
 - The core implementation lives in `src/passes/Directize.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
@@ -436,12 +431,12 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
-- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
-- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
-- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
-- [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
-- [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)
-- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
+- [research note 0476](./index.md)
+- [research note 0380](./index.md)
+- [research note 0350](./index.md)
+- [research note 0126](./index.md)
+- [research note 0209](./index.md)
+- [research note 0265](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Directize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

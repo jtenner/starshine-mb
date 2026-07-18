@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
-  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
-  - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
-  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
-  - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -103,10 +100,10 @@ The 2026-07-11 `version_130` / current-main recheck corrects the old separate-si
 ## Sources
 
 - Current Binaryen owner/registration/fixture: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>, <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>, and <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast>.
-- Port-readiness research note: [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
-- Correction note: [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
-- Follow-up note: [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
-- Research note: [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
+- Port-readiness research note: [research note 0411](./index.md)
+- Correction note: [research note 0374](./index.md)
+- Follow-up note: [research note 0340](./index.md)
+- Research note: [research note 0315](./index.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>
 - Emscripten `MEMORY64` setting: <https://emscripten.org/docs/tools_reference/settings_reference.html#memory64>

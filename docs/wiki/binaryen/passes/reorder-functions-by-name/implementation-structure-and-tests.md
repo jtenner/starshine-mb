@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
-  - ../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
-  - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -114,6 +111,6 @@ For this pass, the implementation file and the dedicated lit file already tell a
 
 ## Sources
 
-- [`../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`](../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md`](../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md)
-- [`../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md`](../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md)
+- [research note 0325](./index.md)
+- [research note 0180](./index.md)
+- [research note 0213](./index.md)

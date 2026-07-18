@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
-  - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -17,7 +15,7 @@ related:
 # `reorder-types` WAT / IR shapes
 
 This page records the main source-backed module-shape families a future `reorder-types` port must preserve.
-It is anchored by the retained 2026-04-24 source follow-up [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md) and the archived 2026-05-04 current-main recheck [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md); use [`./starshine-strategy.md`](./starshine-strategy.md) for local code locations.
+It is anchored by the retained 2026-04-24 source follow-up [research note 0309](./index.md) and the archived 2026-05-04 current-main recheck [research note 0438](./index.md); use [`./starshine-strategy.md`](./starshine-strategy.md) for local code locations.
 
 ## Shape 1: unconstrained private types reorder by direct counts
 
@@ -267,9 +265,9 @@ A future port must keep the candidate/counting surface aligned with the rewriter
 
 ## Sources
 
-- [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
-- [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
+- [research note 0438](./index.md)
+- [research note 0309](./index.md)
+- [research note 0199](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/reorder-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderTypes.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/ir/type-updating.cpp>

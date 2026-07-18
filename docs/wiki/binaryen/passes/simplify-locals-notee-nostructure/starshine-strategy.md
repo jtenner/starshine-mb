@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
-  - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
-  - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -56,7 +53,7 @@ The current local strategy is still conservative:
 - schedule the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` order in both top-level presets;
 - keep modern SLNNS closeout and optimizing nested-rerun reconciliation open rather than treating scheduling alone as direct-pass requalification.
 
-This page is now an active direct implementation and top-level scheduler map. The 2026-07-17 scheduling decision is recorded in [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+This page is now an active direct implementation and top-level scheduler map. The 2026-07-17 scheduling decision is recorded in [`docs/wiki/binaryen/passes/flatten/index.md`](../flatten/index.md).
 
 ## Exact local code map today
 
@@ -198,10 +195,10 @@ So the right mental model today is:
 
 ## Sources
 
-- [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
-- [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
-- [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- [research note 0554](./index.md)
+- [research note 0544](./index.md)
+- [research note 0333](./index.md)
+- [research note 0489](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

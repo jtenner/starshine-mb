@@ -1,10 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-06-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
-  - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
+  - ./index.md
 related:
   - ./starshine-hot-ir-strategy.md
   - ../../../../../src/passes/global_refining.mbt
@@ -159,8 +158,8 @@ That is likely fine for the current representation, but future typed caches in b
 ## Sources
 
 - Archived research docs:
-  - [`../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
-  - [`../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`](../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md)
+  - [research note 0139](./index.md)
+  - [research note 0236](./index.md)
 - Local strategy page: [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 - Implementation: [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - Focused tests: [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)

@@ -1,20 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md
-  - ../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md
-  - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
-  - ../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -36,7 +31,7 @@ related:
 - `simplify-locals-notee-nostructure` is an upstream Binaryen aggressive locals-cleanup pass.
 - It is now an **active direct** Starshine pass: the exact upstream spelling is registered as a HOT pass, dispatches through the existing `simplify_locals` policy engine with `allowStructure = false` and `allowTee = false`, and has green direct Binaryen parity evidence.
 - The old local removed-name placeholder spelling `simplify-locals-no-tee-no-structure` remains distinct from the upstream / saved-audit spelling `simplify-locals-notee-nostructure`; the newly active direct pass uses the upstream spelling.
-- The dossier is grounded in the retained 2026-04-25 source bridge and the dated 2026-05-05 current-main recheck summarized in [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md), the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The dossier is grounded in the retained 2026-04-25 source bridge and the dated 2026-05-05 current-main recheck summarized in research note 0489, the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path.
 - Instead, `pass.cpp` inserts it only in the more aggressive `optimizeLevel >= 4` function prelude:
   - `flatten`
@@ -115,18 +110,18 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
 
 ## Sources
 
-- [`../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md`](../../../raw/research/0554-2026-05-07-simplify-locals-notee-nostructure-backlog-closure.md)
-- [`../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md`](../../../raw/research/0544-2026-05-06-slnns-direct-revalidation.md)
-- [`../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
-- [`../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md`](../../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md)
+- research note 0554
+- research note 0544
+- research note 0333
+- research note 0129
+- research note 0489
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

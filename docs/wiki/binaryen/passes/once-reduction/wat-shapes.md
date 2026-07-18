@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
-  - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
-  - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
-  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

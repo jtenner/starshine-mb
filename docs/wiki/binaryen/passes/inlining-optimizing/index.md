@@ -3,16 +3,9 @@ kind: entity
 status: working
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
-  - ../../../raw/research/1551-2026-07-05-inlining-optimizing-o4z-audit.md
-  - ../../../raw/research/0725-2026-06-15-inlining-optimizing-cache-followup.md
-  - ../../../raw/research/0724-2026-06-15-inlining-optimizing-wall-time-root-cause.md
-  - ../../../raw/research/0723-2026-06-15-inlining-optimizing-behavior-inventory.md
-  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
-  - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
-  - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
+  - ../inlining/index.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt

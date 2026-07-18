@@ -1,16 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/DeNaN.cpp
-  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
-  - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
-  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../global-effects/index.md
@@ -52,7 +49,7 @@ That means the current local behavior is still:
   - registry category is still `Removed`
 - [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
   - removed-name execution still rejects `de-nan`
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123)
+- [research note 0063](../../../ir2/registry-map.md)
   - the archived registry map still lists `de-nan` among removed names
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
   - no default no-DWARF slot for the pass today

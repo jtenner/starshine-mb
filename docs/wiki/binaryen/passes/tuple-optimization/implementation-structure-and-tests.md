@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp
@@ -238,8 +236,8 @@ If a future explanation starts making tuple-opt sound like a general multivalue 
 
 ## Sources
 
-- [`../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md`](../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
+- [research note 0254](./index.md)
+- [research note 0144](./index.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

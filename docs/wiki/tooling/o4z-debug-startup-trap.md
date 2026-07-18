@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
+  - ../binaryen/passes/late-pipeline-dispatch.md
   - ../../../scripts/lib/build-self-optimized.mjs
   - ../../../scripts/lib/self-optimized-artifacts.mjs
   - ../../../scripts/lib/o4z-debug-startup-map.test.ts
@@ -32,7 +32,7 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 - `scripts/lib/build-self-optimized.mjs` describes the build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
 - The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
-- The detailed owner evidence and the repaired pass-owner follow-up live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
+- The detailed owner evidence and the repaired pass-owner follow-up live in the archived research note [research note 0693](../binaryen/passes/late-pipeline-dispatch.md).
 - The Node-hosted WASI runner boundary lives in [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md); this page uses that runner as replay evidence but does not make WASI 0.2/0.3, Component Model, JSPI, or sandboxing claims.
 
 ## Current TDD guard
@@ -52,7 +52,7 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 
 ## Sources
 
-- Archived research note: [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md)
+- Archived research note: [research note 0693](../binaryen/passes/late-pipeline-dispatch.md)
 - Runtime-trap semantics guide: [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md)
 - Build pipeline: [`../../../scripts/lib/build-self-optimized.mjs`](../../../scripts/lib/build-self-optimized.mjs)
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)

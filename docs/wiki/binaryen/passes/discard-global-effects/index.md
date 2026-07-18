@@ -1,13 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp
-  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
-  - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
-  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
+  - ../global-effects/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/ir/effects.mbt
   - ../../../../../src/ir/analysis_cache.mbt
@@ -99,8 +96,8 @@ For Starshine work:
 ## Sources
 
 - Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp)
-- [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)
-- [`../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
+- research note 0460
+- research note 0383
+- research note 0353
 - [`./fuzzing.md`](./fuzzing.md)
 - [`../global-effects/index.md`](../global-effects/index.md)

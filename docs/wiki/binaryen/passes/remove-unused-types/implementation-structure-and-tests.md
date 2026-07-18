@@ -5,10 +5,8 @@ last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
-  - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -171,8 +169,8 @@ That is exactly why this pass is easy to underestimate.
 
 - Binaryen v131 baseline fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types.wast>
 - Binaryen v131 open-world fixture: <https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-types-open.wast>
-- [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
-- Historical, superseded for the corrected file map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
+- [research note 0298](./index.md)
+- Historical, superseded for the corrected file map: [research note 0149](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/RemoveUnusedTypes.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

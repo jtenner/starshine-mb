@@ -2,15 +2,8 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
-  - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
-  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
-  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
@@ -48,7 +41,7 @@ related:
   - top-level slot `22`
 - The repo backlog previously tracked the remaining ordered-slot follow-up under `SLNS`; that exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` replay is now proven and the standalone slice is closed.
 - The current Starshine tuple-slot gate still sees the no-structure pass as active, and the public presets still stay conservative, but the remaining caution now belongs to neighboring tuple/local-cluster slices rather than this pass's own ordered-slot proof.
-- The current local oracle is Binaryen `version_130` (`wasm-opt version 130 (version_130)`). The 2026-06-30 source refresh found the dedicated no-structure tests unchanged from `version_129` and the core `SimplifyLocals.cpp` teaching contract unchanged except for unordered container implementation drift; helper changes in effects and linear execution remain active audit inputs. See [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md).
+- The current local oracle is Binaryen `version_130` (`wasm-opt version 130 (version_130)`). The 2026-06-30 source refresh found the dedicated no-structure tests unchanged from `version_129` and the core `SimplifyLocals.cpp` teaching contract unchanged except for unordered container implementation drift; helper changes in effects and linear execution remain active audit inputs. See research note 1399.
 
 ## Beginner summary
 
@@ -108,11 +101,11 @@ That is narrower than “full simplify-locals.”
 
 ## Sources
 
-- [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md)
-- [`../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md`](../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md)
-- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
-- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
+- research note 1399
+- research note 0543
+- research note 0368
+- research note 0263
+- research note 0117
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

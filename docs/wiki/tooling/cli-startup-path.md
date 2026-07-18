@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0092-2026-04-16-cli-startup-performance-issues.md
-  - ../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md
-  - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
+  - ./cli-command-and-dispatcher.md
+  - ../binaryen/passes/late-pipeline-dispatch.md
   - ../../../src/cli/cli.mbt
   - ../../../src/cli/glob.mbt
   - ../../../src/cli/glob_test.mbt
@@ -92,16 +91,16 @@ When a startup-path change lands:
 
 ## Current Follow-up Surface
 
-- Use the archived audit [`../raw/research/0092-2026-04-16-cli-startup-performance-issues.md`](../raw/research/0092-2026-04-16-cli-startup-performance-issues.md) for the older hotspot list and historical fixes; this living page is the compact current contract.
-- Use [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md) and [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for the parsed-but-not-wired `--stdin` gap. Do not mix stdin byte-source work with path/glob startup tuning unless both are intentionally in scope.
-- The repaired `o4z` debug-startup trap has a dedicated living page in [`o4z-debug-startup-trap.md`](./o4z-debug-startup-trap.md) and a historical source note in [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md). Keep runtime trap correctness separate from startup latency.
+- Use the archived audit research note 0092 for the older hotspot list and historical fixes; this living page is the compact current contract.
+- Use [research note 0707](./cli-command-and-dispatcher.md) and [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for the parsed-but-not-wired `--stdin` gap. Do not mix stdin byte-source work with path/glob startup tuning unless both are intentionally in scope.
+- The repaired `o4z` debug-startup trap has a dedicated living page in [`o4z-debug-startup-trap.md`](./o4z-debug-startup-trap.md) and a historical source note in [research note 0693](../binaryen/passes/late-pipeline-dispatch.md). Keep runtime trap correctness separate from startup latency.
 - If startup traces regress, check `normalize_cli_path`, `expand_globs`, and the `cmd_wbtest` fast-path coverage before widening the search to parser or optimizer code.
 
 ## Sources
 
-- Archived startup audit: [`../raw/research/0092-2026-04-16-cli-startup-performance-issues.md`](../raw/research/0092-2026-04-16-cli-startup-performance-issues.md)
-- Dispatcher/stdin source audit: [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md)
-- Debug-startup trap archive: [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md)
+- Archived startup audit: research note 0092
+- Dispatcher/stdin source audit: [research note 0707](./cli-command-and-dispatcher.md)
+- Debug-startup trap archive: [research note 0693](../binaryen/passes/late-pipeline-dispatch.md)
 - CLI parser and path/glob code: [`../../../src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt), [`../../../src/cli/glob_test.mbt`](../../../src/cli/glob_test.mbt)
 - Command dispatcher and tests: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt)
 - Pass registry handoff: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)

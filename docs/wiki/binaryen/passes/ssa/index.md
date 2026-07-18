@@ -1,12 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp
-  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
-  - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -24,7 +21,6 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/ReFinalize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/ssa.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/gtest/local-graph.cpp
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/ssa.wast
 related:
   - ./binaryen-strategy.md
@@ -136,9 +132,9 @@ The same recheck corrects the local status: Starshine exposes `ssa` as an **acti
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp>
-- [`../../../raw/research/0402-2026-04-26-ssa-port-readiness.md`](../../../raw/research/0402-2026-04-26-ssa-port-readiness.md)
-- [`../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md`](../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md`](../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md) (historical; superseded for raw-source provenance and local Starshine status)
+- research note 0402
+- research note 0321
+- research note 0207 (historical; superseded for raw-source provenance and local Starshine status)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

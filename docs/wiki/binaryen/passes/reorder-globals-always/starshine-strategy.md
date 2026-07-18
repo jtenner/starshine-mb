@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
-  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../agent-todo.md
@@ -22,7 +22,7 @@ related:
 
 # Starshine strategy for `reorder-globals-always`
 
-Use this page together with the retained [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md) and the current Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp).
+Use this page together with the retained [research note 0336](./index.md) and the current Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp).
 This is a **status-and-port-strategy** page: Starshine does not implement the transform today, so the goal is to show exactly what is tracked locally, where active requests stop, and which code surfaces a future implementation would have to touch.
 
 ## Honest current status

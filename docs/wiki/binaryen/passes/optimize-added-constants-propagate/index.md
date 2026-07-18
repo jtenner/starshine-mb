@@ -1,13 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -28,7 +26,7 @@ related:
 - `optimize-added-constants-propagate` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It shares `version_129` implementation code with the plain sibling [`../optimize-added-constants/index.md`](../optimize-added-constants/index.md), but it enables the extra local-pair propagation mode.
-- The sibling-specific source/test map is retained in [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md); the shared-family tagged review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md), the retained 2026-05-05 recheck, and direct source URLs in the plain sibling dossier.
+- The sibling-specific source/test map is retained in research note 0330; the shared-family tagged review is retained through [research note 0300](../optimize-added-constants/index.md), the retained 2026-05-05 recheck, and direct source URLs in the plain sibling dossier.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` path because that path is not documented with `--low-memory-unused` enabled.
 
 ## Why this pass matters
@@ -78,11 +76,11 @@ So the pass is best read as:
 
 ## Sources
 
-- [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
+- research note 0330
+- [research note 0300](../optimize-added-constants/index.md)
+- research note 0165
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

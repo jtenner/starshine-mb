@@ -1,11 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinimizeRecGroups.cpp
-  - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../tooling/pass-fuzz-compare.md
@@ -152,8 +150,8 @@ What it actually is in `version_129`:
 ## Sources
 
 - Binaryen current owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/MinimizeRecGroups.cpp>; registration: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>; current lit roster: `minimize-rec-groups{,-brands,-desc,-exact,-ignore-exact}.wast` under <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/>.
-- [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
+- research note 0290
+- research note 0156
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)

@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
-  - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
-  - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
-  - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
@@ -110,13 +108,13 @@ The implementation follows the corrected Binaryen `version_130` contract:
 - full late-tail preset/neighborhood replay remains future preset work rather than a direct `--pass duplicate-import-elimination` blocker
 - non-function import deduplication is explicitly gated on future Binaryen evidence or deliberate Starshine divergence
 
-The direct-pass signoff evidence is recorded in [`./fuzzing.md`](./fuzzing.md) and [`../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md`](../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md).
+The direct-pass signoff evidence is recorded in [`./fuzzing.md`](./fuzzing.md) and [research note 1554](./index.md).
 
 That matters because older local planning text used to be broader than upstream and described table/global/memory import-user patching as if it belonged to the reviewed contract. The retained 2026-07-06 `version_130` / `main` refresh keeps that older broad interpretation stale: the upstream pass is still function-import-only, keyed by `(module, base)`, gated by exact function-type equality, and limited to the function-name rewrite surface described in [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md).
 
 ## Current direct pass-local timing evidence
 
-The 2026-07-06 timing probe in [`../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md`](../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md) created two `.tmp/die-timing/` synthetic fixtures with duplicate function imports and user rewrites, then compared Starshine pass tracing against `BINARYEN_PASS_DEBUG=1 wasm-opt --all-features --duplicate-import-elimination`. Each fixture used `35` repeats with `5` warmups discarded:
+The 2026-07-06 timing probe in [research note 1554](./index.md) created two `.tmp/die-timing/` synthetic fixtures with duplicate function imports and user rewrites, then compared Starshine pass tracing against `BINARYEN_PASS_DEBUG=1 wasm-opt --all-features --duplicate-import-elimination`. Each fixture used `35` repeats with `5` warmups discarded:
 
 | Fixture | Starshine median | Binaryen median | Ratio |
 | --- | ---: | ---: | ---: |
@@ -195,7 +193,7 @@ It reflects the same architectural fact the Binaryen dossier teaches: this pass 
 
 The 2026-05-06 post-fuzzer-change revalidation lane ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-import-elimination --out-dir .tmp/pass-fuzz-duplicate-import-elimination`.
 
-The compare run reported 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. That closes the AUD002 stale-evidence item for the direct module pass while leaving late-tail preset replay as future neighborhood work. See [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md).
+The compare run reported 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. That closes the AUD002 stale-evidence item for the direct module pass while leaving late-tail preset replay as future neighborhood work. See [research note 0519](./index.md).
 
 ## What Starshine has now
 

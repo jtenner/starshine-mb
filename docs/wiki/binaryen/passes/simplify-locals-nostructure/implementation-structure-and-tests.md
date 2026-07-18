@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
-  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
-  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -36,7 +32,7 @@ Use that sibling for the complete five-variant family; use this page when you on
 ## Freshness note
 
 Use Binaryen `version_130` as the stable source oracle for current audit work.
-The 2026-06-30 source refresh in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md) found the dedicated no-structure and nearby-variant tests unchanged from `version_129`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. Helper drift in `EffectAnalyzer`, `LinearExecutionWalker`, and `Properties` remains relevant to the active effect/refinalization audit.
+The 2026-06-30 source refresh in [research note 1399](./index.md) found the dedicated no-structure and nearby-variant tests unchanged from `version_129`; `SimplifyLocals.cpp` changed only ordered containers to unordered containers for this pass's core data structures. Helper drift in `EffectAnalyzer`, `LinearExecutionWalker`, and `Properties` remains relevant to the active effect/refinalization audit.
 
 ## Upstream file map
 
@@ -245,4 +241,4 @@ Direct pass proof is landed. Future preset work should add proof in this order:
 
 ## Sources
 
-- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
+- [research note 0368](./index.md)

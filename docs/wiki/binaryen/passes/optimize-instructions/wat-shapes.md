@@ -3,32 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
-  - ../../../raw/research/0876-2026-06-25-optimize-instructions-oi-g-local-dynamic-bulk.md
-  - ../../../raw/research/0890-2026-06-25-optimize-instructions-oi-g-global-dynamic-bulk.md
-  - ../../../raw/research/0892-2026-06-25-optimize-instructions-oi-g-size5-bulk-boundary.md
-  - ../../../raw/research/0877-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-siblings.md
-  - ../../../raw/research/0878-2026-06-25-optimize-instructions-oi-d-i64-signext-equality-boundary.md
-  - ../../../raw/research/0879-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-one-later.md
-  - ../../../raw/research/0880-2026-06-25-optimize-instructions-oi-g-stack-v128-memory-copy.md
-  - ../../../raw/research/0881-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-two-later.md
-  - ../../../raw/research/0882-2026-06-25-optimize-instructions-oi-g-call-backed-v128-memory-fill-boundary.md
-  - ../../../raw/research/0884-2026-06-25-optimize-instructions-oi-g-local-v128-memory-fill-boundary.md
-  - ../../../raw/research/0883-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-three-later.md
-  - ../../../raw/research/0885-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-four-later.md
-  - ../../../raw/research/0886-2026-06-25-optimize-instructions-oi-g-memory-copy-size3-boundary.md
-  - ../../../raw/research/0887-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-five-later.md
-  - ../../../raw/research/0891-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-six-later.md
-  - ../../../raw/research/0893-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-seven-later.md
-  - ../../../raw/research/0895-2026-06-25-optimize-instructions-oi-m-selected-trapping-two-earlier-eight-later.md
-  - ../../../raw/research/0888-2026-06-25-optimize-instructions-oi-g-memory-fill-size3-boundary.md
-  - ../../../raw/research/0889-2026-06-25-optimize-instructions-oi-d-i32-signext-rel-boundary.md
-  - ../../../raw/research/0900-2026-06-25-optimize-instructions-oi-d-maxbits-signed-spelling.md
-  - ../../../raw/research/0902-2026-06-25-optimize-instructions-oi-d-local-maxbits.md
-  - ../../../raw/research/0904-2026-06-25-optimize-instructions-oi-d-wrap-maxbits.md
-  - ../../../raw/research/0901-2026-06-25-optimize-instructions-oi-m-selected-fourth-multiresult-boundary.md
-  - ../../../raw/research/0903-2026-06-25-optimize-instructions-oi-m-selected-fifth-multiresult-boundary.md
-  - ../../../raw/research/0905-2026-06-25-optimize-instructions-oi-m-selected-sixth-multiresult-boundary.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

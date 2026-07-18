@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
-  - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
-  - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

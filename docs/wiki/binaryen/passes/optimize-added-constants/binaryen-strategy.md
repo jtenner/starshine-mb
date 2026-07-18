@@ -3,12 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
-  - ../../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
+  - ../optimize-added-constants-propagate/index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -24,8 +21,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_131` as the repo-wide release baseline for new research; this page's detailed implementation notes remain anchored to the reviewed `version_129` source set and later current-main recheck until a behavior-specific v131 reread replaces them.
-- The original release-tag source review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and the direct tagged URLs below.
-- The retained 2026-05-05 current-main source-anchor recheck is [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md).
+- The original release-tag source review is retained through [research note 0300](./index.md) and the direct tagged URLs below.
+- The retained 2026-05-05 current-main source-anchor recheck is [research note 0465](./index.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The low-memory threshold comes from `src/pass.h`.

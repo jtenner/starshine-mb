@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
-  - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
+  - ./index.md
   - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
@@ -123,6 +123,6 @@ Do not use a stale `target/native/...` artifact as current signoff evidence; see
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
-- [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
+- [research note 0720](./index.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

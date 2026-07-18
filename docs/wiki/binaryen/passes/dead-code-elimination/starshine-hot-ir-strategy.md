@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0528-2026-05-06-dead-code-elimination-direct-revalidation.md
-  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
-  - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
-  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
+  - ./index.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -26,7 +22,7 @@ related:
 
 # Current Starshine `dead-code-elimination` strategy
 
-Use this page together with the retained current-main recheck in [`../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md`](../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md), the strategy overview in [`./starshine-strategy.md`](./starshine-strategy.md), and the exact local MoonBit implementation map below.
+Use this page together with the retained current-main recheck in [research note 0449](./index.md), the strategy overview in [`./starshine-strategy.md`](./starshine-strategy.md), and the exact local MoonBit implementation map below.
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the local HOT-plus-pipeline split is wired today.
 
 ## Short version

@@ -1,12 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp
-  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
-  - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
-  - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../agent-todo.md
@@ -108,9 +105,9 @@ So this pass is best taught as:
 ## Sources
 
 - Binaryen current-main [`pass.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp)
-- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
-- [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
-- [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
+- research note 0336
+- research note 0188
+- research note 0214
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

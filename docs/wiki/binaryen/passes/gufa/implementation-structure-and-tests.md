@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
-  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -239,9 +236,9 @@ A future Starshine port needs answers to at least these questions:
 
 - [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
-- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
+- [research note 0471](./index.md)
+- [research note 0313](./index.md)
+- [research note 0163](./index.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

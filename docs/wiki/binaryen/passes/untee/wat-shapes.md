@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast
-  - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
-  - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
+  - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/untee.wast
 related:
@@ -220,7 +219,7 @@ Those may still appear around a rewritten tee, but they are not candidate kinds 
 ## Sources
 
 - Current Binaryen focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast>
-- [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
-- [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
+- [research note 0347](./index.md)
+- [research note 0185](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/untee.wast>

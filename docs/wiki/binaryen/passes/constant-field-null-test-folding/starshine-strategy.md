@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
-  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
-  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
-  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
+  - ./index.md
+  - ../constant-field-propagation/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -20,7 +18,6 @@ sources:
   - ../../no-dwarf-default-optimize-path.md
   - ../constant-field-propagation/starshine-strategy.md
   - ../constant-field-propagation/starshine-port-readiness-and-validation.md
-  - ../constant-field-propagation/index.md
   - ../tracker.md
 related:
   - ./index.md
@@ -37,7 +34,7 @@ related:
 
 # Starshine strategy for `constant-field-null-test-folding`
 
-Use this page together with the sibling 2026-05-05 [`archived research recheck`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md), the retained 2026-04-25 [`source bridge`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md), the parent CFP Starshine page in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md), and the parent readiness bridge in [`../constant-field-propagation/starshine-port-readiness-and-validation.md`](../constant-field-propagation/starshine-port-readiness-and-validation.md).
+Use this page together with the sibling 2026-05-05 [`archived research recheck`](./index.md), the retained 2026-04-25 [`source bridge`](./index.md), the parent CFP Starshine page in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md), and the parent readiness bridge in [`../constant-field-propagation/starshine-port-readiness-and-validation.md`](../constant-field-propagation/starshine-port-readiness-and-validation.md).
 The goal here is to make the local status of the **sibling** explicit so readers do not have to infer it from the parent `constant-field-propagation` dossier.
 
 ## The honest current status
@@ -180,9 +177,9 @@ Until that architecture exists, keep `constant-field-null-test-folding` boundary
 
 ## Sources
 
-- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
-- [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
-- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
+- [research note 0475](./index.md)
+- [research note 0474](../constant-field-propagation/index.md)
+- [research note 0335](./index.md)
 - [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

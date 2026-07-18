@@ -1,12 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeMerging.cpp
-  - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
-  - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
@@ -130,9 +127,9 @@ What it actually is in `version_129`:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeMerging.cpp>
-- [`../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
-- [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
+- research note 0462
+- research note 0294
+- research note 0181
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

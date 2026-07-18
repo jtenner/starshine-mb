@@ -1,10 +1,10 @@
 ---
 kind: workflow
 status: complete
-last_reviewed: 2026-07-05
+last_reviewed: 2026-07-18
 sources:
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/research/1551-2026-07-05-inlining-optimizing-o4z-audit.md
+  - ./index.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---
 
@@ -28,7 +28,7 @@ Dedicated GenValid profile: **landed as an initial focused aggregate**. The cano
 - `inlining-optimizing-return-call`;
 - `inlining-optimizing-cleanup-payoff`.
 
-Do not replace this with a shallow aggregate over existing broad `pass-inlining`, `precompute-*`, `pass-cleanup`, or `simplify-locals-nostructure-*` leaves: the 2026-07-05 probe in `1551-2026-07-05-inlining-optimizing-o4z-audit.md` found that naive shape produced generator failures and mismatches, so it is not closeout evidence.
+Do not replace this with a shallow aggregate over existing broad `pass-inlining`, `precompute-*`, `pass-cleanup`, or `simplify-locals-nostructure-*` leaves: the 2026-07-05 probe in `docs/wiki/binaryen/passes/inlining-optimizing/index.md` found that naive shape produced generator failures and mismatches, so it is not closeout evidence.
 
 The focused profile reports manifest `config_label="inlining-optimizing-all"`, a focused `selected_profile` leaf, a non-null `profile_case_label`, and normal feature facts. Initial validation on 2026-07-05:
 

@@ -1,9 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
+  - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 ---

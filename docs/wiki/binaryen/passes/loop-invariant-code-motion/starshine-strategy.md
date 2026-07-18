@@ -1,15 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
-  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
-  - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../ir2/registry-map.md
+  - ../../../ir2/execution-plan.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -40,7 +38,7 @@ The durable local status is preserved-name bookkeeping and honest rejection:
 - [`../../../../../src/passes/optimize.mbt:98-106`](../../../../../src/passes/optimize.mbt) builds removed entries with category `HotPassRegistryCategory::removed()`, no descriptor, and no expansion.
 - [`../../../../../src/passes/optimize.mbt:469-472`](../../../../../src/passes/optimize.mbt) rejects removed entries with the message shape `pass flag ... is removed from the active hot pipeline registry`.
 - [`../../../../../src/passes/registry_test.mbt:171-179`](../../../../../src/passes/registry_test.mbt) tests the generic removed-name rejection path with `de-nan`; it does not contain a LICM-specific behavior regression because there is no local transform yet.
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md) now list `loop-invariant-code-motion` in the current removed-name migration gap; `local-subtyping` is already an active module pass.
+- [research note 0063](../../../ir2/registry-map.md) and [research note 0065](../../../ir2/execution-plan.md) now list `loop-invariant-code-motion` in the current removed-name migration gap; `local-subtyping` is already an active module pass.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md) currently has no dedicated `loop-invariant-code-motion` or `licm` backlog slice.
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) does not list LICM in the current canonical no-DWARF optimize path.
 
@@ -62,9 +60,9 @@ The durable local status is preserved-name bookkeeping and honest rejection:
 
 ### Planning references
 
-- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`
+- `docs/wiki/ir2/registry-map.md`
   - The refreshed registry map lists `loop-invariant-code-motion` under removed names and lists `local-subtyping` under active module passes.
-- `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`
+- `docs/wiki/ir2/execution-plan.md`
   - The refreshed execution plan treats the old batch labels as historical context and lists `loop-invariant-code-motion` as a remaining removed hot/local gap.
 - `agent-todo.md`
   - No active LICM slice was found in this run.
@@ -155,13 +153,13 @@ The current in-tree behavior is removed-name tracking and request rejection only
 
 ## Sources
 
-- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
-- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
-- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
+- [research note 0378](./index.md)
+- [research note 0696](./index.md)
+- [research note 0282](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
+- [research note 0063](../../../ir2/registry-map.md)
+- [research note 0065](../../../ir2/execution-plan.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

@@ -1,17 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
-  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
-  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
-  - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
+  - ../constant-field-propagation/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../constant-field-propagation/index.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
@@ -103,11 +98,11 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
-- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
-- [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
-- [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
+- research note 0475
+- research note 0335
+- [research note 0301](../constant-field-propagation/index.md)
+- research note 0216
+- research note 0169
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

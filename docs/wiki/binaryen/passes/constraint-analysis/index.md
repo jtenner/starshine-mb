@@ -12,7 +12,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/constraint-analysis.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/constraint-analysis-eh.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/constraint-analysis-cont.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
 related:
   - ../tracker.md

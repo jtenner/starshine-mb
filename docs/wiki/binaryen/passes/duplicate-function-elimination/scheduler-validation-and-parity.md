@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-08
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0719-2026-06-08-duplicate-function-elimination-behavior-gap-inventory.md
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
-  - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ./index.md
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -143,7 +141,7 @@ Starshine now models Binaryen's two top-level DFE slots in public presets, inclu
 
 ## Sources
 
-- [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
+- [research note 0425](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`./type-compaction-and-metadata.md`](./type-compaction-and-metadata.md)

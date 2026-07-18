@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast
@@ -16,12 +16,12 @@ related:
   - ./starshine-port-readiness-and-validation.md
   - ../alignment-lowering/index.md
 supersedes:
-  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
+  - ./index.md
 ---
 
 # Binaryen `dealign` strategy
 
-Use this page with the retained port-readiness digest in [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md).
+Use this page with the retained port-readiness digest in [research note 0389](./index.md).
 
 ## What the pass really is
 
@@ -159,7 +159,7 @@ It does not visibly prove broad scalar type coverage or SIMD coverage. Those bro
 
 ## Freshness note
 
-A narrow 2026-04-26 current-`main` recheck on `DeAlign.cpp`, `pass.cpp`, and `dealign.wast` did not surface teaching-relevant drift from the tagged `version_129` behavior summarized here. Its retained port-readiness digest is [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md).
+A narrow 2026-04-26 current-`main` recheck on `DeAlign.cpp`, `pass.cpp`, and `dealign.wast` did not surface teaching-relevant drift from the tagged `version_129` behavior summarized here. Its retained port-readiness digest is [research note 0389](./index.md).
 
 ## What a faithful port must preserve
 
@@ -179,8 +179,8 @@ Binaryen `dealign` is a public function-parallel walker that sets `Load`, `Store
 
 ## Sources
 
-- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
-- [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
+- [research note 0389](./index.md)
+- [research note 0317](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast>

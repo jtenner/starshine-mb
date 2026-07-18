@@ -1,15 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
-  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
-  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
-  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
-  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
-  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/reorder_locals.mbt
@@ -76,7 +70,7 @@ The fastest read-along path through the current Starshine status is:
   - `src/cmd/cmd_wbtest.mbt:4376-4407`
     - CLI adapter coverage for `--coalesce-locals`
 - ordered-slot delivery evidence
-  - `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`
+  - `docs/wiki/binaryen/passes/coalesce-locals/index.md`
     - new exact-neighborhood regressions
     - refreshed 10k direct parity lane
     - debug-artifact reorder-sandwich replay

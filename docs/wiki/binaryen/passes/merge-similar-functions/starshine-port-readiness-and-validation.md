@@ -1,10 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
-  - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -15,7 +13,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -52,7 +50,7 @@ There is still no `src/passes/merge_similar_functions.mbt`, no active module dis
 ## Binaryen oracle lanes to preserve
 
 The upstream pass is not a simple local peephole.
-A Starshine port should preserve the source-backed lanes summarized by the retained [`2026-05-05 research recheck`](../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md):
+A Starshine port should preserve the source-backed lanes summarized by the retained [`2026-05-05 research recheck`](./index.md):
 
 1. scan defined functions only
 2. reject imported targets, signature mismatches, and total-local-count mismatches early

@@ -3,8 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
-  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/pick_load_signs.mbt

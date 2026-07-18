@@ -1,18 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
-  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../agent-todo.md
-  - ./index.md
   - ./binaryen-strategy.md
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md

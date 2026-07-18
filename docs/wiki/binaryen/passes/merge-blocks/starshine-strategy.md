@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
-  - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
-  - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
+  - ./index.md
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
 related:
@@ -99,11 +98,11 @@ The 2026-05-06 direct revalidation ran `moon info`, `moon fmt`, `moon test`, mix
 - `.tmp/pass-fuzz-merge-blocks`: `9975/10000` comparable cases, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures in wasm-smith lanes.
 - Debug artifact: normalized WAT equality and canonical function equality; Starshine pass runtime `214.434 ms` versus Binaryen `1526.350 ms`.
 
-This is historical validation, not a substitute for a new pass signoff after behavior changes. See [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md).
+This is historical validation, not a substitute for a new pass signoff after behavior changes. See [research note 0514](./index.md).
 
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
-- [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
+- [research note 0720](./index.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

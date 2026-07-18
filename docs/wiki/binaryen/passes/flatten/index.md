@@ -1,9 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
@@ -137,17 +136,13 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
-  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
-  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
-  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/execution-plan.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../agent-todo.md
 related:
   - ./binaryen-strategy.md
@@ -170,9 +165,9 @@ related:
 - The pass rewrites rich nested operands into ordered preludes, routes value-carrying control and branches through typed temporaries, removes `local.tee`, preserves exceptional-transfer semantics, and materializes explicit function results.
 - Starshine follows Binaryen v130's owner-specific postorder strategy rather than applying an unsafe generic spill-every-position rewrite.
 - The public implementation has focused function/block/if/loop/try/branch/table/EH coverage, a dedicated `flatten-all` generator aggregate, four compare lanes, and idempotence evidence.
-- Current behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md) and [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
+- Current behavior signoff is recorded in [`./fuzzing.md`](./fuzzing.md) and `docs/wiki/binaryen/passes/flatten/index.md`.
 - Starshine now schedules the aggressive local-cleanup trio `flatten -> simplify-locals-notee-nostructure -> local-cse` immediately after `ssa-nomerge` in both public presets, matching Binaryen v130's aggressive order.
-- Current pass-local timing is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function representative (`4.00x`). This approximately `1.14 ms` absolute cost is accepted under an explicit pass-specific timing exception; see [`1570-2026-07-17-flatten-preset-scheduling-and-performance.md`](../../../raw/research/1570-2026-07-17-flatten-preset-scheduling-and-performance.md).
+- Current pass-local timing is `1,140 us` versus Binaryen v130's `285.236 us` on the 120-function representative (`4.00x`). This approximately `1.14 ms` absolute cost is accepted under an explicit pass-specific timing exception; see `docs/wiki/binaryen/passes/flatten/index.md`.
 
 ## Why it matters
 
@@ -193,7 +188,7 @@ related:
   - `src/validate/gen_valid.mbt` exposes the `flatten-all` aggregate;
   - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` schedule the complete aggressive trio.
 
-The 2026-07-11 current-main/local-status recheck remains useful historical evidence about the former removed boundary. The 2026-07-17 closeout supersedes its local-status conclusion; see [`../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
+The 2026-07-11 current-main/local-status recheck remains useful historical evidence about the former removed boundary. The 2026-07-17 closeout supersedes its local-status conclusion; see research note 1569.
 
 ## Beginner summary
 
@@ -614,15 +609,15 @@ The prior one-typed-rethrow ceiling and flat/single-root-block no-work grammar a
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-nonthrowing-bridge-suffix-cache-impact.md)
 - [`../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md`](../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md)
 - [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
-- [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
-- [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)
-- [`../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md`](../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md`](../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md)
+- research note 0422
+- research note 0360
+- research note 0267
+- research note 0127
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
-- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0065](../../../ir2/execution-plan.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Official Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp), [`flat.h`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/ir/flat.h), and the cited local registry sources support the current status.

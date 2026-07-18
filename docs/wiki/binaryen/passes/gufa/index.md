@@ -1,14 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
-  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -96,9 +92,9 @@ So the pass is best read as:
 
 - [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
 - [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md)
-- [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
-- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
+- research note 0471
+- research note 0313
+- research note 0163
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

@@ -4,20 +4,13 @@ status: supported
 starshine_status: active
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
-  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
-  - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
-  - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
-  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/directize.mbt
   - ../../../../../src/passes/directize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
@@ -85,7 +78,7 @@ That is much closer to the real pass than either:
 - V131 extends constant-index classification to table initial values: `ref.func` defaults can directize, null/default holes can prove traps on defined tables, imported-table defaults remain unknown, and `global.get` defaults remain unknown.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
 - The refreshed dossier has a compact owner/test map across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, the older directize fixtures, and v131's new `directize_init.wast` default-initializer coverage.
-- The retained 2026-04-26 repo-authored port-readiness digest is [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
+- The retained 2026-04-26 repo-authored port-readiness digest is research note 0380; it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
 - In v131, the main implementation lives in `src/passes/Directize.cpp`.
 - It computes module-wide table facts first with `TableUtils::computeTableInfo(...)`.
 - It only visits `CallIndirect` nodes.
@@ -110,7 +103,7 @@ That is much closer to the real pass than either:
 - It classifies known holes, out-of-range targets, and wrong-type targets as traps and rewrites them to `unreachable` when the table facts prove the trap.
 - It lowers the narrow known-target `select` shape to an `if` with direct-call arms and fresh locals for operands, matching Binaryen's default directize shape on reduced fixtures.
 - Direct oracle evidence now includes the post-fuzzer-change 2026-05-06 lane `.tmp/pass-fuzz-directize`: 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. Earlier implementation evidence remains recorded in `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`.
-- The accepted public `optimize` / `shrink` late-tail suffix now includes `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` via [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md), and the direct five-pass neighborhood proof remains in [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md). The remaining caveat is the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself still has a current-head replay recorded in [`../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md`](../../../raw/research/0549-2026-05-08-late-tail-triple-replay-for-reorder-globals-and-directize.md).
+- The accepted public `optimize` / `shrink` late-tail suffix now includes `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` via [research note 0572](../late-pipeline-dispatch.md), and the direct five-pass neighborhood proof remains in [research note 0571](../late-pipeline-dispatch.md). The remaining caveat is the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet. The inner `string-gathering -> reorder-globals -> directize` triple itself still has a current-head replay recorded in [research note 0549](../reorder-globals/index.md).
 
 ## Page map
 
@@ -137,19 +130,19 @@ That is much closer to the real pass than either:
 
 ## Sources
 
-- [`../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md`](../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md)
-- [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md)
-- [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md)
-- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
-- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
-- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
-- [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
-- [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)
-- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
+- research note 0521
+- [research note 0571](../late-pipeline-dispatch.md)
+- [research note 0572](../late-pipeline-dispatch.md)
+- research note 0476
+- research note 0380
+- research note 0350
+- research note 0126
+- research note 0209
+- research note 0265
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
 - Binaryen `version_129` implementation and test sources:

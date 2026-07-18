@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
-  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
-  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/avoid_reinterprets.mbt
   - ../../../../../src/passes/avoid_reinterprets_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -15,11 +13,11 @@ sources:
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/ir/use_def.mbt
   - ../../../../../src/ir/ssa_local.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../alignment-lowering/index.md
-  - ../optimize-added-constants/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

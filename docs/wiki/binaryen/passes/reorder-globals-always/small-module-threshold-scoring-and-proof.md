@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
-  - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
+  - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderGlobals.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/passes.h
@@ -128,7 +127,7 @@ That is why the wiki should teach the sibling as a real pass, not as an unnamed 
 
 ## Current-main drift result
 
-Reviewed again on 2026-04-25 using the retained [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md) and the direct `version_129` / current-main URLs below:
+Reviewed again on 2026-04-25 using the retained [research note 0336](./index.md) and the direct `version_129` / current-main URLs below:
 
 - `version_129` `src/passes/ReorderGlobals.cpp`
 - current `main` `src/passes/ReorderGlobals.cpp`
@@ -153,8 +152,8 @@ If you only remember one thing, remember this:
 
 ## Sources
 
-- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
-- [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
+- [research note 0336](./index.md)
+- [research note 0214](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderGlobals.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/passes.h>

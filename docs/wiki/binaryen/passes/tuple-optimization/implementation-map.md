@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
-  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
-  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
+  - ../reorder-locals/index.md
+  - ../simplify-locals-nostructure/index.md
+  - ./index.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt

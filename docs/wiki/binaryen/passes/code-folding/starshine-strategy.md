@@ -1,14 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
-  - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
-  - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
-  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
-  - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
-  - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../agent-todo.md
@@ -258,11 +253,11 @@ So the right mental model today is:
 
 ## Sources
 
-- [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
-- [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
-- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
-- [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
-- [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
+- [research note 0522](./index.md)
+- [research note 0373](./index.md)
+- [research note 0442](./index.md)
+- [research note 0351](./index.md)
+- [research note 0257](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/code_folding.mbt`](../../../../../src/passes/code_folding.mbt)
 - [`../../../../../src/passes/code_folding_test.mbt`](../../../../../src/passes/code_folding_test.mbt)

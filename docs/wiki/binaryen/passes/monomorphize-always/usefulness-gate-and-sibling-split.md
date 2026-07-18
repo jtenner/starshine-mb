@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast
@@ -132,7 +131,7 @@ That preserves both correctness and the public surface users/tests expect.
 
 ## Sources
 
-- [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
+- [research note 0318](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast>

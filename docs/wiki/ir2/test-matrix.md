@@ -1,13 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - https://webassembly.github.io/spec/core/exec/instructions.html
   - https://doi.org/10.1145/115372.115320
-  - ../raw/research/0064-2026-03-24-ir2-test-matrix.md
   - ../../../src/ir/test_helpers.mbt
   - ../../../src/ir/test_helpers_test.mbt
   - ../../../src/ir/architecture_test.mbt
@@ -179,7 +178,7 @@ For behavior or public API changes, use the repo validation floor from [`../../R
 
 - Tail-call semantics: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, and <https://webassembly.github.io/spec/core/exec/instructions.html>
 - Current repository evidence: the `src/ir` test files listed throughout this page.
-- Numbered handoff doc: [`../raw/research/0064-2026-03-24-ir2-test-matrix.md`](../raw/research/0064-2026-03-24-ir2-test-matrix.md)
+- Numbered handoff doc: research note 0064
 - Shared IR helpers: [`../../../src/ir/test_helpers.mbt`](../../../src/ir/test_helpers.mbt), [`../../../src/ir/test_helpers_test.mbt`](../../../src/ir/test_helpers_test.mbt)
 - HOT mechanics: [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt), [`../../../src/ir/hot_builders_test.mbt`](../../../src/ir/hot_builders_test.mbt), [`../../../src/ir/hot_module_context_test.mbt`](../../../src/ir/hot_module_context_test.mbt), [`../../../src/ir/hot_mutate_test.mbt`](../../../src/ir/hot_mutate_test.mbt), [`../../../src/ir/hot_region_edit_test.mbt`](../../../src/ir/hot_region_edit_test.mbt), [`../../../src/ir/hot_walk_test.mbt`](../../../src/ir/hot_walk_test.mbt), [`../../../src/ir/hot_query_test.mbt`](../../../src/ir/hot_query_test.mbt)
 - Lift/lower/verify: [`../../../src/ir/hot_lift_test.mbt`](../../../src/ir/hot_lift_test.mbt), [`../../../src/ir/hot_lower_test.mbt`](../../../src/ir/hot_lower_test.mbt), [`../../../src/ir/hot_lower_live_repro_test.mbt`](../../../src/ir/hot_lower_live_repro_test.mbt), [`../../../src/ir/hot_verify_test.mbt`](../../../src/ir/hot_verify_test.mbt)

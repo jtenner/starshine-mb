@@ -3,11 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
-  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
-  - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
-  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
-  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -24,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_131` as the primary source oracle for this pass. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [`../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md`](../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md).
+Use Binaryen `version_131` as the primary source oracle for this pass. The 2026-07-18 audit found the PLS owner, helper behavior, and dedicated lit file byte-identical to `version_130`; see [research note 1572](./index.md).
 
 Primary files:
 

@@ -1,12 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp
-  - ../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
-  - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -143,9 +140,9 @@ What it actually is in `version_129`:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp>
-- [`../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md`](../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md)
-- [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- research note 0419
+- research note 0303
+- research note 0150
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1397-2026-06-29-remove-unused-brs-rub-x-policy-closeout.md
+  - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -77,7 +77,7 @@ The crucial helper pair is:
 - `remove_unused_brs_build_region_value_expr(...)`
 - `remove_unused_brs_condition_is_select_safe_over_value_arms(...)`
 
-That pair is what keeps "selectify" from silently reordering side effects or local traffic. The 2026-06-29 value-legality audit in [`../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md`](../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md) added focused coverage for the local invalidation case and records unreachable-condition selectify as a HOT-lift tooling boundary until polymorphic unreachable conditions lift cleanly.
+That pair is what keeps "selectify" from silently reordering side effects or local traffic. The 2026-06-29 value-legality audit in [research note 1378](./index.md) added focused coverage for the local invalidation case and records unreachable-condition selectify as a HOT-lift tooling boundary until polymorphic unreachable conditions lift cleanly.
 
 ## Condition-Child Value-`if` Rewrites
 

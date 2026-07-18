@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
-  - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/find_all.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/manipulation.h
@@ -253,8 +252,8 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
-- [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
-- [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
+- [research note 0176](./index.md)
+- [research note 0233](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/find_all.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/manipulation.h>

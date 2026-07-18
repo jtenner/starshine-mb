@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignaturePruning.cpp
-  - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
-  - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -24,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the historical source oracle for this pass, anchored by the retained 2026-04-24 source follow-up in [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md).
+Use Binaryen `version_129` as the historical source oracle for this pass, anchored by the retained 2026-04-24 source follow-up in [research note 0304](./index.md).
 
 Primary files:
 
@@ -438,8 +435,8 @@ That is the strategy a future strict-parity port must preserve.
 ## Sources
 
 - Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignaturePruning.cpp>
-- [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
+- [research note 0304](./index.md)
+- [research note 0151](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>

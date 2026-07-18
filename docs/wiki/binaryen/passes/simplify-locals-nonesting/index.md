@@ -2,17 +2,13 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
-  - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
-  - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
-  - ../../../../../agent-todo.md
   - ../simplify-locals/index.md
+  - ../../../../../agent-todo.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -147,9 +143,9 @@ A dedicated folder was still justified because:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp>
-- [`../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
-- [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)
+- research note 0407
+- research note 0331
+- research note 0186
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../simplify-locals/index.md`](../simplify-locals/index.md)

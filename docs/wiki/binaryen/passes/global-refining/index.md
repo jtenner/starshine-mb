@@ -1,11 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
-  - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
-  - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -13,7 +10,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalRefining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/lubs.h
@@ -163,9 +160,9 @@ The active 2026-06-18 audit uses Binaryen `version_130` sources and the dedicate
 
 ## Sources
 
-- [`../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
-- [`../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md`](../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md)
-- [`../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`](../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md)
+- research note 0139
+- research note 0208
+- research note 0236
 - [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)
 - [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
@@ -173,7 +170,7 @@ The active 2026-06-18 audit uses Binaryen `version_130` sources and the dedicate
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_130` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalRefining.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>

@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h
@@ -20,7 +19,7 @@ related:
 
 # `inline-main` implementation structure and tests
 
-This page is anchored by the 2026-04-24 retained 2026-04-24 source review [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md), which records the exact official URL set and narrow current-main spot-check scope.
+This page is anchored by the 2026-04-24 retained 2026-04-24 source review [research note 0319](./index.md), which records the exact official URL set and narrow current-main spot-check scope.
 
 ## Core implementation files
 
@@ -210,8 +209,8 @@ That is the smallest faithful implementation shape.
 
 ## Sources
 
-- [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
+- [research note 0319](./index.md)
+- [research note 0177](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>

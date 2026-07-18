@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
+  - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_nostructure_test.mbt
 related:
@@ -21,7 +21,7 @@ This page is the active audit checklist for bringing Starshine's direct `simplif
 ## Current baseline
 
 - Local oracle: `wasm-opt version 130 (version_130)`.
-- Source refresh: [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md).
+- Source refresh: [research note 1399](./index.md).
 - Direct pass status: active hot pass under canonical spelling `simplify-locals-nostructure`; compatibility alias `simplify-locals-no-structure` exists separately.
 - Important correction from the tee slices: canonical SLNS no longer skips every function merely because a live `local.tee` already exists. Binaryen is tee-enabled for this variant. Starshine allows a root dropped existing tee in a function with later structured control, the no-tee sibling cleans straight-line unrelated locals despite an existing dropped tee, and the 2026-07-01 protected-root slices no longer skip the whole function for embedded-control dropped tees when unrelated root local traffic can be cleaned. The protected path now also runs later root main cycles plus root-only dead cleanup for deferred multi-use root locals, and a follow-up protected child cleanup fixes the bounded generated `ssa-nomerge-smoke` embedded-tee residual family at 1000- and 10000-case random all-profiles scale. The no-local-writes raw fallback also fixes the former `case-009332-wasm-smith` no-normal result-block/control-debris residual, and the typed result-loop const/nop raw fallback fixes the former `case-003694-wasm-smith` residual. This is still not full parity closure because performance acceptance/exception remains open even though the latest required wasm-smith lane has no Starshine mismatches.
 - Bounded post-fix smokes: `.tmp/pass-fuzz-slns-slice-genvalid-200` compared `200/200` with `200` normalized matches and zero failures; `.tmp/pass-fuzz-slns-tee-guard2-genvalid-500` compared `500/500` with `500` normalized matches and zero failures, both using `_build/native/release/build/cmd/cmd.exe`.

@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
-  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ../../../wasm-jspi-host-async-boundary.md
@@ -139,8 +137,8 @@ Treat this as a narrow no-drift check plus source-navigation correction, not as 
 
 ## Sources
 
-- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
-- [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
+- [research note 0371](./index.md)
+- [research note 0323](./index.md)
 - Binaryen `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Asyncify.cpp>
 - Binaryen current `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp>
 - Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

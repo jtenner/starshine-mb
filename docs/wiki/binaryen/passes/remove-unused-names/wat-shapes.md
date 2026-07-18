@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.wast
-  - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
-  - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.txt
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_precompute.wast

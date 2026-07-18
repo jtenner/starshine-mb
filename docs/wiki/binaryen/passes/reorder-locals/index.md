@@ -1,23 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
-  - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
-  - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
-  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
-  - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
-  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
-  - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
-  - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
-  - ../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/reorder_locals_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -59,8 +45,8 @@ related:
 ## Role
 
 - `reorder-locals` is an active implemented **module pass** in Starshine.
-- A 2026-05-06 refreshed direct signoff reached 6759/10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
-- A 2026-05-07 debug-artifact stable-boundary replay kept `Normalized WAT equal: yes` and `Canonical function compare equal: yes` after 5 Binaryen no-pass roundtrips even though Binaryen still did not converge on raw emitted wasm; see [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md).
+- A 2026-05-06 refreshed direct signoff reached 6759/10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see research note 0540.
+- A 2026-05-07 debug-artifact stable-boundary replay kept `Normalized WAT equal: yes` and `Canonical function compare equal: yes` after 5 Binaryen no-pass roundtrips even though Binaryen still did not converge on raw emitted wasm; see research note 0547.
 - In upstream Binaryen `version_130`, `pass.cpp` describes it as:
   - sorts locals by access frequency
 
@@ -87,7 +73,7 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
   3. after the second `coalesce-locals`, just before the final `vacuum`
 - That placement is meaningful.
   - Binaryen uses `reorder-locals` as a repeated compactor after cleanup churn, not just as a one-off cosmetic sort.
-- In Starshine today, the pass is intentionally available as an explicit module pass **and** public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot public cleanup story the repo has ordered-neighborhood evidence for: the early tuple/no-structure lane `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`, then the late local-cleanup cluster `... -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum`. The 2026-07-12 scheduling note [`1561`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) supersedes the older one-slot public policy from [`0709`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md).
+- In Starshine today, the pass is intentionally available as an explicit module pass **and** public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot public cleanup story the repo has ordered-neighborhood evidence for: the early tuple/no-structure lane `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`, then the late local-cleanup cluster `... -> simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum`. The 2026-07-12 scheduling note `1561` supersedes the older one-slot public policy from `0709`.
 - The current parity story is also worth teaching clearly:
   - the raw sort rule is already well understood and well tested
   - the persistent multivalue-call instability belongs to Binaryen's tuple packaging and binary writeback layers, not to `ReorderLocals.cpp` itself
@@ -161,7 +147,7 @@ So the durable rule is:
 
 - treat Binaryen `version_130` as the current O4Z audit oracle for this dossier;
 - keep the older `version_129` manifests as provenance for the unchanged algorithm story;
-- cite [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md), [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md), and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md) for new O4Z audit claims.
+- cite research note 1401, [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md), and research note 1400 for new O4Z audit claims.
 
 ## Current maintenance rule
 
@@ -175,16 +161,16 @@ So the durable rule is:
 
 ## Sources
 
-- `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
+- `version_130` source inventory: research note 1400
 - `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- Public preset scheduling: [`../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md)
-- Earlier one-slot reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
+- Public preset scheduling: research note 1561
+- Earlier one-slot reconciliation: research note 0709
 - [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- [`../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)
-- [`../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md`](../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md`](../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md)
-- [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
-- [`../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md)
+- research note 0430
+- research note 0253
+- research note 0142
+- research note 0073
+- research note 0074
 - [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt)
 - [`../../../../../src/passes/reorder_locals_test.mbt`](../../../../../src/passes/reorder_locals_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

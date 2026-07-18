@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-abstract-type-refining-v130-main-admission-recheck.md
-  - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -299,8 +298,8 @@ That is why the preoptimization phase is part of the real algorithm.
 
 ## Sources
 
-- [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
+- [research note 0295](./index.md)
+- [research note 0155](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/AbstractTypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/localize.h>

@@ -1,12 +1,11 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-06-08
+last_reviewed: 2026-07-18
 sources:
   - https://webassembly.github.io/spec/core/syntax/instructions.html
   - https://webassembly.github.io/spec/core/valid/instructions.html
   - https://webassembly.github.io/spec/core/exec/instructions.html
-  - ../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/tail-call-authoring.md
@@ -176,7 +175,7 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 
 ## Sources
 
-- Archived original CFG contract note: [`../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
+- Archived original CFG contract note: research note 0060
 - Core tail-call semantics: <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, and <https://webassembly.github.io/spec/core/exec/instructions.html>
 - Policy layer: [`../../../src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt)
 - Concrete builder: [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)

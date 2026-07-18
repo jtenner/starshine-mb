@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -140,7 +140,7 @@ If Starshine tightens or re-ports `global-refining`, the local port should prese
 
 ## Sources
 
-- [`../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md`](../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md)
+- [research note 0208](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalRefining.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/lubs.h>

@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
-  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
-  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
-  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -26,8 +22,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the tagged source oracle for this pass.
-- Use the retained 2026-04-24 follow-up research [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md) and the direct tagged URLs below for the original source review.
-- Use [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md) for the retained 2026-05-04 current-`main` no-teaching-drift recheck and exact Starshine bridge anchors.
+- Use the retained 2026-04-24 follow-up research [research note 0296](./index.md) and the direct tagged URLs below for the original source review.
+- Use [research note 0440](./index.md) for the retained 2026-05-04 current-`main` no-teaching-drift recheck and exact Starshine bridge anchors.
 - The core implementation is `src/passes/Precompute.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The most important scheduler neighbor for this variant is `src/passes/opt-utils.h`, because that file shows where Binaryen prepends `precompute-propagate` during nested post-inlining cleanup.

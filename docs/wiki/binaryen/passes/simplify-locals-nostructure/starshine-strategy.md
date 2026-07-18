@@ -1,14 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
-  - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
-  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
-  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/simplify_locals.mbt
@@ -37,7 +32,7 @@ related:
 
 # Starshine Strategy For `simplify-locals-nostructure`
 
-Use this page together with the current `version_130` source refresh in [`../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md`](../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md), the archived current-main bridge in [`../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md), and the retained 2026-04-25 source/test bridge.
+Use this page together with the current `version_130` source refresh in [research note 1399](./index.md), the archived current-main bridge in [research note 0433](./index.md), and the retained 2026-04-25 source/test bridge.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -80,7 +75,7 @@ The fastest read-along path through the current Starshine status is:
     - `test "tuple-optimization exact preset prereqs see no-structure pass but presets stay conservative"`
     - `test "simplify-locals-nostructure exact slot helper exposes the ordered replay lane"`
 - exact-slot signoff evidence
-  - `docs/wiki/raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md`
+  - `docs/wiki/binaryen/passes/simplify-locals-nostructure/index.md`
     - closes the old standalone `SLNS` ordered-slot blocker with current-head direct and artifact replay evidence
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`

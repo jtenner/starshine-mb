@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
+  - ../inlining/index.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
 related:

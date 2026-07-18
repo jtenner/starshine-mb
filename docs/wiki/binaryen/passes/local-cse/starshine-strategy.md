@@ -1,17 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
-  - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
-  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
+  - ./index.md
   - https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md
-  - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
-  - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
-  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/local_cse.mbt
   - ../../../../../src/passes/local_cse_test.mbt
@@ -23,7 +16,6 @@ sources:
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../flatten/index.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../coalesce-locals/index.md
@@ -45,7 +37,7 @@ related:
 
 # Starshine Strategy For `local-cse`
 
-Use this page together with the retained tagged `version_129` source URLs in [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md), the 2026-05-06 line-anchor refresh in [`../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md), the 2026-06-04 audit note in [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the retained tagged `version_129` source URLs in [research note 0453](./index.md), the 2026-05-06 line-anchor refresh in [research note 0495](./index.md), the 2026-06-04 audit note in [research note 0710](./index.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future preset-slot work will need.
 
 ## The honest current status

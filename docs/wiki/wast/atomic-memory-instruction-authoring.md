@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../binaryen/release-horizon-and-oracles.md
   - ../binaryen/passes/safe-heap/index.md
   - ../wasm-linear-memory-threads-boundary.md
   - ../wasm-relaxed-atomics-boundary.md

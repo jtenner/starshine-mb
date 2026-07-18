@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-05
+last_reviewed: 2026-07-18
 sources:
   - ./index.md
   - ./binaryen-strategy.md
@@ -10,7 +10,6 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
-  - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
 related:
   - ./index.md
   - ./starshine-strategy.md

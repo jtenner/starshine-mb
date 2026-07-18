@@ -1,13 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
-  - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
-  - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
-  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
-  - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -60,7 +55,7 @@ The local surfaces that already exist are active implementation and planning sur
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot pass, not a removed-name placeholder. |
 | Dispatcher arm | `src/passes/pass_manager.mbt` | active requests dispatch to `code_folding_run(ctx, func)`. |
 | CLI spelling preservation | `src/cli/cli_test.mbt` | `--code-folding` parses and explicit pass-token order is stable. |
-| Direct revalidation | `.tmp/pass-fuzz-code-folding-cf002-terminal-if`, `docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md` | latest executed harness lane had `6759` normalized matches and `0` semantic mismatches; direct debug-artifact timing stayed inside the <=2x Binaryen floor, but this evidence predates the June typed block-exit payload widening. |
+| Direct revalidation | `.tmp/pass-fuzz-code-folding-cf002-terminal-if`, `docs/wiki/binaryen/passes/code-folding/index.md` | latest executed harness lane had `6759` normalized matches and `0` semantic mismatches; direct debug-artifact timing stayed inside the <=2x Binaryen floor, but this evidence predates the June typed block-exit payload widening. |
 | Backlog slice | `agent-todo.md` | `[O4Z-AUDIT-CF]` tracks fresh fixture validation, direct compare, pass-local timing, and late-slot replay before the audit closes. |
 | Canonical late slot | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | the pass belongs immediately before the late `merge-blocks` cluster in the no-DWARF function phase. |
 
@@ -335,7 +330,7 @@ The one-block, full multi-root, embedded-select, and embedded value-parent `if` 
 - implementation now computes the actual common suffix between the unused block body and non-block arm instead of requiring the whole non-block arm to be the suffix, no longer bails out before the existing full-arm replacement path for result-void one-block/non-block arms, permits full non-block value folds only when the shared suffix has multiple roots, and wraps full multi-root or partial value `if` children in typed blocks for the source-backed `select`, `drop`, `call`, `unary`, `binary`, `compare`, `convert`, `load`, `local.set`, `local.tee`, `global.set`, `store`, `br` payload, `return`, `ref.is_null`, `table.get`, `table.set` index, `table.copy`, `call_indirect`, `memory.grow`, `table.grow`, `table.fill`, `memory.fill`, `memory.copy`, and `memory.init` parent subset;
 - latest validation: initial `moon test src/passes` for the table-copy value-parent increment failed exactly the new test (`1696/1697`); after implementation `moon fmt`, `moon info`, and full `moon test` passed `4882/4882`; native build produced `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-table-copy-1000` had `998` normalized matches, `0` mismatches, and `2` tool/Binaryen command failures.
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has exact partial non-block, widened one-block/one-non-block, two-unnamed-block multi-root progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored and selected non-root `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety positives/negatives, `[O4Z-AUDIT-CF-I]` has tested EH body-local positives and bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has exact partial non-block, widened one-block/one-non-block, two-unnamed-block multi-root progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored and selected non-root `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety positives/negatives, `[O4Z-AUDIT-CF-I]` has tested EH body-local positives and bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [research note 0713](./index.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 
@@ -371,9 +366,9 @@ That keeps Starshine aligned with Binaryen's actual `code-folding` contract inst
 
 ## Sources
 
-- [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
-- [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
-- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
+- [research note 0522](./index.md)
+- [research note 0373](./index.md)
+- [research note 0442](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`./terminating-tails.md`](./terminating-tails.md)

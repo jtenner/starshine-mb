@@ -3,12 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/commit/db30c15
-  - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
-  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
-  - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -171,15 +167,15 @@ So the durable rule is:
 
 ## Sources
 
-- [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
-- [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md)
-- [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
+- research note 0137
+- research note 0700
+- research note 0252
 - [`../../../../../src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
 - [`../../../../../src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- Saved generated-artifact slot, timing, and debug-log facts are preserved in the committed audit note [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md); old `.artifacts` paths are local replay identifiers rather than durable source links.
+- Saved generated-artifact slot, timing, and debug-log facts are preserved in the committed audit note research note 0700; old `.artifacts` paths are local replay identifiers rather than durable source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

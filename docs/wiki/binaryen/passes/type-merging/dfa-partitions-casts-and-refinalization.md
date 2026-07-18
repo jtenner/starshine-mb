@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeMerging.cpp
-  - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
-  - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
+  - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/support/dfa_minimization.h
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-merging.wast
@@ -198,8 +196,8 @@ then it does not yet implement Binaryen `type-merging` honestly.
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-merging-world-mode-recheck.md)
-- [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
+- [research note 0294](./index.md)
+- [research note 0181](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/support/dfa_minimization.h>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-merging.wast>

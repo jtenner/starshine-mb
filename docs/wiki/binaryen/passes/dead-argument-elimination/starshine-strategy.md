@@ -1,17 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/dae_optimizing_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../dae-optimizing/starshine-strategy.md
   - ../../../../../agent-todo.md
@@ -69,7 +67,7 @@ The direct-pass wiring and focused tests now have Moon validation, but direct pl
 
 ## Planning and backlog context
 
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
   - Lists `dead-argument-elimination` and `dead-argument-elimination-optimizing` in the boundary-only name family.
   - This is the older registry-map proof that both descriptive local names are intentionally known.
 

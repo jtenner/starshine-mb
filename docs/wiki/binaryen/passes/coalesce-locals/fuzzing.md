@@ -1,13 +1,13 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
-  - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
+  - ./index.md
 ---
 
 # `coalesce-locals` Fuzzing Profile

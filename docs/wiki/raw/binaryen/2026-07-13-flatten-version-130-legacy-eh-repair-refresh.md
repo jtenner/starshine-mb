@@ -1,7 +1,7 @@
 ---
 kind: source
 status: reviewed
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/5d704ad52bc77a258e8fa3f9d34fcc5e8799c1c3/src/passes/Flatten.cpp
   - https://github.com/WebAssembly/binaryen/blob/5d704ad52bc77a258e8fa3f9d34fcc5e8799c1c3/src/ir/eh-utils.h
@@ -14,7 +14,7 @@ related:
   - ../../binaryen/passes/flatten/starshine-strategy.md
   - ../../binaryen/passes/flatten/starshine-port-readiness-and-validation.md
   - ../../binaryen/passes/flatten/wat-shapes.md
-  - ../research/1555-2026-07-06-optimize-instructions-final-repair-blocker.md
+  - ../../binaryen/passes/optimize-instructions/index.md
 ---
 
 # Binaryen `version_130` `flatten` legacy EH repair refresh

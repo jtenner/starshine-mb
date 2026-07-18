@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
-  - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
-  - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
+  - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -222,8 +220,8 @@ related:
 ## Sources
 
 - Upstream `version_129` sources: [`./index.md`](./index.md#sources)
-- Follow-up note: [`../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md`](../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md)
-- Archived research note: [`../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md`](../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
+- Follow-up note: [research note 0241](./index.md)
+- Archived research note: [research note 0076](./index.md)
 - Implementation: [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
 - Focused tests: [`../../../../../src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt)
 - Raw lane: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

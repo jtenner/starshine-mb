@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
-  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
-  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -19,7 +16,7 @@ related:
 
 # `simplify-globals-optimizing` WAT and IR shape guide
 
-This page is the beginner-friendly shape catalog for Binaryen `simplify-globals-optimizing`, anchored to the retained 2026-04-24 research inventory, direct tagged source URLs, and [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md).
+This page is the beginner-friendly shape catalog for Binaryen `simplify-globals-optimizing`, anchored to the retained 2026-04-24 research inventory, direct tagged source URLs, and [research note 0376](./index.md).
 
 The main question to keep asking is:
 
@@ -1443,10 +1440,10 @@ That checklist matches the actual `version_129` source much better than “const
 
 ## Sources
 
-- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
-- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
-- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
+- [research note 0570](./index.md)
+- [research note 0376](./index.md)
+- [research note 0286](./index.md)
+- [research note 0122](./index.md)
 
 ## 2026-07-06 addendum: pure-add grow select operands
 

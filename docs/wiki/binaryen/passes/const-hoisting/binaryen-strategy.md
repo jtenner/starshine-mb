@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
-  - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
-  - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
+  - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/support/insert_ordered.h
@@ -42,7 +39,7 @@ That means the best mental model is:
 ## Public surface and scheduler meaning
 
 The reviewed official Binaryen GitHub [`version_129` release](https://github.com/WebAssembly/binaryen/releases/tag/version_129), rechecked on 2026-04-23, showed publish date **2026-04-01**.
-A focused 2026-05-06 current-`main` recheck retained in [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md) did not surface teaching-relevant drift in `ConstHoisting.cpp`, `literal.h`, `pass.cpp`, `wasm-binary.h`, or `const-hoisting.wast`; the local first-slice checklist is maintained in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+A focused 2026-05-06 current-`main` recheck retained in [research note 0508](./index.md) did not surface teaching-relevant drift in `ConstHoisting.cpp`, `literal.h`, `pass.cpp`, `wasm-binary.h`, or `const-hoisting.wast`; the local first-slice checklist is maintained in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 `src/passes/pass.cpp` registers `const-hoisting` as a public pass.
 The registration text says:
@@ -310,9 +307,9 @@ That is the real Binaryen strategy for `const-hoisting`.
 
 ## Sources
 
-- [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
-- [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
-- [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
+- [research note 0508](./index.md)
+- [research note 0182](./index.md)
+- [research note 0225](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

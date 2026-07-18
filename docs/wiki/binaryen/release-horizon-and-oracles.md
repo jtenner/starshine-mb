@@ -3,15 +3,12 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
   - https://github.com/WebAssembly/binaryen/compare/version_130...version_131
   - https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c
   - ../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
-  - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
-  - ../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
-  - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
+  - ./passes/remove-exports/index.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_130
   - https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs
@@ -45,7 +42,7 @@ The current answer is:
 - the live `main` changelog and pass-specific current-main reads are now the drift watch for anything beyond `version_131`;
 - detailed pass pages may still stay anchored to `version_129`, `version_130`, or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
-The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel `atomic.fence`, the JS parser API merge, and the new [`constraint-analysis`](passes/constraint-analysis/index.md) pass; the full tag diff also contains released pass behavior changes beyond the short changelog. Newly refreshed upstream-only routes include open-world [`remove-unused-types`](passes/remove-unused-types/index.md), open-world [`unsubtyping`](passes/unsubtyping/index.md), recursion-safe [`print-boundary`](passes/print-boundary/index.md), non-shared-atomic [`safe-heap`](passes/safe-heap/index.md), and public-type-safe [`merge-j2cl-itables`](passes/merge-j2cl-itables/index.md). Keep this page as the release-horizon anchor, but send exact algorithm questions to the owning dossier and the [v131 release-impact audit](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md).
+The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel `atomic.fence`, the JS parser API merge, and the new [`constraint-analysis`](passes/constraint-analysis/index.md) pass; the full tag diff also contains released pass behavior changes beyond the short changelog. Newly refreshed upstream-only routes include open-world [`remove-unused-types`](passes/remove-unused-types/index.md), open-world [`unsubtyping`](passes/unsubtyping/index.md), recursion-safe [`print-boundary`](passes/print-boundary/index.md), non-shared-atomic [`safe-heap`](passes/safe-heap/index.md), and public-type-safe [`merge-j2cl-itables`](passes/merge-j2cl-itables/index.md). Keep this page as the release-horizon anchor, but send exact algorithm questions to the owning dossier and the v131 release-impact audit.
 
 ## Supersession timeline
 
@@ -64,7 +61,7 @@ The v131 baseline is substantive. Its changelog names `@binaryen.inline`, acqrel
 | Durable local evidence | research note 1573 plus the official release/compare/changelog URLs below | The retained repo-authored summary, pass-impact classification, and reopening decisions for the latest release. |
 | Live trunk drift watch | Official GitHub `main` changelog plus a pass-specific current-main source/PR read | Whether trunk has moved past `version_131` in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
-| Superseded correction | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
+| Superseded correction | `docs/wiki/binaryen/release-horizon-and-oracles.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
 | Historical bridge | 2026-06-01 capture (ingested and removed) | Earlier `version_130` bridge; its useful facts are retained by the stronger 2026-06-04 recheck. |
 | Discovery only | Search snippets, search-result summaries, and mirrored excerpts | Good for finding the official URL; not authoritative when they disagree with direct official pages. |
 | Pass-specific contract pages | Individual `docs/wiki/binaryen/passes/*` dossiers | The exact algorithm, test map, and Starshine status for one pass. |
@@ -108,14 +105,14 @@ Starshine's own reference-branch semantics still live in [`../wast/reference-ins
 
 ## Sources
 
-- Retained release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Retained release-horizon recheck: research note 0704
 - Pass-specific `mark-js-called` / `remove-exports` current-main recheck: [`../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md`](../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md)
-- Retained `mark-js-called` / `remove-exports` tracker expansion: [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
-- Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
+- Retained `mark-js-called` / `remove-exports` tracker expansion: [research note 0706](./passes/remove-exports/index.md)
+- Superseded 2026-06-02 correction: research note 0698
 - Historical 2026-06-01 bridge: ingested and removed; its release-horizon facts are retained in the 0704 recheck above.
 - Official BrOn assertion-fix commit: <https://github.com/WebAssembly/binaryen/commit/1251efbc1ea471c1311d2726b2bbe061ff2a291c>
 - Current-main `memory-packing` drift bridge: [`../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md)
-- V131 release-impact audit: [`../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`](../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md)
+- V131 release-impact audit: research note 1573
 - Official GitHub `version_131` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_131>
 - Official GitHub v130-to-v131 compare: <https://github.com/WebAssembly/binaryen/compare/version_130...version_131>
 - Historical official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>

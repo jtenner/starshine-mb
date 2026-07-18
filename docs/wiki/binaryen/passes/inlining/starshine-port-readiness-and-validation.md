@@ -1,10 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md

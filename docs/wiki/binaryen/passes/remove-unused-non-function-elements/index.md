@@ -1,19 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
-  - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
-  - ../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md
-  - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
-  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../index.md
@@ -35,8 +29,8 @@ related:
 
 - `remove-unused-nonfunction-module-elements` is a real public Binaryen pass.
 - Starshine now exposes the upstream-compatible module pass spelling `remove-unused-nonfunction-module-elements`; the older local dashed name remains a historical dossier label, not the active CLI spelling.
-- It is implemented in Starshine's active optimizer as a sibling mode on the existing RUME machinery; the current local status and validation evidence are mapped in [`./starshine-strategy.md`](./starshine-strategy.md), including the 2026-05-06 refreshed direct parity run in [`../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md`](../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md).
-- The tagged `version_129` source URLs are retained below; the retained 2026-05-05 current-main sibling recheck summary is [`../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md); the shared-engine current-main source is [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp); the retained 2026-05-06 research note records the same line-anchor refresh without changing the contract.
+- It is implemented in Starshine's active optimizer as a sibling mode on the existing RUME machinery; the current local status and validation evidence are mapped in [`./starshine-strategy.md`](./starshine-strategy.md), including the 2026-05-06 refreshed direct parity run in research note 0539.
+- The tagged `version_129` source URLs are retained below; the retained 2026-05-05 current-main sibling recheck summary is research note 0458; the shared-engine current-main source is [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp); the retained 2026-05-06 research note records the same line-anchor refresh without changing the contract.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `remove-unused-non-function-elements` slice**; the implemented slice reused the existing full-RUME code path directly.
@@ -119,17 +113,17 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md`](../../../raw/research/0539-2026-05-06-runfe-direct-revalidation.md)
+- research note 0539
 - Binaryen [current-main `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp)
-- [`../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md)
-- [`../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md`](../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md)
-- [`../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md`](../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md`](../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md)
+- research note 0458
+- research note 0408
+- research note 0328
+- research note 0194
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`./fuzzing.md`](./fuzzing.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

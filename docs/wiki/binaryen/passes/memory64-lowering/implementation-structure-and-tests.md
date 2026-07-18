@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
-  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
-  - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
-  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
-  - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -100,10 +97,10 @@ Before Starshine implements the pass, decide and test whether local impossible-m
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>
-- [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
-- [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
-- [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
-- [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
+- [research note 0411](./index.md)
+- [research note 0374](./index.md)
+- [research note 0340](./index.md)
+- [research note 0315](./index.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>
 - Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>

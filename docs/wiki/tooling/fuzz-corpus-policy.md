@@ -1,14 +1,13 @@
 ---
 kind: policy
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-18
 sources:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
   - ../fuzzing/interestingness-hash-schema.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../../../agent-todo.md
-  - ../raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md
 related:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
@@ -30,7 +29,7 @@ The policy is intentionally metadata-first. Large generated corpora should not b
 
 Pass-fuzz, self-opt, and generated-artifact runs often leave useful evidence under `.tmp/` or `.artifacts/`, but those paths are local run directories, not durable wiki sources by default. Living pages may mention such paths as replay identifiers when that helps a developer find a local run, but frontmatter `sources` lists and markdown source links should prefer committed raw notes, source files, tests, or official upstream URLs.
 
-When a local run should support a lasting claim, promote the small durable part of the evidence first: copy the command, aggregate counts, failure classes, classification, timings, and any essential reduced artifacts into `docs/wiki/raw/research/` or another committed raw-source location. Then cite that committed note from the living page. The 2026-06-04 citation-health note [`0705`](../raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md) records the rule and the first pass-dossier cleanup using the 2026-06-03 O4z audit notes as durable replacements for old `.artifacts` links.
+When a local run should support a lasting claim, promote the small durable part of the evidence first: copy the command, aggregate counts, failure classes, classification, timings, and any essential reduced artifacts into `docs/wiki/raw/research/` or another committed raw-source location. Then cite that committed note from the living page. The 2026-06-04 citation-health note `0705` records the rule and the first pass-dossier cleanup using the 2026-06-03 O4z audit notes as durable replacements for old `.artifacts` links.
 
 ## Corpus States
 

@@ -1,13 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
   - https://webassembly.github.io/spec/core/appendix/custom.html
   - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
   - ../wasm-compilation-hints-boundary.md
-  - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
+  - ../tooling/cli-command-and-dispatcher.md
   - ../../../src/lib/types.mbt
   - ../../../src/lib/module.mbt
   - ../../../src/binary/decode.mbt
@@ -151,7 +151,7 @@ Passes that remove or reorder index spaces must rewrite or clear affected name m
 
 ### CLI print utility consumers
 
-The command dispatcher uses structured names as a user-visible debugging surface. The 2026-06-04 print-utility audit in [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md) confirmed the current selector split:
+The command dispatcher uses structured names as a user-visible debugging surface. The 2026-06-04 print-utility audit in [research note 0711](../tooling/cli-command-and-dispatcher.md) confirmed the current selector split:
 
 - `--print-type`, `--print-func`, `--print-table`, `--print-memory`, `--print-global`, `--print-tag`, `--print-elem`, and `--print-data` resolve name selectors through `Module.name_sec` maps and accept numeric selectors even when names are absent.
 - `--print-import` resolves names from import module/field payloads (`field` or exact `module.field`), not from the `name` section.
@@ -194,7 +194,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - Tool-conventions `producers` convention: <https://github.com/WebAssembly/tool-conventions/blob/main/ProducersSection.md>
 - Compilation Hints boundary: [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) and its cited official proposal sources.
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
-- CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
+- CLI print-utility routing audit: [research note 0711](../tooling/cli-command-and-dispatcher.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/module.mbt`](../../../src/lib/module.mbt)
 - Decode and encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation and invalid generation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)

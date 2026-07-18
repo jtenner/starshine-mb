@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeAddedConstants.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h
@@ -28,7 +25,7 @@ related:
 # `optimize-added-constants` low-memory threshold, overflow, and offset-merge rules
 
 This page isolates the part of Binaryen's plain `optimize-added-constants` contract that is easiest to mis-port.
-It is anchored to the retained 2026-04-24 follow-up research [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md), direct tagged URLs, and the 2026-05-05 current-main source-anchor digest [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md).
+It is anchored to the retained 2026-04-24 follow-up research [research note 0300](./index.md), direct tagged URLs, and the 2026-05-05 current-main source-anchor digest [research note 0465](./index.md).
 
 The safety questions are:
 

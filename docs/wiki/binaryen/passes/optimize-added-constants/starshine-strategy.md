@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
+  - ../../../ir2/registry-map.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cli/cli.mbt
@@ -20,7 +19,6 @@ sources:
   - ../../../../../src/wast/lexer.mbt
   - ../../../../../src/wast/keywords.mbt
   - ../../../../../src/validate/typecheck.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -44,7 +42,7 @@ The exact local status is:
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) preserves `optimize-added-constants` in `pass_registry_removed_names()`.
 - The same file rejects removed names in `expand_passes(...)` with `pass flag ... is removed from the active hot pipeline registry`.
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) still lists `optimize-added-constants` and `optimize-added-constants-propagate` as removed Batch 1 candidates.
+- [research note 0063](../../../ir2/registry-map.md) still lists `optimize-added-constants` and `optimize-added-constants-propagate` as removed Batch 1 candidates.
 - [`agent-todo.md`](../../../../../agent-todo.md) has no active dedicated `OAC` / `optimize-added-constants` implementation slice today.
 
 So the current Starshine strategy is a **status and port map**, not an implementation description. The implementation-readiness and validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
@@ -154,8 +152,8 @@ Starshine has useful infrastructure for this pass, but no actual pass:
 
 ## Sources
 
-- [`../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md`](../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md)
-- [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
+- [research note 0418](./index.md)
+- [research note 0300](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)
@@ -165,5 +163,5 @@ Starshine has useful infrastructure for this pass, but no actual pass:
 - [`../../../../../src/ir/hot_builders.mbt`](../../../../../src/ir/hot_builders.mbt)
 - [`../../../../../src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt)
 - [`../../../../../src/ir/hot_lower.mbt`](../../../../../src/ir/hot_lower.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

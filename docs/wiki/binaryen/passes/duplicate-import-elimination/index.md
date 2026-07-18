@@ -1,19 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp
-  - ../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md
-  - ../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md
-  - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
-  - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
-  - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -84,8 +79,8 @@ That is much closer to the real pass than either:
 
 ## Current durable takeaways
 
-- The 2026-05-06 refreshed direct parity lane for `duplicate-import-elimination` reported 6759 / 10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures; see [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md).
-- The 2026-07-06 final direct-pass closeout matrix is complete. Regular GenValid `100000` at seed `0x5eed` matched `100000/100000`; dedicated `duplicate-import-elimination` GenValid `10000` at seed `0x5eed` matched `10000/10000`; random-all-profiles `10000` at seed `0x5555` matched `10000/10000`; explicit wasm-smith `10000` at seed `0x5eed` compared `9956/10000`, had 44 Binaryen/tool command failures, and had one raw unreachable-control-debris output drift that normalized to `cleanupNormalizedMatchCount=1` under the existing normalizer. Agent classification: no unclassified DIE semantic or validation mismatches; see [`./fuzzing.md`](./fuzzing.md) and [`../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md`](../../../raw/research/1554-2026-07-06-duplicate-import-elimination-profile-and-timing.md).
+- The 2026-05-06 refreshed direct parity lane for `duplicate-import-elimination` reported 6759 / 10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures; see research note 0519.
+- The 2026-07-06 final direct-pass closeout matrix is complete. Regular GenValid `100000` at seed `0x5eed` matched `100000/100000`; dedicated `duplicate-import-elimination` GenValid `10000` at seed `0x5eed` matched `10000/10000`; random-all-profiles `10000` at seed `0x5555` matched `10000/10000`; explicit wasm-smith `10000` at seed `0x5eed` compared `9956/10000`, had 44 Binaryen/tool command failures, and had one raw unreachable-control-debris output drift that normalized to `cleanupNormalizedMatchCount=1` under the existing normalizer. Agent classification: no unclassified DIE semantic or validation mismatches; see [`./fuzzing.md`](./fuzzing.md) and research note 1554.
 - The same 2026-07-06 timing probe met the stricter direct pass-local 1x target on two `.tmp/die-timing/` fixtures: Starshine/Binaryen medians were `0.447/2.00646 ms` on `die-import-heavy-2000i-128u.wasm` and `0.2835/0.946297 ms` on `die-user-heavy-800i-4000u.wasm`.
 - `duplicate-import-elimination` is a **late module / boundary** pass, not a function-local peephole.
 - In Binaryen `version_130`, it scans only:
@@ -132,15 +127,15 @@ That is much closer to the real pass than either:
 
 - Binaryen `version_130` owner: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
 - Binaryen current-main owner checked on 2026-07-06: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateImportElimination.cpp>
-- [`../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md`](../../../raw/research/0519-2026-05-06-duplicate-import-elimination-direct-revalidation.md)
-- [`../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md`](../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md)
-- [`../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md`](../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md)
-- [`../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md)
+- research note 0519
+- research note 0123
+- research note 0205
+- research note 0269
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_130` implementation and test sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DuplicateImportElimination.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>

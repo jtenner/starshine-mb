@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

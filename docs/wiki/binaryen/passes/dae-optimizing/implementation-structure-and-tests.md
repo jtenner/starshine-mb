@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-27
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0687-2026-05-27-dae004-closeout-evidence.md
-  - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
-  - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
-  - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -53,7 +49,7 @@ The 2026-05-05 current-main recheck did not find teaching-relevant drift from th
 
 ## Exact source anchors
 
-- [`../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md`](../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md) keeps the reviewed upstream file pages and the current-main recheck together.
+- [research note 0487](./index.md) keeps the reviewed upstream file pages and the current-main recheck together.
 - `DeadArgumentElimination.cpp` is the main contract surface for the shared boundary rewrite engine.
 - `pass.cpp` is the public registration proof that `dae-optimizing` is a separate pass name.
 - `opt-utils.h` is the optimizing-only nested rerun suffix.

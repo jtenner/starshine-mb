@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
-  - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
@@ -447,8 +445,8 @@ That order keeps the Binaryen contract clear even when the local implementation 
 
 ## Sources
 
-- [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
-- [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
+- [research note 0144](./index.md)
+- [research note 0076](./index.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>

@@ -1,11 +1,9 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
-  - ../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
-  - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
+  - ./index.md
 related:
   - ./parity.md
   - ../../../../../scripts/lib/self-optimize-compare-task.ts
@@ -51,6 +49,6 @@ related:
 
 ## Sources
 
-- Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
-- Archived research doc: [`../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md)
+- Current closure note: [research note 0547](./index.md)
+- Durable owner: [research note 0074](./index.md)
 - Related parity page: [`./parity.md`](./parity.md)

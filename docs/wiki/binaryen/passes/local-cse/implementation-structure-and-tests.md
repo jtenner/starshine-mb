@@ -1,15 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
-  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
-  - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
-  - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
-  - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
-  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/local_cse.mbt
   - ../../../../../src/passes/local_cse_test.mbt
@@ -37,7 +31,7 @@ This page maps the Binaryen files and tests that define `local-cse`, then maps t
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle and [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md) plus [`../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md) as the latest freshness bridges. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
+Use Binaryen `version_129` as the tagged oracle and [research note 0453](./index.md) plus [research note 0495](./index.md) as the latest freshness bridges. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces, and the 2026-05-06 note only refreshed local line anchors.
 
 Primary upstream sources:
 

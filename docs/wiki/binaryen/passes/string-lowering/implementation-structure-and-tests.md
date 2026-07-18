@@ -3,12 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast
   - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
-  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
-  - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -188,8 +186,8 @@ So the working conclusion is:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md`](../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md)
-- [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
+- [research note 0284](./index.md)
+- [research note 0215](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

@@ -1,14 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
-  - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
-  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
-  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -131,9 +126,9 @@ Skipping any one of those will drift away from Binaryen's real contract. The fut
 
 ## Sources
 
-- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
-- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
-- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
+- [research note 0502](./index.md)
+- [research note 0480](./index.md)
+- [research note 0490](./index.md)
+- [research note 0417](./index.md)
+- [research note 0305](./index.md)
+- [research note 0168](./index.md)

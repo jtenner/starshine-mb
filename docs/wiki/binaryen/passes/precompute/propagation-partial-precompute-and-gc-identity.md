@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
-  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
-  - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

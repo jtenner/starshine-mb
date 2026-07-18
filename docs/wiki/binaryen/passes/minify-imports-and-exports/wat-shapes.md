@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
-  - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
+  - ../minify-imports/index.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

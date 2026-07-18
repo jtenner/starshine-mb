@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
-  - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
-  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
-  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./module-shapes.md
@@ -74,7 +71,7 @@ Required validation:
 
 - remove the name from `pass_registry_boundary_only_names()`;
 - update any registry tests that enumerate known boundary-only names;
-- update `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` if it still lists the old Batch 4 name;
+- update `docs/wiki/ir2/registry-map.md` if it still lists the old Batch 4 name;
 - keep this dossier as the migration record, and route current behavior to `remove-unused-module-elements`.
 
 ### Option C: implement the historical function-only pass literally
@@ -152,8 +149,8 @@ Use these instead:
 ## Sources
 
 - Binaryen [current-main `pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp) and [CLI help fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/help/wasm-opt.test)
-- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
-- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
+- [research note 0420](./index.md)
+- [research note 0339](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)

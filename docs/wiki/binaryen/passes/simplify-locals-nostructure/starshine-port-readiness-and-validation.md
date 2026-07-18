@@ -1,15 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1399-2026-06-30-slns-v130-source-refresh-and-tee-gap.md
-  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
-  - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
-  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
-  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -176,11 +170,11 @@ Keep those preset claims separate from direct-pass and exact-slot signoff so the
 
 ## Sources
 
-- [`../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md`](../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md)
-- [`../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md)
-- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
-- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
+- [research note 0543](./index.md)
+- [research note 0433](./index.md)
+- [research note 0368](./index.md)
+- [research note 0263](./index.md)
+- [research note 0117](./index.md)
 - Binaryen `version_130` pass source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp>
 - Binaryen `version_130` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
 - Binaryen `version_130` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/opt-utils.h>

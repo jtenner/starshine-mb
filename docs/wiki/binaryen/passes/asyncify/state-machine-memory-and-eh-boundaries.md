@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
-  - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
-  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -143,7 +141,7 @@ Until those pieces exist, the correct Starshine status remains unknown-pass with
 ## Sources
 
 - [Binaryen current `Asyncify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp)
-- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
+- [research note 0371](./index.md)
 - Binaryen current `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp>
 - Binaryen current `asyncify.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/asyncify.wast>
 - Emscripten Asyncify docs: <https://emscripten.org/docs/porting/asyncify.html>

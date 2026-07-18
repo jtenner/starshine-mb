@@ -1,12 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
-  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
-  - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
-  - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ./index.md
 related:
   - ./binaryen-strategy.md
@@ -152,10 +148,10 @@ A future Starshine port should preserve all of these source-backed facts:
 
 ## Sources
 
-- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
-- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
-- [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
-- [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
+- [research note 0475](./index.md)
+- [research note 0335](./index.md)
+- [research note 0216](./index.md)
+- [research note 0169](./index.md)
 - [`./index.md`](./index.md)
 - [`../constant-field-propagation/implementation-structure-and-tests.md`](../constant-field-propagation/implementation-structure-and-tests.md)
 - Binaryen `version_129` sources:

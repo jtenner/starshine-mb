@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
-  - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

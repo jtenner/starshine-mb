@@ -3,12 +3,11 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OptimizeInstructions.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions_idempotent.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions-gc.wast
-  - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
-  - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -168,6 +167,8 @@ This file proves the multivalue and tuple-related cleanup families, including th
 ### Consolidated selected-child proof ladder
 
 The local direct-HOT regression suite formerly advanced multi-result selected-child support one arity at a time through results 15–27. Every Binaryen probe produced the same algorithmic shape: materialize the selected child through tuple scratch, store scalar lanes in stack-pop order, and reload the requested lane. The implementation now uses a generalized non-empty scalar-result predicate rather than an arity list. Maintain one low-arity structural test, one high-arity regression, and the explicit unsupported ownership/sibling boundaries; adding another per-arity research note is not useful evidence.
+
+The generalized implementation audit also proved why this is not merely extrapolation from the arity ladder: Binaryen `visitTupleExtract` and `getDroppedChildrenAndAppend` have no selected-child numeric cap. Starshine's positive contract is structural—direct live one-use `TupleMake`, scalar selected-child lanes, stack-pop scratch stores, requested-lane reload, and safe sibling ownership—not numerical. Multi-result non-selected siblings, multi-use/local-carried tuples, and control/EH reconstruction remain separate boundaries.
 
 ### Consolidated pure-local descriptor-call proof matrix
 

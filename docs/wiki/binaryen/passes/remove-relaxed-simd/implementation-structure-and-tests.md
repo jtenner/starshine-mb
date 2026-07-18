@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
-  - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
-  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -15,7 +11,7 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
 supersedes:
-  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
+  - ./index.md
 ---
 
 # `remove-relaxed-simd` implementation structure and tests
@@ -100,11 +96,11 @@ The checks also found no teaching-level evidence for the older feature-gate word
 
 ## Sources
 
-- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
-- [`../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md`](../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md)
+- [research note 0501](./index.md)
+- [research note 0482](./index.md)
+- [research note 0437](./index.md)
+- [research note 0355](./index.md)
+- [research note 0322](./index.md)
 - Binaryen `RemoveRelaxedSIMD.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveRelaxedSIMD.cpp>
 - Binaryen `child-localizer.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/child-localizer.h>
 - Binaryen test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-relaxed-simd.wast>

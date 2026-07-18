@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.wast
-  - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
-  - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
@@ -245,8 +244,8 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
-- [`../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
-- [`../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md`](../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md)
+- [research note 0143](./index.md)
+- [research note 0220](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>

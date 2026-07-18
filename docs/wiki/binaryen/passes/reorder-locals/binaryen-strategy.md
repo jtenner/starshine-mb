@@ -1,15 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -25,7 +20,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_130` as the current O4Z audit oracle for this pass. The `version_130` owner and dedicated lit files are byte-identical to the previously reviewed `version_129` copies, so older `version_129` prose remains valid as provenance rather than the freshest oracle.
-For the current refresh, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md). The retained 2026-05-05 current-main recheck is recorded in [`../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md); [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the local validation and preset-readiness bridge.
+For the current refresh, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [research note 1400](./index.md). The retained 2026-05-05 current-main recheck is recorded in [research note 0472](./index.md); [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the local validation and preset-readiness bridge.
 
 Primary files:
 
@@ -344,7 +339,7 @@ Those last two belong to the Binaryen IR-builder and writer layers, not to `Reor
 
 ## Current O4Z inventory
 
-The 2026-07-02 refresh keeps the relevant transform-family inventory unchanged: params-only no-op, access counting, hot body-local sort, first-use ties, zero-count suffix truncation, user reindexing, local-name repair, no non-nullable fixups, no heavy analysis dependency, and three no-DWARF scheduler slots. Starshine maps all direct owner-family behavior through the module pass and focused tests. `[O4Z-AUDIT-RL]` is closed by the dedicated `reorder-locals-all` GenValid profile, four-lane compare signoff, pass-local timing probe, scheduler-scope wording, and `[AUDIT006-E]` invariant comment recorded in `1401-2026-07-02-reorder-locals-o4z-closeout.md`.
+The 2026-07-02 refresh keeps the relevant transform-family inventory unchanged: params-only no-op, access counting, hot body-local sort, first-use ties, zero-count suffix truncation, user reindexing, local-name repair, no non-nullable fixups, no heavy analysis dependency, and three no-DWARF scheduler slots. Starshine maps all direct owner-family behavior through the module pass and focused tests. `[O4Z-AUDIT-RL]` is closed by the dedicated `reorder-locals-all` GenValid profile, four-lane compare signoff, pass-local timing probe, scheduler-scope wording, and `[AUDIT006-E]` invariant comment recorded in `docs/wiki/binaryen/passes/reorder-locals/index.md`.
 
 ## Bottom line
 

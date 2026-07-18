@@ -1,17 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
-  - ../../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
-  - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../monomorphize-always/index.md
   - ../inlining/index.md
@@ -33,7 +32,7 @@ related:
 
 # Starshine strategy for `monomorphize`
 
-Use this page together with the retained 2026-04-24 follow-up research in [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md) and the direct tagged source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
+Use this page together with the retained 2026-04-24 follow-up research in [research note 0302](./index.md) and the direct tagged source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and option surfaces that already mention the pass family, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -80,7 +79,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/cmd/cmd_wbtest.mbt#L4227-L4245`](../../../../../src/cmd/cmd_wbtest.mbt#L4227-L4245)
     - verifies command resolution carries `monomorphize_min_benefit` through config/CLI merging
 - boundary-only portfolio planning
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61)
+  - [research note 0063](../../../ir2/registry-map.md)
     - `monomorphize` and `monomorphize-always` live in the whole-module/layout-transform bucket
 - current backlog reality
   - [`agent-todo.md`](../../../../../agent-todo.md)
@@ -259,7 +258,7 @@ Current Starshine `monomorphize` strategy is honest boundary-only tracking plus 
 - the pass names are intentionally preserved in [`src/passes/optimize.mbt#L127-L138`](../../../../../src/passes/optimize.mbt#L127-L138)
 - explicit requests are rejected at [`src/passes/optimize.mbt#L456-L462`](../../../../../src/passes/optimize.mbt#L456-L462)
 - `--monomorphize-min-benefit` is real option surface in [`src/cli/cli.mbt#L994-L1021`](../../../../../src/cli/cli.mbt#L994-L1021) and [`src/cmd/cmd.mbt#L1666-L1678`](../../../../../src/cmd/cmd.mbt#L1666-L1678)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61) places the pass in the whole-module/layout bucket
+- [research note 0063](../../../ir2/registry-map.md) places the pass in the whole-module/layout bucket
 - the surrounding [`monomorphize-always`](../monomorphize-always/index.md), [`inlining`](../inlining/index.md), [`inline-main`](../inline-main/index.md), and [`duplicate-function-elimination`](../duplicate-function-elimination/index.md) dossiers define the practical landing zone for a future port
 
 So the right mental model today is not “nothing exists locally.”

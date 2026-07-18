@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
-  - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
-  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/lower_to_lib.mbt

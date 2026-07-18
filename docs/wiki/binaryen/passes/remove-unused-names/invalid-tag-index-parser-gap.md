@@ -1,9 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../scripts/test/pass-fuzz-compare-command.ts
@@ -31,6 +31,6 @@ related:
 
 ## Sources
 
-- Archived research doc: [`../../../raw/research/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md`](../../../raw/research/0072-2026-03-28-run-invalid-tag-index-binaryen-parser-gap.md)
+- Durable owner: research note 0072
 - Harness classification: [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - Harness tests: [`../../../../../scripts/test/pass-fuzz-compare-command.ts`](../../../../../scripts/test/pass-fuzz-compare-command.ts)

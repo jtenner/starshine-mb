@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -57,7 +55,7 @@ The local repo makes the scheduler facts explicit in [`./starshine-strategy.md`]
 
 - it remains boundary-only in `src/passes/optimize.mbt`
 - `src/passes/pass_manager.mbt` has no module-pass dispatcher case for it
-- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still lists it among whole-module transforms
+- `docs/wiki/ir2/registry-map.md` still lists it among whole-module transforms
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
 - the upstream implementation itself requires flat input through `Flat::verifyFlatness(func)`
 

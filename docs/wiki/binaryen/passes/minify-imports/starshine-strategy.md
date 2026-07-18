@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
-  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
-  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt

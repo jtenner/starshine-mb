@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
-  - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
-  - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
-  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-nonfunction-module-elements_all-features.wast
 related:
@@ -25,7 +22,7 @@ related:
 
 ## Why this page exists
 
-This page is anchored by direct tagged source URLs in the dossier and the retained 2026-05-05 current-main recheck summary [`../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). The local implementation ladder for this exact defined-vs-imported boundary is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page is anchored by direct tagged source URLs in the dossier and the retained 2026-05-05 current-main recheck summary [research note 0458](./index.md). The local implementation ladder for this exact defined-vs-imported boundary is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 This is the easiest part of the sibling to misread. It explains the special **function-root** policy only; it does not replace shared RUME constraints such as preserving trap-sensitive table initialization for `call_indirect`. The shared-engine current-main source is [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp).
 

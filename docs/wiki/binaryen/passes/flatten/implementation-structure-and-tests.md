@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -105,13 +105,10 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
-  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
-  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
-  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/execution-plan.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -245,7 +242,7 @@ This is not optional cleanup: flatten can insert blocks inside `catch`, and lega
 | `src/validate/gen_valid.mbt` | `flatten-all` aggregate across portable, stress, SSA, GC, subtyping, local, and call/convergence profiles. |
 | `scripts/lib/pass-fuzz-compare-task.ts` | Binaryen `--flatten` mapping and compare normalization. |
 | `scripts/test/pass-fuzz-normalization-fixtures.ts` | Exact local-copy, producer-temp, reference-temp, block-shell, naming, and cleanup normalization fixtures. |
-| `docs/wiki/raw/research/1569-2026-07-17-flatten-public-parity-closeout.md` | Current behavior/fuzz closeout evidence. |
+| `docs/wiki/binaryen/passes/flatten/index.md` | Current behavior/fuzz closeout evidence. |
 
 The generated API snapshot intentionally exposes `HotLowerOptions.preserve_flat_ir_spills` and `GenValidProfile::FlattenAllProfile`.
 
@@ -553,13 +550,13 @@ The source-backed contract is narrower and more structural: enforce Flat IR by s
 ## Sources
 
 - Binaryen current-main [`Flatten.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Flatten.cpp)
-- [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
-- [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)
+- [research note 0422](./index.md)
+- [research note 0360](./index.md)
 - Binaryen current `main` `Flatten.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Flatten.cpp>
 - Binaryen current `main` `flat.h`: <https://github.com/WebAssembly/binaryen/blob/main/src/ir/flat.h>
 - Binaryen current `main` `flatten_all-features.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten_all-features.wast>
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
-- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0065](../../../ir2/execution-plan.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

@@ -1,16 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -54,7 +53,7 @@ It is a whole-module specialization pass that needs:
 - nested optimization of the new clone
 - a public policy split from ordinary `monomorphize`
 
-That puts it beside the other module/boundary passes in `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`, where `monomorphize` and `monomorphize-always` are both listed under whole-module or layout transforms.
+That puts it beside the other module/boundary passes in `docs/wiki/ir2/registry-map.md`, where `monomorphize` and `monomorphize-always` are both listed under whole-module or layout transforms.
 
 ## Current Starshine code map
 
@@ -85,7 +84,7 @@ That puts it beside the other module/boundary passes in `../../../raw/research/0
 
 ### Planning and backlog surfaces
 
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
   - Places `monomorphize` and `monomorphize-always` in the whole-module / layout-transform family.
 - [`agent-todo.md`](../../../../../agent-todo.md)
   - No current dedicated `monomorphize-always` slice was found in this run.
@@ -146,11 +145,11 @@ A future implementation should validate in layers:
 
 ## Sources
 
-- [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
+- [research note 0318](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

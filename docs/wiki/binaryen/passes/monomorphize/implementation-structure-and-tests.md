@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
-  - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast
@@ -26,7 +25,7 @@ related:
 
 # Upstream implementation structure and test map for `monomorphize`
 
-The original 2026-04-24 tagged source review for this file map is retained in [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md); the direct tagged source and lit URLs remain listed below.
+The original 2026-04-24 tagged source review for this file map is retained in [research note 0302](./index.md); the direct tagged source and lit URLs remain listed below.
 
 ## Main implementation files
 
@@ -224,8 +223,8 @@ Three things are easy to miss without the source map:
 
 ## Sources
 
-- [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
-- [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
+- [research note 0176](./index.md)
+- [research note 0233](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast>

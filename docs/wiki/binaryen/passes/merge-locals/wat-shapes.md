@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
-  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
-  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
-  - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

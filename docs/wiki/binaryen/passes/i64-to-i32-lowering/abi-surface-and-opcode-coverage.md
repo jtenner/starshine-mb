@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/abi/js.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/asmjs/shared-constants.h
@@ -220,8 +218,8 @@ For Starshine, this matrix should be consumed as a staged checklist, not a singl
 
 ## Sources
 
-- [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)
+- [research note 0299](./index.md)
+- [research note 0197](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/abi/js.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/asmjs/shared-constants.h>

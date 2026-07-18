@@ -3,14 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
-  - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
-  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
-  - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
-  - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
-  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
+  - ../../release-horizon-and-oracles.md
+  - ../tracker.md
   - ../../../../../src/passes/heap2local.mbt
   - ../../../../../src/passes/heap2local_test.mbt
   - ../../../../../src/passes/heap2local_primary_test.mbt
@@ -18,7 +12,7 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
@@ -146,7 +140,7 @@ What it actually is in Binaryen v131:
   - Current in-tree Starshine parity state, focused coverage, dedicated GenValid profile status, and the current boundary between active Starshine parity and broader upstream-only fixup surface.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current Starshine HOT-IR strategy, now with an exact MoonBit registry / dispatcher / candidate-analysis / rewrite / test map so readers can move directly from the dossier into `src/passes/heap2local.mbt`.
-- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- research note 0365
   - Absorbed 2026-04-25 source/code-map follow-up retaining the tagged `version_129` release, source, and lit-test provenance used by this dossier.
 
 ## V131 freshness note
@@ -157,7 +151,7 @@ V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple opt
 
 ## Current maintenance rule
 
-- 2026-05-06 direct revalidation: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local` compared 6759/10000 cases with 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. See [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md).
+- 2026-05-06 direct revalidation: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local` compared 6759/10000 cases with 6759 normalized matches, 0 mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. See research note 0531.
 - Treat this folder as the canonical home for future `heap2local` parity and scheduler research.
 - Keep the main correction explicit:
   - upstream `heap2local` is conservative GC scalarization, not generic stack allocation
@@ -169,13 +163,13 @@ V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple opt
 
 ## Sources
 
-- [`../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md`](../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md)
-- [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
-- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- research note 1402
+- research note 0531
+- research note 0365
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-- [`../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md`](../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md)
-- [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
-- [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
+- research note 0135
+- research note 0075
+- [research note 0078](../tracker.md)
 - [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
 - [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)
 - [`../../../../../src/passes/heap2local_primary_test.mbt`](../../../../../src/passes/heap2local_primary_test.mbt)
@@ -183,7 +177,7 @@ V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple opt
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

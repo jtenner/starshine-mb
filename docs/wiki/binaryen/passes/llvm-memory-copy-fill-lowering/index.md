@@ -1,10 +1,8 @@
 ---
 kind: pass
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md
-  - ../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/binary/encode.mbt
@@ -92,4 +90,4 @@ Binaryen's implementation creates temporary empty helper stubs, rewrites uses, p
 - [`starshine-strategy.md`](starshine-strategy.md) - current local status and future port map.
 - [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - first-slice implementation order, validation ladder, and oracle boundaries.
 
-[^sources]: See the retained [`2026-04-26 source dossier`](../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md) and [`port-readiness follow-up`](../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md), plus the direct Binaryen owner and registration sources cited throughout this dossier.
+[^sources]: See the retained `2026-04-26 source dossier` and `port-readiness follow-up`, plus the direct Binaryen owner and registration sources cited throughout this dossier.

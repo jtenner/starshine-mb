@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
-  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -37,7 +36,7 @@ related:
 
 # Starshine Strategy For `constant-field-propagation`
 
-Use this page together with the retained [`2026-05-05 archived research recheck`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md), which carries direct `version_129` and then-current-`main` comparison anchors.
+Use this page together with the retained [`2026-05-05 archived research recheck`](./index.md), which carries direct `version_129` and then-current-`main` comparison anchors.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 The companion implementation-readiness bridge lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 

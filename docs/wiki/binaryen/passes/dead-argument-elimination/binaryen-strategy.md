@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
-  - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -25,7 +21,7 @@ related:
 - The retained 2026-05-04 current-main research digest and the 2026-04-26 readiness check retain the source bridge for this dossier.
 - The official `version_129` GitHub release page was re-checked on 2026-04-24 and showed publish date **2026-04-01 14:31**.
 - A focused 2026-05-04 current-`main` recheck on the owner file, registration file, helper headers, and dedicated lit roster again did not surface a teaching-relevant contract drift beyond this page's claims.
-- The retained 2026-04-26 implementation-readiness digest in [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md) records the same no-drift conclusion and the Starshine implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The retained 2026-04-26 implementation-readiness digest in [research note 0406](./index.md) records the same no-drift conclusion and the Starshine implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - The core implementation is `src/passes/DeadArgumentElimination.cpp`.
 - Public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp`.
 - The nested cleanup helper that only the optimizing variant uses lives in `src/passes/opt-utils.h`.

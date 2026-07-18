@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-09
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -159,7 +158,7 @@ After preset enablement, the branch still needs all of:
 
 ## Sources
 
-- Archived project note: [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
+- Archived project note: [research note 0076](./index.md)
 - Current Starshine registry and preset surface: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Explicit scheduler dispatch: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Canonical Binaryen no-DWARF pathway page: [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

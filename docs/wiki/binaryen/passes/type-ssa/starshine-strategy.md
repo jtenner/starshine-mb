@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
-  - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
-  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
-  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/global_refining.mbt
@@ -26,7 +23,7 @@ related:
 
 # Starshine Strategy For `type-ssa`
 
-Use this page with the retained [2026-04-26 source-correction research note](../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md), the retained 2026-06-01 [freshness recheck](../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md), and the retained [port-readiness research note](../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md).
+Use this page with the retained [2026-04-26 source-correction research note](./index.md), the retained 2026-06-01 [freshness recheck](./index.md), and the retained [port-readiness research note](./index.md).
 
 ## Honest current status
 

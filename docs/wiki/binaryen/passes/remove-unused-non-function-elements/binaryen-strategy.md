@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
-  - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
-  - ../../../raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
-  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h

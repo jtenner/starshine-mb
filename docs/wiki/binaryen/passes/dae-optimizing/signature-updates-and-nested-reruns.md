@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
-  - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
-  - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -268,7 +265,7 @@ The nested replay is how Binaryen cashes in on those opportunities immediately.
 
 The repo’s saved generated-artifact log proves this is not just source-comment theory.
 
-The committed DAE research note [`0120`](../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md) records the local `.artifacts/o4z-wasm-opt-debug.log` replay identifier plus the counted nested rerun family between the top-level `dae-optimizing` and `inlining-optimizing` log intervals.
+The committed DAE research note [`0120`](./index.md) records the local `.artifacts/o4z-wasm-opt-debug.log` replay identifier plus the counted nested rerun family between the top-level `dae-optimizing` and `inlining-optimizing` log intervals.
 That recorded replay is why the pass belongs in the tracker as a boundary-only pass with nested-rerun support, not just as “yet another missing module pass.”
 
 ## 10. The pass intentionally avoids some low-value work

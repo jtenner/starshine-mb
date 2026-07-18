@@ -1,51 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0844-2026-06-20-heap-store-optimization-cross-family-store-swap.md
-  - ../../../raw/research/0843-2026-06-20-heap-store-optimization-branch-wrapper-growth-boundaries.md
-  - ../../../raw/research/0842-2026-06-20-heap-store-optimization-branch-wrapper-passive-boundaries.md
-  - ../../../raw/research/0841-2026-06-20-heap-store-optimization-branch-wrapper-copy-boundaries.md
-  - ../../../raw/research/0840-2026-06-20-heap-store-optimization-branch-wrapper-bulk-fill-boundaries.md
-  - ../../../raw/research/0839-2026-06-20-heap-store-optimization-branch-wrapper-constructor-pingpong.md
-  - ../../../raw/research/0838-2026-06-20-heap-store-optimization-branch-wrapper-table-global-swap.md
-  - ../../../raw/research/0837-2026-06-20-heap-store-optimization-branch-wrapper-global-swap.md
-  - ../../../raw/research/0836-2026-06-20-heap-store-optimization-deep-nested-growth-bulk-boundaries.md
-  - ../../../raw/research/0835-2026-06-20-heap-store-optimization-nested-wrapped-growth-bulk-boundaries.md
-  - ../../../raw/research/0834-2026-06-20-heap-store-optimization-nested-wrapped-growth-passive-boundaries.md
-  - ../../../raw/research/0833-2026-06-20-heap-store-optimization-wrapped-growth-passive-boundaries.md
-  - ../../../raw/research/0832-2026-06-20-heap-store-optimization-wrapped-passive-boundaries.md
-  - ../../../raw/research/0831-2026-06-20-heap-store-optimization-wrapped-copy-boundaries.md
-  - ../../../raw/research/0830-2026-06-20-heap-store-optimization-loop-wrapped-bulk-fill-boundaries.md
-  - ../../../raw/research/0829-2026-06-20-heap-store-optimization-wrapped-bulk-fill-boundaries.md
-  - ../../../raw/research/0828-2026-06-20-heap-store-optimization-mixed-index-copy-boundaries.md
-  - ../../../raw/research/0827-2026-06-20-heap-store-optimization-multi-index-copy-boundaries.md
-  - ../../../raw/research/0826-2026-06-20-heap-store-optimization-multi-index-bulk-boundaries.md
-  - ../../../raw/research/0825-2026-06-20-heap-store-optimization-table-grow-bulk-boundaries.md
-  - ../../../raw/research/0824-2026-06-20-heap-store-optimization-memory-grow-bulk-boundaries.md
-  - ../../../raw/research/0823-2026-06-20-heap-store-optimization-memory-grow-data-boundaries.md
-  - ../../../raw/research/0822-2026-06-20-heap-store-optimization-table-grow-elem-boundaries.md
-  - ../../../raw/research/0821-2026-06-20-heap-store-optimization-table-size-elem-boundaries.md
-  - ../../../raw/research/0820-2026-06-20-heap-store-optimization-memory-size-data-segment-boundaries.md
-  - ../../../raw/research/0819-2026-06-20-heap-store-optimization-memory-size-memory-bulk-boundaries.md
-  - ../../../raw/research/0818-2026-06-20-heap-store-optimization-table-size-table-set-swap.md
-  - ../../../raw/research/0817-2026-06-20-heap-store-optimization-global-set-value-read-swap.md
-  - ../../../raw/research/0816-2026-06-20-heap-store-optimization-unrelated-global-swap.md
-  - ../../../raw/research/0815-2026-06-20-heap-store-optimization-growth-store-swap-boundaries.md
-  - ../../../raw/research/0814-2026-06-20-heap-store-optimization-nested-wrapper-swap.md
-  - ../../../raw/research/0813-2026-06-20-heap-store-optimization-wrapped-constructor-pingpong.md
-  - ../../../raw/research/0812-2026-06-20-heap-store-optimization-loop-wrapped-table-grow-swap.md
-  - ../../../raw/research/0811-2026-06-20-heap-store-optimization-loop-wrapped-memory-grow-swap.md
-  - ../../../raw/research/0810-2026-06-20-heap-store-optimization-loop-wrapped-table-size-swap.md
-  - ../../../raw/research/0808-2026-06-20-heap-store-optimization-if-wrapped-table-grow-swap.md
-  - ../../../raw/research/0809-2026-06-20-heap-store-optimization-if-wrapped-table-size-swap.md
-  - ../../../raw/research/0807-2026-06-20-heap-store-optimization-if-wrapped-memory-grow-swap.md
-  - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
-  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
-  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
-  - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
+  - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -58,7 +16,6 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-port-readiness-and-validation.md
-  - ../../../raw/research/0530-2026-05-06-heap-store-optimization-direct-revalidation.md
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
 ---
@@ -101,7 +58,7 @@ not:
 
 ## Exact local code map
 
-Use this page together with the current source bridge in [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the current source bridge in [research note 0448](./index.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The fastest read-along path through the current MoonBit implementation is:
 
 - registry descriptor and one-line public summary

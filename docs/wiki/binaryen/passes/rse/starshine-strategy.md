@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
-  - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
-  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
-  - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/rse_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -179,4 +176,4 @@ Three local design decisions remain open:
 
 - **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine exposes the long CLI/registry name and maps `--rse` inside compare harnesses.
 - **CFG/value substrate:** Binaryen still uses a fuller work-queue fixed-point implementation, while Starshine uses targeted source-faithful raw loop probes and merge tracking. The 2026-07-05 official all-features replay closes the known source/test residuals without widening into liveness-backed dead-store elimination. Reopen this question only for a new Binaryen source/test family, generated true RSE-owned mismatch, or a loop/control case not covered by the current matrix.
-- **Performance owner:** the 2026-07-05 timing note [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md) records the initial pass-local miss and the completed i32 fast-path follow-up. Starshine is now below Binaryen's `BINARYEN_PASS_DEBUG=1` direct `--rse` pass medians on the established 1000-function and 3000-function straight/loop-heavy synthetic fixtures; reopen only for a regression on those fixtures or a representative direct RSE workload with a new pass-local owner.
+- **Performance owner:** the 2026-07-05 timing note [research note 1463](./index.md) records the initial pass-local miss and the completed i32 fast-path follow-up. Starshine is now below Binaryen's `BINARYEN_PASS_DEBUG=1` direct `--rse` pass medians on the established 1000-function and 3000-function straight/loop-heavy synthetic fixtures; reopen only for a regression on those fixtures or a representative direct RSE workload with a new pass-local owner.

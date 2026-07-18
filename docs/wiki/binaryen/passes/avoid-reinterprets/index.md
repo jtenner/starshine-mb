@@ -1,16 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
-  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
-  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 related:
@@ -101,13 +97,13 @@ So this pass is best taught as:
 ## Sources
 
 - [Binaryen current `AvoidReinterprets.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp)
-- [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
-- [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
-- [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
+- research note 0456
+- research note 0381
+- research note 0281
+- research note 0172
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` and current-main sources:

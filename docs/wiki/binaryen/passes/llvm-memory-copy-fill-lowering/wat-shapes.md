@@ -1,10 +1,9 @@
 ---
 kind: shape-catalog
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md
-  - ../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md
+  - ./index.md
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/binary/encode.mbt

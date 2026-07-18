@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md
-  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
-  - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
-  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -17,7 +14,8 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../signature-pruning/index.md
@@ -37,7 +35,7 @@ related:
 
 # Starshine Strategy For `signature-refining`
 
-Use this page together with the current source correction in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md), the retained 2026-05-05 research recheck [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md), the 2026-04-26 readiness source inventory, and the retained 2026-04-24 research inventory in [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md).
+Use this page together with the current source correction in [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md), the typed-function-reference boundary in [`../../../wasm-typed-function-references-boundary.md`](../../../wasm-typed-function-references-boundary.md), the retained 2026-05-05 research recheck [research note 0451](./index.md), the 2026-04-26 readiness source inventory, and the retained 2026-04-24 research inventory in [research note 0307](./index.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 For implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That bridge spells out the safe no-rewrite analyzer, first direct-call param-refinement slice, later result/`call_ref`/`call.without.effects` slices, and validation ladder.
@@ -82,7 +80,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/registry_test.mbt#L2-L20`](../../../../../src/passes/registry_test.mbt#L2-L20)
     - the registry classification test keeps the active / boundary-only / removed split explicit, which is the local guard the preset-path relies on.
 - boundary-only planning provenance
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60)
+  - [research note 0063](../../../ir2/registry-map.md)
     - the pass-port map groups `signature-refining` with type, global, and signature shaping names rather than HOT cleanup names.
 - function type and nominal type representation a future port would have to rewrite
   - [`src/lib/types.mbt#L98-L105`](../../../../../src/lib/types.mbt#L98-L105)
@@ -266,9 +264,9 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-signature-refining-v130-current-main-continuation-world-mode-recheck.md)
-- [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
-- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- [research note 0451](./index.md)
+- [research note 0307](./index.md)
+- [research note 0152](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
@@ -278,5 +276,5 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 - [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
 - [`../../../../../src/binary/encode.mbt`](../../../../../src/binary/encode.mbt)
 - [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

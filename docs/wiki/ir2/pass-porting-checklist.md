@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0062-2026-03-24-pass-porting-checklist.md
   - ../../../src/passes/registry_test.mbt
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../../../src/lib/types.mbt
@@ -71,7 +70,7 @@ related:
 
 ## Sources
 
-- Archived original pass-porting note: [`../raw/research/0062-2026-03-24-pass-porting-checklist.md`](../raw/research/0062-2026-03-24-pass-porting-checklist.md)
+- Archived original pass-porting note: research note 0062
 - Current GC type/subtyping bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Shared helper layer: [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
 - Shared helper tests: [`../../../src/passes/pass_common_test.mbt`](../../../src/passes/pass_common_test.mbt)

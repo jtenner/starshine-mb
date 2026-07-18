@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs.wast
   - https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/remove-unused-brs-gc.wast

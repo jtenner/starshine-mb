@@ -1,13 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
-  - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
-  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
-  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
-  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
   - ../tracker.md
   - ../index.md
   - ../../../../../src/passes/optimize.mbt
@@ -50,7 +45,7 @@ The real Binaryen `version_129` and current-main contract is:
 - rewrite those allocation result types to exact non-null fresh types,
 - then refinalize ordinary functions and module code.
 
-Treat the older `createdTypes` / call-operand / return-retagging story as **superseded** by the retained [2026-04-26 source-correction research note](../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md).
+Treat the older `createdTypes` / call-operand / return-retagging story as **superseded** by the retained 2026-04-26 source-correction research note.
 
 ## Beginner summary
 
@@ -111,8 +106,8 @@ For a future Starshine port, validation must compare against Binaryen's allocati
 
 ## Sources
 
-- [`../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md`](../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md)
-- [`../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md`](../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md)
+- research note 0409
+- research note 0386
 - Official Binaryen sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeSSA.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

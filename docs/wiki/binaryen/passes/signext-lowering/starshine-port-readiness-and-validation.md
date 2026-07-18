@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
-  - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
-  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/wast/types.mbt

@@ -1,21 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
-  - ../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md
-  - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
-  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../release-horizon-and-oracles.md
-  - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
-  - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/LocalGraph.cpp
@@ -89,7 +83,7 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
 
 ## Supersession: direct closeout and JSON-AS audit
 
-The long `[SSANM-*]` status bullets above preserve the June execution history. Their current-state wording is superseded by the 2026-06-18 direct-pass closeout in [`parity.md`](parity.md): the direct `ssa-nomerge` audit is closed, and `agent-todo.md` keeps the sibling full-`ssa`, JSON-AS preset/replay, and whole-command timing work separate rather than treating them as direct-pass blockers. The completed JSON-AS whitespace-SIMD runtime investigation is archived at [`1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md). It records four fixed local alias/canonical-write hazards and their source/test routes; it does not reopen direct-pass parity or claim JSON-AS preset-size parity.
+The long `[SSANM-*]` status bullets above preserve the June execution history. Their current-state wording is superseded by the 2026-06-18 direct-pass closeout in [`parity.md`](parity.md): the direct `ssa-nomerge` audit is closed, and `agent-todo.md` keeps the sibling full-`ssa`, JSON-AS preset/replay, and whole-command timing work separate rather than treating them as direct-pass blockers. The completed JSON-AS whitespace-SIMD runtime investigation is archived at `docs/wiki/binaryen/passes/ssa-nomerge/index.md`. It records four fixed local alias/canonical-write hazards and their source/test routes; it does not reopen direct-pass parity or claim JSON-AS preset-size parity.
 
 ## Most important durable takeaways
 
@@ -178,16 +172,16 @@ So the durable rule is:
 
 ## Sources
 
-- [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
-- [`../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md)
-- [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
-- [`../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
+- research note 0722
+- research note 1558
+- research note 0431
+- research note 0141
 - [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt)
 - [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>

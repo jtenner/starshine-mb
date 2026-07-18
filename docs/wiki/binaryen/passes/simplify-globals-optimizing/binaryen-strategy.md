@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
-  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
-  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -25,7 +22,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the stable source oracle for this pass, with the 2026-05-18 current-`main` refresh as a no-drift check rather than a replacement contract.
-- The retained 2026-04-24 research inventory and [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md) record the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, lit-test roster, and focused port-readiness recheck.
+- The retained 2026-04-24 research inventory and [research note 0376](./index.md) record the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, lit-test roster, and focused port-readiness recheck.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - The nested-runner behavior also depends on `src/pass.h`.
@@ -39,7 +36,7 @@ related:
 
 Primary source URLs:
 
-- 2026-05-18 current-main refresh: [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md), which observed official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) and found no SGO semantic drift from `version_129`.
+- 2026-05-18 current-main refresh: [research note 0570](./index.md), which observed official Binaryen `main` at commit `d3029d2b975488acdf9253eb2994a3fc55bd3549` (committer date 2026-05-15) and found no SGO semantic drift from `version_129`.
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
@@ -490,7 +487,7 @@ Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-
 
 ## Sources
 
-- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
-- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
-- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
+- [research note 0570](./index.md)
+- [research note 0376](./index.md)
+- [research note 0286](./index.md)
+- [research note 0122](./index.md)

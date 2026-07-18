@@ -4,12 +4,9 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
-  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
-  - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

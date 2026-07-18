@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentLocals.cpp
-  - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
-  - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -23,7 +21,7 @@ related:
 
 # `instrument-locals` implementation structure and tests
 
-The retained 2026-04-24 source review for this owner/test map is [`../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md).
+The retained 2026-04-24 source review for this owner/test map is [research note 0287](./index.md).
 
 ## Owner file map
 

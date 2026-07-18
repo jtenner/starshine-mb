@@ -1,16 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
-  - ../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md
-  - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
-  - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
-  - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0068-2026-03-25-global-struct-inference.md
-  - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
-  - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
+  - ./index.md
 related:
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
@@ -20,7 +14,7 @@ related:
   - ../../../../../src/passes/global_struct_inference_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
 ---
 
 # `global-struct-inference` Binaryen parity
@@ -1055,14 +1049,14 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 ## Sources
 
 - Released/current-main source set: Binaryen [`version_130` owner](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp) and [current-main owner](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalStructInference.cpp)
-- Current follow-up note: [`../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md`](../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md)
-- Older follow-up note: [`../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
-- Behavior-gap closeout inventory: [`../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md`](../../../raw/research/0718-2026-06-08-global-struct-inference-behavior-gap-inventory.md)
-- Direct revalidation note: [`../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md`](../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md)
-- Archived earlier note: [`../../../raw/research/0068-2026-03-25-global-struct-inference.md`](../../../raw/research/0068-2026-03-25-global-struct-inference.md)
-- Updated research note: [`../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
+- Current follow-up note: [research note 0506](./index.md)
+- Older follow-up note: [research note 0344](./index.md)
+- Behavior-gap closeout inventory: [research note 0718](./index.md)
+- Direct revalidation note: [research note 0529](./index.md)
+- Archived earlier note: [research note 0068](./index.md)
+- Updated research note: [research note 0140](./index.md)
 - Implementation: [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)
 - Focused tests: [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt)
 - Dispatch/options surface: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Registry/preset surface: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- Saved artifact audit: [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the generated-artifact summary and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- Saved artifact audit: [research note 0093](../late-pipeline-dispatch.md) preserves the generated-artifact summary and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.

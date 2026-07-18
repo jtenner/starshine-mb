@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inline-main.wast
@@ -20,7 +19,7 @@ related:
 
 ## Source anchor
 
-Use Binaryen `version_129` as the current source oracle for this pass. The retained 2026-04-24 source review is [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md), which also records the narrow current-main drift check and the exact official source/test URL set.
+Use Binaryen `version_129` as the current source oracle for this pass. The retained 2026-04-24 source review is [research note 0319](./index.md), which also records the narrow current-main drift check and the exact official source/test URL set.
 
 ## One-sentence summary
 
@@ -242,8 +241,8 @@ That separate public identity should be preserved locally.
 
 ## Sources
 
-- [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
+- [research note 0319](./index.md)
+- [research note 0177](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inline-main.wast>

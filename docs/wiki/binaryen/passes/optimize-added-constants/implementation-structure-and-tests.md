@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
+  - ./index.md
+  - ../optimize-added-constants-propagate/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -20,7 +18,7 @@ related:
 # `optimize-added-constants` implementation structure and tests
 
 This page is the file-and-test map for Binaryen `version_129` plain `optimize-added-constants`.
-The original 2026-04-24 tagged source review is retained through [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md) and direct tagged URLs; the retained current-main source anchor is [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md).
+The original 2026-04-24 tagged source review is retained through [research note 0300](./index.md) and direct tagged URLs; the retained current-main source anchor is [research note 0465](./index.md).
 
 ## Core source files
 

@@ -1,15 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
-  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
-  - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderFunctions.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
 related:
   - ./index.md
   - ./binaryen-strategy.md

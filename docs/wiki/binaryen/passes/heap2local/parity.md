@@ -3,14 +3,9 @@ kind: comparison
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
-  - ../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md
-  - ../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md
-  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
-  - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
-  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
-  - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ../tracker.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -85,13 +80,13 @@ The older nondefaultable-local/refinalization boundary remains separate and is s
 
 ## Sources
 
-- GenValid profile start: [`../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md`](../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md)
-- Backlog-closure review: [`../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md`](../../../raw/research/0553-2026-05-08-heap2local-backlog-closure.md)
-- Refreshed direct revalidation: [`../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](../../../raw/research/0531-2026-05-06-heap2local-direct-revalidation.md)
-- Current source/code-map follow-up: [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- GenValid profile start: [research note 1402](./index.md)
+- Backlog-closure review: [research note 0553](./index.md)
+- Refreshed direct revalidation: [research note 0531](./index.md)
+- Current source/code-map follow-up: [research note 0365](./index.md)
 - Implementation/test-map page: [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-- Archived research doc: [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
-- Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
+- Durable owner: [research note 0075](./index.md)
+- Supplemental health rerun: [research note 0078](../tracker.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp>
 - Implementation: [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
 - Focused tests: [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)

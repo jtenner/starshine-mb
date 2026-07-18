@@ -1,16 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
-  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
-  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
-  - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
-  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/string_gathering.mbt
   - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -19,7 +12,6 @@ sources:
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../../../strings/string-const-surface.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
@@ -142,16 +134,16 @@ That is much closer to the real pass than either:
 
 ## Sources
 
-- [`../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md`](../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md)
-- [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
-- [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
-- [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)
-- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
+- research note 0526
+- research note 0377
+- research note 0124
+- research note 0206
+- research note 0280
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../../strings/string-const-surface.md`](../../../strings/string-const-surface.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` implementation and test sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>

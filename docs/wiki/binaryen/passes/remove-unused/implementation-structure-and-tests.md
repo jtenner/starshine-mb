@@ -3,12 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
-  - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
-  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
-  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
-  - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -129,9 +126,9 @@ The implementation/test map says the local wiki should teach `remove-unused` as:
 ## Sources
 
 - Binaryen [current-main `pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp) and [CLI help fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/help/wasm-opt.test)
-- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
-- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
-- [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
+- [research note 0420](./index.md)
+- [research note 0339](./index.md)
+- [research note 0195](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/passes.h>

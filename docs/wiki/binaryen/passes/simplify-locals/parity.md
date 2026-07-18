@@ -1,10 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
-  - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
+  - ./index.md
   - ../../../../../agent-todo.md
   - ../../../../../CHANGELOG.md
   - ../../../../../src/passes/simplify_locals_test.mbt
@@ -41,7 +40,7 @@ related:
   - [`src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
   - [`src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`](../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt)
 - The refreshed 2026-05-06 direct pass-fuzz lane is green after the fuzzer / harness audit:
-  - `.tmp/pass-fuzz-simplify-locals` reached `6759/10000` compared cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`0541-2026-05-06-simplify-locals-direct-revalidation.md`](../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md).
+  - `.tmp/pass-fuzz-simplify-locals` reached `6759/10000` compared cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`docs/wiki/binaryen/passes/simplify-locals/index.md`](./index.md).
 - The 2026-04-14 native-binary fuzz lane is historical green evidence:
   - `.tmp/pass-fuzz-sl-current-2026-04-14` finished at `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
 - The current 2026-04-14 debug-artifact self-opt compare is semantically green at the canonical level:

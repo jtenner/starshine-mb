@@ -1,16 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
-  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
-  - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
-  - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../ir2/registry-map.md
+  - ../../../ir2/execution-plan.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 related:
@@ -29,7 +25,7 @@ related:
 
 - `loop-invariant-code-motion` is a real Binaryen pass, but the upstream public pass name is the shorter alias **`licm`**.
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md).
+- The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [research note 0063](../../../ir2/registry-map.md) and [research note 0065](../../../ir2/execution-plan.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
@@ -74,8 +70,8 @@ So this pass is best taught as:
 The archived 2026-04-21 research note remains useful history, but its temp-local phrasing is stale.
 Use the direct `version_129` source URLs below and retained 2026-04-24 follow-up as the corrected interpretation, plus the retained 2026-04-25 research bridge and 2026-06-02 recheck as the current-main freshness and Starshine port-readiness sources:
 
-- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
-- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
+- research note 0378
+- research note 0282
 
 Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitrary value expressions.
 
@@ -103,14 +99,14 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
 
 ## Sources
 
-- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
-- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
-- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
-- [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
+- research note 0378
+- research note 0696
+- research note 0282
+- research note 0173
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
+- [research note 0063](../../../ir2/registry-map.md)
+- [research note 0065](../../../ir2/execution-plan.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen primary sources:

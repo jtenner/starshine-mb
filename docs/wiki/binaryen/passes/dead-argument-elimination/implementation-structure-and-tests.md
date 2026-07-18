@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
-  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
-  - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
@@ -36,7 +32,7 @@ related:
 
 This page is the compact owner-file and proof-surface map for Binaryen `version_129` plain `dead-argument-elimination` / `dae`.
 
-The retained 2026-05-04 current-main research digest preserves the reviewed `version_129` source/test anchors and the later no-teaching-drift result; the retained 2026-04-26 Starshine-readiness digest is [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md), and the local validation ladder is [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The retained 2026-05-04 current-main research digest preserves the reviewed `version_129` source/test anchors and the later no-teaching-drift result; the retained 2026-04-26 Starshine-readiness digest is [research note 0406](./index.md), and the local validation ladder is [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Biggest source-confirmation result
 

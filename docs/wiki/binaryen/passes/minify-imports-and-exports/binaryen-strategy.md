@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
-  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
-  - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
+  - ./index.md
+  - ../minify-imports/index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

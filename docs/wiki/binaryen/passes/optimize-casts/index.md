@@ -1,14 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
-  - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
-  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
-  - ../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md
-  - ../../../raw/research/0551-2026-05-08-optimize-casts-ordered-slot-replay.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
@@ -95,12 +89,12 @@ That is narrower than “optimize all casts.”
 
 ## Sources
 
-- [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
-- [`../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md`](../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
-- [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
-- [`../../../raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md`](../../../raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md)
-- [`../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md`](../../../raw/research/0537-2026-05-06-optimize-casts-direct-revalidation.md)
+- research note 0113
+- research note 0260
+- research note 0364
+- research note 0469
+- research note 0500
+- research note 0537
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>

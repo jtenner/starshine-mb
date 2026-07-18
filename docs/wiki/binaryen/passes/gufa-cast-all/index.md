@@ -1,13 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
-  - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -88,8 +85,8 @@ So the pass is best read as:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md`](../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md) — current shared oracle owner-map; not a complete source-diff claim.
-- [`../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md`](../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md`](../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md)
+- research note 0312
+- research note 0190
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp
-  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
-  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -22,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the historical algorithm anchor for this pass, with its source inventory retained in [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md) and the direct tagged URLs below. Current-contract claims must use the later `version_130` / current-main bridge below.
+Use Binaryen `version_129` as the historical algorithm anchor for this pass, with its source inventory retained in [research note 0307](./index.md) and the direct tagged URLs below. Current-contract claims must use the later `version_130` / current-main bridge below.
 
 Primary files:
 
@@ -441,8 +439,8 @@ That is the strategy a future strict-parity port must preserve.
 ## Sources
 
 - Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
-- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- [research note 0307](./index.md)
+- [research note 0152](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignatureRefining.cpp>
@@ -458,7 +456,7 @@ That is the strategy a future strict-parity port must preserve.
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/signature-refining.wast>
 - 2026-05-05 current-main recheck:
-  - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
+  - [research note 0451](./index.md)
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/signature-refining.wast>

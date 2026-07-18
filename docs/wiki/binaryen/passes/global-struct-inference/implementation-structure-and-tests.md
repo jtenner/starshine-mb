@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
-  - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
-  - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
-  - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
+  - ./index.md
   - ../../../../../src/passes/global_struct_inference.mbt
   - ../../../../../src/passes/global_struct_inference_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -131,7 +128,7 @@ Plain `gsi` already visits `ref.get_desc`, but the descriptor-cast rewrite is th
 For that sibling's source and test map, use:
 
 - [`../global-struct-inference-desc-cast/index.md`](../global-struct-inference-desc-cast/index.md)
-- [`../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md)
+- [research note 0488](../global-struct-inference-desc-cast/index.md)
 
 ## Starshine implementation map
 

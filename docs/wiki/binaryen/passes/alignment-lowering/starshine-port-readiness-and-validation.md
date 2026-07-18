@@ -1,10 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
-  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md

@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
-  - ../../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md

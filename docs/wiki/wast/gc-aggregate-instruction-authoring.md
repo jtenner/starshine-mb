@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
   - ../validate/constant-expressions.md
   - ../custom-descriptors/descriptor-instruction-surface.md
@@ -84,6 +84,10 @@ Aggregate instructions either create a heap object, read storage, mutate storage
 | Array reads/writes | `array.get`, `array.get_s`, `array.get_u`, `array.set`, `array.len`, `array.fill`, `array.copy` | No | Yes | Use core/binary/generated fixtures; mutable operations require mutable array element storage. |
 | Array segment init | `array.init_data`, `array.init_elem` | No | Yes | Pair with data/element segment docs before remapping resources. |
 | i31 and extern conversions | `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, `extern.convert_any` | Yes | Yes | WAST fixtures are supported and validated behind reference/GC feature assumptions. |
+
+## Pass-opportunity boundary
+
+The absorbed `struct.atomic.get*` pass audit, summarized with the proposal boundary in [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md), confirms that representation and validation support do not make these reads freely movable or removable. Any optimizer must separately prove immutable-field behavior, synchronization/alias safety, packed signedness, and trap/effect preservation. Route proposal scope through [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md); use this page only for the local instruction-authoring and layer contract.
 
 ## Concrete WAST Shapes That Work Today
 

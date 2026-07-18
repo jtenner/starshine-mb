@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md
-  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
-  - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
-  - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
+  - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/ir/ssa_destroy.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -1852,10 +1849,10 @@ For Starshine signoff:
 
 ## Sources
 
-- [`../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md`](../../../raw/research/1558-2026-07-10-ssa-nomerge-json-as-runtime-audit.md)
-- [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
-- [`../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
-- [`../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md`](../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md)
+- [research note 1558](./index.md)
+- [research note 0431](./index.md)
+- [research note 0141](./index.md)
+- [research note 0240](./index.md)
 - [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt)
 - [`../../../../../src/ir/ssa_destroy.mbt`](../../../../../src/ir/ssa_destroy.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

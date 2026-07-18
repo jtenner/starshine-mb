@@ -1,22 +1,11 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
-  - ../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md
-  - ../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
-  - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
-  - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
-  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
-  - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
-  - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
-  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
+  - ../tracker.md
 related:
   - ./starshine-hot-ir-strategy.md
   - ./starshine-port-readiness-and-validation.md
@@ -122,14 +111,14 @@ Use the Binaryen boundary controls when comparing this pass:
 
 ## Sources
 
-- O4Z closeout: [`../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md`](../../../raw/research/1401-2026-07-02-reorder-locals-o4z-closeout.md)
-- `version_130` source inventory: [`../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md`](../../../raw/research/1400-2026-07-02-reorder-locals-v130-source-inventory.md)
+- O4Z closeout: [research note 1401](./index.md)
+- `version_130` source inventory: [research note 1400](./index.md)
 - `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- Public preset scheduling: [`../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md`](../../../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md)
-- Earlier one-slot reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
-- Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
-- Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
-- Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
+- Public preset scheduling: [research note 1561](./index.md)
+- Earlier one-slot reconciliation: [research note 0709](./index.md)
+- Current closure note: [research note 0547](./index.md)
+- Durable owner: [research note 0073](./index.md)
+- Supplemental health rerun: [research note 0078](../tracker.md)
 - Current source inventory: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderLocals.cpp>
 - Scope decision: [`./multivalue-call-scope.md`](./multivalue-call-scope.md)

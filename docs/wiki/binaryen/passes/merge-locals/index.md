@@ -1,18 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
-  - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
-  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
-  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
-  - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
-  - ../../../raw/research/0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md
-  - ../../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
@@ -26,7 +20,6 @@ related:
   - ../coalesce-locals/index.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
 ---
 
 # `merge-locals`
@@ -124,10 +117,10 @@ Remaining implementation debt is the broader LocalGraph-equivalent retargeting e
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-locals.wast>
-- [`../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md`](../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md)
-- [`../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md)
-- [`../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md)
-- [`../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md`](../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md)
+- research note 0535
+- research note 0485
+- research note 0441
+- research note 0363
 - Binaryen `version_129` source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeLocals.cpp>
 - Binaryen current `main` source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>
 - Binaryen lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-locals.wast>

@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-18
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
-  - ../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md
+  - ./index.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -86,7 +86,7 @@ It becomes:
 - `br_if label cond` (or `br_if label (i32.eqz cond)` for else-arm branches)
 - followed by `local.set X value` or `local.tee X value`
 
-Together these helpers model the locally representable `optimizeSetIf` flavor of cleanup already called out in the Binaryen comparison note. Re-entering the region walk gives the same observable recursive cleanup for nested local-set copy arms that Binaryen gets by recursing on the rewritten `set->value`. The 2026-06-29 value-legality audit in [`../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md`](../../../raw/research/1378-2026-06-29-remove-unused-brs-final-value-legality-audit.md) keeps conditional `br_if` set-if arms conservative, matching Binaryen `version_130`'s source TODO for the side-effect/order proof needed before conditional branch-arm extraction.
+Together these helpers model the locally representable `optimizeSetIf` flavor of cleanup already called out in the Binaryen comparison note. Re-entering the region walk gives the same observable recursive cleanup for nested local-set copy arms that Binaryen gets by recursing on the rewritten `set->value`. The 2026-06-29 value-legality audit in [research note 1378](./index.md) keeps conditional `br_if` set-if arms conservative, matching Binaryen `version_130`'s source TODO for the side-effect/order proof needed before conditional branch-arm extraction.
 
 ## Two-Arm Branch Exit Cleanup
 

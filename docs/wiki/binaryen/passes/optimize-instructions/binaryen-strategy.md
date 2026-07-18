@@ -3,14 +3,11 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OptimizeInstructions.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions_idempotent.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions-global-effects-idempotent.wast
-  - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
-  - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
-  - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
-  - ../../../raw/research/0859-2026-06-25-optimize-instructions-oi-m-tuple-optimization-boundary.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

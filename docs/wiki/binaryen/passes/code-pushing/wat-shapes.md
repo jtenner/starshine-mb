@@ -1,30 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
-  - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
-  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
-  - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
-  - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
-  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
-  - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
-  - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
-  - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
-  - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
-  - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
-  - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
-  - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
-  - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
-  - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
-  - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
-  - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
-  - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
-  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
-  - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
-  - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
-  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
+  - ./index.md
   - ../../../../../src/passes/code_pushing_test.mbt
 related:
   - ./index.md
@@ -710,22 +689,22 @@ Before expecting a `code-pushing` rewrite, ask:
 
 ## Sources
 
-- [`../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md)
-- [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
-- [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
-- [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
+- [research note 0827](./index.md)
+- [research note 0826](./index.md)
+- [research note 0825](./index.md)
+- [research note 0824](./index.md)
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md)
-- [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
-- [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md)
-- [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md)
-- [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)
-- [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
-- [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
-- [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
-- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
-- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
-- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- [research note 0819](./index.md)
+- [research note 0815](./index.md)
+- [research note 0814](./index.md)
+- [research note 0813](./index.md)
+- [research note 0812](./index.md)
+- [research note 0811](./index.md)
+- [research note 0809](./index.md)
+- [research note 0808](./index.md)
+- [research note 0807](./index.md)
+- [research note 0806](./index.md)
+- [research note 0454](./index.md)
+- [research note 0413](./index.md)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
 - Binaryen `version_130` tests linked in the raw manifest.

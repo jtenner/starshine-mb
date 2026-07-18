@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
+  - ../inlining/index.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

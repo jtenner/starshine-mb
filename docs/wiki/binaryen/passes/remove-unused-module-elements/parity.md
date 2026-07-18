@@ -3,13 +3,13 @@ kind: comparison
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
-  - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
-  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
+  - ./index.md
+  - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
 related:
   - ./index.md
@@ -57,7 +57,7 @@ related:
 - Command-failure classification: `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, `1` Binaryen table-index-out-of-range parser failure, `1` Binaryen invalid-tag-index parser failure, and `3` Starshine command failures in the same non-mismatch command-failure bucket as prior RUME signoff.
 - `DFE -> RUME` neighborhood smoke: `bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass duplicate-function-elimination --pass remove-unused-module-elements --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-dfe-rume-audit-1000` reached `998 / 1000` compared, `998` normalized matches, `0` mismatches, and `2` Binaryen empty-recursion-group command failures.
 - Debug-artifact pass-local timing: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements --timing-only --out-dir .tmp/rume-debug-artifact-timing-declonly` reported canonical wasm equality, Starshine pass runtime `25.198 ms`, Binaryen pass runtime `38.936 ms`, and no raw skip.
-- The prior 2026-05-06 revalidation remains useful historical evidence; see [`../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md`](../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md).
+- The prior 2026-05-06 revalidation remains useful historical evidence; see [research note 0545](./index.md).
 
 ## Binaryen v131 gap
 
@@ -88,7 +88,7 @@ V131 adds table-initial-value roots plus overlap/null/wrong-type segment retenti
 ## Sources
 
 - Backlog status source: [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
+- Supplemental health rerun: [research note 0078](../tracker.md)
 - Implementation: [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - Focused tests: [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)
 - V131 trap-policy source: [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp)

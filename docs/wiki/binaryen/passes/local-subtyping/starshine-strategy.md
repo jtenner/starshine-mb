@@ -1,23 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
-  - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
-  - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
-  - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
-  - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
-  - ../../../raw/research/1429-2026-07-03-local-subtyping-closeout-lane-evidence.md
-  - ../../../raw/research/1430-2026-07-04-local-subtyping-ordered-neighborhood-cleanup.md
-  - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
-  - ../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md
-  - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
-  - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
-  - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
-  - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
-  - ../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md
-  - ../../../raw/research/1440-2026-07-04-local-subtyping-final-closeout-evidence.md
+  - ./index.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -45,7 +31,7 @@ related:
 
 # Starshine strategy for `local-subtyping`
 
-Use this page together with the corrected Binaryen source manifest in [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md), the source-correction note in [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md), the upstream implementation/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the corrected Binaryen source manifest in [research note 0447](./index.md), the source-correction note in [research note 0507](./index.md), the upstream implementation/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The 2026-05-06 repo-source correction replaced an older stale reading: `local-subtyping` is already active in Starshine.
 

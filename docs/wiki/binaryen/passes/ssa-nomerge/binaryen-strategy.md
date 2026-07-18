@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
-  - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

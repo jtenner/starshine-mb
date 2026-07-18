@@ -1,13 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignatureRefining.cpp
-  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
-  - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
-  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -148,9 +144,9 @@ What it actually is in `version_129`:
 ## Sources
 
 - Binaryen current-main owner: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
-- [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
-- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- research note 0398
+- research note 0307
+- research note 0152
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
@@ -171,4 +167,4 @@ What it actually is in `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/signature-refining.wast>
-- The historical `version_129` source inventory is retained in [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md); current freshness claims use the 2026-07-11 bridge above.
+- The historical `version_129` source inventory is retained in research note 0307; current freshness claims use the 2026-07-11 bridge above.

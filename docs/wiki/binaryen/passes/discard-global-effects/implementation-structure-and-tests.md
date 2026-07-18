@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp
-  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
-  - ../../../raw/research/0493-2026-05-05-discard-global-effects-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md
-  - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -134,5 +131,5 @@ A faithful local pass only becomes meaningful after a persistent interprocedural
 ## Sources
 
 - Binaryen current-main [`GlobalEffects.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/GlobalEffects.cpp)
-- [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)
+- [research note 0460](./index.md)
+- [research note 0383](./index.md)

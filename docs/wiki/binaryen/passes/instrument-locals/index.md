@@ -1,13 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentLocals.cpp
-  - ../../../raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md
-  - ../../../raw/research/0397-2026-04-26-instrument-locals-port-readiness.md
-  - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -108,8 +104,8 @@ So this pass is best taught as:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-locals-current-main-recheck.md)
-- [`../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md`](../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md)
+- research note 0287
+- research note 0227
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

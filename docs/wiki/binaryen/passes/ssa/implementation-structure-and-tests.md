@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-ssa-current-main-and-local-admission-recheck.md
-  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
-  - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h

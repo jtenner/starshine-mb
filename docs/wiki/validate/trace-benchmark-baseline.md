@@ -1,9 +1,8 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0010-2026-03-18-validate-trace-baseline.md
   - ../../../src/validate_trace/main.mbt
   - ../../../src/validate_trace/main_wbtest.mbt
   - ../../../src/validate/validate.mbt
@@ -22,7 +21,7 @@ related:
 
 ## Overview
 
-The validation trace benchmark is Starshine's stable way to watch **where validator time goes** across a small checked-in corpus set. It is not a portable wall-clock benchmark. The durable facts are the emitted `phase_totals`, `helper_totals`, corpus names, and hotspot shapes captured in [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md), with current trace, wrapper, and corpus ownership grounded in the local sources and tests listed below.
+The validation trace benchmark is Starshine's stable way to watch **where validator time goes** across a small checked-in corpus set. It is not a portable wall-clock benchmark. The durable facts are the emitted `phase_totals`, `helper_totals`, corpus names, and hotspot shapes captured in research note 0010, with current trace, wrapper, and corpus ownership grounded in the local sources and tests listed below.
 
 Use this page when a validator change might move work between phases, add a new validation phase, change function-body scanning cost, or alter the `ref.func` declaration-source model. Use [`module-validation-phases.md`](module-validation-phases.md) for the canonical phase order and trace-line vocabulary, [`../tooling/validation-gates.md`](../tooling/validation-gates.md) for command syntax, and [`../tooling/tracing-playbook.md`](../tooling/tracing-playbook.md) for the shared tracing contract.
 
@@ -82,7 +81,7 @@ bun validate trace-benchmark --repeat 1
 
 Default target: `wasm-gc`.
 
-Keep the exact emitted blocks in the archived source note instead of duplicating every line here: [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md). That note remains the baseline snapshot for later validator performance work.
+Keep the exact emitted blocks in the archived source note instead of duplicating every line here: research note 0010. That note remains the baseline snapshot for later validator performance work.
 
 Current high-level signals from that snapshot:
 
@@ -117,7 +116,7 @@ When a trace run changes:
 
 ## Sources
 
-- Archived benchmark snapshot: [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md)
+- Archived benchmark snapshot: research note 0010
 - Trace benchmark entrypoint and tests: [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt), [`../../../src/validate_trace/main_wbtest.mbt`](../../../src/validate_trace/main_wbtest.mbt)
 - Validator trace implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
 - Bun wrapper and command tests: [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)

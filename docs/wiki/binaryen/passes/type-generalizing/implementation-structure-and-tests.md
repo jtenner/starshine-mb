@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
-  - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
-  - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
-  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -15,7 +13,7 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
 supersedes:
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
+  - ./index.md
 ---
 
 # Upstream implementation structure and test map for `type-generalizing`

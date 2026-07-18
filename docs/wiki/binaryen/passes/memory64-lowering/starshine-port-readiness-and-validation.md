@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp
   - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
-  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
-  - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/decode.mbt

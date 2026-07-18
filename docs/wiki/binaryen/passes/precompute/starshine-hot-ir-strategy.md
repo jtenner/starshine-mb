@@ -1,22 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
-  - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
-  - ../../../raw/research/0794-2026-06-20-precompute-final-evidence-refresh.md
-  - ../../../raw/research/0793-2026-06-20-precompute-o4z-boundary-decision.md
-  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
-  - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
-  - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
-  - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
-  - ../../../raw/research/0792-2026-06-20-precompute-loop-nop-closeout-normalizer.md
-  - ../../../raw/research/0791-2026-06-20-precompute-true-loop-tail-reduction.md
-  - ../../../raw/research/0790-2026-06-20-precompute-self-branch-reduction.md
-  - ../../../raw/research/0789-2026-06-20-precompute-native-path-and-bounded-evidence.md
-  - ../../../raw/research/0788-2026-06-20-precompute-o4z-raw-scalar-recovery.md
+  - ./index.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -28,8 +17,6 @@ sources:
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/ir/hot_lower_test.mbt
-  - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
-  - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -283,7 +270,7 @@ A later rooted continuation under `.tmp/o4z-post-5d2fd48/current-chain/` surface
 - the missing guard was that doubly nested child exits could still target the carried-prefix block's **own** label even when the source local was not rewritten
 - the new regression in [`src/ir/hot_lower_test.mbt`](../../../../../src/ir/hot_lower_test.mbt) locks that exact case:
   - `hot lower keeps wrapped local.set prefixes void when a doubly nested child exit still targets the carried-prefix block without rewriting the source local`
-- the fixed rooted slot-43 witness (`func 3867`, extracted as `func 15`) and downstream implemented slots `44`, `45`, `47`, `50`, and `53` now all validate green, as recorded in [`0268`](../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md)
+- the fixed rooted slot-43 witness (`func 3867`, extracted as `func 15`) and downstream implemented slots `44`, `45`, `47`, `50`, and `53` now all validate green, as recorded in [`0268`](../late-pipeline-dispatch.md)
 
 That follow-up matters for honest ownership: the local `precompute` dossier should teach readers that some artifact-backed retirement evidence lives in neighboring HOT-lower safety work, not only in the pass file or cmd replay tests.
 

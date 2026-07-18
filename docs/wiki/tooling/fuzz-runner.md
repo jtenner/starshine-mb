@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-18
 sources:
   - ../fuzzing/text-differential-adapters.md
   - ../wast/static-assertion-harness.md
-  - ../raw/research/0003-2026-03-12-fuzz-migration.md
   - https://github.com/WebAssembly/binaryen
   - https://github.com/bytecodealliance/wasm-tools
   - https://webassembly.github.io/spec/core/valid/
@@ -229,7 +228,7 @@ In that example, decreasing `summary.features.required_gc`, `summary.opcodes.req
 
 ## Sources
 
-- Historical extraction note: [`../raw/research/0003-2026-03-12-fuzz-migration.md`](../raw/research/0003-2026-03-12-fuzz-migration.md)
+- Historical extraction note: research note 0003
 - MoonBit runner and command tests: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt)
 - Invalid repro dispatcher: [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt)
 - Bun wrapper, summary counters, and pass compare task: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), [`../../../scripts/lib/fuzz-summary-counters.ts`](../../../scripts/lib/fuzz-summary-counters.ts), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)

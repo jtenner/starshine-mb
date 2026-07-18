@@ -1,15 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
-  - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 related:
@@ -30,7 +26,7 @@ related:
 - `i64-to-i32-lowering` is a real public Binaryen pass.
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It has no owner file or dispatcher case today; [`./starshine-strategy.md`](./starshine-strategy.md) maps the exact local code surfaces a future module pass would need.
-- It is also still listed in the local whole-module transform roster in [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md).
+- It is also still listed in the local whole-module transform roster in [research note 0063](../../../ir2/registry-map.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
@@ -99,13 +95,13 @@ So this pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
-- [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
-- [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)
+- research note 0412
+- research note 0299
+- research note 0175
+- research note 0197
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)

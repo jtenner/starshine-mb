@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
   - ../wasm-js-string-builtins-boundary.md
-  - ../raw/research/0052-2026-03-22-string-const-surface.md
   - https://webassembly.github.io/spec/core/binary/modules.html
   - ../binary/type-table-memory-global-tag-sections.md
   - ../binary/module-section-map.md
@@ -48,7 +47,7 @@ related:
 
 ## Sources
 
-- Archived research doc: [`../raw/research/0052-2026-03-22-string-const-surface.md`](../raw/research/0052-2026-03-22-string-const-surface.md)
+- Durable owner: research note 0052
 - JS String Builtins boundary: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
 - Active Reference-Typed Strings proposal: <https://github.com/WebAssembly/stringref/blob/main/proposals/stringref/Overview.md>; proposal status: <https://github.com/WebAssembly/proposals>
 - Core binary section boundary: [WebAssembly 3.0 binary modules](https://webassembly.github.io/spec/core/binary/modules.html), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../binary/module-section-map.md`](../binary/module-section-map.md)

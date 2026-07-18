@@ -1,11 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../i64-to-i32-lowering/index.md
@@ -98,14 +95,14 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `legalize-js-interface` research.
 - Keep it explicitly marked as an **upstream-only** dossier unless Starshine later grows a real registry entry for this surface.
-Cite retained [`../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md`](../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md), the direct `version_129` URLs below, and retained 2026-04-24 follow-up research for provenance; cite [`./starshine-strategy.md`](./starshine-strategy.md) for current local status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future implementation sequencing.
+Cite retained research note 0395, the direct `version_129` URLs below, and retained 2026-04-24 follow-up research for provenance; cite [`./starshine-strategy.md`](./starshine-strategy.md) for current local status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future implementation sequencing.
 - Keep the split from `i64-to-i32-lowering` explicit: `legalize-js-interface` changes the JS boundary ABI, while `i64-to-i32-lowering` changes internal module code.
 - Keep the sibling relationship explicit too: `legalize-and-prune-js-interface` is the same family plus extra pruning, not a wholly different algorithm.
 
 ## Sources
 
-- [`../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
+- research note 0291
+- research note 0223
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../i64-to-i32-lowering/index.md`](../i64-to-i32-lowering/index.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

@@ -3,10 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
-  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
-  - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

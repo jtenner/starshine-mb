@@ -1,240 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-21
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md
-  - ../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md
-  - ../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md
-  - ../../../raw/research/1019-2026-06-21-heap-store-optimization-later-field-result-try-table-old-field-fold.md
-  - ../../../raw/research/1018-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-boundary.md
-  - ../../../raw/research/1017-2026-06-21-heap-store-optimization-later-field-result-try-table-call-indirect-split.md
-  - ../../../raw/research/1016-2026-06-21-heap-store-optimization-later-field-result-try-table-call-ref-split.md
-  - ../../../raw/research/1015-2026-06-21-heap-store-optimization-later-field-result-try-table-call-split.md
-  - ../../../raw/research/1014-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-return-call-ref-boundary.md
-  - ../../../raw/research/1013-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-tail-call-boundary.md
-  - ../../../raw/research/1012-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-ref-boundary.md
-  - ../../../raw/research/1011-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-boundary.md
-  - ../../../raw/research/1010-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-old-field-boundary.md
-  - ../../../raw/research/1009-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-old-field-boundary.md
-  - ../../../raw/research/1008-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-fold.md
-  - ../../../raw/research/1007-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-fold.md
-  - ../../../raw/research/1006-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-old-field-boundary.md
-  - ../../../raw/research/1005-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-fold.md
-  - ../../../raw/research/1004-2026-06-21-heap-store-optimization-result-try-table-call-ref-old-field-boundary.md
-  - ../../../raw/research/1003-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-old-field-boundary.md
-  - ../../../raw/research/1002-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-old-field-boundary.md
-  - ../../../raw/research/1001-2026-06-21-heap-store-optimization-result-try-table-return-call-old-field-boundary.md
-  - ../../../raw/research/1000-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-boundary.md
-  - ../../../raw/research/0999-2026-06-21-heap-store-optimization-result-try-table-return-call-boundary.md
-  - ../../../raw/research/0998-2026-06-21-heap-store-optimization-result-try-table-call-indirect-cross-store-boundary.md
-  - ../../../raw/research/0997-2026-06-21-heap-store-optimization-result-try-table-call-cross-store-boundary.md
-  - ../../../raw/research/0996-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-boundary.md
-  - ../../../raw/research/0995-2026-06-21-heap-store-optimization-result-try-table-call-ref-cross-store-boundary.md
-  - ../../../raw/research/0994-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-ref-boundary.md
-  - ../../../raw/research/0993-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-indirect-boundary.md
-  - ../../../raw/research/0992-2026-06-21-heap-store-optimization-result-try-table-same-effect-throw-boundary.md
-  - ../../../raw/research/0991-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-boundary.md
-  - ../../../raw/research/0990-2026-06-21-heap-store-optimization-result-try-table-cross-store-fold.md
-  - ../../../raw/research/0989-2026-06-21-heap-store-optimization-result-try-table-cross-growth-fold.md
-  - ../../../raw/research/0988-2026-06-21-heap-store-optimization-result-try-table-table-fill-boundary.md
-  - ../../../raw/research/0987-2026-06-21-heap-store-optimization-result-try-table-table-global-set.md
-  - ../../../raw/research/0986-2026-06-21-heap-store-optimization-result-try-table-memory-fill-boundary.md
-  - ../../../raw/research/0985-2026-06-21-heap-store-optimization-result-try-table-global-set.md
-  - ../../../raw/research/0984-2026-06-21-heap-store-optimization-descriptor-catchable-try-table-call-boundary.md
-  - ../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md
-  - ../../../raw/research/0982-2026-06-21-heap-store-optimization-catchable-try-table-call-boundary.md
-  - ../../../raw/research/0981-2026-06-21-heap-store-optimization-catch-taken-try-table-throw-boundary.md
-  - ../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md
-  - ../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md
-  - ../../../raw/research/0978-2026-06-21-heap-store-optimization-contained-branch-old-field-fold.md
-  - ../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md
-  - ../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md
-  - ../../../raw/research/0975-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-growth-boundary.md
-  - ../../../raw/research/0974-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-store-boundary.md
-  - ../../../raw/research/0973-2026-06-21-heap-store-optimization-branch-loop-call-indirect-old-field-growth-boundary.md
-  - ../../../raw/research/0972-2026-06-21-heap-store-optimization-branch-loop-call-indirect-old-field-store-boundary.md
-  - ../../../raw/research/0971-2026-06-21-heap-store-optimization-branch-loop-call-old-field-growth-boundary.md
-  - ../../../raw/research/0970-2026-06-21-heap-store-optimization-branch-loop-call-old-field-store-boundary.md
-  - ../../../raw/research/0969-2026-06-21-heap-store-optimization-branch-loop-call-ref-constructor-growth-boundary.md
-  - ../../../raw/research/0968-2026-06-21-heap-store-optimization-branch-loop-call-ref-constructor-store-boundary.md
-  - ../../../raw/research/0967-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-growth-boundary.md
-  - ../../../raw/research/0966-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-store-boundary.md
-  - ../../../raw/research/0965-2026-06-21-heap-store-optimization-branch-loop-call-constructor-growth-boundary.md
-  - ../../../raw/research/0964-2026-06-21-heap-store-optimization-branch-loop-call-constructor-store-boundary.md
-  - ../../../raw/research/0963-2026-06-21-heap-store-optimization-loop-call-ref-constructor-growth-boundary.md
-  - ../../../raw/research/0962-2026-06-21-heap-store-optimization-loop-call-ref-constructor-store-boundary.md
-  - ../../../raw/research/0961-2026-06-21-heap-store-optimization-loop-call-indirect-constructor-growth-boundary.md
-  - ../../../raw/research/0960-2026-06-21-heap-store-optimization-loop-call-indirect-constructor-store-boundary.md
-  - ../../../raw/research/0959-2026-06-21-heap-store-optimization-loop-call-constructor-growth-boundary.md
-  - ../../../raw/research/0958-2026-06-21-heap-store-optimization-loop-call-constructor-store-boundary.md
-  - ../../../raw/research/0957-2026-06-21-heap-store-optimization-loop-call-ref-old-field-growth-boundary.md
-  - ../../../raw/research/0956-2026-06-21-heap-store-optimization-loop-call-ref-old-field-store-boundary.md
-  - ../../../raw/research/0955-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-growth-boundary.md
-  - ../../../raw/research/0954-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-store-boundary.md
-  - ../../../raw/research/0953-2026-06-21-heap-store-optimization-loop-call-old-field-growth-boundary.md
-  - ../../../raw/research/0952-2026-06-21-heap-store-optimization-loop-call-old-field-store-boundary.md
-  - ../../../raw/research/0951-2026-06-21-heap-store-optimization-if-call-ref-old-field-growth-boundary.md
-  - ../../../raw/research/0950-2026-06-21-heap-store-optimization-if-call-ref-old-field-store-boundary.md
-  - ../../../raw/research/0949-2026-06-21-heap-store-optimization-if-call-indirect-old-field-growth-boundary.md
-  - ../../../raw/research/0948-2026-06-21-heap-store-optimization-if-call-indirect-old-field-store-boundary.md
-  - ../../../raw/research/0947-2026-06-21-heap-store-optimization-if-call-old-field-growth-boundary.md
-  - ../../../raw/research/0946-2026-06-21-heap-store-optimization-if-call-old-field-store-boundary.md
-  - ../../../raw/research/0945-2026-06-21-heap-store-optimization-block-call-indirect-old-field-growth-boundary.md
-  - ../../../raw/research/0944-2026-06-21-heap-store-optimization-block-call-indirect-old-field-store-boundary.md
-  - ../../../raw/research/0943-2026-06-21-heap-store-optimization-block-call-ref-old-field-growth-boundary.md
-  - ../../../raw/research/0942-2026-06-21-heap-store-optimization-block-call-ref-old-field-store-boundary.md
-  - ../../../raw/research/0941-2026-06-21-heap-store-optimization-block-call-ref-growth-boundary.md
-  - ../../../raw/research/0940-2026-06-21-heap-store-optimization-block-call-ref-store-boundary.md
-  - ../../../raw/research/0939-2026-06-21-heap-store-optimization-block-call-indirect-growth-boundary.md
-  - ../../../raw/research/0938-2026-06-21-heap-store-optimization-block-call-indirect-store-boundary.md
-  - ../../../raw/research/0937-2026-06-21-heap-store-optimization-block-call-growth-boundary.md
-  - ../../../raw/research/0936-2026-06-21-heap-store-optimization-block-call-store-boundary.md
-  - ../../../raw/research/0935-2026-06-21-heap-store-optimization-call-old-field-growth-boundary.md
-  - ../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md
-  - ../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md
-  - ../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md
-  - ../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md
-  - ../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md
-  - ../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md
-  - ../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md
-  - ../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md
-  - ../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md
-  - ../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md
-  - ../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md
-  - ../../../raw/research/0917-2026-06-21-heap-store-optimization-call-ref-old-field-table-set-boundary.md
-  - ../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md
-  - ../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md
-  - ../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md
-  - ../../../raw/research/0923-2026-06-21-heap-store-optimization-call-old-field-store-boundary.md
-  - ../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md
-  - ../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md
-  - ../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md
-  - ../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md
-  - ../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md
-  - ../../../raw/research/0909-2026-06-21-heap-store-optimization-table-init-old-field.md
-  - ../../../raw/research/0908-2026-06-21-heap-store-optimization-memory-init-old-field.md
-  - ../../../raw/research/0907-2026-06-21-heap-store-optimization-table-copy-old-field.md
-  - ../../../raw/research/0906-2026-06-21-heap-store-optimization-memory-copy-old-field.md
-  - ../../../raw/research/0905-2026-06-21-heap-store-optimization-table-fill-old-field.md
-  - ../../../raw/research/0904-2026-06-21-heap-store-optimization-memory-fill-old-field.md
-  - ../../../raw/research/0903-2026-06-21-heap-store-optimization-elem-drop-old-field.md
-  - ../../../raw/research/0902-2026-06-21-heap-store-optimization-data-drop-old-field.md
-  - ../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md
-  - ../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md
-  - ../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md
-  - ../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md
-  - ../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md
-  - ../../../raw/research/0896-2026-06-21-heap-store-optimization-table-get-old-field.md
-  - ../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md
-  - ../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md
-  - ../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md
-  - ../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md
-  - ../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md
-  - ../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md
-  - ../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md
-  - ../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md
-  - ../../../raw/research/0887-2026-06-21-heap-store-optimization-plain-old-field-call-barrier.md
-  - ../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md
-  - ../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md
-  - ../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md
-  - ../../../raw/research/0883-2026-06-21-heap-store-optimization-later-field-block-br-if-trap-condition.md
-  - ../../../raw/research/0882-2026-06-21-heap-store-optimization-later-field-if-trap-condition.md
-  - ../../../raw/research/0881-2026-06-21-heap-store-optimization-descriptor-if-trap-condition.md
-  - ../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md
-  - ../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md
-  - ../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md
-  - ../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md
-  - ../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md
-  - ../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md
-  - ../../../raw/research/0874-2026-06-20-heap-store-optimization-later-field-if-call-condition.md
-  - ../../../raw/research/0873-2026-06-20-heap-store-optimization-later-field-select-call-condition.md
-  - ../../../raw/research/0872-2026-06-20-heap-store-optimization-descriptor-select-call-condition.md
-  - ../../../raw/research/0871-2026-06-20-heap-store-optimization-mutable-descriptor-global.md
-  - ../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md
-  - ../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md
-  - ../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md
-  - ../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md
-  - ../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md
-  - ../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md
-  - ../../../raw/research/0864-2026-06-20-heap-store-optimization-descriptor-select.md
-  - ../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md
-  - ../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md
-  - ../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md
-  - ../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md
-  - ../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md
-  - ../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md
-  - ../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md
-  - ../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md
-  - ../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md
-  - ../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md
-  - ../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md
-  - ../../../raw/research/0852-2026-06-20-heap-store-optimization-subsequent-old-field-effects.md
-  - ../../../raw/research/0851-2026-06-20-heap-store-optimization-core-chain-closeout.md
-  - ../../../raw/research/0850-2026-06-20-heap-store-optimization-many-news-tee-barrier.md
-  - ../../../raw/research/0849-2026-06-20-heap-store-optimization-many-fields-pattern-breaker.md
-  - ../../../raw/research/0848-2026-06-20-heap-store-optimization-tee-later-chain.md
-  - ../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md
-  - ../../../raw/research/0846-2026-06-20-heap-store-optimization-br-table-table-side-stores.md
-  - ../../../raw/research/0845-2026-06-20-heap-store-optimization-br-table-swap-wrappers.md
-  - ../../../raw/research/0844-2026-06-20-heap-store-optimization-cross-family-store-swap.md
-  - ../../../raw/research/0843-2026-06-20-heap-store-optimization-branch-wrapper-growth-boundaries.md
-  - ../../../raw/research/0842-2026-06-20-heap-store-optimization-branch-wrapper-passive-boundaries.md
-  - ../../../raw/research/0841-2026-06-20-heap-store-optimization-branch-wrapper-copy-boundaries.md
-  - ../../../raw/research/0840-2026-06-20-heap-store-optimization-branch-wrapper-bulk-fill-boundaries.md
-  - ../../../raw/research/0839-2026-06-20-heap-store-optimization-branch-wrapper-constructor-pingpong.md
-  - ../../../raw/research/0838-2026-06-20-heap-store-optimization-branch-wrapper-table-global-swap.md
-  - ../../../raw/research/0837-2026-06-20-heap-store-optimization-branch-wrapper-global-swap.md
-  - ../../../raw/research/0836-2026-06-20-heap-store-optimization-deep-nested-growth-bulk-boundaries.md
-  - ../../../raw/research/0835-2026-06-20-heap-store-optimization-nested-wrapped-growth-bulk-boundaries.md
-  - ../../../raw/research/0834-2026-06-20-heap-store-optimization-nested-wrapped-growth-passive-boundaries.md
-  - ../../../raw/research/0833-2026-06-20-heap-store-optimization-wrapped-growth-passive-boundaries.md
-  - ../../../raw/research/0832-2026-06-20-heap-store-optimization-wrapped-passive-boundaries.md
-  - ../../../raw/research/0831-2026-06-20-heap-store-optimization-wrapped-copy-boundaries.md
-  - ../../../raw/research/0830-2026-06-20-heap-store-optimization-loop-wrapped-bulk-fill-boundaries.md
-  - ../../../raw/research/0829-2026-06-20-heap-store-optimization-wrapped-bulk-fill-boundaries.md
-  - ../../../raw/research/0828-2026-06-20-heap-store-optimization-mixed-index-copy-boundaries.md
-  - ../../../raw/research/0827-2026-06-20-heap-store-optimization-multi-index-copy-boundaries.md
-  - ../../../raw/research/0826-2026-06-20-heap-store-optimization-multi-index-bulk-boundaries.md
-  - ../../../raw/research/0825-2026-06-20-heap-store-optimization-table-grow-bulk-boundaries.md
-  - ../../../raw/research/0824-2026-06-20-heap-store-optimization-memory-grow-bulk-boundaries.md
-  - ../../../raw/research/0823-2026-06-20-heap-store-optimization-memory-grow-data-boundaries.md
-  - ../../../raw/research/0822-2026-06-20-heap-store-optimization-table-grow-elem-boundaries.md
-  - ../../../raw/research/0821-2026-06-20-heap-store-optimization-table-size-elem-boundaries.md
-  - ../../../raw/research/0820-2026-06-20-heap-store-optimization-memory-size-data-segment-boundaries.md
-  - ../../../raw/research/0819-2026-06-20-heap-store-optimization-memory-size-memory-bulk-boundaries.md
-  - ../../../raw/research/0818-2026-06-20-heap-store-optimization-table-size-table-set-swap.md
-  - ../../../raw/research/0817-2026-06-20-heap-store-optimization-global-set-value-read-swap.md
-  - ../../../raw/research/0816-2026-06-20-heap-store-optimization-unrelated-global-swap.md
-  - ../../../raw/research/0815-2026-06-20-heap-store-optimization-growth-store-swap-boundaries.md
-  - ../../../raw/research/0814-2026-06-20-heap-store-optimization-nested-wrapper-swap.md
-  - ../../../raw/research/0813-2026-06-20-heap-store-optimization-wrapped-constructor-pingpong.md
-  - ../../../raw/research/0812-2026-06-20-heap-store-optimization-loop-wrapped-table-grow-swap.md
-  - ../../../raw/research/0811-2026-06-20-heap-store-optimization-loop-wrapped-memory-grow-swap.md
-  - ../../../raw/research/0810-2026-06-20-heap-store-optimization-loop-wrapped-table-size-swap.md
-  - ../../../raw/research/0808-2026-06-20-heap-store-optimization-if-wrapped-table-grow-swap.md
-  - ../../../raw/research/0809-2026-06-20-heap-store-optimization-if-wrapped-table-size-swap.md
-  - ../../../raw/research/0807-2026-06-20-heap-store-optimization-if-wrapped-memory-grow-swap.md
-  - ../../../raw/research/0806-2026-06-20-heap-store-optimization-block-wrapped-memory-grow-swap.md
-  - ../../../raw/research/0805-2026-06-20-heap-store-optimization-block-wrapped-table-grow-swap.md
-  - ../../../raw/research/0804-2026-06-20-heap-store-optimization-block-wrapped-swap.md
-  - ../../../raw/research/0803-2026-06-20-heap-store-optimization-call-swap-negative.md
-  - ../../../raw/research/0802-2026-06-20-heap-store-optimization-memory-grow-swap.md
-  - ../../../raw/research/0801-2026-06-20-heap-store-optimization-table-grow-swap.md
-  - ../../../raw/research/0800-2026-06-20-heap-store-optimization-table-size-swap.md
-  - ../../../raw/research/0799-2026-06-20-heap-store-optimization-final-root-no-swap.md
-  - ../../../raw/research/0798-2026-06-20-heap-store-optimization-active-catch-throw-negative.md
-  - ../../../raw/research/0797-2026-06-20-heap-store-optimization-external-exits.md
-  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/research/0796-2026-06-20-heap-store-optimization-disappearing-bad-get.md
-  - ../../../raw/research/0795-2026-06-20-heap-store-optimization-nested-control-sequence.md
-  - ../../../raw/research/0794-2026-06-20-heap-store-optimization-in-function-catch-control.md
-  - ../../../raw/research/0793-2026-06-20-heap-store-optimization-function-return-control.md
-  - ../../../raw/research/0790-2026-06-20-heap-store-optimization-explicit-non-goals.md
-  - ../../../raw/research/0789-2026-06-20-heap-store-optimization-core-chain-coverage.md
-  - ../../../raw/research/0788-2026-06-20-heap-store-optimization-descriptor-loop-outer-branch.md
-  - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/heap_store_optimization.mbt
   - ../../../../../src/passes/heap_store_optimization_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -391,345 +160,345 @@ Current local proof surfaces include:
   - focused CLI replay fixtures for `--heap-store-optimization`.
 - [`src/cmd/cmd_wbtest.mbt:6600-6634`](../../../../../src/cmd/cmd_wbtest.mbt)
   - debug-artifact replay coverage.
-- [`../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md`](../../../raw/research/0847-2026-06-20-heap-store-optimization-o4z-slot-evidence.md)
+- [research note 0847](./index.md)
   - refreshed generated O4z early/late slot replay on current `cmd.wasm`; Starshine direct HSO was exact-equal and normalized-equal to Binaryen at both slot predecessors with raw-fast-skip.
-- [`../../../raw/research/0909-2026-06-21-heap-store-optimization-table-init-old-field.md`](../../../raw/research/0909-2026-06-21-heap-store-optimization-table-init-old-field.md)
+- [research note 0909](./index.md)
   - added focused HSO-D/G table-init old-field boundary coverage: Binaryen preserves an overwritten value-producing `table.init` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `267/267`.
-- [`../../../raw/research/0908-2026-06-21-heap-store-optimization-memory-init-old-field.md`](../../../raw/research/0908-2026-06-21-heap-store-optimization-memory-init-old-field.md)
+- [research note 0908](./index.md)
   - added focused HSO-D/G memory-init old-field boundary coverage: Binaryen preserves an overwritten value-producing `memory.init` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `266/266`.
-- [`../../../raw/research/0907-2026-06-21-heap-store-optimization-table-copy-old-field.md`](../../../raw/research/0907-2026-06-21-heap-store-optimization-table-copy-old-field.md)
+- [research note 0907](./index.md)
   - added focused HSO-D/G table-copy old-field boundary coverage: Binaryen preserves an overwritten value-producing `table.copy` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `265/265`.
-- [`../../../raw/research/0906-2026-06-21-heap-store-optimization-memory-copy-old-field.md`](../../../raw/research/0906-2026-06-21-heap-store-optimization-memory-copy-old-field.md)
+- [research note 0906](./index.md)
   - added focused HSO-D/G memory-copy old-field boundary coverage: Binaryen preserves an overwritten value-producing `memory.copy` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `264/264`.
-- [`../../../raw/research/0905-2026-06-21-heap-store-optimization-table-fill-old-field.md`](../../../raw/research/0905-2026-06-21-heap-store-optimization-table-fill-old-field.md)
+- [research note 0905](./index.md)
   - added focused HSO-D/G table-fill old-field boundary coverage: Binaryen preserves an overwritten value-producing `table.fill` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `263/263`.
-- [`../../../raw/research/0904-2026-06-21-heap-store-optimization-memory-fill-old-field.md`](../../../raw/research/0904-2026-06-21-heap-store-optimization-memory-fill-old-field.md)
+- [research note 0904](./index.md)
   - added focused HSO-D/G memory-fill old-field boundary coverage: Binaryen preserves an overwritten value-producing `memory.fill` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `262/262`.
-- [`../../../raw/research/0903-2026-06-21-heap-store-optimization-elem-drop-old-field.md`](../../../raw/research/0903-2026-06-21-heap-store-optimization-elem-drop-old-field.md)
+- [research note 0903](./index.md)
   - added focused HSO-D/G passive-element old-field positive coverage: Binaryen folds an overwritten value-producing `elem.drop` constructor field while preserving `elem.drop` under `drop`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `261/261`.
-- [`../../../raw/research/0902-2026-06-21-heap-store-optimization-data-drop-old-field.md`](../../../raw/research/0902-2026-06-21-heap-store-optimization-data-drop-old-field.md)
+- [research note 0902](./index.md)
   - added focused HSO-D/G passive-data old-field positive coverage: Binaryen folds an overwritten value-producing `data.drop` constructor field while preserving `data.drop` under `drop`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `260/260`.
-- [`../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md`](../../../raw/research/0901-2026-06-21-heap-store-optimization-table-store-old-field.md)
+- [research note 0901](./index.md)
   - added focused HSO-D/G table-store old-field boundary coverage: Binaryen preserves an overwritten value-producing `table.set` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `259/259`.
-- [`../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md`](../../../raw/research/0900-2026-06-21-heap-store-optimization-memory-store-old-field.md)
+- [research note 0900](./index.md)
   - added focused HSO-D/G memory-store old-field boundary coverage: Binaryen preserves an overwritten value-producing `i32.store` constructor field before an intervening unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched, so no implementation change was needed. Focused HSO tests passed `258/258`.
-- [`../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md`](../../../raw/research/0899-2026-06-21-heap-store-optimization-global-set-old-field.md)
+- [research note 0899](./index.md)
   - fixed HSO-D/G mutable-global old-field parity: Binaryen folds an overwritten value-producing old field that writes `$g0` across an unrelated `$g1` root write, preserving the old `$g0` write under `drop`; Starshine now relies on exact-global conflict analysis instead of rejecting every constructor old-field global write. Focused HSO tests passed `257/257`; direct 10000-case compare normalized `10000/10000` with `0` mismatches.
-- [`../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md`](../../../raw/research/0898-2026-06-21-heap-store-optimization-table-grow-old-field.md)
+- [research note 0898](./index.md)
   - added focused HSO-D/G side-effectful old-field coverage for the table-growth counterpart: Binaryen folds an overwritten `table.grow` constructor field across an unrelated mutable `global.set` while preserving `table.grow` under `drop`; Starshine already matched, so no implementation change was needed.
-- [`../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md`](../../../raw/research/0897-2026-06-21-heap-store-optimization-memory-grow-old-field.md)
+- [research note 0897](./index.md)
   - added focused HSO-D/G side-effectful old-field coverage: Binaryen folds an overwritten `memory.grow` constructor field across an unrelated mutable `global.set` while preserving `memory.grow` under `drop`; Starshine already matched, so no implementation change was needed.
-- [`../../../raw/research/0896-2026-06-21-heap-store-optimization-table-get-old-field.md`](../../../raw/research/0896-2026-06-21-heap-store-optimization-table-get-old-field.md)
+- [research note 0896](./index.md)
   - added focused HSO-D/G table-trap old-field coverage: Binaryen preserves `table.get` in an overwritten constructor field and leaves the later `struct.set` when an unrelated mutable `global.set` intervenes; Starshine already matched, so no implementation change was needed.
-- [`../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md`](../../../raw/research/0895-2026-06-21-heap-store-optimization-memory-load-old-field.md)
+- [research note 0895](./index.md)
   - added focused HSO-D/G memory-trap old-field coverage: Binaryen preserves `i32.load` in an overwritten constructor field and leaves the later `struct.set` when an unrelated mutable `global.set` intervenes; Starshine already matched, so no implementation change was needed.
-- [`../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md`](../../../raw/research/0894-2026-06-21-heap-store-optimization-ref-as-non-null-old-field.md)
+- [research note 0894](./index.md)
   - added focused HSO-D/G reference-trap old-field coverage: Binaryen preserves `ref.as_non_null(global.get)` in an overwritten constructor field and leaves the later `struct.set` when an unrelated mutable `global.set` intervenes; Starshine already matched, so no implementation change was needed.
-- [`../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md`](../../../raw/research/0893-2026-06-21-heap-store-optimization-trapping-trunc-old-field.md)
+- [research note 0893](./index.md)
   - fixed the same HSO-D/G trapping old-field parity gap for exact non-saturating float-to-int truncation: Binaryen preserves `i32.trunc_f32_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact `i32`/`i64.trunc_f32`/`trunc_f64` nodes as trapping for HSO effect and reorderability checks.
-- [`../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md`](../../../raw/research/0892-2026-06-21-heap-store-optimization-trapping-old-field-preservation.md)
+- [research note 0892](./index.md)
   - fixed a focused HSO-D/G parity gap for trapping old-field preservation: Binaryen preserves `i32.div_s` in an overwritten constructor field and leaves the later `struct.set` when a mutable `global.set` intervenes; Starshine now marks exact integer div/rem nodes as trapping for HSO effect and reorderability checks.
-- [`../../../raw/research/0923-2026-06-21-heap-store-optimization-call-old-field-store-boundary.md`](../../../raw/research/0923-2026-06-21-heap-store-optimization-call-old-field-store-boundary.md)
+- [research note 0923](./index.md)
   - added focused HSO-D/G coverage for ordinary direct-call old-field boundaries before unrelated mutable `global.set` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md`](../../../raw/research/0924-2026-06-21-heap-store-optimization-call-indirect-table-set-boundary.md)
+- [research note 0924](./index.md)
   - added focused HSO-G coverage for the indirect-call constructor-operand boundary before unrelated `table.set`; Binaryen preserves `call_indirect`, `table.set`, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md`](../../../raw/research/0925-2026-06-21-heap-store-optimization-call-indirect-old-field-store-boundary.md)
+- [research note 0925](./index.md)
   - added focused HSO-D/G coverage for indirect-call old-field boundaries before unrelated mutable `global.set` and unrelated `table.set`; Binaryen preserves `call_indirect`, the intervening store root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md`](../../../raw/research/0926-2026-06-21-heap-store-optimization-call-indirect-memory-store-boundary.md)
+- [research note 0926](./index.md)
   - added focused HSO-D/G coverage for indirect-call constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_indirect`, the intervening memory store, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md`](../../../raw/research/0932-2026-06-21-heap-store-optimization-call-indirect-growth-boundary.md)
+- [research note 0932](./index.md)
   - added focused HSO-D/G coverage for indirect-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_indirect`, the intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0934-2026-06-21-heap-store-optimization-call-indirect-old-field-growth-boundary.md)
+- [research note 0934](./index.md)
   - added focused HSO-D/G coverage for indirect-call old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_indirect`, the intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md`](../../../raw/research/0928-2026-06-21-heap-store-optimization-call-constructor-store-boundary.md)
+- [research note 0928](./index.md)
   - added focused HSO-G coverage for ordinary direct-call constructor operands before unrelated `i32.store` and unrelated `table.set`; Binaryen preserves the call, intervening store root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0936-2026-06-21-heap-store-optimization-block-call-store-boundary.md`](../../../raw/research/0936-2026-06-21-heap-store-optimization-block-call-store-boundary.md)
+- [research note 0936](./index.md)
   - added focused HSO-D/G coverage for block-wrapped ordinary direct-call constructor/old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the block-wrapped call, intervening store root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0937-2026-06-21-heap-store-optimization-block-call-growth-boundary.md`](../../../raw/research/0937-2026-06-21-heap-store-optimization-block-call-growth-boundary.md)
+- [research note 0937](./index.md)
   - added focused HSO-D/G coverage for block-wrapped ordinary direct-call constructor/old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the block-wrapped call, intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0938-2026-06-21-heap-store-optimization-block-call-indirect-store-boundary.md`](../../../raw/research/0938-2026-06-21-heap-store-optimization-block-call-indirect-store-boundary.md)
+- [research note 0938](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_indirect` constructor boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the block-wrapped indirect call, intervening store root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0939-2026-06-21-heap-store-optimization-block-call-indirect-growth-boundary.md`](../../../raw/research/0939-2026-06-21-heap-store-optimization-block-call-indirect-growth-boundary.md)
+- [research note 0939](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_indirect` constructor boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the block-wrapped indirect call, intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0940-2026-06-21-heap-store-optimization-block-call-ref-store-boundary.md`](../../../raw/research/0940-2026-06-21-heap-store-optimization-block-call-ref-store-boundary.md)
+- [research note 0940](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_ref` constructor boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the block-wrapped typed-function-reference call, intervening store root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0941-2026-06-21-heap-store-optimization-block-call-ref-growth-boundary.md`](../../../raw/research/0941-2026-06-21-heap-store-optimization-block-call-ref-growth-boundary.md)
+- [research note 0941](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_ref` constructor boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the block-wrapped typed-function-reference call, intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0942-2026-06-21-heap-store-optimization-block-call-ref-old-field-store-boundary.md`](../../../raw/research/0942-2026-06-21-heap-store-optimization-block-call-ref-old-field-store-boundary.md)
+- [research note 0942](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_ref` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten block-wrapped typed-function-reference call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0943-2026-06-21-heap-store-optimization-block-call-ref-old-field-growth-boundary.md`](../../../raw/research/0943-2026-06-21-heap-store-optimization-block-call-ref-old-field-growth-boundary.md)
+- [research note 0943](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_ref` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten block-wrapped typed-function-reference call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0944-2026-06-21-heap-store-optimization-block-call-indirect-old-field-store-boundary.md`](../../../raw/research/0944-2026-06-21-heap-store-optimization-block-call-indirect-old-field-store-boundary.md)
+- [research note 0944](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_indirect` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten block-wrapped indirect call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0945-2026-06-21-heap-store-optimization-block-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0945-2026-06-21-heap-store-optimization-block-call-indirect-old-field-growth-boundary.md)
+- [research note 0945](./index.md)
   - added focused HSO-D/G coverage for block-wrapped `call_indirect` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten block-wrapped indirect call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0946-2026-06-21-heap-store-optimization-if-call-old-field-store-boundary.md`](../../../raw/research/0946-2026-06-21-heap-store-optimization-if-call-old-field-store-boundary.md)
+- [research note 0946](./index.md)
   - added focused HSO-D/G coverage for if-wrapped direct-call old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten if-wrapped direct call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0947-2026-06-21-heap-store-optimization-if-call-old-field-growth-boundary.md`](../../../raw/research/0947-2026-06-21-heap-store-optimization-if-call-old-field-growth-boundary.md)
+- [research note 0947](./index.md)
   - added focused HSO-D/G coverage for if-wrapped direct-call old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten if-wrapped direct call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md`](../../../raw/research/0977-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-growth-gap.md)
+- [research note 0977](./index.md)
   - recorded the now-fixed HSO-D/G growth-root parity gap: Binaryen drops an overwritten pure branch-containing outer-block/inner-loop old field and folds the later same-field store across unrelated `memory.grow` and `table.grow` roots. Follow-up `0978` added encoded wasm coverage and the contained-control droppable-old-field implementation.
-- [`../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md`](../../../raw/research/0976-2026-06-21-heap-store-optimization-branch-loop-pure-old-field-store-gap.md)
+- [research note 0976](./index.md)
   - recorded the matching now-fixed ordinary-store parity gap: Binaryen drops the overwritten pure branch-loop old field and folds across unrelated `i32.store` and `table.set`; follow-up `0978` added encoded wasm coverage and the contained-control droppable-old-field implementation.
-- [`../../../raw/research/0948-2026-06-21-heap-store-optimization-if-call-indirect-old-field-store-boundary.md`](../../../raw/research/0948-2026-06-21-heap-store-optimization-if-call-indirect-old-field-store-boundary.md)
+- [research note 0948](./index.md)
   - added focused HSO-D/G coverage for if-wrapped `call_indirect` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten if-wrapped indirect call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0949-2026-06-21-heap-store-optimization-if-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0949-2026-06-21-heap-store-optimization-if-call-indirect-old-field-growth-boundary.md)
+- [research note 0949](./index.md)
   - added focused HSO-D/G coverage for if-wrapped `call_indirect` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten if-wrapped indirect call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0950-2026-06-21-heap-store-optimization-if-call-ref-old-field-store-boundary.md`](../../../raw/research/0950-2026-06-21-heap-store-optimization-if-call-ref-old-field-store-boundary.md)
+- [research note 0950](./index.md)
   - added focused HSO-D/G coverage for if-wrapped `call_ref` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten if-wrapped typed-function-reference call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0951-2026-06-21-heap-store-optimization-if-call-ref-old-field-growth-boundary.md`](../../../raw/research/0951-2026-06-21-heap-store-optimization-if-call-ref-old-field-growth-boundary.md)
+- [research note 0951](./index.md)
   - added focused HSO-D/G coverage for if-wrapped `call_ref` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten if-wrapped typed-function-reference call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0952-2026-06-21-heap-store-optimization-loop-call-old-field-store-boundary.md`](../../../raw/research/0952-2026-06-21-heap-store-optimization-loop-call-old-field-store-boundary.md)
+- [research note 0952](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped direct-call old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten loop-wrapped direct call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0953-2026-06-21-heap-store-optimization-loop-call-old-field-growth-boundary.md`](../../../raw/research/0953-2026-06-21-heap-store-optimization-loop-call-old-field-growth-boundary.md)
+- [research note 0953](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped direct-call old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten loop-wrapped direct call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0954-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-store-boundary.md`](../../../raw/research/0954-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-store-boundary.md)
+- [research note 0954](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_indirect` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten loop-wrapped indirect call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0955-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0955-2026-06-21-heap-store-optimization-loop-call-indirect-old-field-growth-boundary.md)
+- [research note 0955](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_indirect` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten loop-wrapped indirect call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0956-2026-06-21-heap-store-optimization-loop-call-ref-old-field-store-boundary.md`](../../../raw/research/0956-2026-06-21-heap-store-optimization-loop-call-ref-old-field-store-boundary.md)
+- [research note 0956](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_ref` old-field boundaries before unrelated `i32.store` and `table.set`; Binaryen preserves the overwritten loop-wrapped typed-function-reference call, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0957-2026-06-21-heap-store-optimization-loop-call-ref-old-field-growth-boundary.md`](../../../raw/research/0957-2026-06-21-heap-store-optimization-loop-call-ref-old-field-growth-boundary.md)
+- [research note 0957](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_ref` old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the overwritten loop-wrapped typed-function-reference call, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0958-2026-06-21-heap-store-optimization-loop-call-constructor-store-boundary.md`](../../../raw/research/0958-2026-06-21-heap-store-optimization-loop-call-constructor-store-boundary.md)
+- [research note 0958](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped ordinary direct-call constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the loop-wrapped direct call constructor operand, intervening store root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0959-2026-06-21-heap-store-optimization-loop-call-constructor-growth-boundary.md`](../../../raw/research/0959-2026-06-21-heap-store-optimization-loop-call-constructor-growth-boundary.md)
+- [research note 0959](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped ordinary direct-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the loop-wrapped direct call constructor operand, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0960-2026-06-21-heap-store-optimization-loop-call-indirect-constructor-store-boundary.md`](../../../raw/research/0960-2026-06-21-heap-store-optimization-loop-call-indirect-constructor-store-boundary.md)
+- [research note 0960](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_indirect` constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the loop-wrapped indirect call constructor operand, intervening store root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0961-2026-06-21-heap-store-optimization-loop-call-indirect-constructor-growth-boundary.md`](../../../raw/research/0961-2026-06-21-heap-store-optimization-loop-call-indirect-constructor-growth-boundary.md)
+- [research note 0961](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_indirect` constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the loop-wrapped indirect call constructor operand, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0962-2026-06-21-heap-store-optimization-loop-call-ref-constructor-store-boundary.md`](../../../raw/research/0962-2026-06-21-heap-store-optimization-loop-call-ref-constructor-store-boundary.md)
+- [research note 0962](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_ref` constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the loop-wrapped typed-function-reference call constructor operand, intervening store root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0963-2026-06-21-heap-store-optimization-loop-call-ref-constructor-growth-boundary.md`](../../../raw/research/0963-2026-06-21-heap-store-optimization-loop-call-ref-constructor-growth-boundary.md)
+- [research note 0963](./index.md)
   - added focused HSO-D/G coverage for branchless loop-wrapped `call_ref` constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the loop-wrapped typed-function-reference call constructor operand, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0964-2026-06-21-heap-store-optimization-branch-loop-call-constructor-store-boundary.md`](../../../raw/research/0964-2026-06-21-heap-store-optimization-branch-loop-call-constructor-store-boundary.md)
+- [research note 0964](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop direct-call constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the wrapped call, `br_if`, intervening store root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0965-2026-06-21-heap-store-optimization-branch-loop-call-constructor-growth-boundary.md`](../../../raw/research/0965-2026-06-21-heap-store-optimization-branch-loop-call-constructor-growth-boundary.md)
+- [research note 0965](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop direct-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the wrapped call, `br_if`, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0966-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-store-boundary.md`](../../../raw/research/0966-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-store-boundary.md)
+- [research note 0966](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_indirect` constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the wrapped indirect call, `br_if`, intervening store root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0967-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-growth-boundary.md`](../../../raw/research/0967-2026-06-21-heap-store-optimization-branch-loop-call-indirect-constructor-growth-boundary.md)
+- [research note 0967](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_indirect` constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the wrapped indirect call, `br_if`, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0968-2026-06-21-heap-store-optimization-branch-loop-call-ref-constructor-store-boundary.md`](../../../raw/research/0968-2026-06-21-heap-store-optimization-branch-loop-call-ref-constructor-store-boundary.md)
+- [research note 0968](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_ref` constructor operands before unrelated `i32.store` and `table.set`; Binaryen preserves the wrapped typed-function-reference call, `br_if`, intervening store root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0969-2026-06-21-heap-store-optimization-branch-loop-call-ref-constructor-growth-boundary.md`](../../../raw/research/0969-2026-06-21-heap-store-optimization-branch-loop-call-ref-constructor-growth-boundary.md)
+- [research note 0969](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_ref` constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the wrapped typed-function-reference call, `br_if`, intervening growth root, and later other-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0970-2026-06-21-heap-store-optimization-branch-loop-call-old-field-store-boundary.md`](../../../raw/research/0970-2026-06-21-heap-store-optimization-branch-loop-call-old-field-store-boundary.md)
+- [research note 0970](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop direct-call old fields before unrelated `i32.store` and `table.set`; Binaryen preserves the wrapped old-field call, `br_if`, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0971-2026-06-21-heap-store-optimization-branch-loop-call-old-field-growth-boundary.md`](../../../raw/research/0971-2026-06-21-heap-store-optimization-branch-loop-call-old-field-growth-boundary.md)
+- [research note 0971](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop direct-call old fields before unrelated `memory.grow` and `table.grow`; Binaryen preserves the wrapped old-field call, `br_if`, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0972-2026-06-21-heap-store-optimization-branch-loop-call-indirect-old-field-store-boundary.md`](../../../raw/research/0972-2026-06-21-heap-store-optimization-branch-loop-call-indirect-old-field-store-boundary.md)
+- [research note 0972](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_indirect` old fields before unrelated `i32.store` and `table.set`; Binaryen preserves the wrapped old-field indirect call, `br_if`, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0973-2026-06-21-heap-store-optimization-branch-loop-call-indirect-old-field-growth-boundary.md`](../../../raw/research/0973-2026-06-21-heap-store-optimization-branch-loop-call-indirect-old-field-growth-boundary.md)
+- [research note 0973](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_indirect` old fields before unrelated `memory.grow` and `table.grow`; Binaryen preserves the wrapped old-field indirect call, `br_if`, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0974-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-store-boundary.md`](../../../raw/research/0974-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-store-boundary.md)
+- [research note 0974](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_ref` old fields before unrelated `i32.store` and `table.set`; Binaryen preserves the wrapped typed-function-reference old field, `br_if`, intervening store root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0975-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-growth-boundary.md`](../../../raw/research/0975-2026-06-21-heap-store-optimization-branch-loop-call-ref-old-field-growth-boundary.md)
+- [research note 0975](./index.md)
   - added focused HSO-D/G coverage for branch-containing outer-block/inner-loop `call_ref` old fields before unrelated `memory.grow` and `table.grow`; Binaryen preserves the wrapped typed-function-reference old field, `br_if`, intervening growth root, and later same-field `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md`](../../../raw/research/0929-2026-06-21-heap-store-optimization-call-old-field-memory-boundary.md)
+- [research note 0929](./index.md)
   - added focused HSO-D/G coverage for the ordinary direct-call old-field counterpart before unrelated `i32.store`; Binaryen preserves the call, intervening memory store, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md`](../../../raw/research/0931-2026-06-21-heap-store-optimization-call-constructor-growth-boundary.md)
+- [research note 0931](./index.md)
   - added focused HSO-D/G coverage for ordinary direct-call constructor operands before unrelated `memory.grow` and `table.grow`; Binaryen preserves the call, intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0935-2026-06-21-heap-store-optimization-call-old-field-growth-boundary.md`](../../../raw/research/0935-2026-06-21-heap-store-optimization-call-old-field-growth-boundary.md)
+- [research note 0935](./index.md)
   - added focused HSO-D/G coverage for ordinary direct-call old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves the call, intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md`](../../../raw/research/0930-2026-06-21-heap-store-optimization-call-ref-memory-store-boundary.md)
+- [research note 0930](./index.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor-operand and old-field boundaries before unrelated `i32.store`; Binaryen preserves `call_ref`, the intervening memory store, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md`](../../../raw/research/0933-2026-06-21-heap-store-optimization-call-ref-growth-boundary.md)
+- [research note 0933](./index.md)
   - added focused HSO-D/G coverage for typed-function-reference `call_ref` constructor and old-field boundaries before unrelated `memory.grow` and `table.grow`; Binaryen preserves `call_ref`, the intervening growth root, and later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md`](../../../raw/research/1022-2026-06-21-heap-store-optimization-default-desc-catchable-later-field-result-try-table-store-boundary.md)
+- [research note 1022](./index.md)
   - added HSO-D/E/G default-descriptor catchable result-wrapper store-value boundary: Binaryen preserves `struct.new_default_desc`, the intervening call store, the result-typed `try_table` / direct-call store, the descriptor read, and the later `struct.set`; Starshine now blocks folds whose moved value contains a catchable `try_table` escape.
-- [`../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md`](../../../raw/research/1021-2026-06-21-heap-store-optimization-later-field-result-try-table-descriptor-old-field-fold.md)
+- [research note 1021](./index.md)
   - added coverage-only HSO-D/G descriptor later-field old-field evidence: Binaryen folds pure same-field stores into immutable-descriptor `struct.new_desc` across a non-tail later-field result-typed `try_table`, preserving overwritten call or exact trapping `i32.div_s` old fields under `drop`; Starshine already matches.
-- [`../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md`](../../../raw/research/1020-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-old-field-boundary.md)
+- [research note 1020](./index.md)
   - added coverage-only HSO-D/G later-field old-field evidence for the `1018` tail-call boundary: Binaryen preserves `struct.new`, old-field call/trap effects, a result-typed `try_table` / `return_call`, and the later `struct.set`; Starshine already matches.
-- [`../../../raw/research/1019-2026-06-21-heap-store-optimization-later-field-result-try-table-old-field-fold.md`](../../../raw/research/1019-2026-06-21-heap-store-optimization-later-field-result-try-table-old-field-fold.md)
+- [research note 1019](./index.md)
   - added coverage-only HSO-D/G later-field old-field evidence: Binaryen folds pure same-field stores into plain `struct.new` across non-tail later-field result-typed `try_table` wrappers while preserving overwritten call or exact trapping `i32.div_s` old fields under `drop`; Starshine already matches.
-- [`../../../raw/research/1018-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-boundary.md`](../../../raw/research/1018-2026-06-21-heap-store-optimization-later-field-result-try-table-tail-call-boundary.md)
+- [research note 1018](./index.md)
   - fixed HSO-D/E/F/G later-field tail-call result-wrapper behavior: Binaryen preserves `struct.new`, the result-typed `try_table`, and later `struct.set` for `return_call`, `return_call_indirect`, and `return_call_ref` even with pure moved set values; Starshine now blocks folding across later-field tail/throw escapes while preserving non-tail pure folds.
-- [`../../../raw/research/1017-2026-06-21-heap-store-optimization-later-field-result-try-table-call-indirect-split.md`](../../../raw/research/1017-2026-06-21-heap-store-optimization-later-field-result-try-table-call-indirect-split.md)
+- [research note 1017](./index.md)
   - added coverage-only HSO-D/E later-field evidence for indirect-call result-typed `try_table` constructor fields: Binaryen folds pure set values into `struct.new`, but preserves `call_indirect` moved values that would move before the later-field wrapper, and Starshine already matches.
-- [`../../../raw/research/1016-2026-06-21-heap-store-optimization-later-field-result-try-table-call-ref-split.md`](../../../raw/research/1016-2026-06-21-heap-store-optimization-later-field-result-try-table-call-ref-split.md)
+- [research note 1016](./index.md)
   - added coverage-only HSO-D/E later-field evidence for typed-function-reference result-typed `try_table` constructor fields: Binaryen folds pure set values into `struct.new`, but preserves `call_ref` moved values that would move before the later-field wrapper, and Starshine already matches.
-- [`../../../raw/research/1015-2026-06-21-heap-store-optimization-later-field-result-try-table-call-split.md`](../../../raw/research/1015-2026-06-21-heap-store-optimization-later-field-result-try-table-call-split.md)
+- [research note 1015](./index.md)
   - added coverage-only HSO-D/E later-field evidence for result-typed `try_table` constructor fields: Binaryen folds pure set values into `struct.new`, but preserves effectful call-valued set values that would move before the later-field wrapper, and Starshine already matches.
-- [`../../../raw/research/1014-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-return-call-ref-boundary.md`](../../../raw/research/1014-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-return-call-ref-boundary.md)
+- [research note 1014](./index.md)
   - added coverage-only HSO-D/E/F/G evidence for the descriptor result-typed `try_table` mutable descriptor-global `return_call_ref` boundary; Binaryen preserves `struct.new_desc`, the mutable descriptor read, dropped result wrapper, typed-function-reference tail call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1013-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-tail-call-boundary.md`](../../../raw/research/1013-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-tail-call-boundary.md)
+- [research note 1013](./index.md)
   - added coverage-only HSO-D/E/F/G evidence for descriptor result-typed `try_table` mutable descriptor-global `return_call` and `return_call_indirect` boundaries; Binaryen preserves `struct.new_desc`, the mutable descriptor read, dropped result wrapper, tail call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1012-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-ref-boundary.md`](../../../raw/research/1012-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-ref-boundary.md)
+- [research note 1012](./index.md)
   - added coverage-only HSO-D/E/F/G evidence for descriptor result-typed `try_table` mutable descriptor-global `call_ref` boundaries; Binaryen preserves `struct.new_desc`, the mutable descriptor read, dropped result wrapper, catchable typed-function-reference call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1011-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-boundary.md`](../../../raw/research/1011-2026-06-21-heap-store-optimization-result-try-table-mutable-descriptor-call-boundary.md)
+- [research note 1011](./index.md)
   - added coverage-only HSO-D/E/F/G evidence for descriptor result-typed `try_table` mutable descriptor-global boundaries; Binaryen preserves `struct.new_desc`, the mutable descriptor read, dropped result wrapper, catchable direct/indirect calls, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1010-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-old-field-boundary.md`](../../../raw/research/1010-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-old-field-boundary.md)
+- [research note 1010](./index.md)
   - added coverage-only HSO-D/F/G evidence for descriptor result-typed `try_table` `call_ref` old-field boundaries; Binaryen preserves the overwritten old-field typed-function-reference call, dropped result wrapper, catchable `call_ref`, descriptor read, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1009-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-old-field-boundary.md`](../../../raw/research/1009-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-old-field-boundary.md)
+- [research note 1009](./index.md)
   - added coverage-only HSO-D/F/G evidence for descriptor result-typed `try_table` `call_indirect` old-field boundaries; Binaryen preserves the overwritten old-field indirect call, dropped result wrapper, catchable indirect call, descriptor read, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1008-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-fold.md`](../../../raw/research/1008-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-ref-fold.md)
+- [research note 1008](./index.md)
   - added coverage-only HSO-D/F/G evidence for descriptor result-typed `try_table` `call_ref` set-value folds; Binaryen folds the pure immutable-descriptor `struct.new_desc` across the dropped result wrapper while preserving the catchable typed-function-reference call and descriptor read, and Starshine already matches after `1005`.
-- [`../../../raw/research/1007-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-fold.md`](../../../raw/research/1007-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-indirect-fold.md)
+- [research note 1007](./index.md)
   - added coverage-only HSO-D/F/G evidence for descriptor result-typed `try_table` `call_indirect` set-value folds; Binaryen folds the pure immutable-descriptor `struct.new_desc` across the dropped result wrapper while preserving the catchable indirect call and descriptor read, and Starshine already matches after `1005`.
-- [`../../../raw/research/1006-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-old-field-boundary.md`](../../../raw/research/1006-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-old-field-boundary.md)
+- [research note 1006](./index.md)
   - added coverage-only HSO-D/F/G evidence for descriptor result-typed `try_table` direct-call old-field boundaries; Binaryen preserves the overwritten direct-call constructor field, wrapper, catchable direct call, descriptor read, and later `struct.set`, and Starshine already matches after `1005`.
-- [`../../../raw/research/1005-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-fold.md`](../../../raw/research/1005-2026-06-21-heap-store-optimization-result-try-table-descriptor-call-fold.md)
+- [research note 1005](./index.md)
   - fixed HSO-D/F/G descriptor result-wrapper overblocking: Binaryen folds a pure `struct.new_desc` using an immutable descriptor global across a dropped result-typed `try_table` with a catchable direct call, while preserving existing result-typed tail-call/throw no-fold boundaries; focused HSO tests passed `374/374`, native `src/cmd` build passed with pre-existing warnings, and direct 10000-case HSO compare normalized `10000/10000` with `0` mismatches/failures.
-- [`../../../raw/research/1004-2026-06-21-heap-store-optimization-result-try-table-call-ref-old-field-boundary.md`](../../../raw/research/1004-2026-06-21-heap-store-optimization-result-try-table-call-ref-old-field-boundary.md)
+- [research note 1004](./index.md)
   - added coverage-only HSO-D/F/G evidence for result-typed `try_table` `call_ref` old-field boundaries; Binaryen preserves the overwritten `call_ref` constructor field, wrapper, catchable typed-function-reference call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1003-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-old-field-boundary.md`](../../../raw/research/1003-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-old-field-boundary.md)
+- [research note 1003](./index.md)
   - added coverage-only HSO-D/F/G evidence for result-typed `try_table` `return_call_ref` old-field boundaries; Binaryen preserves the overwritten `call_ref` constructor field, wrapper, typed-function-reference tail call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1002-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-old-field-boundary.md`](../../../raw/research/1002-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-old-field-boundary.md)
+- [research note 1002](./index.md)
   - added coverage-only HSO-D/F/G evidence for result-typed `try_table` indirect `return_call` old-field boundaries; Binaryen preserves the overwritten constructor-field call, wrapper, indirect tail call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1001-2026-06-21-heap-store-optimization-result-try-table-return-call-old-field-boundary.md`](../../../raw/research/1001-2026-06-21-heap-store-optimization-result-try-table-return-call-old-field-boundary.md)
+- [research note 1001](./index.md)
   - added coverage-only HSO-D/F/G evidence for result-typed `try_table` direct `return_call` old-field boundaries; Binaryen preserves the overwritten constructor-field call, wrapper, tail call, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/1000-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-boundary.md`](../../../raw/research/1000-2026-06-21-heap-store-optimization-result-try-table-return-call-indirect-boundary.md)
+- [research note 1000](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` `return_call_indirect` set-value boundaries; Binaryen preserves the wrapper, indirect tail call, constructor, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0999-2026-06-21-heap-store-optimization-result-try-table-return-call-boundary.md`](../../../raw/research/0999-2026-06-21-heap-store-optimization-result-try-table-return-call-boundary.md)
+- [research note 0999](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` direct `return_call` set-value boundaries; Binaryen preserves the wrapper, tail call, constructor, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0998-2026-06-21-heap-store-optimization-result-try-table-call-indirect-cross-store-boundary.md`](../../../raw/research/0998-2026-06-21-heap-store-optimization-result-try-table-call-indirect-cross-store-boundary.md)
+- [research note 0998](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` ordinary cross-store boundaries that also contain catchable indirect calls; Binaryen preserves the wrapper, `call_indirect`, `table.set` / `i32.store`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0997-2026-06-21-heap-store-optimization-result-try-table-call-cross-store-boundary.md`](../../../raw/research/0997-2026-06-21-heap-store-optimization-result-try-table-call-cross-store-boundary.md)
+- [research note 0997](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` ordinary cross-store boundaries that also contain catchable direct calls; Binaryen preserves the wrapper, direct `call`, `table.set` / `i32.store`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0996-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-boundary.md`](../../../raw/research/0996-2026-06-21-heap-store-optimization-result-try-table-return-call-ref-boundary.md)
+- [research note 0996](./index.md)
   - added coverage-only HSO-F/G evidence for a result-typed `try_table` containing `return_call_ref`; Binaryen preserves the wrapper, tail call, constructor, and later `struct.set`, and Starshine already matches instead of extending the direct-root `return_call_ref` Starshine-win classification.
-- [`../../../raw/research/0995-2026-06-21-heap-store-optimization-result-try-table-call-ref-cross-store-boundary.md`](../../../raw/research/0995-2026-06-21-heap-store-optimization-result-try-table-call-ref-cross-store-boundary.md)
+- [research note 0995](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` ordinary cross-store boundaries that also contain typed-function-reference calls; Binaryen preserves the wrapper, `call_ref`, `ref.as_non_null`, `table.set` / `i32.store`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0994-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-ref-boundary.md`](../../../raw/research/0994-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-ref-boundary.md)
+- [research note 0994](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed same-effect `try_table` fill boundaries that also contain typed-function-reference calls; Binaryen preserves the wrapper, `call_ref`, `ref.as_non_null`, `memory.fill` / `table.fill`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0993-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-indirect-boundary.md`](../../../raw/research/0993-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-indirect-boundary.md)
+- [research note 0993](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed same-effect `try_table` fill boundaries that also contain potentially catchable indirect calls; Binaryen preserves the wrapper, `call_indirect`, `memory.fill` / `table.fill`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0992-2026-06-21-heap-store-optimization-result-try-table-same-effect-throw-boundary.md`](../../../raw/research/0992-2026-06-21-heap-store-optimization-result-try-table-same-effect-throw-boundary.md)
+- [research note 0992](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed same-effect `try_table` fill boundaries followed by caught throws; Binaryen preserves the wrapper, fill, `throw`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0991-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-boundary.md`](../../../raw/research/0991-2026-06-21-heap-store-optimization-result-try-table-same-effect-call-boundary.md)
+- [research note 0991](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed same-effect `try_table` fill boundaries that also contain catchable calls; Binaryen preserves the wrapper, call, `memory.fill` / `table.fill`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0990-2026-06-21-heap-store-optimization-result-try-table-cross-store-fold.md`](../../../raw/research/0990-2026-06-21-heap-store-optimization-result-try-table-cross-store-fold.md)
+- [research note 0990](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` cross-family ordinary-store folds; Binaryen preserves the wrapper plus `table.set` / `i32.store`, removes the later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0989-2026-06-21-heap-store-optimization-result-try-table-cross-growth-fold.md`](../../../raw/research/0989-2026-06-21-heap-store-optimization-result-try-table-cross-growth-fold.md)
+- [research note 0989](./index.md)
   - added coverage-only HSO-F/G evidence for result-typed `try_table` cross-family growth folds; Binaryen preserves the wrapper plus `table.grow` / `memory.grow`, removes the later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0988-2026-06-21-heap-store-optimization-result-try-table-table-fill-boundary.md`](../../../raw/research/0988-2026-06-21-heap-store-optimization-result-try-table-table-fill-boundary.md)
+- [research note 0988](./index.md)
   - added coverage-only HSO-F/G evidence for the table-side result-typed `try_table` / `table.fill` same-effect boundary; Binaryen preserves `table.size`, the wrapper, `table.fill`, and later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0987-2026-06-21-heap-store-optimization-result-try-table-table-global-set.md`](../../../raw/research/0987-2026-06-21-heap-store-optimization-result-try-table-table-global-set.md)
+- [research note 0987](./index.md)
   - added coverage-only HSO-F/G evidence for the table-side result-typed `try_table` / unrelated-global-set fold; Binaryen preserves `table.size`, the wrapper, and `global.set`, removes the later `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0986-2026-06-21-heap-store-optimization-result-try-table-memory-fill-boundary.md`](../../../raw/research/0986-2026-06-21-heap-store-optimization-result-try-table-memory-fill-boundary.md)
+- [research note 0986](./index.md)
   - added coverage-only HSO-F/G evidence for the result-typed `try_table` / `memory.fill` same-effect boundary; Binaryen preserves `memory.size`, the wrapper, `memory.fill`, and later `struct.set`, and Starshine already matches after `0985`.
-- [`../../../raw/research/0985-2026-06-21-heap-store-optimization-result-try-table-global-set.md`](../../../raw/research/0985-2026-06-21-heap-store-optimization-result-try-table-global-set.md)
+- [research note 0985](./index.md)
   - fixed an HSO-F/G parity gap for result-typed non-throwing `try_table` wrappers before unrelated mutable-global writes; Binaryen folds while preserving the catch-target block wrapper, and Starshine now rejects block-wrapper peeling when any lifted root contains a nested `try_table`.
-- [`../../../raw/research/0984-2026-06-21-heap-store-optimization-descriptor-catchable-try-table-call-boundary.md`](../../../raw/research/0984-2026-06-21-heap-store-optimization-descriptor-catchable-try-table-call-boundary.md)
+- [research note 0984](./index.md)
   - fixed an HSO-D/F/G parity gap for `struct.new_desc` followed by a catchable-call `try_table`; Binaryen preserves the descriptor constructor, caught call, and later `struct.set`, so Starshine now blocks branch-skip constructor-local swaps across `try_table` bodies that may escape to their local catch.
-- [`../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md`](../../../raw/research/0983-2026-06-21-heap-store-optimization-descriptor-try-table-global-set.md)
+- [research note 0983](./index.md)
   - added coverage-only HSO-D/G evidence for `struct.new_desc` across a non-throwing `try_table` body that performs an unrelated mutable `global.set`; Binaryen folds the later value into the descriptor constructor while preserving `try_table`, `global.set`, and descriptor `global.get`, and Starshine already matches.
-- [`../../../raw/research/0982-2026-06-21-heap-store-optimization-catchable-try-table-call-boundary.md`](../../../raw/research/0982-2026-06-21-heap-store-optimization-catchable-try-table-call-boundary.md)
+- [research note 0982](./index.md)
   - added coverage-only HSO-G/F boundary coverage for a constructor local followed by a catchable-call `try_table` before the later `struct.set`; Binaryen preserves the constructor local, `try_table`, `call`, and `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0981-2026-06-21-heap-store-optimization-catch-taken-try-table-throw-boundary.md`](../../../raw/research/0981-2026-06-21-heap-store-optimization-catch-taken-try-table-throw-boundary.md)
+- [research note 0981](./index.md)
   - added coverage-only HSO-G/F boundary coverage for a constructor local followed by a catch-taken `try_table` / `throw` before the later `struct.set`; Binaryen preserves the constructor local, `try_table`, `throw`, and `struct.set`, and Starshine already matches.
-- [`../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md`](../../../raw/research/0980-2026-06-21-heap-store-optimization-branch-contained-try-table-global-set.md)
+- [research note 0980](./index.md)
   - added coverage-only HSO-G tests for non-throwing `try_table` bodies with a branch fully contained inside an inner block before an unrelated `global.set`; Binaryen folds this family and Starshine already matches for `memory.size` / `table.size` constructor operands.
-- [`../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md`](../../../raw/research/0979-2026-06-21-heap-store-optimization-nested-try-table-global-set.md)
+- [research note 0979](./index.md)
   - added coverage-only HSO-G tests for nested inert `block(block(try_table ...))` wrappers around the non-throwing unrelated-global-set family from `0927`; Starshine already folds `memory.size` / `table.size` constructor operands and removes the redundant `struct.set` while preserving the wrapper side effect.
-- [`../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md`](../../../raw/research/0927-2026-06-21-heap-store-optimization-try-table-global-set-fold.md)
+- [research note 0927](./index.md)
   - fixed the HSO-G `0922` parity gap for `memory.size` / `table.size` constructors crossing a block-wrapped, non-throwing `try_table` body that only performs unrelated `global.set`; the implementation keeps direct `try_table` roots inside their block wrapper during swaps so catch-label depths remain valid.
-- [`../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md`](../../../raw/research/0922-2026-06-21-heap-store-optimization-try-table-global-set-gap.md)
+- [research note 0922](./index.md)
   - historical gap note superseded for the covered `memory.size` / `table.size` non-throwing `try_table` / unrelated `global.set` positives by `0927`; arbitrary throwing `try_table` bodies and broader catch/branch wrappers remain open.
-- [`../../../raw/research/0921-2026-06-21-heap-store-optimization-return-call-ref-direct-active-catch.md`](../../../raw/research/0921-2026-06-21-heap-store-optimization-return-call-ref-direct-active-catch.md)
+- [research note 0921](./index.md)
   - added focused HSO-F/H coverage and classification for the active-catch counterpart of the direct `return_call_ref` set-value boundary; Binaryen preserves the dead store inside `try_table`, while Starshine keeps validating output and drops the dead store as a narrow better-than-Binaryen cleanup.
-- [`../../../raw/research/0920-2026-06-21-heap-store-optimization-return-call-ref-direct-value.md`](../../../raw/research/0920-2026-06-21-heap-store-optimization-return-call-ref-direct-value.md)
+- [research note 0920](./index.md)
   - added focused HSO-F/H coverage and classification for a direct `return_call_ref` set value; Binaryen preserves the dead `struct.set`, while Starshine emits validating output that drops it as a narrow better-than-Binaryen cleanup.
-- [`../../../raw/research/0919-2026-06-21-heap-store-optimization-return-call-ref-active-catch.md`](../../../raw/research/0919-2026-06-21-heap-store-optimization-return-call-ref-active-catch.md)
+- [research note 0919](./index.md)
   - added focused HSO-F coverage for a `return_call_ref` branch inside an active `try_table` catch region; Binaryen still folds into `struct.new_default`, and Starshine already matched.
-- [`../../../raw/research/0918-2026-06-21-heap-store-optimization-return-call-ref-external-branch.md`](../../../raw/research/0918-2026-06-21-heap-store-optimization-return-call-ref-external-branch.md)
+- [research note 0918](./index.md)
   - added focused HSO-F coverage for a `return_call_ref` branch that exits the function from the moved `struct.set` value; Binaryen folds into `struct.new_default`, and Starshine already matched.
-- [`../../../raw/research/0917-2026-06-21-heap-store-optimization-call-ref-old-field-table-set-boundary.md`](../../../raw/research/0917-2026-06-21-heap-store-optimization-call-ref-old-field-table-set-boundary.md)
+- [research note 0917](./index.md)
   - added focused HSO-D/G coverage for a `call_ref`-valued overwritten constructor field before an unrelated `table.set`; Binaryen preserves the later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md`](../../../raw/research/0916-2026-06-21-heap-store-optimization-call-ref-table-set-boundary.md)
+- [research note 0916](./index.md)
   - added focused HSO-G coverage for a `call_ref`-valued constructor operand before an unrelated `table.set`; Binaryen preserves the later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md`](../../../raw/research/0915-2026-06-21-heap-store-optimization-call-ref-old-field-boundary.md)
+- [research note 0915](./index.md)
   - added focused HSO-D/G coverage for a `call_ref`-valued overwritten constructor field before an unrelated mutable `global.set`; Binaryen preserves the later `struct.set`, and Starshine already matched.
-- [`../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md`](../../../raw/research/0914-2026-06-21-heap-store-optimization-call-ref-constructor-boundary.md)
+- [research note 0914](./index.md)
   - added focused HSO-G coverage for the typed-function-reference call root: Binaryen preserves a `call_ref`-valued constructor operand before an unrelated mutable `global.set` and leaves the later `struct.set`; Starshine already matched.
-- [`../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md`](../../../raw/research/0913-2026-06-21-heap-store-optimization-try-table-growth-boundary.md)
+- [research note 0913](./index.md)
   - added focused HSO-G coverage for cross-family growth-root `try_table` wrapper boundaries: Binaryen preserves `memory.size` before `try_table` / `table.grow` and `table.size` before `try_table` / `memory.grow`; Starshine already matched.
-- [`../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md`](../../../raw/research/0912-2026-06-21-heap-store-optimization-try-table-same-effect-boundary.md)
+- [research note 0912](./index.md)
   - added focused HSO-G coverage for same-effect `try_table` wrapper boundaries: Binaryen preserves `memory.size` before `try_table` / `memory.fill` and `table.size` before `try_table` / `table.fill`; Starshine already matched.
-- [`../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md`](../../../raw/research/0911-2026-06-21-heap-store-optimization-try-table-table-size-boundary.md)
+- [research note 0911](./index.md)
   - added focused HSO-G coverage for a `try_table` wrapper boundary: Binaryen preserves `table.size`, `try_table` / `i32.store`, and the later `struct.set`; Starshine already matched.
-- [`../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md`](../../../raw/research/0910-2026-06-21-heap-store-optimization-try-table-memory-size-boundary.md)
+- [research note 0910](./index.md)
   - added focused HSO-G coverage for the memory-side `try_table` wrapper boundary: Binaryen preserves `memory.size`, `try_table` / `table.set`, and the later `struct.set`; Starshine already matched.
-- [`../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md`](../../../raw/research/0891-2026-06-21-heap-store-optimization-call-indirect-swap-boundary.md)
+- [research note 0891](./index.md)
   - added focused HSO-G coverage for the indirect-call constructor-operand no-swap boundary: Binaryen preserves `call_indirect` before an unrelated `global.set` and leaves the later `struct.set`; Starshine already matched.
-- [`../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md`](../../../raw/research/0890-2026-06-21-heap-store-optimization-default-starshine-win.md)
+- [research note 0890](./index.md)
   - added focused HSO-D/E coverage for a narrow plain-default Starshine win: Binaryen folds only the first call-valued store after `struct.new_default`, but Starshine folds both call-valued stores into the materialized `struct.new` while preserving call order.
-- [`../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md`](../../../raw/research/0889-2026-06-21-heap-store-optimization-default-desc-starshine-win.md)
+- [research note 0889](./index.md)
   - added focused HSO-D/E coverage for a narrow default-descriptor Starshine win: Binaryen folds only the first call-valued store after `struct.new_default_desc`, but Starshine folds both call-valued stores into the materialized `struct.new_desc` while preserving call order and only crossing an immutable descriptor `global.get`.
-- [`../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md`](../../../raw/research/0888-2026-06-21-heap-store-optimization-cross-family-growth-swap.md)
+- [research note 0888](./index.md)
   - added focused HSO-G coverage for cross-family growth swap positives: Binaryen folds when a `memory.size` constructor operand crosses `table.grow`, and when a `table.size` constructor operand crosses `memory.grow`, preserving the growth root while removing the later `struct.set`. Starshine already matched.
-- [`../../../raw/research/0881-2026-06-21-heap-store-optimization-descriptor-if-trap-condition.md`](../../../raw/research/0881-2026-06-21-heap-store-optimization-descriptor-if-trap-condition.md)
+- [research note 0881](./index.md)
   - added focused HSO-D/E coverage for a trapping descriptor-if boundary: Binaryen preserves `struct.set` when the descriptor operand is an `if` whose condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
-- [`../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md`](../../../raw/research/0885-2026-06-21-heap-store-optimization-descriptor-old-field-effects.md)
+- [research note 0885](./index.md)
   - added focused HSO-D coverage for descriptor old-field side-effect preservation: Binaryen folds a call-valued later store into `struct.new_desc` while preserving the overwritten old field's call under `drop`. Starshine already matched.
-- [`../../../raw/research/0887-2026-06-21-heap-store-optimization-plain-old-field-call-barrier.md`](../../../raw/research/0887-2026-06-21-heap-store-optimization-plain-old-field-call-barrier.md)
+- [research note 0887](./index.md)
   - added focused HSO-D/E coverage for the plain-constructor counterpart to descriptor old-field/later-field barriers: Binaryen preserves `struct.set` when folding would move a call-valued replacement store before a call-valued later constructor field, even though the overwritten old field also has call side effects. Starshine already matched.
-- [`../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md`](../../../raw/research/0886-2026-06-21-heap-store-optimization-descriptor-old-field-call-barrier.md)
+- [research note 0886](./index.md)
   - added focused HSO-D/E coverage for descriptor old-field preservation interacting with a later-field call barrier: Binaryen preserves `struct.set` when folding would move a later call before a later constructor-field call, even though the overwritten old field also has call side effects. Starshine already matched.
-- [`../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md`](../../../raw/research/0884-2026-06-21-heap-store-optimization-descriptor-block-br-if-trap-condition.md)
+- [research note 0884](./index.md)
   - added focused HSO-D/E coverage for a trapping descriptor block `br_if` boundary: Binaryen preserves `struct.set` when a value-carrying descriptor block's `br_if` condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
-- [`../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md`](../../../raw/research/0880-2026-06-21-heap-store-optimization-descriptor-select-trap-condition.md)
+- [research note 0880](./index.md)
   - added focused HSO-D/E coverage for a trapping descriptor-select boundary: Binaryen preserves `struct.set` when the descriptor select condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
-- [`../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md`](../../../raw/research/0879-2026-06-21-heap-store-optimization-later-field-select-trap-condition.md)
+- [research note 0879](./index.md)
   - added focused HSO-D/E coverage for a trapping later-field select boundary: Binaryen preserves `struct.set` when the select condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
-- [`../../../raw/research/0883-2026-06-21-heap-store-optimization-later-field-block-br-if-trap-condition.md`](../../../raw/research/0883-2026-06-21-heap-store-optimization-later-field-block-br-if-trap-condition.md)
+- [research note 0883](./index.md)
   - added focused HSO-D/E coverage for a trapping later-field block `br_if` boundary: Binaryen preserves `struct.set` when a value-carrying later-field `br_if` condition is `i32.load`, because folding a call-valued later store would move the call before a possible trap. Starshine already matched.
-- [`../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md`](../../../raw/research/0878-2026-06-20-heap-store-optimization-later-field-block-br-if-pure-condition.md)
+- [research note 0878](./index.md)
   - added focused HSO-D/E coverage for the pure later-field block `br_if` positive: Binaryen folds a call-valued later store through a value-carrying later-field `br_if` when branch operands are pure. Starshine already matched.
-- [`../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md`](../../../raw/research/0877-2026-06-20-heap-store-optimization-descriptor-block-br-if-pure-condition.md)
+- [research note 0877](./index.md)
   - fixed the complementary pure descriptor block `br_if` positive: Binaryen folds a call-valued later store through a value-carrying descriptor `br_if` when branch operands are pure; Starshine now summarizes branch/drop children with descriptor-specific effects and folds the store.
-- [`../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md`](../../../raw/research/0876-2026-06-20-heap-store-optimization-descriptor-block-br-if-call-condition.md)
+- [research note 0876](./index.md)
   - added focused HSO-D/E coverage for an effectful branch-containing descriptor boundary: Binaryen preserves `struct.set` when the descriptor operand is a block with a value-carrying `br_if` whose condition is a call. Starshine already matched.
-- [`../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md`](../../../raw/research/0875-2026-06-20-heap-store-optimization-later-field-block-br-if-call-condition.md)
+- [research note 0875](./index.md)
   - added focused HSO-D/E coverage for an effectful branch-containing later-field boundary: Binaryen preserves `struct.set` when a later constructor field is a block with a value-carrying `br_if` whose condition is a call. Starshine already matched.
-- [`../../../raw/research/0874-2026-06-20-heap-store-optimization-later-field-if-call-condition.md`](../../../raw/research/0874-2026-06-20-heap-store-optimization-later-field-if-call-condition.md)
+- [research note 0874](./index.md)
   - added focused HSO-D/E coverage for an effectful later-field `if` boundary: Binaryen preserves `struct.set` when a later constructor field `if` condition is a call. Starshine already matched.
-- [`../../../raw/research/0873-2026-06-20-heap-store-optimization-later-field-select-call-condition.md`](../../../raw/research/0873-2026-06-20-heap-store-optimization-later-field-select-call-condition.md)
+- [research note 0873](./index.md)
   - added focused HSO-D/E coverage for an effectful later-field select boundary: Binaryen preserves `struct.set` when a later constructor field select condition is a call. Starshine already matched.
-- [`../../../raw/research/0872-2026-06-20-heap-store-optimization-descriptor-select-call-condition.md`](../../../raw/research/0872-2026-06-20-heap-store-optimization-descriptor-select-call-condition.md)
+- [research note 0872](./index.md)
   - added focused HSO-D/E coverage for an effectful descriptor-select boundary: Binaryen preserves `struct.set` when the descriptor operand selects between immutable descriptor globals but the select condition is a call. Starshine already matched.
-- [`../../../raw/research/0871-2026-06-20-heap-store-optimization-mutable-descriptor-global.md`](../../../raw/research/0871-2026-06-20-heap-store-optimization-mutable-descriptor-global.md)
+- [research note 0871](./index.md)
   - added focused HSO-D/E coverage for mutable descriptor-global barriers: Binaryen folds a pure moved value across the mutable descriptor `global.get`, but preserves `struct.set` for a call-valued moved value. Starshine already matched both shapes.
-- [`../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md`](../../../raw/research/0870-2026-06-20-heap-store-optimization-allocation-heavy-performance.md)
+- [research note 0870](./index.md)
   - added allocation-heavy candidate performance evidence using a 2000-function synthetic module with 6000 foldable `struct.set` roots. Both outputs validated and removed all `StructSet` roots, but Starshine remained slower than Binaryen on pass-local and whole-command timing, so HSO-I stays open.
-- [`../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md`](../../../raw/research/0869-2026-06-20-heap-store-optimization-exact-descriptor-cast-surface.md)
+- [research note 0869](./index.md)
   - refreshed the exact descriptor `ref.cast` surface blocker: Binaryen preserves `struct.set` for the exact descriptor-cast trap-order probe, while current Starshine still rejects the exact WAT during decode and the local `ref_cast_desc_eq` AST surface does not validate as an equivalent focused HSO fixture. This is not an accepted HSO non-goal.
-- [`../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md`](../../../raw/research/0868-2026-06-20-heap-store-optimization-unreachable-final-boundary.md)
+- [research note 0868](./index.md)
   - finalized HSO-H unreachable-boundary wording after a direct-root Binaryen `version_130` probe: HSO preserves `struct.set` for unreachable constructor and set-value shapes and leaves cleanup to later DCE; Starshine's `0792` focused tests cover the semantic boundary while the exact direct-root set-value spelling remains a local HOT/test-surface caveat.
-- [`../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md`](../../../raw/research/0867-2026-06-20-heap-store-optimization-generic-dse-boundary.md)
+- [research note 0867](./index.md)
   - added HSO-H boundary coverage for the source-backed generic DSE/load-forwarding non-goal: Binaryen preserves repeated non-fresh-reference `struct.set` roots and a later `struct.get` after `struct.set`, and Starshine now has matching focused fail-closed tests.
-- [`../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md`](../../../raw/research/0866-2026-06-20-heap-store-optimization-descriptor-br-on-non-null.md)
+- [research note 0866](./index.md)
   - probed an HSO-D/F descriptor branch boundary: Binaryen preserves `struct.set` when the descriptor operand is a `br_on_non_null` block that can fall through to `unreachable` before a later call-valued store. A focused Starshine AST fixture currently hits a HOT CFG/verifier surface blocker for this descriptor-typed branch-result shape, so this is an open local-surface blocker rather than HSO parity evidence or an accepted non-goal.
-- [`../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md`](../../../raw/research/0865-2026-06-20-heap-store-optimization-descriptor-ref-as-non-null.md)
+- [research note 0865](./index.md)
   - added HSO-D descriptor trap-boundary coverage: Binaryen preserves `struct.set` when the descriptor operand is `ref.as_non_null` over a nullable descriptor global because folding would move a later call before a possible descriptor trap. Starshine already matched.
-- [`../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md`](../../../raw/research/0863-2026-06-20-heap-store-optimization-loop-backedge-local-read.md)
+- [research note 0863](./index.md)
   - added HSO-F loop-backedge target-local-read coverage: Binaryen preserves `struct.set` when a branch-valued store can jump to a loop header that reads the fresh-struct local before the next `local.set`; Starshine already matched.
-- [`../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md`](../../../raw/research/0862-2026-06-20-heap-store-optimization-br-table-local-escape.md)
+- [research note 0862](./index.md)
   - added `br_table` control-flow coverage for HSO-F: Starshine matches Binaryen's escaping-local negative, and the no-later-local-read variant is documented as a narrow Starshine better-than-Binaryen fold that extends the one-disappearing-bad-get reasoning to `br_table` values.
-- [`../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md`](../../../raw/research/0861-2026-06-20-heap-store-optimization-descriptor-later-field-global-write.md)
+- [research note 0861](./index.md)
   - fixed descriptor later-field global-write barriers: Binaryen folds when a later constructor field writes `$g0` and the moved value reads or writes unrelated `$g1`, but preserves `struct.set` for same-global read/write conflicts. Starshine now normalizes non-skipping structural control out of reorder masks before applying the precise global-only movement allowance.
-- [`../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md`](../../../raw/research/0860-2026-06-20-heap-store-optimization-descriptor-later-field-global-conflict.md)
+- [research note 0860](./index.md)
   - fixed descriptor later-field same-global conflict handling for later-field reads: Binaryen folds when a later constructor field reads mutable global `$g0` and the moved value writes unrelated `$g1`, but preserves `struct.set` when both touch `$g0`. Starshine now checks precise same-global read/write conflicts before value-prefix mutation and includes peeled prefix roots in later-field/descriptor reorder checks.
-- [`../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md`](../../../raw/research/0859-2026-06-20-heap-store-optimization-descriptor-later-field-local-read.md)
+- [research note 0859](./index.md)
   - fixed a descriptor later-field local-read overblock: Binaryen folds a call-valued `struct.set` into `struct.new_desc` even when a later constructor field reads the target local, because the moved value itself has no local-state effects. Focused HSO tests passed `213/213`; direct 10000-case compare normalized `10000/10000` with `0` mismatches.
-- [`../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md`](../../../raw/research/0858-2026-06-20-heap-store-optimization-descriptor-target-local-write-hazard.md)
+- [research note 0858](./index.md)
   - added descriptor target-local write hazard coverage: Binaryen preserves `struct.set` when a `struct.new_desc` chain's moved value writes a replacement descriptor-constructed struct to the fresh-struct target local; focused HSO tests passed `212/212`, and no implementation change was needed.
-- [`../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md`](../../../raw/research/0857-2026-06-20-heap-store-optimization-descriptor-target-local-hazard.md)
+- [research note 0857](./index.md)
   - added descriptor target-local read hazard coverage: Binaryen preserves `struct.set` when a `struct.new_desc` chain's moved value reads the fresh-struct target local; focused HSO tests passed `211/211`, and no implementation change was needed.
-- [`../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md`](../../../raw/research/0856-2026-06-20-heap-store-optimization-descriptor-old-field-combinations.md)
+- [research note 0856](./index.md)
   - added default/descriptor old-field combination coverage: Binaryen folds safe `struct.new_default_desc` chain stores into `struct.new_desc`, but preserves a descriptor `struct.set` when a later constructor field call orders before the moved call; focused HSO tests passed `210/210`, and no implementation change was needed.
-- [`../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md`](../../../raw/research/0855-2026-06-20-heap-store-optimization-target-local-chain-variants.md)
+- [research note 0855](./index.md)
   - added target-local chain coverage: Binaryen preserves both stores when an early moved value writes the target local, but folds an earlier harmless store before a later target-local-read hazard; focused HSO tests passed `208/208`, and no implementation change was needed.
-- [`../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md`](../../../raw/research/0854-2026-06-20-heap-store-optimization-target-local-write-negative.md)
+- [research note 0854](./index.md)
   - added coverage for the source-backed target-local write hazard where the moved set value overwrites the same fresh-struct local; focused HSO tests passed `206/206`, and no implementation change was needed.
-- [`../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md`](../../../raw/research/0853-2026-06-20-heap-store-optimization-subsequent-old-field-negative.md)
+- [research note 0853](./index.md)
   - added coverage for the subsequent-chain counterpart of Binaryen's old-field side-effect conflict negative; focused HSO tests passed `205/205`, and no implementation change was needed.
-- [`../../../raw/research/0852-2026-06-20-heap-store-optimization-subsequent-old-field-effects.md`](../../../raw/research/0852-2026-06-20-heap-store-optimization-subsequent-old-field-effects.md)
+- [research note 0852](./index.md)
   - added coverage for Binaryen's `$side-effect-subsequent-ok` family; focused HSO tests passed `204/204`, and no implementation change was needed.
-- [`../../../raw/research/0851-2026-06-20-heap-store-optimization-core-chain-closeout.md`](../../../raw/research/0851-2026-06-20-heap-store-optimization-core-chain-closeout.md)
+- [research note 0851](./index.md)
   - classifies the currently source-backed HSO-C core-chain family as behavior-parity covered after repeated-store, wrong-target-local, tee-plus-later-chain, many-fields, pattern-breaker, and many-news coverage/fixes, with no residual debris/output-shape drift in the latest direct lanes.
 
 ## What is not covered by this page
@@ -741,7 +510,7 @@ It also does not claim that Starshine's wrapper-cleanup machinery exists upstrea
 
 ## Sources
 
-- [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
+- [research note 0448](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)

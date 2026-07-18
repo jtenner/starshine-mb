@@ -4,9 +4,6 @@ status: supported
 starshine_status: active
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
-  - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
-  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -59,6 +56,10 @@ It covers every upstream transform and bailout and retains five broader evidence
 For those extra families, PLS now removes the redundant extension expression after proving every possible value source is a matching rewritten narrow load. Across the 16 retained width/family probes, Starshine canonical output is `1` to `7` bytes smaller than Binaryen per function and runtime results match for negative boundary values.
 
 Exact simple forms use a raw pass-manager rewrite path. Representative 2,000-function workloads run faster than Binaryen v131 (`6.21-7.36 ms` Starshine versus `6.94-8.18 ms` Binaryen).
+
+## Absorbed implementation baseline
+
+The original March 2026 implementation note established the still-valid local core: exact non-tee `local.set` narrow-load producers, all-use extension recognition, width-consistent signed/unsigned voting, whole-local producer rewriting, memory absence fast-skip, and analysis-safe replacement through pass APIs. Its initial 10,000-case normalized lane and debug-WASI canonical-equality signoff are historical; the v131 source audit and larger final matrix below supersede them as release evidence without changing those implementation guardrails.
 
 ## Final evidence
 

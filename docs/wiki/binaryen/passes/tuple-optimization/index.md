@@ -3,47 +3,14 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/1387-2026-06-30-tuple-optimization-closeout-soft-exception.md
-  - ../../../raw/research/1386-2026-06-30-tuple-optimization-direct-root-fast-path.md
-  - ../../../raw/research/1385-2026-06-30-tuple-optimization-precollect-root-fast-path.md
-  - ../../../raw/research/1384-2026-06-30-tuple-optimization-root-elision-fast-path.md
-  - ../../../raw/research/1383-2026-06-30-tuple-optimization-no-copy-payload-fast-path.md
-  - ../../../raw/research/1382-2026-06-30-tuple-optimization-no-scalar-forward-fast-path.md
-  - ../../../raw/research/1381-2026-06-29-tuple-optimization-no-result-link-fast-path.md
-  - ../../../raw/research/1380-2026-06-29-tuple-optimization-local-set-root-fast-path.md
-  - ../../../raw/research/1379-2026-06-29-tuple-optimization-no-scalarized-prescan-performance.md
-  - ../../../raw/research/1378-2026-06-29-tuple-optimization-no-new-local-cleanup-performance.md
-  - ../../../raw/research/1377-2026-06-29-tuple-optimization-no-tee-cleanup-performance.md
-  - ../../../raw/research/1376-2026-06-29-tuple-optimization-payload-facts-performance.md
-  - ../../../raw/research/1375-2026-06-29-tuple-optimization-source-fast-path-performance.md
-  - ../../../raw/research/1374-2026-06-29-tuple-optimization-elision-mask-performance.md
-  - ../../../raw/research/1373-2026-06-29-tuple-optimization-targeted-root-removal.md
-  - ../../../raw/research/1372-2026-06-29-tuple-optimization-use-def-reuse.md
-  - ../../../raw/research/1371-2026-06-29-tuple-optimization-batched-root-removal.md
-  - ../../../raw/research/1370-2026-06-29-tuple-optimization-aggregate-rewrite-timers.md
-  - ../../../raw/research/1369-2026-06-29-tuple-optimization-scalarized-cleanup-fast-skip.md
-  - ../../../raw/research/1368-2026-06-29-tuple-optimization-root-removal-rejected.md
-  - ../../../raw/research/1367-2026-06-29-tuple-optimization-detached-delete-performance.md
-  - ../../../raw/research/1366-2026-06-29-tuple-optimization-drop-only-elision-performance.md
-  - ../../../raw/research/1365-2026-06-29-tuple-optimization-root-slot-lookup.md
-  - ../../../raw/research/1364-2026-06-29-tuple-optimization-performance-attribution.md
-  - ../../../raw/research/1363-2026-06-29-tuple-optimization-broader-profile-and-performance.md
-  - ../../../raw/research/1362-2026-06-29-tuple-optimization-residual-scalar-spelling.md
-  - ../../../raw/research/1358-2026-06-29-tuple-optimization-genvalid-profile.md
-  - ../../../raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md
-  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
-  - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
-  - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
-  - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ../code-pushing/index.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../late-pipeline-dispatch.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp
@@ -181,17 +148,17 @@ That means the tuple-opt dossier does **not** currently need a current-main drif
 
 ## Sources
 
-- [`../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md`](../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md`](../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md)
-- [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
-- [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
-- [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
+- research note 0254
+- research note 0239
+- research note 0144
+- research note 0076
+- [research note 0115](../code-pushing/index.md)
 - [`../../../../../src/passes/tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt)
 - [`../../../../../src/passes/tuple_optimization_wbtest.mbt`](../../../../../src/passes/tuple_optimization_wbtest.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../src/cmd/cmd_native_wbtest.mbt`](../../../../../src/cmd/cmd_native_wbtest.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
+- [research note 0093](../late-pipeline-dispatch.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

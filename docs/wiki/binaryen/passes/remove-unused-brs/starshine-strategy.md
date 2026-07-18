@@ -1,18 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
-  - ../../../raw/research/1385-2026-06-29-remove-unused-brs-raw-gate-performance-refresh.md
-  - ../../../raw/research/1386-2026-06-29-remove-unused-brs-signoff-refresh.md
-  - ../../../raw/research/1387-2026-06-29-remove-unused-brs-dedicated-profile-and-final-regular.md
-  - ../../../raw/research/1388-2026-06-29-remove-unused-brs-dedicated-profile-validation-reduction.md
-  - ../../../raw/research/1397-2026-06-29-remove-unused-brs-rub-x-policy-closeout.md
-  - ../../../raw/research/1398-2026-06-29-remove-unused-brs-post-rub-x-perf-metrics.md
+  - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt

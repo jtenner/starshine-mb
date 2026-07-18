@@ -8,7 +8,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/safe-heap_no-shared.wast
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/safe-heap-start-import.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
 related:
   - ../tracker.md

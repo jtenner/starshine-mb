@@ -1,6 +1,6 @@
 ## 2026-07-04 OI-J exact ref.test success slice
 
-After the `1440` representation work made exact `ref.test` immediates available to the optimizer, this slice removes the residual exact-test behavior gap from roadmap probe 10. `src/passes/optimize_instructions.mbt` now handles `Instruction::RefTest(nullable, exact, target)` instead of only the inexact form, folding definitely successful exact predicates to `i32.const 1` and preserving effectful tested operands as dropped prefixes. Focused probes in `.tmp/oi-j-exact-ref-test-20260704/` show Binaryen and Starshine now agree for already-exact operands, effectful exact operands, and Binaryen's same-heap non-null inexact-local exact-test fold; the paired exact `ref.cast` on inexact locals remains fail-closed. OI-J stays blocked for `ref.test_desc`, broader descriptor/exactness/TNH/IIT breadth, useful-type-info breadth, and escaping descriptor-control localizers. Durable details are in `docs/wiki/raw/research/1442-2026-07-04-optimize-instructions-oi-j-exact-ref-test.md`.
+After the `1440` representation work made exact `ref.test` immediates available to the optimizer, this slice removes the residual exact-test behavior gap from roadmap probe 10. `src/passes/optimize_instructions.mbt` now handles `Instruction::RefTest(nullable, exact, target)` instead of only the inexact form, folding definitely successful exact predicates to `i32.const 1` and preserving effectful tested operands as dropped prefixes. Focused probes in `.tmp/oi-j-exact-ref-test-20260704/` show Binaryen and Starshine now agree for already-exact operands, effectful exact operands, and Binaryen's same-heap non-null inexact-local exact-test fold; the paired exact `ref.cast` on inexact locals remains fail-closed. OI-J stays blocked for `ref.test_desc`, broader descriptor/exactness/TNH/IIT breadth, useful-type-info breadth, and escaping descriptor-control localizers. Durable details are in `docs/wiki/binaryen/passes/optimize-instructions/index.md`.
 
 ## 2026-07-02 OI-J escaping-label br_on_non_null trapping-fallthrough default/IIT ref.get_desc sink slice
 
@@ -184,7 +184,7 @@ The finite OI-J action is now to use the non-hanging four-label `pass-oi-descrip
 
 ## 2026-07-01 OI-D finite scalar closeout table
 
-OI-D closeout now has finite buckets instead of a request for more scalar generator breadth. Covered scalar identities are source/test-backed by `docs/wiki/raw/research/0729-2026-06-19-optimize-instructions-oi-d-default-scalars.md` and `docs/wiki/raw/research/1331-2026-06-27-optimize-instructions-oi-d-eqz-float-eqne.md`: exact integer subtraction constants, float sub/div-by-two spellings, `i32.wrap_i64` constants, guarded relational operand canonicalization, trapping integer division preservation, and exact float equality/inequality `eqz(compare)` inversion.
+OI-D closeout now has finite buckets instead of a request for more scalar generator breadth. Covered scalar identities are source/test-backed by `docs/wiki/binaryen/passes/optimize-instructions/index.md`: exact integer subtraction constants, float sub/div-by-two spellings, `i32.wrap_i64` constants, guarded relational operand canonicalization, trapping integer division preservation, and exact float equality/inequality `eqz(compare)` inversion.
 
 The remaining sampled residuals are classified as Starshine-win only where the inspected transform is pure constant folding and has validation plus size evidence. `.tmp/pass-fuzz-optimize-instructions-oi-d-default-scalar-10000` left constant-if folding mismatches after fixing the default scalar spelling family; sampled canonical sizes were smaller for Starshine (`4161->4135`, `5539->5501`, `5559->5516`) and no side-effecting condition was removed. `.tmp/oi-parity-sweep-oi-d-double-eqz-fix-smoke` removed the literal double-`eqz` gap and left pure constant compare/sign-extension residuals with validated canonical outputs and Starshine canonical byte deltas `-5/-2/-2`. This is not a broad semantic claim from validation alone.
 
@@ -192,7 +192,7 @@ The only OI-D closeout command remaining is finite: `moon build --target native 
 
 ## 2026-07-01 OI-E finite LocalScanner closeout table
 
-OI-E is no longer an open-ended LocalScanner evidence row. The finite closeout table in `parity-matrix.json` splits it into implemented local-fact subsets, sampled size-winning output drift, resolved sampled implementation gaps, and one unclassified broad LocalScanner tail with a single v0.1 signoff command. The implemented subset is source/test-backed by `docs/wiki/raw/research/0730-2026-06-19-optimize-instructions-oi-e-sign-ext-facts.md` plus the later local-maxBits and focused red-first add-zero/unsigned-mask fixes: Starshine recognizes straight-line local sign-extension facts, signed loads, explicit sign extensions, shift-pair idioms, sampled unsigned masks/compares, `i32.wrap_i64`, `i64.extend_i32_u`, shifted producers, local-carried/local.tee wrappers, and the red-first fixes for sampled add-zero and all-ones mask losses.
+OI-E is no longer an open-ended LocalScanner evidence row. The finite closeout table in `parity-matrix.json` splits it into implemented local-fact subsets, sampled size-winning output drift, resolved sampled implementation gaps, and one unclassified broad LocalScanner tail with a single v0.1 signoff command. The implemented subset is source/test-backed by `docs/wiki/binaryen/passes/optimize-instructions/index.md` plus the later local-maxBits and focused red-first add-zero/unsigned-mask fixes: Starshine recognizes straight-line local sign-extension facts, signed loads, explicit sign extensions, shift-pair idioms, sampled unsigned masks/compares, `i32.wrap_i64`, `i64.extend_i32_u`, shifted producers, local-carried/local.tee wrappers, and the red-first fixes for sampled add-zero and all-ones mask losses.
 
 The remaining classified residuals are sampled Starshine-win output drift only where opcode/effect/trap/local/mask traffic is preserved and raw/canonical sizes improve. Existing grouped lanes validate the residual artifacts and measure aggregate Starshine wins: `.tmp/oi-e-local-facts-count30-20260630` `-50/-90/-1830`, `.tmp/oi-e-wrap-extend-mask-count110-20260630` wrap/extend `-74/-86/-1104`, `.tmp/oi-e-shifted-mask-count120-20260630` `-304/-376/-5836`, `.tmp/oi-e-wide-shifted-mask-count130-20260630` `-393/-495/-7520`, and `.tmp/oi-e-select-mask-count140-20260701` `-319/-417/-6810`. The two size-losing sampled gaps were implemented before this closeout table: local-carried existing-producer add-zero losses `+8/+6/+78` and effectful local-carried losses `+16/+12/+156` flipped to `-18/-18/-216` after the raw-skip add-zero fix, and wide local-carried mask loss `+34/+16/-193` flipped to `-10/-28/-611` after the unsigned-mask fix.
 
@@ -351,14 +351,14 @@ The previous OI-G behavior slice added `oi-memory-bulk:shared-atomic-select-xor-
 --
 kind: workflow
 status: working
-last_reviewed: 2026-06-30
+last_reviewed: 2026-07-18
 sources:
   - ./parity-matrix.json
   - ./fuzzing.md
   - ./binaryen-strategy.md
   - ./starshine-strategy.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
-  - ../../../raw/research/0726-2026-06-19-optimize-instructions-o4z-behavior-inventory.md
+  - ./index.md
   - ../../../../../scripts/oi-parity-sweep.ts
   - ../../../../../scripts/lib/oi-parity-sweep.ts
 related:

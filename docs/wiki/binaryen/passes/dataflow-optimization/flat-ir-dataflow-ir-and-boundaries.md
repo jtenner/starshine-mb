@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
-  - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
-  - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/graph.h
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/node.h
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/utils.h
@@ -199,9 +196,9 @@ If several of those answers are no, the right prediction is usually:
 
 ## Sources
 
-- [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
-- [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
-- [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
+- [research note 0423](./index.md)
+- [research note 0446](./index.md)
+- [research note 0178](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/DataFlowOpts.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/graph.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_130/src/dataflow/node.h>

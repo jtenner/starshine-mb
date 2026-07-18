@@ -1,9 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -99,4 +99,4 @@ Profile selection and family coverage are tested in [`src/validate/gen_valid_tes
 
 Treat any future raw mismatch as open until it is classified with inspected artifacts, validation, semantic reasoning, and relevant size/downstream evidence. Do not call a difference safe merely because both outputs validate or one output is smaller.
 
-The detailed discovery and repair record is [`1569-2026-07-17-flatten-public-parity-closeout.md`](../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md).
+The detailed discovery and repair record is [`docs/wiki/binaryen/passes/flatten/index.md`](./index.md).

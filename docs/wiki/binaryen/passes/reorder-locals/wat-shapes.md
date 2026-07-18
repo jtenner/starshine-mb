@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
-  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

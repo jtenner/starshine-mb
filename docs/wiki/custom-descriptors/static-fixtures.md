@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - descriptor-instruction-surface.md
   - ../wast/static-assertion-harness.md
-  - ../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md
-  - ../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md
 related:
   - ../wast/static-assertion-harness.md
   - ../wast/gc-type-authoring.md
@@ -49,5 +47,5 @@ related:
 - Descriptor instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current descriptor status/source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Archived research docs:
-  [`../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md`](../raw/research/0021-2026-03-22-custom-descriptor-static-text-coverage.md),
-  [`../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md`](../raw/research/0032-2026-03-22-exact-custom-descriptor-static-harness.md)
+  research note 0021,
+  research note 0032

@@ -1,11 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
-  - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
+  - ../minify-imports/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -148,9 +146,9 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
-- [`../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md`](../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md)
-- [`../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md`](../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md)
-- [`../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md`](../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md)
+- research note 0403
+- [research note 0343](../minify-imports/index.md)
+- research note 0342
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen current `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

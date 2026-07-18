@@ -1,14 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
-  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
-  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ../late-pipeline-dispatch.md
+  - ../reorder-globals/index.md
+  - ./index.md
   - ../../../../../src/passes/string_gathering.mbt
   - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -40,7 +37,7 @@ related:
 
 Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed, what public preset scheduling covers, and the regenerated debug-artifact replay evidence.
 
-The archived 2026-05-04 primary-source recheck in [`../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps the tagged `version_129` source URLs below as the oracle and uses the new bridge only for freshness and local code-map anchors.
+The archived 2026-05-04 primary-source recheck in [research note 0431](./index.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps the tagged `version_129` source URLs below as the oracle and uses the new bridge only for freshness and local code-map anchors.
 
 ## Current readiness summary
 
@@ -63,9 +60,9 @@ After the module-expression coverage commit, the regenerated debug artifact was 
 
 Remaining readiness is optional broader decoder breadth, optional compare-normalization breadth, and optional combined-tail performance work, not direct-pass existence, preset-order wiring, or artifact parity. The first decoder-breadth slice accepts bare `0x64` stringref value types when the explicit non-null-reference form cannot be completed, with focused binary tests for direct value-type decode and type-section decode.
 
-The broader five-pass late-tail neighborhood is now accepted for direct ordered-neighborhood scheduling proof, not just direct-pass existence: `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has standard 10k ordered-neighborhood fuzz parity, same-input RUME isolation, and a documented debug-artifact frontier classified as inherited SGO representation/function-layout drift. Public preset widening remains a separate scheduling change; see [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
+The broader five-pass late-tail neighborhood is now accepted for direct ordered-neighborhood scheduling proof, not just direct-pass existence: `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has standard 10k ordered-neighborhood fuzz parity, same-input RUME isolation, and a documented debug-artifact frontier classified as inherited SGO representation/function-layout drift. Public preset widening remains a separate scheduling change; see [research note 0571](../late-pipeline-dispatch.md).
 
-The broader five-pass late-tail neighborhood is now accepted and publicly scheduled, not just direct-pass-ready: `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has standard 10k ordered-neighborhood fuzz parity, same-input RUME isolation, and a documented debug-artifact frontier classified as inherited SGO representation/function-layout drift. Public `optimize` / `shrink` suffix scheduling is recorded in [`../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md); direct neighborhood proof is recorded in [`../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md).
+The broader five-pass late-tail neighborhood is now accepted and publicly scheduled, not just direct-pass-ready: `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has standard 10k ordered-neighborhood fuzz parity, same-input RUME isolation, and a documented debug-artifact frontier classified as inherited SGO representation/function-layout drift. Public `optimize` / `shrink` suffix scheduling is recorded in [research note 0572](../late-pipeline-dispatch.md); direct neighborhood proof is recorded in [research note 0571](../late-pipeline-dispatch.md).
 
 ## Slice 0: make the public pass spelling honest — landed
 
@@ -319,8 +316,8 @@ For advanced Starshine follow-up work, the real checklist is sharper:
 
 ## Sources
 
-- [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
-- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
+- [research note 0377](./index.md)
+- [research note 0280](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/binary/encode.mbt`](../../../../../src/binary/encode.mbt)
 - [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)

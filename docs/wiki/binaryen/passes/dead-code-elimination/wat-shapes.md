@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
-  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast

@@ -4,8 +4,8 @@
 
 - Keep only active unreleased work or explicitly deferred future work.
 - Binaryen `version_131` O4z means `wasm-opt --all-features -O4 --shrink-level 4`.
-- The v131 release leaves the existing 56-slot / 38-owner O4z scheduler unchanged; the v130-to-v131 pass-impact and reopening audit is `docs/wiki/raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md`.
-- The detailed preset diff and per-pass roster remain recorded in `docs/wiki/raw/research/1568-2026-07-13-o4z-backlog-reconstruction.md`; read that note as the unchanged scheduler baseline, not as v131 direct-pass signoff.
+- The v131 release leaves the existing 56-slot / 38-owner O4z scheduler unchanged; the v130-to-v131 pass-impact and reopening audit is `docs/wiki/binaryen/release-horizon-and-oracles.md`.
+- The detailed preset diff and per-pass roster remain recorded in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`; read that note as the unchanged scheduler baseline, not as v131 direct-pass signoff.
 - Bare `wasm-opt` currently resolves to TinyGo's Binaryen `version_116`. Every v131 compare or self-opt command must pass an official verified v131 binary with `--wasm-opt-bin`; require `wasm-opt version 131 (version_131)` in the evidence.
 - Direct pass behavior comes before ordered-neighborhood proof; preset scheduling comes last.
 - Behavior parity is the target. Raw wasm/WAT equality is not required, but every remaining difference must be source-backed, measured, classified, and covered by reopening criteria.
@@ -205,7 +205,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - Keep `tests/repros/o4z-debug-startup-map-init-repro.wasm` until a smaller generated-artifact fixture replaces it.
 - Recover precision one owner at a time only with focused tests and runtime evidence: nested SSA liveness, safe commutative ordering, tee-aware local sinking, path-sensitive local coalescing, and branchy vacuum cleanup.
-- Source: `docs/wiki/raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`.
+- Source: `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`.
 
 ### [JSON-AS]001 - Repeatable artifact correctness and size signoff
 

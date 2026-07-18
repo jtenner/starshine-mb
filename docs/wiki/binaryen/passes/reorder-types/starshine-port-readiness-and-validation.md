@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cli/cli.mbt
@@ -123,7 +123,7 @@ Neighboring pass pages:
 
 ## Sources
 
-- [`../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md`](../../../raw/research/0492-2026-05-05-reorder-types-port-readiness-and-validation.md)
+- [research note 0492](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)

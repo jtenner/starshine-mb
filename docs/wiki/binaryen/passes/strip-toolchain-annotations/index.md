@@ -1,11 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
-  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
-  - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/parser.mbt
@@ -116,8 +113,8 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
-- [`../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md`](../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md)
-- [`../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md`](../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md)
-- [`../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md`](../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md)
+- research note 0504
+- research note 0394
+- research note 0324
 - Binaryen `StripToolchainAnnotations.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StripToolchainAnnotations.cpp>
 - Binaryen lit file: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/strip-toolchain-annotations.wast>

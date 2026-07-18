@@ -1,14 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-18
 sources:
   - ../../../wasm-js-string-builtins-boundary.md
-  - ../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md
-  - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
-  - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
-  - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
-  - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
   - ../string-lowering/index.md
   - ../string-gathering/index.md
   - ../../../strings/string-const-surface.md
@@ -125,7 +120,7 @@ See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-
 
 A 2026-06-02 focused spot check against current `main` for `StringLifting.cpp`, `string-lifting.wast`, and pass registration did not reveal teaching-relevant drift from the `version_129` source contract described here, including the recognized-helper wrong-signature fatal behavior, module-code walk, `string.consts` custom-section removal, Strings feature enablement, and cast-repair TODO.
 Treat that as a narrow freshness check, not a proof that every helper edge case is unchanged forever.
-See the retained [`../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md) for the recheck findings and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the local implementation ladder.
+See the retained research note 0697 for the recheck findings and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the local implementation ladder.
 
 ## Page map
 
@@ -145,11 +140,11 @@ See the retained [`../../../raw/research/0697-2026-06-02-string-lifting-current-
 ## Sources
 
 - [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
-- [`../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md)
-- [`../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md)
-- [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
-- [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
-- [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
+- research note 0697
+- research note 0457
+- research note 0385
+- research note 0346
+- research note 0327
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLifting.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

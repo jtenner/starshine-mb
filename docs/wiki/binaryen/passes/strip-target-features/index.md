@@ -1,14 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
   - https://webassembly.github.io/spec/core/appendix/custom.html
   - https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md
-  - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
-  - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
-  - ../../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/decode.mbt
@@ -118,6 +115,6 @@ For a future Starshine port, add tests in this order:
 - Core custom-section appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
 - WebAssembly linking convention: <https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md>
 - [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md)
-- [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)
+- research note 0429
 - Binaryen `StripTargetFeatures.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StripTargetFeatures.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

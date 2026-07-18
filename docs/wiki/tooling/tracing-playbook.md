@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0001-2026-03-10-tracing.md
   - ../../../src/cmd/cmd.mbt
   - ../../../src/passes/perf.mbt
   - ../../../src/validate_trace/main.mbt
@@ -114,7 +113,7 @@ When tracing changes:
 
 ## Sources
 
-- Archived tracing research: [`../raw/research/0001-2026-03-10-tracing.md`](../raw/research/0001-2026-03-10-tracing.md)
+- Archived tracing research: research note 0001
 - Runtime command tracing: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md)
 - Optimizer perf tracing: [`../../../src/passes/perf.mbt`](../../../src/passes/perf.mbt), [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Validator benchmark tracing: [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)

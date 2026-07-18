@@ -1,9 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ./index.md
   - ./binaryen-strategy.md
   - ./abi-surface-and-opcode-coverage.md
@@ -231,7 +230,7 @@ Before implementing anything, a future contributor should be able to answer:
 
 ## Sources
 
-- [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
+- [research note 0412](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./abi-surface-and-opcode-coverage.md`](./abi-surface-and-opcode-coverage.md)
 - [`./flatness-helpers-and-boundaries.md`](./flatness-helpers-and-boundaries.md)

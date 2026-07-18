@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeRefining.cpp
-  - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -447,8 +446,8 @@ That is the real strategy a future strict-parity port must preserve.
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md`](../../../raw/binaryen/2026-07-11-type-refining-current-main-world-mode-recheck.md)
-- [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- [research note 0303](./index.md)
+- [research note 0150](./index.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

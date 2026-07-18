@@ -1,16 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
-  - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -132,7 +131,7 @@ Those are representation prerequisites only. They do not implement:
 
 ## Planning and backlog surfaces
 
-### `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`
+### `docs/wiki/ir2/registry-map.md`
 
 This older registry map lists `merge-similar-functions` in Batch 4 compatibility / boundary work. Treat that as a compatibility-tracking signal, not an active implementation plan.
 
@@ -240,5 +239,5 @@ Until a real port lands, do not claim Starshine supports:
 - Profitability and type barriers: [`./profitability-indirection-and-type-barriers.md`](./profitability-indirection-and-type-barriers.md)
 - Shape catalog: [`./wat-shapes.md`](./wat-shapes.md)
 - Port readiness: [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-- Research follow-up: [`../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md`](../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md)
-- Legacy research follow-up: [`../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md)
+- Research follow-up: [research note 0443](./index.md)
+- Legacy research follow-up: [research note 0332](./index.md)

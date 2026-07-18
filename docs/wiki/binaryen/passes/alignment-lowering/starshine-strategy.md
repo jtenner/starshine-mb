@@ -1,13 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md
-  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
-  - ../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../dealign/index.md
@@ -27,7 +25,7 @@ related:
 
 # Starshine Strategy For `alignment-lowering`
 
-Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md), the direct tagged source URLs it retains, and the 2026-05-06 current-main recheck in [`../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md`](../../../raw/research/0496-2026-05-06-alignment-lowering-current-main-recheck.md).
+Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md), the direct tagged source URLs it retains, and the 2026-05-06 current-main recheck in [research note 0496](./index.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainties a future parity port still has to resolve honestly.
 
 ## The honest current status
@@ -67,7 +65,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/binary/encode.mbt#L1819-L1840`](../../../../../src/binary/encode.mbt#L1819-L1840) encodes memargs
   - [`src/ir/hot_builders.mbt#L535-L557`](../../../../../src/ir/hot_builders.mbt#L535-L557), [`src/ir/hot_lift.mbt#L741-L760`](../../../../../src/ir/hot_lift.mbt#L741-L760), and [`src/ir/hot_lower.mbt#L1077-L1086`](../../../../../src/ir/hot_lower.mbt#L1077-L1086) are the relevant HOT load/store builder, lift, and lower surfaces
 - broader pass-port planning bucket
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
+  - [research note 0063](../../../ir2/registry-map.md)
     - `alignment-lowering` sits under the `Whole-module or layout transforms` planning group
 - canonical scheduler context by omission
   - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
@@ -263,7 +261,7 @@ Current Starshine `alignment-lowering` strategy is honest boundary-only tracking
 
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
 - the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L449-L466`](../../../../../src/passes/optimize.mbt#L449-L466)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61) still keeps the pass only in a broad planning bucket
+- [research note 0063](../../../ir2/registry-map.md) still keeps the pass only in a broad planning bucket
 - [`agent-todo.md`](../../../../../agent-todo.md) still has no dedicated slice for it
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) still omits it from the active canonical default route
 - the neighboring [`dealign`](../dealign/index.md), [`avoid-reinterprets`](../avoid-reinterprets/index.md), and [`i64-to-i32-lowering`](../i64-to-i32-lowering/index.md) dossiers now define the practical boundary map future work should preserve

@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
-  - ../../../raw/research/1397-2026-06-29-remove-unused-brs-rub-x-policy-closeout.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/branch-utils.h

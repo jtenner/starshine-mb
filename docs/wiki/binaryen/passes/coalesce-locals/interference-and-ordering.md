@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
-  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
-  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -269,9 +266,9 @@ A future Starshine port should preserve all of these points:
 
 ## Sources
 
-- [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
-- [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
+- [research note 0352](./index.md)
+- [research note 0264](./index.md)
+- [research note 0118](./index.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CoalesceLocals.cpp>
 - Binaryen `version_129` liveness helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/liveness-traversal.h>
 - Binaryen `version_129` value-numbering helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/numbering.h>

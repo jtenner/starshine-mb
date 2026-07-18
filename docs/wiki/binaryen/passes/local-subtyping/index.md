@@ -1,24 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
-  - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
-  - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
-  - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
-  - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
-  - ../../../raw/research/1429-2026-07-03-local-subtyping-closeout-lane-evidence.md
-  - ../../../raw/research/1430-2026-07-04-local-subtyping-ordered-neighborhood-cleanup.md
-  - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
-  - ../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md
-  - ../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md
-  - ../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md
-  - ../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md
-  - ../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md
-  - ../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md
-  - ../../../raw/research/1440-2026-07-04-local-subtyping-final-closeout-evidence.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -108,22 +92,22 @@ That is enough to explain current Starshine behavior without pretending it alrea
 
 ## Sources
 
-- [`../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md`](../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md)
-- [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md)
-- [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md)
-- [`../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
-- [`../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md`](../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md)
-- [`../../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md`](../../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md)
-- [`../../../raw/research/1429-2026-07-03-local-subtyping-closeout-lane-evidence.md`](../../../raw/research/1429-2026-07-03-local-subtyping-closeout-lane-evidence.md)
-- [`../../../raw/research/1430-2026-07-04-local-subtyping-ordered-neighborhood-cleanup.md`](../../../raw/research/1430-2026-07-04-local-subtyping-ordered-neighborhood-cleanup.md)
-- [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md)
-- [`../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md`](../../../raw/research/1432-2026-07-04-local-subtyping-retag-representation-and-unreachable-boundary.md)
-- [`../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md`](../../../raw/research/1433-2026-07-04-local-subtyping-iterative-refinalization.md)
-- [`../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md`](../../../raw/research/1434-2026-07-04-local-subtyping-select-lub-refinalization.md)
-- [`../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md`](../../../raw/research/1435-2026-07-04-local-subtyping-call-ref-refinalization.md)
-- [`../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md`](../../../raw/research/1438-2026-07-04-local-subtyping-raw-unreachable-tee-boundary.md)
-- [`../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md`](../../../raw/research/1439-2026-07-04-local-subtyping-ref-catch-raw-assignment.md)
-- [`../../../raw/research/1440-2026-07-04-local-subtyping-final-closeout-evidence.md`](../../../raw/research/1440-2026-07-04-local-subtyping-final-closeout-evidence.md)
+- research note 0534
+- research note 0507
+- research note 0447
+- research note 0362
+- research note 0261
+- research note 0116
+- research note 1429
+- research note 1430
+- research note 1431
+- research note 1432
+- research note 1433
+- research note 1434
+- research note 1435
+- research note 1438
+- research note 1439
+- research note 1440
 - [`../../../../../src/passes/local_subtyping.mbt`](../../../../../src/passes/local_subtyping.mbt)
 - [`../../../../../src/passes/local_subtyping_test.mbt`](../../../../../src/passes/local_subtyping_test.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

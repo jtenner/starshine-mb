@@ -1,14 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - https://webassembly.github.io/spec/core/valid/types.html
   - ../custom-descriptors/descriptor-instruction-surface.md
-  - ../raw/research/0018-2026-03-22-wast-struct-type-surface.md
-  - ../raw/research/0019-2026-03-22-wast-array-type-surface.md
-  - ../raw/research/0020-2026-03-22-wast-rec-group-surface.md
-  - ../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md
+  - ../custom-descriptors/ref-get-desc-fixture-path.md
 related:
   - ../wasm-gc-core-boundary.md
   - index.md
@@ -169,10 +166,10 @@ Starshine rejects the second type because `describes` appears after `descriptor`
 - Custom-descriptor instruction boundary: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Custom-descriptor instruction/status guide: [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Archived research docs:
-  [`../raw/research/0018-2026-03-22-wast-struct-type-surface.md`](../raw/research/0018-2026-03-22-wast-struct-type-surface.md),
-  [`../raw/research/0019-2026-03-22-wast-array-type-surface.md`](../raw/research/0019-2026-03-22-wast-array-type-surface.md),
-  [`../raw/research/0020-2026-03-22-wast-rec-group-surface.md`](../raw/research/0020-2026-03-22-wast-rec-group-surface.md),
-  [`../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md`](../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md)
+  research note 0018,
+  research note 0019,
+  research note 0020,
+  [research note 0026](../custom-descriptors/ref-get-desc-fixture-path.md)
 - Current implementation and tests:
   - [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
   - [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt)

@@ -3,13 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
-  - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
-  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
-  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
 related:
   - ./index.md
   - ./metadata-naming-and-consumers.md
@@ -266,9 +261,9 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 ## Sources
 
-- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
-- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
-- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
+- [research note 0502](./index.md)
+- [research note 0480](./index.md)
+- [research note 0490](./index.md)
+- [research note 0417](./index.md)
+- [research note 0305](./index.md)
+- [research note 0168](./index.md)

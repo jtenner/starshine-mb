@@ -3,9 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1572-2026-07-18-pick-load-signs-version-131-behavior-audit.md
-  - ../../../raw/research/0784-2026-06-20-pick-load-signs-modern-signoff-refresh.md
-  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
+  - ./index.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt

@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
-  - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
+  - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt

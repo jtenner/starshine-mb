@@ -2,16 +2,8 @@
 kind: entity
 status: strong
 starshine_status: active
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
-  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
-  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
-  - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
-  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
-  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
-  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
@@ -49,7 +41,7 @@ related:
   - top-level slot `30`
   - top-level slot `35`
 - The saved Binaryen debug log also shows many later reruns of the same local-cleanup neighborhood, which matches the nested rerun story from `opt-utils.h`.
-- The ordered-slot replay that used to live under slice `CL` is now closed: `src/passes/coalesce_locals_test.mbt` covers both exact neighborhoods, and [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md) records the current-head proof.
+- The ordered-slot replay that used to live under slice `CL` is now closed: `src/passes/coalesce_locals_test.mbt` covers both exact neighborhoods, and research note 0550 records the current-head proof.
 - The first `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` slot is now explicitly proven in-tree and remains the public `optimize` / `shrink` cluster.
 - The second `reorder-locals -> coalesce-locals -> reorder-locals` slot is now replayable as a focused neighborhood, compares green on the checked-in debug artifact, and is now reflected in public `optimize` / `shrink` scheduling via the 2026-07-12 reorder-locals preset update.
 
@@ -107,15 +99,15 @@ That is narrower than “merge any locals that look unused.”
 
 ## Sources
 
-- [`../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md)
-- [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
-- [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
-- [`../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md`](../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md)
-- [`../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md`](../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md)
-- [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md)
-- [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
-- [`../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md)
+- research note 0473
+- research note 0352
+- research note 0264
+- research note 0118
+- research note 1443
+- research note 1442
+- research note 0550
+- research note 0518
+- research note 0372
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

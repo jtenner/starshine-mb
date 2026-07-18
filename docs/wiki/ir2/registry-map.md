@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md
-  - ../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
-  - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../binaryen/passes/reorder-locals/index.md
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/registry_test.mbt
   - ../../../src/passes/optimize_test.mbt
@@ -64,13 +62,13 @@ simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering
 reorder-globals -> directize -> strip-debug
 ```
 
-The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the three public `reorder-locals` cleanup slots, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt). The 2026-07-12 scheduling note [`1561`](../raw/research/1561-2026-07-12-reorder-locals-public-preset-scheduling.md) is the current source for the public three-slot `reorder-locals` policy.
+The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the three public `reorder-locals` cleanup slots, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize -> strip-debug`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt). The 2026-07-12 scheduling note [`1561`](../binaryen/passes/reorder-locals/index.md) is the current source for the public three-slot `reorder-locals` policy.
 
 ## Boundary-Only And Removed Behavior
 
 - Boundary-only names are recognized but rejected as not implemented in the hot pipeline. Examples include the closed-world type/signature families (`type-refining`, `signature-pruning`, `unsubtyping`, `reorder-types`) and broader ABI/layout families (`alignment-lowering`, `i64-to-i32-lowering`, `reorder-functions`).
 - Removed names are recognized but rejected as absent from the active hot pipeline registry. Current removed examples include `flatten`, `re-reloop`, `loop-invariant-code-motion`, `const-hoisting`, `dataflow-optimization`, `precompute-propagate`, `de-nan`, and legacy `simplify-locals-no-tee*` variants.
-- The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) as the archived planning map, not a reason to ignore live code.
+- The original March batch map is now partially stale because many former Batch 2/3 names have since landed as hot or module passes. Treat research note 0063 as the archived planning map, not a reason to ignore live code.
 
 ## Practical Rule
 
@@ -81,8 +79,8 @@ The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../sr
 
 ## Sources
 
-- Refreshed registry map: [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- Reorder-locals preset-scheduling reconciliation: [`../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
+- Refreshed registry map: research note 0063
+- Reorder-locals preset-scheduling reconciliation: [research note 0709](../binaryen/passes/reorder-locals/index.md)
 - Live registry and preset expansion: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Registry coverage: [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt)
 - Preset slot coverage: [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)

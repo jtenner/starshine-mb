@@ -1,14 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-09
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
-  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
-  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
-  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
-  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
-  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
+  - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt

@@ -1,12 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
-  - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
-  - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
-  - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cli/cli.mbt
@@ -136,9 +133,9 @@ So this pass is best taught as:
 ## Sources
 
 - [Binaryen current `Monomorphize.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp)
-- [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
-- [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
-- [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)
+- research note 0176
+- research note 0233
+- research note 0302
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
+  - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SimplifyLocals.cpp
@@ -20,7 +20,7 @@ related:
 
 # `SimplifyLocals` transform-family inventory
 
-The canonical detailed inventory is [`../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md`](../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md).
+The canonical detailed inventory is [research note 1571](./index.md).
 
 ## Audit contract
 

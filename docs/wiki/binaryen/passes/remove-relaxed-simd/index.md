@@ -1,14 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
-  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
-  - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
-  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/wast/keywords.mbt
@@ -30,7 +24,6 @@ related:
   - ../strip-target-features/index.md
   - ../late-pipeline-dispatch.md
 supersedes:
-  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 ---
 
 # Binaryen pass: `remove-relaxed-simd`
@@ -121,9 +114,9 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
-- [`../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0501-2026-05-06-remove-relaxed-simd-current-main-recheck.md)
-- [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
-- [`../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md`](../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md)
+- research note 0501
+- research note 0355
+- research note 0322
 - Binaryen `RemoveRelaxedSIMD.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveRelaxedSIMD.cpp>
 - Binaryen lit file: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-relaxed-simd.wast>
 - WebAssembly relaxed SIMD proposal overview: <https://github.com/WebAssembly/relaxed-simd/blob/main/proposals/relaxed-simd/Overview.md>

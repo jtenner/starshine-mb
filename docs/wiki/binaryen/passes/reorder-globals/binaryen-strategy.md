@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
-  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
-  - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
-  - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -440,10 +437,10 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
-- [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md)
-- [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
-- [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
-- [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
+- [research note 0689](./index.md)
+- [research note 0367](./index.md)
+- [research note 0125](./index.md)
+- [research note 0270](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

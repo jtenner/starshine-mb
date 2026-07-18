@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -144,8 +142,8 @@ Those features belong to the plain DAE-family pages today. If upstream grows the
 
 ## Sources
 
-- Port-readiness research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
-- Research follow-up: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
+- Port-readiness research note: [research note 0410](./index.md)
+- Research follow-up: [research note 0337](./index.md)
 - Starshine registry: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Starshine module dispatcher: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Starshine CLI/options: [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)

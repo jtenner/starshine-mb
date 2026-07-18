@@ -1,18 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
-  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
-  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -49,7 +45,7 @@ That means the best mental model is:
 The local repo makes these scheduler facts explicit:
 
 - it is now an active Starshine module pass implemented in [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt) and registered in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) now supersedes the old docs stub for this pass; the archived map shows `avoid-reinterprets` in Active module passes, so the removed-until-hot-implementation citation is stale
+- [research note 0063](../../../ir2/registry-map.md) now supersedes the old docs stub for this pass; the archived map shows `avoid-reinterprets` in Active module passes, so the removed-until-hot-implementation citation is stale
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
 - [`./starshine-strategy.md`](./starshine-strategy.md) records the active-partial local status and remaining indirect-analysis question
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) records the landed direct full-width `reinterpret(load)` slice and future indirect local-chain helper-local work
@@ -353,10 +349,10 @@ If someone remembers only one sentence, it should be this:
 ## Sources
 
 - [Binaryen current `AvoidReinterprets.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp)
-- [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
-- [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
-- [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
+- [research note 0456](./index.md)
+- [research note 0381](./index.md)
+- [research note 0281](./index.md)
+- [research note 0172](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>

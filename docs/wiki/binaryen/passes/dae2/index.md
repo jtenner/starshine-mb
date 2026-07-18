@@ -1,13 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
-  - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
-  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
-  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
-  - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
@@ -133,11 +128,11 @@ So this folder should stay separate instead of being collapsed into the plain-`d
 
 ## Sources
 
-- [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
-- [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
+- research note 0337
+- research note 0218
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-- [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
+- research note 0410
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` sources:

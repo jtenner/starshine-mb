@@ -1,14 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
-  - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
-  - ../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
-  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/ir/effects.mbt
@@ -109,12 +103,12 @@ So the pass is best taught as:
 
 ## Sources
 
-- [`../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md`](../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
-- [`../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md`](../../../raw/research/0490-2026-05-05-global-effects-current-main-line-anchor-refresh.md)
-- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
-- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
+- research note 0502
+- research note 0480
+- research note 0490
+- research note 0417
+- research note 0305
+- research note 0168
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
 - [`../../../../../src/ir/effects.mbt`](../../../../../src/ir/effects.mbt)

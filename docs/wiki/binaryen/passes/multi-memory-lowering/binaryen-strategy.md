@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
-  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
-  - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md

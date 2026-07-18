@@ -20160,7 +20160,7 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
       // `br_if` to its payload and records the condition as an after-value
       // interfering effect. Keep Starshine's equality fact closed here until
       // value-carrying `br_if` operands can pass HOT/pass verification; see
-      // docs/wiki/raw/research/1557-2026-07-07-optimize-instructions-br-if-equality-blocker.md.
+      // docs/wiki/binaryen/passes/optimize-instructions/implementation-structure-and-tests.md.
       {
         fallthrough_id: node_id,
         after_value_effect_mask: 0U,

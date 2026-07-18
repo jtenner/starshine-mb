@@ -3,12 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
-  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ./index.md
+  - ../late-pipeline-dispatch.md
+  - ../reorder-globals/index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./table-info-and-immutability.md

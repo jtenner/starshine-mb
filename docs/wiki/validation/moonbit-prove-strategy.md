@@ -1,13 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - https://docs.moonbitlang.com/en/latest/language/verification.html
   - https://moonbitlang.github.io/moon/commands.html
   - https://github.com/moonbitlang/moon/blob/main/docs/manual/src/commands.md
-  - ../raw/research/0077-2026-04-10-moonbit-prove-strategy.md
-  - ../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md
   - ../../../src/validate/moon.pkg
   - ../../../src/validate_proof/moon.pkg
   - ../../../src/validate_proof/pkg.generated.mbti
@@ -40,7 +38,7 @@ related:
 
 MoonBit verification is useful in Starshine when a small executable helper has a crisp arithmetic, bounds, or stack-shape postcondition that can be expressed in `.mbtp` predicates. It is **not** a replacement for validator tests, fuzzing, binary roundtrip tests, or pass parity checks. The current project boundary is deliberately narrow: keep the required proof gate in the low-dependency `src/validate_proof` package, then import only stable helpers into `src/validate` after executable tests already describe the behavior.
 
-Official MoonBit docs frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled`, solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo, executable `where` contracts, and proof-only companion material such as `.mbtp` predicates. The broader package-topology map in [`../tooling/moonbit-workspace-package-map.md`](../tooling/moonbit-workspace-package-map.md) owns the general `moon.pkg` / `is-main` / generated-interface rules; this page owns only proof policy and trust boundaries. The 2026-06-04 v0.9.3 refresh confirms the upstream shape is still compatible with Starshine's small helper-package strategy and adds one practical source-current nuance: official file-targeted proving assumes dependencies, so direct `src/validate/*.mbt` proof runs are useful local investigations but do not automatically graduate into the required gate. MoonBit also exposes richer proof-only and trusted/axiomatized surfaces that Starshine does **not** use in committed `src/` code today, so adopting those constructs would widen the trust boundary and must be documented deliberately. Starshine's local policy follows the upstream package model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the local PRV006 audit in [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md), the live proof package/configuration files, and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md). The official verification manual was rechecked on 2026-07-14; it remains experimental and retains the package-enabled `moon prove` workflow, executable `.mbt` / logic `.mbtp` split, and explicit trusted-proof surface.
+Official MoonBit docs frame verification as a Why3-backed workflow driven by `moon prove`, with package opt-in through `proof-enabled`, solver setup around Why3 plus solvers such as Z3, CVC5, or Alt-Ergo, executable `where` contracts, and proof-only companion material such as `.mbtp` predicates. The broader package-topology map in [`../tooling/moonbit-workspace-package-map.md`](../tooling/moonbit-workspace-package-map.md) owns the general `moon.pkg` / `is-main` / generated-interface rules; this page owns only proof policy and trust boundaries. The 2026-06-04 v0.9.3 refresh confirms the upstream shape is still compatible with Starshine's small helper-package strategy and adds one practical source-current nuance: official file-targeted proving assumes dependencies, so direct `src/validate/*.mbt` proof runs are useful local investigations but do not automatically graduate into the required gate. MoonBit also exposes richer proof-only and trusted/axiomatized surfaces that Starshine does **not** use in committed `src/` code today, so adopting those constructs would widen the trust boundary and must be documented deliberately. Starshine's local policy follows the upstream package model but keeps the broad validator package optional because the PRV006 audit showed direct `src/validate` file targets are not isolated enough for the required gate in this workspace. See the local PRV006 audit in research note 0515, the live proof package/configuration files, and the shared validation-gate map in [`../tooling/validation-gates.md`](../tooling/validation-gates.md). The official verification manual was rechecked on 2026-07-14; it remains experimental and retains the package-enabled `moon prove` workflow, executable `.mbt` / logic `.mbtp` split, and explicit trusted-proof surface.
 
 ## Durable Conclusions
 
@@ -131,8 +129,8 @@ The important maintenance rule is to distinguish **proved/exported** from **wire
 - Official Moon command-manual source: <https://github.com/moonbitlang/moon/blob/main/docs/manual/src/commands.md>
 - Official MoonBit 0.9 formal-verification blog post: <https://www.moonbitlang.com/blog/moonbit-0-9-release>
 - Workspace/package map: [`../tooling/moonbit-workspace-package-map.md`](../tooling/moonbit-workspace-package-map.md)
-- Original investigation: [`../raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](../raw/research/0077-2026-04-10-moonbit-prove-strategy.md)
-- PRV006 boundary audit: [`../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md`](../raw/research/0515-2026-05-06-validate-proof-boundary-audit.md)
+- Original investigation: research note 0077
+- PRV006 boundary audit: research note 0515
 - Current proof package and consumers:
   - [`../../../src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg)
   - [`../../../src/validate_proof/pkg.generated.mbti`](../../../src/validate_proof/pkg.generated.mbti)

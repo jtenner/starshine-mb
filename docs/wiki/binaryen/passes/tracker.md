@@ -3,219 +3,106 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../release-horizon-and-oracles.md
+  - ./asyncify/index.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
   - ../../raw/binaryen/2026-07-10-remove-imports-current-source-read.md
-  - ../../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
+  - ./remove-exports/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
-  - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
-  - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
-  - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
+  - ./monomorphize/index.md
+  - ./remove-unused-types/index.md
+  - ./directize/index.md
+  - ./string-gathering/index.md
+  - ./dae-optimizing/index.md
   - ../../../../src/passes/optimize.mbt
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
-  - ../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
-  - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
+  - ./merge-blocks/index.md
   - ../no-dwarf-default-optimize-path.md
-  - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - ../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
-  - ../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
-  - ../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
-  - ../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
-  - ../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
-  - ../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
-  - ../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
-  - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
-  - ../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
-  - ../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
-  - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
-  - ../../raw/research/0489-2026-05-05-simplify-locals-notee-nostructure-current-main-recheck.md
-  - ../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
+  - ./late-pipeline-dispatch.md
+  - ./local-subtyping/index.md
+  - ./code-folding/index.md
+  - ./optimize-casts/index.md
+  - ./rse/index.md
+  - ./simplify-globals-optimizing/index.md
+  - ./simplify-locals-notee-nostructure/index.md
+  - ./simplify-locals-nostructure/index.md
+  - ./duplicate-import-elimination/index.md
   - ../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
-  - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
-  - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
-  - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
-  - ../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
+  - ./vacuum/index.md
+  - ./simplify-locals-notee/index.md
+  - ./strip-target-features/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/StripTargetFeatures.cpp
-  - ../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
   - ../../raw/binaryen/2026-07-10-signext-lowering-current-main-refresh.md
-  - ../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
-  - ../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
-  - ../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
-  - ../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
-  - ../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
-  - ../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md
-  - ../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
-  - ../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
-  - ../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
-  - ../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
+  - ./signext-lowering/index.md
+  - ./discard-global-effects/index.md
+  - ./global-effects/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
-  - ../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
-  - ../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
-  - ../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
-  - ../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
-  - ../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
-  - ../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
-  - ../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
-  - ../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
-  - ../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
-  - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
-  - ../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
-  - ../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
-  - ../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
-  - ../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
-  - ../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md
-  - ../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
-  - ../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
-  - ../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
-  - ../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
-  - ../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
-  - ../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
-  - ../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
-  - ../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
-  - ../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
-  - ../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
+  - ./loop-invariant-code-motion/index.md
+  - ./i64-to-i32-lowering/index.md
+  - ./legalize-js-interface/index.md
+  - ./legalize-and-prune-js-interface/index.md
+  - ./inline-main/index.md
+  - ./monomorphize-always/index.md
+  - ./dataflow-optimization/index.md
+  - ./reorder-functions/index.md
+  - ./reorder-functions-by-name/index.md
+  - ./type-merging/index.md
+  - ./const-hoisting/index.md
+  - ./rereloop/index.md
 
-  - ../../raw/research/0389-2026-04-26-dealign-port-readiness.md
-  - ../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
-  - ../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
-  - ../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
+  - ./dealign/index.md
+  - ./de-nan/index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp
-  - ../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
-  - ../../raw/research/0185-2026-04-21-untee-binaryen-research.md
-  - ../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
-  - ../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
-  - ../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
-  - ../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
-  - ../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
-  - ../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
-  - ../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
-  - ../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
-  - ../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
-  - ../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
-  - ../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
-  - ../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
-  - ../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
-  - ../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
-  - ../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
-  - ../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
+  - ./untee/index.md
+  - ./optimize-instructions/index.md
+  - ./precompute/index.md
+  - ./heap-store-optimization/index.md
+  - ./dead-code-elimination/index.md
+  - ./heap2local/index.md
+  - ./pick-load-signs/index.md
+  - ./memory-packing/index.md
+  - ./once-reduction/index.md
+  - ./global-refining/index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp
-  - ../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
-  - ../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
-  - ../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
-  - ../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
+  - ./global-struct-inference/index.md
+  - ./ssa-nomerge/index.md
   - ../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
-  - ../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
-  - ../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
-  - ../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
-  - ../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
-  - ../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
-  - ../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
-  - ../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
-  - ../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
-  - ../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
-  - ../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
-  - ../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
-  - ../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
-  - ../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
-  - ../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
-  - ../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
-  - ../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
+  - ./reorder-locals/index.md
+  - ./remove-unused-names/index.md
+  - ./tuple-optimization/index.md
+  - ./remove-unused-module-elements/index.md
+  - ./remove-unused-brs/index.md
+  - ./duplicate-function-elimination/index.md
+  - ./simplify-locals/index.md
+  - ./type-refining/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
-  - ../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
-  - ../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
-  - ../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
+  - ./type-generalizing/index.md
+  - ./type-finalizing/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
-  - ../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
-  - ../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
-  - ../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
-  - ../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
-  - ../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
-  - ../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
-  - ../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
-  - ../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
-  - ../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
-  - ../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
-  - ../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
-  - ../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
-  - ../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
-  - ../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
-  - ../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
-  - ../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
-  - ../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
-  - ../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
-  - ../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md
-  - ../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
-  - ../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
-  - ../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
-  - ../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
-  - ../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
-  - ../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
-  - ../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
-  - ../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
-  - ../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
+  - ./type-un-finalizing/index.md
+  - ./remove-unused-non-function-elements/index.md
+  - ./remove-unused/index.md
+  - ./signature-pruning/index.md
+  - ./signature-refining/index.md
+  - ./global-type-optimization/index.md
+  - ./unsubtyping/index.md
+  - ./abstract-type-refining/index.md
+  - ./minimize-rec-groups/index.md
+  - ./reorder-types/index.md
+  - ./constant-field-propagation/index.md
+  - ./dead-argument-elimination/index.md
+  - ./constant-field-null-test-folding/index.md
+  - ./avoid-reinterprets/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
-  - ../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
-  - ../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
-  - ../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
-  - ../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
-  - ../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
-  - ../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
-  - ../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
-  - ../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
-  - ../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
-  - ../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md
-  - ../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
-  - ../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
+  - ./simplify-globals/index.md
+  - ./inlining/index.md
+  - ./propagate-globals-globally/index.md
+  - ./gufa/index.md
+  - ./gufa-cast-all/index.md
+  - ./optimize-added-constants/index.md
+  - ./optimize-added-constants-propagate/index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp
-  - ../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
-  - ../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
-  - ../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
+  - ./simplify-locals-nonesting/index.md
   - ../../../../agent-todo.md
 related:
   - ./index.md
@@ -243,21 +130,15 @@ Use these files in this order:
 - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
   - source of truth for which passes matter for the canonical no-DWARF `-O` / `-Os` Binaryen parity path
 - `docs/wiki/binaryen/release-horizon-and-oracles.md`
-  - source of truth for the public Binaryen release baseline (`version_131`) and the live drift-watch handoff for anything beyond that tag
+  - source of truth for the public Binaryen release baseline (`version_131`), the historical v125/v130 corrections, the v131 impact audit, and the live drift-watch handoff beyond that tag
 - `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`
-  - compact pass-roster page that carries the same release-horizon handoff into the late-pipeline context
-- `docs/wiki/raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`
-  - source of truth for the release-horizon fact behind that baseline
-- `docs/wiki/raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md`
-  - retained source for the current docs.rs / Debian / README package-surface caveats behind the late-pipeline dispatch note
-- `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`
-  - source of truth for which unimplemented passes were actually observed as skipped in the saved generated-artifact `-O4z` replay
+  - source of truth for late-pipeline roster context, current package-surface caveats, and unimplemented passes observed as skipped in the saved generated-artifact `-O4z` replay
 - `docs/wiki/binaryen/passes/`
   - source of truth for whether a pass has a dedicated living wiki surface yet
 - `agent-todo.md`
   - source of truth for current backlog slice ids and implementation intent
 
-The current public Binaryen release baseline is `version_131`; use it for new upstream-tag lookups, but keep pass-contract pages anchored to their actually reviewed tags until a dedicated v131 reread exists. Research note 1573 confirms the default scheduler is unchanged and records the direct-pass reopening decisions.
+The current public Binaryen release baseline is `version_131`; use it for new upstream-tag lookups, but keep pass-contract pages anchored to their actually reviewed tags until a dedicated v131 reread exists. [Research note 1573](../release-horizon-and-oracles.md) confirms the default scheduler is unchanged and records the direct-pass reopening decisions.
 
 If these ever disagree, update this tracker in the same change. The 2026-05-06 audit note above records one such known temporary disagreement.
 
@@ -426,6 +307,7 @@ Now that the first tracker-expansion wave is dossier-covered too, this table is 
 | `minify-imports` | Public upstream import-minification helper worth tracking separately even though it is not currently named in the local registry, because its corrected `version_129` / current-main contract is an ABI-visible import-base rewrite plus JSON map output rather than the previously documented non-mutating imported-function-only report | upstream-only | deep | Corrected dossier exists: [`minify-imports/index.md`](minify-imports/index.md); the folder has a 2026-04-26 source-correction manifest, a 2026-04-27 port-readiness manifest, overview, Binaryen strategy, focused `env` / `wasi_` gate and JSON-map guide, implementation/test-map, WAT-shape, Starshine status, and [`starshine-port-readiness-and-validation.md`](minify-imports/starshine-port-readiness-and-validation.md) pages. It records the shared `MinifyImportsAndExports.cpp` owner, all-import-kind traversal behind the plain-mode gate, source-backed mutation, no dedicated plain lit fixture found, current unknown-pass local status, the registry/reporting decision point, the first safe import-section mutation slice, the need to keep JSON reporting separate from normal optimized wasm output, and the 2026-05-05 current-main freshness recheck. |
 | `minify-imports-and-exports` / `minify-imports-and-exports-and-modules` | Public upstream import/export name-minification pass family worth tracking even though it is not currently named in the local registry, because it mutates ABI-visible module declaration strings and is easy to mis-teach as harmless internal cleanup | upstream-only | deep | Deepened dossier exists: [`minify-imports-and-exports/index.md`](minify-imports-and-exports/index.md); the folder now has source-correction and 2026-04-26 port-readiness coverage plus overview, Binaryen strategy, implementation/test-map, WAT-shape, Starshine status, and [`starshine-port-readiness-and-validation.md`](minify-imports-and-exports/starshine-port-readiness-and-validation.md) pages, records Binaryen's `Names::MinifiedNameGenerator` plus used-name-avoidance import-base and export-name rewrite, the sibling-only import-module-name rewrite, current JSON row-array map output, no pass-named `minify-imports*.wast` caveat, current unknown-pass local status, exact import/export representation and codec code locations, safe future implementation order, the host ABI caveat, and the split from narrower plain `minify-imports`. |
 | `remove-relaxed-simd` | Public upstream relaxed-SIMD removal pass worth tracking even though it is not currently named in the local registry, because the late-pass chronology already listed it as a newer upstream-only pass and Starshine already has relaxed SIMD parser, binary, validation, and HOT surfaces that make the future port boundaries concrete | upstream-only | deep | Deepened dossier exists: [`remove-relaxed-simd/index.md`](remove-relaxed-simd/index.md); the folder has the original raw manifest plus a 2026-05-04 current-main recheck manifest, a 2026-04-25 current-main source-correction manifest, a 2026-04-26 port-readiness manifest, a dedicated Starshine status page, and [`starshine-port-readiness-and-validation.md`](remove-relaxed-simd/starshine-port-readiness-and-validation.md), records Binaryen's trap-replacement strategy, `ChildLocalizer`-backed child-effect preservation, relaxed unary/binary/ternary opcode families, ordinary-SIMD preservation, corrected no-feature-gate / refinalization wording, Binaryen-vs-Starshine dot-product spelling caveat, unknown-pass local status, validation ladder, and the open feature-metadata cleanup question before any faithful local port. |
+| `strip-debug` | Active Starshine module pass that removes structured/raw name metadata while preserving unrelated custom sections; scheduled last in public optimize/shrink presets after name-sensitive work | active | deep | Dossier: [`strip-debug/index.md`](strip-debug/index.md). Focused pass tests own name/custom-section behavior; public preset tests own final placement. The normalized compare harness is semantic-only because it strips debug during comparison. |
 | `strip-toolchain-annotations` | Public upstream toolchain-annotation cleanup pass worth tracking even though it is not currently named in the local registry, because the late-pass chronology already listed it as a newer upstream-only pass while Starshine has partial Binaryen-style annotation parsing/lowering surfaces that make local support easy to overstate | upstream-only | deep | Deepened dossier exists: [`strip-toolchain-annotations/index.md`](strip-toolchain-annotations/index.md); the folder has 2026-04-24, 2026-04-26, and 2026-05-06 raw primary-source manifests, a dedicated Starshine status page, and [`starshine-port-readiness-and-validation.md`](strip-toolchain-annotations/starshine-port-readiness-and-validation.md), records Binaryen's function-parallel `removableIfUnused` / `jsCalled` / `idempotent` removal contract, `metadata.code.inline` preservation, current-main no-teaching-drift, local `FuncAnnotationSec` first-slice plan, expression-annotation parity blocker, unknown-pass local status, and the need to keep this separate from generic custom-section stripping. |
 | `strip-target-features` / `emit-target-features` | Public upstream output-metadata toggle pair worth tracking even though neither name is currently in the local registry, because it is easy to confuse stripping target-feature metadata with feature lowering, generic custom-section stripping, or an option-only pass | upstream-only | deep | Deepened dossier exists: [`strip-target-features/index.md`](strip-target-features/index.md); the folder now has 2026-04-26, 2026-04-27, and 2026-05-05 raw primary-source manifests plus overview, Binaryen strategy, implementation/test-map, WAT-shape, Starshine status, and [`starshine-port-readiness-and-validation.md`](strip-target-features/starshine-port-readiness-and-validation.md). It records the shared upstream owner for `emit-target-features` and `strip-target-features`, inherited default-true `modifiesBinaryenIR()` behavior, real `module->hasFeaturesSection` metadata toggle, target-feature section presence/omission shapes, superseded `emitTargetFeatures` wording, current local unknown-pass status for both names, opaque `Module.custom_secs` landing zone, registry-honesty / opaque-section / first-class-metadata first-slice choices, and the need to keep this separate from `strip-toolchain-annotations` and `remove-relaxed-simd`. |
 | `mark-js-called` / upstream `MarkJSCalled` | Public Binaryen `version_130` function-annotation pass worth tracking because the release-horizon changelog named it but the old tracker did not distinguish it from generic JS-interface or annotation-stripping work; Starshine already parses and lowers `(@binaryen.js.called)` annotations but has no pass that synthesizes them from configureAll calls | upstream-only | deep | Dossier exists: [`mark-js-called/index.md`](mark-js-called/index.md). The 2026-07-11 owner/fixture/registration recheck confirms the configureAll-driven `js.called` synthesis contract has no behavior-bearing current-main drift; focused `src/` searches still show local unknown-pass status, with nearby `FuncAnnotationSec` plus WAST annotation parse/lower/test surfaces. Keep it separate from `strip-toolchain-annotations`, which removes selected toolchain annotations, and from `legalize-js-interface`, which rewrites JS ABI boundaries. Its [`fuzzing.md`](mark-js-called/fuzzing.md) is planned-only because the harness and active Starshine registry both reject the pass. |
@@ -579,137 +461,137 @@ A good future expansion should now look like the successful second-wave dossiers
 
 - [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)
 - [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md)
-- [`../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
-- [`../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md`](../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md)
-- [`../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
-- [`../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md`](../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md)
-- [`../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
-- [`../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
-- [`../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md`](../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md)
-- [`../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md`](../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md)
-- [`../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md`](../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md)
-- [`../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
-- [`../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md`](../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md)
-- [`../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
-- [`../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md`](../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md)
-- [`../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
-- [`../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
-- [`../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
+- [research note 0093](./late-pipeline-dispatch.md)
+- [research note 0333](./simplify-locals-notee-nostructure/index.md)
+- [research note 0129](./simplify-locals-notee-nostructure/index.md)
+- [research note 0130](./vacuum/index.md)
+- [research note 0131](./optimize-instructions/index.md)
+- [research note 0132](./precompute/index.md)
+- [research note 0448](./heap-store-optimization/index.md)
+- [research note 0356](./heap-store-optimization/index.md)
+- [research note 0133](./heap-store-optimization/index.md)
+- [research note 0134](./dead-code-elimination/index.md)
+- [research note 0365](./heap2local/index.md)
+- [research note 0135](./heap2local/index.md)
+- [research note 0136](./pick-load-signs/index.md)
+- [research note 0228](./pick-load-signs/index.md)
+- [research note 0137](./memory-packing/index.md)
+- [research note 0138](./once-reduction/index.md)
+- [research note 0139](./global-refining/index.md)
 - Binaryen [`version_130` `GlobalStructInference.cpp`](https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/GlobalStructInference.cpp)
-- [`../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
-- [`../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
-- [`../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
+- [research note 0344](./global-struct-inference/index.md)
+- [research note 0140](./global-struct-inference/index.md)
+- [research note 0141](./ssa-nomerge/index.md)
 - [`../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- [`../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)
-- [`../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md`](../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md)
-- [`../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
-- [`../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
-- [`../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)
-- [`../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md`](../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md)
-- [`../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md`](../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md)
-- [`../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md`](../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md)
-- [`../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
-- [`../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
-- [`../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- [research note 0430](./reorder-locals/index.md)
+- [research note 0142](./reorder-locals/index.md)
+- [research note 0143](./remove-unused-names/index.md)
+- [research note 0144](./tuple-optimization/index.md)
+- [research note 0145](./remove-unused-module-elements/index.md)
+- [research note 0146](./remove-unused-brs/index.md)
+- [research note 0147](./duplicate-function-elimination/index.md)
+- [research note 0148](./simplify-locals/index.md)
+- [research note 0149](./remove-unused-types/index.md)
+- [research note 0298](./remove-unused-types/index.md)
+- [research note 0150](./type-refining/index.md)
 - Binaryen current-main `TypeGeneralizing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp>
-- [`../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md`](../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md)
-- [`../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
-- Historical superseded note: [`../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md`](../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md)
-- [`../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md`](../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md)
+- [research note 0308](./type-generalizing/index.md)
+- [research note 0479](./type-generalizing/index.md)
+- Historical superseded note: [research note 0191](./type-generalizing/index.md)
+- [research note 0426](./type-finalizing/index.md)
 - Binaryen current-main `TypeFinalizing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp>
-- [`../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md`](../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md`](../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md)
-- [`../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
-- [`../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md`](../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md)
-- [`../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
-- [`../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md`](../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md)
-- [`../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
-- [`../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
-- [`../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
-- [`../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`](../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md)
-- [`../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md`](../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md)
-- [`../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
-- [`../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
-- [`../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
-- [`../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
-- [`../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md`](../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md)
-- [`../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
-- [`../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
-- [`../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
-- [`../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
-- [`../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md`](../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md)
-- [`../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
-- [`../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
-- [`../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
-- [`../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
-- [`../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md`](../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md)
-- [`../../raw/research/0161-2026-04-21-inlining-binaryen-research.md`](../../raw/research/0161-2026-04-21-inlining-binaryen-research.md)
-- [`../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`](../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md)
-- [`../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md)
-- [`../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md`](../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md)
-- [`../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md`](../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md)
-- [`../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
-- [`../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md`](../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md)
-- [`../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md`](../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md`](../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md)
-- [`../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md`](../../raw/research/0164-2026-04-21-optimize-added-constants-binaryen-research.md)
-- [`../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
-- [`../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
+- [research note 0310](./type-finalizing/index.md)
+- [research note 0192](./type-finalizing/index.md)
+- [research note 0427](./type-un-finalizing/index.md)
+- [research note 0314](./type-un-finalizing/index.md)
+- [research note 0193](./type-un-finalizing/index.md)
+- [research note 0151](./signature-pruning/index.md)
+- [research note 0404](./signature-pruning/index.md)
+- [research note 0152](./signature-refining/index.md)
+- [research note 0451](./signature-refining/index.md)
+- [research note 0398](./signature-refining/index.md)
+- [research note 0307](./signature-refining/index.md)
+- [research note 0694](./global-type-optimization/index.md)
+- [research note 0467](./global-type-optimization/index.md)
+- [research note 0306](./global-type-optimization/index.md)
+- [research note 0153](./global-type-optimization/index.md)
+- [research note 0289](./unsubtyping/index.md)
+- [research note 0154](./unsubtyping/index.md)
+- [research note 0295](./abstract-type-refining/index.md)
+- [research note 0155](./abstract-type-refining/index.md)
+- [research note 0156](./minimize-rec-groups/index.md)
+- [research note 0157](./reorder-types/index.md)
+- [research note 0199](./reorder-types/index.md)
+- [research note 0438](./reorder-types/index.md)
+- [research note 0309](./reorder-types/index.md)
+- [research note 0301](./constant-field-propagation/index.md)
+- [research note 0158](./constant-field-propagation/index.md)
+- [research note 0293](./dead-argument-elimination/index.md)
+- [research note 0159](./dead-argument-elimination/index.md)
+- [research note 0230](./dead-argument-elimination/index.md)
+- [research note 0335](./constant-field-null-test-folding/index.md)
+- [research note 0169](./constant-field-null-test-folding/index.md)
+- [research note 0216](./constant-field-null-test-folding/index.md)
+- [research note 0281](./avoid-reinterprets/index.md)
+- [research note 0172](./avoid-reinterprets/index.md)
+- [research note 0160](./simplify-globals/index.md)
+- [research note 0161](./inlining/index.md)
+- [research note 0320](./propagate-globals-globally/index.md)
+- [research note 0459](./propagate-globals-globally/index.md)
+- [research note 0162](./propagate-globals-globally/index.md)
+- [research note 0196](./propagate-globals-globally/index.md)
+- [research note 0313](./gufa/index.md)
+- [research note 0163](./gufa/index.md)
+- [research note 0432](./gufa-cast-all/index.md)
+- [research note 0312](./gufa-cast-all/index.md)
+- [research note 0190](./gufa-cast-all/index.md)
+- [research note 0164](./optimize-added-constants/index.md)
+- [research note 0165](./optimize-added-constants-propagate/index.md)
+- [research note 0329](./simplify-locals-notee/index.md)
+- [research note 0166](./simplify-locals-notee/index.md)
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyLocals.cpp>
-- [`../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
-- [`../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)
-- [`../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
-- [`../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
-- [`../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
-- [`../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
-- [`../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
-- [`../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
-- [`../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
-- [`../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
-- [`../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
-- [`../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md`](../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md)
-- [`../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
+- [research note 0407](./simplify-locals-nonesting/index.md)
+- [research note 0331](./simplify-locals-nonesting/index.md)
+- [research note 0186](./simplify-locals-nonesting/index.md)
+- [research note 0460](./discard-global-effects/index.md)
+- [research note 0353](./discard-global-effects/index.md)
+- [research note 0305](./global-effects/index.md)
+- [research note 0168](./global-effects/index.md)
+- [research note 0282](./loop-invariant-code-motion/index.md)
+- [research note 0378](./loop-invariant-code-motion/index.md)
+- [research note 0696](./loop-invariant-code-motion/index.md)
+- [research note 0173](./loop-invariant-code-motion/index.md)
+- [research note 0412](./i64-to-i32-lowering/index.md)
+- [research note 0175](./i64-to-i32-lowering/index.md)
+- [research note 0395](./legalize-js-interface/index.md)
+- [research note 0291](./legalize-js-interface/index.md)
+- [research note 0223](./legalize-js-interface/index.md)
 - [Binaryen current `Monomorphize.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp)
-- [`../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md`](../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md)
-- [`../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
-- [`../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
-- [`../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md`](../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md)
-- [`../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
-- [`../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
-- [`../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md`](../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md)
-- [`../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
-- [`../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md`](../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md`](../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md)
-- [`../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`](../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md`](../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md)
-- [`../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
-- [`../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
-- [`../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
-- [`../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
-- [`../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
-- [`../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
-- [`../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
-- [`../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
-- [`../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
+- [research note 0416](./monomorphize/index.md)
+- [research note 0176](./monomorphize/index.md)
+- [research note 0302](./monomorphize/index.md)
+- [research note 0319](./inline-main/index.md)
+- [research note 0177](./inline-main/index.md)
+- [research note 0318](./monomorphize-always/index.md)
+- [research note 0187](./monomorphize-always/index.md)
+- [research note 0423](./dataflow-optimization/index.md)
+- [research note 0446](./dataflow-optimization/index.md)
+- [research note 0369](./dataflow-optimization/index.md)
+- [research note 0178](./dataflow-optimization/index.md)
+- [research note 0278](./dataflow-optimization/index.md)
+- [research note 0297](./reorder-functions/index.md)
+- [research note 0179](./reorder-functions/index.md)
+- [research note 0325](./reorder-functions-by-name/index.md)
+- [research note 0180](./reorder-functions-by-name/index.md)
+- [research note 0462](./type-merging/index.md)
+- [research note 0294](./type-merging/index.md)
+- [research note 0181](./type-merging/index.md)
+- [research note 0182](./const-hoisting/index.md)
+- [research note 0225](./const-hoisting/index.md)
+- [research note 0316](./rereloop/index.md)
+- [research note 0183](./rereloop/index.md)
+- [research note 0478](./de-nan/index.md)
+- [research note 0283](./de-nan/index.md)
+- [research note 0184](./de-nan/index.md)
+- [research note 0185](./untee/index.md)
 - [`../../../../agent-todo.md`](../../../../agent-todo.md)

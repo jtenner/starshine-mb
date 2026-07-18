@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp
-  - ../../../raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md
-  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
-  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
-  - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
+  - ./index.md
   - ../../../../../src/passes/merge_locals.mbt
   - ../../../../../src/passes/merge_locals_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -58,7 +55,7 @@ It is still not a full `LocalGraph`-equivalent port and should stay out of publi
 | [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) | Explains the graph/orientation proof still missing from the local subset. |
 | `src/lib/types.mbt` | Local declarations and instruction nodes define the validator-visible rewrite surface. |
 | `src/validate/typecheck.mbt` | Local get/set/tee typing must stay sound after any rewrite. |
-| `docs/wiki/raw/research/0535-2026-05-06-merge-locals-direct-revalidation.md` | Current direct parity evidence: 6759/6759 normalized matches, 0 mismatches. |
+| `docs/wiki/binaryen/passes/merge-locals/index.md` | Current direct parity evidence: 6759/6759 normalized matches, 0 mismatches. |
 
 ## Current validation evidence
 

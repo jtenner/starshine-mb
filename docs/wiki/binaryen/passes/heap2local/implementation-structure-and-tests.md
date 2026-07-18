@@ -3,12 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/heap2local-rmw.wast
-  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
-  - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/heap2local.mbt
   - ../../../../../src/passes/heap2local_test.mbt
   - ../../../../../src/passes/heap2local_primary_test.mbt
@@ -208,9 +206,9 @@ For Starshine behavior:
 
 ## Sources
 
-- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
-- [`../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md`](../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md`](../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md)
+- [research note 0365](./index.md)
+- [research note 0245](./index.md)
+- [research note 0135](./index.md)
 - [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
 - [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)
 - [`../../../../../src/passes/heap2local_primary_test.mbt`](../../../../../src/passes/heap2local_primary_test.mbt)

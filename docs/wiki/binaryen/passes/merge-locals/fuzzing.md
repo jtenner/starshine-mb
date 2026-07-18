@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeLocals.cpp
-  - ../../../raw/research/1574-2026-07-18-merge-locals-v131-parity-closeout.md
+  - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
 ---
 

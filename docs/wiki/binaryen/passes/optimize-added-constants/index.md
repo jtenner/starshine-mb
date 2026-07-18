@@ -1,16 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
-  - ../../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
-  - ../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants-propagate/index.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -32,7 +27,7 @@ related:
 
 - `optimize-added-constants` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The retained provenance chain starts with the 2026-04-24 follow-up research [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md), the 2026-05-05 current-main source-anchor research [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md), direct tagged source URLs, and the Starshine status bridge [`./starshine-strategy.md`](./starshine-strategy.md).
+- The retained provenance chain starts with the 2026-04-24 follow-up research research note 0300, the 2026-05-05 current-main source-anchor research research note 0465, direct tagged source URLs, and the Starshine status bridge [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen `version_129` also exposes a public sibling name, [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md), backed by the same implementation file.
 - The real pass is a **memory-address to load/store-offset** canonicalizer, not a generic arithmetic-tree optimizer.
 
@@ -99,13 +94,13 @@ So the plain pass is best read as:
 
 ## Sources
 
-- [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md)
-- [`../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md`](../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md)
-- [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
-- [`../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md`](../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md)
+- research note 0465
+- research note 0418
+- research note 0300
+- [research note 0165](../optimize-added-constants-propagate/index.md)
+- research note 0232
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

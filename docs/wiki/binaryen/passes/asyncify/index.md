@@ -3,12 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp
-  - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
-  - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
-  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
-  - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/validate/typecheck.mbt
@@ -133,9 +129,9 @@ For a future Starshine port, add tests in this order:
 ## Sources
 
 - [Binaryen current `Asyncify.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp)
-- [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
-- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
-- [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
+- research note 0401
+- research note 0371
+- research note 0323
 - Binaryen `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Asyncify.cpp>
 - Binaryen current `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp>
 - Binaryen lit file: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/asyncify.wast>

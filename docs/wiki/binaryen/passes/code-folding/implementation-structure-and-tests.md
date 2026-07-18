@@ -1,14 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp
-  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
-  - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
-  - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
-  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
-  - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -155,9 +151,9 @@ The source-backed contract is narrower: duplicate *tails* that already share an 
 
 ## Sources
 
-- [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
-- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
-- [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
+- [research note 0373](./index.md)
+- [research note 0442](./index.md)
+- [research note 0351](./index.md)
 - Binaryen current `main` `CodeFolding.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodeFolding.cpp>
 - Binaryen current `main` `code-folding.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/code-folding.wast>
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

@@ -3,98 +3,7 @@ kind: entity
 status: strong
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md
-  - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
-  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
-  - ../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md
-  - ../../../raw/research/0903-2026-06-25-code-pushing-post-iit-actionability-audit.md
-  - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
-  - ../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md
-  - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
-  - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
-  - ../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md
-  - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
-  - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
-  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
-  - ../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md
-  - ../../../raw/research/0891-2026-06-25-code-pushing-pass-fuzz-stress-post-0890-10000.md
-  - ../../../raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md
-  - ../../../raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md
-  - ../../../raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md
-  - ../../../raw/research/0887-2026-06-25-code-pushing-nested-global-set-root-refinements.md
-  - ../../../raw/research/0886-2026-06-25-code-pushing-all-post-0884-smoke.md
-  - ../../../raw/research/0885-2026-06-25-code-pushing-nested-disjoint-global-set-call-boundary.md
-  - ../../../raw/research/0884-2026-06-25-code-pushing-nested-disjoint-global-set-pure-root-window.md
-  - ../../../raw/research/0883-2026-06-25-code-pushing-all-post-0881-smoke.md
-  - ../../../raw/research/0882-2026-06-25-code-pushing-multitable-read-write-boundary.md
-  - ../../../raw/research/0881-2026-06-25-code-pushing-nested-disjoint-global-set-movement.md
-  - ../../../raw/research/0880-2026-06-25-code-pushing-nonmatching-state-read-write-boundaries.md
-  - ../../../raw/research/0879-2026-06-25-code-pushing-disjoint-global-set-movement.md
-  - ../../../raw/research/0878-2026-06-25-code-pushing-state-read-mutation-boundary.md
-  - ../../../raw/research/0877-2026-06-25-code-pushing-size-read-mutation-boundary.md
-  - ../../../raw/research/0876-2026-06-25-code-pushing-global-read-mutation-boundary.md
-  - ../../../raw/research/0875-2026-06-25-code-pushing-table-segment-root-movement.md
-  - ../../../raw/research/0874-2026-06-25-code-pushing-memory-segment-root-movement.md
-  - ../../../raw/research/0873-2026-06-25-code-pushing-size-read-root-movement.md
-  - ../../../raw/research/0872-2026-06-25-code-pushing-table-bulk-movement.md
-  - ../../../raw/research/0871-2026-06-25-code-pushing-memory-fill-movement.md
-  - ../../../raw/research/0870-2026-06-25-code-pushing-memory-copy-movement.md
-  - ../../../raw/research/0869-2026-06-25-code-pushing-table-grow-movement.md
-  - ../../../raw/research/0868-2026-06-25-code-pushing-memory-grow-movement.md
-  - ../../../raw/research/0867-2026-06-25-code-pushing-memory-store-movement.md
-  - ../../../raw/research/0866-2026-06-25-code-pushing-table-set-movement.md
-  - ../../../raw/research/0865-2026-06-25-code-pushing-global-set-movement.md
-  - ../../../raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md
-  - ../../../raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md
-  - ../../../raw/research/0862-2026-06-25-code-pushing-try-table-catch-all-ref-boundary.md
-  - ../../../raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md
-  - ../../../raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md
-  - ../../../raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md
-  - ../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md
-  - ../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md
-  - ../../../raw/research/0856-2026-06-25-code-pushing-all-post-throw-ref-refresh.md
-  - ../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md
-  - ../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md
-  - ../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md
-  - ../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md
-  - ../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md
-  - ../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md
-  - ../../../raw/research/0849-2026-06-25-code-pushing-pass-fuzz-stress-post-boundary-refresh.md
-  - ../../../raw/research/0848-2026-06-25-code-pushing-multilabel-br-table-boundary.md
-  - ../../../raw/research/0847-2026-06-25-code-pushing-all-post-boundary-refresh.md
-  - ../../../raw/research/0846-2026-06-25-code-pushing-br-on-null-prefix-boundary.md
-  - ../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md
-  - ../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md
-  - ../../../raw/research/0843-2026-06-25-code-pushing-value-br-table-boundary.md
-  - ../../../raw/research/0842-2026-06-25-code-pushing-all-10000-current.md
-  - ../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md
-  - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
-  - ../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md
-  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
-  - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
-  - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
-  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
-  - ../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md
-  - ../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md
-  - ../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md
-  - ../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md
-  - ../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md
-  - ../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md
-  - ../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md
-  - ../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md
-  - ../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md
-  - ../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md
-  - ../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md
-  - ../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md
-  - ../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md
-  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
-  - ../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md
-  - ../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md
-  - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
-  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
-  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -115,7 +24,6 @@ related:
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
 ---
 
 # `code-pushing`
@@ -139,7 +47,7 @@ The current source-backed Binaryen mental model is:
 - sink into the one `if` arm that reads the local, with an important unreachable-arm post-use allowance;
 - rely on later optimizer cycles for deeper recursive opportunities.
 
-The current Starshine implementation is closed for the user-directed CP audit under Starshine's pass-wide completion criteria. `[O4Z-AUDIT-CP]` closed in [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md), the replacement-oriented follow-up `[O4Z-AUDIT-CP-BINREP]` closed in [`0901`](../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md), and [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md) is the explicit closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed:
+The current Starshine implementation is closed for the user-directed CP audit under Starshine's pass-wide completion criteria. `[O4Z-AUDIT-CP]` closed in `0892`, the replacement-oriented follow-up `[O4Z-AUDIT-CP-BINREP]` closed in `0901`, and `0910` is the explicit closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed:
 
 - a distinct Binaryen-compatible `--ignore-implicit-traps` / `-iit` option wired through CLI/config/command options/hot-pass context, with lit-derived memory-load `br_if` movement that remains separate from TNH;
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
@@ -164,8 +72,8 @@ This folder previously contained a 2026-04-25 correction that removed `Pusher`, 
 The preferred source manifest is now:
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
+- research note 0807
+- research note 0454
 
 The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. It keeps the same owner and scheduler surfaces, adds `code-pushing-atomics.wast` as an audit-relevant lit family, and records the `version_130` effect-ordering drift from `invalidates(...)` to `effects.orderedBefore(cumulativeEffects)`. Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-arm duplication as the baseline. But restore the correct upstream owner concepts: `LocalAnalyzer`, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment`.
 
@@ -173,7 +81,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - Binaryen schedules `code-pushing` in the canonical no-DWARF function pipeline between `precompute` and the tuple/local-cleanup neighborhood.
 - The saved generated-artifact `-O4z` audit recorded it as top-level skipped slot `20` before Starshine grew the current direct subset.
-- Starshine's `tuple-optimization` exact-slot story depends on this pass and `simplify-locals-nostructure` being represented honestly in the scheduler and preset replay; [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md) records that the public `optimize` / `shrink` presets now have focused proof for `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`.
+- Starshine's `tuple-optimization` exact-slot story depends on this pass and `simplify-locals-nostructure` being represented honestly in the scheduler and preset replay; `0907` records that the public `optimize` / `shrink` presets now have focused proof for `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`.
 - The pass is easy to over-broaden. Correctness depends on SFA local proofs, effect ordering/invalidation, trap policy, GC/reference behavior, atomics, EH, and post-if read rules.
 
 ## Inputs and outputs
@@ -191,7 +99,7 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 - Some sets move into the only `if` arm that reads their local.
 - Under `--ignore-implicit-traps` / `-iit`, a memory-load-backed SFA set can move after an eligible `br_if` when no intervening memory write, call, or ordered effect can change the loaded value or observability; the same shape remains stationary by default.
 - Moved sets keep order and should execute on the same or fewer paths as allowed by the proof.
-- Unproven shapes stay unchanged; local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, now mirrored by Starshine as a call segment barrier in [`0850`](../../../raw/research/0850-2026-06-25-code-pushing-call-barrier.md), [`0855`](../../../raw/research/0855-2026-06-25-code-pushing-throw-ref-movement.md) narrows the EH distinction by moving the same pure set after a later `br_if` when the intervening root is non-fallthrough `throw_ref`, [`0857`](../../../raw/research/0857-2026-06-25-code-pushing-plain-throw-boundary.md) records that no-payload tag-based `throw` remains stationary, [`0860`](../../../raw/research/0860-2026-06-25-code-pushing-payload-throw-boundary.md) records that payload-bearing tag-based `throw` remains stationary, [`0858`](../../../raw/research/0858-2026-06-25-code-pushing-try-table-boundary.md) records that `try_table` remains stationary, [`0859`](../../../raw/research/0859-2026-06-25-code-pushing-legacy-try-lowered-movement.md) records that a reduced no-rethrow legacy `try`/`catch` probe moves after the later `br_if` in Binaryen while Starshine currently covers the observable movement through a try-lowered HOT block fixture, [`0861`](../../../raw/research/0861-2026-06-25-code-pushing-rethrow-boundary.md) records that a rethrow-containing legacy try/catch stays stationary and is now guarded through direct HOT rethrow coverage, [`0863`](../../../raw/research/0863-2026-06-25-code-pushing-try-table-catch-payload-boundaries.md) extends the `try_table` stationary boundary to tag-payload `catch` and payload-plus-reference `catch_ref` handlers, and [`0864`](../../../raw/research/0864-2026-06-25-code-pushing-try-table-multi-catch-boundary.md) records the same stationary behavior for a reduced multi-catch `try_table`.
+- Unproven shapes stay unchanged; local Binaryen v130 kept a pure SFA set before an intervening call and later `br_if`, now mirrored by Starshine as a call segment barrier in `0850`, `0855` narrows the EH distinction by moving the same pure set after a later `br_if` when the intervening root is non-fallthrough `throw_ref`, `0857` records that no-payload tag-based `throw` remains stationary, `0860` records that payload-bearing tag-based `throw` remains stationary, `0858` records that `try_table` remains stationary, `0859` records that a reduced no-rethrow legacy `try`/`catch` probe moves after the later `br_if` in Binaryen while Starshine currently covers the observable movement through a try-lowered HOT block fixture, `0861` records that a rethrow-containing legacy try/catch stays stationary and is now guarded through direct HOT rethrow coverage, `0863` extends the `try_table` stationary boundary to tag-payload `catch` and payload-plus-reference `catch_ref` handlers, and `0864` records the same stationary behavior for a reduced multi-catch `try_table`.
 
 ### Current Starshine input shape
 
@@ -210,28 +118,28 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 - Do not move non-SFA locals without a stronger local-use proof.
 - Do not move values across effects that can invalidate or must be ordered after the delayed computation.
-- Do not change trap timing unless the active trap policy explicitly permits that behavior; Starshine now carries `traps_never_happen` into hot passes and uses it for the reduced exact integer div/rem into-if family, and `ignore_implicit_traps` separately covers the lit-derived memory-load `br_if` movement from [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md). The old `--ignore-implicit-traps` boundary in [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) is historical evidence only; do not treat IIT as a TNH alias.
+- Do not change trap timing unless the active trap policy explicitly permits that behavior; Starshine now carries `traps_never_happen` into hot passes and uses it for the reduced exact integer div/rem into-if family, and `ignore_implicit_traps` separately covers the lit-derived memory-load `br_if` movement from `0902`. The old `--ignore-implicit-traps` boundary in `0897` is historical evidence only; do not treat IIT as a TNH alias.
 - Do not strand post-if uses unless the non-consuming arm cannot fall through or another proof preserves the value.
 - Do not treat two-live-arm duplication as a default `code-pushing` behavior.
 - Preserve order among multiple pushed sets, including consecutive multi-set windows sunk into a sole consuming `if` arm.
 - Preserve function validity after structural mutation.
 - Keep Starshine-local dead-block flattening documented separately from upstream Binaryen behavior.
-- Public preset CP placement is claimed only for the focused Binaryen-shaped neighborhood validated in [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md); broader preset parity still follows the repo's normal preset-audit rules.
+- Public preset CP placement is claimed only for the focused Binaryen-shaped neighborhood validated in `0907`; broader preset parity still follows the repo's normal preset-audit rules.
 - Do not treat raw wasm/text drift as a blocker when normalized/canonical semantic comparison is green.
 
 ## Notable edge cases
 
 - One `if` arm consumes the local and the other does not.
 - Post-if reads where the non-consuming arm is unreachable.
-- `switch` and conditional `br` push points, including the current simple, value-carrying, and multi-label `br_table` no-mutation boundaries closed for the current replacement follow-up by [`0898`](../../../raw/research/0898-2026-06-25-code-pushing-branch-switch-boundary-closeout.md), the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
+- `switch` and conditional `br` push points, including the current simple, value-carrying, and multi-label `br_table` no-mutation boundaries closed for the current replacement follow-up by `0898`, the bounded Binaryen-positive one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, and dropped one-result-block `br_on_cast_fail` families, and the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries.
 - Trap-capable expressions under default, Binaryen `--ignore-implicit-traps` / `-iit`, and TNH options, with default trap semantics, IIT memory-load relaxation, and TNH exact-div/rem relaxation kept distinct.
-- GC/reference operations such as `ref.func`, casts, null checks, the `version_130` atomics/GC ordering family, and the implemented `ref-into-if` local-refinalization slice documented in [`0906`](../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md), with broader official shared-GC fixture support still separate.
-- Call and EH control where movement can change observability, including Binaryen's `binaryen-intrinsics/call.without.effects` no-effects call surface: [`0899`](../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md) records the old missing-import-metadata blocker, [`0904`](../../../raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md) lands the exact HOT module-context import identity prerequisite, and [`0905`](../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md) implements only the exact imported intrinsic with pure/nontrapping arguments. Ordinary imports and defined calls remain barriers. The current `throw_ref` positive movement, no-payload and payload-bearing tag-based `throw` / `try_table` stationary split including the `catch_all_ref` try-table boundary, no-rethrow legacy `try`/`catch` try-lowered movement characterization, and rethrow-containing HOT stationary boundary remain separate.
+- GC/reference operations such as `ref.func`, casts, null checks, the `version_130` atomics/GC ordering family, and the implemented `ref-into-if` local-refinalization slice documented in `0906`, with broader official shared-GC fixture support still separate.
+- Call and EH control where movement can change observability, including Binaryen's `binaryen-intrinsics/call.without.effects` no-effects call surface: `0899` records the old missing-import-metadata blocker, `0904` lands the exact HOT module-context import identity prerequisite, and `0905` implements only the exact imported intrinsic with pure/nontrapping arguments. Ordinary imports and defined calls remain barriers. The current `throw_ref` positive movement, no-payload and payload-bearing tag-based `throw` / `try_table` stationary split including the `catch_all_ref` try-table boundary, no-rethrow legacy `try`/`catch` try-lowered movement characterization, and rethrow-containing HOT stationary boundary remain separate.
 - Starshine dead-block flattening, which is local cleanup rather than upstream `CodePushing.cpp` behavior.
 
 ## Validation
 
-The older direct `--pass code-pushing` lane was accepted under the previous v0.1.0 direct-pass standard. The later `[O4Z-AUDIT-CP]` behavior-parity audit and user-directed reopenings are now closed by [`0892`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md), [`0901`](../../../raw/research/0901-2026-06-25-code-pushing-binrep-followup-closeout.md), [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md), [`0905`](../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md), [`0906`](../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md), [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md), and explicit marker [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md). The 2026-05-09 evidence remains useful for the then-current subset:
+The older direct `--pass code-pushing` lane was accepted under the previous v0.1.0 direct-pass standard. The later `[O4Z-AUDIT-CP]` behavior-parity audit and user-directed reopenings are now closed by `0892`, `0901`, `0902`, `0905`, `0906`, `0907`, and explicit marker `0910`. The 2026-05-09 evidence remains useful for the then-current subset:
 
 - `moon info`, `moon fmt`, and `moon test` green;
 - `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures;
@@ -246,18 +154,18 @@ For docs maintenance:
 - search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
 - keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
-The current post-`0884`/post-`0887` final matrix and stop condition are recorded in [`../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md`](../../../raw/research/0892-2026-06-25-code-pushing-final-closeout.md). The matrix has four fresh final-lane results: [`../../../raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md`](../../../raw/research/0888-2026-06-25-code-pushing-all-post-0887-10000.md) refreshed the dedicated `code-pushing-all` lane at `10000/10000` compared with `4769` normalized, `5231` cleanup-normalized, no raw mismatches/failures, and all 19 aggregate leaves sampled; [`../../../raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md`](../../../raw/research/0889-2026-06-25-code-pushing-wasm-smith-post-0888.md) refreshed explicit wasm-smith at `9956/10000` compared, all normalized, no raw mismatches, and `44` cached Binaryen/tool command failures; [`../../../raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md`](../../../raw/research/0890-2026-06-25-code-pushing-regular-post-0889-100000.md) refreshed regular GenValid at `100000/100000` compared, all normalized, and no failures; [`../../../raw/research/0891-2026-06-25-code-pushing-pass-fuzz-stress-post-0890-10000.md`](../../../raw/research/0891-2026-06-25-code-pushing-pass-fuzz-stress-post-0890-10000.md) refreshed broad named `pass-fuzz-stress` at `10000/10000` compared, all normalized, and no failures. The older post-call-barrier regular [`0854`](../../../raw/research/0854-2026-06-25-code-pushing-regular-100000-post-call-barrier-refresh.md), wasm-smith [`0852`](../../../raw/research/0852-2026-06-25-code-pushing-wasm-smith-post-call-barrier-refresh.md), dedicated [`0851`](../../../raw/research/0851-2026-06-25-code-pushing-all-post-call-barrier-refresh.md), and broad named [`0853`](../../../raw/research/0853-2026-06-25-code-pushing-pass-fuzz-stress-post-call-barrier-refresh.md) lanes are superseded for final-current evidence by later behavior changes and refreshes. `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate, and [`0910`](../../../raw/research/0910-2026-06-25-code-pushing-explicit-closeout.md) confirms no active useful user-directed CP gap remains known. Reopen only for a new source-backed CP behavior gap, a generated mismatch classified as a real CP behavior/validity issue, a CP validation failure, a shared-GC fixture requirement for an actual CP behavior surface, or preset-neighborhood drift.
+The current post-`0884`/post-`0887` final matrix and stop condition are recorded in research note 0892. The matrix has four fresh final-lane results: research note 0888 refreshed the dedicated `code-pushing-all` lane at `10000/10000` compared with `4769` normalized, `5231` cleanup-normalized, no raw mismatches/failures, and all 19 aggregate leaves sampled; research note 0889 refreshed explicit wasm-smith at `9956/10000` compared, all normalized, no raw mismatches, and `44` cached Binaryen/tool command failures; research note 0890 refreshed regular GenValid at `100000/100000` compared, all normalized, and no failures; research note 0891 refreshed broad named `pass-fuzz-stress` at `10000/10000` compared, all normalized, and no failures. The older post-call-barrier regular `0854`, wasm-smith `0852`, dedicated `0851`, and broad named `0853` lanes are superseded for final-current evidence by later behavior changes and refreshes. `[O4Z-AUDIT-CP]` is closed for the v0.1.0 direct-pass release gate, and `0910` confirms no active useful user-directed CP gap remains known. Reopen only for a new source-backed CP behavior gap, a generated mismatch classified as a real CP behavior/validity issue, a CP validation failure, a shared-GC fixture requirement for an actual CP behavior surface, or preset-neighborhood drift.
 
 For future source-backed `code-pushing` widening after the closed `[O4Z-AUDIT-CP]` release-gating audit:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before mutating behavior and whitebox tests in `src/passes/code_pushing_wbtest.mbt` for analyzer-only surfaces;
-2. build on the analyzer/segment-discovery slice from [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md), the ordinary-`if` movement slice from [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md), the dropped-`if` movement slice from [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md), the narrow `br_if` movement slice from [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md), the ordinary-`if` ordered multi-set slice from [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md), the dropped-`if` ordered multi-set slice from [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md), and the `br_if` ordered multi-set slice from [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md), before broad mutation;
-3. include the loop-target `br_if` widening slice from [`../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md`](../../../raw/research/0818-2026-06-20-code-pushing-loop-br-if-movement.md) when reasoning about conditional-branch movement, the `drop(const)` window slice from [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md) plus `drop(local.get)` window slice from [`../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md) when reasoning about non-set separators, the `br_table` boundary slice from [`../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md`](../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md) before attempting switch mutation, and the atomics/GC slice from [`../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md`](../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md) before widening reference or memory-order movement;
+2. build on the analyzer/segment-discovery slice from research note 0808, the ordinary-`if` movement slice from research note 0809, the dropped-`if` movement slice from research note 0811, the narrow `br_if` movement slice from research note 0812, the ordinary-`if` ordered multi-set slice from research note 0813, the dropped-`if` ordered multi-set slice from research note 0814, and the `br_if` ordered multi-set slice from research note 0815, before broad mutation;
+3. include the loop-target `br_if` widening slice from research note 0818 when reasoning about conditional-branch movement, the `drop(const)` window slice from research note 0819 plus `drop(local.get)` window slice from research note 0820 when reasoning about non-set separators, the `br_table` boundary slice from research note 0822 before attempting switch mutation, and the atomics/GC slice from research note 0823 before widening reference or memory-order movement;
 4. validate direct pass execution through registry and command surfaces;
 5. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
 6. include the dedicated `code-pushing-all` GenValid lane, currently with `--normalize local-cleanup-debris` for bounded Starshine `nop`/empty-else cleanup drift;
 7. then run pass-fuzz / artifact comparisons under the standard pass signoff criteria;
-8. if a future widening changes direct behavior or the local-cleanup neighborhood, refresh the public preset proof from [`0907`](../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md).
+8. if a future widening changes direct behavior or the local-cleanup neighborhood, refresh the public preset proof from `0907`.
 
 ## Page map
 
@@ -279,32 +187,32 @@ For future source-backed `code-pushing` widening after the closed `[O4Z-AUDIT-CP
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md`](../../../raw/research/0845-2026-06-25-code-pushing-regular-100000-current.md)
-- [`../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md`](../../../raw/research/0844-2026-06-25-code-pushing-br-on-cast-prefix-boundaries.md)
-- [`../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md`](../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md)
-- [`../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md`](../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md)
-- [`../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md`](../../../raw/research/0827-2026-06-24-code-pushing-br-on-non-null-inventory.md)
-- [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
-- [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
-- [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
-- [`../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md`](../../../raw/research/0822-2026-06-21-code-pushing-br-table-boundary.md)
-- [`../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md`](../../../raw/research/0821-2026-06-21-code-pushing-global-get-window-multi-set-movement.md)
-- [`../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md`](../../../raw/research/0820-2026-06-21-code-pushing-local-get-window-multi-set-movement.md)
-- [`../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md`](../../../raw/research/0819-2026-06-21-code-pushing-drop-window-multi-set-movement.md)
-- [`../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md`](../../../raw/research/0816-2026-06-20-code-pushing-local-copy-multi-set-movement.md)
-- [`../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md`](../../../raw/research/0815-2026-06-20-code-pushing-br-if-multi-set-movement.md)
-- [`../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md`](../../../raw/research/0814-2026-06-20-code-pushing-dropped-if-multi-set-movement.md)
-- [`../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md`](../../../raw/research/0813-2026-06-20-code-pushing-ordered-multi-set-movement.md)
-- [`../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md`](../../../raw/research/0812-2026-06-20-code-pushing-br-if-segment-movement.md)
-- [`../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md`](../../../raw/research/0811-2026-06-20-code-pushing-dropped-if-segment-movement.md)
-- [`../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md`](../../../raw/research/0810-2026-06-20-code-pushing-dedicated-genvalid-profile.md)
-- [`../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md`](../../../raw/research/0809-2026-06-20-code-pushing-if-segment-movement.md)
-- [`../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md`](../../../raw/research/0808-2026-06-20-code-pushing-segment-inventory.md)
-- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md`](../../../raw/research/0806-2026-06-20-code-pushing-unreachable-arm-post-use.md)
-- [`../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md`](../../../raw/research/0527-2026-05-06-code-pushing-direct-revalidation.md)
-- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
-- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- research note 0845
+- research note 0844
+- research note 0829
+- research note 0828
+- research note 0827
+- research note 0826
+- research note 0825
+- research note 0824
+- research note 0822
+- research note 0821
+- research note 0820
+- research note 0819
+- research note 0816
+- research note 0815
+- research note 0814
+- research note 0813
+- research note 0812
+- research note 0811
+- research note 0810
+- research note 0809
+- research note 0808
+- research note 0807
+- research note 0806
+- research note 0527
+- research note 0454
+- research note 0413
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

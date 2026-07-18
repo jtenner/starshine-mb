@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
+  - ./index.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt

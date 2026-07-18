@@ -1,14 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0776-2026-06-20-heap-store-optimization-v130-source-refresh.md
-  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
-  - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
-  - ../../../raw/research/0788-2026-06-20-heap-store-optimization-descriptor-loop-outer-branch.md
   - ./implementation-structure-and-tests.md
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
@@ -398,4 +395,4 @@ A 2026-05-05 focused current-main source bridge found no teaching-relevant drift
 - `trySwap(...)` remains a narrow local motion helper;
 - `LazyLocalGraph::canMoveSet(...)` remains the hard control-flow safety proof for moved values.
 
-So unlike some other pass dossiers, there is still no current-trunk contract drift to document here yet. The recheck is captured in [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md).
+So unlike some other pass dossiers, there is still no current-trunk contract drift to document here yet. The recheck is captured in [research note 0448](./index.md).

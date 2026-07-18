@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentMemory.cpp
-  - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
-  - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -228,5 +226,5 @@ If someone remembers only one sentence from this page, it should be this:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
-- [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
+- [research note 0288](./index.md)
+- [research note 0231](./index.md)

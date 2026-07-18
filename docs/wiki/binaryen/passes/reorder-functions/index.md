@@ -1,14 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp
-  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
-  - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
@@ -116,9 +111,9 @@ So this pass is best taught as:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderFunctions.cpp>
-- [`../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md`](../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md)
-- [`../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md`](../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md)
+- research note 0297
+- research note 0179
+- research note 0211
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

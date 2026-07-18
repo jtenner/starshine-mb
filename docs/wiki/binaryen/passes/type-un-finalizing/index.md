@@ -1,16 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp
-  - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
-  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../agent-todo.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../index.md
@@ -115,12 +112,12 @@ So this pass is best taught as:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp>
-- [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
-- [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md`](../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md)
+- research note 0427
+- research note 0314
+- research note 0193
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

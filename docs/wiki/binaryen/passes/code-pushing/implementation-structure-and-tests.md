@@ -1,25 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-25
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0907-2026-06-25-code-pushing-preset-neighborhood-closeout.md
-  - ../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md
-  - ../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md
-  - ../../../raw/research/0900-2026-06-25-code-pushing-gc-ref-boundary.md
-  - ../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md
-  - ../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md
-  - ../../../raw/research/0896-2026-06-25-code-pushing-independent-into-if-order.md
-  - ../../../raw/research/0895-2026-06-25-code-pushing-tnh-movement.md
-  - ../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md
-  - ../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md
-  - ../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md
-  - ../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md
-  - ../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md
-  - ../../../raw/research/0823-2026-06-21-code-pushing-atomics-gc-boundary.md
-  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
-  - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
-  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -71,8 +55,8 @@ Important source regions by owner name:
 | Test file | What it proves |
 | --- | --- |
 | `code-pushing-atomics.wast` | `version_130` atomics/GC ordering: non-null GC `struct.get` reads may move past shared atomic loads but not shared atomic stores, both into `if` arms and across segment push points; Starshine mirrors this narrow family with HOT tests until shared-GC WAT parsing is available |
-| `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read, unreachable-arm subtleties, the `binaryen-intrinsics/call.without.effects` family first documented as a Starshine import-metadata boundary in [`0899`](../../../raw/research/0899-2026-06-25-code-pushing-intrinsic-no-effects-boundary.md). [`0904`](../../../raw/research/0904-2026-06-25-code-pushing-import-identity-metadata.md) lands the exact function import identity prerequisite, [`0905`](../../../raw/research/0905-2026-06-25-code-pushing-intrinsic-no-effects-implementation.md) implements exact-intrinsic movement with ordinary-call and effectful-argument negatives, and [`0906`](../../../raw/research/0906-2026-06-25-code-pushing-ref-into-if-refinalization.md) implements the `ref-into-if` local type weakening/refinalization fixture. |
-| `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps; [`0897`](../../../raw/research/0897-2026-06-25-code-pushing-ignore-implicit-traps-boundary.md) documented the old boundary, and [`0902`](../../../raw/research/0902-2026-06-25-code-pushing-ignore-implicit-traps-implementation.md) now implements a distinct `--ignore-implicit-traps` / `-iit` flag plus hot-pass context policy for the memory-load `br_if` movement while keeping TNH separate |
+| `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read, unreachable-arm subtleties, the `binaryen-intrinsics/call.without.effects` family first documented as a Starshine import-metadata boundary in [`0899`](./index.md). [`0904`](./index.md) lands the exact function import identity prerequisite, [`0905`](./index.md) implements exact-intrinsic movement with ordinary-call and effectful-argument negatives, and [`0906`](./index.md) implements the `ref-into-if` local type weakening/refinalization fixture. |
+| `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps; [`0897`](./index.md) documented the old boundary, and [`0902`](./index.md) now implements a distinct `--ignore-implicit-traps` / `-iit` flag plus hot-pass context policy for the memory-load `br_if` movement while keeping TNH separate |
 | `code-pushing_tnh.wast` | Traps-never-happen behavior; Starshine now covers the reduced exact integer div/rem into-if family from `0895` |
 | `code-pushing-gc.wast` | GC/reference-typed families under the same movement-safety rules; Starshine keeps the already implemented `br_on_*` subset and the `ref-into-if` refinalization slice, while broader official shared-GC fixture parity remains separate |
 | `code-pushing-eh.wast` | Exception-handling-sensitive no-op and movement boundaries |
@@ -114,12 +98,12 @@ The correct caveat is narrower: Binaryen has a `Pusher` / segment algorithm, but
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md`](../../../raw/research/0829-2026-06-24-code-pushing-br-on-cast-fail-movement.md)
-- [`../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md`](../../../raw/research/0828-2026-06-24-code-pushing-br-on-cast-movement.md)
-- [`../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md`](../../../raw/research/0826-2026-06-24-code-pushing-br-on-null-movement.md)
-- [`../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md`](../../../raw/research/0825-2026-06-24-code-pushing-branch-value-multiset-br-if.md)
-- [`../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md`](../../../raw/research/0824-2026-06-24-code-pushing-branch-value-br-if.md)
-- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
-- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- [research note 0829](./index.md)
+- [research note 0828](./index.md)
+- [research note 0826](./index.md)
+- [research note 0825](./index.md)
+- [research note 0824](./index.md)
+- [research note 0807](./index.md)
+- [research note 0454](./index.md)
+- [research note 0413](./index.md)
 - Binaryen `version_130` and current-main source/test links above.

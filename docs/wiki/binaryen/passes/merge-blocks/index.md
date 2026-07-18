@@ -1,11 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
-  - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
-  - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -19,8 +17,6 @@ related:
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
 supersedes:
-  - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
-  - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
 ---
 
 # `merge-blocks`
@@ -93,13 +89,13 @@ For behavior changes:
 3. build a fresh native CLI; and
 4. run pass-targeted Binaryen comparison with `_build/native/release/build/cmd/cmd.exe` and classify any residual difference from source and replay evidence.
 
-The historical 2026-05-06 direct revalidation found `9975/10000` comparable normalized matches, zero mismatches, and 25 Binaryen/tool failures in wasm-smith lanes; its debug-artifact run had normalized WAT and canonical-function equality. See [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md). It is historical evidence, not a substitute for post-change signoff.
+The historical 2026-05-06 direct revalidation found `9975/10000` comparable normalized matches, zero mismatches, and 25 Binaryen/tool failures in wasm-smith lanes; its debug-artifact run had normalized WAT and canonical-function equality. See research note 0514. It is historical evidence, not a substitute for post-change signoff.
 
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixture: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast>
-- [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
-- [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md)
+- research note 0720
+- research note 0514
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

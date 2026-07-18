@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
-  - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
+  - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/properties.h
@@ -23,7 +20,7 @@ related:
 
 # Binaryen strategy for `de-nan` / `denan`
 
-Use this page together with the retained 2026-05-06 line-anchor refresh in [`../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md). The absorbed 2026-05-05 current-main recheck found no teaching-relevant drift.
+Use this page together with the retained 2026-05-06 line-anchor refresh in [research note 0512](./index.md). The absorbed 2026-05-05 current-main recheck found no teaching-relevant drift.
 For exact current Starshine status and local code locations, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## What the pass really is
@@ -375,9 +372,9 @@ That is the real Binaryen strategy for `denan`.
 
 ## Sources
 
-- [`../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
-- [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
+- [research note 0478](./index.md)
+- [research note 0283](./index.md)
+- [research note 0184](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/properties.h>

@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - ./test-matrix.md
   - ./local-ssa-policy.md
   - https://doi.org/10.1145/115372.115320
-  - ../raw/research/0059-2026-03-24-ir2-architecture-rules.md
   - ../../../src/ir/README.md
   - ../../../src/ir/architecture.mbt
   - ../../../src/ir/hot_core.mbt
@@ -170,7 +169,7 @@ That example is deliberately ordinary: most IR2 bugs come from skipping one bori
 - Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
 - Cache/pass-use evidence: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt), [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt), [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt), and [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Local SSA policy and lineage: [`./local-ssa-policy.md`](./local-ssa-policy.md) and <https://doi.org/10.1145/115372.115320>
-- Archived original architecture note: [`../raw/research/0059-2026-03-24-ir2-architecture-rules.md`](../raw/research/0059-2026-03-24-ir2-architecture-rules.md)
+- Archived original architecture note: research note 0059
 - Revision and descriptor layer: [`../../../src/ir/architecture.mbt`](../../../src/ir/architecture.mbt), [`../../../src/ir/architecture_test.mbt`](../../../src/ir/architecture_test.mbt)
 - HOT storage: [`../../../src/ir/hot_core.mbt`](../../../src/ir/hot_core.mbt)
 - Analysis cache: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt)

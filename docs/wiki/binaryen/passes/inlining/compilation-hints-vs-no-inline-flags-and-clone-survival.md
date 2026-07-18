@@ -3,11 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
-  - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
+  - ./index.md
   - ../../../wasm-compilation-hints-boundary.md
-  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/NoInline.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp

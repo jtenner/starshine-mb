@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
-  - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
-  - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
-  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -18,7 +15,7 @@ related:
   - ../gufa/index.md
   - ../type-refining/index.md
 supersedes:
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
+  - ./index.md
 ---
 
 # Binaryen `type-generalizing` strategy
@@ -28,8 +25,8 @@ supersedes:
 Use the 2026-07-11 `version_130` / current-main source recheck as the corrected oracle for this folder. It supersedes the older captures' unsupported `ContentOracle` claim while retaining their CFG/local-rewrite findings:
 
 - [Binaryen current-main `TypeGeneralizing.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp)
-- [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
-- [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
+- [research note 0421](./index.md)
+- [research note 0479](./index.md)
 
 The main official sources are Binaryen `version_129` and current `main`:
 

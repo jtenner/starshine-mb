@@ -1,14 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp
-  - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
-  - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
-  - ../../../raw/research/0497-2026-05-06-type-generalizing-current-main-recheck.md
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -31,8 +26,6 @@ related:
   - ../gufa-cast-all/index.md
   - ../signature-refining/index.md
 supersedes:
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
 ---
 
 # `type-generalizing`
@@ -133,8 +126,8 @@ For Starshine today:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp>
-- [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
-- [`../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md)
-- Superseded mechanics: the consumed 2026-04-24 source capture, [`../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md`](../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md), and [`../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md`](../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md)
+- research note 0421
+- research note 0479
+- Superseded mechanics: the consumed 2026-04-24 source capture, research note 0308, and research note 0191
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

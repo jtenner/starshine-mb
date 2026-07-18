@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -22,7 +21,8 @@ sources:
   - ../../../../../src/wast/lexer.mbt
   - ../../../../../src/wast/keywords.mbt
   - ../../../../../src/validate/typecheck.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -162,8 +162,8 @@ Starshine has useful infrastructure for the pass but no actual implementation:
 
 ## Sources
 
-- [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
+- [research note 0330](./index.md)
+- [research note 0165](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
@@ -176,5 +176,5 @@ Starshine has useful infrastructure for the pass but no actual implementation:
 - [`../../../../../src/ir/hot_flags.mbt`](../../../../../src/ir/hot_flags.mbt)
 - [`../../../../../src/ir/effects.mbt`](../../../../../src/ir/effects.mbt)
 - [`../../../../../src/passes/remove_unused_names.mbt`](../../../../../src/passes/remove_unused_names.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

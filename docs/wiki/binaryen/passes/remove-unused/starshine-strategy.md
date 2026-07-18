@@ -3,16 +3,14 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp
-  - ../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md
-  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
-  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -77,7 +75,7 @@ Its summaries at `src/passes/remove_unused_module_elements.mbt:1`-`8` describe t
 ### Tests and planning docs
 
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) keeps registry and preset category behavior honest for active, boundary-only, removed, module, and preset names. Future tests should add a focused `remove-unused` boundary-only assertion if this alias becomes easy to regress.
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) still lists `remove-unused` in the Batch 4 boundary-cleanup grouping, which is why the alias remains a documentation concern.
+- [research note 0063](../../../ir2/registry-map.md) still lists `remove-unused` in the Batch 4 boundary-cleanup grouping, which is why the alias remains a documentation concern.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md) currently has no dedicated `remove-unused` implementation slice. That absence supports the current non-implementation status.
 
 ## What Starshine should do for each user intent
@@ -160,11 +158,11 @@ The local alias relation is an inference, not a proved rename record. No reviewe
 ## Sources
 
 - Binaryen [current-main `pass.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp) and [CLI help fixture](https://github.com/WebAssembly/binaryen/blob/main/test/lit/help/wasm-opt.test)
-- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
-- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
+- [research note 0420](./index.md)
+- [research note 0339](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
+  - ./index.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
 related:

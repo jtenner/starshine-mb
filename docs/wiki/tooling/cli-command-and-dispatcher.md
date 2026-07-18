@@ -1,10 +1,8 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
-  - ../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md
   - https://github.com/WebAssembly/binaryen/blob/main/README.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp
   - ../../../src/cli/cli.mbt
@@ -44,7 +42,7 @@ Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape
 - [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) merges CLI/config/environment settings, resolves input files, lowers text input to binary modules, dispatches ordered pipeline steps, validates, encodes, records resolved trap mode, and writes outputs.
 - [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) owns the pass registry categories, preset expansion, hot/module pass routing, and final optimizer validation.
 
-Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps. The 2026-06-04 source audit in [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md) rechecked the current Binaryen CLI orientation sources and local dispatcher code; it also records the current local `--stdin` gap described below.
+Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps. The 2026-06-04 source audit in research note 0707 rechecked the current Binaryen CLI orientation sources and local dispatcher code; it also records the current local `--stdin` gap described below.
 
 ## Command Shape
 
@@ -57,7 +55,7 @@ Common module-run flags:
 
 | Surface | Contract | Owner |
 | --- | --- | --- |
-| Input paths | Positional arguments are input globs/paths; `--` stops option parsing; `STARSHINE_INPUT` can append more inputs after trivial help/version handling. Current `--stdin` is parsed and merged but does **not** create an input file or read bytes; without at least one glob/path the dispatcher returns `NoInputFiles`. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt`, `../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md` |
+| Input paths | Positional arguments are input globs/paths; `--` stops option parsing; `STARSHINE_INPUT` can append more inputs after trivial help/version handling. Current `--stdin` is parsed and merged but does **not** create an input file or read bytes; without at least one glob/path the dispatcher returns `NoInputFiles`. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt`, `docs/wiki/tooling/cli-command-and-dispatcher.md` |
 | Input formats | `.wasm` is default when no format can be inferred; `.wat` / `.wast` can be inferred or forced with `--format`; `--stdin` currently requires `--format` at parse time even though stdin bytes are not yet materialized by the dispatcher. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
 | Text lowering | Host adapter lowering is tried first; if unavailable, Starshine falls back to in-process WAT/WAST parse/lower/encode. | `src/cmd/cmd.mbt`, `src/cmd/cmd_wbtest.mbt` |
 | Outputs | No explicit output rewrites each input path in place, with `.wat` / `.wast` defaulting to `.wasm`; `--out` is single-file only; `--out-dir` preserves per-input basenames; `--stdout` writes bytes to stdout. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
@@ -123,7 +121,7 @@ Utility steps split the optimization queue into segments:
 starshine --dump before.wat --print-func 42 --vacuum --validate --dump after.wasm input.wasm
 ```
 
-The dispatcher flushes pending optimizer passes before each utility step. That means dumps, prints, validation checkpoints, and `extract-functions` observe the module at exactly that point in the queue, not only before or after the whole run. The focused print-step source audit is [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md); it checked the current parser, dispatcher, help, and command tests behind the details below.
+The dispatcher flushes pending optimizer passes before each utility step. That means dumps, prints, validation checkpoints, and `extract-functions` observe the module at exactly that point in the queue, not only before or after the whole run. The focused print-step source audit is research note 0711; it checked the current parser, dispatcher, help, and command tests behind the details below.
 
 | Step | Behavior |
 | --- | --- |
@@ -178,8 +176,8 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 
 ## Sources
 
-- 2026-06-04 print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
-- 2026-06-04 dispatcher/stdin source audit: [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md)
+- 2026-06-04 print-utility routing audit: research note 0711
+- 2026-06-04 dispatcher/stdin source audit: research note 0707
 - Upstream CLI orientation: <https://github.com/WebAssembly/binaryen/blob/main/README.md>, <https://github.com/WebAssembly/binaryen/blob/main/src/tools/wasm-opt.cpp>
 - Parser/config/glob code: [`../../../src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt), [`../../../src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt)
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)

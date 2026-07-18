@@ -1,16 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1463-2026-07-05-rse-pass-timing.md
-  - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp
-  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
-  - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
-  - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
   - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -106,7 +99,7 @@ A write of `1` followed by a write of `2` is not removed by this pass merely bec
 
 ## Performance status
 
-The 2026-07-05 timing probe in [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md) found that the official all-features fixture is too small/noisy for timing claims, so it generated larger RSE-heavy fixtures under `.tmp/rse-timing/`. The first post-audit run missed the direct pass-local target by 3.53x/4.12x on the 1000-function straight/loop-heavy fixtures and 7.00x/6.42x on the 3000-function probes.
+The 2026-07-05 timing probe in research note 1463 found that the official all-features fixture is too small/noisy for timing claims, so it generated larger RSE-heavy fixtures under `.tmp/rse-timing/`. The first post-audit run missed the direct pass-local target by 3.53x/4.12x on the 1000-function straight/loop-heavy fixtures and 7.00x/6.42x on the 3000-function probes.
 
 The follow-up performance slices are complete for the user-requested 1x Binaryen target on those established fixtures. After integer value ids, numeric env elision, aggregated RSE trace output, combined loop summaries, and an i32-only raw fast path, `.tmp/rse-timing/rse-i32coded-final-1000-summary.json` records Starshine/Binaryen traced pass-local medians of 11.88/12.77 ms on `rse-straight-heavy-1000f.wasm` (0.93x) and 18.93/19.84 ms on `rse-loop-heavy-1000f.wasm` (0.95x). The 3000-function probe in `.tmp/rse-timing/rse-i32coded-3000-summary.json` also stays under Binaryen at 34.38/38.67 ms straight-heavy (0.89x) and 58.61/64.67 ms loop-heavy (0.91x). Decode, final validation, and encode remain separate `[WALL]001` owners unless a pass-local cause is demonstrated.
 
@@ -140,11 +133,11 @@ The current durable claim is:
 
 ## Sources
 
-- [`../../../raw/research/1463-2026-07-05-rse-pass-timing.md`](../../../raw/research/1463-2026-07-05-rse-pass-timing.md)
-- [`../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md`](../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md)
+- research note 1463
+- research note 0538
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp>
-- [`../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md`](../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md)
-- [`../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md)
+- research note 0463
+- research note 0382
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/RedundantSetElimination.cpp>
 - Binaryen `version_129` pass tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>

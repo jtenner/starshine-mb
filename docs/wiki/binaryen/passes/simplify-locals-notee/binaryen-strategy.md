@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -20,7 +19,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the current source oracle.
-The 2026-04-24 source inventory is retained in [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md), alongside the direct tagged URLs below.
+The 2026-04-24 source inventory is retained in [research note 0329](./index.md), alongside the direct tagged URLs below.
 
 Primary files:
 

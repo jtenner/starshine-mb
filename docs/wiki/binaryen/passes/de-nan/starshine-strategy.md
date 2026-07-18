@@ -1,14 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
-  - ../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../global-effects/index.md
@@ -26,7 +24,7 @@ related:
 
 # Starshine Strategy For `de-nan` / `denan`
 
-Use this page together with the 2026-05-06 line-anchor refresh in [`../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md) and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The absorbed 2026-05-05 current-main recheck found no teaching-relevant drift.
+Use this page together with the 2026-05-06 line-anchor refresh in [research note 0512](./index.md) and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The absorbed 2026-05-05 current-main recheck found no teaching-relevant drift.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainty a future parity port must resolve.
 
 ## The honest current status
@@ -66,7 +64,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
     - the generic removed-name execution test currently uses `de-nan` as its representative removed pass
 - older pass-port planning breadcrumb
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123)
+  - [research note 0063](../../../ir2/registry-map.md)
     - the archived registry map still lists `de-nan` among removed names
 - canonical scheduler context by omission
   - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
@@ -198,7 +196,7 @@ A future implementation should validate in layers:
 
 ## Current-main source bridge
 
-The retained 2026-05-06 line-anchor refresh in [`../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md`](../../../raw/research/0512-2026-05-06-de-nan-current-main-line-anchor-refresh.md) is historical corroboration for this local strategy page; the 2026-07-11 reconciliation remains the current freshness evidence.
+The retained 2026-05-06 line-anchor refresh in [research note 0512](./index.md) is historical corroboration for this local strategy page; the 2026-07-11 reconciliation remains the current freshness evidence.
 
 It matters locally because it confirms that current upstream still looks like the same module-owned instrumentation pass:
 
@@ -216,7 +214,7 @@ Current Starshine `de-nan` strategy is honest removed-name tracking plus an expl
 - the pass name is preserved at [`src/passes/optimize.mbt#L145-L149`](../../../../../src/passes/optimize.mbt#L145-L149)
 - active requests are rejected at [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
 - current tests already prove `de-nan` is removed and rejected at [`src/passes/registry_test.mbt#L136-L138`](../../../../../src/passes/registry_test.mbt#L136-L138) and [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
-- the archived registry map still lists it among removed names at [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123)
+- the archived registry map still lists it among removed names at [research note 0063](../../../ir2/registry-map.md)
 - the active backlog still has no dedicated slice
 - there is no local owner file yet
 

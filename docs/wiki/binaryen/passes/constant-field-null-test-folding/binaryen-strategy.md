@@ -1,12 +1,8 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
-  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
-  - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
-  - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ./index.md
   - ../constant-field-propagation/binaryen-strategy.md
   - ../constant-field-propagation/copies-subtypes-ref-tests-and-atomics.md
@@ -22,7 +18,7 @@ related:
 
 ## The one-sentence contract
 
-Binaryen `version_129` implements `cfp-reftest` as **the normal closed-world CFP engine plus one extra field-read rewrite family that can replace a read with `select(..., ..., ref.test(...))` when exactly two subtype-separated constant buckets are provable**. The retained 2026-04-25 [`source bridge`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md) and the 2026-05-05 [`archived research recheck`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md) keep this page anchored to the tagged source interpretation and the fresh current-main spot check instead of relying only on the parent CFP manifest.
+Binaryen `version_129` implements `cfp-reftest` as **the normal closed-world CFP engine plus one extra field-read rewrite family that can replace a read with `select(..., ..., ref.test(...))` when exactly two subtype-separated constant buckets are provable**. The retained 2026-04-25 [`source bridge`](./index.md) and the 2026-05-05 [`archived research recheck`](./index.md) keep this page anchored to the tagged source interpretation and the fresh current-main spot check instead of relying only on the parent CFP manifest.
 
 ## Why the local name is dangerous
 
@@ -246,10 +242,10 @@ The emitted `select` is a read replacement, not a branch optimizer.
 
 ## Sources
 
-- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
-- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
-- [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
-- [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
+- [research note 0475](./index.md)
+- [research note 0335](./index.md)
+- [research note 0216](./index.md)
+- [research note 0169](./index.md)
 - [`./index.md`](./index.md)
 - [`../constant-field-propagation/binaryen-strategy.md`](../constant-field-propagation/binaryen-strategy.md)
 - [`../constant-field-propagation/copies-subtypes-ref-tests-and-atomics.md`](../constant-field-propagation/copies-subtypes-ref-tests-and-atomics.md)

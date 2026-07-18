@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md
-  - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
-  - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -19,7 +16,7 @@ related:
 
 # `signature-pruning`: constant actuals, localization, and boundaries
 
-This page is anchored to the retained 2026-04-24 source follow-up in [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md), the 2026-07-11 `version_130` / current-main source recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), and the Starshine implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page is anchored to the retained 2026-04-24 source follow-up in [research note 0304](./index.md), the 2026-07-11 `version_130` / current-main source recheck in [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md), and the Starshine implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 This page exists because the easiest way to misunderstand `signature-pruning` is to think it is just:
 
@@ -203,8 +200,8 @@ If a future port loses any of those three points, it will not match upstream Bin
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-signature-pruning-v130-current-main-recheck.md)
-- [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
+- [research note 0304](./index.md)
+- [research note 0151](./index.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>

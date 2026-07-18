@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md
-  - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
-  - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
-  - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -25,7 +21,7 @@ related:
 
 - Use Binaryen `version_130` as the installed oracle for the active v0.1.0 audit; `wasm-opt --version` reported `version_130` during the 2026-07-04 source refresh.
 - The 2026-07-04 behavior-family review downloaded Binaryen `version_130` `LocalSubtyping.cpp`, `local-subtyping.wast`, and `local-structural-dominance.h`, downloaded the corresponding `version_129` files, and found empty diffs. The older `version_129` dossier therefore remains source-current for the installed `version_130` oracle.
-- Use [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md) as the freshness bridge above the 2026-04-25 source-correction note, and [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md) for the v130 source-refresh and residual-family matrix.
+- Use [research note 0447](./index.md) as the freshness bridge above the 2026-04-25 source-correction note, and [research note 1431](./index.md) for the v130 source-refresh and residual-family matrix.
 - The 2026-04-25 and 2026-05-05 rechecks found no teaching-relevant drift from the corrected set/get/refinalize story; the 2026-07-04 v130 refresh keeps that story unchanged.
 
 Primary source URLs:
@@ -182,9 +178,9 @@ If Starshine ports `local-subtyping`, preserve these first:
 
 ## Sources
 
-- [`../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md`](../../../raw/research/1431-2026-07-04-local-subtyping-behavior-family-matrix.md)
-- [`../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md)
-- [`../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
+- [research note 1431](./index.md)
+- [research note 0447](./index.md)
+- [research note 0362](./index.md)
 - Binaryen `version_130` pass source: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/LocalSubtyping.cpp>
 - Binaryen `version_130` structural-dominance header: <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-structural-dominance.h>
 - Binaryen `version_130` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/local-subtyping.wast>

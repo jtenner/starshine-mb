@@ -1,16 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/binaryen/2026-07-11-gufa-content-oracle-implementation-source-refresh.md
-  - ../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/ir/effects.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -63,7 +63,7 @@ That means a faithful Starshine port would need module-level value/type evidence
 | `src/passes/pass_manager.mbt` | Active HOT dispatcher; contains no GUFA-family case, but does contain the local `dead-code-elimination` and `vacuum` cases a future nested cleanup runner would compose. |
 | `src/passes/dead_code_elimination.mbt` | Existing local DCE implementation, useful as the future first cleanup pass but not currently invoked by a GUFA sibling. |
 | `src/ir/effects.mbt` | Existing function-local effect-mask model; useful for preserving side effects, but not a replacement for Binaryen's whole-program `ContentOracle`. |
-| `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Archived pass-port map that classifies `gufa-optimizing` with whole-module or layout transforms. |
+| `docs/wiki/ir2/registry-map.md` | Archived pass-port map that classifies `gufa-optimizing` with whole-module or layout transforms. |
 | `agent-todo.md` | No active implementation slice found, so there is no current owner for the port. |
 
 ## Future port shape

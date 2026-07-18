@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
-  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
-  - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
+  - ./index.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast
 related:
@@ -191,8 +189,8 @@ This is one of those passes where “roughly similar behavior” is easy to get 
 ## Sources
 
 - [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
-- [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
-- [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
+- [research note 0508](./index.md)
+- [research note 0182](./index.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast>

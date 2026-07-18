@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
+  - ./index.md
+  - ../optimize-added-constants-propagate/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -20,7 +18,7 @@ related:
 # `optimize-added-constants` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's plain `optimize-added-constants` pass.
-For the retained 2026-04-24 source review, current-main recheck, Starshine port map, and implementation-readiness ladder, see [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md), [`./starshine-strategy.md`](./starshine-strategy.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+For the retained 2026-04-24 source review, current-main recheck, Starshine port map, and implementation-readiness ladder, see [research note 0300](./index.md), [`./starshine-strategy.md`](./starshine-strategy.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 

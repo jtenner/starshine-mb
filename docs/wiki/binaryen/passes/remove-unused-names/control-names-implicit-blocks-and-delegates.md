@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/ir/branch-utils.h
-  - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/shared-constants.h

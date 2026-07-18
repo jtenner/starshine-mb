@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
-  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
-  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
@@ -32,14 +29,14 @@ related:
 
 # Starshine strategy for `simplify-globals-optimizing`
 
-Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md).
+Use this page with the retained 2026-04-24 research inventory, direct tagged source URLs, and [research note 0376](./index.md).
 The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Honest current status
 
 `simplify-globals-optimizing` is **implemented and audit-complete for the current Binaryen `version_130` / Starshine v0.1.0 scope**.
 The implementation lives in [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt) and is wired as an active module pass through [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
-The 2026-07-06 through 2026-07-07 recursive audit in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) classified the Binaryen v130 source/lit families, implemented the remaining supported families test-first, recorded source-backed negatives, met the strict 1x timing target, and completed the fresh four-lane direct matrix.
+The 2026-07-06 through 2026-07-07 recursive audit in [research note 1555](./index.md) classified the Binaryen v130 source/lit families, implemented the remaining supported families test-first, recorded source-backed negatives, met the strict 1x timing target, and completed the fresh four-lane direct matrix.
 
 The current local strategy is therefore a maintained supported-contract map:
 
@@ -247,10 +244,10 @@ It covers the first constant-global / single-use-init / exact-type copy-chain / 
 
 ## Sources
 
-- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
-- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
-- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
+- [research note 0570](./index.md)
+- [research note 0376](./index.md)
+- [research note 0286](./index.md)
+- [research note 0122](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../../../src/cmd/fuzz_harness_wbtest.mbt)
@@ -296,30 +293,30 @@ Starshine now widens the source-backed independent `table.grow` select subset fr
 
 The current Starshine `FlowScanner` model remains intentionally narrow, but the next Binaryen `version_130` pure-add grow positives are implemented: independent `memory.grow` / `table.grow` select and compare operands may use a nontrapping `i32.add` delta over constants or `local.get`s when the guarded global only supplies the other select/compare value for the same-global write or function-level `if return; set` tail. The select subset now covers the probed reverse/second-operand order too, where the pure-add grow is evaluated before `global.get $guard` and then preserved as `grow; drop` after guard-shell removal.
 
-Evidence lives in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) and [`./fuzzing.md`](./fuzzing.md): focused red-first coverage passed after implementation, full SGO file now passes `280/280`, `moon test src/passes` passes `4429/4429`, full `moon test` passes `7868/7868`, and regular/dedicated 1000-case compare smokes for forward select, reverse select, and compare pure-add grow slices are normalized-green. This remains a narrow source-backed subset; do not treat it as generic FlowScanner equivalence.
+Evidence lives in [research note 1555](./index.md) and [`./fuzzing.md`](./fuzzing.md): focused red-first coverage passed after implementation, full SGO file now passes `280/280`, `moon test src/passes` passes `4429/4429`, full `moon test` passes `7868/7868`, and regular/dedicated 1000-case compare smokes for forward select, reverse select, and compare pure-add grow slices are normalized-green. This remains a narrow source-backed subset; do not treat it as generic FlowScanner equivalence.
 
 ## 2026-07-07 independent call `i32.add` FlowScanner update
 
 Starshine now covers a source-backed parent/child FlowScanner subset beyond the previous grow-specific follow-ups: an independent zero-parameter/result call may be the sibling operand of `global.get $guard` under a pure `i32.add`, in either operand order and in both direct guarded-write and function-level `if return; set` forms. The implementation preserves the call as `call; drop` after removing the fake guard shell and keeps guarded-value-to-call-argument flow excluded.
 
-Evidence lives in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) and [`./fuzzing.md`](./fuzzing.md): local Binaryen `version_130` probes for all four operand/tail variants reduced `$guard` to immutable, red-first focused coverage failed before implementation and passed after, full SGO file now passes `282/282`, `moon test src/passes` passes `4431/4431`, full `moon test` passes `7870/7870`, and regular/dedicated 1000-case compare smokes are normalized-green. This still does not claim arbitrary side-effect parents, non-`i32.add` effectful sibling parents, extra guarded reads, or generic Binaryen `FlowScanner` equivalence.
+Evidence lives in [research note 1555](./index.md) and [`./fuzzing.md`](./fuzzing.md): local Binaryen `version_130` probes for all four operand/tail variants reduced `$guard` to immutable, red-first focused coverage failed before implementation and passed after, full SGO file now passes `282/282`, `moon test src/passes` passes `4431/4431`, full `moon test` passes `7870/7870`, and regular/dedicated 1000-case compare smokes are normalized-green. This still does not claim arbitrary side-effect parents, non-`i32.add` effectful sibling parents, extra guarded reads, or generic Binaryen `FlowScanner` equivalence.
 
 
 ## 2026-07-07 independent call nontrapping `i32` binary FlowScanner update
 
 Starshine now widens the previous independent-call-through-`i32.add` subset to source-backed nontrapping pure `i32` binary parents: `i32.add`, `i32.sub`, `i32.mul`, `i32.and`, `i32.or`, `i32.xor`, `i32.shl`, `i32.shr_s`, `i32.shr_u`, `i32.rotl`, and `i32.rotr`. Local Binaryen `version_130` probes reduced all direct/reverse operand forms in this family to immutable `$guard`, while `i32.div_s` / `i32.rem_u` probes kept `$guard` mutable. The implementation remains deliberately narrow: independent zero-parameter/one-result calls are preserved as `call; drop`; call-argument flow and arbitrary side-effect parents stay rejected.
 
-Evidence lives in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) and [`./fuzzing.md`](./fuzzing.md): red-first focused coverage failed before implementation and passed after, full SGO file now passes `283/283`, `moon test src/passes` passes `4432/4432`, regular and dedicated `1000/1000` smokes are normalized-green, and direct timing remains under `1x` Binaryen median on every representative fixture.
+Evidence lives in [research note 1555](./index.md) and [`./fuzzing.md`](./fuzzing.md): red-first focused coverage failed before implementation and passed after, full SGO file now passes `283/283`, `moon test src/passes` passes `4432/4432`, regular and dedicated `1000/1000` smokes are normalized-green, and direct timing remains under `1x` Binaryen median on every representative fixture.
 
 ## 2026-07-07 independent call binary `i32.eqz` suffix FlowScanner update
 
-Starshine now covers one deeper pure-parent step after the nontrapping `i32` binary independent-call sibling subset: the binary result may flow through `i32.eqz` before the final same-global guarded write or function-level `if return; set` tail. The implementation stays intentionally narrow and source-backed: calls must be zero-parameter/one-result and independent, the parent binary must be one of the nontrapping `i32` operators already accepted by local Binaryen, and only the `i32.eqz` suffix is admitted. Trapping `i32.div_s; i32.eqz`, guarded-value-to-call-argument flow, arbitrary pure suffix chains, extra guarded reads, and generic `FlowScanner` equivalence remain open. Evidence lives in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) and [`./fuzzing.md`](./fuzzing.md); focused tests, full SGO tests, `moon test src/passes`, native build, regular/dedicated 1000-case smokes, and 1x timing are green for this slice.
+Starshine now covers one deeper pure-parent step after the nontrapping `i32` binary independent-call sibling subset: the binary result may flow through `i32.eqz` before the final same-global guarded write or function-level `if return; set` tail. The implementation stays intentionally narrow and source-backed: calls must be zero-parameter/one-result and independent, the parent binary must be one of the nontrapping `i32` operators already accepted by local Binaryen, and only the `i32.eqz` suffix is admitted. Trapping `i32.div_s; i32.eqz`, guarded-value-to-call-argument flow, arbitrary pure suffix chains, extra guarded reads, and generic `FlowScanner` equivalence remain open. Evidence lives in [research note 1555](./index.md) and [`./fuzzing.md`](./fuzzing.md); focused tests, full SGO tests, `moon test src/passes`, native build, regular/dedicated 1000-case smokes, and 1x timing are green for this slice.
 
 ## 2026-07-07 independent call binary unary-suffix FlowScanner update
 
 Starshine now covers one more source-backed parent-chain step after the nontrapping `i32` binary independent-call sibling subset: the binary result may flow through exactly one nontrapping integer-unary suffix (`i32.clz`, `i32.ctz`, or `i32.popcnt`) before the final same-global guarded write or function-level `if return; set` tail. The implementation remains intentionally narrow: calls must be zero-parameter/one-result and independent, the parent binary must be one of the already accepted nontrapping `i32` operators, and trapping div/rem parents remain excluded even when followed by a unary suffix.
 
-Evidence lives in [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md) and [`./fuzzing.md`](./fuzzing.md): local Binaryen `version_130` probes accepted direct `i32.mul; i32.clz`, reverse `i32.mul; i32.ctz`, and if-return `i32.xor; i32.popcnt`, while `i32.div_s; i32.clz` kept `$guard` mutable. Red-first focused coverage failed before implementation and passed after; full SGO file remains green at `284/284`, `moon test src/passes` passed `4433/4433`, regular and dedicated 1000-case smokes normalized `1000/1000`, and representative timing stayed under 1x Binaryen median (`read-only-select` worst observed `0.845x`).
+Evidence lives in [research note 1555](./index.md) and [`./fuzzing.md`](./fuzzing.md): local Binaryen `version_130` probes accepted direct `i32.mul; i32.clz`, reverse `i32.mul; i32.ctz`, and if-return `i32.xor; i32.popcnt`, while `i32.div_s; i32.clz` kept `$guard` mutable. Red-first focused coverage failed before implementation and passed after; full SGO file remains green at `284/284`, `moon test src/passes` passed `4433/4433`, regular and dedicated 1000-case smokes normalized `1000/1000`, and representative timing stayed under 1x Binaryen median (`read-only-select` worst observed `0.845x`).
 
 ## 2026-07-07 independent call binary constant-fed comparison FlowScanner update
 

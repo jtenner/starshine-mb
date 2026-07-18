@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
-  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
-  - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
-  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -21,7 +17,7 @@ related:
 
 # Binaryen `string-gathering` strategy
 
-Use this page together with the tagged `version_129` source URLs listed below and the archived 2026-05-04 current-main recheck in [`../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md).
+Use this page together with the tagged `version_129` source URLs listed below and the archived 2026-05-04 current-main recheck in [research note 0431](./index.md).
 On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck did not surface a teaching-relevant contract drift beyond the claims below.
 
 ## Upstream source rule
@@ -354,10 +350,10 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
-- [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
-- [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
-- [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)
-- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
+- [research note 0377](./index.md)
+- [research note 0124](./index.md)
+- [research note 0206](./index.md)
+- [research note 0280](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/cost.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
@@ -179,7 +179,7 @@ If a future port keeps those rules, it will still feel like Binaryen `monomorphi
 
 ## Sources
 
-- [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
+- [research note 0176](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/cost.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>

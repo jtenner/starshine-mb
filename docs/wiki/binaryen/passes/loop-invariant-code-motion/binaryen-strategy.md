@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
-  - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
-  - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
@@ -62,7 +60,7 @@ The source-backed correction is:
 
 This is a major porting constraint: a future Starshine implementation should start from none-result statement motion, not a generic value-preheader cache.
 
-The retained 2026-06-02 [`current-main recheck`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md), together with the retained 2026-04-25 [`port-readiness research`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md), found no teaching-relevant drift from this corrected contract.
+The retained 2026-06-02 [`current-main recheck`](./index.md), together with the retained 2026-04-25 [`port-readiness research`](./index.md), found no teaching-relevant drift from this corrected contract.
 
 ## Scheduler placement
 
@@ -71,8 +69,8 @@ The retained 2026-06-02 [`current-main recheck`](../../../raw/research/0696-2026
 The local repo makes four scheduler facts explicit:
 
 - it remains removed in `src/passes/optimize.mbt`,
-- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` now lists `loop-invariant-code-motion` in the current removed-name migration gap,
-- `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md` treats the old batch labels as historical and keeps removed-pass revival behind explicit source reconciliation plus first-slice work,
+- `docs/wiki/ir2/registry-map.md` now lists `loop-invariant-code-motion` in the current removed-name migration gap,
+- `docs/wiki/ir2/execution-plan.md` treats the old batch labels as historical and keeps removed-pass revival behind explicit source reconciliation plus first-slice work,
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` and the saved generated-artifact `-O4z` skipped-slot queue.
 
 So the scheduler truth is:
@@ -280,10 +278,10 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
-- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
-- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
-- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
-- [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
+- [research note 0378](./index.md)
+- [research note 0696](./index.md)
+- [research note 0282](./index.md)
+- [research note 0173](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>

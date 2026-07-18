@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-18
 sources:
   - descriptor-instruction-surface.md
-  - ../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md
-  - ../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md
-  - ../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md
   - ../../../src/validate/match.mbt
   - ../../../src/validate/match_tests.mbt
   - ../../../src/wast/exact_type_equivalence_test.mbt
@@ -115,5 +112,5 @@ When changing exact reference matching:
 - Current instruction-surface boundary: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) and its cited official proposal/local sources.
 - Current primary-source bridge: [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Type-section/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
-- Archived research docs: [`../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md`](../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md), [`../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md`](../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md), [`../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md`](../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md)
+- Archived research docs: research note 0029, research note 0030, research note 0031
 - Current implementation and tests: [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/match_tests.mbt`](../../../src/validate/match_tests.mbt), [`../../../src/wast/exact_type_equivalence_test.mbt`](../../../src/wast/exact_type_equivalence_test.mbt)

@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
-  - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
-  - ../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -21,7 +18,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the reviewed tagged source oracle for this pass. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [`../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md).
+Use Binaryen `version_129` as the reviewed tagged source oracle for this pass. Direct URLs below retain the release page, `SimplifyGlobals.cpp`, `pass.cpp`, and dedicated lit-file provenance; the 2026-04-24 source correction and retained 2026-05-05 research mirror preserve the reviewed conclusions and freshness layer: [research note 0459](./index.md).
 
 Primary source URLs:
 
@@ -126,6 +123,6 @@ Starshine currently keeps this pass as boundary-only and rejects explicit reques
 
 ## Superseded older claims
 
-- [`../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md`](../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md) is superseded for the standalone `PropagateGlobals.cpp` source-layout claim.
-- [`../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md`](../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md) is superseded for helper-name, reverse-scan, and `optimize=false` boundary wording. Its main source-file correction remains useful historical context.
-- [`../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md) is the freshness bridge for the 2026-05-05 source spot check.
+- [research note 0162](./index.md) is superseded for the standalone `PropagateGlobals.cpp` source-layout claim.
+- [research note 0196](./index.md) is superseded for helper-name, reverse-scan, and `optimize=false` boundary wording. Its main source-file correction remains useful historical context.
+- [research note 0459](./index.md) is the freshness bridge for the 2026-05-05 source spot check.

@@ -1,15 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-08
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0719-2026-06-08-duplicate-function-elimination-behavior-gap-inventory.md
-  - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/DuplicateFunctionElimination.cpp
-  - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
-  - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
-  - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt

@@ -1,11 +1,11 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-02
+last_reviewed: 2026-07-18
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../raw/research/1402-2026-07-02-heap2local-genvalid-profile-start.md
+  - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
 ---

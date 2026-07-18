@@ -1,13 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp
   - ../../../wasm-custom-page-sizes-boundary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp
-  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
-  - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
@@ -133,8 +131,8 @@ The 2026-04-26 port-readiness bridge keeps that test order explicit for Starshin
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MultiMemoryLowering.cpp>; registration: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>; fixtures: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering.wast> and <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/multi-memory-lowering-with-bounds-checks.wast>.
 - [Binaryen `version_129` `MultiMemoryLowering.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp)
-- [`../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md`](../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md)
-- [`../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md`](../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md)
+- research note 0393
+- research note 0370
 - Binaryen `MultiMemoryLowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp>
 - Binaryen pass registration: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - WebAssembly multi-memory proposal overview: <https://github.com/WebAssembly/multi-memory/blob/main/proposals/multi-memory/Overview.md>

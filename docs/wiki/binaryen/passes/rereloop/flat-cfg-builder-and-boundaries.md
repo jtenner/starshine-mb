@@ -1,12 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp
-  - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
-  - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/Relooper.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/Relooper.cpp
@@ -189,9 +187,9 @@ A future Starshine port should preserve these exact rules:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp>
-- [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
-- [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
+- [research note 0484](./index.md)
+- [research note 0316](./index.md)
+- [research note 0183](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/Relooper.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/Relooper.cpp>

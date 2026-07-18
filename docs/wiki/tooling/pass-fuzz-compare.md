@@ -3,12 +3,11 @@ kind: workflow
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
   - https://github.com/bytecodealliance/wasm-tools
   - https://webassembly.github.io/spec/core/valid/
-  - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
+  - ../binaryen/passes/dae-optimizing/index.md
   - ../fuzzing/reduction-backends.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts

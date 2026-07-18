@@ -1,11 +1,11 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-18
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
+  - ./index.md
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
 ---

@@ -2,16 +2,13 @@
 kind: entity
 status: supported
 starshine_status: active
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
-  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
+  - ../simplify-locals/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
-  - ../simplify-locals/index.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -35,7 +32,7 @@ related:
 - `simplify-locals-notee` is an upstream Binaryen public pass and now an **active Starshine hot pass**.
 - The canonical spelling `simplify-locals-notee` and compatibility alias `simplify-locals-no-tee` both route to the shared policy engine with structure enabled, sink-tee creation disabled, and ordinary nesting enabled.
 - Focused TDD proves single-use sinking, preservation of multi-use carriers without a fresh sink tee, and `if`-result synthesis. The initial regular GenValid smoke compared `1000/1000` cases with `1000` normalized matches and zero failures or mismatches; this is implementation evidence, not final four-lane closeout.
-- The 2026-04-24 source inventory is retained in [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md), alongside direct tagged source URLs.
+- The 2026-04-24 source inventory is retained in research note 0329, alongside direct tagged source URLs.
 - In Binaryen `version_129`, this pass is **not** part of the canonical no-DWARF `-O` / `-Os` path tracked in [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md).
 - It is still a fair wiki target because it is:
   - a real upstream public pass name in `pass.cpp`
@@ -117,8 +114,8 @@ So `-notee` is **not**:
 
 ## Sources
 
-- [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
+- research note 0329
+- research note 0166
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../simplify-locals/index.md`](../simplify-locals/index.md)
 - [`../simplify-locals/variant-matrix-and-scheduler.md`](../simplify-locals/variant-matrix-and-scheduler.md)

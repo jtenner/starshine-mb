@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-20
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md
-  - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
-  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -16,7 +14,7 @@ related:
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
+  - ./index.md
 ---
 
 # Binaryen `code-pushing` Strategy
@@ -126,8 +124,8 @@ Starshine's current direct pass is an accepted safe subset under semantic / vali
 ## Sources
 
 - [`../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/binaryen/2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md`](../../../raw/research/0807-2026-06-20-code-pushing-version-130-source-lit-refresh.md)
-- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
-- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- [research note 0807](./index.md)
+- [research note 0454](./index.md)
+- [research note 0413](./index.md)
 - Binaryen `version_130` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/CodePushing.cpp>
 - Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>

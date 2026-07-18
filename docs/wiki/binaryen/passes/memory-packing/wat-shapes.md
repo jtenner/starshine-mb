@@ -3,9 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
-  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
 related:
   - ./index.md

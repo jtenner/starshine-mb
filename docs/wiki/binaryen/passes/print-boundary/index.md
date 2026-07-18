@@ -5,7 +5,7 @@ last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/PrintBoundary.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/print-boundary.wast
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wat/wat_api.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts

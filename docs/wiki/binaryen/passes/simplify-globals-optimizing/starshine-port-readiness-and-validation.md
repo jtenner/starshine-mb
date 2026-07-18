@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-07
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
-  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
-  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../agent-todo.md
@@ -38,7 +36,7 @@ This page answers the practical porting question: now that Starshine has a signe
 
 ## Current port-readiness summary
 
-`simplify-globals-optimizing` is signed off for the current Starshine v0.1.0 direct-pass, nested-runtime, transformation-family, and late-tail scheduling surface against Binaryen `version_130`. The recursive closeout reviewed every top-level `SimplifyGlobals.cpp` family and the broad `FlowScanner` contract, implemented supported gaps test-first, documented source-backed negatives, met strict `<=1x` pass-local timing, and completed the fresh four-lane matrix. Reopen only for new evidence of a semantic mismatch, wasm validation failure, upstream behavior drift, targeted artifact/code-size need, or measured SGO-specific wall-time regression. The current closeout record is [`../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md`](../../../raw/research/1555-2026-07-06-sgo-audit-kickoff-safe-effect-read.md).
+`simplify-globals-optimizing` is signed off for the current Starshine v0.1.0 direct-pass, nested-runtime, transformation-family, and late-tail scheduling surface against Binaryen `version_130`. The recursive closeout reviewed every top-level `SimplifyGlobals.cpp` family and the broad `FlowScanner` contract, implemented supported gaps test-first, documented source-backed negatives, met strict `<=1x` pass-local timing, and completed the fresh four-lane matrix. Reopen only for new evidence of a semantic mismatch, wasm validation failure, upstream behavior drift, targeted artifact/code-size need, or measured SGO-specific wall-time regression. The current closeout record is [research note 1555](./index.md).
 
 The useful local status is:
 
@@ -257,9 +255,9 @@ Record the answer in this page and [`./starshine-strategy.md`](./starshine-strat
 
 ## Sources
 
-- [`../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md`](../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md)
-- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
-- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
+- [research note 0570](./index.md)
+- [research note 0376](./index.md)
+- [research note 0286](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

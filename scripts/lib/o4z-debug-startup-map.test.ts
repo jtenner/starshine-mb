@@ -4,7 +4,7 @@ import process from "node:process";
 import { runWasmStart } from "./moonbit-wasi-runner.mjs";
 
 // Reduced from tests/node/dist/starshine-debug-wasi.wasm; see
-// docs/wiki/raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md.
+// docs/wiki/tooling/o4z-debug-startup-trap.md.
 const startupMapRepro = "tests/repros/o4z-debug-startup-map-init-repro.wasm";
 
 // Narrower structural guard for the current reduction: the malloc path must pass

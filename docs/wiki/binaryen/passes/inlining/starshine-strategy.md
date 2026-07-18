@@ -3,9 +3,8 @@ kind: concept
 status: working
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt

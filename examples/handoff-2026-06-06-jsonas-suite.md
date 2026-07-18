@@ -332,7 +332,7 @@ Additional local perf summary path mentioned in `agent-todo.md`:
 Durable research note from earlier analysis:
 
 ```text
-docs/wiki/raw/research/0713-2026-06-06-jsonas-dfe-cf-rse-preset-analysis.md
+docs/wiki/binaryen/passes/late-pipeline-dispatch.md
 ```
 
 This note covers the `DFE + RUME + CF + RSE + RUME` suffix candidate on debug benchmark artifacts, including section-size evidence and direct-pass compare evidence.
@@ -429,7 +429,7 @@ From `AGENTS.md` / active project rules:
    - rerun the full `json-as` suite replay.
 
 4. If pursuing size parity:
-   - start from `docs/wiki/raw/research/0713-2026-06-06-jsonas-dfe-cf-rse-preset-analysis.md`,
+   - start from `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`,
    - focus on function/type/code liveness and inlining-derived cleanup gaps,
    - keep inlining lanes blocked until direct compare/runtime evidence is clean.
 

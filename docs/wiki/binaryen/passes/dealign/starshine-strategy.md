@@ -1,12 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
-  - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../alignment-lowering/index.md
@@ -22,7 +22,7 @@ related:
 
 # Starshine Strategy For `dealign`
 
-Use this page together with the retained port-readiness digest in [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md).
+Use this page together with the retained port-readiness digest in [research note 0389](./index.md).
 The goal here is to show the exact current Starshine status and the concrete local files a future port would need to touch, not to imply that a local implementation already exists. The implementation-order and validation details live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
@@ -52,7 +52,7 @@ The fastest read-along path is:
   - [`src/passes/optimize.mbt#L446-L466`](../../../../../src/passes/optimize.mbt#L446-L466)
     - `run_hot_pipeline_expand_passes(...)` returns `unknown pass flag {name}` when lookup fails
 - pass-port planning map
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
+  - [research note 0063](../../../ir2/registry-map.md)
     - the layout bucket includes `alignment-lowering`; it does not include `dealign`
 - canonical no-DWARF path context
   - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
@@ -139,10 +139,10 @@ Current Starshine `dealign` strategy is **do not pretend it exists locally**:
 
 ## Sources
 
-- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
-- [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
+- [research note 0389](./index.md)
+- [research note 0317](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../alignment-lowering/index.md`](../alignment-lowering/index.md)

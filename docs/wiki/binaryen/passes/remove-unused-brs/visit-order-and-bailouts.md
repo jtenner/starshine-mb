@@ -1,21 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
-  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
-  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
-  - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
-  - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
-  - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
-  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
-  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
-  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
-  - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
-  - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
-  - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
-  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
+  - ./index.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt

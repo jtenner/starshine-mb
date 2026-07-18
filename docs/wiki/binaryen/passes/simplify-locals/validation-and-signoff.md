@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
-  - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
+  - ./index.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
@@ -85,10 +84,10 @@ related:
 - Current 2026-06-04 O4z closeout command:
   - `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --count 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --keep-going-after-command-failures`
 - Current 2026-06-04 result:
-  - `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`); see [`0712-2026-06-04-simplify-locals-o4z-pass-audit.md`](../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md).
+  - `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`); see [`docs/wiki/binaryen/passes/simplify-locals/index.md`](./index.md).
 - The same direct lane without `--keep-going-after-command-failures` stopped at `6764/10000` after `20` Binaryen/tool command failures hit the default max-failure threshold; the keep-going lane is the closeout result.
 - Historical 2026-05-06 result:
-  - `6759/10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`0541-2026-05-06-simplify-locals-direct-revalidation.md`](../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md).
+  - `6759/10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`docs/wiki/binaryen/passes/simplify-locals/index.md`](./index.md).
 - Historical gen-valid-only command family:
   - `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 10000 --min-compared 10000`
 
@@ -182,7 +181,7 @@ related:
 
 ## Current 2026-06-04 O4z Audit Closeout
 
-- The focused O4z audit in [`0712-2026-06-04-simplify-locals-o4z-pass-audit.md`](../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md) refreshed the direct quick lane after building `src/cmd` natively.
+- The focused O4z audit in [`docs/wiki/binaryen/passes/simplify-locals/index.md`](./index.md) refreshed the direct quick lane after building `src/cmd` natively.
 - The checklist's `target/native/release/build/cmd/cmd.exe` path did not exist in this workspace after the native build; rerunning with `_build/native/release/build/cmd/cmd.exe` produced `998/1000` compared cases, `998` normalized matches, `0` mismatches, and `2` Binaryen/tool command failures classified as `binaryen-rec-group-zero`.
 - Added two focused `src/passes/simplify_locals_test.mbt` guards for `try_table` EH boundaries: nonthrowing values sink into `try_table` bodies; may-throw producers stay outside the catch boundary.
 - `moon fmt` completed.

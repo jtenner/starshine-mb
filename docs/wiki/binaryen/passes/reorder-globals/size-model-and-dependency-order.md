@@ -1,13 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
+  - ./index.md
   - ../../../raw/wasm/2026-06-04-leb128-current-refresh.md
-  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
-  - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
-  - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -290,11 +287,11 @@ If Starshine chooses to deviate from any of those, the deviation should be docum
 
 ## Sources
 
-- [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md)
+- [research note 0689](./index.md)
 - [`../../../raw/wasm/2026-06-04-leb128-current-refresh.md`](../../../raw/wasm/2026-06-04-leb128-current-refresh.md)
-- [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
-- [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
-- [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
+- [research note 0367](./index.md)
+- [research note 0125](./index.md)
+- [research note 0270](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/support/topological_sort.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>

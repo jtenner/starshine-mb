@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
+  - ../tooling/cli-command-and-dispatcher.md
   - code-metadata-and-function-annotations.md
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/module_wast.mbt
@@ -163,7 +163,7 @@ Do not infer official text `@custom` placement support from this. The official c
 
 - Extended Name Section boundary: [`../wasm-extended-name-section-boundary.md`](../wasm-extended-name-section-boundary.md)
 - Official custom/name/text-annotation appendix: <https://webassembly.github.io/spec/core/appendix/custom.html>
-- CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
+- CLI print-utility routing audit: [research note 0711](../tooling/cli-command-and-dispatcher.md)
 - WAST parser/printer/lowerer: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt)
 - Core module metadata: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md)
 - CLI print selector implementation and tests: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../tooling/cli-command-and-dispatcher.md`](../tooling/cli-command-and-dispatcher.md)

@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
-  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
-  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
-  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -15,7 +11,7 @@ sources:
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md

@@ -1,11 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
-  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../index.md
@@ -156,8 +153,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
+- research note 0301
+- research note 0158
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)

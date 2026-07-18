@@ -1,10 +1,8 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
-  - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -132,8 +130,8 @@ This dossier keeps four splits explicit:
 
 ## Sources
 
-- [`../../../raw/research/0338-2026-04-25-souperify-source-bridge.md`](../../../raw/research/0338-2026-04-25-souperify-source-bridge.md)
-- [`../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md`](../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md)
+- research note 0338
+- research note 0219
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

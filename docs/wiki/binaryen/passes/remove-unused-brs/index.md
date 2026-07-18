@@ -3,16 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
-  - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
-  - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
-  - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
-  - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - ../../../raw/research/1397-2026-06-29-remove-unused-brs-rub-x-policy-closeout.md
+  - ../../release-horizon-and-oracles.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -192,13 +184,13 @@ For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled b
 
 ## Sources
 
-- [`../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md`](../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md)
-- [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)
-- [`../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md`](../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md)
-- [`../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md`](../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md)
-- [`../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md`](../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md)
-- [`../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md`](../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md)
-- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
+- research note 0548
+- research note 0461
+- research note 0247
+- research note 0146
+- research note 0070
+- research note 0071
+- [research note 0093](../late-pipeline-dispatch.md)
 - [`../../../../../src/passes/remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
 - [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
@@ -206,8 +198,8 @@ For `[O4Z-AUDIT-RUB-A]`, WebAssembly 3.0 baseline features are assumed enabled b
 - [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md)
-- [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)
+- research note 0505
+- research note 0461
 - Binaryen `version_130` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/RemoveUnusedBrs.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>

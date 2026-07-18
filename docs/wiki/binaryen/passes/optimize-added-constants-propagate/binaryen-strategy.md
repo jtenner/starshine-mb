@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
+  - ../optimize-added-constants/index.md
+  - ./index.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -20,7 +19,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
-- The sibling-specific source/test map is retained in [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md); the retained 2026-05-05 recheck anchors the shared owner and registration surfaces.
+- The sibling-specific source/test map is retained in [research note 0330](./index.md); the retained 2026-05-05 recheck anchors the shared owner and registration surfaces.
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - The 2026-05-05 source-anchor digest for the plain sibling is still useful here because this sibling shares the same owner file and registration surface.
 - Public registration comes from `src/passes/pass.cpp`.

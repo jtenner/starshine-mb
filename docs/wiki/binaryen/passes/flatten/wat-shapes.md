@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1569-2026-07-17-flatten-public-parity-closeout.md
+  - ./index.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-internal-output-recursive-ownership-impact.md
   - ../../../raw/binaryen/2026-07-15-flatten-version-130-nested-call-argument-impact.md
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-conditional-branch-refresh.md
@@ -101,10 +101,6 @@ sources:
   - ../../../raw/binaryen/2026-07-13-flatten-version-130-loop-conditional-unary-convert-refresh.md
   - ../../../raw/binaryen/2026-07-11-flatten-current-main-and-local-status-recheck.md
   - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
-  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
-  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
-  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md

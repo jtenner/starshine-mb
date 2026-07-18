@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
-  - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_builders.mbt
@@ -14,10 +11,10 @@ sources:
   - ../../../../../src/ir/hot_lift.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/binary/encode.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../agent-todo.md
   - ../precompute/index.md
-  - ../optimize-added-constants/index.md
   - ../merge-similar-functions/index.md
 related:
   - ./index.md
@@ -34,7 +31,7 @@ related:
 
 # Starshine Strategy For `const-hoisting`
 
-Use this page together with the current-main recheck in [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md) and the direct `version_129` source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
+Use this page together with the current-main recheck in [research note 0508](./index.md) and the direct `version_129` source URLs in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into. The step-by-step implementation and validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
@@ -63,7 +60,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L463-L465`](../../../../../src/passes/optimize.mbt#L463-L465)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is removed from the active hot pipeline registry`
 - removed-until-implemented planning roster
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42)
+  - [research note 0063](../../../ir2/registry-map.md)
     - `const-hoisting` still appears in the Batch 1 removed-pass roster
 - active backlog truth
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
@@ -125,7 +122,7 @@ For this pass family, that is currently the most important in-repo behavior afte
 
 ### 3. The repo has preserved planning context, but not yet an active execution slice
 
-`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records `const-hoisting` among the removed-until-hot-implementation passes.
+`docs/wiki/ir2/registry-map.md` still records `const-hoisting` among the removed-until-hot-implementation passes.
 But `agent-todo.md` still has no dedicated `const-hoisting` section with deliverables and exit criteria.
 
 That mismatch is worth keeping explicit.

@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1571-2026-07-17-simplify-locals-family-transform-inventory.md
+  - ../simplify-locals/index.md
   - ../../../raw/binaryen/2026-07-11-simplify-locals-nonesting-current-main-recheck.md
-  - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt

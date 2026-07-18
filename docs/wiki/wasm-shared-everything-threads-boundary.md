@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/proposals
   - https://github.com/WebAssembly/shared-everything-threads/blob/main/proposals/shared-everything-threads/Overview.md
-  - https://github.com/WebAssembly/proposals
   - ../../src/lib/types.mbt
   - ../../src/wast/struct_atomic_get_surface_test.mbt
   - ../../src/validate/typecheck.mbt
@@ -96,6 +95,10 @@ Current order spellings are canonicalized to `seq_cst` and `acq_rel`. The parser
 - “`struct.atomic.get*` is a GC aggregate operation with type/field immediates, not a linear-memory atomic with `MemArg`.”
 - “A pass that folds `struct.atomic.get*` must cite a pass-specific immutable-field or effect proof; ordinary validation success is not enough.”
 - “`SharedMemoryAtomics` in GenValid names the linear-memory lane; do not use it as a full Shared-Everything proposal gate.”
+
+## Absorbed pass-opportunity conclusion
+
+The 2026-06-04 pass-opportunity audit found that local support for `struct.atomic.get*` creates optimization opportunities only under explicit immutable-field and effect/trap proofs. It did not justify a general atomic-read optimizer, shared-heap support, or movement/deletion based on validation alone. Keep this as routing guidance: representation and validation make a pass possible, but each transform still needs a pass-local synchronization, alias, trap, and packed-signedness contract.
 
 ## Future Implementation Checklist
 

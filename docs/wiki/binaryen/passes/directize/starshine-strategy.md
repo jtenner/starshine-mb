@@ -3,14 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
-  - ../../../raw/research/0521-2026-05-06-directize-direct-revalidation.md
-  - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
-  - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
-  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
-  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
-  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
+  - ../../release-horizon-and-oracles.md
+  - ./index.md
+  - ../late-pipeline-dispatch.md
+  - ../reorder-globals/index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -22,7 +18,6 @@ sources:
   - ../simplify-globals-optimizing/index.md
   - ../remove-unused-module-elements/index.md
   - ../string-gathering/index.md
-  - ../reorder-globals/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -39,7 +34,7 @@ related:
 
 # Starshine Strategy For `directize`
 
-Use this page together with the retained 2026-05-05 current-main recheck in [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md) and the 2026-04-26 port-readiness digest in [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md), which preserve direct tagged and current source/test URLs for the documented contract.
+Use this page together with the retained 2026-05-05 current-main recheck in [research note 0476](./index.md) and the 2026-04-26 port-readiness digest in [research note 0380](./index.md), which preserve direct tagged and current source/test URLs for the documented contract.
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 For the first-slice order and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
@@ -244,10 +239,10 @@ So the right mental model today is:
 
 ## Sources
 
-- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
-- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
-- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
-- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
+- [research note 0476](./index.md)
+- [research note 0380](./index.md)
+- [research note 0350](./index.md)
+- [research note 0265](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

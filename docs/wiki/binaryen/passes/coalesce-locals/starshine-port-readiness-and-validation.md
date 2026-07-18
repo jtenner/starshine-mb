@@ -1,16 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md
-  - ../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md
-  - ../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md
-  - ../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md
-  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
-  - ../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
-  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
-  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/simplify_locals.mbt
@@ -42,7 +35,7 @@ Instead, it answers: which Starshine surfaces are now active, which placement/ar
 | Registry | `src/passes/optimize.mbt:277` tracks `coalesce-locals` as an active module pass. | Keep the public spelling stable. |
 | Dispatcher | `src/passes/pass_manager.mbt:8936` dispatches to `coalesce_locals_run_module_pass`. | Direct `--coalesce-locals` requests are active and covered by registry/CLI tests. |
 | Presets | `src/passes/optimize_test.mbt` now locks both live public `coalesce-locals` neighborhoods: `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` and the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cleanup cluster. | Preserve both proven slots; future preset work belongs to remaining neighboring owners, not CL/RL slot uncertainty. |
-| Ordered-slot proof | `src/passes/coalesce_locals_test.mbt` and `docs/wiki/raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md` now cover both exact neighborhoods. | Treat `[CL]003` as closed; future work belongs to neighboring-pass or preset slices, not direct `coalesce-locals` uncertainty. |
+| Ordered-slot proof | `src/passes/coalesce_locals_test.mbt` and `docs/wiki/binaryen/passes/coalesce-locals/index.md` now cover both exact neighborhoods. | Treat `[CL]003` as closed; future work belongs to neighboring-pass or preset slices, not direct `coalesce-locals` uncertainty. |
 | Local-index rewrite substrate | `src/passes/reorder_locals.mbt:118`, `:183`, and `:544` already scan and rewrite local users and rebuild declarations for a landed module pass. | Reuse the local-index and metadata-repair lessons; do not copy the exact reorder algorithm as the coalescing algorithm. |
 | Later cleanup substrate | `src/passes/simplify_locals.mbt:70`, `:4126`, `:4191`, `:4245`, and `:4348` already own HOT local-traffic cleanup phases. | Let later cleanup remain a consumer; do not grow `coalesce-locals` into generic simplify-locals. |
 | Core pass | `src/passes/coalesce_locals.mbt` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup with branch-aware structured effective-write marking, effective-copy weighting and copy-connected-first coloring order, structured param-slot reuse, non-loop structured `local.tee` coalescing under the conservative interference overlay, structured self-copy cleanup, bounded structured copy-chain forwarding and derived branch-carrier consume-forwarding into dead slots with destination-read-after-source-write rejection, source-write/destination-read interference restoration after copy/consume relaxation, path-disjoint branch-result slot reuse with same-path clobber-read guards, structured ineffective-write cleanup, conservative loop unused-local and unread/write-only scratch coalescing, a 4096-flattened-local guard around dense non-loop coloring, name-section invalidation, and the `[AUDIT006-D]` TypeIdx/RecIdx invariant comment. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior; replace the huge-local boundary with sparse coloring before claiming Binaryen shape parity above the guard. |
@@ -108,14 +101,14 @@ That same refresh closed the remaining slot proof: `src/passes/coalesce_locals_t
 
 ## Sources
 
-- [`../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md`](../../../raw/research/1443-2026-07-04-coalesce-locals-o4z-neighborhood-structured-tee.md)
-- [`../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md`](../../../raw/research/1442-2026-07-04-coalesce-locals-direct-refresh-loop-unused-locals.md)
-- [`../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md`](../../../raw/research/0550-2026-05-08-coalesce-locals-ordered-slot-replay.md)
-- [`../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md`](../../../raw/research/0518-2026-05-06-coalesce-locals-direct-revalidation.md)
-- [`../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md)
-- [`../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md)
-- [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
-- [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
+- [research note 1443](./index.md)
+- [research note 1442](./index.md)
+- [research note 0550](./index.md)
+- [research note 0518](./index.md)
+- [research note 0473](./index.md)
+- [research note 0372](./index.md)
+- [research note 0352](./index.md)
+- [research note 0264](./index.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt)
 - [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)

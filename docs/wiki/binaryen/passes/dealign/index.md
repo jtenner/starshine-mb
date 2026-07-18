@@ -1,15 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
-  - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../tooling/pass-fuzz-compare.md
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -24,7 +21,6 @@ related:
   - ../alignment-lowering/index.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
 ---
 
 # `dealign`
@@ -106,13 +102,13 @@ It does not directly rewrite:
 
 ## Maintenance rule
 
-Treat this folder as the canonical home for future `dealign` research. Keep [`./fuzzing.md`](./fuzzing.md) planned-only until an active local transform, harness admission, and memory-access-reaching profile exist. Treat [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md) as historical and superseded for mechanics where it mentions a no-memory bailout, `SIMDStore`, an `align > 1` branch, or broad lit-backed scalar type coverage.
+Treat this folder as the canonical home for future `dealign` research. Keep [`./fuzzing.md`](./fuzzing.md) planned-only until an active local transform, harness admission, and memory-access-reaching profile exist. Treat research note 0221 as historical and superseded for mechanics where it mentions a no-memory bailout, `SIMDStore`, an `align > 1` branch, or broad lit-backed scalar type coverage.
 
 ## Sources
 
-- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
-- [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md) - historical; superseded for the corrected mechanics above
+- research note 0389
+- research note 0317
+- research note 0221 - historical; superseded for the corrected mechanics above
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)

@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1403-2026-07-02-optimize-casts-recursive-audit-kickoff.md
-  - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
-  - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
-  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -456,9 +453,9 @@ Two shape classes remain intentionally outside OC closeout:
 
 ## Sources
 
-- [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
-- [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
-- [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
+- [research note 0113](./index.md)
+- [research note 0364](./index.md)
+- [research note 0469](./index.md)
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-casts.wast>
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

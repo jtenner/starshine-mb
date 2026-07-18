@@ -1,18 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp
-  - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
-  - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -137,15 +134,15 @@ What it actually is in reviewed `version_129` sources:
 ## Sources
 
 - Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp>
-- [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
-- [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
+- research note 0484
+- research note 0316
+- research note 0183
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

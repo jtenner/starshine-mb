@@ -1,13 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
-  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
-  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
-  - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
-  - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/encode.mbt
@@ -39,7 +35,7 @@ Use it as the quick answer to:
 ## Current source anchor
 
 - Tagged oracle: Binaryen `version_129`.
-- Current-main bridge: the retained 2026-06-01 freshness research recheck in [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md).
+- Current-main bridge: the retained 2026-06-01 freshness research recheck in [research note 0689](./index.md).
 - Result: no teaching-relevant drift found in the owner/helper/test surfaces reviewed for this page.
 
 The 2026-04-25 source bridge retains the original reviewed release/source/test provenance; the retained 2026-06-01 research recheck is the current freshness layer for this implementation/test-map follow-up.
@@ -207,11 +203,11 @@ Those are neighboring concerns with their own dossiers.
 
 ## Sources
 
-- [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md)
-- [`../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md`](../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md)
-- [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
-- [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
-- [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
+- [research note 0689](./index.md)
+- [research note 0525](./index.md)
+- [research note 0367](./index.md)
+- [research note 0125](./index.md)
+- [research note 0270](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

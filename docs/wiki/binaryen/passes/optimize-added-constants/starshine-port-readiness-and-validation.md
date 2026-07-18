@@ -1,11 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
-  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
-  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cmd/cmd.mbt
@@ -58,7 +56,7 @@ The plain pass should be read as the direct-address half of Binaryen's shared `O
 6. normalize `const-pointer + existing-offset` only when unsigned overflow is impossible,
 7. leave `local.set` / `local.get` propagation to [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md).
 
-The key citation chain is the retained 2026-05-05 source-anchor digest in [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md), together with the direct official Binaryen `OptimizeAddedConstants.cpp`, `pass.cpp`, `pass.h`, and plain `low-memory-unused`, memory64, and no-memory tests.
+The key citation chain is the retained 2026-05-05 source-anchor digest in [research note 0465](./index.md), together with the direct official Binaryen `OptimizeAddedConstants.cpp`, `pass.cpp`, `pass.h`, and plain `low-memory-unused`, memory64, and no-memory tests.
 
 ## Starshine code locations to connect
 

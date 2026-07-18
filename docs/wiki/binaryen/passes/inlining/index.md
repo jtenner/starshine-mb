@@ -3,15 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
-  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
-  - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
-  - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
-  - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
-  - ../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
   - ../../../../../src/passes/inlining.mbt
   - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt

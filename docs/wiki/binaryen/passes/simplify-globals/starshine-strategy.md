@@ -1,12 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../simplify-globals-optimizing/index.md
@@ -24,7 +23,7 @@ related:
 
 # Starshine Strategy For `simplify-globals`
 
-Use this page together with the 2026-05-05 current-main bridge in [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md).
+Use this page together with the 2026-05-05 current-main bridge in [research note 0461](./index.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 The new port-readiness page, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), carries the first-slice validation ladder.
 
@@ -55,7 +54,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L458-L463`](../../../../../src/passes/optimize.mbt#L458-L463)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
 - boundary-only portfolio planning
-  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59)
+  - [research note 0063](../../../ir2/registry-map.md)
     - `simplify-globals` is grouped with type/global/signature shaping and whole-module transforms, not HOT-local cleanup
 - scheduler context for the shared optimizing sibling
   - [`../../no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41)

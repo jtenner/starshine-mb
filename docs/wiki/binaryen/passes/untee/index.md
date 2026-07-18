@@ -1,14 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast
-  - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
-  - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
-  - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md
   - ../../../../../src/passes/untee.mbt
   - ../../../../../src/passes/untee_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -123,10 +119,10 @@ What it actually is in `version_129`:
 ## Sources
 
 - Current Binaryen owner and focused oracle: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Untee.cpp> and <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/untee.wast>
-- [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
-- [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
-- [`../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md`](../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md`](../../../raw/research/0523-2026-05-06-untee-direct-revalidation.md)
+- research note 0347
+- research note 0185
+- research note 0279
+- research note 0523
 - [`../../../../../src/passes/untee.mbt`](../../../../../src/passes/untee.mbt)
 - [`../../../../../src/passes/untee_test.mbt`](../../../../../src/passes/untee_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

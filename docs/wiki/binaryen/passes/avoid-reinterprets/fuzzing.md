@@ -1,10 +1,10 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp
-  - ../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md
+  - ./index.md
   - ../../../../../src/passes/avoid_reinterprets.mbt
   - ../../../../../src/passes/avoid_reinterprets_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -40,7 +40,7 @@ bun fuzz compare-pass --pass avoid-reinterprets --count 10000 --seed 0x5eed \
 
 Do **not** call a green generic run complete Binaryen parity. Current Binaryen also rewrites proven `reinterpret(local.get <- load)` chains with pointer and alternate-value helper locals; Starshine intentionally does not implement that family yet. Random valid input may contain few or no trigger shapes, and output validity or normalized equality alone cannot prove coverage of an absent transform.
 
-The previous direct revalidation is historical evidence, not a substitute for a current directed profile: see [`../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md`](../../../raw/research/0516-2026-05-06-avoid-reinterprets-direct-revalidation.md).
+The previous direct revalidation is historical evidence, not a substitute for a current directed profile: see [research note 0516](./index.md).
 
 ## Required reduced fixtures before any comparison claim
 

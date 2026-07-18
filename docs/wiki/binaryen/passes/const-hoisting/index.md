@@ -1,16 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md
-  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
-  - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
-  - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
-  - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
+  - ../optimize-added-constants/index.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -129,14 +124,14 @@ What it actually is in `version_129`:
 
 ## Sources
 
-- [`../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](../../../raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md)
-- [`../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md`](../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md)
-- [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
-- [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
-- [`../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md`](../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md`](../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md)
+- research note 0508
+- research note 0428
+- research note 0182
+- research note 0225
+- research note 0276
+- research note 0354
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [research note 0063](../../../ir2/registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

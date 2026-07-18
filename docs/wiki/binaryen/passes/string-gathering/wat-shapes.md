@@ -1,12 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
-  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
-  - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
-  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -17,7 +14,7 @@ related:
   - ../../no-dwarf-default-optimize-path.md
 ---
 
-Use this page together with the tagged `version_129` source URLs listed below, the archived 2026-05-04 current-main recheck in [`../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md), and the local status/code-map bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+Use this page together with the tagged `version_129` source URLs listed below, the archived 2026-05-04 current-main recheck in [research note 0431](./index.md), and the local status/code-map bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 # `string-gathering` WAT Shapes
 
@@ -304,9 +301,9 @@ If you see one of those transformations, you are probably looking at a different
 
 ## Sources
 
-- [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
-- [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
-- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
+- [research note 0377](./index.md)
+- [research note 0124](./index.md)
+- [research note 0280](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-gathering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>

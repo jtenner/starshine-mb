@@ -1,16 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
-  - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
-  - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
-  - ../../../raw/research/0520-2026-05-06-vacuum-direct-revalidation.md
-  - ../../../raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md
-  - ../../../raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md
-  - ../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
-  - ../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
+  - ./index.md
+  - ../late-pipeline-dispatch.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt

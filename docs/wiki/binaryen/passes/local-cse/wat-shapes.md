@@ -1,14 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
-  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
-  - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
-  - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
-  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
+  - ./index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -22,7 +17,7 @@ related:
 # `local-cse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
-It was rechecked against retained tagged `version_129` release/source/test URLs (the reviewed release-page date is **2026-04-01**), the 2026-05-05 current-main recheck at [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md). Those source checks found no teaching-relevant Binaryen drift, but the 2026-06-04 Starshine audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) found one local missed Binaryen-positive shape: before-`if` into `then` reuse.
+It was rechecked against retained tagged `version_129` release/source/test URLs (the reviewed release-page date is **2026-04-01**), the 2026-05-05 current-main recheck at [research note 0453](./index.md). Those source checks found no teaching-relevant Binaryen drift, but the 2026-06-04 Starshine audit at [research note 0710](./index.md) found one local missed Binaryen-positive shape: before-`if` into `then` reuse.
 
 ## Read this page with one mental model
 

@@ -3,11 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentMemory.cpp
-  - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
-  - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -107,9 +104,9 @@ So this pass is best taught as:
 ## Sources
 
 - [`../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md`](../../../raw/binaryen/2026-07-11-instrument-memory-current-main-recheck.md)
-- [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
-- [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
+- research note 0388
+- research note 0288
+- research note 0231
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

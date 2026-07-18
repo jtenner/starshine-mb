@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
-  - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -18,7 +17,7 @@ sources:
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
-  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../ir2/registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -77,7 +76,7 @@ That means a faithful Starshine port needs module-level value/type evidence befo
 | `src/validate/typecheck.mbt` | Enforces `ref.cast` / `ref.cast_desc_eq` target compatibility and stack effects; future tests must validate all inserted casts through this surface. |
 | `src/binary/encode.mbt` and `src/binary/decode.mbt` | Encode/decode ordinary and descriptor cast opcodes, including the `0xFB` GC opcode family. |
 | `src/wast/parser.mbt` and `src/wast/lower_to_lib.mbt` | Parse/lower descriptor cast text forms; ordinary cast text support flows through the existing reference-typed instruction model. |
-| `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Archived registry map that classifies `gufa-cast-all` with whole-module or layout transforms. |
+| `docs/wiki/ir2/registry-map.md` | Archived registry map that classifies `gufa-cast-all` with whole-module or layout transforms. |
 | `agent-todo.md` | No active implementation slice found, so there is no current owner for the port. |
 
 ## Future port shape

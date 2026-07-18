@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
-  - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
+  - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp
@@ -211,8 +210,8 @@ These WAT shapes describe Binaryen behavior. In Starshine, the pass name is curr
 
 ## Sources
 
-- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
-- [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
+- [research note 0336](./index.md)
+- [research note 0188](./index.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>

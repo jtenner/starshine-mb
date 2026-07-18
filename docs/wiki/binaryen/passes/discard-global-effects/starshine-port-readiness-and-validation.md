@@ -1,10 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-07-18
 sources:
-  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
-  - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
+  - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/ir/effects.mbt
   - ../../../../../src/ir/analysis_cache.mbt
