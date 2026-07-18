@@ -1605,7 +1605,7 @@ fn validate_invalid_binary_strategy_spec(
 }
 
 ///|
-pub fn validate_invalid_binary_registry() -> Array[
+fn validate_invalid_binary_registry_entries() -> Array[
   ValidateInvalidBinaryStrategySpec,
 ] {
   [
@@ -5153,30 +5153,56 @@ pub fn validate_invalid_binary_registry() -> Array[
 }
 
 ///|
+priv struct ValidateInvalidBinaryRegistryCache {
+  entries : Array[ValidateInvalidBinaryStrategySpec]
+  lookup : @hashmap.HashMap[String, Int]
+}
+
+///|
+fn ValidateInvalidBinaryRegistryCache::new() -> ValidateInvalidBinaryRegistryCache {
+  let entries = validate_invalid_binary_registry_entries()
+  let lookup : @hashmap.HashMap[String, Int] = @hashmap.new(
+    capacity=entries.length() * 2 + 1,
+  )
+  let mut idx = 0
+  for entry in entries {
+    lookup.set(entry.stable_id, idx)
+    idx += 1
+  }
+  { entries, lookup }
+}
+
+///|
+let validate_invalid_binary_registry_cache : ValidateInvalidBinaryRegistryCache = ValidateInvalidBinaryRegistryCache::new()
+
+///|
+pub fn validate_invalid_binary_registry() -> Array[
+  ValidateInvalidBinaryStrategySpec,
+] {
+  validate_invalid_binary_registry_entries()
+}
+
+///|
 pub fn validate_invalid_binary_strategy_by_stable_id(
   stable_id : String,
 ) -> ValidateInvalidBinaryStrategySpec? {
-  for spec in validate_invalid_binary_registry() {
-    if spec.stable_id == stable_id {
-      return Some(spec)
-    }
+  match validate_invalid_binary_registry_cache.lookup.get(stable_id) {
+    Some(idx) => Some(validate_invalid_binary_registry_cache.entries[idx])
+    None => None
   }
-  None
 }
 
 ///|
 fn validate_invalid_binary_strategy_index(
   id : ValidateInvalidBinaryStrategyId,
 ) -> Int {
-  let registry = validate_invalid_binary_registry()
-  let mut i = 0
-  while i < registry.length() {
-    if registry[i].id == id {
-      return i
-    }
-    i += 1
+  match
+    validate_invalid_binary_registry_cache.lookup.get(
+      validate_invalid_binary_strategy_label(id),
+    ) {
+    Some(idx) => idx
+    None => validate_invalid_binary_registry_cache.entries.length()
   }
-  registry.length()
 }
 
 ///|

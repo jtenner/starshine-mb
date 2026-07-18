@@ -32,11 +32,32 @@ fn invalid_binary_test_expected_label(
 }
 
 ///|
-fn invalid_binary_test_base_module(seed : UInt64) -> Module {
-  gen_valid_module_with_config(
-    @splitmix.new(seed~),
-    gen_invalid_binary_coverage_seed_generator_config(),
-  )
+let invalid_binary_test_base_module_cache : Ref[(UInt64, Module)?] = Ref::new(
+  None,
+)
+
+///|
+fn invalid_binary_test_base_module(seed : UInt64) -> Result[Module, String] {
+  match invalid_binary_test_base_module_cache.val {
+    Some((cached_seed, cached_module)) if cached_seed == seed =>
+      Ok(cached_module)
+    _ => {
+      let generated = gen_valid_module_with_config(
+        @splitmix.new(seed~),
+        gen_invalid_binary_coverage_seed_generator_config(),
+      )
+      match validate_module(generated) {
+        Ok(_) => {
+          invalid_binary_test_base_module_cache.val = Some((seed, generated))
+          Ok(generated)
+        }
+        Err(err) =>
+          Err(
+            "expected base gen-valid module to validate before binary corruption: \{validation_error_message(err)}",
+          )
+      }
+    }
+  }
 }
 
 ///|
@@ -129,35 +150,32 @@ fn invalid_binary_expect_strategy_rejects(
   seed : UInt64,
   expected_label : String,
 ) -> Result[Unit, String] {
-  let registry = validate_invalid_binary_registry()
-  let mut spec : ValidateInvalidBinaryStrategySpec? = None
-  for entry in registry {
-    if entry.stable_id == strategy_stable_id {
-      spec = Some(entry)
-      break
+  let mutated_bytes = match
+    build_validate_invalid_binary_minimal_repro_by_stable_id(strategy_stable_id) {
+    Ok(bytes) => bytes
+    Err(_) => {
+      let spec = match
+        validate_invalid_binary_strategy_by_stable_id(strategy_stable_id) {
+        Some(entry) => entry
+        None =>
+          return Err("missing binary invalid strategy '\{strategy_stable_id}'")
+      }
+      let base = match invalid_binary_test_base_module(seed) {
+        Ok(module_) => module_
+        Err(msg) => return Err(msg)
+      }
+      let mutation = match
+        apply_validate_invalid_binary_strategy(spec.id, base) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      if !mutation.applicable {
+        return Err("expected binary mutation to be applicable")
+      }
+      mutation.mutated_bytes
     }
   }
-  let spec = match spec {
-    Some(entry) => entry
-    None =>
-      return Err("missing binary invalid strategy '\{strategy_stable_id}'")
-  }
-  let base = invalid_binary_test_base_module(seed)
-  match validate_module(base) {
-    Ok(_) => ()
-    Err(err) =>
-      return Err(
-        "expected base gen-valid module to validate before binary corruption: \{validation_error_message(err)}",
-      )
-  }
-  let mutation = match apply_validate_invalid_binary_strategy(spec.id, base) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  if !mutation.applicable {
-    return Err("expected binary mutation to be applicable")
-  }
-  match decode_module(mutation.mutated_bytes) {
+  match decode_module(mutated_bytes) {
     Err(_) =>
       if expected_label == "decode" {
         Ok(())
