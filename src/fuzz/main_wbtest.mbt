@@ -2381,6 +2381,7 @@ test "emit_invalid_repro_report builds a persisted-report-ready case" {
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts_with_manifest returns deterministic diagnostics" {
   let batch = match emit_gen_valid_batch_artifacts_with_manifest(2, 0x5eedUL) {
     Ok(v) => v
@@ -2409,6 +2410,7 @@ test "emit_gen_valid_batch_artifacts_with_manifest returns deterministic diagnos
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid heap-store-optimization profile records GC store opportunities" {
   let args = EmitGenValidBatchArgs::new(
     2,
@@ -2529,6 +2531,7 @@ test "emit gen-valid heap-store-optimization profile records GC store opportunit
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid optimize-instructions trigger profiles record selected OI case labels" {
   let scalar_args = EmitGenValidBatchArgs::new(
     3,
@@ -2653,6 +2656,7 @@ test "emit gen-valid optimize-instructions trigger profiles record selected OI c
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid composite profile records requested and selected profiles" {
   let args = EmitGenValidBatchArgs::new(
     4,
@@ -2699,6 +2703,7 @@ test "emit gen-valid composite profile records requested and selected profiles" 
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid optimize-instructions aggregate records selected families" {
   let args = EmitGenValidBatchArgs::new(
     18,
@@ -2744,6 +2749,7 @@ test "emit gen-valid optimize-instructions aggregate records selected families" 
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid reorder-locals composite records selected subprofiles" {
   let args = EmitGenValidBatchArgs::new(
     6,
@@ -2797,6 +2803,7 @@ test "emit gen-valid reorder-locals composite records selected subprofiles" {
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid merge-locals composite records every v131 family profile" {
   let args = EmitGenValidBatchArgs::new(
     28,
@@ -2837,6 +2844,7 @@ test "emit gen-valid merge-locals composite records every v131 family profile" {
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid simplify-locals-nostructure composite records selected subprofiles" {
   let args = EmitGenValidBatchArgs::new(
     6,
@@ -2886,6 +2894,7 @@ test "emit gen-valid simplify-locals-nostructure composite records selected subp
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit gen-valid pick-load-signs composite records selected subprofiles" {
   let args = EmitGenValidBatchArgs::new(
     8,
@@ -2934,6 +2943,7 @@ test "emit gen-valid pick-load-signs composite records selected subprofiles" {
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA floors" {
   let chain_floor = match
     @validate.validate_valid_feature_floor_by_label(
@@ -3019,6 +3029,7 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts_until_features satisfies dense ssa-nomerge coverage floors" {
   let labels = [
     "ssa-loop-backedge-phi-candidate", "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate",
@@ -3071,6 +3082,7 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies dense ssa-nomerge 
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts_until_features continues after floors are satisfied" {
   let v128_floor = match
     @validate.validate_valid_feature_floor_by_label("v128", 1) {
@@ -3106,6 +3118,7 @@ test "emit_gen_valid_batch_artifacts_until_features continues after floors are s
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts_until_features selects bounded feature-covering modules" {
   let v128_floor = match
     @validate.validate_valid_feature_floor_by_label("v128", 1) {
@@ -3140,6 +3153,7 @@ test "emit_gen_valid_batch_artifacts_until_features selects bounded feature-cove
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts_until_features reports unmet floors" {
   let mems_floor = match
     @validate.validate_valid_feature_floor_by_label("mems", 1) {
@@ -3164,6 +3178,7 @@ test "emit_gen_valid_batch_artifacts_until_features reports unmet floors" {
 }
 
 ///|
+#skip("manual GenValid batch/floor integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
   let v128_floor = match
     @validate.validate_valid_feature_floor_by_label("v128", 1) {
@@ -3410,6 +3425,7 @@ test "emit_gen_valid_batch_to_dir creates the output directory for selected modu
 }
 
 ///|
+#skip("manual generated-batch fuzz integration; run through the dedicated fuzz lane")
 test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files" {
   let first = match emit_gen_valid_batch_artifacts(2, 0x5eedUL) {
     Ok(v) => v
@@ -3623,6 +3639,7 @@ test "run_fuzz_suite routes validate-invalid-text profile errors through the tex
 }
 
 ///|
+#skip("manual dynamic-text fuzz dispatcher integration; run through the dedicated fuzz lane")
 test "run_fuzz_suite routes validate-invalid-text-dynamic through dynamic GenValid WAT runner" {
   let result = match
     run_fuzz_suite("validate-invalid-text-dynamic", "smoke", 0x5eedL) {
@@ -3715,6 +3732,7 @@ test "run_fuzz_suite routes binary-roundtrip to binary runner" {
 }
 
 ///|
+#skip("manual binary-roundtrip fuzz integration; run through the dedicated fuzz lane")
 test "run_fuzz_suite reports arbitrary binary coverage details" {
   match run_fuzz_suite("binary-roundtrip", "smoke", 0x5eedL) {
     Ok(results) => {
@@ -3737,6 +3755,7 @@ test "run_fuzz_suite reports arbitrary binary coverage details" {
 }
 
 ///|
+#skip("manual GenValid roundtrip fuzz integration; run through the dedicated fuzz lane")
 test "run_fuzz_suite reports GenValid binary roundtrip details" {
   match run_fuzz_suite("binary-roundtrip", "gen-valid-smoke", 0x5eedL) {
     Ok(results) => {
@@ -3762,6 +3781,7 @@ test "run_fuzz_suite reports GenValid binary roundtrip details" {
 }
 
 ///|
+#skip("manual byte-fuzz roundtrip integration; run through the dedicated fuzz lane")
 test "run_fuzz_suite reports byte-fuzz binary roundtrip details" {
   match run_fuzz_suite("binary-roundtrip", "byte-fuzz-smoke", 0x5eedL) {
     Ok(results) => {
@@ -3787,6 +3807,7 @@ test "run_fuzz_suite reports byte-fuzz binary roundtrip details" {
 }
 
 ///|
+#skip("manual boundary-corpus fuzz integration; run through the dedicated fuzz lane")
 test "run_fuzz_suite reports boundary corpus binary roundtrip details" {
   match run_fuzz_suite("binary-roundtrip", "boundary-smoke", 0x5eedL) {
     Ok(results) => {

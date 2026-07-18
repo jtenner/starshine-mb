@@ -1377,6 +1377,7 @@ test "dynamic invalid text attempt seeds come from text-mutation stream and stab
 }
 
 ///|
+#skip("manual aggregate dynamic-text fuzz smoke; run through the dedicated fuzz lane")
 test "dynamic invalid text fuzz is deterministic and records generated mutation stats" {
   let first = match run_validate_invalid_text_dynamic_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -1535,6 +1536,7 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
 }
 
 ///|
+#skip("manual aggregate invalid-text fuzz smoke; run through the dedicated fuzz lane")
 test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_text_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -1569,6 +1571,7 @@ test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy s
 }
 
 ///|
+#skip("manual aggregate spec-seed fuzz smoke; run through the dedicated fuzz lane")
 test "run_validate_invalid_spec_seed_fuzz returns deterministic fixed-seed seed stats" {
   let first = match run_validate_invalid_spec_seed_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

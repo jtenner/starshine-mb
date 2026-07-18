@@ -1071,6 +1071,7 @@ test "validate_invalid_binary_attempt_seed isolates strategy and profile salts" 
 }
 
 ///|
+#skip("manual aggregate invalid-binary fuzz smoke; run through the dedicated fuzz lane")
 test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_binary_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
