@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
@@ -31,6 +32,10 @@ related:
 ---
 
 # `inlining`
+
+## Binaryen v131 status
+
+The shared inliner is **reopened** for released `@binaryen.inline` policy. V131 provides the toolchain annotation that drives `AlwaysInline` / `NeverInline` before ordinary full-inline heuristics; Starshine currently preserves `@metadata.code.inline` as metadata and uses separate `no-inline*` markers, but does not consume this released policy. `[V131-INL]001` owns both plain and optimizing variants.
 
 ## Role
 
@@ -60,7 +65,7 @@ A safe mental model:
 
 ## Current durable takeaways
 
-- The public Binaryen release horizon reaches `version_130`; the detailed contract remains anchored to `version_129`, but the 2026-06-02 no-drift bridge is superseded for one material current-main change: the shared engine now consumes an optional function-level toolchain inline hint. `NeverInline` rejects and `AlwaysInline` accepts full inlining after the `try_delegate` bailout and before normal tiny/one-use/trivial/flexible profitability checks. This is distinct from both the older `CodeAnnotation::inline_` metadata discussion and the separate `no-inline*` policy flags; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) and [`../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md). `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
+- The public Binaryen release horizon is `version_131`; the detailed rewrite contract remains anchored to the older reviewed source, while v131 releases `@binaryen.inline` as the shared engine's function-level toolchain policy. `\00` rejects and `\7f` accepts full inlining after the `try_delegate` bailout and before normal profitability checks. This is distinct from both `@metadata.code.inline` VM metadata and separate `no-inline*` policy flags; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md). `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
 - `refs` is not just direct-call count. It includes `ref.func` uses, while exports and the start function mark global/root use.
 - Full-inline profitability is layered: `try_delegate` bailout, tiny threshold, one-use special case, shrinking trivial wrapper class, flexible max size, shrink/speed policy, direct-call and loop policy.
 - Partial inlining is real but narrow: two top-of-function conditional split families, enabled only by heavier speed settings and `partialInliningIfs`.
@@ -148,7 +153,7 @@ Per project policy and user preference, Binaryen parse/canonicalization failures
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) - deep upstream strategy: phases, heuristics, direct-call action surface, partial-inlining patterns, rewrite/repair, and dead-helper cleanup.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Binaryen owner/helper/test map plus current Starshine code/test map.
 - [`./heuristics-splitting-and-plain-vs-optimizing.md`](./heuristics-splitting-and-plain-vs-optimizing.md) - focused explainer for the pass's easiest misunderstandings.
-- [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) - source-backed separation among preserved `@metadata.code.inline` bytes, current-main function-level toolchain `AlwaysInline` / `NeverInline` policy, and separate `no-inline*` flags.
+- [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) - source-backed separation among preserved `@metadata.code.inline` bytes, released v131 `@binaryen.inline` `AlwaysInline` / `NeverInline` policy, and separate `no-inline*` flags.
 - [`./wat-shapes.md`](./wat-shapes.md) - WAT shape catalog for positives, bailouts, partial-inline shapes, repair shapes, and current Starshine subset/gaps.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - active partial Starshine implementation status and design map.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - validation/evidence bridge for the remaining Starshine work.

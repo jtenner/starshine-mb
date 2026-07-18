@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -20,7 +22,7 @@ related:
 
 # `inlining`: heuristics, splitting, and plain-vs-optimizing
 
-This page focuses on the parts of the inliner that future agents most often overcompress. The 2026-06-02 current-main recheck remains useful for the older shapes, but its blanket no-drift conclusion is superseded: current `main` adds a function-level toolchain `AlwaysInline` / `NeverInline` override before generic full-inline profitability. The splitting boundaries themselves were not reread; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the precise reviewed scope.
+This page focuses on the parts of the inliner that future agents most often overcompress. The older source rechecks remain useful for the splitting shapes, while v131 releases a function-level `@binaryen.inline` `AlwaysInline` / `NeverInline` override before generic full-inline profitability. The splitting boundaries themselves were not re-audited by the release change; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the precise reviewed scope.
 
 ## The wrong one-line summary
 
@@ -141,9 +143,9 @@ A guard that calls an arbitrary condition helper is not simple.
 
 ## 10. No-inline policy is separate from inline-hint metadata
 
-The older tagged evidence still distinguishes preserved `@metadata.code.inline` bytes from the `Function::noFullInline` / `Function::noPartialInline` flags set by the separate `no-inline*` pass family. But current Binaryen `main` adds a third axis: `FunctionInfoScanner` reads an optional function-level `toolchainInlineHint`; the full-inline check rejects `NeverInline` and accepts `AlwaysInline` after the `try_delegate` bailout, before generic profitability thresholds. Do not collapse that field into arbitrary `metadata.code.inline` payloads: this narrow reread did not establish their shared producer or binary format.
+The older tagged evidence distinguishes preserved `@metadata.code.inline` bytes from the `Function::noFullInline` / `Function::noPartialInline` flags set by the separate `no-inline*` pass family. Binaryen v131 adds a third axis: `FunctionInfoScanner` reads the function-level `@binaryen.inline` hint; the full-inline check rejects byte `\00` (`NeverInline`) and accepts byte `\7f` (`AlwaysInline`) after the `try_delegate` bailout, before generic profitability thresholds. Do not collapse that field into `metadata.code.inline`: the released producer and policy are deliberately separate.
 
-Starshine currently implements only its local `no-inline*` policy markers, not this Binaryen toolchain-hint behavior. See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) and [`../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md`](../../../raw/binaryen/2026-07-11-inlining-current-main-toolchain-inline-hints-recheck.md) for the detailed boundary.
+Starshine currently implements only its local `no-inline*` policy markers, not this Binaryen toolchain-hint behavior. See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the detailed boundary.
 
 Current Starshine status: the first `no-inline*` policy surface is modeled through name-section wildcard marking and internal function annotations, [WAT/WAST function identifiers now populate that name lookup for defined and imported functions](../../../wast/identifier-name-and-annotation-authoring.md), full-inline suppression is honored by the direct inliner, annotation/function-name remapping preserves policy and later matching across helper compaction, stale local names are dropped after inlining rewrites, and `no_inline_copy_policy_annotations(...)` is available for future clone/copy transforms. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
 

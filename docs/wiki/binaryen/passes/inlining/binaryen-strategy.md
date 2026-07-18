@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/toolchain-inlining.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
@@ -23,7 +25,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle for this dossier. Binaryen's public release horizon reaches `version_130`; the 2026-07-11 current-main recheck supersedes the older no-drift statement for one material policy addition: `Inlining.cpp` now consumes a function-level `toolchainInlineHint` before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
+Use Binaryen `version_129` for the original detailed inliner walkthrough and `version_131` for the released toolchain policy. V131 gives `toolchainInlineHint` an exact `@binaryen.inline` WAT/binary producer and consumes it before generic full-inline profitability. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
 
 Primary upstream URLs:
 
@@ -86,7 +88,7 @@ A local port that treats “one direct call” as “one total use” will delet
 Binaryen does not use one flat “max inline size” rule.
 
 1. `try_delegate` rejects full inlining in the reviewed contract, including when a toolchain hint is present.
-2. A current-main function-level toolchain `NeverInline` hint rejects full inlining; `AlwaysInline` accepts it. This is a separate policy input from the older `CodeAnnotation::inline_` metadata discussion and from `no-inline*` flags; the reread did not establish its WAT/binary producer format.
+2. A v131 function-level `@binaryen.inline` hint rejects full inlining for byte `\00` (`NeverInline`) and accepts it for byte `\7f` (`AlwaysInline`). This is separate from `@metadata.code.inline` VM metadata and from `no-inline*` flags.
 3. `size <= alwaysInlineMaxSize` accepts tiny helpers; `pass.h` default is `2`.
 4. `refs == 1 && !usedGlobally && size <= oneCallerInlineMaxSize` accepts one-use private helpers; the default `-1` acts as an effectively unbounded one-caller threshold.
 5. `TrivialInstruction::Shrinks` accepts wrappers that provably shrink.

@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
   - ../../../wasm-compilation-hints-boundary.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
@@ -36,10 +37,10 @@ This page closes one easy-to-miss gap in the plain-`inlining` story:
 
 - Binaryen has a real `@metadata.code.inline` annotation surface,
 - Binaryen `version_129` plain `inlining` does **not** use that annotation as its practical `no-inline*` suppression switch,
-- current `main` additionally has a distinct function-level toolchain `AlwaysInline` / `NeverInline` input to full-inline profitability,
+- Binaryen `version_131` adds distinct `@binaryen.inline` function-level toolchain `AlwaysInline` / `NeverInline` input to full-inline profitability,
 - and the separate `no-inline*` switch surface can survive function cloning.
 
-If you miss that split, the official `inline-hints*`, `no-inline*`, and `no-inline-monomorphize-inlining` tests look like one fuzzy topic instead of three connected but different ones. For standards-status and Starshine-local support claims about the broader active Phase-2 Compilation Hints proposal (`metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets`), start from [`../../../wasm-compilation-hints-boundary.md`](../../../wasm-compilation-hints-boundary.md); this Binaryen page remains about the `version_129` inline-hint and no-inline pass evidence.
+If you miss that split, the official `inline-hints*`, `toolchain-inlining`, `no-inline*`, and `no-inline-monomorphize-inlining` tests look like one fuzzy topic instead of connected but different surfaces. For standards-status and Starshine-local support claims about the broader active Phase-2 Compilation Hints proposal (`metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets`), start from [`../../../wasm-compilation-hints-boundary.md`](../../../wasm-compilation-hints-boundary.md); this Binaryen page covers the older inline-metadata/no-inline evidence plus the released v131 toolchain policy.
 
 ## 1. `@metadata.code.inline` is a real Binaryen IR and binary annotation surface
 
@@ -93,17 +94,17 @@ The tagged `version_129` source check remains simple and important:
 
 The full-inline gate is therefore still conditional on `!func->noFullInline && info.worthFullInlining(...)`, while the partial/split gate is conditional on `!func->noPartialInline && functionSplitter`.
 
-However, the 2026-07-11 current-main reread found one material addition *inside* `worthFullInlining(...)`: `FunctionInfoScanner` copies `func->funcAnnotations.toolchainInline` into an optional `toolchainInlineHint`. Full inlining then follows this order:
+Binaryen v131 releases one material addition *inside* `worthFullInlining(...)`: `FunctionInfoScanner` copies `func->funcAnnotations.toolchainInline` into an optional `toolchainInlineHint`. Full inlining then follows this order:
 
 1. reject a `try_delegate` callee;
 2. reject `CodeAnnotation::NeverInline`;
 3. accept `CodeAnnotation::AlwaysInline`;
 4. otherwise apply the familiar tiny, one-use, shrinking-trivial, and flexible heuristics.
 
-This is not evidence that arbitrary `@metadata.code.inline` bytes now control inlining. The reviewed fields are separate, and this narrow source reread did not trace the toolchain hint's WAT/parser/binary producer. So the safe current model is:
+This is not evidence that arbitrary `@metadata.code.inline` bytes control inlining. V131 confirms a separate producer: `@binaryen.inline` writes the function-level toolchain hint consumed by the inliner. The safe model is:
 
 - `@metadata.code.inline` = separately preserved inline-metadata bytes;
-- `toolchainInlineHint` = current-main full-inline policy override, bounded by the preceding `try_delegate` bailout;
+- `@binaryen.inline` / `toolchainInlineHint` = v131 full-inline policy override, bounded by the preceding `try_delegate` bailout;
 - `no-inline*` = separate full/partial suppression flags.
 
 ## 3. The separate no-inline policy surface remains a pass family
@@ -196,7 +197,7 @@ Those are separate axes.
 If you need one short rule of thumb, use this:
 
 - `@metadata.code.inline` = preserved Binaryen inline-metadata bytes;
-- current-main `toolchainInlineHint` = `AlwaysInline` / `NeverInline` full-inline profitability override, after `try_delegate` rejection;
+- v131 `@binaryen.inline` / `toolchainInlineHint` = `AlwaysInline` / `NeverInline` full-inline profitability override, after `try_delegate` rejection;
 - `no-inline` / `no-full-inline` / `no-partial-inline` = separate Binaryen pass-level full/partial suppression knobs;
 - `ModuleUtils::copyFunction` preserves those suppression knobs on clones;
 - and root/reference retention is yet another separate reason a function may remain declared after some callsites inline.
@@ -225,7 +226,7 @@ The local policy matches names from the structured name section, including those
 
 ## What future Starshine widening should preserve
 
-- Distinguish Binaryen `metadata.code.inline` metadata, the current-main function-level toolchain inline hint, active-proposal Compilation Hints metadata, and actual `no-inline*` policy flags.
+- Distinguish Binaryen `metadata.code.inline` metadata, the released v131 `@binaryen.inline` function-level toolchain hint, active-proposal Compilation Hints metadata, and actual `no-inline*` policy flags.
 - Model full-vs-partial suppression as separate controls.
 - Preserve no-inline flags across any future function-cloning utility.
 - Keep root/reference retention separate from policy suppression.

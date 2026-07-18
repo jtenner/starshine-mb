@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -25,7 +27,7 @@ related:
 
 # `inlining`: implementation structure and tests
 
-This page maps the upstream Binaryen owner/test surface and the current Starshine owner/test surface. The 2026-07-11 current-main reread preserves that owner map but adds a material `Inlining.cpp` policy input: the scanner carries `funcAnnotations.toolchainInline` into `FunctionInfo`, and full-inline profitability gives `NeverInline` / `AlwaysInline` priority after the `try_delegate` bailout. Use it when you need exact follow-along files before editing code or interpreting compare artifacts.
+This page maps the upstream Binaryen owner/test surface and the current Starshine owner/test surface. Binaryen v131 preserves that owner map and releases a material `Inlining.cpp` policy input: `@binaryen.inline` carries `funcAnnotations.toolchainInline` into `FunctionInfo`, and full-inline profitability gives `NeverInline` / `AlwaysInline` priority after the `try_delegate` bailout. Use it when you need exact follow-along files before editing code or interpreting compare artifacts.
 
 ## Binaryen source map
 
@@ -43,7 +45,7 @@ Important pieces:
 | --- | --- |
 | `InliningMode` | `Unknown`, `Uninlineable`, `Full`, `SplitPatternA`, `SplitPatternB` classification |
 | `TrivialInstruction` | `NotTrivial`, `Shrinks`, `MayNotShrink` wrapper policy |
-| `FunctionInfo` | size, refs, calls/loops/delegate/root flags, trivial class, cached inline mode, and current-main optional toolchain inline hint |
+| `FunctionInfo` | size, refs, calls/loops/delegate/root flags, trivial class, cached inline mode, and v131 optional `@binaryen.inline` toolchain hint |
 | `FunctionInfoScanner` | module-wide summary pass |
 | `Planner` | reachable direct `call` / `return_call` action discovery in reviewed `version_129` |
 | `FunctionSplitter` integration | partial Pattern A/B helper creation |
