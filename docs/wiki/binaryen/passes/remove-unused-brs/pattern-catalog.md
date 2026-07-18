@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-06-29
+last_reviewed: 2026-07-18
 sources:
   - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
@@ -51,7 +51,14 @@ This page is the exhaustive rewrite inventory for the current tree.
 - "Preserve" means the pass recognized the family but intentionally left it alone.
 - Test names below refer to focused regressions in [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt) unless a perf or CLI file is named explicitly.
 
-The `[O4Z-AUDIT-RUB-A]` source-refresh matrix in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md#rub-a-version_130-behavior-matrix) is the current Binaryen `version_130` phase-to-Starshine coverage map. This catalog remains the exhaustive **current Starshine** inventory; `[O4Z-AUDIT-RUB-R]` through `[O4Z-AUDIT-RUB-X]` now make the accepted dead-shell cleanup, v128 raw-size fix, GC/table follow-ups, and branch-hint/pass-option policy blockers explicit in `agent-todo.md` and notes `1393`-`1397`.
+The `[O4Z-AUDIT-RUB-A]` source-refresh matrix in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md#rub-a-version_130-behavior-matrix) is the current Binaryen `version_130` phase-to-Starshine coverage map. This catalog remains the exhaustive **current Starshine** inventory. The absorbed RUB-R-through-W notes leave these maintained contracts:
+
+- `remove_unused_brs_prune_dead_suffix_after_nonfallthrough(...)` intentionally deletes side-effect-free dead block/unreachable shells after branch/table cleanup, while preserving result suffixes required after void structured terminals in result-typed functions;
+- exact `v128.const` payloads are reorder-safe for the same-target value-`br_table` collapse, eliminating the former raw-size residue;
+- fallthrough-producing GC payload splits remain localizer-blocked until payload/ref evaluation and inner branch arity can be reconstructed safely;
+- descriptor `br_on_cast_desc_eq*` remains representation-blocked, pure ten-target no-payload tables may retarget unless they have the mostly-default switch-owned shape, and public stack-form unreachable-input `br_on_cast*` stays fail-closed until lift/raw proof exposes safe child ownership.
+
+RUB-X's branch-hint/pass-option policy remains separately sourced below.
 
 For this audit, WebAssembly 3.0 baseline features are assumed enabled by default. In particular, GC BrOn cleanup is not optional/gated in the coverage matrix unless a local parser/tool blocker is documented.
 
