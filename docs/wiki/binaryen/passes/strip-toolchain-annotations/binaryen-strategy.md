@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/research/0504-2026-05-06-strip-toolchain-annotations-current-main-recheck.md
   - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
@@ -30,10 +31,11 @@ The key source-backed facts from `StripToolchainAnnotations.cpp` are:
 - it does not require non-nullable local fixups;
 - it clears function-level annotations through the same `remove(...)` helper used for expression code annotations;
 - it visits the function's `codeAnnotations` map and erases entries that become empty;
-- `remove(CodeAnnotation&)` clears exactly these reviewed bits today:
+- `remove(CodeAnnotation&)` clears these released v131 toolchain fields:
   - `removableIfUnused`
   - `jsCalled`
   - `idempotent`
+  - `toolchainInline` / `@binaryen.inline`
 
 ## Why a postwalk is enough
 
@@ -49,14 +51,13 @@ Because the pass does not rewrite expressions, there is no need to repair stack 
 
 ## What is preserved
 
-The official lit file proves a critical negative:
+The official lit surface distinguishes two inline metadata families:
 
 ```wat
 (@metadata.code.inline "\00")
 ```
 
-survives the pass, even when neighboring Binaryen-owned annotations are removed.
-That preservation matters because `@metadata.code.inline` is producer metadata used by inlining-related tooling, not one of the toolchain-specific bits this pass strips.
+survives, while v131's Binaryen-owned `@binaryen.inline` toolchain hint is removed. The pass therefore strips the released inliner policy hint without becoming a generic Compilation Hints metadata stripper.
 
 ## Ordering in a pipeline
 

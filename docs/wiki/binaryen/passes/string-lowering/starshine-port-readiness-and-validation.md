@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast
   - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ./index.md
@@ -215,6 +217,6 @@ Use this order:
 ## Main caveats
 
 - The JS string builtins proposal is the ABI context for `wasm:js-string` helper imports. Recheck it before freezing helper ABI tests.
-- Public-type handling is intentionally narrow: `version_129` specially handled singleton-rec-group function types, and current `main` also repairs tags. Broader public-type cases remain unsolved upstream.
+- Public-type handling is intentionally narrow: `version_129` specially handled singleton-rec-group function types, and v131 also repairs tags. Broader public-type cases remain unsolved upstream.
 - If local `string-gathering` lands first, reroute the first mutating slice through that owner instead of duplicating the Binaryen inherited-prefix behavior.
 - This pass should be module/boundary-owned, not HOT-owned: it rewrites imports, globals, custom sections, types, helper functions, and feature metadata.

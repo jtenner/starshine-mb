@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/string-lowering_types.wast
   - ../../../raw/binaryen/2026-07-11-string-lowering-current-main-tag-type-repair-recheck.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
@@ -162,7 +164,7 @@ Why this deserves its own shape:
 
 - a tag payload is part of the module ABI and must agree with every `throw` / `catch` use;
 - repairing only function signatures and then disabling Strings would leave an invalid string-typed tag declaration behind;
-- this is a narrow current-main expansion, **not** evidence that Binaryen solves every public type containing strings.
+- this is a narrow released v131 expansion, **not** evidence that Binaryen solves every public type containing strings.
 
 ## Shape 5: `string.concat` becomes a helper import call
 
