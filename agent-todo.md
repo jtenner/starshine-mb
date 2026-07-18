@@ -40,10 +40,10 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `vacuum` | Direct behavior closed. | **Open scheduler placement:** remove/justify extra early slot and restore final slot. |
 | `reorder-locals` | Closed; three slots scheduled. | None. |
 | `heap2local` | Closed. | None. |
-| `merge-locals` | Active-partial direct pass. | **Open LocalGraph parity and preset proof.** |
+| `merge-locals` | Closed at Binaryen-v131 parity; both orientations, CFG influence, rollback, profiles, timing, and slot-27 scheduling completed on 2026-07-18. | None. |
 | `optimize-casts` | Closed. | None. |
 | `local-subtyping` | Closed. | None. |
-| `coalesce-locals` | Closed for direct and checked O4z neighborhood scope. | None. |
+| `coalesce-locals` | Direct behavior closed. | **Open extended-neighborhood shape parity:** the full slot-27 suffix can renumber locals differently even when `merge-locals` is a byte no-op in both tools. |
 | `simplify-locals` | Closed. | None. |
 | `code-folding` | Active narrow direct pass; not preset-ready. | **Open behavior breadth and scheduling.** |
 | `merge-blocks` | Closed for the current v0.1.0 audit. | None. |
@@ -71,19 +71,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Replace both plain-precompute preset substitutions with the propagating pass after ordered proof.
   - [ ] Reuse the same public implementation for DAE/inlining nested prefixes rather than maintaining a private semantic fork.
 - **Exit criteria:** direct propagating-mode parity, two green top-level neighborhoods, and shared nested-prefix use.
-
-### [O4Z-ML]001 - Complete `merge-locals`
-
-- **Status:** active-partial direct module pass; current implementation is a conservative linear same-typed copy-retargeting subset.
-- **Goal:** implement Binaryen LocalGraph-equivalent orientation/rollback behavior needed by O4z slot 27.
-- **Why:** broader control-flow-spanning copy traffic, graph orientation, rollback, and late-neighborhood proof remain explicitly open in the living dossier.
-- **Deliverables:**
-  - [ ] Build a source-backed matrix for diamonds, loops, branches, EH, multivalue, refs, tees, interrupted copy chains, and name/type repair.
-  - [ ] Implement graph-backed candidate/orientation analysis without unsafe same-type slot aliasing.
-  - [ ] Add a dedicated `merge-locals-all` GenValid profile and modern four-lane closeout.
-  - [ ] Meet the direct pass-local timing target on copy-heavy structured fixtures.
-  - [ ] Prove `heap2local -> merge-locals -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse`.
-- **Exit criteria:** full admitted LocalGraph behavior parity and a green slot-27 neighborhood.
 
 ### [O4Z-CF]001 - Finish and schedule `code-folding`
 
@@ -123,7 +110,8 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [x] Add `flatten -> simplify-locals-notee-nostructure -> local-cse`.
   - [ ] Remove or prove the extra early `vacuum -> remove-unused-brs` pair.
   - [ ] Replace both plain `precompute` substitutions with `precompute-propagate`.
-  - [ ] Add `merge-locals` after `heap2local`.
+  - [x] Add `merge-locals` after `heap2local`; the exact `heap2local -> merge-locals -> optimize-casts` lane is `10000/10000` green.
+  - [ ] Reconcile the downstream local-numbering shape gap in the extended `local-subtyping -> coalesce-locals -> local-cse` suffix; a reduced probe is byte-identical with and without `merge-locals` in each tool, so this does not reopen the pass.
   - [ ] Add `code-folding` before the first late `merge-blocks`.
   - [ ] Add `redundant-set-elimination -> vacuum` after late HSO.
   - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside the Binaryen 56 slots.
@@ -141,7 +129,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Preserve touched-function filtering; do not mutate unrelated functions.
   - [ ] Replace broad large-module/tail-call bypasses only with focused safe guards or repaired owners.
   - [ ] Add exact nested-order tests and pass-specific runtime/artifact evidence.
-- **Dependencies:** `[O4Z-PCP]001`, `[O4Z-ML]001`, `[O4Z-CF]001`, and `[O4Z-PRESET]001`. The SimplifyLocals prelude itself is signed; this slice owns only shared scheduler routing.
+- **Dependencies:** `[O4Z-PCP]001`, `[O4Z-CF]001`, and `[O4Z-PRESET]001`. The SimplifyLocals prelude and `merge-locals` are signed; this slice owns only shared scheduler routing.
 - **Exit criteria:** DAE/inlining/SGO nested traces match the intended roster and stay valid, runtime-green, and within accepted pass-local performance bounds.
 
 ## v0.1.0 O4z Supporting Work
@@ -202,7 +190,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - Keep only still-useful test expansion:
   - `directize`: imported/exported/passive/declarative/multi-table/tail-call negatives and positives;
-  - `merge-locals`: multivalue/ref/control/effect interruption/name cleanup;
   - any newly widened scheduler owner from the primary O4z queue.
 - Closed DIE/once-reduction audit batches do not need duplicate active tasks.
 

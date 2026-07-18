@@ -37,7 +37,7 @@ supersedes:
 It rewrites copy-shaped local traffic (`local.set $x (local.get $y)`) by temporarily exposing a trivial `local.tee`, then retargeting influenced gets to either the source local or the destination local when the `LocalGraph` proof says the move is still single-set and type-safe.
 The pass is DWARF-sensitive: the reviewed source still reports `invalidatesDWARF() == true`.
 
-It now has an active Starshine module-pass implementation for direct `--merge-locals` execution. The landed slice rewrites same-typed copy-shaped local traffic by retargeting later source-local gets to the destination local until either side is written, and wires the O4z pass name through the registry, dispatcher, tests, compare harness, and artifact lane. Broader LocalGraph-equivalent control-flow retargeting remains future work before preset scheduling.
+Starshine now implements the complete Binaryen v131 algorithm as a HOT pass: temporary-tee instrumentation, eager CFG-backed LocalGraph influences, both retargeting orientations, exact type checks, post-graph sibling rollback, and cleanup. A linear immutable-snapshot raw path keeps straight-line copy-heavy workloads near Binaryen speed, while structured control uses the full graph path. The pass is scheduled in O4z immediately after `heap2local`.
 
 So the beginner mental model is **copy-shape local traffic balancing with graph-checked retargeting**, not generic local-slot coalescing and not the stale one-set/local-simple-value story.
 
@@ -91,9 +91,9 @@ It does **not** rewrite function signatures, heap types, globals, imports, expor
 
 ## Starshine status
 
-Current Starshine has an active `src/passes/merge_locals.mbt` owner file and module-pass dispatcher arm. The pass is no longer a removed-name rejection: `src/passes/optimize.mbt` classifies `merge-locals` as a module pass, `src/passes/pass_manager.mbt` dispatches it, `src/passes/merge_locals_test.mbt` covers the public pipeline spelling, same-typed forward retargeting, destination-write invalidation, and control-boundary invalidation, and `scripts/lib/pass-fuzz-compare-task.ts` exposes the direct oracle lane.
+Closed for v0.1.0 against Binaryen v131. `src/passes/merge_locals.mbt` owns the HOT graph implementation and straight-line raw fast path; `src/passes/optimize.mbt` registers the descriptor and schedules `heap2local -> merge-locals -> optimize-casts`; focused tests cover both orientations, structured influence, tee candidates, rollback, and slot order. Seven leaf GenValid profiles plus `merge-locals-all` cover the maintained family matrix.
 
-The exact local boundary matters: the owner scans one expression body at a time, recognizes adjacent `local.get src; local.set dst` copies, records only the forward `src -> dst` alias, invalidates it with destination write epochs, and clears outer aliases around structured control. It has no upstream-style `LocalGraph`, reverse orientation, or post-rewrite rollback. Direct green fuzzing proves this narrower transform family, not full upstream graph parity.
+Final evidence is `100000/100000` regular GenValid, `10000/10000` dedicated, `10000/10000` random-all-profile, and `10000/10000` exact `heap2local -> merge-locals -> optimize-casts` neighborhood normalized matches. The wasm-smith lane has one proven no-pass codec-baseline unreachable-debris difference and 44 Binaryen/tool failures; no merge-locals transform mismatch remains. Copy-heavy whole-command timing is `13.787 ms` Starshine versus `10.819 ms` Binaryen v131 (`1.27x`). Full evidence and classification are in research note `1574`.
 
 Validation evidence from the 2026-05-06 post-fuzzer-change direct revalidation:
 
