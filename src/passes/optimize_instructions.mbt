@@ -32667,10 +32667,16 @@ fn optimize_instructions_try_narrow_null_cast_boundary_block(
     @lib.BlockType::val_type(nullref),
   )
   let target_nullable = match @ir.hot_node_exact_instr(func, branch_id) {
-    Some(@lib.Instruction::BrOnCast(_, @lib.CastOp(_, target_nullable), _, _)) =>
-      target_nullable
     Some(
-      @lib.Instruction::BrOnCastFail(_, @lib.CastOp(_, target_nullable), _, _)
+      @lib.Instruction::BrOnCast(_, @lib.CastOp(_, target_nullable, _, _), _, _)
+    ) => target_nullable
+    Some(
+      @lib.Instruction::BrOnCastFail(
+        _,
+        @lib.CastOp(_, target_nullable, _, _),
+        _,
+        _
+      )
     ) => target_nullable
     _ => return false
   }
@@ -34683,24 +34689,38 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
           Some(
             @lib.Instruction::BrOnCast(
               _,
-              @lib.CastOp(src_null, dst_null),
+              @lib.CastOp(src_null, dst_null, src_exact, dst_exact),
               src_heap,
               dst_heap
             )
-          ) => Some((src_null, dst_null, src_heap, dst_heap))
+          ) =>
+            Some((src_null, dst_null, src_exact, dst_exact, src_heap, dst_heap))
           Some(
             @lib.Instruction::BrOnCastFail(
               _,
-              @lib.CastOp(src_null, dst_null),
+              @lib.CastOp(src_null, dst_null, src_exact, dst_exact),
               src_heap,
               dst_heap
             )
-          ) => Some((src_null, dst_null, src_heap, dst_heap))
+          ) =>
+            Some((src_null, dst_null, src_exact, dst_exact, src_heap, dst_heap))
           _ => None
         }
         match cast_operands {
-          Some((source_nullable, target_nullable, source_heap, target_heap)) =>
-            if !source_nullable || target_nullable || source_heap != target_heap {
+          Some(
+            (
+              source_nullable,
+              target_nullable,
+              source_exact,
+              target_exact,
+              source_heap,
+              target_heap,
+            )
+          ) =>
+            if !source_nullable ||
+              target_nullable ||
+              source_exact != target_exact ||
+              source_heap != target_heap {
               false
             } else {
               let nullable_ref = @ir.hot_child_get(func, root_id, 0)
@@ -34713,6 +34733,7 @@ fn OiStandaloneRefGetDescRootShapeFact::from_root(
                     ) {
                     [@lib.ValType::RefTypeValType(ref_type)] =>
                       ref_type.is_nullable() &&
+                      ref_type.is_exact() == source_exact &&
                       ref_type.get_heap_type() == source_heap
                     _ => false
                   }

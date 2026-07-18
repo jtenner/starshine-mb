@@ -2135,7 +2135,14 @@ fn oc_rewrite_node(
       }
       false
     }
-    Some(@lib.Instruction::BrOnCast(_, @lib.CastOp(_, nullable), _, heap_type)) => {
+    Some(
+      @lib.Instruction::BrOnCast(
+        _,
+        @lib.CastOp(_, nullable, _, exact),
+        _,
+        heap_type
+      )
+    ) => {
       if @ir.hot_child_count(func, node_id) == 0 {
         return false
       }
@@ -2146,7 +2153,7 @@ fn oc_rewrite_node(
       )
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
-          let target_ref = oc_target_ref_type(nullable, false, heap_type)
+          let target_ref = oc_target_ref_type(nullable, exact, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_unconditional_br(ctx, func, node_id)
             return true
@@ -2162,7 +2169,12 @@ fn oc_rewrite_node(
       false
     }
     Some(
-      @lib.Instruction::BrOnCastFail(_, @lib.CastOp(_, nullable), _, heap_type)
+      @lib.Instruction::BrOnCastFail(
+        _,
+        @lib.CastOp(_, nullable, _, exact),
+        _,
+        heap_type
+      )
     ) => {
       if @ir.hot_child_count(func, node_id) != 1 {
         return false
@@ -2170,7 +2182,7 @@ fn oc_rewrite_node(
       let child_id = @ir.hot_child_get(func, node_id, 0)
       match oc_ref_type_from_node(func, child_id) {
         Some(source_ref) => {
-          let target_ref = oc_target_ref_type(nullable, false, heap_type)
+          let target_ref = oc_target_ref_type(nullable, exact, heap_type)
           if oc_ref_always_matches(module_ctx, source_ref, target_ref) {
             oc_replace_with_child(ctx, func, node_id)
             return true

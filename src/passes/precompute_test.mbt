@@ -153,6 +153,58 @@ test "precompute preserves trapping exact operators it does not fold" {
 }
 
 ///|
+test "precompute-propagate folds constant selects while retaining chosen effects" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $state (mut i32) (i32.const 0))
+        #|  (func (result i32)
+        #|    (select
+        #|      (i32.const 1)
+        #|      (block (result i32)
+        #|        (global.set $state (i32.const 7))
+        #|        (i32.const 2))
+        #|      (i32.const 0))))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected effectful select folding, got \{err}")
+  }
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "precompute-propagate folds constant-true branches after loop effects" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result i32)
+        #|    (local $value i32)
+        #|    (loop $again
+        #|      (local.set $value (i32.const 0))
+        #|      (br_if $again (i32.const 1))
+        #|      (local.set $value (i32.const 9)))
+        #|    (i32.const 10)))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected effectful loop branch folding, got \{err}")
+  }
+  assert_true(pretty.contains("br (Label 0)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("I32(10)"), msg=pretty)
+}
+
+///|
 test "precompute removes constant-false self-branch loop debris" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1061,6 +1113,177 @@ test "precompute folds fresh GC allocation identity against null" {
 }
 
 ///|
+test "precompute folds null identity and propagated null tests" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct))
+        #|  (func (result i32)
+        #|    (ref.eq (ref.null $s) (ref.null $s)))
+        #|  (func (result i32)
+        #|    (local $x (ref null $s))
+        #|    (local.set $x (struct.new $s))
+        #|    (ref.is_null (local.get $x)))
+        #|  (func (result i32)
+        #|    (local $x (ref null $s))
+        #|    (local.set $x (ref.null $s))
+        #|    (ref.is_null (local.get $x))))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected propagated reference null folding, got \{err}")
+  }
+  let null_equal = pretty.pretty_print_func(@lib.FuncIdx::new(0U))
+  let allocation_non_null = pretty.pretty_print_func(@lib.FuncIdx::new(1U))
+  let null_local = pretty.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(null_equal.contains("I32(1)"), msg=null_equal)
+  assert_false(null_equal.contains("ref.eq"), msg=null_equal)
+  assert_true(allocation_non_null.contains("I32(0)"), msg=allocation_non_null)
+  assert_false(
+    allocation_non_null.contains("ref.is_null"),
+    msg=allocation_non_null,
+  )
+  assert_true(null_local.contains("I32(1)"), msg=null_local)
+  assert_false(null_local.contains("ref.is_null"), msg=null_local)
+}
+
+///|
+test "precompute-propagate turns nullable null casts and null struct reads into traps" {
+  let struct_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let struct_heap = @lib.HeapType::new(struct_type)
+  let none_heap = @lib.HeapType::abs(@lib.AbsHeapType::none())
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::struct_([
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::f64()),
+                @lib.Mut::var_(),
+              ),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([
+            @lib.ValType::ref_type(@lib.RefType::new(true, struct_heap)),
+          ]),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(none_heap),
+            @lib.Instruction::ref_cast(true, none_heap),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(struct_type, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected null cast and struct trap folding, got \{err}")
+  }
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "precompute-propagate refinalizes exact cast branch block results" {
+  let struct_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let heap_type = @lib.HeapType::new(struct_type)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::ref_type(@lib.RefType::new(false, heap_type)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_type(@lib.RefType::new(false, heap_type)),
+              ),
+              @lib.Expr::new([
+                @lib.Instruction::struct_new_default(struct_type),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  false,
+                  heap_type,
+                  false,
+                  heap_type,
+                  source_exact=true,
+                  target_exact=true,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected exact cast block refinalization, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(body)) = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs[0]
+    None => fail("expected code section")
+  }
+  match body {
+    [@lib.Block(@lib.ValTypeBlockType(@lib.RefTypeValType(result)), _)] =>
+      assert_true(result.is_exact(), msg="result=\{result}")
+    _ => fail("expected one typed block, got \{body}")
+  }
+}
+
+///|
+test "precompute-propagate collapses aggregate construction after unreachable child" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $record (struct (field i32)))
+        #|  (func (result (ref $record))
+        #|    (struct.new $record (unreachable))))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected aggregate trap folding, got \{err}")
+  }
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+}
+
+///|
 test "precompute folds ref tests on fresh exact allocations" {
   let struct_type = @lib.TypeIdx::new(0U)
   let func_type = @lib.TypeIdx::new(1U)
@@ -1312,6 +1535,108 @@ test "precompute-propagate reads immutable fresh aggregates through locals" {
   assert_false(equal.contains("ref.eq"), msg=equal)
   assert_true(unequal.contains("I32(0)"), msg=unequal)
   assert_false(unequal.contains("ref.eq"), msg=unequal)
+}
+
+///|
+test "precompute-propagate folds array lengths through local tee aliases" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let func_type = @lib.TypeIdx::new(1U)
+  let nullable_array = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(array_type)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([nullable_array, nullable_array]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::array_len(),
+          ]),
+        ),
+      ]),
+    )
+  let pretty = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["precompute-propagate"]) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected array tee alias propagation, got \{err}")
+  }
+  assert_true(pretty.contains("I32(3)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("array.len"), msg=pretty)
+}
+
+///|
+test "precompute-propagate substitutes string constants through locals" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (result stringref)
+        #|    (local $value stringref)
+        #|    (local.set $value (string.const "hello"))
+        #|    (local.get $value)))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected string local propagation, got \{err}")
+  }
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("string.const"), msg=pretty)
+}
+
+///|
+test "precompute-propagate folds local tee allocation identity" {
+  let pretty = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $s (struct))
+        #|  (func (result i32)
+        #|    (local $x (ref null $s))
+        #|    (local $result i32)
+        #|    (local.set $result
+        #|      (ref.eq
+        #|        (local.tee $x (struct.new $s))
+        #|        (local.get $x)))
+        #|    (local.get $result)))
+        #|,
+      ),
+      ["precompute-propagate"],
+    ) {
+    Ok(mod_) => mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => fail("expected local tee identity propagation, got \{err}")
+  }
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
 }
 
 ///|

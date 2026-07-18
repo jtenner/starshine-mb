@@ -49678,7 +49678,7 @@ test "optimize-instructions lowers escaping br_on_cast block ref.get_desc child 
       match body[2] {
         @lib.BrOnCast(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -49837,7 +49837,7 @@ test "optimize-instructions lowers escaping br_on_cast effectful input ref.get_d
       match body[4] {
         @lib.BrOnCast(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -49990,7 +49990,7 @@ test "optimize-instructions lowers escaping br_on_cast effectful fallthrough ref
       match body[2] {
         @lib.BrOnCast(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -50166,7 +50166,7 @@ test "optimize-instructions lowers escaping br_on_cast effectful input and fallt
       match body[4] {
         @lib.BrOnCast(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -50308,7 +50308,7 @@ test "optimize-instructions lowers escaping br_on_cast_fail block ref.get_desc c
       match body[2] {
         @lib.BrOnCastFail(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -50477,7 +50477,7 @@ test "optimize-instructions lowers escaping br_on_cast_fail effectful input ref.
       match body[4] {
         @lib.BrOnCastFail(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -50631,7 +50631,7 @@ test "optimize-instructions lowers escaping br_on_cast_fail effectful success re
       match body[2] {
         @lib.BrOnCastFail(
           @lib.LabelIdx(0U),
-          @lib.CastOp(true, false),
+          @lib.CastOp(true, false, false, false),
           source_heap,
           target_heap
         ) => {
@@ -50812,7 +50812,7 @@ test "optimize-instructions moves br_on_cast_fail combined effect ref.get_desc n
               ),
               @lib.BrOnCastFail(
                 @lib.LabelIdx(1U),
-                @lib.CastOp(true, false),
+                @lib.CastOp(true, false, false, false),
                 source_heap,
                 target_heap
               ),

@@ -15578,10 +15578,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       }
       @lib.BrOnCast(
         label_idx,
-        @lib.CastOp(source_nullable, target_nullable),
+        @lib.CastOp(
+          source_nullable,
+          target_nullable,
+          source_exact,
+          target_exact
+        ),
         source_heap,
         target_heap
       ) => {
+        if source_exact || target_exact {
+          return None
+        }
         let label_target = match
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
           Some(label_target) => label_target
@@ -15614,10 +15622,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       }
       @lib.BrOnCastFail(
         label_idx,
-        @lib.CastOp(source_nullable, target_nullable),
+        @lib.CastOp(
+          source_nullable,
+          target_nullable,
+          source_exact,
+          target_exact
+        ),
         source_heap,
         target_heap
       ) => {
+        if source_exact || target_exact {
+          return None
+        }
         let label_target = match
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
           Some(label_target) => label_target
@@ -34889,6 +34905,26 @@ fn run_hot_pipeline_raw_precompute(
         })
       None => ()
     }
+    let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+    match
+      precompute_propagate_run_raw_unreachable_suffix(
+        original,
+        params,
+        Some(module_ctx),
+      ) {
+      Some((rewritten, changed)) =>
+        return Some({
+          reason: if changed {
+            "raw-unreachable-suffix-precompute-propagate"
+          } else {
+            "unreachable-suffix-precompute-propagate-noop"
+          },
+          func: rewritten,
+          unchanged_original: !changed,
+          trace_skip_raw: true,
+        })
+      None => ()
+    }
   }
   if propagating &&
     stats.instrs > 50 &&
@@ -35267,7 +35303,7 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
       )
     @lib.BrOnCast(
       label,
-      @lib.CastOp(source_nullable, target_nullable),
+      @lib.CastOp(source_nullable, target_nullable, source_exact, target_exact),
       source_heap,
       target_heap
     ) =>
@@ -35277,10 +35313,12 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
         source_heap,
         target_nullable,
         target_heap,
+        source_exact~,
+        target_exact~,
       )
     @lib.BrOnCastFail(
       label,
-      @lib.CastOp(source_nullable, target_nullable),
+      @lib.CastOp(source_nullable, target_nullable, source_exact, target_exact),
       source_heap,
       target_heap
     ) =>
@@ -35290,6 +35328,8 @@ fn run_hot_pipeline_raw_vacuum_rebase_outer_instr(
         source_heap,
         target_nullable,
         target_heap,
+        source_exact~,
+        target_exact~,
       )
     @lib.BrTable(labels, fallback) => {
       let rebased : Array[@lib.LabelIdx] = []
@@ -55975,7 +56015,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 ),
                 @lib.BrOnCast(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56018,7 +56063,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested_result)
               rewritten.push(
                 @lib.Instruction::br_on_cast(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())
@@ -56042,7 +56093,7 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                   _,
                   @lib.Expr([tested_value, tested_effect, tested_result])
                 ),
-                @lib.BrOnCastFail(_, @lib.CastOp(_, _), _, _),
+                @lib.BrOnCastFail(_, @lib.CastOp(_, _, _, _), _, _),
                 @lib.Drop,
                 @lib.Block(
                   _,
@@ -56089,7 +56140,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 ),
                 @lib.BrOnCast(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56121,7 +56177,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested_result)
               rewritten.push(
                 @lib.Instruction::br_on_cast(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())
@@ -56145,7 +56207,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 ),
                 @lib.BrOnCastFail(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56177,7 +56244,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested_result)
               rewritten.push(
                 @lib.Instruction::br_on_cast_fail(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())
@@ -56198,7 +56271,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 tested,
                 @lib.BrOnCast(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56234,7 +56312,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested)
               rewritten.push(
                 @lib.Instruction::br_on_cast(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())
@@ -56257,7 +56341,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 tested,
                 @lib.BrOnCastFail(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56293,7 +56382,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested)
               rewritten.push(
                 @lib.Instruction::br_on_cast_fail(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())
@@ -56316,7 +56411,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 tested,
                 @lib.BrOnCast(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56341,7 +56441,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested)
               rewritten.push(
                 @lib.Instruction::br_on_cast(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())
@@ -56362,7 +56468,12 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
                 tested,
                 @lib.BrOnCastFail(
                   label_idx,
-                  @lib.CastOp(source_nullable, target_nullable),
+                  @lib.CastOp(
+                    source_nullable,
+                    target_nullable,
+                    source_exact,
+                    target_exact
+                  ),
                   source_heap,
                   target_heap
                 ),
@@ -56387,7 +56498,13 @@ fn RawOiEscapingRefGetDescFlattenFact::from_candidate(
               rewritten.push(tested)
               rewritten.push(
                 @lib.Instruction::br_on_cast_fail(
-                  retargeted, source_nullable, source_heap, target_nullable, target_heap,
+                  retargeted,
+                  source_nullable,
+                  source_heap,
+                  target_nullable,
+                  target_heap,
+                  source_exact~,
+                  target_exact~,
                 ),
               )
               rewritten.push(@lib.Instruction::drop())

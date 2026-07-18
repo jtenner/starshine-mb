@@ -1638,7 +1638,7 @@ pub impl Show for Instruction with fn output(self, logger) {
       HeapTypeRefType(n, exact, ht).output(logger)
       logger.write_char(')')
     }
-    BrOnCast(i, CastOp(l, r), lht, rht) => {
+    BrOnCast(i, CastOp(l, r, _, _), lht, rht) => {
       logger.write_string("(br_on_cast ")
       Show::output(i, logger)
       logger.write_char(' ')
@@ -1647,7 +1647,7 @@ pub impl Show for Instruction with fn output(self, logger) {
       HeapTypeRefType(r, false, rht).output(logger)
       logger.write_char(')')
     }
-    BrOnCastFail(i, CastOp(l, r), lht, rht) => {
+    BrOnCastFail(i, CastOp(l, r, _, _), lht, rht) => {
       logger.write_string("(br_on_cast_fail ")
       Show::output(i, logger)
       logger.write_char(' ')

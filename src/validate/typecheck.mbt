@@ -1208,9 +1208,9 @@ fn typecheck_br_on_cast(
   ht1 : HeapType,
   ht2 : HeapType,
 ) -> TcResult {
-  let CastOp(n1, n2) = op
-  let rt1 = RefType::new(n1, ht1)
-  let rt2 = RefType::new(n2, ht2)
+  let CastOp(n1, n2, exact1, exact2) = op
+  let rt1 = RefType::new(n1, ht1, exact=exact1)
+  let rt2 = RefType::new(n2, ht2, exact=exact2)
   if Validate::validate(rt1, st.env) is Err(t) {
     return Err("Invalid BrOnCast: " + t)
   }
@@ -1315,9 +1315,9 @@ fn typecheck_br_on_cast_fail(
   ht1 : HeapType,
   ht2 : HeapType,
 ) -> TcResult {
-  let CastOp(n1, n2) = op
-  let rt1 = RefType::new(n1, ht1)
-  let rt2 = RefType::new(n2, ht2)
+  let CastOp(n1, n2, exact1, exact2) = op
+  let rt1 = RefType::new(n1, ht1, exact=exact1)
+  let rt2 = RefType::new(n2, ht2, exact=exact2)
   if Validate::validate(rt1, st.env) is Err(t) {
     return Err("Invalid RefType on BrOnCastFail: " + t)
   }

@@ -1584,10 +1584,10 @@ pub impl Encode for StringRefsSec with fn encode(val, buf) {
 ///|
 pub impl Encode for CastOp with fn encode(val, buf) {
   match val {
-    CastOp(false, false) => buf.write_byte(0x00)
-    CastOp(true, false) => buf.write_byte(0x01)
-    CastOp(false, true) => buf.write_byte(0x02)
-    CastOp(true, true) => buf.write_byte(0x03)
+    CastOp(false, false, _, _) => buf.write_byte(0x00)
+    CastOp(true, false, _, _) => buf.write_byte(0x01)
+    CastOp(false, true, _, _) => buf.write_byte(0x02)
+    CastOp(true, true, _, _) => buf.write_byte(0x03)
   }
   Ok(())
 }
@@ -3240,10 +3240,10 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht0, buf) is Err(t) {
+      if encode_ref_heap_type(castop.source_exact(), ht0, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht1, buf) is Err(t) {
+      if encode_ref_heap_type(castop.target_exact(), ht1, buf) is Err(t) {
         return Err(t)
       }
     }
@@ -3258,10 +3258,10 @@ pub impl Encode for Instruction with fn encode(val, buf) {
       if Encode::encode(l, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht0, buf) is Err(t) {
+      if encode_ref_heap_type(castop.source_exact(), ht0, buf) is Err(t) {
         return Err(t)
       }
-      if Encode::encode(ht1, buf) is Err(t) {
+      if encode_ref_heap_type(castop.target_exact(), ht1, buf) is Err(t) {
         return Err(t)
       }
     }

@@ -1289,20 +1289,28 @@ pub impl @quickcheck.Arbitrary for Instruction with fn arbitrary(t, state) {
         false,
         @quickcheck.Arbitrary::arbitrary(t, state),
       )
-    213 =>
+    213 => {
+      let CastOp(source_nullable, target_nullable, _, _) : CastOp = @quickcheck.Arbitrary::arbitrary(
+        t, state,
+      )
       BrOnCast(
         @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
+        CastOp(source_nullable, target_nullable, false, false),
         @quickcheck.Arbitrary::arbitrary(t, state),
         @quickcheck.Arbitrary::arbitrary(t, state),
       )
-    214 =>
+    }
+    214 => {
+      let CastOp(source_nullable, target_nullable, _, _) : CastOp = @quickcheck.Arbitrary::arbitrary(
+        t, state,
+      )
       BrOnCastFail(
         @quickcheck.Arbitrary::arbitrary(t, state),
-        @quickcheck.Arbitrary::arbitrary(t, state),
+        CastOp(source_nullable, target_nullable, false, false),
         @quickcheck.Arbitrary::arbitrary(t, state),
         @quickcheck.Arbitrary::arbitrary(t, state),
       )
+    }
     215 => AnyConvertExtern
     216 => ExternConvertAny
     217 => RefI31

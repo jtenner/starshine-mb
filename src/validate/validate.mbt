@@ -6827,13 +6827,13 @@ fn validate_test_basic_ref_forms_instr(
         ref_cast_nullable: nullable,
         ref_cast_nonnullable: !nullable,
       }
-    BrOnCast(_, CastOp(_, target_nullable), _, _) =>
+    BrOnCast(_, CastOp(_, target_nullable, _, _), _, _) =>
       {
         ..validate_test_basic_ref_forms_empty(),
         br_on_cast_nullable_target: target_nullable,
         br_on_cast_nonnullable_target: !target_nullable,
       }
-    BrOnCastFail(_, CastOp(_, target_nullable), _, _) =>
+    BrOnCastFail(_, CastOp(_, target_nullable, _, _), _, _) =>
       {
         ..validate_test_basic_ref_forms_empty(),
         br_on_cast_fail_nullable_target: target_nullable,

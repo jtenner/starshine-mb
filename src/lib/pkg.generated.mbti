@@ -670,9 +670,11 @@ pub fn BlockType::void_() -> Self
 pub impl PrettyPrint for BlockType
 pub impl Show for BlockType
 
-pub struct CastOp(Bool, Bool) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-pub fn CastOp::new(Bool, Bool) -> Self
+pub struct CastOp(Bool, Bool, Bool, Bool) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
+pub fn CastOp::new(Bool, Bool, source_exact? : Bool, target_exact? : Bool) -> Self
+pub fn CastOp::source_exact(Self) -> Bool
 pub fn CastOp::source_nullable(Self) -> Bool
+pub fn CastOp::target_exact(Self) -> Bool
 pub fn CastOp::target_nullable(Self) -> Bool
 pub impl PrettyPrint for CastOp
 pub impl Show for CastOp
@@ -1577,10 +1579,10 @@ pub fn Instruction::atomic_rmw(AtomicRmwOp, MemArg) -> Self
 pub fn Instruction::block(BlockType, Expr) -> Self
 pub fn Instruction::br(LabelIdx) -> Self
 pub fn Instruction::br_if(LabelIdx) -> Self
-pub fn Instruction::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType) -> Self
+pub fn Instruction::br_on_cast(LabelIdx, Bool, HeapType, Bool, HeapType, source_exact? : Bool, target_exact? : Bool) -> Self
 pub fn Instruction::br_on_cast_desc_eq(LabelIdx, RefType, RefType) -> Self
 pub fn Instruction::br_on_cast_desc_eq_fail(LabelIdx, RefType, RefType) -> Self
-pub fn Instruction::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType) -> Self
+pub fn Instruction::br_on_cast_fail(LabelIdx, Bool, HeapType, Bool, HeapType, source_exact? : Bool, target_exact? : Bool) -> Self
 pub fn Instruction::br_on_non_null(LabelIdx) -> Self
 pub fn Instruction::br_on_null(LabelIdx) -> Self
 pub fn Instruction::br_table(Array[LabelIdx], LabelIdx) -> Self

@@ -3351,15 +3351,26 @@ fn decode_instruction_with_depth(
             bytes, i,
           )
           match castop {
-            Ok((c, i)) =>
+            Ok((CastOp(source_nullable, target_nullable, _, _), i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) =>
-                  match Decode::decode(bytes, i) {
-                    Ok((ht1, i)) =>
-                      match Decode::decode(bytes, i) {
-                        Ok((ht2, i)) =>
+                Ok((label, i)) =>
+                  match decode_ref_heap_type(bytes, i) {
+                    Ok((source_exact, source_heap, i)) =>
+                      match decode_ref_heap_type(bytes, i) {
+                        Ok((target_exact, target_heap, i)) =>
                           Ok(
-                            (Instruction::br_on_cast(l, c.0, ht1, c.1, ht2), i),
+                            (
+                              Instruction::br_on_cast(
+                                label,
+                                source_nullable,
+                                source_heap,
+                                target_nullable,
+                                target_heap,
+                                source_exact~,
+                                target_exact~,
+                              ),
+                              i,
+                            ),
                           )
                         Err(t) => Err(t)
                       }
@@ -3375,21 +3386,23 @@ fn decode_instruction_with_depth(
             bytes, i,
           )
           match castop {
-            Ok((c, i)) =>
+            Ok((CastOp(source_nullable, target_nullable, _, _), i)) =>
               match Decode::decode(bytes, i) {
-                Ok((l, i)) =>
-                  match Decode::decode(bytes, i) {
-                    Ok((ht1, i)) =>
-                      match Decode::decode(bytes, i) {
-                        Ok((ht2, i)) =>
+                Ok((label, i)) =>
+                  match decode_ref_heap_type(bytes, i) {
+                    Ok((source_exact, source_heap, i)) =>
+                      match decode_ref_heap_type(bytes, i) {
+                        Ok((target_exact, target_heap, i)) =>
                           Ok(
                             (
                               Instruction::br_on_cast_fail(
-                                l,
-                                c.0,
-                                ht1,
-                                c.1,
-                                ht2,
+                                label,
+                                source_nullable,
+                                source_heap,
+                                target_nullable,
+                                target_heap,
+                                source_exact~,
+                                target_exact~,
                               ),
                               i,
                             ),
@@ -3408,7 +3421,7 @@ fn decode_instruction_with_depth(
             bytes, i,
           )
           match castop {
-            Ok((CastOp(source_nullable, target_nullable), i)) =>
+            Ok((CastOp(source_nullable, target_nullable, _, _), i)) =>
               match Decode::decode(bytes, i) {
                 Ok((label, i)) =>
                   match decode_ref_heap_type(bytes, i) {

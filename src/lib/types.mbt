@@ -558,7 +558,7 @@ pub struct DataSec(Array[Data]) derive(Eq, Hash, Debug)
 ///|
 /// `CastOp` stores `(source_nullable, target_nullable)` for `br_on_cast`
 /// and `br_on_cast_fail`. It does not encode descriptor-cast exactness.
-pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Hash, Debug)
+pub struct CastOp(Bool, Bool, Bool, Bool) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
 pub impl Show for CastOp with fn output(self, logger) {
@@ -566,6 +566,10 @@ pub impl Show for CastOp with fn output(self, logger) {
   self.0.output(logger)
   logger.write_string(", ")
   self.1.output(logger)
+  logger.write_string(", ")
+  self.2.output(logger)
+  logger.write_string(", ")
+  self.3.output(logger)
   logger.write_char(')')
 }
 
@@ -4459,8 +4463,15 @@ pub fn Instruction::br_on_cast(
   ht0 : HeapType,
   target_nullable : Bool,
   ht1 : HeapType,
+  source_exact? : Bool = false,
+  target_exact? : Bool = false,
 ) -> Instruction {
-  BrOnCast(li, CastOp(source_nullable, target_nullable), ht0, ht1)
+  BrOnCast(
+    li,
+    CastOp(source_nullable, target_nullable, source_exact, target_exact),
+    ht0,
+    ht1,
+  )
 }
 
 ///|
@@ -4470,8 +4481,15 @@ pub fn Instruction::br_on_cast_fail(
   ht0 : HeapType,
   target_nullable : Bool,
   ht1 : HeapType,
+  source_exact? : Bool = false,
+  target_exact? : Bool = false,
 ) -> Instruction {
-  BrOnCastFail(li, CastOp(source_nullable, target_nullable), ht0, ht1)
+  BrOnCastFail(
+    li,
+    CastOp(source_nullable, target_nullable, source_exact, target_exact),
+    ht0,
+    ht1,
+  )
 }
 
 ///|
@@ -8314,8 +8332,13 @@ pub fn HeapType::bottom() -> HeapType {
 }
 
 ///|
-pub fn CastOp::new(source_nullable : Bool, target_nullable : Bool) -> CastOp {
-  CastOp(source_nullable, target_nullable)
+pub fn CastOp::new(
+  source_nullable : Bool,
+  target_nullable : Bool,
+  source_exact? : Bool = false,
+  target_exact? : Bool = false,
+) -> CastOp {
+  CastOp(source_nullable, target_nullable, source_exact, target_exact)
 }
 
 ///|
@@ -8326,6 +8349,16 @@ pub fn CastOp::source_nullable(self : CastOp) -> Bool {
 ///|
 pub fn CastOp::target_nullable(self : CastOp) -> Bool {
   self.1
+}
+
+///|
+pub fn CastOp::source_exact(self : CastOp) -> Bool {
+  self.2
+}
+
+///|
+pub fn CastOp::target_exact(self : CastOp) -> Bool {
+  self.3
 }
 
 ///|

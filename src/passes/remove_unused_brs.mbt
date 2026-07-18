@@ -958,10 +958,22 @@ fn remove_unused_brs_try_rewrite_gc_br_on_root(
       }
     @ir.HotOp::BrOnCast | @ir.HotOp::BrOnCastFail => {
       let target_ref = match @ir.hot_node_exact_instr(func, br_id) {
-        Some(@lib.BrOnCast(_, @lib.CastOp(_, target_nullable), _, target_heap))
+        Some(
+          @lib.BrOnCast(
+            _,
+            @lib.CastOp(_, target_nullable, _, target_exact),
+            _,
+            target_heap
+          )
+        )
         | Some(
-          @lib.BrOnCastFail(_, @lib.CastOp(_, target_nullable), _, target_heap)
-        ) => @lib.RefType::new(target_nullable, target_heap)
+          @lib.BrOnCastFail(
+            _,
+            @lib.CastOp(_, target_nullable, _, target_exact),
+            _,
+            target_heap
+          )
+        ) => @lib.RefType::new(target_nullable, target_heap, exact=target_exact)
         _ => return false
       }
       if remove_unused_brs_ref_matches(ref_type, target_ref) {

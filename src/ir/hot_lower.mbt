@@ -364,18 +364,35 @@ fn hot_lower_impl_lower_br_on_cast(
     node.imm0,
   )
   match hot_lower_impl_exact_instr(func, id) {
-    Instruction::BrOnCast(_, CastOp(src_nullable, dst_nullable), src_ht, dst_ht) =>
+    Instruction::BrOnCast(
+      _,
+      CastOp(src_nullable, dst_nullable, src_exact, dst_exact),
+      src_ht,
+      dst_ht
+    ) =>
       Instruction::br_on_cast(
-        label_idx, src_nullable, src_ht, dst_nullable, dst_ht,
+        label_idx,
+        src_nullable,
+        src_ht,
+        dst_nullable,
+        dst_ht,
+        source_exact=src_exact,
+        target_exact=dst_exact,
       )
     Instruction::BrOnCastFail(
       _,
-      CastOp(src_nullable, dst_nullable),
+      CastOp(src_nullable, dst_nullable, src_exact, dst_exact),
       src_ht,
       dst_ht
     ) =>
       Instruction::br_on_cast_fail(
-        label_idx, src_nullable, src_ht, dst_nullable, dst_ht,
+        label_idx,
+        src_nullable,
+        src_ht,
+        dst_nullable,
+        dst_ht,
+        source_exact=src_exact,
+        target_exact=dst_exact,
       )
     Instruction::BrOnCastDescEq(_, source, target) =>
       Instruction::br_on_cast_desc_eq(label_idx, source, target)

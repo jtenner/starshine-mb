@@ -3150,6 +3150,27 @@ test "shared function heap and definition types roundtrip" {
 }
 
 ///|
+test "exact regular branch cast instruction roundtrip" {
+  let cases = [
+    b"\xfb\x18\x00\x00\x62\x00\x62\x00", b"\xfb\x19\x00\x00\x62\x00\x62\x00",
+  ]
+  for bytes in cases {
+    let (decoded, next) = match
+      (Decode::decode(bytes, 0) : Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok(v) => v
+      Err(err) => fail("expected exact regular branch cast decode, got \{err}")
+    }
+    @debug.assert_eq(next, bytes.length())
+    let buf = @buffer.new()
+    match Encode::encode(decoded, buf) {
+      Ok(_) => ()
+      Err(err) => fail("expected exact regular branch cast encode, got \{err}")
+    }
+    @debug.assert_eq(buf.to_bytes(), bytes)
+  }
+}
+
+///|
 test "descriptor branch cast instruction roundtrip" {
   let source = RefType::new(false, HeapType::new(TypeIdx::new(0U)))
   let target = RefType::new(false, HeapType::new(TypeIdx::new(0U)), exact=true)
