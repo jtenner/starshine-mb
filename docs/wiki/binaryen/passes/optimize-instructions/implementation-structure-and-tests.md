@@ -1,8 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-19
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OptimizeInstructions.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions_idempotent.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions-gc.wast
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
 related:
@@ -191,7 +195,7 @@ The better mental model is:
 
 That structure matches the real breadth of the pass.
 
-## Version_130 O4z source/lit matrix
+## Version_130 O4z source/lit matrix and v131 renewal
 
 `[O4Z-AUDIT-OI-A]` is complete as of 2026-06-19. The new matrix in [`../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md):
 
@@ -200,7 +204,7 @@ That structure matches the real breadth of the pass.
 - maps each upstream visitor/helper family to current Starshine coverage, an explicit local boundary, or an `[O4Z-AUDIT-OI-*]` implementation owner;
 - records that current Starshine remains a useful HOT subset, not full upstream OI parity.
 
-The older 2026-05-05 current-main note is still useful historical provenance, but new release-gating OI work should start from the 2026-06-19 `version_130` matrix.
+The v130 matrix remains the implementation inventory, but new release-gating work must layer the v131 delta over it. The affected fixtures include GC, traps-never-happen, ignore-traps, MVP/select, idempotent, and global-effects-idempotent surfaces. In particular, equal expressions are no longer reduced through one flat effect test: v131 distinguishes foldable from merely equal inputs, uses directional `orderedBefore(...)` checks, preserves one or both evaluations as required, and bails out when a scratch-local select rewrite would need a non-concrete type.
 
 ## Porting takeaway
 

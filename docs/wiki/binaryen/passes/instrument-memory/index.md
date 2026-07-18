@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/InstrumentMemory.cpp
   - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
@@ -67,7 +68,7 @@ So this pass is best taught as:
 ## Most important durable takeaways
 
 - The whole reviewed `version_129` contract lives in one small owner file, `InstrumentMemory.cpp`, plus public registration in `pass.cpp`.
-- The official Binaryen `version_129` release page reviewed on 2026-04-24 remains historical provenance; the current public release baseline is `version_130`.
+- The official Binaryen `version_129` release page reviewed on 2026-04-24 remains historical provenance; the repo-wide public release baseline is `version_131`, while this dossier's latest focused owner/fixture evidence remains the 2026-07-11 v130/current-main reread.
 - A 2026-07-11 focused `version_130` / current-`main` owner, registration, and fixture recheck found no behavior-bearing drift. It supersedes the older 2026-04-26 freshness claim while preserving that capture's first-slice port-readiness analysis.
 - The pass is a `PostWalker`, so it rewrites children first and then wraps the current operation.
 - It covers ordinary scalar `load` / `store`, `memory.grow`, and selected GC `struct` / `array` access families.

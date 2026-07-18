@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
@@ -643,10 +644,14 @@ related:
 
 # `optimize-instructions`
 
+## Binaryen v131 status
+
+The 2026-07-12 Starshine closeout remains the v130 baseline, but direct parity is **reopened** for Binaryen v131. Upstream changed equal-input `ref.eq`, identical-arm `select`, idempotent-call/deep-effect equality, directional movement checks, and non-concrete select-arm bailout behavior. `[V131-OI]001` in `agent-todo.md` owns red-first focused fixtures and a fresh explicit-v131 four-lane plus O4z closeout.
+
 ## Role
 
 - `optimize-instructions` is an active implemented **hot pass** in Starshine.
-- In upstream Binaryen `version_129`, `optimize-instructions` is a function-parallel post-walk peephole and canonicalization pass.
+- In upstream Binaryen `version_131`, `optimize-instructions` is a function-parallel post-walk peephole and canonicalization pass.
 - The public summary in `pass.cpp` is only `optimizes instruction combinations`.
 
 That summary is true, but it is far too small.
@@ -741,16 +746,14 @@ What it actually is in `version_129`:
 
 Current durable answer:
 
-- the detailed prose still mostly teaches from the reviewed `version_129` dossier because that is where the original deep read was filed
-- the release-gating O4z audit now uses the 2026-06-19 `version_130` source/lit matrix as the current local-oracle owner map for implementation slices
-- the `version_130` matrix re-anchors `OptimizeInstructions.cpp`, registration, helper headers, and the dedicated `optimize-instructions*` lit roster, and it did not find a reason to collapse the existing OI backlog: Starshine remains an active HOT subset, not full upstream parity
-- future implementation slices should cite the 2026-06-19 matrix for ownership and the older `version_129` pages for explanatory strategy until those pages are fully rewritten around `version_130`
-
-That is a `version_130` release-oracle matrix, not a live current-`main` drift audit beyond the release tag.
+- the detailed prose still mostly teaches from the reviewed `version_129` dossier because that is where the original deep read was filed;
+- the 2026-06-19 `version_130` source/lit matrix remains the broad owner/family inventory and the 2026-07-12 closeout remains the historical local evidence baseline;
+- Binaryen `version_131` is now the release oracle and changes equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, directional movement checks, and non-concrete select bailout behavior;
+- `[V131-OI]001` must layer focused v131 fixtures and renewed direct/O4z evidence over the existing matrix rather than treating the v130 closeout as current.
 
 ## Current O4z audit inventory
 
-The older 2026-06-19 behavior inventory and `version_130` source matrix were the kickoff for the OI audit; they are now historical provenance rather than the live status bar. The current closeout is the 2026-07-12 final matrix in [`./fuzzing.md`](./fuzzing.md), which marks `[OI-INDEX]005` complete: regular GenValid is green at `100000/100000`, explicit wasm-smith leaves only three classified Starshine-win dead-value cleanups plus `44` Binaryen/tool failures, `pass-oi-all` leaves only the already-classified OI-M SB005 tuple-wrapper Starshine wins, and `random-all-profiles` leaves only classified `ssa-nomerge-smoke` Starshine cleanup wins. In other words, the reviewed Binaryen `version_130` OI contract is closed for true semantic mismatches; reopen only on the explicit criteria recorded in `fuzzing.md` and `starshine-strategy.md`.
+The older 2026-06-19 behavior inventory and `version_130` source matrix were the kickoff for the OI audit. The 2026-07-12 final matrix in [`./fuzzing.md`](./fuzzing.md) marks the v130 `[OI-INDEX]005` scope complete: regular GenValid is green at `100000/100000`, explicit wasm-smith leaves only three classified Starshine-win dead-value cleanups plus `44` Binaryen/tool failures, `pass-oi-all` leaves only the already-classified OI-M SB005 tuple-wrapper Starshine wins, and `random-all-profiles` leaves only classified `ssa-nomerge-smoke` Starshine cleanup wins. In other words, the reviewed Binaryen `version_130` OI contract was closed for true semantic mismatches. V131 has now met the release-drift reopen criterion, and `[V131-OI]001` is the active status bar.
 
 ## Current maintenance rule
 

@@ -1,8 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-19
+last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1573-2026-07-18-binaryen-version-131-release-impact-audit.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OptimizeInstructions.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions_idempotent.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/optimize-instructions-global-effects-idempotent.wast
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
@@ -21,9 +25,7 @@ related:
 
 ## Upstream source rule
 
-This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the pass model. For release-gating O4z implementation work, use the direct Binaryen `version_130` owner and lit sources cited below as the current source/lit map.
-
-A 2026-05-05 current-main spot check on `OptimizeInstructions.cpp`, `pass.cpp`, `opt-utils.h`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests did not surface teaching-relevant drift on the reviewed surfaces. The later `version_130` O4z matrix preserves the same broad contract shape and routes remaining Starshine gaps to `[O4Z-AUDIT-OI-B]` through `[O4Z-AUDIT-OI-N]`.
+This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the broad pass model. For release-gating work, use Binaryen `version_131`. The v130 O4z matrix remains the historical Starshine closeout baseline, but v131 changes equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, and directional trap/effect movement checks; `[V131-OI]001` owns renewal.
 
 Primary files:
 
