@@ -18,6 +18,8 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 ### Always-Follow Workflow Rules
 
 - Use TDD: write or update tests first, confirm failure, then implement.
+- Keep default `moon test` behavior-focused and bounded: long randomized fuzz loops, aggregate seed sweeps, artifact-scale scheduler probes, and synthetic threshold stress belong in dedicated fuzz/perf lanes and should be `#skip` in the default suite.
+- Prefer direct IR, field, opcode, and encoded-byte fixture assertions over whole-module rendered-string comparisons. Use full string snapshots only when text formatting or parsing is the behavior under test.
 - Start from `docs/` for major architecture, ABI, release, planning, or wiki-schema work. Read `docs/README.md` first for knowledge-base ingest, query, lint, or schema work.
 - Update relevant docs for behavior or API changes; keep docs concise.
 - Update pass tests in the implementing file and active dispatcher. Today that is usually `src/cmd/cmd.mbt`; later also `src/passes/optimize.mbt`.

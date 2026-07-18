@@ -1646,6 +1646,7 @@ test "validate-valid-metamorphic suite is active and reports transform details" 
 }
 
 ///|
+#skip("manual multi-suite fuzz smoke; formatter behavior uses synthetic unit fixtures")
 test "format_fuzz_run_report_json includes detailed suite ledgers" {
   let valid_results = match
     run_fuzz_suite_sweep("validate-valid", "smoke", 3L, 1, 0, 1) {
@@ -2030,6 +2031,7 @@ test "parse_fuzz_cli_command accepts recipe listing command" {
 }
 
 ///|
+#skip("manual golden-seed fuzz smoke; run through the dedicated fuzz lane")
 test "golden seed smoke runner asserts stable high-level counters" {
   let report = match run_fuzz_golden_seed_smoke() {
     Ok(v) => v

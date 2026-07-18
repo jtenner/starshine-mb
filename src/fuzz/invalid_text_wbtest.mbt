@@ -1604,6 +1604,7 @@ test "run_validate_invalid_spec_seed_fuzz returns deterministic fixed-seed seed 
 }
 
 ///|
+#skip("manual CI-scale spec-seed fuzz smoke; run through the dedicated fuzz lane")
 test "ci spec-seed fuzz samples dynamic scanned assertions by kind and family" {
   let stats = match run_validate_invalid_spec_seed_fuzz("ci", 0x5eedUL) {
     Ok(v) => v

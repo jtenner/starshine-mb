@@ -26702,6 +26702,7 @@ test "ssa-nomerge rewrites very large structured local-write functions without b
 }
 
 ///|
+#skip("manual high-threshold SSA smoke; boundary policy is covered by smaller behavior fixtures")
 test "ssa-nomerge keeps audited high-threshold structured local-write functions without branches on raw path" {
   let trace : Array[String] = []
   let optimized = match
@@ -26740,6 +26741,7 @@ test "ssa-nomerge keeps audited high-threshold structured local-write functions 
 }
 
 ///|
+#skip("manual above-threshold SSA smoke; boundary policy is covered by smaller behavior fixtures")
 test "ssa-nomerge rewrites larger no-branch structured functions without binaryen size limit" {
   let trace : Array[String] = []
   let optimized = match

@@ -20767,6 +20767,7 @@ test "validate_invalid_ast_registry records default variants and exact issue kin
 }
 
 ///|
+#skip("manual invalid-AST fuzz accounting smoke; run through the dedicated fuzz lane")
 test "validate_invalid_ast_fuzz stats record variant attempts and exact issue matches" {
   let stats = match run_validate_invalid_ast_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -20811,6 +20812,7 @@ test "validate_invalid_ast_registry covers every validation issue family" {
 }
 
 ///|
+#skip("manual invalid-AST fuzz smoke; run through the dedicated fuzz lane")
 test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_ast_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v

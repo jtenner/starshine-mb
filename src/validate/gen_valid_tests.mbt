@@ -1621,6 +1621,9 @@ test "coverage-forced prelude varies memory and table template order by seed" {
     }
     assert_true(generated.facts.has_mems)
     assert_true(generated.facts.has_tables)
+    if saw_memory_before_table && saw_table_before_memory {
+      break
+    }
   }
   assert_true(
     saw_memory_before_table,
@@ -1661,6 +1664,9 @@ test "coverage-forced prelude varies SIMD template phase order by seed" {
       saw_simd2_before_simd1 = true
     }
     assert_true(generated.facts.uses_v128)
+    if saw_simd1_before_simd2 && saw_simd2_before_simd1 {
+      break
+    }
   }
   assert_true(
     saw_simd1_before_simd2,
@@ -1706,6 +1712,11 @@ test "coverage-forced prelude varies direct indirect and ref call template order
     }
     assert_true(generated.facts.has_call)
     assert_true(generated.facts.has_call_indirect)
+    if saw_direct_before_indirect &&
+      saw_indirect_before_direct &&
+      saw_ref_before_direct {
+      break
+    }
   }
   assert_true(
     saw_direct_before_indirect,
@@ -1756,6 +1767,9 @@ test "coverage-forced prelude varies ref gc and exception template order by seed
     assert_true(generated.facts.uses_ref_types)
     assert_true(generated.facts.has_gc_constructors)
     assert_true(generated.facts.has_exception_try_table_matrix)
+    if saw_gc_before_ref && saw_ref_before_gc && saw_exception_template {
+      break
+    }
   }
   assert_true(
     saw_gc_before_ref,
@@ -10066,6 +10080,9 @@ test "topology-heavy profile emits explicit no-main and no-export variants" {
     if !gen_valid_test_has_any_export(generated.wasm_module) {
       saw_no_export = true
       assert_false(generated.facts.has_imports_start_exports)
+    }
+    if saw_no_main_export && saw_no_export {
+      break
     }
   }
   assert_true(

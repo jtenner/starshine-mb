@@ -8107,6 +8107,7 @@ test "dae-optimizing folds selected Func1794 const-if locals before Func1795 def
 }
 
 ///|
+#skip("manual large-module DAE artifact smoke; run through the dedicated fuzz/parity lane")
 test "dae-optimizing removes selected Func3737 and Func3765 forwarded default argument" {
   let caller_def = 281
   let target_def = 3737
@@ -8473,6 +8474,7 @@ test "dae-optimizing flattens selected Func288 return result wrapper" {
 }
 
 ///|
+#skip("manual large-module DAE artifact smoke; run through the dedicated fuzz/parity lane")
 test "dae-optimizing removes selected Func4368 zero default from Func289" {
   let caller_def = 289
   let target_def = 4368
@@ -8513,6 +8515,7 @@ test "dae-optimizing removes selected Func4368 zero default from Func289" {
 }
 
 ///|
+#skip("manual large-module DAE artifact smoke; run through the dedicated fuzz/parity lane")
 test "dae-optimizing removes selected Func4206 middle default before call-produced actual" {
   let first_caller_def = 285
   let second_caller_def = 1780
@@ -8636,6 +8639,7 @@ test "dae-optimizing removes selected Func298 dropped result from Func280 branch
 }
 
 ///|
+#skip("manual large-module DAE trace smoke; run through the dedicated fuzz/parity lane")
 test "dae-optimizing traces selected dropped-result fallback metadata" {
   let target_def = 3566
   let out = StringBuilder::new()
@@ -9672,6 +9676,7 @@ test "dae-optimizing removes fact-discovered dropped callee result outside selec
 }
 
 ///|
+#skip("manual large-module DAE scheduler smoke; covered by the dedicated fuzz/parity lane")
 test "dae-optimizing reaches fallback-neighborhood dropped result through fact path" {
   for singleton_def in [298, 445, 3834, 4106, 4249, 4229, 427, 4240, 4241, 4242] {
     let high_start = 4644
@@ -10210,6 +10215,7 @@ test "dae-optimizing reaches fourteen high dropped-result callees after low cand
 }
 
 ///|
+#skip("manual large-module DAE scheduler smoke; run through the dedicated fuzz/parity lane")
 test "dae-optimizing reaches low dropped-result callee after large descending budget" {
   let low_target_def = 600
   let high_target_start = 4644

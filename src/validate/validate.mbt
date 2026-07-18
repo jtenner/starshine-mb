@@ -8414,6 +8414,7 @@ test "run_validate_valid_fuzz rejects unknown profile" {
 }
 
 ///|
+#skip("manual validate-valid fuzz smoke; run through the dedicated fuzz lane")
 test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   let first = match run_validate_valid_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -8806,6 +8807,7 @@ test "gen_valid_build_func can return exact refs through a natural call_ref path
 }
 
 ///|
+#skip("manual aggregate GenValid coverage smoke; run through the dedicated fuzz lane")
 test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
   let rnd = @splitmix.new(seed=0x5eedUL)
   let config = GenValidConfig::coverage_forced_default()
