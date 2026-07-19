@@ -60693,9 +60693,13 @@ fn run_hot_pipeline_apply_module_pass(
     "untee" => untee_run_module_pass(mod_)
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
-    "remove-unused-module-elements" => rume_run_module_pass(mod_)
+    "remove-unused-module-elements" =>
+      rume_run_module_pass(mod_, traps_never_happen=options.traps_never_happen)
     "remove-unused-nonfunction-module-elements" =>
-      rume_run_nonfunction_module_pass(mod_)
+      rume_run_nonfunction_module_pass(
+        mod_,
+        traps_never_happen=options.traps_never_happen,
+      )
     "memory-packing" =>
       memory_packing_run_module_pass(
         mod_,

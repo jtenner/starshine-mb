@@ -567,6 +567,24 @@ fn rume_test_empty_active_data_fixture() -> @lib.Module {
 }
 
 ///|
+/// Unused defined memory with nonempty in-bounds active data. Binaryen drops it.
+fn rume_test_nonempty_active_data_unused_memory_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_mem_sec(@lib.MemSec::new([rume_test_mem_type()]))
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::active(
+          @lib.MemIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        b"abc",
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_empty_active_data_import_fixture() -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(rume_test_type_sec())
@@ -1707,6 +1725,32 @@ test "remove-unused-module-elements drops empty active data on live memories" {
 }
 
 ///|
+test "remove-unused-module-elements drops nonempty in-bounds active data on unused memories" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_nonempty_active_data_unused_memory_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nonempty-active-data unused-memory remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(optimized.mem_sec, None)
+  @debug.assert_eq(optimized.data_sec, None)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected emptied nonempty-active-data unused-memory module to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "remove-unused-module-elements keeps declarative elems needed by live ref.func" {
   let func_ref_type = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
@@ -1965,6 +2009,269 @@ test "remove-unused-module-elements keeps nullfuncref active elem segments on li
     Err(err) =>
       fail(
         "expected live-table-nullfuncref remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+fn rume_test_table_init_wrong_type_fixture() -> @lib.Module {
+  let funcref = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::func()),
+  )
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+      ),
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(2U),
+    ]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        @lib.TableType::new(funcref, @lib.Limits::i32(1U, None)),
+        Some(
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+        ),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("caller"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::call_indirect(
+            @lib.TypeIdx::new(0U),
+            @lib.TableIdx::new(0U),
+          ),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "remove-unused-module-elements keeps wrong-type overwrite of compatible table init" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_table_init_wrong_type_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected table-init trap-preserving remove-unused-module-elements success, got \{err}",
+      )
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
+    None =>
+      fail(
+        "expected wrong-type elem overwrite of compatible table init to remain",
+      )
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 3)
+    None => fail("expected init, wrong-type, and caller functions to remain")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected table-init trap-preserving remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops wrong-type elem when table has no init" {
+  let input =
+    #|(module
+    #|  (type $i32 (func (result i32)))
+    #|  (type $i64 (func (result i64)))
+    #|  (table $table 1 funcref)
+    #|  (elem (i32.const 0) func $wrong)
+    #|  (func $ok (type $i32) (i32.const 0))
+    #|  (func $wrong (type $i64) (unreachable))
+    #|  (func $caller (export "caller")
+    #|    (drop (call_indirect $table (type $i32) (i32.const 0)))))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected no-init wrong-type drop remove-unused-module-elements success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized.elem_sec, None)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected only the exported caller to remain")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected no-init wrong-type drop remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops non-overlapping wrong-type elem" {
+  let input =
+    #|(module
+    #|  (type $func (func))
+    #|  (type $other (func (result i32)))
+    #|  (table $table 6 6 funcref)
+    #|  (elem $first (i32.const 0) $ok)
+    #|  (elem $second (i32.const 1) $wrong)
+    #|  (func $ok (type $func))
+    #|  (func $wrong (type $other) (i32.const 42))
+    #|  (func $export (export "export") (param $x i32)
+    #|    (call_indirect $table (type $func) (local.get $x))))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected non-overlapping wrong-type drop remove-unused-module-elements success, got \{err}",
+      )
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
+    None => fail("expected matching-type elem to remain")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected matching-type and export functions to remain")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected non-overlapping wrong-type drop remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements keeps overlapping wrong-type elem" {
+  let input =
+    #|(module
+    #|  (type $func (func))
+    #|  (type $other (func (result i32)))
+    #|  (table $table 6 6 funcref)
+    #|  (elem $first (i32.const 0) $ok $ok $ok)
+    #|  (elem $second (i32.const 2) $wrong)
+    #|  (func $ok (type $func))
+    #|  (func $wrong (type $other) (i32.const 42))
+    #|  (func $export (export "export") (param $x i32)
+    #|    (call_indirect $table (type $func) (local.get $x))))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected overlapping wrong-type keep remove-unused-module-elements success, got \{err}",
+      )
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 2)
+    None => fail("expected both overlapping elems to remain")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 3)
+    None =>
+      fail("expected matching-type, wrong-type, and export functions to remain")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 3)
+      let @lib.Func(_, wrong_body) = funcs[1]
+      @debug.assert_eq(
+        wrong_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    None => fail("expected reference-only wrong-type function body to empty")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected overlapping wrong-type keep remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops trap-only overwrite under traps-never-happen" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_table_init_wrong_type_fixture(),
+      HotPipelineOptions::new(traps_never_happen=true),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected tnh trap-only drop remove-unused-module-elements success, got \{err}",
+      )
+  }
+  @debug.assert_eq(optimized.elem_sec, None)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected init and caller functions to remain under tnh")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tnh trap-only drop remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

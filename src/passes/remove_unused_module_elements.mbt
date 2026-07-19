@@ -20,6 +20,23 @@ priv enum RumeItem {
 }
 
 ///|
+priv struct RumeFlatTableInfo {
+  all_elems : Array[@lib.ElemIdx]
+  may_overlap : Bool
+  has_init : Bool
+}
+
+///|
+priv struct RumeCallTableAnalysis {
+  env : @validate.Env
+  func_types : Array[@lib.TypeIdx]
+  flat_tables : Array[RumeFlatTableInfo]
+  traps_never_happen : Bool
+  referenced_funcs : @bitset.BitSet
+  queued_tables : @bitset.BitSet
+}
+
+///|
 fn rume_imported_func_count(mod_ : @lib.Module) -> Int {
   let mut count = 0
   match mod_.import_sec {
@@ -129,6 +146,179 @@ fn rume_elem_init_has_effect(kind : @lib.ElemKind) -> Bool {
     @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
       exprs.length() > 0
   }
+}
+
+///|
+fn rume_collect_func_types(mod_ : @lib.Module) -> Array[@lib.TypeIdx] {
+  let types : Array[@lib.TypeIdx] = []
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) =>
+            types.push(type_idx)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) =>
+      for type_idx in type_idxs {
+        types.push(type_idx)
+      }
+    None => ()
+  }
+  types
+}
+
+///|
+fn rume_func_matches_call_type(
+  env : @validate.Env,
+  func_types : Array[@lib.TypeIdx],
+  func_idx : @lib.FuncIdx,
+  call_type : @lib.TypeIdx,
+) -> Bool {
+  let @lib.FuncIdx(raw) = func_idx
+  let slot = raw.reinterpret_as_int()
+  if slot < 0 || slot >= func_types.length() {
+    return false
+  }
+  @validate.Match::matches(
+    @lib.ExternType::func(func_types[slot]),
+    @lib.ExternType::func(call_type),
+    env,
+  )
+}
+
+///|
+fn rume_note_callable_func_from_expr(
+  env : @validate.Env,
+  func_types : Array[@lib.TypeIdx],
+  call_type : @lib.TypeIdx,
+  expr : @lib.Expr,
+) -> @lib.FuncIdx? {
+  match expr {
+    @lib.Expr([@lib.RefFunc(func_idx)]) =>
+      if rume_func_matches_call_type(env, func_types, func_idx, call_type) {
+        Some(func_idx)
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn rume_spans_overlap(
+  start_a : UInt64,
+  len_a : UInt64,
+  start_b : UInt64,
+  len_b : UInt64,
+) -> Bool {
+  let end_a = start_a + len_a
+  let end_b = start_b + len_b
+  start_a < end_b && start_b < end_a
+}
+
+///|
+fn rume_build_flat_table_infos(
+  table_count : Int,
+  mod_ : @lib.Module,
+) -> Array[RumeFlatTableInfo] {
+  let infos : Array[RumeFlatTableInfo] = []
+  let mut table_idx = 0
+  while table_idx < table_count {
+    infos.push({ all_elems: [], may_overlap: false, has_init: false })
+    table_idx += 1
+  }
+  let table_imports = rume_imported_table_count(mod_)
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      let mut def_idx = 0
+      while def_idx < tables.length() {
+        let abs = table_imports + def_idx
+        if abs < infos.length() {
+          match tables[def_idx] {
+            @lib.Table(_, Some(_)) => {
+              let prev = infos[abs]
+              infos[abs] = {
+                all_elems: prev.all_elems,
+                may_overlap: prev.may_overlap,
+                has_init: true,
+              }
+            }
+            _ => ()
+          }
+        }
+        def_idx += 1
+      }
+    }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut elem_idx = 0
+      while elem_idx < elems.length() {
+        match elems[elem_idx] {
+          @lib.Elem(@lib.Active(@lib.TableIdx(raw_table), _), kind) => {
+            let table_slot = raw_table.reinterpret_as_int()
+            if table_slot >= 0 &&
+              table_slot < infos.length() &&
+              rume_elem_init_has_effect(kind) {
+              infos[table_slot].all_elems.push(
+                @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
+              )
+            }
+          }
+          _ => ()
+        }
+        elem_idx += 1
+      }
+    }
+    None => ()
+  }
+  let mut slot = 0
+  while slot < infos.length() {
+    let elems = infos[slot].all_elems
+    if elems.length() > 1 {
+      let mut may_overlap = false
+      let spans : Array[(UInt64, UInt64)] = []
+      for elem_idx in elems {
+        match mod_.elem_sec {
+          Some(@lib.ElemSec(all)) => {
+            let @lib.ElemIdx(raw) = elem_idx
+            match all.get(raw.reinterpret_as_int()) {
+              Some(@lib.Elem(@lib.Active(_, offset), kind)) =>
+                match rume_const_offset_u64(offset) {
+                  None => may_overlap = true
+                  Some(start) => {
+                    let len = rume_elem_kind_len(kind)
+                    for span in spans {
+                      let (other_start, other_len) = span
+                      if rume_spans_overlap(start, len, other_start, other_len) {
+                        may_overlap = true
+                      }
+                    }
+                    spans.push((start, len))
+                  }
+                }
+              _ => ()
+            }
+          }
+          None => ()
+        }
+      }
+      let prev = infos[slot]
+      infos[slot] = {
+        all_elems: prev.all_elems,
+        may_overlap,
+        has_init: prev.has_init,
+      }
+    }
+    slot += 1
+  }
+  infos
 }
 
 ///|
@@ -462,15 +652,245 @@ fn rume_mark_global(
 fn rume_mark_table(
   queue : Array[RumeItem],
   used_tables : @bitset.BitSet,
+  queued_tables : @bitset.BitSet,
   idx : @lib.TableIdx,
 ) -> Unit {
   let @lib.TableIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
-  if slot < 0 || slot >= used_tables.length() || used_tables[slot] {
+  if slot < 0 || slot >= used_tables.length() {
     return
   }
   used_tables[slot] = true
+  if queued_tables[slot] {
+    return
+  }
+  queued_tables[slot] = true
   queue.push(RumeItem::Table(raw))
+}
+
+///|
+fn rume_keep_table(used_tables : @bitset.BitSet, idx : @lib.TableIdx) -> Unit {
+  let @lib.TableIdx(raw) = idx
+  let slot = raw.reinterpret_as_int()
+  if slot >= 0 && slot < used_tables.length() {
+    used_tables[slot] = true
+  }
+}
+
+///|
+fn rume_reference_func(
+  used_funcs : @bitset.BitSet,
+  referenced_funcs : @bitset.BitSet,
+  idx : @lib.FuncIdx,
+) -> Unit {
+  let @lib.FuncIdx(raw) = idx
+  let slot = raw.reinterpret_as_int()
+  if slot < 0 || slot >= referenced_funcs.length() || used_funcs[slot] {
+    return
+  }
+  referenced_funcs[slot] = true
+}
+
+///|
+fn rume_reference_elem_payload(
+  mod_ : @lib.Module,
+  used_funcs : @bitset.BitSet,
+  referenced_funcs : @bitset.BitSet,
+  used_elems : @bitset.BitSet,
+  queue : Array[RumeItem],
+  used_globals : @bitset.BitSet,
+  elem_idx : @lib.ElemIdx,
+) -> Unit {
+  let @lib.ElemIdx(raw) = elem_idx
+  let slot = raw.reinterpret_as_int()
+  if slot < 0 || slot >= used_elems.length() {
+    return
+  }
+  let already_kept = used_elems[slot]
+  used_elems[slot] = true
+  if already_kept {
+    return
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      match elems.get(slot) {
+        Some(@lib.Elem(mode, kind)) => {
+          match mode {
+            @lib.Active(_, offset) =>
+              match offset {
+                @lib.Expr(instrs) =>
+                  for instr in instrs {
+                    match instr {
+                      @lib.GlobalGet(global_idx) | @lib.GlobalSet(global_idx) =>
+                        rume_mark_global(queue, used_globals, global_idx)
+                      _ => ()
+                    }
+                  }
+              }
+            _ => ()
+          }
+          match kind {
+            @lib.FuncsElemKind(funcs) =>
+              for func_idx in funcs {
+                rume_reference_func(used_funcs, referenced_funcs, func_idx)
+              }
+            @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+              for expr in exprs {
+                match expr {
+                  @lib.Expr([@lib.RefFunc(func_idx)]) =>
+                    rume_reference_func(used_funcs, referenced_funcs, func_idx)
+                  _ => ()
+                }
+              }
+          }
+        }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
+fn rume_reference_table_init(
+  mod_ : @lib.Module,
+  table_imports : Int,
+  used_funcs : @bitset.BitSet,
+  referenced_funcs : @bitset.BitSet,
+  idx : @lib.TableIdx,
+) -> Unit {
+  let @lib.TableIdx(raw) = idx
+  let def_idx = raw.reinterpret_as_int() - table_imports
+  if def_idx < 0 {
+    return
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      match tables.get(def_idx) {
+        Some(@lib.Table(_, Some(@lib.Expr([@lib.RefFunc(func_idx)])))) =>
+          rume_reference_func(used_funcs, referenced_funcs, func_idx)
+        _ => ()
+      }
+    None => ()
+  }
+}
+
+///|
+fn rume_use_indirect_call(
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  table_imports : Int,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  used_globals : @bitset.BitSet,
+  used_tables : @bitset.BitSet,
+  used_elems : @bitset.BitSet,
+  call_type : @lib.TypeIdx,
+  table_idx : @lib.TableIdx,
+) -> Unit {
+  rume_keep_table(used_tables, table_idx)
+  rume_reference_table_init(
+    mod_,
+    table_imports,
+    used_funcs,
+    analysis.referenced_funcs,
+    table_idx,
+  )
+  let @lib.TableIdx(raw_table) = table_idx
+  let table_slot = raw_table.reinterpret_as_int()
+  if table_slot < 0 || table_slot >= analysis.flat_tables.length() {
+    return
+  }
+  let info = analysis.flat_tables[table_slot]
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      let def_idx = table_slot - table_imports
+      if def_idx >= 0 {
+        match tables.get(def_idx) {
+          Some(@lib.Table(_, Some(init))) =>
+            match
+              rume_note_callable_func_from_expr(
+                analysis.env,
+                analysis.func_types,
+                call_type,
+                init,
+              ) {
+              Some(func_idx) => rume_mark_func(queue, used_funcs, func_idx)
+              None => ()
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  for elem_idx in info.all_elems {
+    let @lib.ElemIdx(raw_elem) = elem_idx
+    match mod_.elem_sec {
+      Some(@lib.ElemSec(elems)) =>
+        match elems.get(raw_elem.reinterpret_as_int()) {
+          Some(@lib.Elem(_, kind)) => {
+            let mut matches_call = false
+            match kind {
+              @lib.FuncsElemKind(funcs) =>
+                for func_idx in funcs {
+                  if rume_func_matches_call_type(
+                      analysis.env,
+                      analysis.func_types,
+                      func_idx,
+                      call_type,
+                    ) {
+                    matches_call = true
+                    rume_mark_func(queue, used_funcs, func_idx)
+                  }
+                }
+              @lib.FuncExprsElemKind(exprs)
+              | @lib.TypedExprsElemKind(_, exprs) =>
+                for expr in exprs {
+                  match
+                    rume_note_callable_func_from_expr(
+                      analysis.env,
+                      analysis.func_types,
+                      call_type,
+                      expr,
+                    ) {
+                    Some(func_idx) => {
+                      matches_call = true
+                      rume_mark_func(queue, used_funcs, func_idx)
+                    }
+                    None => ()
+                  }
+                }
+            }
+            if matches_call {
+              rume_reference_elem_payload(
+                mod_,
+                used_funcs,
+                analysis.referenced_funcs,
+                used_elems,
+                queue,
+                used_globals,
+                elem_idx,
+              )
+            }
+          }
+          None => ()
+        }
+      None => ()
+    }
+  }
+  if !analysis.traps_never_happen && (info.has_init || info.may_overlap) {
+    for elem_idx in info.all_elems {
+      rume_reference_elem_payload(
+        mod_,
+        used_funcs,
+        analysis.referenced_funcs,
+        used_elems,
+        queue,
+        used_globals,
+        elem_idx,
+      )
+    }
+  }
 }
 
 ///|
@@ -564,6 +984,9 @@ fn rume_scan_catches(
 ///|
 fn rume_scan_expr(
   expr : @lib.Expr,
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -578,8 +1001,8 @@ fn rume_scan_expr(
   let @lib.Expr(instrs) = expr
   for instr in instrs {
     rume_scan_instruction(
-      instr, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-      used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+      instr, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
+      used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
     )
   }
 }
@@ -587,6 +1010,9 @@ fn rume_scan_expr(
 ///|
 fn rume_scan_instruction(
   instr : @lib.Instruction,
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -601,22 +1027,24 @@ fn rume_scan_instruction(
   match instr {
     @lib.Block(_, body) | @lib.Loop(_, body) =>
       rume_scan_expr(
-        body, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-        used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+        body, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
+        used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
       )
     @lib.If(_, then_body, else_body) => {
       for nested in then_body {
         rume_scan_instruction(
-          nested, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-          used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+          nested, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+          func_to_declaring_elems,
         )
       }
       match else_body {
         Some(body) =>
           for nested in body {
             rume_scan_instruction(
-              nested, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-              used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+              nested, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+              used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+              func_to_declaring_elems,
             )
           }
         None => ()
@@ -629,14 +1057,18 @@ fn rume_scan_instruction(
         queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
         func_idx,
       )
-    @lib.CallIndirect(_, table_idx) | @lib.ReturnCallIndirect(_, table_idx) =>
-      rume_mark_table(queue, used_tables, table_idx)
+    @lib.CallIndirect(call_type, table_idx)
+    | @lib.ReturnCallIndirect(call_type, table_idx) =>
+      rume_use_indirect_call(
+        mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
+        used_elems, call_type, table_idx,
+      )
     @lib.Throw(tag_idx) => rume_mark_tag(queue, used_tags, tag_idx)
     @lib.TryTable(_, catches, body) => {
       rume_scan_catches(catches, queue, used_tags)
       rume_scan_expr(
-        body, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-        used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+        body, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
+        used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
       )
     }
     @lib.GlobalGet(global_idx) | @lib.GlobalSet(global_idx) =>
@@ -646,15 +1078,15 @@ fn rume_scan_instruction(
     | @lib.TableGrow(table_idx)
     | @lib.TableSize(table_idx)
     | @lib.TableFill(table_idx) =>
-      rume_mark_table(queue, used_tables, table_idx)
+      rume_mark_table(queue, used_tables, analysis.queued_tables, table_idx)
     @lib.TableInit(elem_idx, table_idx) => {
       rume_mark_elem(queue, used_elems, elem_idx)
-      rume_mark_table(queue, used_tables, table_idx)
+      rume_mark_table(queue, used_tables, analysis.queued_tables, table_idx)
     }
     @lib.ElemDrop(elem_idx) => rume_mark_elem(queue, used_elems, elem_idx)
     @lib.TableCopy(dst, src) => {
-      rume_mark_table(queue, used_tables, dst)
-      rume_mark_table(queue, used_tables, src)
+      rume_mark_table(queue, used_tables, analysis.queued_tables, dst)
+      rume_mark_table(queue, used_tables, analysis.queued_tables, src)
     }
     @lib.MemorySize(mem_idx)
     | @lib.MemoryGrow(mem_idx)
@@ -743,8 +1175,10 @@ fn rume_scan_instruction(
 ///|
 fn rume_process_func(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   abs_idx : UInt,
   func_imports : Int,
+  table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -765,8 +1199,9 @@ fn rume_process_func(
       match funcs.get(def_idx) {
         Some(@lib.Func(_, body)) =>
           rume_scan_expr(
-            body, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-            used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+            body, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+            used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+            func_to_declaring_elems,
           )
         None => ()
       }
@@ -777,8 +1212,10 @@ fn rume_process_func(
 ///|
 fn rume_process_global(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   abs_idx : UInt,
   global_imports : Int,
+  table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -799,8 +1236,9 @@ fn rume_process_global(
       match globals.get(def_idx) {
         Some(@lib.Global(_, init)) =>
           rume_scan_expr(
-            init, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-            used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+            init, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+            used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+            func_to_declaring_elems,
           )
         None => ()
       }
@@ -811,6 +1249,7 @@ fn rume_process_global(
 ///|
 fn rume_process_table(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   abs_idx : UInt,
   table_imports : Int,
   queue : Array[RumeItem],
@@ -832,8 +1271,9 @@ fn rume_process_table(
         match tables.get(def_idx) {
           Some(@lib.Table(_, Some(init))) =>
             rume_scan_expr(
-              init, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-              used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+              init, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+              used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+              func_to_declaring_elems,
             )
           _ => ()
         }
@@ -862,7 +1302,9 @@ fn rume_process_mem(
 ///|
 fn rume_process_elem(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   elem_idx : UInt,
+  table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -880,10 +1322,16 @@ fn rume_process_elem(
         Some(@lib.Elem(mode, kind)) => {
           match mode {
             @lib.Active(table_idx, offset) => {
-              rume_mark_table(queue, used_tables, table_idx)
+              rume_mark_table(
+                queue,
+                used_tables,
+                analysis.queued_tables,
+                table_idx,
+              )
               rume_scan_expr(
-                offset, queue, used_funcs, used_globals, used_tables, used_mems,
-                used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+                offset, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+                used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+                func_to_declaring_elems,
               )
             }
             _ => ()
@@ -896,8 +1344,9 @@ fn rume_process_elem(
             @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
               for expr in exprs {
                 rume_scan_expr(
-                  expr, queue, used_funcs, used_globals, used_tables, used_mems,
-                  used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+                  expr, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+                  used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+                  func_to_declaring_elems,
                 )
               }
           }
@@ -911,7 +1360,9 @@ fn rume_process_elem(
 ///|
 fn rume_process_data(
   mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
   data_idx : UInt,
+  table_imports : Int,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
@@ -929,8 +1380,9 @@ fn rume_process_data(
         Some(@lib.Data(@lib.Active(mem_idx, offset), _)) => {
           rume_mark_mem(queue, used_mems, mem_idx)
           rume_scan_expr(
-            offset, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-            used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+            offset, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+            used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+            func_to_declaring_elems,
           )
         }
         _ => ()
@@ -1087,6 +1539,12 @@ fn rume_nonfunction_active_data_requires_root(
     Some(offset_value) =>
       match rume_lookup_mem_type(mod_, mem_idx) {
         Some(mem_type) =>
+          // Root only when instantiation may trap (non-const offset or OOB
+          // range). Nonempty in-bounds active data on an otherwise-unused
+          // defined memory is a no-op for Binaryen and is dropped. Starshine
+          // uses a full u64 byte size here; Binaryen truncates
+          // `initial << pageSizeLog2` to `Index`, which can false-positive on
+          // huge memory64 minima.
           rume_range_exceeds_min(
             offset_value,
             bytes.length().to_uint64(),
@@ -1207,7 +1665,9 @@ fn rume_collect_liveness_with_import_parent_policy(
   mod_ : @lib.Module,
   keep_import_parent_segments : Bool,
   keep_all_funcs? : Bool = false,
+  traps_never_happen? : Bool = false,
 ) -> (
+  @bitset.BitSet,
   @bitset.BitSet,
   @bitset.BitSet,
   @bitset.BitSet,
@@ -1223,6 +1683,7 @@ fn rume_collect_liveness_with_import_parent_policy(
   let used_funcs = @bitset.BitSet::new(
     func_imports + rume_defined_func_count(mod_),
   )
+  let referenced_funcs = @bitset.BitSet::new(used_funcs.length())
   let used_tables = @bitset.BitSet::new(
     table_imports + rume_defined_table_count(mod_),
   )
@@ -1254,6 +1715,14 @@ fn rume_collect_liveness_with_import_parent_policy(
     used_funcs.length(),
     mod_,
   )
+  let analysis : RumeCallTableAnalysis = {
+    env: @validate.Env::new().with_module(mod_),
+    func_types: rume_collect_func_types(mod_),
+    flat_tables: rume_build_flat_table_infos(used_tables.length(), mod_),
+    traps_never_happen,
+    referenced_funcs,
+    queued_tables: @bitset.BitSet::new(used_tables.length()),
+  }
   let queue : Array[RumeItem] = []
   let drop_noop_start_sec = rume_has_binaryen_noop_start_sec(mod_)
 
@@ -1277,7 +1746,12 @@ fn rume_collect_liveness_with_import_parent_policy(
           @lib.GlobalExternIdx(global_idx) =>
             rume_mark_global(queue, used_globals, global_idx)
           @lib.TableExternIdx(table_idx) =>
-            rume_mark_table(queue, used_tables, table_idx)
+            rume_mark_table(
+              queue,
+              used_tables,
+              analysis.queued_tables,
+              table_idx,
+            )
           @lib.MemExternIdx(mem_idx) => rume_mark_mem(queue, used_mems, mem_idx)
           @lib.TagExternIdx(tag_idx) => rume_mark_tag(queue, used_tags, tag_idx)
         }
@@ -1298,39 +1772,50 @@ fn rume_collect_liveness_with_import_parent_policy(
     match queue[cursor] {
       RumeItem::Func(abs_idx) =>
         rume_process_func(
-          mod_, abs_idx, func_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+          mod_, analysis, abs_idx, func_imports, table_imports, queue, used_funcs,
+          used_globals, used_tables, used_mems, used_tags, used_elems, used_datas,
+          decl_only_elems, func_to_declaring_elems,
         )
       RumeItem::Global(abs_idx) =>
         rume_process_global(
-          mod_, abs_idx, global_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+          mod_, analysis, abs_idx, global_imports, table_imports, queue, used_funcs,
+          used_globals, used_tables, used_mems, used_tags, used_elems, used_datas,
+          decl_only_elems, func_to_declaring_elems,
         )
       RumeItem::Table(abs_idx) =>
         rume_process_table(
-          mod_, abs_idx, table_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
-          table_to_elems,
+          mod_, analysis, abs_idx, table_imports, queue, used_funcs, used_globals,
+          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+          func_to_declaring_elems, table_to_elems,
         )
       RumeItem::Mem(abs_idx) =>
         rume_process_mem(abs_idx, queue, used_datas, mem_to_datas)
       RumeItem::Tag => ()
       RumeItem::Elem(elem_idx) =>
         rume_process_elem(
-          mod_, elem_idx, queue, used_funcs, used_globals, used_tables, used_mems,
-          used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+          mod_, analysis, elem_idx, table_imports, queue, used_funcs, used_globals,
+          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+          func_to_declaring_elems,
         )
       RumeItem::Data(data_idx) =>
         rume_process_data(
-          mod_, data_idx, queue, used_funcs, used_globals, used_tables, used_mems,
-          used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+          mod_, analysis, data_idx, table_imports, queue, used_funcs, used_globals,
+          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+          func_to_declaring_elems,
         )
     }
     cursor += 1
   }
 
   (
-    used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems, used_datas,
+    used_funcs,
+    analysis.referenced_funcs,
+    used_globals,
+    used_tables,
+    used_mems,
+    used_tags,
+    used_elems,
+    used_datas,
     decl_only_elems,
   )
 }
@@ -1338,6 +1823,7 @@ fn rume_collect_liveness_with_import_parent_policy(
 ///|
 fn rume_collect_liveness(
   mod_ : @lib.Module,
+  traps_never_happen? : Bool = false,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -1347,8 +1833,13 @@ fn rume_collect_liveness(
   @bitset.BitSet,
   @bitset.BitSet,
   @bitset.BitSet,
+  @bitset.BitSet,
 ) {
-  rume_collect_liveness_with_import_parent_policy(mod_, true)
+  rume_collect_liveness_with_import_parent_policy(
+    mod_,
+    true,
+    traps_never_happen~,
+  )
 }
 
 ///|
@@ -1417,6 +1908,33 @@ fn rume_kept_defined_from_used(
     idx += 1
   }
   kept
+}
+
+///|
+fn rume_merge_func_keep_set(
+  used_funcs : @bitset.BitSet,
+  referenced_funcs : @bitset.BitSet,
+) -> @bitset.BitSet {
+  let kept = @bitset.BitSet::new(used_funcs.length())
+  let mut idx = 0
+  while idx < used_funcs.length() {
+    kept[idx] = used_funcs[idx] ||
+      (idx < referenced_funcs.length() && referenced_funcs[idx])
+    idx += 1
+  }
+  kept
+}
+
+///|
+fn rume_func_needs_unreachable_body(
+  used_funcs : @bitset.BitSet,
+  referenced_funcs : @bitset.BitSet,
+  abs_idx : Int,
+) -> Bool {
+  abs_idx >= 0 &&
+  abs_idx < referenced_funcs.length() &&
+  referenced_funcs[abs_idx] &&
+  (abs_idx >= used_funcs.length() || !used_funcs[abs_idx])
 }
 
 ///|
@@ -2701,6 +3219,7 @@ fn rume_decl_only_elem_parent_is_dropped(
 fn rume_apply_module_rewrite(
   mod_ : @lib.Module,
   used_funcs : @bitset.BitSet,
+  referenced_funcs : @bitset.BitSet,
   used_globals : @bitset.BitSet,
   used_tables : @bitset.BitSet,
   used_mems : @bitset.BitSet,
@@ -2714,12 +3233,13 @@ fn rume_apply_module_rewrite(
   let table_imports = rume_imported_table_count(mod_)
   let mem_imports = rume_imported_mem_count(mod_)
   let tag_imports = rume_imported_tag_count(mod_)
-  let kept_funcs = rume_kept_defined_from_used(used_funcs, func_imports)
+  let keep_funcs = rume_merge_func_keep_set(used_funcs, referenced_funcs)
+  let kept_funcs = rume_kept_defined_from_used(keep_funcs, func_imports)
   let kept_globals = rume_kept_defined_from_used(used_globals, global_imports)
   let kept_tables = rume_kept_defined_from_used(used_tables, table_imports)
   let kept_mems = rume_kept_defined_from_used(used_mems, mem_imports)
   let kept_tags = rume_kept_defined_from_used(used_tags, tag_imports)
-  let func_remap = rume_build_used_remap(used_funcs)
+  let func_remap = rume_build_used_remap(keep_funcs)
   let global_remap = rume_build_used_remap(used_globals)
   let table_remap = rume_build_used_remap(used_tables)
   let mem_remap = rume_build_used_remap(used_mems)
@@ -2733,13 +3253,22 @@ fn rume_apply_module_rewrite(
   let tag_remap_is_identity = rume_remap_is_identity(tag_remap)
   let elem_remap_is_identity = rume_remap_is_identity(elem_remap)
   let data_remap_is_identity = rume_remap_is_identity(data_remap)
+  let mut has_reference_only_func = false
+  let mut ref_idx = 0
+  while ref_idx < referenced_funcs.length() {
+    if rume_func_needs_unreachable_body(used_funcs, referenced_funcs, ref_idx) {
+      has_reference_only_func = true
+    }
+    ref_idx += 1
+  }
   let code_body_rewrite_needed = !(func_remap_is_identity &&
     global_remap_is_identity &&
     table_remap_is_identity &&
     mem_remap_is_identity &&
     tag_remap_is_identity &&
     elem_remap_is_identity &&
-    data_remap_is_identity)
+    data_remap_is_identity) ||
+    has_reference_only_func
   let drop_noop_start_sec = rume_has_binaryen_noop_start_sec(mod_)
   if !drop_noop_start_sec &&
     !code_body_rewrite_needed &&
@@ -2807,7 +3336,7 @@ fn rume_apply_module_rewrite(
       for import_ in imports {
         let keep = match import_ {
           @lib.Import(_, _, @lib.FuncExternType(_)) => {
-            let keep = used_funcs[func_idx]
+            let keep = keep_funcs[func_idx]
             func_idx += 1
             keep
           }
@@ -2857,16 +3386,20 @@ fn rume_apply_module_rewrite(
         while idx < type_idxs.length() && idx < funcs.length() {
           if kept_funcs[idx] {
             next_type_idxs.push(type_idxs[idx])
-            let @lib.Func(locals, body) = funcs[idx]
-            next_funcs.push(
-              @lib.Func::new(
-                locals,
-                rume_rewrite_expr(
-                  body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
-                  elem_remap, data_remap,
-                ),
-              ),
-            )
+            let abs_idx = func_imports + idx
+            let next_body = if rume_func_needs_unreachable_body(
+                used_funcs, referenced_funcs, abs_idx,
+              ) {
+              @lib.Expr::new([@lib.Instruction::unreachable_()])
+            } else {
+              let @lib.Func(_, body) = funcs[idx]
+              rume_rewrite_expr(
+                body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                elem_remap, data_remap,
+              )
+            }
+            let @lib.Func(locals, _) = funcs[idx]
+            next_funcs.push(@lib.Func::new(locals, next_body))
           }
           idx += 1
         }
@@ -3643,6 +4176,7 @@ pub fn rume_extract_functions(
   let rooted = rume_root_module_for_extract(mod_, normalized_roots)
   let (
     used_funcs,
+    referenced_funcs,
     used_globals,
     used_tables,
     used_mems,
@@ -3652,19 +4186,23 @@ pub fn rume_extract_functions(
     decl_only_elems,
   ) = rume_collect_liveness_with_import_parent_policy(rooted, false)
   let minimized = rume_apply_module_rewrite(
-    rooted, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
-    used_datas, decl_only_elems,
+    rooted, used_funcs, referenced_funcs, used_globals, used_tables, used_mems, used_tags,
+    used_elems, used_datas, decl_only_elems,
   )
-  let (final_used_funcs, _, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
+  let (final_used_funcs, _, _, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
     minimized, false,
   )
   Ok(rume_rewrite_functions_only(minimized, final_used_funcs))
 }
 
 ///|
-pub fn rume_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+pub fn rume_run_module_pass(
+  mod_ : @lib.Module,
+  traps_never_happen? : Bool = false,
+) -> @lib.Module {
   let (
     used_funcs,
+    referenced_funcs,
     used_globals,
     used_tables,
     used_mems,
@@ -3672,11 +4210,11 @@ pub fn rume_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     used_elems,
     used_datas,
     decl_only_elems,
-  ) = rume_collect_liveness(mod_)
+  ) = rume_collect_liveness(mod_, traps_never_happen~)
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
-    mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
-    used_datas, decl_only_elems,
+    mod_, used_funcs, referenced_funcs, used_globals, used_tables, used_mems, used_tags,
+    used_elems, used_datas, decl_only_elems,
   )
 }
 
@@ -3707,9 +4245,13 @@ fn rume_prune_nonfunction_empty_const_active_elems(
 }
 
 ///|
-pub fn rume_run_nonfunction_module_pass(mod_ : @lib.Module) -> @lib.Module {
+pub fn rume_run_nonfunction_module_pass(
+  mod_ : @lib.Module,
+  traps_never_happen? : Bool = false,
+) -> @lib.Module {
   let (
     used_funcs,
+    referenced_funcs,
     used_globals,
     used_tables,
     used_mems,
@@ -3721,10 +4263,11 @@ pub fn rume_run_nonfunction_module_pass(mod_ : @lib.Module) -> @lib.Module {
     mod_,
     true,
     keep_all_funcs=true,
+    traps_never_happen~,
   )
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
-    mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
-    used_datas, decl_only_elems,
+    mod_, used_funcs, referenced_funcs, used_globals, used_tables, used_mems, used_tags,
+    used_elems, used_datas, decl_only_elems,
   )
 }
