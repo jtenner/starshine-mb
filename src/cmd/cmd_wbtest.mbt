@@ -4848,7 +4848,8 @@ test "config and optimize option construction preserve Binaryen inlining tuning"
   @debug.assert_eq(parsed.inlining_allow_functions_with_loops, Some(true))
   @debug.assert_eq(parsed.inlining_partial_inlining_ifs, Some(4))
   let options = make_optimize_options(
-    3, 0, false, false, 5, 3, -1, 31, 500000, true, 4, false, false, 1024UL, false,
+    3, 0, false, false, 5, 3, -1, 31, 500000, true, 4, false, false, false, 1024UL,
+    false,
   )
   @debug.assert_eq(options.inlining.always_inline_max_size, 3)
   @debug.assert_eq(options.inlining.one_caller_inline_max_size, -1)
@@ -5426,6 +5427,7 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--vacuum"))
   assert_true(help.contains("--optimize"))
   assert_true(help.contains("--closed-world"))
+  assert_true(help.contains("--zero-filled-memory"))
   assert_true(help.contains("--always-inline-max-function-size, -aimfs <N>"))
   assert_true(
     help.contains("--one-caller-inline-max-function-size, -ocimfs <N|-1>"),
@@ -5504,8 +5506,8 @@ test "run_cmd_with_adapter skips irrelevant env overlay probes when cli already 
       [
         "--format", "wasm", "--out", "out.wasm", "--trap-mode", "never", "--optimize-level",
         "2", "--monomorphize-min-benefit", "7", "--low-memory-unused", "--low-memory-bound",
-        "64", "--closed-world", "--tracing", "helper", "--debug-serial-passes", "--vacuum",
-        "a.wasm",
+        "64", "--closed-world", "--zero-filled-memory", "--tracing", "helper", "--debug-serial-passes",
+        "--vacuum", "a.wasm",
       ],
       io,
       config_json=Some("{}"),

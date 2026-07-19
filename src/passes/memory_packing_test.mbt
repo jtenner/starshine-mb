@@ -444,21 +444,207 @@ test "memory-packing preserves trailing trap after a nonzero prefix" {
 }
 
 ///|
-test "memory-packing bails out when active segments overlap" {
-  let wat =
-    #| (module
-    #|   (memory 1)
-    #|   (data (i32.const 0) "\00\00\00\00\00\00\00\00\00ABC")
-    #|   (data (i32.const 5) "ZZ"))
-    #|
-  let input = pass_test_module_from_wat(wat)
+test "memory-packing v131 neutralizes source-order trampling in defined memory" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (data (i32.const 1024) "ab")
+      #|  (data (i32.const 1024) "Z"))
+      #|,
+    ),
+  )
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["memory-packing"]) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail("expected memory-packing overlap bailout success, got \{err}")
+      fail("expected memory-packing defined overlap success, got \{err}")
+  }
+  @debug.assert_eq(mp_test_active_data_segments(optimized), [
+    (0U, 1025, b"b"),
+    (0U, 1024, b"Z"),
+  ])
+}
+
+///|
+test "memory-packing v131 admits in-bounds imported overlap when zero-filled" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "env" "memory" (memory 1 1))
+      #|  (data (i32.const 1024) "ab")
+      #|  (data (i32.const 1024) "Z"))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(zero_filled_memory=true), [
+      "memory-packing",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-packing imported in-bounds overlap success, got \{err}",
+      )
+  }
+  @debug.assert_eq(mp_test_active_data_segments(optimized), [
+    (0U, 1025, b"b"),
+    (0U, 1024, b"Z"),
+  ])
+}
+
+///|
+test "memory-packing v131 removes in-bounds imported zero trampling" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "env" "memory" (memory 1 1))
+      #|  (data (i32.const 1024) "x")
+      #|  (data (i32.const 1024) "\00"))
+      #|,
+    ),
+  )
+  let optimized = memory_packing_run_module_pass(input, zero_filled_memory=true)
+  @debug.assert_eq(mp_test_data_segments(optimized), [])
+}
+
+///|
+test "memory-packing v131 preserves source order for partial trampling" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (data (i32.const 0) "ABCDEFGHIJK")
+      #|  (data (i32.const 1) "ZZZZZZZZZ"))
+      #|,
+    ),
+  )
+  let optimized = memory_packing_run_module_pass(input)
+  @debug.assert_eq(mp_test_active_data_segments(optimized), [
+    (0U, 0, b"A"),
+    (0U, 10, b"K"),
+    (0U, 1, b"ZZZZZZZZZ"),
+  ])
+}
+
+///|
+test "memory-packing v131 rejects imported overlap when any active segment may trap" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "env" "memory" (memory 1 1))
+      #|  (data (i32.const 1024) "x")
+      #|  (data (i32.const 1024) "\00")
+      #|  (data (i32.const 65535) "yy"))
+      #|,
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(zero_filled_memory=true), [
+      "memory-packing",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected memory-packing imported overlap bailout success, got \{err}",
+      )
   }
   @debug.assert_eq(optimized.data_sec, input.data_sec)
+}
+
+///|
+test "memory-packing v131 rejects an out-of-bounds imported trampler" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "env" "memory" (memory 1 1))
+      #|  (data (i32.const 65535) "x")
+      #|  (data (i32.const 65535) "\00\00"))
+      #|,
+    ),
+  )
+  let optimized = memory_packing_run_module_pass(input, zero_filled_memory=true)
+  @debug.assert_eq(optimized.data_sec, input.data_sec)
+}
+
+///|
+test "memory-packing v131 handles maximal imported memory64 overlap bounds" {
+  let memory_type = @lib.MemType::new(
+    @lib.Limits::i64(281474976710656UL, Some(281474976710656UL)),
+  )
+  let input = @lib.Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("memory"),
+          @lib.ExternType::mem(memory_type),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(1024L))]),
+          ),
+          b"x",
+        ),
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(1024L))]),
+          ),
+          b"\x00",
+        ),
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(-1L))]),
+          ),
+          b"\x00",
+        ),
+      ]),
+    )
+  let optimized = memory_packing_run_module_pass(input, zero_filled_memory=true)
+  @debug.assert_eq(mp_test_data_segments(optimized), [])
+}
+
+///|
+test "memory-packing v131 preserves high imported memory64 startup traps" {
+  let memory_type = @lib.MemType::new(@lib.Limits::i64(1UL, Some(1UL)))
+  let input = @lib.Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("memory"),
+          @lib.ExternType::mem(memory_type),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(4294968320L))]),
+          ),
+          b"\x00\x00",
+        ),
+      ]),
+    )
+  let optimized = memory_packing_run_module_pass(input, zero_filled_memory=true)
+  match mp_test_data_segments(optimized) {
+    [@lib.Data(@lib.Active(_, @lib.Expr(instrs)), bytes)] => {
+      @debug.assert_eq(instrs, [
+        @lib.Instruction::i64_const(@lib.I64(4294968321L)),
+      ])
+      @debug.assert_eq(bytes, b"\x00")
+    }
+    other => fail("expected one high memory64 trap byte, got \{other}")
+  }
 }
 
 ///|

@@ -3010,6 +3010,13 @@ fn rume_collect_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
       for rec_type in rec_types {
+        match rec_type {
+          @lib.GroupRecType(subtypes) =>
+            if subtypes.length() != 1 {
+              return None
+            }
+          _ => ()
+        }
         if rume_rec_type_mentions_type_idxs(rec_type) {
           return None
         }

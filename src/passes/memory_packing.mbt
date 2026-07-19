@@ -19,11 +19,12 @@ fn MpRange::new(is_zero : Bool, start : Int, end_ : Int) -> MpRange {
 priv struct MpSpan {
   start : UInt64
   end_ : UInt64
+  end_at_limit : Bool
 }
 
 ///|
-fn MpSpan::new(start : UInt64, end_ : UInt64) -> MpSpan {
-  { start, end_ }
+fn MpSpan::new(start : UInt64, end_ : UInt64, end_at_limit : Bool) -> MpSpan {
+  { start, end_, end_at_limit }
 }
 
 ///|
@@ -68,17 +69,13 @@ fn mp_defined_mem_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn mp_memory_type_size_bytes(mem_type : @lib.MemType) -> UInt64? {
-  match mem_type {
-    @lib.MemType(@lib.I32Limits(initial, _), _) =>
-      Some(initial.to_uint64() << 16)
-    @lib.MemType(@lib.I64Limits(initial, _), _) => Some(initial << 16)
+fn mp_sole_memory_type(mod_ : @lib.Module) -> (@lib.MemType, Bool)? {
+  match mod_.mem_sec {
+    Some(@lib.MemSec([mem_type])) => return Some((mem_type, false))
+    Some(_) => return None
+    None => ()
   }
-}
-
-///|
-fn mp_imported_memory_size_bytes(mod_ : @lib.Module) -> UInt64? {
-  let mut found : UInt64? = None
+  let mut found : @lib.MemType? = None
   match mod_.import_sec {
     Some(@lib.ImportSec(imports)) =>
       for import_ in imports {
@@ -86,23 +83,44 @@ fn mp_imported_memory_size_bytes(mod_ : @lib.Module) -> UInt64? {
           @lib.Import(_, _, @lib.MemExternType(mem_type)) =>
             match found {
               Some(_) => return None
-              None => found = mp_memory_type_size_bytes(mem_type)
+              None => found = Some(mem_type)
             }
           _ => ()
         }
       }
     None => ()
   }
-  found
+  match found {
+    Some(mem_type) => Some((mem_type, true))
+    None => None
+  }
 }
 
 ///|
-fn mp_memory_size_bytes(mod_ : @lib.Module) -> UInt64? {
-  match mod_.mem_sec {
-    Some(@lib.MemSec([mem_type])) => mp_memory_type_size_bytes(mem_type)
-    Some(_) => None
-    None => mp_imported_memory_size_bytes(mod_)
+fn mp_memory_initial_pages(mem_type : @lib.MemType) -> UInt64 {
+  match mem_type {
+    @lib.MemType(@lib.I32Limits(initial, _), _) => initial.to_uint64()
+    @lib.MemType(@lib.I64Limits(initial, _), _) => initial
   }
+}
+
+///|
+fn mp_provably_in_bounds(
+  mem_type : @lib.MemType,
+  offset : UInt64,
+  size : Int,
+) -> Bool {
+  let size_u = size.reinterpret_as_uint().to_uint64()
+  let end_ = offset + size_u
+  let initial_pages = mp_memory_initial_pages(mem_type)
+  if end_ < offset {
+    return end_ == 0UL && initial_pages == 1UL << 48
+  }
+  let mut end_pages = end_ >> 16
+  if (end_ & 0xffffUL) != 0UL {
+    end_pages += 1UL
+  }
+  end_pages <= initial_pages
 }
 
 ///|
@@ -242,13 +260,9 @@ fn mp_should_preserve_trap(
   base : MpBaseOffset,
   size : Int,
 ) -> Bool {
-  match mp_memory_size_bytes(mod_) {
-    Some(memory_size) => {
-      let start = mp_base_offset_u64(base)
-      let size_u = size.reinterpret_as_uint().to_uint64()
-      let end_ = start + size_u
-      end_ < start || end_ > memory_size
-    }
+  match mp_sole_memory_type(mod_) {
+    Some((mem_type, _)) =>
+      !mp_provably_in_bounds(mem_type, mp_base_offset_u64(base), size)
     None => true
   }
 }
@@ -368,11 +382,32 @@ fn mp_active_rewrite(
 }
 
 ///|
+fn mp_active_span(start : UInt64, size : Int) -> MpSpan? {
+  if size == 0 {
+    return None
+  }
+  let end_ = start + size.reinterpret_as_uint().to_uint64()
+  if end_ < start {
+    if end_ == 0UL {
+      Some(MpSpan::new(start, end_, true))
+    } else {
+      None
+    }
+  } else {
+    Some(MpSpan::new(start, end_, false))
+  }
+}
+
+///|
 fn mp_active_span_order(lhs : MpSpan, rhs : MpSpan) -> Int {
   if lhs.start < rhs.start {
     -1
   } else if lhs.start > rhs.start {
     1
+  } else if lhs.end_at_limit && !rhs.end_at_limit {
+    1
+  } else if !lhs.end_at_limit && rhs.end_at_limit {
+    -1
   } else if lhs.end_ < rhs.end_ {
     -1
   } else if lhs.end_ > rhs.end_ {
@@ -388,16 +423,97 @@ fn mp_active_spans_are_disjoint(spans : Array[MpSpan]) -> Bool {
     return true
   }
   spans.sort_by(mp_active_span_order)
+  let mut covered_end = spans[0].end_
+  let mut covered_to_limit = spans[0].end_at_limit
   let mut idx = 1
   while idx < spans.length() {
-    let prev = spans[idx - 1]
     let curr = spans[idx]
-    if curr.start < prev.end_ && prev.start < curr.end_ {
+    if covered_to_limit || curr.start < covered_end {
       return false
     }
+    covered_end = curr.end_
+    covered_to_limit = curr.end_at_limit
     idx += 1
   }
   true
+}
+
+///|
+fn mp_zero_trampled_overlap(
+  earlier_start : UInt64,
+  earlier : Bytes,
+  later_start : UInt64,
+  later_size : Int,
+) -> Bytes {
+  let earlier_size_u = earlier.length().reinterpret_as_uint().to_uint64()
+  let later_size_u = later_size.reinterpret_as_uint().to_uint64()
+  let (overlap_start_u, overlap_size_u) = if later_start >= earlier_start {
+    let delta = later_start - earlier_start
+    if delta >= earlier_size_u {
+      return earlier
+    }
+    let available = earlier_size_u - delta
+    (delta, if later_size_u < available { later_size_u } else { available })
+  } else {
+    let delta = earlier_start - later_start
+    if delta >= later_size_u {
+      return earlier
+    }
+    let available = later_size_u - delta
+    (0UL, if earlier_size_u < available { earlier_size_u } else { available })
+  }
+  if overlap_size_u == 0UL {
+    return earlier
+  }
+  let bytes = earlier.to_array()
+  let overlap_start = overlap_start_u.to_int()
+  let overlap_end = overlap_start + overlap_size_u.to_int()
+  for idx = overlap_start; idx < overlap_end; idx = idx + 1 {
+    bytes[idx] = (0).to_byte()
+  }
+  Bytes::from_array(bytes)
+}
+
+///|
+fn mp_zero_out_trampled_data(datas : Array[@lib.Data]) -> Unit {
+  for earlier_idx = datas.length() - 1
+      earlier_idx >= 0
+      earlier_idx = earlier_idx - 1 {
+    let (mode, start, original) = match datas[earlier_idx] {
+      @lib.Data(mode, bytes) =>
+        match mode {
+          @lib.DataMode::Active(@lib.MemIdx(0U), expr) => {
+            let base = match mp_parse_base_offset(expr) {
+              Some(base) => base
+              None => continue
+            }
+            (mode, mp_base_offset_u64(base), bytes)
+          }
+          _ => continue
+        }
+    }
+    let mut rewritten = original
+    for later_idx = earlier_idx + 1
+        later_idx < datas.length()
+        later_idx = later_idx + 1 {
+      match datas[later_idx] {
+        @lib.Data(@lib.Active(@lib.MemIdx(0U), expr), later_bytes) => {
+          let later_base = match mp_parse_base_offset(expr) {
+            Some(base) => base
+            None => continue
+          }
+          rewritten = mp_zero_trampled_overlap(
+            start,
+            rewritten,
+            mp_base_offset_u64(later_base),
+            later_bytes.length(),
+          )
+        }
+        _ => ()
+      }
+    }
+    datas[earlier_idx] = @lib.Data::new(mode, rewritten)
+  }
 }
 
 ///|
@@ -427,17 +543,44 @@ fn mp_can_optimize(
           Some(base) => base
           None => return false
         }
-        let start = mp_base_offset_u64(base)
-        let end_ = start + bytes.length().reinterpret_as_uint().to_uint64()
-        if end_ < start {
-          return false
+        match mp_active_span(mp_base_offset_u64(base), bytes.length()) {
+          Some(span) => spans.push(span)
+          None => if !bytes.is_empty() { return false }
         }
-        spans.push(MpSpan::new(start, end_))
       }
       @lib.Data(@lib.Passive, _) => ()
     }
   }
-  mp_active_spans_are_disjoint(spans)
+  if mp_active_spans_are_disjoint(spans) {
+    return true
+  }
+  if imported_mem_count != 0 {
+    let mem_type = match mp_sole_memory_type(mod_) {
+      Some((mem_type, true)) => mem_type
+      _ => return false
+    }
+    for data in datas {
+      match data {
+        @lib.Data(@lib.Active(@lib.MemIdx(0U), expr), bytes) => {
+          let base = match mp_parse_base_offset(expr) {
+            Some(base) => base
+            None => return false
+          }
+          if !mp_provably_in_bounds(
+              mem_type,
+              mp_base_offset_u64(base),
+              bytes.length(),
+            ) {
+            return false
+          }
+        }
+        @lib.Data(@lib.Active(_, _), _) => return false
+        @lib.Data(@lib.Passive, _) => ()
+      }
+    }
+  }
+  mp_zero_out_trampled_data(datas)
+  true
 }
 
 ///|

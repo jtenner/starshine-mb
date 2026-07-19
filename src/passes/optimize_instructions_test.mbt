@@ -27704,13 +27704,11 @@ test "optimize-instructions folds select with identical pure global arms" {
 }
 
 ///|
-test "optimize-instructions keeps identical mutable global select arms across effectful condition" {
-  // Red-first OI-F correctness/parity slice: Binaryen `version_130`
-  // `--optimize-instructions` keeps identical `global.get` select arms when the
-  // condition can mutate the global (`.tmp/oi-select-mutable-global-effectful-condition-probe.wat`).
-  // Folding this to `drop(condition); global.get` would read the mutable global
-  // after the call instead of before it, so the effectful-condition identical-arm
-  // cleanup must not admit global leaves.
+test "optimize-instructions v131 localizes identical mutable global select arms across effectful condition" {
+  // Binaryen v131 now folds identical mutable `global.get` arms even when the
+  // condition may mutate the global, by saving the first read to a scratch local
+  // before evaluating the condition. This preserves the pre-condition value and
+  // avoids both a duplicate global read and the old retained select.
   let func = @ir.HotFunc::new()
   @ir.hot_body_result_type_set(
     func,
@@ -27737,29 +27735,36 @@ test "optimize-instructions keeps identical mutable global select arms across ef
   }
   let root = @ir.hot_root_get(func, 0)
   match @ir.hot_node_get(func, root).op {
-    @ir.HotOp::Select => {
-      @debug.assert_eq(@ir.hot_node_get(func, root).child_count, 3)
-      let lhs = @ir.hot_child_get(func, root, 0)
-      let rhs = @ir.hot_child_get(func, root, 1)
-      let condition = @ir.hot_child_get(func, root, 2)
-      match @ir.hot_node_get(func, lhs).op {
-        @ir.HotOp::GlobalGet => ()
-        _ => fail("expected first global.get arm to stay")
-      }
-      match @ir.hot_node_get(func, rhs).op {
-        @ir.HotOp::GlobalGet => ()
-        _ => fail("expected second global.get arm to stay")
-      }
-      match @ir.hot_node_get(func, condition).op {
-        @ir.HotOp::Call => ()
-        _ => fail("expected effectful condition call to stay")
-      }
-    }
-    _ =>
-      fail(
-        "expected identical mutable global select arms to stay across effectful condition",
-      )
+    @ir.HotOp::Block => ()
+    other => fail("expected scratch-local block, got \{other}")
   }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 3)
+  let set_id = @ir.hot_region_get(func, body, 0)
+  let drop_id = @ir.hot_region_get(func, body, 1)
+  let get_id = @ir.hot_region_get(func, body, 2)
+  match @ir.hot_node_get(func, set_id).op {
+    @ir.HotOp::LocalSet => ()
+    other => fail("expected localized global value, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, set_id, 0)).op {
+    @ir.HotOp::GlobalGet => ()
+    other => fail("expected saved global.get, got \{other}")
+  }
+  match @ir.hot_node_get(func, drop_id).op {
+    @ir.HotOp::Drop => ()
+    other => fail("expected dropped condition call, got \{other}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, drop_id, 0)).op {
+    @ir.HotOp::Call => ()
+    other => fail("expected effectful condition call, got \{other}")
+  }
+  match @ir.hot_node_get(func, get_id).op {
+    @ir.HotOp::LocalGet => ()
+    other => fail("expected scratch reload, got \{other}")
+  }
+  @debug.assert_eq(@ir.hot_node_get(func, set_id).imm0, 0)
+  @debug.assert_eq(@ir.hot_node_get(func, get_id).imm0, 0)
 }
 
 ///|
@@ -34938,11 +34943,11 @@ test "optimize-instructions removes local ref.as_non_null sets under trap-ignori
 }
 
 ///|
-test "optimize-instructions folds same-local nullable ref.cast equality under trap-ignoring modes" {
-  // OI-J trap-mode slice from roadmap probe 12: default mode must preserve the
-  // nullable ref.cast trap in `ref.eq(x, ref.cast T x)`, but IIT/TNH can skip the
-  // trap and fold same-local equality to true. This covers only the local-ref.eq
-  // observation point, not general ordinary cast erasure.
+test "optimize-instructions v131 folds same-local nullable ref.cast equality while preserving its trap" {
+  // Binaryen v131 routes ref.eq through consecutive-input equality. Default mode
+  // can prove that both operands produce the same reference when they return, but
+  // must preserve the nullable ref.cast trap; IIT/TNH erase the cast while still
+  // preserving the first operand evaluation.
   let type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.TypeIdx::new(1U)
   let heap = @lib.HeapType::new(type_idx)
@@ -34990,17 +34995,28 @@ test "optimize-instructions folds same-local nullable ref.cast equality under tr
       fail("expected default same-local cast equality success, got \{err}")
   }
   let @lib.Func(_, @lib.Expr(default_body)) = @ir.hot_lower_func(default_func)
-  assert_true(
-    default_body.any(fn(instr) { instr == @lib.Instruction::ref_eq() }),
-  )
-  assert_true(
-    default_body.any(fn(instr) {
-      match instr {
-        @lib.RefCast(true, false, target) => target == heap
-        _ => false
-      }
-    }),
-  )
+  match default_body {
+    [
+      @lib.Block(
+        _,
+        @lib.Expr(
+          [
+            @lib.LocalGet(local_idx),
+            @lib.RefCast(true, false, target),
+            @lib.Drop,
+            @lib.I32Const(@lib.I32(1)),
+          ]
+        )
+      ),
+    ] => {
+      @debug.assert_eq(local_idx, @lib.LocalIdx::new(0U))
+      @debug.assert_eq(target, heap)
+    }
+    _ =>
+      fail(
+        "expected ref.cast trap preservation before true, got \\{default_body}",
+      )
+  }
 
   let iit_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
   let iit_ctx = HotPassContext::new(
@@ -35018,7 +35034,17 @@ test "optimize-instructions folds same-local nullable ref.cast equality under tr
       fail("expected IIT same-local cast equality success, got \{err}")
   }
   let @lib.Func(_, @lib.Expr(iit_body)) = @ir.hot_lower_func(iit_func)
-  @debug.assert_eq(iit_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+  match iit_body {
+    [
+      @lib.Block(
+        _,
+        @lib.Expr(
+          [@lib.LocalGet(local_idx), @lib.Drop, @lib.I32Const(@lib.I32(1))]
+        )
+      ),
+    ] => @debug.assert_eq(local_idx, @lib.LocalIdx::new(0U))
+    _ => fail("expected IIT first-evaluation preservation, got \{iit_body}")
+  }
 
   let tnh_func = @ir.hot_lift_func(module_, @lib.FuncIdx::new(0U))
   let tnh_ctx = HotPassContext::new(
@@ -35036,7 +35062,17 @@ test "optimize-instructions folds same-local nullable ref.cast equality under tr
       fail("expected TNH same-local cast equality success, got \{err}")
   }
   let @lib.Func(_, @lib.Expr(tnh_body)) = @ir.hot_lower_func(tnh_func)
-  @debug.assert_eq(tnh_body, [@lib.Instruction::i32_const(@lib.I32(1))])
+  match tnh_body {
+    [
+      @lib.Block(
+        _,
+        @lib.Expr(
+          [@lib.LocalGet(local_idx), @lib.Drop, @lib.I32Const(@lib.I32(1))]
+        )
+      ),
+    ] => @debug.assert_eq(local_idx, @lib.LocalIdx::new(0U))
+    _ => fail("expected TNH first-evaluation preservation, got \{tnh_body}")
+  }
 }
 
 ///|
@@ -56328,6 +56364,10 @@ test "optimize-instructions rewrites ref.eq null comparisons through ref.is_null
   assert_true(left_pretty.contains("ref.null"), msg=left_pretty)
   assert_false(null_null_pretty.contains("ref.eq"), msg=null_null_pretty)
   assert_false(null_null_pretty.contains("ref.is_null"), msg=null_null_pretty)
+  // Binaryen v131's generic consecutive-input fold preserves one evaluation
+  // even for equal direct reference literals.
+  assert_true(null_null_pretty.contains("ref.null"), msg=null_null_pretty)
+  assert_true(null_null_pretty.contains("drop"), msg=null_null_pretty)
   assert_true(null_null_pretty.contains("I32(1)"), msg=null_null_pretty)
 }
 
@@ -84586,5 +84626,436 @@ test "optimize-instructions folds generic eight and nine operand idempotent call
   @debug.assert_eq(
     optimize_instructions_test_count_substring(mismatch, "call (Func 1)"),
     2,
+  )
+}
+
+///|
+test "optimize-instructions v131 raw fallback folds identical if arms and sinks local sets" {
+  // random-all-profiles v131 evidence reaches raw fallback around control-heavy
+  // local facts. Equal arms execute once after the condition, and differing i32
+  // constants stored to the same local become one value-if plus one local.set.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (local i32 i32)
+        #|    (if (local.get 0)
+        #|      (then (local.set 1 (i32.const 10)))
+        #|      (else (local.set 1 (i32.const 10))))
+        #|    (if (local.get 0)
+        #|      (then (local.set 2 (i32.const 10)))
+        #|      (else (local.set 2 (i32.const 20))))
+        #|    (if (local.get 0)
+        #|      (then (drop (local.get 1)))
+        #|      (else (drop (local.get 1))))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 raw if fallback success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "if (Void)"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "if I32"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "local.set (Local 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "local.set (Local 2)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "optimize-instructions v131 precomputed identical selects take the exact raw path" {
+  // The late O4z neighborhood's precompute pass leaves this canonical eight-root
+  // body. OI must preserve the local write, erase the nop and pure condition,
+  // and avoid paying HOT setup in every generated function.
+  let parsed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32 i32 i32) (result i32)
+      #|    (local.set 1 (i32.const 0))
+      #|    (nop)
+      #|    (select (local.get 0) (local.get 0) (local.get 2))))
+      #|,
+    ),
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      parsed,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 precomputed raw select success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "local.get (Local 0)"),
+    1,
+    msg=pretty,
+  )
+  assert_true(
+    trace.join("\n").contains("reason=v131-precomputed-identical-select"),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "optimize-instructions v131 raw fallback finishes double eqz constants" {
+  // The pass-oi-default-scalar v131 lane reaches raw fallback because of the
+  // earlier local.tee. Folding only the inner eqz leaves a size-losing outer
+  // shell; the fixed-width raw constant fact must finish both at once.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (local i32)
+        #|    (drop (i32.add (local.tee 0 (i32.const 13)) (i32.const 0)))
+        #|    (drop (i32.eqz (i32.eqz (i32.const 1))))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 double-eqz fallback success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("i32.eqz"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions v131 evaluates identical ref.eq locals once" {
+  // Binaryen v131 changed the equal-reference fold to preserve exactly one
+  // operand evaluation before producing true, even when that evaluation is a
+  // pure local.get. This guards the released one-evaluation contract rather
+  // than the older bare-constant v130 output.
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param eqref) (result i32) (ref.eq (local.get 0) (local.get 0))))",
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 ref.eq local fold success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "local.get (Local 0)"),
+    1,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions v131 preserves both nonfoldable equal ref.eq operands" {
+  // The v131 consecutive-input equality path can prove that calls between two
+  // local.get fallthrough values do not change the local, but neither effectful
+  // block is removable. Preserve both blocks in order and replace only ref.eq.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $nothing)
+        #|  (func (param eqref) (result i32)
+        #|    (ref.eq
+        #|      (block (result eqref) (call $nothing) (local.get 0))
+        #|      (block (result eqref) (call $nothing) (local.get 0)))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 effectful ref.eq fold success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "local.get (Local 0)"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions v131 orders idempotent call effects before repeated arguments" {
+  // Binaryen v131 separates the idempotent parent call from its children. Equal
+  // constant arguments still prove equal results and remove f32.abs(x * x), but
+  // a mutable-global argument cannot: the first call writes that global before
+  // the second global.get executes.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $g (mut f32) (f32.const 1))
+        #|  (@binaryen.idempotent)
+        #|  (func $id (param f32) (result f32)
+        #|    (global.set $g (f32.const -1))
+        #|    (local.get 0))
+        #|  (func $fold
+        #|    (drop (f32.abs (f32.mul
+        #|      (call $id (f32.const 10))
+        #|      (call $id (f32.const 10))))))
+        #|  (func $no_fold
+        #|    (drop (f32.abs (f32.mul
+        #|      (call $id (global.get $g))
+        #|      (call $id (global.get $g)))))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected v131 idempotent effect-order success, got \{err}")
+  }
+  let folded = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(folded.contains("f32.abs"), msg=folded)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(folded, "call (Func 0)"),
+    2,
+    msg=folded,
+  )
+  let blocked = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(blocked.contains("f32.abs"), msg=blocked)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(blocked, "global.get (Global 0)"),
+    2,
+    msg=blocked,
+  )
+}
+
+///|
+test "optimize-instructions v131 localizes identical idempotent select arms" {
+  // Binaryen v131 keeps one foldable idempotent arm in a scratch local when an
+  // effectful condition cannot be crossed. This evaluates the arm and condition
+  // once each while removing the duplicate call and select.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (@binaryen.idempotent)
+        #|  (func $id (result i32) (i32.const 7))
+        #|  (func $effect (result i32) (i32.const 1))
+        #|  (func (result i32)
+        #|    (select (call $id) (call $id) (call $effect))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 scratch-select fold success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("select"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "optimize-instructions v131 keeps identical nonfoldable selects when reordering conflicts" {
+  // Equal fallthrough values alone are insufficient. The false arm writes $y
+  // and the condition reads $y, so moving the false arm after the condition
+  // would change behavior; v131 deliberately keeps this select.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param $x i32) (param $y i32) (param $c i32) (result i32)
+        #|    (select
+        #|      (local.get $x)
+        #|      (block (result i32)
+        #|        (local.set $y (i32.const 0))
+        #|        (local.get $x))
+        #|      (block (result i32)
+        #|        (drop (local.get $y))
+        #|        (local.get $c)))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 conflicting select success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions v131 binary path preserves select effect ordering" {
+  // Lock v131 directional behavior through Starshine's encode/decode path: a
+  // mutable global arm needs a scratch local across an effectful condition,
+  // while an explicitly structured false-arm write read by the condition keeps
+  // the original select.
+  let source =
+    #|(module
+    #|  (type $unused (struct))
+    #|  (global $g (mut i32) (i32.const 7))
+    #|  (func $condition (result i32)
+    #|    (global.set $g (i32.const 9))
+    #|    (i32.const 1))
+    #|  (func (export "scratch") (result i32)
+    #|    (select (global.get $g) (global.get $g) (call $condition)))
+    #|  (func (export "conflict")
+    #|    (param $x i32) (param $y i32) (param $c i32) (result i32)
+    #|    (select
+    #|      (local.get $x)
+    #|      (block (result i32)
+    #|        (local.set $y (i32.const 0))
+    #|        (local.get $x))
+    #|      (block (result i32)
+    #|        (drop (local.get $y))
+    #|        (local.get $c)))))
+    #|
+  let parsed = pass_test_module_from_wat(source)
+  let encoded = match @binary.encode_module(parsed) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected v131 select fixture encode success, got \{err}")
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 select fixture decode success, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      decoded,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 binary select pipeline success, got \{err}")
+  }
+  let scratch = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(scratch.contains("select"), msg="\{scratch}\ntrace=\{trace}")
+  assert_true(scratch.contains("local.set"), msg=scratch)
+  assert_true(scratch.contains("local.get"), msg=scratch)
+  assert_true(scratch.contains("call (Func 0)"), msg=scratch)
+  let conflict = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(conflict.contains("select"), msg=conflict)
+  assert_true(conflict.contains("local.set (Local 1)"), msg=conflict)
+  assert_true(conflict.contains("local.get (Local 1)"), msg=conflict)
+  assert_true(conflict.contains("local.get (Local 2)"), msg=conflict)
+}
+
+///|
+test "optimize-instructions v131 canonical binary select conflict is a smaller Starshine win" {
+  // Official wasm producers flatten branch-free expression blocks. On that
+  // canonical stack form, the false-arm write and condition read remain ordered
+  // top-level effects whose values are unobservable once both arms are proven
+  // equal. Binaryen v131 keeps the select (56 bytes); Starshine preserves those
+  // effects and returns $x directly (51 bytes).
+  let decoded = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x01, 0x60, 0x03,
+        0x7f, 0x7f, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0c, 0x01, 0x08,
+        0x63, 0x6f, 0x6e, 0x66, 0x6c, 0x69, 0x63, 0x74, 0x00, 0x00, 0x0a, 0x12, 0x01,
+        0x10, 0x00, 0x20, 0x00, 0x41, 0x00, 0x21, 0x01, 0x20, 0x00, 0x20, 0x01, 0x1a,
+        0x20, 0x02, 0x1b, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected canonical v131 select fixture decode, got \{err}")
+  }
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      decoded,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected canonical v131 select pipeline, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=v131-flat-identical-select",
+      )
+    }),
+    msg="expected v131 flat-select raw replay in \{trace}",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+  let encoded = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected canonical v131 select output encode, got \{err}")
+  }
+  @debug.assert_eq(encoded.length(), 51)
+}
+
+///|
+test "optimize-instructions v131 does not materialize non-concrete select arms" {
+  // The arm checks optimize to unreachable, whose bottom type cannot be used for
+  // a scratch local. Binaryen v131 and the production Starshine path leave the
+  // select in place rather than materializing an invalid non-concrete local.
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $condition (result i32) (i32.const 0))
+        #|  (func
+        #|    (drop
+        #|      (select (result (ref nofunc))
+        #|        (ref.as_non_null (ref.null nofunc))
+        #|        (ref.as_non_null (ref.null nofunc))
+        #|        (call $condition)))))
+        #|,
+      ),
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 non-concrete select success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_false(pretty.contains("local.get"), msg=pretty)
+  @debug.assert_eq(
+    optimize_instructions_test_count_substring(pretty, "unreachable"),
+    2,
+    msg=pretty,
   )
 }

@@ -1918,6 +1918,7 @@ fn make_optimize_options(
   inlining_allow_functions_with_loops : Bool,
   inlining_partial_inlining_ifs : Int,
   closed_world : Bool,
+  zero_filled_memory : Bool,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
   debug_serial_passes : Bool,
@@ -1935,6 +1936,7 @@ fn make_optimize_options(
     ),
     monomorphize_min_benefit~,
     closed_world~,
+    zero_filled_memory~,
     low_memory_unused~,
     low_memory_bound~,
     traps_never_happen~,
@@ -3055,6 +3057,9 @@ fn cmd_post_encode_repro_note(
   if ignore_implicit_traps {
     write_arg("--ignore-implicit-traps")
   }
+  if options.zero_filled_memory {
+    write_arg("--zero-filled-memory")
+  }
   if options.inlining.always_inline_max_size != 2 {
     write_arg(
       "--always-inline-max-function-size \{options.inlining.always_inline_max_size}",
@@ -3271,6 +3276,9 @@ fn cmd_build_help_text() -> String {
   append_help_line(out, "--traps-may-happen", "Alias for --trap-mode allow.")
   append_help_line(
     out, "--closed-world", "Allow passes to assume a closed-world module graph when required for whole-program GC rewrites.",
+  )
+  append_help_line(
+    out, "--zero-filled-memory", "Treat imported memory as initially zero-filled for eligible memory-packing rewrites.",
   )
   append_help_line(
     out, "--no-closed-world", "Disable closed-world-only optimizations.",
@@ -3914,10 +3922,18 @@ pub fn run_cmd_with_adapter(
   let (optimize_level, shrink_level) = resolve_optimize_levels(
     merged.optimize_flags,
   )
+  let requested_pass_flags = resolve_pass_flags(merged)
+  let pass_flags : Array[String] = []
+  let mut zero_filled_memory = false
+  for flag in requested_pass_flags {
+    if flag == "zero-filled-memory" {
+      zero_filled_memory = true
+    } else {
+      pass_flags.push(flag)
+    }
+  }
   let scheduled_pass_flags = resolve_effective_pass_flags(
-    resolve_pass_flags(merged),
-    optimize_level,
-    shrink_level,
+    pass_flags, optimize_level, shrink_level,
   )
   let max_passes = cmd_trace_optimize_max_passes(io)
   let (resolved_passes, pass_flags_truncated) = limit_pass_flags_by_max_passes(
@@ -3992,6 +4008,7 @@ pub fn run_cmd_with_adapter(
     inlining_allow_functions_with_loops,
     inlining_partial_inlining_ifs,
     closed_world,
+    zero_filled_memory,
     low_memory_unused,
     low_memory_bound,
     merged.debug_serial_passes,
@@ -3999,7 +4016,7 @@ pub fn run_cmd_with_adapter(
   cmd_trace_emit(
     io,
     trace_optimize,
-    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen} ignore_implicit_traps=\{ignore_implicit_traps} closed_world=\{closed_world}",
+    "options o=\{optimize_level} z=\{shrink_level} traps_never=\{traps_never_happen} ignore_implicit_traps=\{ignore_implicit_traps} closed_world=\{closed_world} zero_filled_memory=\{zero_filled_memory}",
   )
   match merged.tracing {
     Some(level) =>

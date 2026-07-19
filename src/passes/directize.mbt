@@ -8,7 +8,9 @@ priv enum DirectizeTarget {
 ///|
 priv struct DirectizeTableInfo {
   can_optimize : Bool
+  has_grow : Bool
   entries : Array[@lib.FuncIdx?]
+  unknown_entries : Array[Bool]
 }
 
 ///|
@@ -198,9 +200,7 @@ fn directize_mark_mutated_instr(
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       directize_mark_mutated_instrs(mutated, body)
-    @lib.TableSet(table_idx)
-    | @lib.TableGrow(table_idx)
-    | @lib.TableFill(table_idx) =>
+    @lib.TableSet(table_idx) | @lib.TableFill(table_idx) =>
       directize_mark_table(mutated, table_idx, true)
     @lib.TableInit(_, table_idx) =>
       directize_mark_table(mutated, table_idx, true)
@@ -237,10 +237,117 @@ fn directize_mutated_tables(
 }
 
 ///|
+fn directize_mark_grow_instr(
+  grown : Array[Bool],
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      for nested in body {
+        directize_mark_grow_instr(grown, nested)
+      }
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        directize_mark_grow_instr(grown, nested)
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            directize_mark_grow_instr(grown, nested)
+          }
+        None => ()
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      for nested in body {
+        directize_mark_grow_instr(grown, nested)
+      }
+    @lib.TableGrow(table_idx) => directize_mark_table(grown, table_idx, true)
+    _ => ()
+  }
+}
+
+///|
+fn directize_grown_tables(mod_ : @lib.Module, table_count : Int) -> Array[Bool] {
+  let grown = Array::make(table_count, false)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        for instr in instrs {
+          directize_mark_grow_instr(grown, instr)
+        }
+      }
+    None => ()
+  }
+  grown
+}
+
+///|
+fn directize_mark_runtime_table_instr(
+  mutated : Array[Bool],
+  grown : Array[Bool],
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      for nested in body {
+        directize_mark_runtime_table_instr(mutated, grown, nested)
+      }
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        directize_mark_runtime_table_instr(mutated, grown, nested)
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            directize_mark_runtime_table_instr(mutated, grown, nested)
+          }
+        None => ()
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      for nested in body {
+        directize_mark_runtime_table_instr(mutated, grown, nested)
+      }
+    @lib.TableGrow(table_idx) => directize_mark_table(grown, table_idx, true)
+    @lib.TableSet(table_idx)
+    | @lib.TableFill(table_idx)
+    | @lib.TableInit(_, table_idx) =>
+      directize_mark_table(mutated, table_idx, true)
+    @lib.TableCopy(dst, _) => directize_mark_table(mutated, dst, true)
+    _ => ()
+  }
+}
+
+///|
+fn directize_runtime_table_facts(
+  mod_ : @lib.Module,
+  table_count : Int,
+) -> (Array[Bool], Array[Bool]) {
+  let mutated = Array::make(table_count, false)
+  let grown = Array::make(table_count, false)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        for instr in instrs {
+          directize_mark_runtime_table_instr(mutated, grown, instr)
+        }
+      }
+    None => ()
+  }
+  (mutated, grown)
+}
+
+///|
 fn directize_base_table_infos(mod_ : @lib.Module) -> Array[DirectizeTableInfo] {
   let table_types = directize_table_types(mod_)
   let imported_tables = directize_imported_table_count(mod_)
-  let mutated = directize_mutated_tables(mod_, table_types.length())
+  let (mutated, grown) = directize_runtime_table_facts(
+    mod_,
+    table_types.length(),
+  )
   let exported = Array::make(table_types.length(), false)
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
@@ -262,8 +369,13 @@ fn directize_base_table_infos(mod_ : @lib.Module) -> Array[DirectizeTableInfo] {
       size is Some(_)
     infos.push({
       can_optimize,
+      has_grow: grown[idx],
       entries: match size {
         Some(n) => Array::make(n, None)
+        None => []
+      },
+      unknown_entries: match size {
+        Some(n) => Array::make(n, false)
         None => []
       },
     })
@@ -297,6 +409,7 @@ fn directize_write_table_entry(
     return
   }
   info.entries[offset] = value
+  info.unknown_entries[offset] = false
 }
 
 ///|
@@ -328,6 +441,42 @@ fn directize_record_elem_exprs(
       None => directize_disable_table(tables, table_slot)
     }
     rel += 1
+  }
+}
+
+///|
+fn directize_apply_table_initializers(
+  mod_ : @lib.Module,
+  tables : Array[DirectizeTableInfo],
+) -> Unit {
+  let imported_tables = directize_imported_table_count(mod_)
+  match mod_.table_sec {
+    Some(@lib.TableSec(defs)) => {
+      let mut def_idx = 0
+      for table in defs {
+        let slot = imported_tables + def_idx
+        if slot >= 0 && slot < tables.length() && tables[slot].can_optimize {
+          let @lib.Table(_, init) = table
+          match init {
+            Some(@lib.Expr([@lib.RefFunc(func_idx)])) => {
+              let entries = tables[slot].entries
+              for idx = 0; idx < entries.length(); idx = idx + 1 {
+                entries[idx] = Some(func_idx)
+              }
+            }
+            Some(@lib.Expr([@lib.RefNull(_)])) | None => ()
+            Some(_) => {
+              let unknown_entries = tables[slot].unknown_entries
+              for idx = 0; idx < unknown_entries.length(); idx = idx + 1 {
+                unknown_entries[idx] = true
+              }
+            }
+          }
+        }
+        def_idx += 1
+      }
+    }
+    None => ()
   }
 }
 
@@ -364,6 +513,7 @@ fn directize_populate_table_infos(
 ///|
 fn directize_build_info(mod_ : @lib.Module) -> DirectizeInfo {
   let tables = directize_base_table_infos(mod_)
+  directize_apply_table_initializers(mod_, tables)
   directize_populate_table_infos(mod_, tables)
   {
     env: @validate.Env::new().with_module(mod_),
@@ -418,7 +568,10 @@ fn directize_classify_target(
     return DirectizeUnknown
   }
   if offset < 0 || offset >= table_info.entries.length() {
-    return DirectizeTrap
+    return if table_info.has_grow { DirectizeUnknown } else { DirectizeTrap }
+  }
+  if table_info.unknown_entries[offset] {
+    return DirectizeUnknown
   }
   match table_info.entries[offset] {
     Some(func_idx) =>
@@ -882,6 +1035,39 @@ fn directize_try_rewrite_call_tail(
 }
 
 ///|
+fn directize_instr_has_indirect_call(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.CallIndirect(_, _) | @lib.ReturnCallIndirect(_, _) => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      directize_instrs_have_indirect_call(body)
+    @lib.If(_, then_body, else_body) => {
+      if directize_instrs_have_indirect_call(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => directize_instrs_have_indirect_call(body)
+        None => false
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      directize_instrs_have_indirect_call(body)
+    _ => false
+  }
+}
+
+///|
+fn directize_instrs_have_indirect_call(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if directize_instr_has_indirect_call(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn directize_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   ctx : DirectizeFuncContext,
@@ -936,12 +1122,26 @@ fn directize_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => return mod_
   }
   let info = directize_build_info(mod_)
+  let mut has_optimizable_table = false
+  for table in info.tables {
+    if table.can_optimize {
+      has_optimizable_table = true
+      break
+    }
+  }
+  if !has_optimizable_table {
+    return mod_
+  }
   let imported_funcs = directize_imported_func_count(mod_)
   let rewritten : Array[@lib.Func] = []
   let mut changed = false
   for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
     let func = funcs[code_idx]
     let @lib.Func(locals, @lib.Expr(body)) = func
+    if !directize_instrs_have_indirect_call(body) {
+      rewritten.push(func)
+      continue
+    }
     let ctx = directize_context_for_func(
       info,
       @lib.FuncIdx::new((imported_funcs + code_idx).reinterpret_as_uint()),

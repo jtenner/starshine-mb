@@ -19750,6 +19750,7 @@ priv enum OiScalarTreeLeafEqualityKind {
   ScalarTreeLeafLocalGet
   ScalarTreeLeafGlobalGet
   ScalarTreeLeafConst
+  ScalarTreeLeafReferenceLiteral
   ScalarTreeLeafStableStateRead
 }
 
@@ -19762,6 +19763,8 @@ priv struct OiScalarTreeLeafEqualityFact {
 ///|
 fn OiScalarTreeLeafEqualityFact::from_nodes(
   func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
   left : @ir.HotNode,
   right : @ir.HotNode,
   include_stable_state_read : Bool,
@@ -19774,6 +19777,29 @@ fn OiScalarTreeLeafEqualityFact::from_nodes(
     (@ir.HotOp::Const, @ir.HotOp::Const) if @ir.hot_const_get(func, left.imm0) ==
       @ir.hot_const_get(func, right.imm0) =>
       return Some({ kind: ScalarTreeLeafConst, stable_state_fact: None })
+    _ => ()
+  }
+  match
+    (
+      @ir.hot_node_exact_instr(func, left_id),
+      @ir.hot_node_exact_instr(func, right_id),
+    ) {
+    (
+      Some(@lib.Instruction::RefNull(left_heap)),
+      Some(@lib.Instruction::RefNull(right_heap)),
+    ) if left_heap == right_heap =>
+      return Some({
+        kind: ScalarTreeLeafReferenceLiteral,
+        stable_state_fact: None,
+      })
+    (
+      Some(@lib.Instruction::RefFunc(left_func)),
+      Some(@lib.Instruction::RefFunc(right_func)),
+    ) if left_func == right_func =>
+      return Some({
+        kind: ScalarTreeLeafReferenceLiteral,
+        stable_state_fact: None,
+      })
     _ => ()
   }
   if include_stable_state_read {
@@ -19795,8 +19821,10 @@ fn OiScalarTreeLeafEqualityFact::proves_equal(
   self : OiScalarTreeLeafEqualityFact,
 ) -> Bool {
   match self.kind {
-    ScalarTreeLeafLocalGet | ScalarTreeLeafGlobalGet | ScalarTreeLeafConst =>
-      true
+    ScalarTreeLeafLocalGet
+    | ScalarTreeLeafGlobalGet
+    | ScalarTreeLeafConst
+    | ScalarTreeLeafReferenceLiteral => true
     ScalarTreeLeafStableStateRead =>
       match self.stable_state_fact {
         Some(fact) => fact.proves_equal()
@@ -19880,7 +19908,7 @@ fn OiScalarTreeEqualityFact::from_nodes(
   let right = @ir.hot_node_get(func, right_id)
   match
     OiScalarTreeLeafEqualityFact::from_nodes(
-      func, left, right, include_stable_state_read,
+      func, left_id, right_id, left, right, include_stable_state_read,
     ) {
     Some(leaf_fact) =>
       return {
@@ -20119,6 +20147,23 @@ fn optimize_instructions_left_fallthrough_input_for_equality(
   right_fallthrough_id : Int,
 ) -> OiLeftFallthroughInputFact {
   let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 1 {
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(@lib.Instruction::RefAsNonNull)
+      | Some(@lib.Instruction::RefCast(_, _, _)) =>
+        // Binaryen v131's fallthrough equality sees through reference checks:
+        // if the wrapper returns, it returns its child unchanged. The wrapper
+        // itself remains in the selected preserved operand so its trap is not
+        // lost merely because equality was proved.
+        return optimize_instructions_left_fallthrough_input_for_equality(
+          func,
+          node_masks,
+          @ir.hot_child_get(func, node_id, 0),
+          right_fallthrough_id,
+        )
+      _ => ()
+    }
+  }
   match node.op {
     @ir.HotOp::Block if node.child_count > 0 =>
       optimize_instructions_left_fallthrough_input_for_equality(
@@ -20188,6 +20233,18 @@ fn optimize_instructions_right_fallthrough_input_for_equality(
   node_id : Int,
 ) -> OiRightFallthroughInputFact {
   let node = @ir.hot_node_get(func, node_id)
+  if node.child_count == 1 {
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(@lib.Instruction::RefAsNonNull)
+      | Some(@lib.Instruction::RefCast(_, _, _)) =>
+        return optimize_instructions_right_fallthrough_input_for_equality(
+          func,
+          node_masks,
+          @ir.hot_child_get(func, node_id, 0),
+        )
+      _ => ()
+    }
+  }
   match node.op {
     @ir.HotOp::Block if node.child_count > 0 => {
       let mut prefix_effect_mask = 0U
@@ -29723,6 +29780,151 @@ fn OiBooleanConstSelectFact::apply(
 }
 
 ///|
+priv enum OiV131IdenticalSelectPlanKind {
+  V131IdenticalSelectScratchFirst
+  V131IdenticalSelectPreserveBoth
+}
+
+///|
+priv struct OiV131IdenticalSelectPlanFact {
+  kind : OiV131IdenticalSelectPlanKind
+  if_true : Int
+  if_false : Int
+  condition : Int
+  result_type : @lib.ValType
+}
+
+///|
+fn OiV131IdenticalSelectPlanFact::from_select(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  if_true : Int,
+  if_false : Int,
+  condition : Int,
+) -> OiV131IdenticalSelectPlanFact? {
+  // This is the v131 extension after the older cheap identical-arm paths have
+  // declined. The shared equality fact handles fallthrough values and annotated
+  // idempotent calls. Foldable arms use a scratch local only when the first arm
+  // cannot safely cross the condition; nonfoldable equal arms are retained only
+  // when the false arm can move after the condition without changing effects.
+  let result_type = match
+    @ir.hot_type_results(func, @ir.hot_node_type(func, if_true)) {
+    [result_type] => result_type
+    _ => return None
+  }
+  let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
+    ctx, func, if_true, if_false,
+  )
+  if !equality_fact.proves_equal(func) {
+    return None
+  }
+  let effects = pass_require_effects(ctx, func)
+  let condition_effects = OiSubtreeReorderEffectFact::from_node(
+    func,
+    effects.node_masks,
+    condition,
+  )
+  let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
+    ctx, func, dead, if_false,
+  )
+  if foldability_fact.proves_foldable() {
+    let first_effects = OiSubtreeReorderEffectFact::from_node(
+      func,
+      effects.node_masks,
+      if_true,
+    )
+    if first_effects.can_swap_with(condition_effects) {
+      return None
+    }
+    match optimize_instructions_defaultable_scratch_type(result_type) {
+      Some(_) =>
+        Some({
+          kind: V131IdenticalSelectScratchFirst,
+          if_true,
+          if_false,
+          condition,
+          result_type,
+        })
+      None => None
+    }
+  } else {
+    let false_effects = OiSubtreeReorderEffectFact::from_node(
+      func,
+      effects.node_masks,
+      if_false,
+    )
+    if !false_effects.can_swap_with(condition_effects) {
+      return None
+    }
+    Some({
+      kind: V131IdenticalSelectPreserveBoth,
+      if_true,
+      if_false,
+      condition,
+      result_type,
+    })
+  }
+}
+
+///|
+fn OiV131IdenticalSelectPlanFact::apply(
+  self : OiV131IdenticalSelectPlanFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match self.kind {
+    V131IdenticalSelectScratchFirst => {
+      let local_type = match
+        optimize_instructions_defaultable_scratch_type(self.result_type) {
+        Some(local_type) => local_type
+        None => return false
+      }
+      let local_id = @ir.hot_append_body_local(func, local_type)
+      let local_get = @ir.hot_build_local_get(func, local_id)
+      let restored = match
+        optimize_instructions_restore_localized_result(
+          func,
+          local_get,
+          local_type,
+          self.result_type,
+        ) {
+        Some(result_id) => result_id
+        None => return false
+      }
+      let replacement = @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(self.result_type),
+        [
+          @ir.hot_build_local_set(func, local_id, self.if_true),
+          @ir.hot_build_drop(func, self.condition),
+          restored,
+        ],
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, replacement,
+      )
+    }
+    V131IdenticalSelectPreserveBoth => {
+      let replacement = @ir.hot_build_block(
+        func,
+        @lib.BlockType::val_type(self.result_type),
+        [
+          @ir.hot_build_drop(func, self.if_true),
+          @ir.hot_build_drop(func, self.condition),
+          self.if_false,
+        ],
+      )
+      optimize_instructions_replace_with_node_id(
+        ctx, func, node_id, replacement,
+      )
+    }
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_fold_const_select(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -29838,6 +30040,13 @@ fn optimize_instructions_try_fold_const_select(
         _ => ()
       }
     }
+  }
+  match
+    OiV131IdenticalSelectPlanFact::from_select(
+      ctx, func, dead, if_true, if_false, condition,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
+    None => ()
   }
   let (chosen, dead_arm) = match
     optimize_instructions_i32_const(func, dead, condition) {
@@ -36888,6 +37097,35 @@ fn optimize_instructions_replace_with_drop_then_const_i32(
 }
 
 ///|
+fn optimize_instructions_replace_with_drop_drop_then_const_i32(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  first_drop_id : Int,
+  second_drop_id : Int,
+  value : @lib.I32,
+) -> Unit {
+  let temp = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      @ir.hot_build_drop(func, first_drop_id),
+      @ir.hot_build_drop(func, second_drop_id),
+      @ir.hot_build_const_i32(func, value),
+    ],
+  )
+  let replacement = @ir.hot_node_get(func, temp)
+  @ir.hot_replace_node(func, node_id, replacement)
+  @ir.hot_label_owner_set(
+    func,
+    @ir.hot_control_node_label(func, node_id),
+    node_id,
+  )
+  @ir.hot_delete_node(func, temp)
+  pass_mark_mutated(ctx, func)
+}
+
+///|
 fn optimize_instructions_replace_with_drop_then_const_i64(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -37269,6 +37507,146 @@ fn optimize_instructions_try_strip_struct_get_non_null_check(
 }
 
 ///|
+priv enum OiRefEqOperandErasabilityKind {
+  RefEqOperandErasable
+  RefEqOperandPreserveReferenceTrap
+  RefEqOperandNotFoldable
+}
+
+///|
+priv struct OiRefEqOperandErasabilityFact {
+  kind : OiRefEqOperandErasabilityKind
+  foldability_fact : OiConsecutiveInputFoldabilityFact
+}
+
+///|
+fn OiRefEqOperandErasabilityFact::from_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  operand_id : Int,
+) -> OiRefEqOperandErasabilityFact {
+  let foldability_fact = OiConsecutiveInputFoldabilityFact::from_right(
+    ctx, func, dead, operand_id,
+  )
+  match @ir.hot_node_exact_instr(func, operand_id) {
+    Some(@lib.Instruction::RefAsNonNull)
+    | Some(@lib.Instruction::RefCast(_, _, _)) => {
+      if !ctx.traps_never_happen && !ctx.ignore_implicit_traps {
+        return { kind: RefEqOperandPreserveReferenceTrap, foldability_fact }
+      }
+      if @ir.hot_child_count(func, operand_id) == 1 &&
+        OiSideEffectFreeExpressionFact::proves_node_free(
+          func,
+          dead,
+          @ir.hot_child_get(func, operand_id, 0),
+        ) {
+        return { kind: RefEqOperandErasable, foldability_fact }
+      }
+    }
+    _ => ()
+  }
+  let kind = if foldability_fact.proves_foldable() {
+    RefEqOperandErasable
+  } else {
+    RefEqOperandNotFoldable
+  }
+  { kind, foldability_fact }
+}
+
+///|
+fn OiRefEqOperandErasabilityFact::proves_erasable(
+  self : OiRefEqOperandErasabilityFact,
+) -> Bool {
+  ignore(self.foldability_fact)
+  match self.kind {
+    RefEqOperandErasable => true
+    RefEqOperandPreserveReferenceTrap | RefEqOperandNotFoldable => false
+  }
+}
+
+///|
+priv struct OiRefEqConsecutiveEqualityFact {
+  lhs_id : Int
+  rhs_id : Int
+  equality_fact : OiConsecutiveInputEqualityFact
+  lhs_erasability_fact : OiRefEqOperandErasabilityFact
+  rhs_erasability_fact : OiRefEqOperandErasabilityFact
+}
+
+///|
+fn OiRefEqConsecutiveEqualityFact::from_operands(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> OiRefEqConsecutiveEqualityFact? {
+  // Binaryen v131 applies the shared consecutive-input equality machinery to
+  // ref.eq. A foldable right operand means only the left evaluation survives;
+  // otherwise both equal evaluations must be preserved before producing true.
+  let equality_fact = OiConsecutiveInputEqualityFact::from_adjacent_operands(
+    ctx, func, lhs_id, rhs_id,
+  )
+  if !equality_fact.proves_equal(func) {
+    return None
+  }
+  Some({
+    lhs_id,
+    rhs_id,
+    equality_fact,
+    lhs_erasability_fact: OiRefEqOperandErasabilityFact::from_operand(
+      ctx, func, dead, lhs_id,
+    ),
+    rhs_erasability_fact: OiRefEqOperandErasabilityFact::from_operand(
+      ctx, func, dead, rhs_id,
+    ),
+  })
+}
+
+///|
+fn OiRefEqConsecutiveEqualityFact::apply(
+  self : OiRefEqConsecutiveEqualityFact,
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !self.equality_fact.proves_equal(func) {
+    return false
+  }
+  let lhs_foldable = self.lhs_erasability_fact.proves_erasable()
+  let rhs_foldable = self.rhs_erasability_fact.proves_erasable()
+  match (lhs_foldable, rhs_foldable) {
+    (true, false) =>
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.rhs_id,
+        @lib.I32(1),
+      )
+    (_, true) =>
+      optimize_instructions_replace_with_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.lhs_id,
+        @lib.I32(1),
+      )
+    (false, false) =>
+      optimize_instructions_replace_with_drop_drop_then_const_i32(
+        ctx,
+        func,
+        node_id,
+        self.lhs_id,
+        self.rhs_id,
+        @lib.I32(1),
+      )
+  }
+  true
+}
+
+///|
 fn optimize_instructions_try_rewrite_ref_eq_null(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -37284,6 +37662,13 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   let mut lhs_id = @ir.hot_child_get(func, node_id, 0)
   let mut rhs_id = @ir.hot_child_get(func, node_id, 1)
+  match
+    OiRefEqConsecutiveEqualityFact::from_operands(
+      ctx, func, dead, lhs_id, rhs_id,
+    ) {
+    Some(fact) => return fact.apply(ctx, func, node_id)
+    None => ()
+  }
   let mut relation_fact = OiRefEqRelationFact::from_operands(
     ctx, func, dead, lhs_id, rhs_id,
   )
@@ -37321,10 +37706,13 @@ fn optimize_instructions_try_rewrite_ref_eq_null(
   }
   if relation_fact.lhs.nullability_fact.proves_known_null() &&
     relation_fact.rhs.nullability_fact.proves_known_null() {
-    optimize_instructions_replace_with_const_i32(
+    // Binaryen v131's consecutive-input path preserves one completed operand
+    // evaluation even when both references are statically null.
+    optimize_instructions_replace_with_drop_then_const_i32(
       ctx,
       func,
       node_id,
+      lhs_id,
       @lib.I32(1),
     )
     return true

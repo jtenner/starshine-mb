@@ -1938,6 +1938,198 @@ test "remove-unused-module-elements drops empty active data on imported memories
 }
 
 ///|
+fn rume_v131_table_initializer_wrong_type_fixture() -> @lib.Module {
+  let i32_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let void_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let i64_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i64()])),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([i32_type, void_type, i64_type]))
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(1U),
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(2U),
+    ]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(
+        rume_test_table_type(),
+        Some(
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+        ),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("caller"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(2U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::call_indirect(
+            @lib.TypeIdx::new(0U),
+            @lib.TableIdx::new(0U),
+          ),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "remove-unused-module-elements v131 removes wrong-type elem without table initializer" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $i32 (func (result i32)))
+      #|  (table $table 1 funcref)
+      #|  (elem $elem (i32.const 0) func $i64)
+      #|  (export "caller" (func $caller))
+      #|  (func $caller
+      #|    (drop (call_indirect $table (type $i32) (i32.const 0))))
+      #|  (func $i32 (type $i32) (result i32) (i32.const 0))
+      #|  (func $i64 (result i64) (unreachable)))
+      #|,
+    ),
+  )
+  let optimized = rume_run_module_pass(input)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
+    None => fail("expected exported caller to remain")
+  }
+  @debug.assert_eq(optimized.elem_sec, None)
+}
+
+///|
+test "remove-unused-module-elements v131 keeps wrong-type elem over callable table initializer" {
+  let input = rume_v131_table_initializer_wrong_type_fixture()
+  let optimized = rume_run_module_pass(input)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(funcs)) => @debug.assert_eq(funcs.length(), 3)
+    None => fail("expected caller, initializer, and trapping target")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 1)
+    None => fail("expected wrong-type trap-preserving elem")
+  }
+}
+
+///|
+test "remove-unused-module-elements v131 drops wrong-type elem under traps-never-happen" {
+  let input = rume_v131_table_initializer_wrong_type_fixture()
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(traps_never_happen=true), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected traps-never-happen RUME success, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
+    None => fail("expected caller and callable table initializer")
+  }
+  @debug.assert_eq(optimized.elem_sec, None)
+}
+
+///|
+test "remove-unused-module-elements v131 nullifies trap-only overlap targets" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0c, 0x03, 0x60, 0x00,
+        0x00, 0x60, 0x00, 0x01, 0x7f, 0x60, 0x01, 0x7f, 0x00, 0x03, 0x04, 0x03, 0x00,
+        0x01, 0x02, 0x04, 0x05, 0x01, 0x70, 0x01, 0x06, 0x06, 0x07, 0x0a, 0x01, 0x06,
+        0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x00, 0x02, 0x09, 0x17, 0x03, 0x00, 0x41,
+        0x00, 0x0b, 0x01, 0x00, 0x06, 0x00, 0x41, 0x00, 0x0b, 0x70, 0x01, 0xd0, 0x73,
+        0x0b, 0x00, 0x41, 0x01, 0x0b, 0x01, 0x01, 0x0a, 0x11, 0x03, 0x02, 0x00, 0x0b,
+        0x04, 0x00, 0x41, 0x2a, 0x0b, 0x07, 0x00, 0x20, 0x00, 0x11, 0x00, 0x00, 0x0b,
+        0x00, 0x58, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x01, 0x16, 0x03, 0x00, 0x04, 0x66,
+        0x75, 0x6e, 0x63, 0x01, 0x05, 0x6f, 0x74, 0x68, 0x65, 0x72, 0x02, 0x06, 0x65,
+        0x78, 0x70, 0x6f, 0x72, 0x74, 0x02, 0x06, 0x01, 0x02, 0x01, 0x00, 0x01, 0x78,
+        0x04, 0x0e, 0x02, 0x00, 0x04, 0x66, 0x75, 0x6e, 0x63, 0x01, 0x05, 0x6f, 0x74,
+        0x68, 0x65, 0x72, 0x05, 0x08, 0x01, 0x00, 0x05, 0x74, 0x61, 0x62, 0x6c, 0x65,
+        0x08, 0x17, 0x03, 0x00, 0x05, 0x66, 0x69, 0x72, 0x73, 0x74, 0x01, 0x06, 0x73,
+        0x65, 0x63, 0x6f, 0x6e, 0x64, 0x02, 0x05, 0x74, 0x68, 0x69, 0x72, 0x64,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected v131 overlap fixture decode, got \{err}")
+  }
+  let optimized = rume_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([_, @lib.Func(_, @lib.Expr(body)), _])) =>
+      @debug.assert_eq(body, [@lib.Instruction::unreachable_()])
+    _ =>
+      fail(
+        "expected trap-only wrong-type function body to remain as unreachable",
+      )
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => @debug.assert_eq(elems.length(), 3)
+    None => fail("expected overlapping trap-preserving elements")
+  }
+}
+
+///|
+test "remove-unused-module-elements preserves multi-member recursive type groups" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x29, 0x01, 0x4e, 0x03,
+        0x5f, 0x0e, 0x7f, 0x00, 0x78, 0x00, 0x77, 0x00, 0x78, 0x01, 0x7f, 0x01, 0x77,
+        0x00, 0x77, 0x00, 0x77, 0x01, 0x77, 0x00, 0x78, 0x00, 0x78, 0x00, 0x78, 0x01,
+        0x78, 0x01, 0x7e, 0x00, 0x50, 0x00, 0x5e, 0x77, 0x00, 0x60, 0x00, 0x00, 0x02,
+        0x01, 0x00, 0x03, 0x02, 0x01, 0x02, 0x05, 0x03, 0x01, 0x00, 0x1a, 0x08, 0x01,
+        0x00, 0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected recursive-group fixture decode, got \{err}")
+  }
+  let optimized = rume_run_module_pass(input)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected recursive-group RUME output to validate, got \{err}")
+  }
+}
+
+///|
 test "remove-unused-module-elements keeps nonempty active nullref elem segments on imported tables" {
   let optimized = match
     run_hot_pipeline(

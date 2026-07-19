@@ -60,6 +60,14 @@ priv struct H2LArrayCandidate {
 }
 
 ///|
+priv struct H2LDropOnlyStructOwnerCandidate {
+  write_node_id : Int
+  init_node_id : Int
+  read_node_ids : Array[Int]
+  drop_node_ids : Array[Int]
+}
+
+///|
 fn h2l_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
   match vt {
     @lib.NumTypeValType(@lib.I32NumType) =>
@@ -78,6 +86,49 @@ fn h2l_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
         None
       }
     @lib.BotValType => None
+  }
+}
+
+///|
+fn h2l_immediate_branch_block_value(func : @ir.HotFunc, node_id : Int) -> Int? {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 1 {
+    let branch_node_id = @ir.hot_region_get(func, body_ref, 0)
+    let branch = @ir.hot_node_get(func, branch_node_id)
+    match branch.op {
+      @ir.HotOp::Br =>
+        if @ir.hot_branch_target(func, branch_node_id) ==
+          Some(@ir.hot_control_node_label(func, node_id)) &&
+          branch.child_count == 1 {
+          return Some(@ir.hot_child_get(func, branch_node_id, 0))
+        }
+      _ => ()
+    }
+    return None
+  }
+  if root_count != 2 {
+    return None
+  }
+  let branch_node_id = @ir.hot_region_get(func, body_ref, 1)
+  let branch = @ir.hot_node_get(func, branch_node_id)
+  match branch.op {
+    @ir.HotOp::Br if @ir.hot_branch_target(func, branch_node_id) ==
+      Some(@ir.hot_control_node_label(func, node_id)) &&
+      branch.child_count == 0 => Some(@ir.hot_region_get(func, body_ref, 0))
+    _ => None
+  }
+}
+
+///|
+fn h2l_allocation_source_node(func : @ir.HotFunc, node_id : Int) -> Int {
+  match h2l_immediate_branch_block_value(func, node_id) {
+    Some(source_node_id) => source_node_id
+    None => node_id
   }
 }
 
@@ -244,9 +295,20 @@ fn h2l_local_can_hold_struct_ref(
   struct_type : @lib.TypeIdx,
 ) -> Bool {
   match @ir.hot_local_type(func, local_id) {
-    Some(@lib.RefTypeValType(ref_type)) =>
-      ref_type.is_nullable() &&
-      ref_type.get_heap_type() == @lib.HeapType::new(struct_type)
+    Some(@lib.RefTypeValType(ref_type)) => {
+      if !ref_type.is_nullable() {
+        return false
+      }
+      match ref_type.get_heap_type() {
+        @lib.HeapType(type_idx) => type_idx == struct_type
+        @lib.AbsHeapTypeHeapType(
+          @lib.AnyAbsHeapType
+          | @lib.EqAbsHeapType
+          | @lib.StructAbsHeapType
+        ) => true
+        _ => false
+      }
+    }
     _ => false
   }
 }
@@ -258,9 +320,20 @@ fn h2l_local_can_hold_array_ref(
   array_type : @lib.TypeIdx,
 ) -> Bool {
   match @ir.hot_local_type(func, local_id) {
-    Some(@lib.RefTypeValType(ref_type)) =>
-      ref_type.is_nullable() &&
-      ref_type.get_heap_type() == @lib.HeapType::new(array_type)
+    Some(@lib.RefTypeValType(ref_type)) => {
+      if !ref_type.is_nullable() {
+        return false
+      }
+      match ref_type.get_heap_type() {
+        @lib.HeapType(type_idx) => type_idx == array_type
+        @lib.AbsHeapTypeHeapType(
+          @lib.AnyAbsHeapType
+          | @lib.EqAbsHeapType
+          | @lib.ArrayAbsHeapType
+        ) => true
+        _ => false
+      }
+    }
     _ => false
   }
 }
@@ -273,6 +346,51 @@ fn h2l_i32_const_value(func : @ir.HotFunc, node_id : Int) -> Int? {
         @ir.HotConstPayload::I32Const(@lib.I32(value)) => Some(value)
         _ => None
       }
+    _ => None
+  }
+}
+
+///|
+fn h2l_immediate_branch_flow_user(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  branch_node_id : Int,
+) -> (Int, Int)? {
+  let branch = @ir.hot_node_get(func, branch_node_id)
+  match branch.op {
+    @ir.HotOp::Br => ()
+    _ => return None
+  }
+  let branch_sites = use_def.node_uses[branch_node_id]
+  if branch_sites.length() != 1 {
+    return None
+  }
+  let branch_site = branch_sites[0]
+  let block_node_id = match branch_site.kind {
+    @ir.HotUseSlotKind::RootUseSlot if branch_site.user >= 0 => branch_site.user
+    _ => return None
+  }
+  match @ir.hot_node_get(func, block_node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  if @ir.hot_branch_target(func, branch_node_id) !=
+    Some(@ir.hot_control_node_label(func, block_node_id)) {
+    return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 || branch_site.slot != root_count - 1 {
+    return None
+  }
+  let block_sites = use_def.node_uses[block_node_id]
+  if block_sites.length() != 1 {
+    return None
+  }
+  let block_site = block_sites[0]
+  match block_site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot if block_site.slot == 0 =>
+      Some((block_node_id, block_site.user))
     _ => None
   }
 }
@@ -303,7 +421,10 @@ fn h2l_collect_source_use(
       if site.slot != 0 {
         return false
       } else {
-        (source_node_id, site.user)
+        match h2l_immediate_branch_flow_user(func, use_def, site.user) {
+          Some(flow) => flow
+          None => (source_node_id, site.user)
+        }
       }
     @ir.HotUseSlotKind::RootUseSlot => {
       if site.user < 0 {
@@ -499,7 +620,10 @@ fn h2l_find_candidate_for_local(
       }
     _ => return None
   }
-  let init_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  let init_node_id = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
   let (struct_type, fields, uses_default) = match
     h2l_supported_struct_new_fields(func, module_ctx, init_node_id) {
     Some(info) => info
@@ -557,6 +681,115 @@ fn h2l_find_candidate_for_local(
     return None
   }
   Some({ write_node_id, init_node_id, fields, use_sites, copy_sites })
+}
+
+///|
+fn h2l_find_drop_only_struct_owner_candidate(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  use_def : @ir.HotUseDef,
+  local_id : Int,
+) -> H2LDropOnlyStructOwnerCandidate? {
+  if local_id < @ir.hot_param_count(func) {
+    return None
+  }
+  let writes = use_def.local_writes[local_id]
+  if writes.length() != 1 {
+    return None
+  }
+  let write_node_id = writes[0]
+  let write_node = @ir.hot_node_get(func, write_node_id)
+  match write_node.op {
+    @ir.HotOp::LocalSet if write_node.imm0 == local_id &&
+      write_node.child_count == 1 => ()
+    _ => return None
+  }
+  let init_node_id = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
+  let (struct_type, _, _) = match
+    h2l_supported_struct_new_fields(func, module_ctx, init_node_id) {
+    Some(info) => info
+    None => return None
+  }
+  if !h2l_local_can_hold_struct_ref(func, local_id, struct_type) {
+    return None
+  }
+  let reads = use_def.local_reads[local_id]
+  if reads.is_empty() {
+    return None
+  }
+  let read_node_ids : Array[Int] = []
+  let drop_node_ids : Array[Int] = []
+  for read_node_id in reads {
+    let sites = use_def.node_uses[read_node_id]
+    if sites.length() != 1 {
+      return None
+    }
+    let site = sites[0]
+    match site.kind {
+      @ir.HotUseSlotKind::ChildUseSlot if site.slot == 0 => ()
+      _ => return None
+    }
+    match @ir.hot_node_get(func, site.user).op {
+      @ir.HotOp::Drop => ()
+      _ => return None
+    }
+    read_node_ids.push(read_node_id)
+    drop_node_ids.push(site.user)
+  }
+  Some({ write_node_id, init_node_id, read_node_ids, drop_node_ids })
+}
+
+///|
+fn h2l_build_discarded_allocation_operands(
+  func : @ir.HotFunc,
+  init_node_id : Int,
+) -> Int {
+  let roots : Array[Int] = []
+  for child_idx = 0
+      child_idx < @ir.hot_child_count(func, init_node_id)
+      child_idx = child_idx + 1 {
+    roots.push(
+      @ir.hot_build_drop(func, @ir.hot_child_get(func, init_node_id, child_idx)),
+    )
+  }
+  match roots {
+    [] => @ir.hot_build_nop(func)
+    [root] => root
+    _ => @ir.hot_build_block(func, @lib.BlockType::void_(), roots)
+  }
+}
+
+///|
+fn h2l_apply_drop_only_struct_owner_candidate(
+  func : @ir.HotFunc,
+  candidate : H2LDropOnlyStructOwnerCandidate,
+  detached_nodes : Array[Int],
+) -> Bool {
+  let write_source_node_id = @ir.hot_child_get(func, candidate.write_node_id, 0)
+  let replacement = h2l_build_discarded_allocation_operands(
+    func,
+    candidate.init_node_id,
+  )
+  @ir.hot_replace_node(
+    func,
+    candidate.write_node_id,
+    @ir.hot_node_get(func, replacement),
+  )
+  if write_source_node_id == candidate.init_node_id {
+    detached_nodes.push(candidate.init_node_id)
+  }
+  for idx = 0; idx < candidate.drop_node_ids.length(); idx = idx + 1 {
+    @ir.hot_replace_node(
+      func,
+      candidate.drop_node_ids[idx],
+      @ir.hot_node_get(func, @ir.hot_build_nop(func)),
+    )
+    detached_nodes.push(candidate.read_node_ids[idx])
+  }
+  true
 }
 
 ///|
@@ -660,7 +893,10 @@ fn h2l_struct_alloc_write_info(
   if write_node.imm0 != local_id || write_node.child_count != 1 {
     return None
   }
-  let init_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  let init_node_id = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
   match h2l_supported_struct_new_fields(func, module_ctx, init_node_id) {
     Some((struct_type, fields, _)) =>
       if h2l_local_can_hold_struct_ref(func, local_id, struct_type) {
@@ -958,7 +1194,10 @@ fn h2l_find_array_candidate_for_local(
       }
     _ => return None
   }
-  let init_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  let init_node_id = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
   let (array_type, element, length) = match
     h2l_supported_array_init(func, module_ctx, init_node_id) {
     Some(info) => info
@@ -1006,7 +1245,10 @@ fn h2l_array_alloc_write_info(
   if write_node.imm0 != local_id || write_node.child_count != 1 {
     return None
   }
-  let init_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  let init_node_id = h2l_allocation_source_node(
+    func,
+    @ir.hot_child_get(func, write_node_id, 0),
+  )
   match h2l_supported_array_init(func, module_ctx, init_node_id) {
     Some((array_type, element, length)) =>
       if h2l_local_can_hold_array_ref(func, local_id, array_type) {
@@ -1450,6 +1692,187 @@ fn h2l_ref_get_desc_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int 
 }
 
 ///|
+fn h2l_direct_packed_read_replacement(
+  func : @ir.HotFunc,
+  storage : @lib.StorageType,
+  signed_access : Bool?,
+  value_node_id : Int,
+) -> Int? {
+  match storage {
+    @lib.ValTypeStorageType(_) =>
+      match signed_access {
+        None => Some(value_node_id)
+        Some(_) => None
+      }
+    @lib.PackTypeStorageType(pack_type) => {
+      let signed = match signed_access {
+        Some(signed) => signed
+        None => return None
+      }
+      let raw = match h2l_i32_const_value(func, value_node_id) {
+        Some(raw) => raw
+        None => return None
+      }
+      let folded = match (pack_type, signed) {
+        (@lib.I8PackType, true) => raw << 24 >> 24
+        (@lib.I8PackType, false) => raw & 0xff
+        (@lib.I16PackType, true) => raw << 16 >> 16
+        (@lib.I16PackType, false) => raw & 0xffff
+      }
+      Some(@ir.hot_build_const_i32(func, @lib.I32(folded)))
+    }
+  }
+}
+
+///|
+fn h2l_try_fold_direct_struct_get(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+  detached_nodes : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let (access_type, field_idx, signed_access) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructGet(type_idx, @lib.U32(raw_idx))) =>
+      (type_idx, raw_idx.reinterpret_as_int(), None)
+    Some(@lib.Instruction::StructGetS(type_idx, @lib.U32(raw_idx))) =>
+      (type_idx, raw_idx.reinterpret_as_int(), Some(true))
+    Some(@lib.Instruction::StructGetU(type_idx, @lib.U32(raw_idx))) =>
+      (type_idx, raw_idx.reinterpret_as_int(), Some(false))
+    _ => return false
+  }
+  let alloc_node_id = @ir.hot_child_get(func, node_id, 0)
+  let (alloc_type, fields, _) = match
+    h2l_supported_struct_new_fields(func, module_ctx, alloc_node_id) {
+    Some(info) => info
+    None => return false
+  }
+  if alloc_type != access_type || field_idx < 0 || field_idx >= fields.length() {
+    return false
+  }
+  let @lib.FieldType(storage, _) = fields[field_idx]
+  let value_node_id = match @ir.hot_node_exact_instr(func, alloc_node_id) {
+    Some(@lib.Instruction::StructNewDefault(_)) =>
+      match h2l_build_default_value(func, fields[field_idx].unpack()) {
+        Some(node_id) => node_id
+        None => return false
+      }
+    Some(@lib.Instruction::StructNew(_)) if fields.length() == 1 &&
+      field_idx == 0 => @ir.hot_child_get(func, alloc_node_id, 0)
+    _ => return false
+  }
+  let replacement = match
+    h2l_direct_packed_read_replacement(
+      func, storage, signed_access, value_node_id,
+    ) {
+    Some(node_id) => node_id
+    None => return false
+  }
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  detached_nodes.push(alloc_node_id)
+  true
+}
+
+///|
+fn h2l_try_fold_direct_array_get(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+  detached_nodes : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) ||
+    @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let (access_type, signed_access) = match
+    @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayGet(type_idx)) => (type_idx, None)
+    Some(@lib.Instruction::ArrayGetS(type_idx)) => (type_idx, Some(true))
+    Some(@lib.Instruction::ArrayGetU(type_idx)) => (type_idx, Some(false))
+    _ => return false
+  }
+  let alloc_node_id = @ir.hot_child_get(func, node_id, 0)
+  let index_node_id = @ir.hot_child_get(func, node_id, 1)
+  let index = match h2l_i32_const_value(func, index_node_id) {
+    Some(index) => index
+    None => return false
+  }
+  let (array_type, field, length) = match
+    h2l_supported_array_init(func, module_ctx, alloc_node_id) {
+    Some(info) => info
+    None => return false
+  }
+  if array_type != access_type {
+    return false
+  }
+  let @lib.FieldType(storage, _) = field
+  let replacement = if index < 0 || index >= length {
+    match @ir.hot_node_exact_instr(func, alloc_node_id) {
+      Some(@lib.Instruction::ArrayNewFixed(_, _)) => {
+        let roots : Array[Int] = []
+        for child_idx = 0
+            child_idx < @ir.hot_child_count(func, alloc_node_id)
+            child_idx = child_idx + 1 {
+          roots.push(
+            @ir.hot_build_drop(
+              func,
+              @ir.hot_child_get(func, alloc_node_id, child_idx),
+            ),
+          )
+        }
+        roots.push(@ir.hot_build_unreachable(func))
+        @ir.hot_build_block(
+          func,
+          @lib.BlockType::val_type(field.unpack()),
+          roots,
+        )
+      }
+      _ => return false
+    }
+  } else {
+    let value_node_id = match @ir.hot_node_exact_instr(func, alloc_node_id) {
+      Some(@lib.Instruction::ArrayNewFixed(_, _)) if length == 1 && index == 0 =>
+        @ir.hot_child_get(func, alloc_node_id, 0)
+      Some(@lib.Instruction::ArrayNew(_)) =>
+        @ir.hot_child_get(func, alloc_node_id, 0)
+      Some(@lib.Instruction::ArrayNewDefault(_)) =>
+        match h2l_build_default_value(func, field.unpack()) {
+          Some(node_id) => node_id
+          None => return false
+        }
+      _ => return false
+    }
+    match
+      h2l_direct_packed_read_replacement(
+        func, storage, signed_access, value_node_id,
+      ) {
+      Some(node_id) => node_id
+      None => return false
+    }
+  }
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  detached_nodes.push(alloc_node_id)
+  detached_nodes.push(index_node_id)
+  match @ir.hot_node_exact_instr(func, alloc_node_id) {
+    Some(@lib.Instruction::ArrayNew(_))
+    | Some(@lib.Instruction::ArrayNewDefault(_)) =>
+      detached_nodes.push(
+        @ir.hot_child_get(
+          func,
+          alloc_node_id,
+          @ir.hot_child_count(func, alloc_node_id) - 1,
+        ),
+      )
+    _ => ()
+  }
+  true
+}
+
+///|
 fn h2l_try_fold_direct_ref_eq(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
@@ -1605,12 +2028,15 @@ fn h2l_apply_array_candidate(
     Some(node_id) => node_id
     None => return false
   }
+  let write_source_node_id = @ir.hot_child_get(func, candidate.write_node_id, 0)
   @ir.hot_replace_node(
     func,
     candidate.write_node_id,
     @ir.hot_node_get(func, init_replacement),
   )
-  detached_nodes.push(candidate.init_node_id)
+  if write_source_node_id == candidate.init_node_id {
+    detached_nodes.push(candidate.init_node_id)
+  }
   for copy_site in candidate.copy_sites {
     @ir.hot_replace_node(
       func,
@@ -1669,12 +2095,19 @@ fn h2l_apply_candidate(
     _ => false
   }
   if !write_is_tee {
+    let write_source_node_id = @ir.hot_child_get(
+      func,
+      candidate.write_node_id,
+      0,
+    )
     @ir.hot_replace_node(
       func,
       candidate.write_node_id,
       @ir.hot_node_get(func, init_replacement),
     )
-    detached_nodes.push(candidate.init_node_id)
+    if write_source_node_id == candidate.init_node_id {
+      detached_nodes.push(candidate.init_node_id)
+    }
   }
   for copy_site in candidate.copy_sites {
     @ir.hot_replace_node(
@@ -1790,7 +2223,10 @@ fn h2l_apply_candidate(
   }
   if write_is_tee {
     detached_nodes.push(candidate.write_node_id)
-    detached_nodes.push(candidate.init_node_id)
+    if @ir.hot_child_get(func, candidate.write_node_id, 0) ==
+      candidate.init_node_id {
+      detached_nodes.push(candidate.init_node_id)
+    }
   }
   true
 }
@@ -1824,11 +2260,19 @@ pub fn heap2local_run(
   let use_def = pass_require_use_def(ctx, func)
   let candidates : Array[H2LCandidate] = []
   let array_candidates : Array[H2LArrayCandidate] = []
+  let drop_only_struct_candidates : Array[H2LDropOnlyStructOwnerCandidate] = []
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
     match h2l_find_candidate_for_local(func, module_ctx, use_def, local_id) {
       Some(candidate) => candidates.push(candidate)
+      None => ()
+    }
+    match
+      h2l_find_drop_only_struct_owner_candidate(
+        func, module_ctx, use_def, local_id,
+      ) {
+      Some(candidate) => drop_only_struct_candidates.push(candidate)
       None => ()
     }
     for
@@ -1861,8 +2305,21 @@ pub fn heap2local_run(
       changed = true
     }
   }
+  for candidate in drop_only_struct_candidates {
+    if h2l_apply_drop_only_struct_owner_candidate(
+        func, candidate, detached_nodes,
+      ) {
+      changed = true
+    }
+  }
   let node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
+    if h2l_try_fold_direct_struct_get(func, module_ctx, node_id, detached_nodes) {
+      changed = true
+    }
+    if h2l_try_fold_direct_array_get(func, module_ctx, node_id, detached_nodes) {
+      changed = true
+    }
     if h2l_try_fold_direct_ref_eq(func, module_ctx, node_id, detached_nodes) {
       changed = true
     }

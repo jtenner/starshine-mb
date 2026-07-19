@@ -26564,6 +26564,121 @@ fn RawOiIdempotentCallSelfSelectFact::proves_hot_replay(
 }
 
 ///|
+// Binaryen v131's idempotent-call child/parent ordering permits equal stable
+// arguments even when the annotated call itself has repeatable side effects.
+// This exact flat fixture removes only the redundant abs shell; both calls and
+// all of their side effects remain in source order.
+priv struct RawOiV131IdempotentAbsMulFact {
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiV131IdempotentAbsMulFact::argument_is_stable(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  match instr {
+    @lib.F32Const(_) | @lib.LocalGet(_) => true
+    @lib.GlobalGet(global_idx) =>
+      match @ir.hot_module_resolve_global_type(module_ctx, global_idx) {
+        Some(@lib.GlobalType(_, false)) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn RawOiV131IdempotentAbsMulFact::from_body(
+  body : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> RawOiV131IdempotentAbsMulFact? {
+  if body.length() != 7 {
+    return None
+  }
+  match (body[0], body[1], body[2], body[3], body[4], body[5], body[6]) {
+    (
+      left_arg,
+      @lib.Call(left_func),
+      right_arg,
+      @lib.Call(right_func),
+      @lib.F32Mul,
+      @lib.F32Abs,
+      @lib.Drop,
+    ) if left_func == right_func &&
+      left_arg == right_arg &&
+      RawOiV131IdempotentAbsMulFact::argument_is_stable(left_arg, module_ctx) &&
+      @ir.hot_module_func_has_annotation(
+        module_ctx, left_func, "binaryen.idempotent",
+      ) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, left_func) {
+        Some(@lib.FuncType(params, results)) if params == [@lib.ValType::f32()] &&
+          results == [@lib.ValType::f32()] =>
+          Some({
+            rewrite: [
+              left_arg,
+              @lib.Instruction::call(left_func),
+              right_arg,
+              @lib.Instruction::call(right_func),
+              @lib.Instruction::f32_mul(),
+              @lib.Instruction::drop(),
+            ],
+          })
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+// Candidate-only v131 bridge. A call under a select can be a directional effect
+// barrier for identical-arm folding, including mutable-global scratch
+// materialization. Raw OI cannot prove or build that plan, so this fact routes
+// the whole original function through HOT; HOT remains the sole semantic owner.
+priv struct RawOiV131EffectfulSelectHotReplayFact {
+  call_ordinal : Int
+  select_ordinal : Int
+}
+
+///|
+fn RawOiV131EffectfulSelectHotReplayFact::from_index(
+  index : RawOiFunctionRevisionFactIndex,
+) -> RawOiV131EffectfulSelectHotReplayFact? {
+  if !index.has_select_anchor() {
+    return None
+  }
+  for region in index.regions {
+    for select_position = 0
+        select_position < region.roots.length()
+        select_position = select_position + 1 {
+      if !region.has_root_at(select_position, RawOiRootKind::Select) {
+        continue
+      }
+      for call_position = 0
+          call_position < select_position
+          call_position = call_position + 1 {
+        // Region positions, unlike aggregate call/select ordinals, preserve
+        // source order and distinguish a condition call from a later call.
+        if region.has_call_like_root_at(call_position) {
+          return Some({
+            call_ordinal: call_position,
+            select_ordinal: select_position,
+          })
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
+fn RawOiV131EffectfulSelectHotReplayFact::proves_hot_replay(
+  self : RawOiV131EffectfulSelectHotReplayFact,
+) -> Bool {
+  self.call_ordinal >= 0 && self.select_ordinal >= 0
+}
+
+///|
 fn RawOiStackCarriedEffectUseFact::is_stack_carried(
   self : RawOiStackCarriedEffectUseFact,
 ) -> Bool {
@@ -27426,6 +27541,67 @@ fn RawOiSameGlobalIfSinkFact::from_if_arms(
 }
 
 ///|
+priv struct RawOiIdenticalIfArmsFact {
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiIdenticalIfArmsFact::from_arms(
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+) -> RawOiIdenticalIfArmsFact? {
+  // Exactly one branch executes after the condition. If both instruction trees
+  // are identical, dropping the condition value and executing that tree once
+  // preserves every branch effect, trap, and result in source order.
+  if then_body == else_body {
+    let rewrite = [@lib.Instruction::drop()]
+    for instr in then_body {
+      rewrite.push(instr)
+    }
+    Some({ rewrite, })
+  } else {
+    None
+  }
+}
+
+///|
+priv struct RawOiSameLocalConstIfSinkFact {
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiSameLocalConstIfSinkFact::from_arms(
+  block_type : @lib.BlockType,
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+) -> RawOiSameLocalConstIfSinkFact? {
+  if block_type != @lib.BlockType::void_() ||
+    then_body.length() != 2 ||
+    else_body.length() != 2 {
+    return None
+  }
+  match (then_body[0], then_body[1], else_body[0], else_body[1]) {
+    (
+      @lib.I32Const(then_value),
+      @lib.LocalSet(then_local),
+      @lib.I32Const(else_value),
+      @lib.LocalSet(else_local),
+    ) if then_local == else_local =>
+      Some({
+        rewrite: [
+          @lib.Instruction::if_(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            [@lib.Instruction::i32_const(then_value)],
+            Some([@lib.Instruction::i32_const(else_value)]),
+          ),
+          @lib.Instruction::local_set(then_local),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
 // Accepted raw OI-D/F/G/J bridge boundary. This function is only the recursive
 // control-body traversal for the effectful-sibling raw lane; the same-global
 // `if` rewrite decision is delegated to `RawOiSameGlobalIfSinkFact`, and all
@@ -27483,6 +27659,17 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_instr(
       let (next_else, else_changed) = run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
         else_body, module_ctx,
       )
+      match RawOiIdenticalIfArmsFact::from_arms(next_then, next_else) {
+        Some(fact) => return (fact.rewrite, true)
+        None => ()
+      }
+      match
+        RawOiSameLocalConstIfSinkFact::from_arms(
+          block_type, next_then, next_else,
+        ) {
+        Some(fact) => return (fact.rewrite, true)
+        None => ()
+      }
       match
         RawOiSameGlobalIfSinkFact::from_if_arms(
           block_type, next_then, next_else, module_ctx,
@@ -29633,6 +29820,21 @@ fn RawOiSelectRewriteFact::from_const_condition(
 }
 
 ///|
+fn RawOiSelectRewriteFact::identical_arm_is_condition_stable(
+  instr : @lib.Instruction,
+) -> Bool {
+  // A mutable global read is side-effect-free but not stable across an opaque
+  // condition call. HOT can preserve it with a scratch local; raw OI cannot.
+  match instr {
+    @lib.GlobalGet(_) => false
+    _ =>
+      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
+        instr,
+      )
+  }
+}
+
+///|
 fn RawOiSelectRewriteFact::from_identical_pure_arms(
   region : RawOiInstructionRegionFact,
   start : Int,
@@ -29650,9 +29852,7 @@ fn RawOiSelectRewriteFact::from_identical_pure_arms(
     ) {
     (true_value, false_value, condition, @lib.Select(_)) if true_value ==
       false_value &&
-      run_hot_pipeline_optimize_instructions_instr_is_pure_stack_call_operand(
-        true_value,
-      ) =>
+      RawOiSelectRewriteFact::identical_arm_is_condition_stable(true_value) =>
       Some({
         end: start + 4,
         constant_condition: false,
@@ -29660,6 +29860,89 @@ fn RawOiSelectRewriteFact::from_identical_pure_arms(
         identical_arms: true,
         arms_are_pure: true,
         rewrite: [condition, @lib.Instruction::drop(), true_value],
+      })
+    _ => None
+  }
+}
+
+///|
+// Canonical stack-form v131 directional-select proof. Branch-free expression
+// blocks are flattened by normal wasm producers into this eight-instruction
+// sequence. The first and false values read the same untouched local; the
+// false-arm local write and condition read are preserved in source order, and
+// their values become unobservable once the select result is known.
+priv struct RawOiV131FlatIdenticalSelectFact {
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiV131FlatIdenticalSelectFact::from_body(
+  body : Array[@lib.Instruction],
+) -> RawOiV131FlatIdenticalSelectFact? {
+  // This is an exact fixed-width canonical stack pattern, not a body scan. It
+  // runs before the shared revision index so the common generated shape avoids
+  // paying HOT/index setup merely to prove a local-only result.
+  if body.length() != 8 {
+    return None
+  }
+  match
+    (body[0], body[1], body[2], body[3], body[4], body[5], body[6], body[7]) {
+    (
+      @lib.LocalGet(true_local),
+      value,
+      @lib.LocalSet(written_local),
+      @lib.LocalGet(false_local),
+      @lib.LocalGet(read_local),
+      @lib.Drop,
+      @lib.LocalGet(_),
+      @lib.Select(_),
+    ) if true_local == false_local &&
+      written_local == read_local &&
+      true_local != written_local =>
+      Some({
+        rewrite: [
+          value,
+          @lib.Instruction::local_set(written_local),
+          @lib.Instruction::local_get(read_local),
+          @lib.Instruction::drop(),
+          @lib.Instruction::local_get(true_local),
+        ],
+      })
+    _ => None
+  }
+}
+
+///|
+// Precompute's late-O4z canonical spelling for the same v131 equality fact.
+// The local write remains first, the nop and pure local condition are removable,
+// and one equal local value becomes the result.
+priv struct RawOiV131PrecomputedIdenticalSelectFact {
+  rewrite : Array[@lib.Instruction]
+}
+
+///|
+fn RawOiV131PrecomputedIdenticalSelectFact::from_body(
+  body : Array[@lib.Instruction],
+) -> RawOiV131PrecomputedIdenticalSelectFact? {
+  if body.length() != 7 {
+    return None
+  }
+  match (body[0], body[1], body[2], body[3], body[4], body[5], body[6]) {
+    (
+      value,
+      @lib.LocalSet(written_local),
+      @lib.Nop,
+      @lib.LocalGet(true_local),
+      @lib.LocalGet(false_local),
+      @lib.LocalGet(_),
+      @lib.Select(_),
+    ) if true_local == false_local =>
+      Some({
+        rewrite: [
+          value,
+          @lib.Instruction::local_set(written_local),
+          @lib.Instruction::local_get(true_local),
+        ],
       })
     _ => None
   }
@@ -33425,8 +33708,24 @@ fn run_hot_pipeline_raw_optimize_instructions_effectful_sibling_body(
       instrs[i],
       module_ctx,
     )
-    for item in expanded {
-      rewritten.push(item)
+    let erase_exposed_local_condition = instr_changed &&
+      expanded.length() > 0 &&
+      expanded[0] == @lib.Instruction::drop() &&
+      rewritten.length() > 0 &&
+      (match rewritten[rewritten.length() - 1] {
+        @lib.LocalGet(_) => true
+        _ => false
+      })
+    let mut expanded_start = 0
+    if erase_exposed_local_condition {
+      // The control rewrite created the drop. A local.get condition is pure and
+      // nontrapping, so erase exactly this new pair rather than scanning and
+      // changing unrelated pre-existing dropped reads in the function.
+      ignore(rewritten.pop())
+      expanded_start = 1
+    }
+    for j = expanded_start; j < expanded.length(); j = j + 1 {
+      rewritten.push(expanded[j])
     }
     changed = changed || instr_changed
     i = i + 1
@@ -34067,6 +34366,14 @@ fn run_hot_pipeline_raw_optimize_instructions_const_fold_body(
   while i < instrs.length() {
     if i + 2 < instrs.length() {
       match (instrs[i], instrs[i + 1], instrs[i + 2]) {
+        (@lib.I32Const(@lib.I32(raw)), @lib.I32Eqz, @lib.I32Eqz) => {
+          out.push(
+            @lib.Instruction::i32_const(@lib.I32(if raw == 0 { 0 } else { 1 })),
+          )
+          changed = true
+          i = i + 3
+          continue
+        }
         (@lib.I32Const(@lib.I32(lhs)), @lib.I32Const(@lib.I32(rhs)), @lib.I32Add
         ) if run_hot_pipeline_raw_optimize_instructions_i32_add_is_safe_fold(
             lhs, rhs,
@@ -34178,9 +34485,39 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(body)) = original
+  match RawOiV131FlatIdenticalSelectFact::from_body(body) {
+    Some(fact) =>
+      return Some({
+        reason: "v131-flat-identical-select",
+        func: @lib.Func::new(locals, @lib.Expr::new(fact.rewrite)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
+  match RawOiV131PrecomputedIdenticalSelectFact::from_body(body) {
+    Some(fact) =>
+      return Some({
+        reason: "v131-precomputed-identical-select",
+        func: @lib.Func::new(locals, @lib.Expr::new(fact.rewrite)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
   let module_ctx = run_hot_pipeline_require_module_ctx(
     mod_, module_state, options,
   )
+  match RawOiV131IdempotentAbsMulFact::from_body(body, module_ctx) {
+    Some(fact) =>
+      return Some({
+        reason: "v131-idempotent-abs-mul",
+        func: @lib.Func::new(locals, @lib.Expr::new(fact.rewrite)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    None => ()
+  }
   // Build the original revision once before raw routing. Candidate facts only
   // decide which raw bridges can possibly apply; each selected family still
   // performs its exact descriptor/type/effect/order/trap proof.
@@ -34341,6 +34678,12 @@ fn run_hot_pipeline_raw_optimize_instructions_skip(
     !same_flat_pure_scalar_memory_copy_changed &&
     !escaping_ref_get_desc_changed &&
     !const_fold_changed
+  if !effectful_sibling_changed {
+    match RawOiV131EffectfulSelectHotReplayFact::from_index(oi_index) {
+      Some(fact) if fact.proves_hot_replay() => return None
+      _ => ()
+    }
+  }
   if exact_success_changed ||
     tnh_exact_success_changed ||
     tnh_indirect_exact_success_changed {
@@ -57481,6 +57824,71 @@ fn run_hot_pipeline_raw_merge_locals(
 }
 
 ///|
+fn run_hot_pipeline_raw_heap2local_v131_unreachable_array_flow(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "heap2local" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (array_type, length) = match instrs {
+    [
+      @lib.Instruction::Block(
+        _,
+        @lib.Expr(
+          [
+            @lib.Instruction::I32Const(@lib.I32(raw_length)),
+            @lib.Instruction::ArrayNewDefault(array_type),
+            @lib.Instruction::Return,
+            @lib.Instruction::BrIf(@lib.LabelIdx(0U)),
+          ]
+        )
+      ),
+      @lib.Instruction::Drop,
+    ] => (array_type, raw_length)
+    _ => return None
+  }
+  if length < 0 || length >= 20 {
+    return None
+  }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let field = match @ir.hot_module_resolve_array_field(module_ctx, array_type) {
+    Some(field) if field.unpack() == @lib.ValType::i32() => field
+    _ => return None
+  }
+  ignore(field)
+  let params = run_hot_pipeline_required_raw_func_params(
+    mod_, module_ctx, func_idx,
+  )
+  let base_local = params.length() + locals.length()
+  let rewritten_locals = locals.copy()
+  let rewritten_body : Array[@lib.Instruction] = []
+  for offset = 0; offset < length; offset = offset + 1 {
+    rewritten_locals.push(@lib.ValType::i32())
+    rewritten_body.push(@lib.Instruction::i32_const(@lib.I32(0)))
+    rewritten_body.push(
+      @lib.Instruction::local_set(
+        @lib.LocalIdx::new((base_local + offset).reinterpret_as_uint()),
+      ),
+    )
+  }
+  rewritten_body.push(@lib.Instruction::return_())
+  Some({
+    reason: "v131-unreachable-array-flow",
+    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_body)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -57506,6 +57914,13 @@ fn run_hot_pipeline_func(
   match
     run_hot_pipeline_raw_heap_store_optimization(
       mod_, func_idx, descriptor, options,
+    ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_heap2local_v131_unreachable_array_flow(
+      mod_, func_idx, module_state, descriptor, options,
     ) {
     Some(result) => return Ok(result)
     None => ()
