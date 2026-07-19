@@ -91,7 +91,15 @@ fn no_inline_name_to_string(name : @lib.Name) -> String {
 
 ///|
 fn no_inline_func_names(mod_ : @lib.Module, total : Int) -> Array[String?] {
-  let names : Array[String?] = Array::make(total, None)
+  let names : Array[String?] = []
+  let mut generated_idx = 0
+  while generated_idx < total {
+    // Binaryen assigns every function an internal name even when the input has
+    // no name section. Keep wildcard policy useful on stripped binaries by
+    // providing the same stable numeric-name role locally.
+    names.push(Some(generated_idx.to_string()))
+    generated_idx += 1
+  }
   match mod_.name_sec {
     Some(name_sec) =>
       match name_sec.func_names {

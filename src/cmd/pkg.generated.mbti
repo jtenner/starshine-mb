@@ -428,9 +428,14 @@ pub struct FuzzReductionStep {
 } derive(Eq, @debug.Debug)
 
 pub struct InliningOptions {
-  no_op : Bool
+  always_inline_max_size : Int
+  one_caller_inline_max_size : Int
+  flexible_inline_max_size : Int
+  max_combined_binary_size : Int
+  allow_functions_with_loops : Bool
+  partial_inlining_ifs : Int
 } derive(Eq, @debug.Debug)
-pub fn InliningOptions::new() -> Self
+pub fn InliningOptions::new(always_inline_max_size? : Int, one_caller_inline_max_size? : Int, flexible_inline_max_size? : Int, max_combined_binary_size? : Int, allow_functions_with_loops? : Bool, partial_inlining_ifs? : Int) -> Self
 pub impl Show for InliningOptions
 
 pub struct OptimizeOptions {

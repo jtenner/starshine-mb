@@ -130,10 +130,10 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "constant-field-null-test-folding", "signature-pruning", "signature-refining",
     "global-type-optimization", "simplify-globals", "global-effects", "propagate-globals-globally",
     "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
-    "unsubtyping", "inline-main", "merge-similar-functions", "minimize-rec-groups",
-    "type-merging", "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing",
-    "gufa-cast-all", "i64-to-i32-lowering", "reorder-types", "reorder-globals-always",
-    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
+    "unsubtyping", "merge-similar-functions", "minimize-rec-groups", "type-merging",
+    "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
+    "i64-to-i32-lowering", "reorder-types", "reorder-globals-always", "reorder-functions",
+    "reorder-functions-by-name", "remove-unused-types", "remove-unused",
   ]
 }
 
@@ -328,6 +328,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       dae_optimizing_summary(),
     ),
     pass_registry_entry_module("inlining", inlining_summary()),
+    pass_registry_entry_module("inline-main", inline_main_summary()),
     pass_registry_entry_module(
       "inlining-optimizing",
       inlining_optimizing_summary(),
@@ -509,6 +510,74 @@ pub fn simplify_locals_nostructure_exact_slot_passes() -> Array[String] {
     "code-pushing", "tuple-optimization", "simplify-locals-nostructure", "vacuum",
     "reorder-locals", "remove-unused-brs",
   ]
+}
+
+///|
+pub fn inlining_nested_function_pipeline_passes(
+  optimize_level : Int,
+  shrink_level : Int,
+) -> Array[String] {
+  let passes : Array[String] = []
+  if optimize_level >= 3 || shrink_level >= 1 {
+    passes.push("ssa-nomerge")
+  }
+  if optimize_level >= 4 {
+    passes.append(["flatten", "simplify-locals-notee-nostructure", "local-cse"])
+  }
+  passes.append([
+    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
+    "optimize-instructions", "heap-store-optimization",
+  ])
+  if optimize_level >= 2 || shrink_level >= 2 {
+    passes.push("pick-load-signs")
+  }
+  if optimize_level >= 3 || shrink_level >= 2 {
+    passes.push("precompute-propagate")
+  } else {
+    passes.push("precompute")
+  }
+  if optimize_level >= 2 || shrink_level >= 2 {
+    passes.push("code-pushing")
+  }
+  passes.append([
+    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+    "remove-unused-brs",
+  ])
+  if optimize_level > 1 {
+    passes.push("heap2local")
+  }
+  if optimize_level >= 3 || shrink_level >= 2 {
+    passes.push("merge-locals")
+  }
+  if optimize_level > 1 {
+    passes.push("optimize-casts")
+    passes.push("local-subtyping")
+  }
+  passes.push("coalesce-locals")
+  if optimize_level >= 3 || shrink_level >= 1 {
+    passes.push("local-cse")
+  }
+  passes.append([
+    "simplify-locals", "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals",
+    "vacuum",
+  ])
+  if optimize_level >= 3 || shrink_level >= 1 {
+    passes.push("code-folding")
+  }
+  passes.append([
+    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks",
+  ])
+  if optimize_level >= 3 || shrink_level >= 2 {
+    passes.push("precompute-propagate")
+  } else {
+    passes.push("precompute")
+  }
+  passes.append(["optimize-instructions", "heap-store-optimization"])
+  if optimize_level >= 2 || shrink_level >= 1 {
+    passes.push("redundant-set-elimination")
+  }
+  passes.push("vacuum")
+  passes
 }
 
 ///|

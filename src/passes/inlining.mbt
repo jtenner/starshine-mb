@@ -9,20 +9,38 @@ pub fn inlining_optimizing_summary() -> String {
 }
 
 ///|
+pub fn inline_main_summary() -> String {
+  "Inline the single direct call from defined `main` to defined `__original_main`."
+}
+
+///|
+priv enum InlToolchainInlineHint {
+  DefaultInline
+  NeverInline
+  AlwaysInline
+}
+
+///|
 priv struct InlFunctionInfo {
   params : Array[@lib.ValType]
   results : Array[@lib.ValType]
   type_idx : @lib.TypeIdx?
   size : Int
-  has_return_call : Bool
+  max_combined_binary_size : Int
   inlineable : Bool
+}
+
+///|
+priv struct InlTailCallsiteHoist {
+  post_body : Array[@lib.Instruction]
 }
 
 ///|
 priv struct InlRewriteState {
   mut func : @lib.Func
   mut changed : Bool
-  mut size : Int
+  size : Int
+  tail_callsite_hoists : Array[InlTailCallsiteHoist]
 }
 
 ///|
@@ -101,6 +119,12 @@ fn inl_func_idx_slot(idx : @lib.FuncIdx) -> Int {
 ///|
 fn inl_local_idx_slot(idx : @lib.LocalIdx) -> Int {
   let @lib.LocalIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn inl_label_idx_slot(idx : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw) = idx
   raw.reinterpret_as_int()
 }
 
@@ -311,12 +335,12 @@ fn inl_count_instrs(instrs : Array[@lib.Instruction]) -> Int {
 fn inl_combined_binary_size_within_limit(
   caller_size : Int,
   callee_size : Int,
+  max_combined_binary_size? : Int = 400 * 1024,
 ) -> Bool {
-  // Binaryen's default guard is Measurer::BytesPerExpr (2.5) times the
-  // target+source expression counts against maxCombinedBinarySize (400 KiB).
-  // Use doubled integer math to avoid fractional arithmetic.
+  // Binaryen estimates 2.5 encoded bytes per expression and uses a strict
+  // comparison against the configured combined-size ceiling.
   let combined_exprs = caller_size + callee_size
-  combined_exprs * 5 <= 400 * 1024 * 2
+  combined_exprs * 5 < max_combined_binary_size * 2
 }
 
 ///|
@@ -324,9 +348,9 @@ fn inl_scan_shape_instr(instr : @lib.Instruction) -> (Bool, Bool, Bool, Bool) {
   match instr {
     @lib.Call(_) => (true, false, false, false)
     @lib.CallIndirect(_, _) | @lib.CallRef(_) => (false, false, false, false)
-    @lib.ReturnCall(_)
-    | @lib.ReturnCallIndirect(_, _)
-    | @lib.ReturnCallRef(_) => (true, false, false, true)
+    @lib.ReturnCall(_) => (true, false, false, true)
+    @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) =>
+      (false, false, false, true)
     @lib.Loop(_, @lib.Expr(body)) => {
       let (calls, loops, tries, tails) = inl_scan_shape_instrs(body)
       (calls, true || loops, tries, tails)
@@ -339,8 +363,10 @@ fn inl_scan_shape_instr(instr : @lib.Instruction) -> (Bool, Bool, Bool, Bool) {
     }
     @lib.If(_, then_body, None) => inl_scan_shape_instrs(then_body)
     @lib.TryTable(_, _, @lib.Expr(body)) => {
-      let (calls, loops, _, tails) = inl_scan_shape_instrs(body)
-      (calls, loops, true, tails)
+      let (calls, loops, nested_tail_in_try, tails) = inl_scan_shape_instrs(
+        body,
+      )
+      (calls, loops, nested_tail_in_try || tails, tails)
     }
     _ => (false, false, false, false)
   }
@@ -639,12 +665,28 @@ fn inl_body_is_ordered_param_passthrough_prefix(
 fn inl_body_is_shrinking_trivial(
   body : Array[@lib.Instruction],
   param_count : Int,
+  mod_? : @lib.Module = @lib.Module::new(),
+  func_type_indices? : Array[@lib.TypeIdx] = [],
 ) -> Bool {
-  if body.length() == param_count + 1 &&
-    inl_body_is_ordered_param_passthrough_prefix(body, param_count) {
-    match body[param_count] {
-      @lib.Call(_) => return true
-      _ => ()
+  if body.length() > 0 {
+    let operand_count = body.length() - 1
+    if operand_count <= param_count &&
+      inl_body_is_ordered_param_passthrough_prefix(body, operand_count) {
+      // Binaryen accepts an ordered prefix of the parameters: trailing unused
+      // parameters do not appear among the instruction's direct children.
+      // Stack-effect evidence distinguishes true children from unrelated values
+      // left on the function result stack by a zero-input trailing instruction.
+      match body[operand_count] {
+        @lib.Block(_, _)
+        | @lib.Loop(_, _)
+        | @lib.If(_, _, _)
+        | @lib.TryTable(_, _, _) => ()
+        final_instr =>
+          match dae_instr_stack_effect(final_instr, mod_, func_type_indices) {
+            Some((inputs, _)) if inputs == operand_count => return true
+            _ => ()
+          }
+      }
     }
   }
   if param_count == 2 && body.length() == 3 {
@@ -748,6 +790,55 @@ fn inl_body_is_shrinking_trivial(
 }
 
 ///|
+fn inl_hot_trivial_instruction_modes(
+  mod_ : @lib.Module,
+  func_abs : Int,
+  module_ctx : @ir.HotModuleContext,
+  measured_size : Int,
+) -> (Bool, Bool) {
+  let hot = match
+    @ir.hot_lift_func_with_context_result(
+      mod_,
+      @lib.FuncIdx::new(func_abs.reinterpret_as_uint()),
+      module_ctx,
+    ) {
+    Ok(func) => func
+    Err(_) => return (false, false)
+  }
+  let root_region = @ir.HotRegionRef::root()
+  if @ir.hot_region_root_count(hot, root_region) != 1 {
+    return (false, false)
+  }
+  let root_id = @ir.hot_region_get(hot, root_region, 0)
+  let root = @ir.hot_node_get(hot, root_id)
+  match root.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => return (false, false)
+    _ => ()
+  }
+  let child_count = @ir.hot_child_count(hot, root_id)
+  let mut shrinks = true
+  let mut slot = 0
+  while slot < child_count {
+    let child_id = @ir.hot_child_get(hot, root_id, slot)
+    let child = @ir.hot_node_get(hot, child_id)
+    match child.op {
+      @ir.HotOp::LocalGet if child.imm0 == slot => ()
+      _ => {
+        shrinks = false
+        break
+      }
+    }
+    slot += 1
+  }
+  let may_not_shrink = measured_size == child_count + 1
+  (shrinks, may_not_shrink)
+}
+
+///|
 fn inl_mark_global_uses(mod_ : @lib.Module, used : Array[Bool]) -> Unit {
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
@@ -771,6 +862,26 @@ fn inl_mark_global_uses(mod_ : @lib.Module, used : Array[Bool]) -> Unit {
         used[slot] = true
       }
     }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        let @lib.Table(_, init) = table
+        match init {
+          Some(@lib.Expr(instrs)) =>
+            inl_scan_refs(instrs, Array::make(used.length(), 0), used)
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        let @lib.Global(_, @lib.Expr(instrs)) = global
+        inl_scan_refs(instrs, Array::make(used.length(), 0), used)
+      }
     None => ()
   }
   match mod_.elem_sec {
@@ -831,10 +942,876 @@ fn inl_scan_refs(
 }
 
 ///|
+fn inl_toolchain_inline_hints(
+  mod_ : @lib.Module,
+  total : Int,
+) -> Array[InlToolchainInlineHint] {
+  let hints = Array::make(total, InlToolchainInlineHint::DefaultInline)
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
+        let slot = raw_idx.reinterpret_as_int()
+        if slot < 0 || slot >= total {
+          continue
+        }
+        for annotation in annotations {
+          if annotation.name == "binaryen.inline" &&
+            annotation.args.length() > 0 {
+            let arg = annotation.args[annotation.args.length() - 1]
+            if arg == "\"\\00\"" {
+              hints[slot] = InlToolchainInlineHint::NeverInline
+            } else if arg == "\"\\7f\"" || arg == "\"\\7F\"" {
+              hints[slot] = InlToolchainInlineHint::AlwaysInline
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  hints
+}
+
+///|
+fn inl_partial_wrapper_annotation_name() -> String {
+  "starshine.partial-inline-wrapper"
+}
+
+///|
+fn inl_annotation_map(
+  mod_ : @lib.Module,
+  total : Int,
+) -> Array[Array[@lib.FuncAnnotation]] {
+  let by_func : Array[Array[@lib.FuncAnnotation]] = []
+  let mut idx = 0
+  while idx < total {
+    by_func.push([])
+    idx += 1
+  }
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
+        let slot = raw_idx.reinterpret_as_int()
+        if slot >= 0 && slot < total {
+          by_func[slot] = annotations.copy()
+        }
+      }
+    None => ()
+  }
+  by_func
+}
+
+///|
+fn inl_build_func_annotation_sec_from_map(
+  by_func : Array[Array[@lib.FuncAnnotation]],
+) -> @lib.FuncAnnotationSec? {
+  let entries : Array[@lib.FuncAnnotationAssoc] = []
+  let mut idx = 0
+  while idx < by_func.length() {
+    if by_func[idx].length() > 0 {
+      entries.push(
+        @lib.FuncAnnotationAssoc::new(idx.reinterpret_as_uint(), by_func[idx]),
+      )
+    }
+    idx += 1
+  }
+  if entries.length() == 0 {
+    None
+  } else {
+    Some(@lib.FuncAnnotationSec::new(entries))
+  }
+}
+
+///|
+fn inl_partial_wrapper_flags(mod_ : @lib.Module, total : Int) -> Array[Bool] {
+  let flags = Array::make(total, false)
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(raw_idx, annotations) = entry
+        let slot = raw_idx.reinterpret_as_int()
+        if slot >= 0 && slot < total {
+          for annotation in annotations {
+            if annotation.name == inl_partial_wrapper_annotation_name() {
+              flags[slot] = true
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  flags
+}
+
+///|
+fn inl_partial_simple_unary(instr : @lib.Instruction) -> Bool {
+  // Mirrors Binaryen v131's `Unary` expression family plus `RefIsNull`.
+  // Do not admit other one-input operations such as loads, ref casts, or GC
+  // conversions: partial inlining duplicates these conditions at callsites.
+  match instr {
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.RefIsNull
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U
+    | @lib.I8x16Splat
+    | @lib.I16x8Splat
+    | @lib.I32x4Splat
+    | @lib.I64x2Splat
+    | @lib.F32x4Splat
+    | @lib.F64x2Splat
+    | @lib.V128Not
+    | @lib.V128AnyTrue
+    | @lib.I8x16Abs
+    | @lib.I8x16Neg
+    | @lib.I8x16AllTrue
+    | @lib.I8x16Bitmask
+    | @lib.I8x16Popcnt
+    | @lib.I16x8Abs
+    | @lib.I16x8Neg
+    | @lib.I16x8AllTrue
+    | @lib.I16x8Bitmask
+    | @lib.I32x4Abs
+    | @lib.I32x4Neg
+    | @lib.I32x4AllTrue
+    | @lib.I32x4Bitmask
+    | @lib.I64x2Abs
+    | @lib.I64x2Neg
+    | @lib.I64x2AllTrue
+    | @lib.I64x2Bitmask
+    | @lib.F32x4Abs
+    | @lib.F32x4Neg
+    | @lib.F32x4Sqrt
+    | @lib.F32x4Ceil
+    | @lib.F32x4Floor
+    | @lib.F32x4Trunc
+    | @lib.F32x4Nearest
+    | @lib.F64x2Abs
+    | @lib.F64x2Neg
+    | @lib.F64x2Sqrt
+    | @lib.F64x2Ceil
+    | @lib.F64x2Floor
+    | @lib.F64x2Trunc
+    | @lib.F64x2Nearest
+    | @lib.I16x8ExtaddPairwiseI8x16S
+    | @lib.I16x8ExtaddPairwiseI8x16U
+    | @lib.I32x4ExtaddPairwiseI16x8S
+    | @lib.I32x4ExtaddPairwiseI16x8U
+    | @lib.I16x8ExtendLowI8x16S
+    | @lib.I16x8ExtendHighI8x16S
+    | @lib.I16x8ExtendLowI8x16U
+    | @lib.I16x8ExtendHighI8x16U
+    | @lib.I32x4ExtendLowI16x8S
+    | @lib.I32x4ExtendHighI16x8S
+    | @lib.I32x4ExtendLowI16x8U
+    | @lib.I32x4ExtendHighI16x8U
+    | @lib.I64x2ExtendLowI32x4S
+    | @lib.I64x2ExtendHighI32x4S
+    | @lib.I64x2ExtendLowI32x4U
+    | @lib.I64x2ExtendHighI32x4U
+    | @lib.I32x4TruncSatF32x4S
+    | @lib.I32x4TruncSatF32x4U
+    | @lib.F32x4ConvertI32x4S
+    | @lib.F32x4ConvertI32x4U
+    | @lib.I32x4TruncSatF64x2SZero
+    | @lib.I32x4TruncSatF64x2UZero
+    | @lib.F64x2ConvertLowI32x4S
+    | @lib.F64x2ConvertLowI32x4U
+    | @lib.F32x4DemoteF64x2Zero
+    | @lib.F64x2PromoteLowF32x4
+    | @lib.I32x4RelaxedTruncF32x4S
+    | @lib.I32x4RelaxedTruncF32x4U
+    | @lib.I32x4RelaxedTruncZeroF64x2S
+    | @lib.I32x4RelaxedTruncZeroF64x2U => true
+    _ => false
+  }
+}
+
+///|
+fn inl_partial_simple_expr(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+) -> Bool {
+  if start < 0 || end <= start || end > instrs.length() {
+    return false
+  }
+  match instrs[start] {
+    @lib.LocalGet(_) | @lib.GlobalGet(_) => ()
+    _ => return false
+  }
+  let mut idx = start + 1
+  while idx < end {
+    if !inl_partial_simple_unary(instrs[idx]) {
+      return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+priv struct InlPartialPatternA {
+  condition : Array[@lib.Instruction]
+  suffix : Array[@lib.Instruction]
+}
+
+///|
+fn inl_partial_pattern_a(body : Array[@lib.Instruction]) -> InlPartialPatternA? {
+  let mut if_idx = 1
+  while if_idx < body.length() {
+    match body[if_idx] {
+      @lib.If(block_type, [@lib.Return], None) if block_type ==
+        @lib.BlockType::void_() &&
+        inl_partial_simple_expr(body, 0, if_idx) => {
+        let condition : Array[@lib.Instruction] = []
+        let suffix : Array[@lib.Instruction] = []
+        let mut idx = 0
+        while idx < if_idx {
+          condition.push(body[idx])
+          idx += 1
+        }
+        idx = if_idx + 1
+        while idx < body.length() {
+          suffix.push(body[idx])
+          idx += 1
+        }
+        if suffix.length() > 0 {
+          return Some({ condition, suffix })
+        }
+        return None
+      }
+      _ => ()
+    }
+    // The first top-level item must be the guard. Once a non-simple prefix can
+    // no longer be its condition, no later if can match Pattern A.
+    if !inl_partial_simple_expr(body, 0, if_idx + 1) {
+      return None
+    }
+    if_idx += 1
+  }
+  None
+}
+
+///|
+priv struct InlPartialPatternBArm {
+  condition : Array[@lib.Instruction]
+  body : Array[@lib.Instruction]
+  terminal_exit : Bool
+}
+
+///|
+priv struct InlPartialPatternB {
+  arms : Array[InlPartialPatternBArm]
+  final_item : Array[@lib.Instruction]
+}
+
+///|
+fn inl_partial_instrs_have_return(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if inl_partial_instrs_have_return(body) {
+          return true
+        }
+      @lib.If(_, then_body, Some(else_body)) =>
+        if inl_partial_instrs_have_return(then_body) ||
+          inl_partial_instrs_have_return(else_body) {
+          return true
+        }
+      @lib.If(_, then_body, None) =>
+        if inl_partial_instrs_have_return(then_body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn inl_partial_terminal_exit(body : Array[@lib.Instruction]) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  let last = body[body.length() - 1]
+  let terminal = inl_instr_terminates_sequence(last)
+  if !terminal {
+    return false
+  }
+  let prefix : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx + 1 < body.length() {
+    prefix.push(body[idx])
+    idx += 1
+  }
+  !inl_partial_instrs_have_return(prefix)
+}
+
+///|
+fn inl_partial_instr_has_escaping_branch(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Br(label) | @lib.BrIf(label) => inl_label_idx_slot(label) >= depth
+    @lib.BrTable(labels, default) => {
+      if inl_label_idx_slot(default) >= depth {
+        return true
+      }
+      for label in labels {
+        if inl_label_idx_slot(label) >= depth {
+          return true
+        }
+      }
+      false
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      inl_partial_instrs_have_escaping_branch(body, depth + 1)
+    @lib.If(_, then_body, Some(else_body)) =>
+      inl_partial_instrs_have_escaping_branch(then_body, depth) ||
+      inl_partial_instrs_have_escaping_branch(else_body, depth)
+    @lib.If(_, then_body, None) =>
+      inl_partial_instrs_have_escaping_branch(then_body, depth)
+    _ => false
+  }
+}
+
+///|
+fn inl_partial_instrs_have_escaping_branch(
+  instrs : Array[@lib.Instruction],
+  depth : Int,
+) -> Bool {
+  for instr in instrs {
+    if inl_partial_instr_has_escaping_branch(instr, depth) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn inl_partial_collect_local_sets(
+  instrs : Array[@lib.Instruction],
+  written : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(idx) | @lib.LocalTee(idx) => {
+        let slot = inl_local_idx_slot(idx)
+        if slot >= 0 && slot < written.length() {
+          written[slot] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        inl_partial_collect_local_sets(body, written)
+      @lib.If(_, then_body, Some(else_body)) => {
+        inl_partial_collect_local_sets(then_body, written)
+        inl_partial_collect_local_sets(else_body, written)
+      }
+      @lib.If(_, then_body, None) =>
+        inl_partial_collect_local_sets(then_body, written)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn inl_partial_simple_expr_reads_written_local(
+  instrs : Array[@lib.Instruction],
+  written : Array[Bool],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(idx) => {
+        let slot = inl_local_idx_slot(idx)
+        if slot >= 0 && slot < written.length() && written[slot] {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn inl_partial_pattern_b(
+  body : Array[@lib.Instruction],
+  max_ifs : Int,
+  local_count : Int,
+) -> InlPartialPatternB? {
+  if max_ifs <= 0 {
+    return None
+  }
+  let arms : Array[InlPartialPatternBArm] = []
+  let written = Array::make(local_count, false)
+  let mut start = 0
+  while start < body.length() && arms.length() < max_ifs {
+    let mut if_idx = start + 1
+    while if_idx < body.length() &&
+          inl_partial_simple_expr(body, start, if_idx + 1) {
+      if_idx += 1
+    }
+    if if_idx >= body.length() || !inl_partial_simple_expr(body, start, if_idx) {
+      break
+    }
+    let (then_body, has_else) = match body[if_idx] {
+      @lib.If(_, then_body, Some(_)) => (then_body, true)
+      @lib.If(_, then_body, None) => (then_body, false)
+      _ => break
+    }
+    if has_else || inl_partial_instrs_have_escaping_branch(then_body, 0) {
+      return None
+    }
+    let terminal_exit = inl_partial_terminal_exit(then_body)
+    if inl_partial_instrs_have_return(then_body) && !terminal_exit {
+      return None
+    }
+    let condition : Array[@lib.Instruction] = []
+    let mut idx = start
+    while idx < if_idx {
+      condition.push(body[idx])
+      idx += 1
+    }
+    arms.push({ condition, body: then_body, terminal_exit })
+    inl_partial_collect_local_sets(then_body, written)
+    start = if_idx + 1
+  }
+  if arms.length() == 0 {
+    return None
+  }
+  // Seeing one more initial if than the configured maximum rejects Pattern B;
+  // it is not an optional final value.
+  if start < body.length() {
+    let mut next_if = start + 1
+    while next_if < body.length() &&
+          inl_partial_simple_expr(body, start, next_if + 1) {
+      next_if += 1
+    }
+    if next_if < body.length() && inl_partial_simple_expr(body, start, next_if) {
+      match body[next_if] {
+        @lib.If(_, _, _) => return None
+        _ => ()
+      }
+    }
+  }
+  let final_item : Array[@lib.Instruction] = []
+  let mut idx = start
+  while idx < body.length() {
+    final_item.push(body[idx])
+    idx += 1
+  }
+  if final_item.length() > 0 &&
+    !inl_partial_simple_expr(final_item, 0, final_item.length()) {
+    return None
+  }
+  if inl_partial_simple_expr_reads_written_local(final_item, written) {
+    return None
+  }
+  Some({ arms, final_item })
+}
+
+///|
+fn inl_func_name_strings(mod_ : @lib.Module, total : Int) -> Array[String] {
+  let names : Array[String] = []
+  let mut idx = 0
+  while idx < total {
+    names.push(idx.to_string())
+    idx += 1
+  }
+  match mod_.name_sec {
+    Some(sec) =>
+      match sec.func_names {
+        Some(@lib.NameMap(entries)) =>
+          for entry in entries {
+            let @lib.NameAssoc(raw_idx, @lib.Name(name)) = entry
+            let slot = raw_idx.reinterpret_as_int()
+            if slot >= 0 && slot < total {
+              names[slot] = name.to_owned()
+            }
+          }
+        None => ()
+      }
+    None => ()
+  }
+  names
+}
+
+///|
+fn inl_unique_generated_func_name(
+  names : Array[String],
+  base : String,
+) -> String {
+  let mut candidate = base
+  let mut suffix = 1
+  while names.any(fn(name) { name == candidate }) {
+    candidate = "\{base}$\{suffix}"
+    suffix += 1
+  }
+  candidate
+}
+
+///|
+fn inl_name_sec_with_generated_func_names(
+  sec : @lib.NameSec?,
+  generated : Array[(UInt, String)],
+) -> @lib.NameSec? {
+  if generated.length() == 0 {
+    return sec
+  }
+  let func_names : Array[@lib.NameAssoc] = []
+  match sec {
+    Some(existing) =>
+      match existing.func_names {
+        Some(@lib.NameMap(entries)) => func_names.append(entries)
+        None => ()
+      }
+    None => ()
+  }
+  for pair in generated {
+    let (idx, name) = pair
+    func_names.push(@lib.NameAssoc::new(idx, @lib.Name::from_string(name)))
+  }
+  match sec {
+    Some(existing) =>
+      Some(
+        @lib.NameSec::new(
+          module_name=existing.module_name,
+          func_names=Some(@lib.NameMap::new(func_names)),
+          local_names=existing.local_names,
+          label_names=existing.label_names,
+          type_names=existing.type_names,
+          table_names=existing.table_names,
+          memory_names=existing.memory_names,
+          global_names=existing.global_names,
+          elem_names=existing.elem_names,
+          data_names=existing.data_names,
+          field_names=existing.field_names,
+          tag_names=existing.tag_names,
+        ),
+      )
+    None =>
+      Some(@lib.NameSec::new(func_names=Some(@lib.NameMap::new(func_names))))
+  }
+}
+
+///|
+fn inl_rebuild_with_func_annotations(
+  mod_ : @lib.Module,
+  annotations : @lib.FuncAnnotationSec?,
+) -> @lib.Module {
+  @lib.Module::new(
+    custom_secs=mod_.custom_secs,
+    type_sec=mod_.type_sec,
+    import_sec=mod_.import_sec,
+    func_annotation_sec=annotations,
+    func_sec=mod_.func_sec,
+    table_sec=mod_.table_sec,
+    mem_sec=mod_.mem_sec,
+    tag_sec=mod_.tag_sec,
+    stringrefs_sec=mod_.stringrefs_sec,
+    global_sec=mod_.global_sec,
+    export_sec=mod_.export_sec,
+    start_sec=mod_.start_sec,
+    elem_sec=mod_.elem_sec,
+    data_cnt_sec=mod_.data_cnt_sec,
+    code_sec=mod_.code_sec,
+    data_sec=mod_.data_sec,
+    name_sec=mod_.name_sec,
+    raw_name_sec_payload=mod_.raw_name_sec_payload,
+  )
+}
+
+///|
+fn inl_apply_partial_pattern_a_splits(
+  mod_ : @lib.Module,
+  optimize_level : Int,
+  shrink_level : Int,
+  always_inline_max_size : Int,
+  one_caller_inline_max_size : Int,
+  flexible_inline_max_size : Int,
+  max_combined_binary_size : Int,
+  allow_functions_with_loops : Bool,
+  partial_inlining_ifs : Int,
+) -> @lib.Module {
+  if partial_inlining_ifs <= 0 || optimize_level < 3 || shrink_level != 0 {
+    return mod_
+  }
+  let original_type_idxs = match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => type_idxs
+    None => return mod_
+  }
+  let original_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let imports = inl_imported_func_count(mod_)
+  let original_total = imports + original_funcs.length()
+  let infos = inl_build_function_infos(
+    mod_,
+    optimize_level~,
+    shrink_level~,
+    always_inline_max_size~,
+    one_caller_inline_max_size~,
+    flexible_inline_max_size~,
+    max_combined_binary_size~,
+    allow_functions_with_loops~,
+  )
+  let (_, no_partial) = no_inline_policy_flags(mod_)
+  let existing_partial = inl_partial_wrapper_flags(mod_, original_total)
+  let annotations = inl_annotation_map(mod_, original_total)
+  let names = inl_func_name_strings(mod_, original_total)
+  let type_idxs = original_type_idxs.copy()
+  let funcs = original_funcs.copy()
+  let generated_names : Array[(UInt, String)] = []
+  let mut changed = false
+  let mut def_idx = 0
+  while def_idx < original_funcs.length() {
+    let abs = imports + def_idx
+    if infos[abs].inlineable || no_partial[abs] || existing_partial[abs] {
+      def_idx += 1
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = original_funcs[def_idx]
+    let source_annotations = annotations[abs].copy()
+    let mut split_this = false
+    let pattern_a = if infos[abs].results.length() == 0 {
+      inl_partial_pattern_a(body)
+    } else {
+      None
+    }
+    match pattern_a {
+      Some(pattern) => {
+        let outlined_abs = imports + funcs.length()
+        type_idxs.push(original_type_idxs[def_idx])
+        funcs.push(@lib.Func::new(locals, @lib.Expr::new(pattern.suffix)))
+        let forwarded : Array[@lib.Instruction] = []
+        let mut param_idx = 0
+        while param_idx < infos[abs].params.length() {
+          forwarded.push(
+            @lib.Instruction::local_get(
+              @lib.LocalIdx::new(param_idx.reinterpret_as_uint()),
+            ),
+          )
+          param_idx += 1
+        }
+        forwarded.push(
+          @lib.Instruction::call(
+            @lib.FuncIdx::new(outlined_abs.reinterpret_as_uint()),
+          ),
+        )
+        let wrapper_body = pattern.condition.copy()
+        wrapper_body.push(@lib.Instruction::i32_eqz())
+        wrapper_body.push(
+          @lib.Instruction::if_(@lib.BlockType::void_(), forwarded, None),
+        )
+        funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(wrapper_body))
+        annotations.push(source_annotations)
+        let generated_name = inl_unique_generated_func_name(
+          names,
+          "byn-split-outlined-A$\{names[abs]}",
+        )
+        names.push(generated_name)
+        generated_names.push(
+          (outlined_abs.reinterpret_as_uint(), generated_name),
+        )
+        changed = true
+        split_this = true
+      }
+      None => {
+        let pattern = match
+          inl_partial_pattern_b(
+            body,
+            partial_inlining_ifs,
+            infos[abs].params.length() + locals.length(),
+          ) {
+          Some(pattern) => pattern
+          None => {
+            def_idx += 1
+            continue
+          }
+        }
+        if infos[abs].results.length() > 0 &&
+          pattern.arms.any(fn(arm) { !arm.terminal_exit }) {
+          def_idx += 1
+          continue
+        }
+        let wrapper_body : Array[@lib.Instruction] = []
+        for arm in pattern.arms {
+          let outlined_abs = imports + funcs.length()
+          type_idxs.push(original_type_idxs[def_idx])
+          funcs.push(@lib.Func::new(locals, @lib.Expr::new(arm.body)))
+          annotations.push(source_annotations.copy())
+          let generated_name = inl_unique_generated_func_name(
+            names,
+            "byn-split-outlined-B$\{names[abs]}",
+          )
+          names.push(generated_name)
+          generated_names.push(
+            (outlined_abs.reinterpret_as_uint(), generated_name),
+          )
+          wrapper_body.append(arm.condition)
+          let forwarded : Array[@lib.Instruction] = []
+          let mut param_idx = 0
+          while param_idx < infos[abs].params.length() {
+            forwarded.push(
+              @lib.Instruction::local_get(
+                @lib.LocalIdx::new(param_idx.reinterpret_as_uint()),
+              ),
+            )
+            param_idx += 1
+          }
+          forwarded.push(
+            @lib.Instruction::call(
+              @lib.FuncIdx::new(outlined_abs.reinterpret_as_uint()),
+            ),
+          )
+          if arm.terminal_exit {
+            forwarded.push(@lib.Instruction::return_())
+          }
+          wrapper_body.push(
+            @lib.Instruction::if_(@lib.BlockType::void_(), forwarded, None),
+          )
+        }
+        wrapper_body.append(pattern.final_item)
+        funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(wrapper_body))
+        changed = true
+        split_this = true
+      }
+    }
+    if split_this {
+      let marker = @lib.FuncAnnotation::new(
+        inl_partial_wrapper_annotation_name(),
+      )
+      if !inl_func_annotation_present(annotations[abs], marker) {
+        annotations[abs].push(marker)
+      }
+    }
+    def_idx += 1
+  }
+  if !changed {
+    return mod_
+  }
+  let rewritten = mod_
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(funcs))
+  let rewritten = match
+    inl_name_sec_with_generated_func_names(rewritten.name_sec, generated_names) {
+    Some(sec) => rewritten.with_name_sec(sec)
+    None => rewritten
+  }
+  inl_rebuild_with_func_annotations(
+    rewritten,
+    inl_build_func_annotation_sec_from_map(annotations),
+  )
+}
+
+///|
+fn inl_strip_partial_wrapper_annotations(mod_ : @lib.Module) -> @lib.Module {
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  let annotations = inl_annotation_map(mod_, total)
+  let mut changed = false
+  let mut idx = 0
+  while idx < annotations.length() {
+    let filtered : Array[@lib.FuncAnnotation] = []
+    for annotation in annotations[idx] {
+      if annotation.name == inl_partial_wrapper_annotation_name() {
+        changed = true
+      } else {
+        filtered.push(annotation)
+      }
+    }
+    annotations[idx] = filtered
+    idx += 1
+  }
+  if !changed {
+    mod_
+  } else {
+    inl_rebuild_with_func_annotations(
+      mod_,
+      inl_build_func_annotation_sec_from_map(annotations),
+    )
+  }
+}
+
+///|
 fn inl_build_function_infos(
   mod_ : @lib.Module,
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  always_inline_max_size? : Int = 2,
+  one_caller_inline_max_size? : Int = -1,
+  flexible_inline_max_size? : Int = 20,
+  max_combined_binary_size? : Int = 400 * 1024,
+  allow_functions_with_loops? : Bool = false,
 ) -> Array[InlFunctionInfo] {
   let imports = inl_imported_func_count(mod_)
   let total = imports + inl_defined_func_count(mod_)
@@ -851,7 +1828,10 @@ fn inl_build_function_infos(
   }
   let types = inl_collect_func_type_indices(mod_)
   let (no_full_inline, _) = no_inline_policy_flags(mod_)
+  let partial_wrappers = inl_partial_wrapper_flags(mod_, total)
+  let toolchain_inline_hints = inl_toolchain_inline_hints(mod_, total)
   let infos : Array[InlFunctionInfo] = []
+  let module_ctx = @ir.hot_module_context_from_module(mod_)
   let mut abs = 0
   while abs < total {
     let (
@@ -860,14 +1840,15 @@ fn inl_build_function_infos(
       size,
       has_calls,
       has_loops,
-      has_try_table,
+      _,
       has_return_call,
       trivial_shrinks,
+      trivial_may_not_shrink,
     ) = if abs < imports {
       match inl_resolve_func_type(mod_, types, abs) {
         Some(@lib.FuncType(params, results)) =>
-          (params, results, 1000000, true, false, false, true, false)
-        None => ([], [], 1000000, true, false, false, true, false)
+          (params, results, 1000000, true, false, false, true, false, false)
+        None => ([], [], 1000000, true, false, false, true, false, false)
       }
     } else {
       let def_idx = abs - imports
@@ -877,19 +1858,25 @@ fn inl_build_function_infos(
       }
       let @lib.Func(_, @lib.Expr(body)) = func
       let (calls, loops, tries, tails) = inl_scan_shape_instrs(body)
+      let measured_size = inl_count_instrs(body)
+      let (hot_trivial_shrinks, trivial_may_not_shrink) = inl_hot_trivial_instruction_modes(
+        mod_, abs, module_ctx, measured_size,
+      )
       match inl_resolve_func_type(mod_, types, abs) {
-        Some(@lib.FuncType(params, results)) =>
+        Some(@lib.FuncType(params, results)) => {
+          let trivial_shrinks = hot_trivial_shrinks ||
+            inl_body_is_shrinking_trivial(
+              body,
+              params.length(),
+              mod_~,
+              func_type_indices=types,
+            )
           (
-            params,
-            results,
-            inl_count_instrs(body),
-            calls,
-            loops,
-            tries,
-            tails,
-            inl_body_is_shrinking_trivial(body, params.length()),
+            params, results, measured_size, calls, loops, tries, tails, trivial_shrinks,
+            trivial_may_not_shrink,
           )
-        None => ([], [], 1000000, true, false, true, true, false)
+        }
+        None => ([], [], 1000000, true, false, true, true, false, false)
       }
     }
     let func_type_idx = if abs >= 0 && abs < types.length() {
@@ -905,22 +1892,57 @@ fn inl_build_function_infos(
       inl_find_zero_param_result_type(mod_, results)
     }
     let block_type_ok = inl_result_block_type(results, type_idx) is Some(_)
+    let partial_wrapper = abs >= 0 &&
+      abs < partial_wrappers.length() &&
+      partial_wrappers[abs]
     let no_full_policy = abs >= 0 &&
       abs < no_full_inline.length() &&
-      no_full_inline[abs]
+      no_full_inline[abs] &&
+      !partial_wrapper
+    let toolchain_inline_hint = if abs >= 0 &&
+      abs < toolchain_inline_hints.length() {
+      toolchain_inline_hints[abs]
+    } else {
+      InlToolchainInlineHint::DefaultInline
+    }
     let speed_focused = optimize_level >= 3 && shrink_level == 0
-    let may_not_shrink = speed_focused && !has_calls && !has_loops && size <= 20
+    let one_caller_size_ok = one_caller_inline_max_size < 0 ||
+      size <= one_caller_inline_max_size
+    let profitable = if partial_wrapper {
+      true
+    } else {
+      match toolchain_inline_hint {
+        NeverInline => false
+        AlwaysInline => true
+        DefaultInline =>
+          if size <= always_inline_max_size {
+            true
+          } else if refs[abs] == 1 && !used[abs] && one_caller_size_ok {
+            true
+          } else if trivial_shrinks {
+            true
+          } else if size > flexible_inline_max_size || !speed_focused {
+            false
+          } else if trivial_may_not_shrink {
+            true
+          } else {
+            !has_calls && (!has_loops || allow_functions_with_loops)
+          }
+      }
+    }
     let inlineable = abs >= imports &&
       !no_full_policy &&
       block_type_ok &&
-      !has_try_table &&
-      (
-        size <= 2 ||
-        trivial_shrinks ||
-        (refs[abs] == 1 && !used[abs]) ||
-        may_not_shrink
-      )
-    infos.push({ params, results, type_idx, size, has_return_call, inlineable })
+      profitable
+    ignore(has_return_call)
+    infos.push({
+      params,
+      results,
+      type_idx,
+      size,
+      max_combined_binary_size,
+      inlineable,
+    })
     abs += 1
   }
   infos
@@ -940,10 +1962,254 @@ fn inl_copy_local_idx(
 }
 
 ///|
+priv struct InlNestedReturnHoistState {
+  mut next_local_idx : Int
+  extra_types : Array[@lib.ValType]
+  hoists : Array[InlTailCallsiteHoist]
+  mut failed : Bool
+}
+
+///|
+fn inl_nested_return_call_operand_types(
+  instr : @lib.Instruction,
+  mod_ : @lib.Module,
+  infos : Array[InlFunctionInfo],
+) -> Array[@lib.ValType]? {
+  match instr {
+    @lib.ReturnCall(func_idx) => {
+      let target = inl_func_idx_slot(func_idx)
+      if target >= 0 && target < infos.length() {
+        Some(infos[target].params.copy())
+      } else {
+        None
+      }
+    }
+    @lib.ReturnCallIndirect(type_idx, table_idx) =>
+      match mod_.type_sec {
+        Some(type_sec) =>
+          match inl_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, _)) =>
+              match
+                @ir.hot_module_resolve_table_index_type(
+                  @ir.hot_module_context_from_module(mod_),
+                  table_idx,
+                ) {
+                Some(index_type) => {
+                  let types = params.copy()
+                  types.push(index_type)
+                  Some(types)
+                }
+                None => None
+              }
+            None => None
+          }
+        None => None
+      }
+    @lib.ReturnCallRef(type_idx) =>
+      match mod_.type_sec {
+        Some(type_sec) =>
+          match inl_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(params, _)) => {
+              let types = params.copy()
+              types.push(
+                @lib.ValType::ref_type(
+                  @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+                ),
+              )
+              Some(types)
+            }
+            None => None
+          }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn inl_nested_return_call_with_local_operands(
+  instr : @lib.Instruction,
+  locals : Array[Int],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for local_idx in locals {
+    out.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new(local_idx.reinterpret_as_uint()),
+      ),
+    )
+  }
+  match instr {
+    @lib.ReturnCall(func_idx) =>
+      out.push(@lib.Instruction::return_call(func_idx))
+    @lib.ReturnCallIndirect(type_idx, table_idx) =>
+      out.push(@lib.Instruction::return_call_indirect(type_idx, table_idx))
+    @lib.ReturnCallRef(type_idx) =>
+      out.push(@lib.Instruction::return_call_ref(type_idx))
+    _ => ()
+  }
+  out
+}
+
+///|
+fn inl_hoist_nested_return_calls_in_instrs(
+  instrs : Array[@lib.Instruction],
+  try_depth : Int,
+  state : InlNestedReturnHoistState,
+  mod_ : @lib.Module,
+  infos : Array[InlFunctionInfo],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    if try_depth > 0 {
+      match instr {
+        @lib.ReturnCall(_)
+        | @lib.ReturnCallIndirect(_, _)
+        | @lib.ReturnCallRef(_) => {
+          let operand_types = match
+            inl_nested_return_call_operand_types(instr, mod_, infos) {
+            Some(types) => types
+            None => {
+              state.failed = true
+              out.push(instr)
+              continue
+            }
+          }
+          let locals : Array[Int] = []
+          for operand_type in operand_types {
+            locals.push(state.next_local_idx)
+            state.next_local_idx += 1
+            state.extra_types.push(operand_type)
+          }
+          let mut local_idx = locals.length() - 1
+          while local_idx >= 0 {
+            out.push(
+              @lib.Instruction::local_set(
+                @lib.LocalIdx::new(locals[local_idx].reinterpret_as_uint()),
+              ),
+            )
+            local_idx -= 1
+          }
+          let hoist_id = state.hoists.length()
+          out.push(inl_tail_callsite_hoist_placeholder(hoist_id))
+          state.hoists.push({
+            post_body: inl_nested_return_call_with_local_operands(instr, locals),
+          })
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              inl_hoist_nested_return_calls_in_instrs(
+                body, try_depth, state, mod_, infos,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              inl_hoist_nested_return_calls_in_instrs(
+                body, try_depth, state, mod_, infos,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) => {
+        let next_then = inl_hoist_nested_return_calls_in_instrs(
+          then_body, try_depth, state, mod_, infos,
+        )
+        let next_else = match else_body {
+          Some(body) =>
+            Some(
+              inl_hoist_nested_return_calls_in_instrs(
+                body, try_depth, state, mod_, infos,
+              ),
+            )
+          None => None
+        }
+        out.push(@lib.Instruction::if_(block_type, next_then, next_else))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              inl_hoist_nested_return_calls_in_instrs(
+                body,
+                try_depth + 1,
+                state,
+                mod_,
+                infos,
+              ),
+            ),
+          ),
+        )
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+fn inl_prepare_nested_return_call_hoists(
+  body : Array[@lib.Instruction],
+  local_base : Int,
+  mod_ : @lib.Module,
+  infos : Array[InlFunctionInfo],
+) -> (Array[@lib.Instruction], Array[@lib.ValType])? {
+  let state : InlNestedReturnHoistState = {
+    next_local_idx: local_base,
+    extra_types: [],
+    hoists: [],
+    failed: false,
+  }
+  let transformed = inl_hoist_nested_return_calls_in_instrs(
+    body, 0, state, mod_, infos,
+  )
+  if state.failed {
+    return None
+  }
+  if state.hoists.length() == 0 {
+    return Some((body, []))
+  }
+  let shifted = inl_shift_outer_target_branches(
+    transformed,
+    state.hoists.length(),
+  )
+  let mut current = inl_patch_tail_callsite_hoist_branches(
+    shifted,
+    state.hoists.length(),
+    0,
+  )
+  current.push(@lib.Instruction::return_())
+  let mut idx = state.hoists.length() - 1
+  while idx >= 0 {
+    let next : Array[@lib.Instruction] = [
+      @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(current)),
+    ]
+    next.append(state.hoists[idx].post_body)
+    current = next
+    idx -= 1
+  }
+  Some((current, state.extra_types))
+}
+
+///|
 fn inl_rewrite_callee_instr(
   instr : @lib.Instruction,
   local_map : Array[Int],
   return_depth : Int,
+  preserve_tail_calls : Bool,
 ) -> @lib.Instruction {
   match instr {
     @lib.LocalGet(idx) =>
@@ -960,14 +2226,24 @@ fn inl_rewrite_callee_instr(
       @lib.Instruction::block(
         block_type,
         @lib.Expr::new(
-          inl_rewrite_callee_instrs(body, local_map, return_depth + 1),
+          inl_rewrite_callee_instrs(
+            body,
+            local_map,
+            return_depth + 1,
+            preserve_tail_calls,
+          ),
         ),
       )
     @lib.Loop(block_type, @lib.Expr(body)) =>
       @lib.Instruction::loop_(
         block_type,
         @lib.Expr::new(
-          inl_rewrite_callee_instrs(body, local_map, return_depth + 1),
+          inl_rewrite_callee_instrs(
+            body,
+            local_map,
+            return_depth + 1,
+            preserve_tail_calls,
+          ),
         ),
       )
     @lib.If(block_type, then_body, else_body) => {
@@ -975,10 +2251,18 @@ fn inl_rewrite_callee_instr(
         then_body,
         local_map,
         return_depth + 1,
+        preserve_tail_calls,
       )
       let next_else = match else_body {
         Some(body) =>
-          Some(inl_rewrite_callee_instrs(body, local_map, return_depth + 1))
+          Some(
+            inl_rewrite_callee_instrs(
+              body,
+              local_map,
+              return_depth + 1,
+              preserve_tail_calls,
+            ),
+          )
         None => None
       }
       @lib.Instruction::if_(block_type, next_then, next_else)
@@ -988,7 +2272,12 @@ fn inl_rewrite_callee_instr(
         block_type,
         catches,
         @lib.Expr::new(
-          inl_rewrite_callee_instrs(body, local_map, return_depth + 1),
+          inl_rewrite_callee_instrs(
+            body,
+            local_map,
+            return_depth + 1,
+            preserve_tail_calls,
+          ),
         ),
       )
     _ => instr
@@ -1000,10 +2289,47 @@ fn inl_rewrite_callee_instrs(
   instrs : Array[@lib.Instruction],
   local_map : Array[Int],
   return_depth : Int,
+  preserve_tail_calls : Bool,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   for instr in instrs {
-    out.push(inl_rewrite_callee_instr(instr, local_map, return_depth))
+    if !preserve_tail_calls {
+      match instr {
+        @lib.ReturnCall(func_idx) => {
+          out.push(@lib.Instruction::call(func_idx))
+          out.push(
+            @lib.Instruction::br(
+              @lib.LabelIdx::new(return_depth.reinterpret_as_uint()),
+            ),
+          )
+          continue
+        }
+        @lib.ReturnCallIndirect(type_idx, table_idx) => {
+          out.push(@lib.Instruction::call_indirect(type_idx, table_idx))
+          out.push(
+            @lib.Instruction::br(
+              @lib.LabelIdx::new(return_depth.reinterpret_as_uint()),
+            ),
+          )
+          continue
+        }
+        @lib.ReturnCallRef(type_idx) => {
+          out.push(@lib.Instruction::call_ref(type_idx))
+          out.push(
+            @lib.Instruction::br(
+              @lib.LabelIdx::new(return_depth.reinterpret_as_uint()),
+            ),
+          )
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.push(
+      inl_rewrite_callee_instr(
+        instr, local_map, return_depth, preserve_tail_calls,
+      ),
+    )
   }
   out
 }
@@ -1024,13 +2350,397 @@ fn inl_push_inline_replacement(
 }
 
 ///|
+fn inl_tail_callsite_hoist_placeholder_base() -> Int {
+  0x3fff0000
+}
+
+///|
+fn inl_tail_callsite_hoist_placeholder(id : Int) -> @lib.Instruction {
+  @lib.Instruction::br(
+    @lib.LabelIdx::new(
+      (inl_tail_callsite_hoist_placeholder_base() + id).reinterpret_as_uint(),
+    ),
+  )
+}
+
+///|
+fn inl_tail_callsite_hoist_placeholder_id(label : @lib.LabelIdx) -> Int? {
+  let slot = inl_label_idx_slot(label)
+  let id = slot - inl_tail_callsite_hoist_placeholder_base()
+  if id >= 0 {
+    Some(id)
+  } else {
+    None
+  }
+}
+
+///|
+fn inl_shift_outer_target_label(
+  label : @lib.LabelIdx,
+  control_depth : Int,
+  added_outer_depth : Int,
+) -> @lib.LabelIdx {
+  match inl_tail_callsite_hoist_placeholder_id(label) {
+    Some(_) => return label
+    None => ()
+  }
+  let slot = inl_label_idx_slot(label)
+  if slot >= control_depth {
+    @lib.LabelIdx::new((slot + added_outer_depth).reinterpret_as_uint())
+  } else {
+    label
+  }
+}
+
+///|
+fn inl_shift_outer_target_catches(
+  catches : Array[@lib.Catch],
+  control_depth : Int,
+  added_outer_depth : Int,
+) -> Array[@lib.Catch] {
+  let out : Array[@lib.Catch] = []
+  for catch_ in catches {
+    match catch_ {
+      @lib.Catch(tag, label) =>
+        out.push(
+          @lib.Catch::new(
+            tag,
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.CatchRef(tag, label) =>
+        out.push(
+          @lib.Catch::ref_(
+            tag,
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.CatchAll(label) =>
+        out.push(
+          @lib.Catch::all(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.CatchAllRef(label) =>
+        out.push(
+          @lib.Catch::all_ref(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+    }
+  }
+  out
+}
+
+///|
+fn inl_shift_outer_target_branches(
+  instrs : Array[@lib.Instruction],
+  added_outer_depth : Int,
+  control_depth? : Int = 0,
+) -> Array[@lib.Instruction] {
+  if added_outer_depth <= 0 {
+    return instrs
+  }
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Br(label) =>
+        out.push(
+          @lib.Instruction::br(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrIf(label) =>
+        out.push(
+          @lib.Instruction::br_if(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrTable(labels, fallback) => {
+        let shifted : Array[@lib.LabelIdx] = []
+        for label in labels {
+          shifted.push(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          )
+        }
+        out.push(
+          @lib.Instruction::br_table(
+            shifted,
+            inl_shift_outer_target_label(
+              fallback, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      }
+      @lib.BrOnNull(label) =>
+        out.push(
+          @lib.Instruction::br_on_null(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrOnNonNull(label) =>
+        out.push(
+          @lib.Instruction::br_on_non_null(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+          ),
+        )
+      @lib.BrOnCast(label, cast_op, source, target) =>
+        out.push(
+          @lib.Instruction::br_on_cast(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+            cast_op.source_nullable(),
+            source,
+            cast_op.target_nullable(),
+            target,
+            source_exact=cast_op.source_exact(),
+            target_exact=cast_op.target_exact(),
+          ),
+        )
+      @lib.BrOnCastFail(label, cast_op, source, target) =>
+        out.push(
+          @lib.Instruction::br_on_cast_fail(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+            cast_op.source_nullable(),
+            source,
+            cast_op.target_nullable(),
+            target,
+            source_exact=cast_op.source_exact(),
+            target_exact=cast_op.target_exact(),
+          ),
+        )
+      @lib.BrOnCastDescEq(label, source, target) =>
+        out.push(
+          @lib.Instruction::br_on_cast_desc_eq(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+            source,
+            target,
+          ),
+        )
+      @lib.BrOnCastDescEqFail(label, source, target) =>
+        out.push(
+          @lib.Instruction::br_on_cast_desc_eq_fail(
+            inl_shift_outer_target_label(
+              label, control_depth, added_outer_depth,
+            ),
+            source,
+            target,
+          ),
+        )
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              inl_shift_outer_target_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              inl_shift_outer_target_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            inl_shift_outer_target_branches(
+              then_body,
+              added_outer_depth,
+              control_depth=control_depth + 1,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  inl_shift_outer_target_branches(
+                    body,
+                    added_outer_depth,
+                    control_depth=control_depth + 1,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            inl_shift_outer_target_catches(
+              catches, control_depth, added_outer_depth,
+            ),
+            @lib.Expr::new(
+              inl_shift_outer_target_branches(
+                body,
+                added_outer_depth,
+                control_depth=control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+fn inl_patch_tail_callsite_hoist_branches(
+  instrs : Array[@lib.Instruction],
+  hoist_count : Int,
+  control_depth : Int,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Br(label) =>
+        match inl_tail_callsite_hoist_placeholder_id(label) {
+          Some(id) if id < hoist_count =>
+            out.push(
+              @lib.Instruction::br(
+                @lib.LabelIdx::new(
+                  (control_depth + hoist_count - 1 - id).reinterpret_as_uint(),
+                ),
+              ),
+            )
+          _ => out.push(instr)
+        }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              inl_patch_tail_callsite_hoist_branches(
+                body,
+                hoist_count,
+                control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              inl_patch_tail_callsite_hoist_branches(
+                body,
+                hoist_count,
+                control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              inl_patch_tail_callsite_hoist_branches(
+                body,
+                hoist_count,
+                control_depth + 1,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) => {
+        let next_then = inl_patch_tail_callsite_hoist_branches(
+          then_body,
+          hoist_count,
+          control_depth + 1,
+        )
+        let next_else = match else_body {
+          Some(body) =>
+            Some(
+              inl_patch_tail_callsite_hoist_branches(
+                body,
+                hoist_count,
+                control_depth + 1,
+              ),
+            )
+          None => None
+        }
+        out.push(@lib.Instruction::if_(block_type, next_then, next_else))
+      }
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+fn inl_wrap_tail_callsite_hoists(
+  body : Array[@lib.Instruction],
+  hoists : Array[InlTailCallsiteHoist],
+) -> Array[@lib.Instruction] {
+  if hoists.length() == 0 {
+    return body
+  }
+  let shifted = inl_shift_outer_target_branches(body, hoists.length())
+  let mut current = inl_patch_tail_callsite_hoist_branches(
+    shifted,
+    hoists.length(),
+    0,
+  )
+  current.push(@lib.Instruction::return_())
+  let mut idx = hoists.length() - 1
+  while idx >= 0 {
+    let next : Array[@lib.Instruction] = [
+      @lib.Instruction::block(@lib.BlockType::void_(), @lib.Expr::new(current)),
+    ]
+    next.append(hoists[idx].post_body)
+    next.push(@lib.Instruction::return_())
+    current = next
+    idx -= 1
+  }
+  current
+}
+
+///|
 fn inl_can_inline_action(
   caller_abs : Int,
   caller_size : Int,
   callee_abs : Int,
   infos : Array[InlFunctionInfo],
   touched : Array[Bool],
-  tail_callsite? : Bool = false,
 ) -> Bool {
   callee_abs >= 0 &&
   callee_abs < infos.length() &&
@@ -1038,9 +2748,33 @@ fn inl_can_inline_action(
   caller_abs < infos.length() &&
   callee_abs != caller_abs &&
   infos[callee_abs].inlineable &&
-  (tail_callsite || !infos[callee_abs].has_return_call) &&
   (callee_abs >= touched.length() || !touched[callee_abs]) &&
-  inl_combined_binary_size_within_limit(caller_size, infos[callee_abs].size)
+  inl_combined_binary_size_within_limit(
+    caller_size,
+    infos[callee_abs].size,
+    max_combined_binary_size=infos[callee_abs].max_combined_binary_size,
+  )
+}
+
+///|
+fn inl_instr_terminates_sequence(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Unreachable
+    | @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Br(_)
+    | @lib.BrTable(_, _)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Rethrow(_)
+    | @lib.Resume(_, _)
+    | @lib.ResumeThrow(_, _, _)
+    | @lib.ResumeThrowRef(_, _)
+    | @lib.StackSwitch(_, _) => true
+    _ => false
+  }
 }
 
 ///|
@@ -1053,9 +2787,20 @@ fn inl_inline_call_instrs(
   imports : Int,
   touched : Array[Bool],
   inlined_from : Array[Bool],
+  try_depth? : Int = 0,
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
+  let mut reachable = true
   for instr in instrs {
+    if !reachable {
+      match instr {
+        @lib.Call(_) | @lib.ReturnCall(_) => {
+          out.push(instr)
+          continue
+        }
+        _ => ()
+      }
+    }
     match instr {
       @lib.Call(func_idx) => {
         let callee_abs = inl_func_idx_slot(func_idx)
@@ -1075,11 +2820,11 @@ fn inl_inline_call_instrs(
               caller_abs,
               callee_abs,
               imports,
+              false,
             ) {
             Some((next_func, replacement)) => {
               state.func = next_func
               state.changed = true
-              state.size += infos[callee_abs].size
               if caller_abs >= 0 && caller_abs < touched.length() {
                 touched[caller_abs] = true
               }
@@ -1103,7 +2848,6 @@ fn inl_inline_call_instrs(
             callee_abs,
             infos,
             touched,
-            tail_callsite=true,
           ) {
           match
             inl_make_inline_replacement(
@@ -1113,19 +2857,38 @@ fn inl_inline_call_instrs(
               caller_abs,
               callee_abs,
               imports,
+              true,
             ) {
             Some((next_func, replacement)) => {
               state.func = next_func
               state.changed = true
-              state.size += infos[callee_abs].size
               if caller_abs >= 0 && caller_abs < touched.length() {
                 touched[caller_abs] = true
               }
               if callee_abs >= 0 && callee_abs < inlined_from.length() {
                 inlined_from[callee_abs] = true
               }
-              inl_push_inline_replacement(out, replacement)
-              out.push(@lib.Instruction::return_())
+              if try_depth > 0 {
+                let param_count = infos[callee_abs].params.length()
+                let site_prefix : Array[@lib.Instruction] = []
+                let post_body : Array[@lib.Instruction] = []
+                let mut replacement_idx = 0
+                while replacement_idx < replacement.length() {
+                  if replacement_idx < param_count {
+                    site_prefix.push(replacement[replacement_idx])
+                  } else {
+                    post_body.push(replacement[replacement_idx])
+                  }
+                  replacement_idx += 1
+                }
+                out.append(site_prefix)
+                let hoist_id = state.tail_callsite_hoists.length()
+                out.push(inl_tail_callsite_hoist_placeholder(hoist_id))
+                state.tail_callsite_hoists.push({ post_body, })
+              } else {
+                inl_push_inline_replacement(out, replacement)
+                out.push(@lib.Instruction::return_())
+              }
             }
             None => out.push(instr)
           }
@@ -1139,7 +2902,15 @@ fn inl_inline_call_instrs(
             block_type,
             @lib.Expr::new(
               inl_inline_call_instrs(
-                body, caller_abs, state, mod_, infos, imports, touched, inlined_from,
+                body,
+                caller_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                touched,
+                inlined_from,
+                try_depth~,
               ),
             ),
           ),
@@ -1150,20 +2921,44 @@ fn inl_inline_call_instrs(
             block_type,
             @lib.Expr::new(
               inl_inline_call_instrs(
-                body, caller_abs, state, mod_, infos, imports, touched, inlined_from,
+                body,
+                caller_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                touched,
+                inlined_from,
+                try_depth~,
               ),
             ),
           ),
         )
       @lib.If(block_type, then_body, else_body) => {
         let next_then = inl_inline_call_instrs(
-          then_body, caller_abs, state, mod_, infos, imports, touched, inlined_from,
+          then_body,
+          caller_abs,
+          state,
+          mod_,
+          infos,
+          imports,
+          touched,
+          inlined_from,
+          try_depth~,
         )
         let next_else = match else_body {
           Some(body) =>
             Some(
               inl_inline_call_instrs(
-                body, caller_abs, state, mod_, infos, imports, touched, inlined_from,
+                body,
+                caller_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                touched,
+                inlined_from,
+                try_depth~,
               ),
             )
           None => None
@@ -1177,12 +2972,23 @@ fn inl_inline_call_instrs(
             catches,
             @lib.Expr::new(
               inl_inline_call_instrs(
-                body, caller_abs, state, mod_, infos, imports, touched, inlined_from,
+                body,
+                caller_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                touched,
+                inlined_from,
+                try_depth=try_depth + 1,
               ),
             ),
           ),
         )
       _ => out.push(instr)
+    }
+    if inl_instr_terminates_sequence(instr) {
+      reachable = false
     }
   }
   out
@@ -1228,6 +3034,7 @@ fn inl_make_inline_replacement(
   caller_abs : Int,
   callee_abs : Int,
   imports : Int,
+  tail_callsite : Bool,
 ) -> (@lib.Func, Array[@lib.Instruction])? {
   let def_idx = callee_abs - imports
   let callee = match mod_.code_sec {
@@ -1250,9 +3057,24 @@ fn inl_make_inline_replacement(
     local_map.push(base + local_map.length())
     ignore(local_type)
   }
+  let prepared_body_and_locals = if tail_callsite {
+    Some((callee_body, []))
+  } else {
+    inl_prepare_nested_return_call_hoists(
+      callee_body,
+      base + local_map.length(),
+      mod_,
+      infos,
+    )
+  }
+  let (prepared_body, hoist_local_types) = match prepared_body_and_locals {
+    Some(value) => value
+    None => return None
+  }
   let next_locals = caller_locals.copy()
   next_locals.append_types(info.params)
   next_locals.append(callee_locals)
+  next_locals.append_types(hoist_local_types)
   let replacement : Array[@lib.Instruction] = []
   let mut param_idx = info.params.length() - 1
   while param_idx >= 0 {
@@ -1273,7 +3095,9 @@ fn inl_make_inline_replacement(
     )
     local_idx += 1
   }
-  let body = inl_rewrite_callee_instrs(callee_body, local_map, 0)
+  let body = inl_rewrite_callee_instrs(
+    prepared_body, local_map, 0, tail_callsite,
+  )
   replacement.push(@lib.Instruction::block(block_type, @lib.Expr::new(body)))
   Some(
     (
@@ -1308,6 +3132,7 @@ fn inl_rewrite_func_body(
     } else {
       inl_count_instrs(body)
     },
+    tail_callsite_hoists: [],
   }
   if caller_abs >= 0 &&
     caller_abs < inlined_from.length() &&
@@ -1319,7 +3144,12 @@ fn inl_rewrite_func_body(
   )
   if state.changed {
     let @lib.Func(next_locals, _) = state.func
-    @lib.Func::new(next_locals, @lib.Expr::new(next_body))
+    @lib.Func::new(
+      next_locals,
+      @lib.Expr::new(
+        inl_wrap_tail_callsite_hoists(next_body, state.tail_callsite_hoists),
+      ),
+    )
   } else {
     func
   }
@@ -1496,6 +3326,42 @@ fn inl_remap_name_map(
 }
 
 ///|
+fn inl_remap_indirect_name_map(
+  map : @lib.IndirectNameMap?,
+  remap : Array[UInt],
+  final_total : Int,
+  drop_for_final? : Array[Bool]? = None,
+) -> @lib.IndirectNameMap? {
+  let out : Array[@lib.IndirectNameAssoc] = []
+  match map {
+    Some(@lib.IndirectNameMap(entries)) =>
+      for entry in entries {
+        let @lib.IndirectNameAssoc(raw_idx, inner) = entry
+        let old_idx = raw_idx.reinterpret_as_int()
+        if old_idx >= 0 && old_idx < remap.length() {
+          let next_idx = remap[old_idx].reinterpret_as_int()
+          let dropped = match drop_for_final {
+            Some(flags) =>
+              next_idx >= 0 && next_idx < flags.length() && flags[next_idx]
+            None => false
+          }
+          if next_idx >= 0 && next_idx < final_total && !dropped {
+            out.push(
+              @lib.IndirectNameAssoc::new(next_idx.reinterpret_as_uint(), inner),
+            )
+          }
+        }
+      }
+    None => ()
+  }
+  if out.length() == 0 {
+    None
+  } else {
+    Some(@lib.IndirectNameMap::new(out))
+  }
+}
+
+///|
 fn inl_name_sec_is_empty(sec : @lib.NameSec) -> Bool {
   sec.module_name is None &&
   sec.func_names is None &&
@@ -1516,17 +3382,29 @@ fn inl_remap_name_sec(
   sec : @lib.NameSec?,
   remap : Array[UInt],
   final_total : Int,
+  touched_final? : Array[Bool]? = None,
 ) -> @lib.NameSec? {
   match sec {
     Some(sec) => {
       let next = @lib.NameSec::new(
         module_name=sec.module_name,
         func_names=inl_remap_name_map(sec.func_names, remap, final_total),
-        // Inlining rewrites function bodies and may append/remap locals and labels.
-        // Keep function names for later policy matching, but drop function-scoped
-        // local/label name maps until full name repair lands.
-        local_names=None,
-        label_names=None,
+        // Existing caller locals retain their indices because inlining appends
+        // spills and copied callee locals. Preserve those valid names while
+        // discarding entries only for functions removed by compaction.
+        local_names=inl_remap_indirect_name_map(
+          sec.local_names,
+          remap,
+          final_total,
+        ),
+        // A copied control tree can shift label ordinals. Preserve label names
+        // for untouched functions, and drop only maps whose bodies changed.
+        label_names=inl_remap_indirect_name_map(
+          sec.label_names,
+          remap,
+          final_total,
+          drop_for_final=touched_final,
+        ),
         type_names=sec.type_names,
         table_names=sec.table_names,
         memory_names=sec.memory_names,
@@ -1610,7 +3488,11 @@ fn inl_remap_func_annotation_sec(
 }
 
 ///|
-fn inl_apply_func_remap(mod_ : @lib.Module, remap : Array[UInt]) -> @lib.Module {
+fn inl_apply_func_remap(
+  mod_ : @lib.Module,
+  remap : Array[UInt],
+  touched_final? : Array[Bool]? = None,
+) -> @lib.Module {
   let mut rewritten = mod_
   match rewritten.export_sec {
     Some(@lib.ExportSec(exports)) => {
@@ -1734,6 +3616,7 @@ fn inl_apply_func_remap(mod_ : @lib.Module, remap : Array[UInt]) -> @lib.Module 
     rewritten.name_sec,
     remap,
     final_total,
+    touched_final~,
   )
   @lib.Module::new(
     custom_secs=rewritten.custom_secs,
@@ -1864,7 +3747,11 @@ fn inl_remove_dead_inlined_helpers(
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(next_funcs))
   {
-    mod_out: inl_apply_func_remap(compacted, remap),
+    mod_out: inl_apply_func_remap(
+      compacted,
+      remap,
+      touched_final=Some(next_touched),
+    ),
     touched: next_touched,
     original_abs: next_original_abs,
   }
@@ -5206,18 +7093,6 @@ fn inl_run_nested_cleanup_passes(
 }
 
 ///|
-fn inl_all_defined_touched(mod_ : @lib.Module) -> Array[Bool] {
-  let count = inl_defined_func_count(mod_)
-  let touched : Array[Bool] = []
-  let mut idx = 0
-  while idx < count {
-    touched.push(true)
-    idx += 1
-  }
-  touched
-}
-
-///|
 fn inl_validate_or_original(
   candidate : @lib.Module,
   original : @lib.Module,
@@ -5229,88 +7104,11 @@ fn inl_validate_or_original(
 }
 
 ///|
-fn inl_run_final_raw_vacuum_preclean(mod_ : @lib.Module) -> @lib.Module {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return mod_
-  }
-  let mut rewritten : Array[@lib.Func]? = None
-  for code_idx = 0; code_idx < funcs.length(); code_idx = code_idx + 1 {
-    let @lib.Func(locals, @lib.Expr(instrs)) = funcs[code_idx]
-    let (next_instrs, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
-      instrs,
-      None,
-    )
-    if changed {
-      let next_func = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
-      match rewritten {
-        Some(copy) => copy[code_idx] = next_func
-        None => {
-          let copy = funcs.copy()
-          copy[code_idx] = next_func
-          rewritten = Some(copy)
-        }
-      }
-    }
-  }
-  match rewritten {
-    Some(copy) => mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec()
-    None => mod_
-  }
-}
-
-///|
-fn inl_run_final_local_cleanup(mod_ : @lib.Module) -> @lib.Module {
-  let touched = inl_all_defined_touched(mod_)
-  let precleaned = inl_run_final_raw_vacuum_preclean(mod_)
-  let coalesced = match
-    run_hot_pipeline_apply_coalesce_locals_to_touched(precleaned, touched) {
-    Ok(next) => next
-    Err(_) => return mod_
-  }
-  let reordered = match
-    run_hot_pipeline_apply_reorder_locals_to_touched(coalesced, touched) {
-    Ok(next) => next
-    Err(_) => return mod_
-  }
-  inl_validate_or_original(
-    rume_compact_type_sec(inl_run_final_raw_vacuum_preclean(reordered)),
-    mod_,
-  )
-}
-
-///|
-fn inl_large_nested_cleanup_func_limit() -> Int {
-  80
-}
-
-///|
-fn inl_module_has_tail_call(mod_ : @lib.Module) -> Bool {
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for func in funcs {
-        let @lib.Func(_, @lib.Expr(body)) = func
-        if inl_instrs_have_tail_call(body) {
-          return true
-        }
-      }
-    None => ()
-  }
-  false
-}
-
-///|
 fn inl_finalize_module_pass_result(
   mod_ : @lib.Module,
-  optimize : Bool,
+  _optimize : Bool,
 ) -> @lib.Module {
-  if optimize &&
-    !inl_module_has_tail_call(mod_) &&
-    inl_defined_func_count(mod_) <= inl_large_nested_cleanup_func_limit() {
-    inl_run_final_local_cleanup(mod_)
-  } else {
-    mod_
-  }
+  inl_strip_partial_wrapper_annotations(mod_)
 }
 
 ///|
@@ -5365,32 +7163,6 @@ fn inl_run_nested_cleanup(
   perf? : HotPerfSession? = None,
 ) -> @lib.Module {
   if !optimize {
-    return mod_
-  }
-  // Tail-call operand cleanup still has a validation gap in the nested HOT
-  // suffix: random-all case 004369 remapped a return_call operand to a stale
-  // i64 local where an f32 was required, and Starshine's internal validator did
-  // not catch it. Preserve the already-valid inlining result for tail-call
-  // modules until that interaction has a narrower type-aware repair.
-  if inl_module_has_tail_call(mod_) {
-    return mod_
-  }
-  // The optimizing cleanup suffix currently delegates to several HOT passes whose
-  // full-module lanes are safe only after their own artifact/runtime audits. On
-  // large inlined modules (json-as debug artifacts are the live witness), those
-  // nested cleanups can validate but corrupt allocation/string state at runtime.
-  // Keep small generated parity fixtures optimized, but make large-module
-  // inlining-optimizing fall back to plain inlining until each suffix owner is
-  // independently runtime-green.
-  let nested_defined_count = inl_defined_func_count(mod_)
-  if nested_defined_count > inl_large_nested_cleanup_func_limit() {
-    match trace {
-      Some(cb) =>
-        cb(
-          "pass[inlining-optimizing]:nested-cleanup-skip reason=large-module defined=\{nested_defined_count} limit=\{inl_large_nested_cleanup_func_limit()}",
-        )
-      None => ()
-    }
     return mod_
   }
   if inl_has_two_func_exact_root_hot_unsafe_helper(mod_) {
@@ -5448,54 +7220,9 @@ fn inl_run_nested_cleanup(
     Ok(next) => next
     Err(_) => prepared
   }
-  let passes : Array[String] = []
-  if optimize_level >= 3 || shrink_level >= 1 {
-    passes.push("ssa-nomerge")
-  }
-  passes.append([
-    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
-    "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
-  ])
-  if optimize_level >= 2 || shrink_level >= 2 {
-    passes.push("pick-load-signs")
-  }
-  passes.push("precompute")
-  if optimize_level >= 2 || shrink_level >= 2 {
-    passes.push("code-pushing")
-  }
-  passes.append([
-    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
-    "remove-unused-brs",
-  ])
-  if optimize_level > 1 {
-    passes.push("heap2local")
-  }
-  if optimize_level >= 3 || shrink_level >= 2 {
-    passes.push("merge-locals")
-  }
-  if optimize_level > 1 {
-    passes.push("optimize-casts")
-    passes.push("local-subtyping")
-  }
-  passes.push("coalesce-locals")
-  if optimize_level >= 3 || shrink_level >= 1 {
-    passes.push("local-cse")
-  }
-  passes.append([
-    "simplify-locals", "vacuum", "reorder-locals", "coalesce-locals", "reorder-locals",
-    "vacuum",
-  ])
-  if optimize_level >= 3 || shrink_level >= 1 {
-    passes.push("code-folding")
-  }
-  passes.append([
-    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute",
-    "optimize-instructions", "heap-store-optimization",
-  ])
-  if optimize_level >= 2 || shrink_level >= 1 {
-    passes.push("redundant-set-elimination")
-  }
-  passes.push("vacuum")
+  let passes = inlining_nested_function_pipeline_passes(
+    optimize_level, shrink_level,
+  )
   let cleaned = match
     inl_run_nested_cleanup_passes(prefixed, passes, def_touched, options, trace) {
     Ok(cleaned) =>
@@ -5556,6 +7283,270 @@ fn inl_touched_original_abs(
 }
 
 ///|
+fn inl_find_named_func_abs(mod_ : @lib.Module, name : String) -> Int {
+  let total = inl_imported_func_count(mod_) + inl_defined_func_count(mod_)
+  let names = no_inline_func_names(mod_, total)
+  let mut abs = 0
+  while abs < names.length() {
+    match names[abs] {
+      Some(current) => if current == name { return abs }
+      None => ()
+    }
+    abs += 1
+  }
+  -1
+}
+
+///|
+fn inl_count_direct_target_calls(
+  instrs : Array[@lib.Instruction],
+  target_abs : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
+        if inl_func_idx_slot(func_idx) == target_abs {
+          count += 1
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count += inl_count_direct_target_calls(body, target_abs)
+      @lib.If(_, then_body, Some(else_body)) => {
+        count += inl_count_direct_target_calls(then_body, target_abs)
+        count += inl_count_direct_target_calls(else_body, target_abs)
+      }
+      @lib.If(_, then_body, None) =>
+        count += inl_count_direct_target_calls(then_body, target_abs)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn inl_inline_exact_target_instrs(
+  instrs : Array[@lib.Instruction],
+  caller_abs : Int,
+  target_abs : Int,
+  state : InlRewriteState,
+  mod_ : @lib.Module,
+  infos : Array[InlFunctionInfo],
+  imports : Int,
+  try_depth? : Int = 0,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) if inl_func_idx_slot(func_idx) == target_abs =>
+        match
+          inl_make_inline_replacement(
+            state.func,
+            mod_,
+            infos,
+            caller_abs,
+            target_abs,
+            imports,
+            false,
+          ) {
+          Some((next_func, replacement)) => {
+            state.func = next_func
+            state.changed = true
+            inl_push_inline_replacement(out, replacement)
+          }
+          None => out.push(instr)
+        }
+      @lib.ReturnCall(func_idx) if inl_func_idx_slot(func_idx) == target_abs =>
+        match
+          inl_make_inline_replacement(
+            state.func,
+            mod_,
+            infos,
+            caller_abs,
+            target_abs,
+            imports,
+            true,
+          ) {
+          Some((next_func, replacement)) => {
+            state.func = next_func
+            state.changed = true
+            if try_depth > 0 {
+              let param_count = infos[target_abs].params.length()
+              let site_prefix : Array[@lib.Instruction] = []
+              let post_body : Array[@lib.Instruction] = []
+              let mut replacement_idx = 0
+              while replacement_idx < replacement.length() {
+                if replacement_idx < param_count {
+                  site_prefix.push(replacement[replacement_idx])
+                } else {
+                  post_body.push(replacement[replacement_idx])
+                }
+                replacement_idx += 1
+              }
+              out.append(site_prefix)
+              let hoist_id = state.tail_callsite_hoists.length()
+              out.push(inl_tail_callsite_hoist_placeholder(hoist_id))
+              state.tail_callsite_hoists.push({ post_body, })
+            } else {
+              inl_push_inline_replacement(out, replacement)
+              out.push(@lib.Instruction::return_())
+            }
+          }
+          None => out.push(instr)
+        }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              inl_inline_exact_target_instrs(
+                body,
+                caller_abs,
+                target_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                try_depth~,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              inl_inline_exact_target_instrs(
+                body,
+                caller_abs,
+                target_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                try_depth~,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            inl_inline_exact_target_instrs(
+              then_body,
+              caller_abs,
+              target_abs,
+              state,
+              mod_,
+              infos,
+              imports,
+              try_depth~,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  inl_inline_exact_target_instrs(
+                    body,
+                    caller_abs,
+                    target_abs,
+                    state,
+                    mod_,
+                    infos,
+                    imports,
+                    try_depth~,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              inl_inline_exact_target_instrs(
+                body,
+                caller_abs,
+                target_abs,
+                state,
+                mod_,
+                infos,
+                imports,
+                try_depth=try_depth + 1,
+              ),
+            ),
+          ),
+        )
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
+pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  let imports = inl_imported_func_count(mod_)
+  let main_abs = inl_find_named_func_abs(mod_, "main")
+  let original_abs = inl_find_named_func_abs(mod_, "__original_main")
+  if main_abs < imports || original_abs < imports {
+    return mod_
+  }
+  let main_def = main_abs - imports
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  if main_def < 0 || main_def >= funcs.length() {
+    return mod_
+  }
+  let @lib.Func(_, @lib.Expr(main_body)) = funcs[main_def]
+  if inl_count_direct_target_calls(main_body, original_abs) != 1 {
+    return mod_
+  }
+  let infos = inl_build_function_infos(mod_)
+  if main_abs >= infos.length() || original_abs >= infos.length() {
+    return mod_
+  }
+  let state : InlRewriteState = {
+    func: funcs[main_def],
+    changed: false,
+    size: infos[main_abs].size,
+    tail_callsite_hoists: [],
+  }
+  let next_body = inl_inline_exact_target_instrs(
+    main_body, main_abs, original_abs, state, mod_, infos, imports,
+  )
+  if !state.changed {
+    return mod_
+  }
+  let @lib.Func(next_locals, _) = state.func
+  let next_funcs = funcs.copy()
+  next_funcs[main_def] = @lib.Func::new(
+    next_locals,
+    @lib.Expr::new(
+      inl_wrap_tail_callsite_hoists(next_body, state.tail_callsite_hoists),
+    ),
+  )
+  let rewritten = mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+  let total = imports + inl_defined_func_count(rewritten)
+  let identity = Array::make(total, 0U)
+  let mut idx = 0
+  while idx < total {
+    identity[idx] = idx.reinterpret_as_uint()
+    idx += 1
+  }
+  match inl_remap_name_sec(rewritten.name_sec, identity, total) {
+    Some(names) => rewritten.with_name_sec(names)
+    None => rewritten.without_name_sec()
+  }
+}
+
+///|
 fn inl_run_module_pass_once(
   mod_ : @lib.Module,
   optimize : Bool,
@@ -5563,6 +7554,12 @@ fn inl_run_module_pass_once(
   pass_name : String,
   optimize_level : Int,
   shrink_level : Int,
+  always_inline_max_size : Int,
+  one_caller_inline_max_size : Int,
+  flexible_inline_max_size : Int,
+  max_combined_binary_size : Int,
+  allow_functions_with_loops : Bool,
+  partial_inlining_ifs : Int,
   perf? : HotPerfSession? = None,
 ) -> (@lib.Module, Bool, Array[Int]) {
   let prepare_start_us = perf_start_timer_opt(
@@ -5574,17 +7571,31 @@ fn inl_run_module_pass_once(
   perf_stop_timer_opt(
     perf, "detail:inlining:once:prepare-multivalue-block-types", prepare_start_us,
   )
+  let split_prepared = inl_apply_partial_pattern_a_splits(
+    prepared, optimize_level, shrink_level, always_inline_max_size, one_caller_inline_max_size,
+    flexible_inline_max_size, max_combined_binary_size, allow_functions_with_loops,
+    partial_inlining_ifs,
+  )
   let infos_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:build-function-infos",
   )
-  let infos = inl_build_function_infos(prepared, optimize_level~, shrink_level~)
+  let infos = inl_build_function_infos(
+    split_prepared,
+    optimize_level~,
+    shrink_level~,
+    always_inline_max_size~,
+    one_caller_inline_max_size~,
+    flexible_inline_max_size~,
+    max_combined_binary_size~,
+    allow_functions_with_loops~,
+  )
   perf_stop_timer_opt(
     perf, "detail:inlining:once:build-function-infos", infos_start_us,
   )
   let rewrite_start_us = perf_start_timer_opt(
     perf, "detail:inlining:once:rewrite-all-calls",
   )
-  let result = inl_rewrite_all_calls(prepared, infos)
+  let result = inl_rewrite_all_calls(split_prepared, infos)
   perf_stop_timer_opt(
     perf, "detail:inlining:once:rewrite-all-calls", rewrite_start_us,
   )
@@ -5735,6 +7746,12 @@ fn inlining_run_module_pass_with_perf(
   pass_name? : String = "inlining",
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  always_inline_max_size? : Int = 2,
+  one_caller_inline_max_size? : Int = -1,
+  flexible_inline_max_size? : Int = 20,
+  max_combined_binary_size? : Int = 400 * 1024,
+  allow_functions_with_loops? : Bool = false,
+  partial_inlining_ifs? : Int = 0,
   perf? : HotPerfSession? = None,
 ) -> @lib.Module {
   let initial_graph_start_us = perf_start_timer_opt(
@@ -5762,6 +7779,12 @@ fn inlining_run_module_pass_with_perf(
       pass_name,
       optimize_level,
       shrink_level,
+      always_inline_max_size,
+      one_caller_inline_max_size,
+      flexible_inline_max_size,
+      max_combined_binary_size,
+      allow_functions_with_loops,
+      partial_inlining_ifs,
       perf~,
     )
     perf_stop_timer_opt(perf, "detail:inlining:iteration", iteration_start_us)
@@ -5852,6 +7875,12 @@ pub fn inlining_run_module_pass(
   pass_name? : String = "inlining",
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  always_inline_max_size? : Int = 2,
+  one_caller_inline_max_size? : Int = -1,
+  flexible_inline_max_size? : Int = 20,
+  max_combined_binary_size? : Int = 400 * 1024,
+  allow_functions_with_loops? : Bool = false,
+  partial_inlining_ifs? : Int = 0,
 ) -> @lib.Module {
   inlining_run_module_pass_with_perf(
     mod_,
@@ -5860,5 +7889,11 @@ pub fn inlining_run_module_pass(
     pass_name~,
     optimize_level~,
     shrink_level~,
+    always_inline_max_size~,
+    one_caller_inline_max_size~,
+    flexible_inline_max_size~,
+    max_combined_binary_size~,
+    allow_functions_with_loops~,
+    partial_inlining_ifs~,
   )
 }

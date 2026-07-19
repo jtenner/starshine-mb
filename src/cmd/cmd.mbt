@@ -230,7 +230,12 @@ pub fn OptimizeValidationPolicy::after_segment() -> OptimizeValidationPolicy {
 
 ///|
 pub struct InliningOptions {
-  no_op : Bool
+  always_inline_max_size : Int
+  one_caller_inline_max_size : Int
+  flexible_inline_max_size : Int
+  max_combined_binary_size : Int
+  allow_functions_with_loops : Bool
+  partial_inlining_ifs : Int
 } derive(Eq, Debug)
 
 ///|
@@ -239,8 +244,22 @@ pub impl Show for InliningOptions with fn output(self, logger) {
 }
 
 ///|
-pub fn InliningOptions::new() -> InliningOptions {
-  { no_op: true }
+pub fn InliningOptions::new(
+  always_inline_max_size? : Int = 2,
+  one_caller_inline_max_size? : Int = -1,
+  flexible_inline_max_size? : Int = 20,
+  max_combined_binary_size? : Int = 400 * 1024,
+  allow_functions_with_loops? : Bool = false,
+  partial_inlining_ifs? : Int = 0,
+) -> InliningOptions {
+  {
+    always_inline_max_size,
+    one_caller_inline_max_size,
+    flexible_inline_max_size,
+    max_combined_binary_size,
+    allow_functions_with_loops,
+    partial_inlining_ifs,
+  }
 }
 
 ///|
@@ -499,6 +518,12 @@ fn normalize_parse_result_paths(parsed : CliParseResult) -> CliParseResult {
     trap_mode=parsed.trap_mode,
     ignore_implicit_traps=parsed.ignore_implicit_traps,
     monomorphize_min_benefit=parsed.monomorphize_min_benefit,
+    inlining_always_inline_max_size=parsed.inlining_always_inline_max_size,
+    inlining_one_caller_inline_max_size=parsed.inlining_one_caller_inline_max_size,
+    inlining_flexible_inline_max_size=parsed.inlining_flexible_inline_max_size,
+    inlining_max_combined_binary_size=parsed.inlining_max_combined_binary_size,
+    inlining_allow_functions_with_loops=parsed.inlining_allow_functions_with_loops,
+    inlining_partial_inlining_ifs=parsed.inlining_partial_inlining_ifs,
     low_memory_unused=parsed.low_memory_unused,
     low_memory_bound=parsed.low_memory_bound,
     closed_world=parsed.closed_world,
@@ -858,6 +883,15 @@ fn parse_json_non_negative_int(value : Json) -> Int? {
 }
 
 ///|
+fn parse_json_non_negative_or_minus_one(value : Json) -> Int? {
+  match value {
+    Number(n, ..) if n == -1.0 => Some(-1)
+    String(raw) if trimmed_string(raw) == "-1" => Some(-1)
+    _ => parse_json_non_negative_int(value)
+  }
+}
+
+///|
 fn parse_json_bool(value : Json) -> Bool? {
   match value {
     True => Some(true)
@@ -885,6 +919,12 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
   let mut trap_mode : TrapMode? = None
   let mut ignore_implicit_traps = false
   let mut monomorphize_min_benefit : Int? = None
+  let mut inlining_always_inline_max_size : Int? = None
+  let mut inlining_one_caller_inline_max_size : Int? = None
+  let mut inlining_flexible_inline_max_size : Int? = None
+  let mut inlining_max_combined_binary_size : Int? = None
+  let mut inlining_allow_functions_with_loops : Bool? = None
+  let mut inlining_partial_inlining_ifs : Int? = None
   let mut low_memory_unused : Bool? = None
   let mut low_memory_bound : UInt64? = None
   let mut closed_world : Bool? = None
@@ -1146,6 +1186,88 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
           }
         None => ()
       }
+      let always_inline_value = match
+        options.get("alwaysInlineMaxFunctionSize") {
+        Some(v) => Some(v)
+        None => options.get("always-inline-max-function-size")
+      }
+      match always_inline_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(parsed_value) =>
+              inlining_always_inline_max_size = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let one_caller_inline_value = match
+        options.get("oneCallerInlineMaxFunctionSize") {
+        Some(v) => Some(v)
+        None => options.get("one-caller-inline-max-function-size")
+      }
+      match one_caller_inline_value {
+        Some(value) =>
+          match parse_json_non_negative_or_minus_one(value) {
+            Some(parsed_value) =>
+              inlining_one_caller_inline_max_size = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let flexible_inline_value = match
+        options.get("flexibleInlineMaxFunctionSize") {
+        Some(v) => Some(v)
+        None => options.get("flexible-inline-max-function-size")
+      }
+      match flexible_inline_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(parsed_value) =>
+              inlining_flexible_inline_max_size = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let combined_inline_value = match
+        options.get("inlineMaxCombinedBinarySize") {
+        Some(v) => Some(v)
+        None => options.get("inline-max-combined-binary-size")
+      }
+      match combined_inline_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(parsed_value) =>
+              inlining_max_combined_binary_size = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let inline_loops_value = match options.get("inlineFunctionsWithLoops") {
+        Some(v) => Some(v)
+        None => options.get("inline-functions-with-loops")
+      }
+      match inline_loops_value {
+        Some(value) =>
+          match parse_json_bool(value) {
+            Some(parsed_value) =>
+              inlining_allow_functions_with_loops = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
+      let partial_inline_value = match options.get("partialInliningIfs") {
+        Some(v) => Some(v)
+        None => options.get("partial-inlining-ifs")
+      }
+      match partial_inline_value {
+        Some(value) =>
+          match parse_json_non_negative_int(value) {
+            Some(parsed_value) =>
+              inlining_partial_inlining_ifs = Some(parsed_value)
+            None => ()
+          }
+        None => ()
+      }
       let low_memory_unused_value = match options.get("lowMemoryUnused") {
         Some(v) => Some(v)
         None => options.get("low-memory-unused")
@@ -1197,6 +1319,12 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       trap_mode~,
       ignore_implicit_traps~,
       monomorphize_min_benefit~,
+      inlining_always_inline_max_size~,
+      inlining_one_caller_inline_max_size~,
+      inlining_flexible_inline_max_size~,
+      inlining_max_combined_binary_size~,
+      inlining_allow_functions_with_loops~,
+      inlining_partial_inlining_ifs~,
       low_memory_unused~,
       low_memory_bound~,
       closed_world~,
@@ -1538,6 +1666,59 @@ fn merge_parse_results(
         None => config.monomorphize_min_benefit
       }
   }
+  let inlining_always_inline_max_size = match
+    cli.inlining_always_inline_max_size {
+    Some(v) => Some(v)
+    None =>
+      match env.inlining_always_inline_max_size {
+        Some(v) => Some(v)
+        None => config.inlining_always_inline_max_size
+      }
+  }
+  let inlining_one_caller_inline_max_size = match
+    cli.inlining_one_caller_inline_max_size {
+    Some(v) => Some(v)
+    None =>
+      match env.inlining_one_caller_inline_max_size {
+        Some(v) => Some(v)
+        None => config.inlining_one_caller_inline_max_size
+      }
+  }
+  let inlining_flexible_inline_max_size = match
+    cli.inlining_flexible_inline_max_size {
+    Some(v) => Some(v)
+    None =>
+      match env.inlining_flexible_inline_max_size {
+        Some(v) => Some(v)
+        None => config.inlining_flexible_inline_max_size
+      }
+  }
+  let inlining_max_combined_binary_size = match
+    cli.inlining_max_combined_binary_size {
+    Some(v) => Some(v)
+    None =>
+      match env.inlining_max_combined_binary_size {
+        Some(v) => Some(v)
+        None => config.inlining_max_combined_binary_size
+      }
+  }
+  let inlining_allow_functions_with_loops = match
+    cli.inlining_allow_functions_with_loops {
+    Some(v) => Some(v)
+    None =>
+      match env.inlining_allow_functions_with_loops {
+        Some(v) => Some(v)
+        None => config.inlining_allow_functions_with_loops
+      }
+  }
+  let inlining_partial_inlining_ifs = match cli.inlining_partial_inlining_ifs {
+    Some(v) => Some(v)
+    None =>
+      match env.inlining_partial_inlining_ifs {
+        Some(v) => Some(v)
+        None => config.inlining_partial_inlining_ifs
+      }
+  }
   let low_memory_unused = match cli.low_memory_unused {
     Some(v) => Some(v)
     None =>
@@ -1586,6 +1767,12 @@ fn merge_parse_results(
     trap_mode~,
     ignore_implicit_traps~,
     monomorphize_min_benefit~,
+    inlining_always_inline_max_size~,
+    inlining_one_caller_inline_max_size~,
+    inlining_flexible_inline_max_size~,
+    inlining_max_combined_binary_size~,
+    inlining_allow_functions_with_loops~,
+    inlining_partial_inlining_ifs~,
     low_memory_unused~,
     low_memory_bound~,
     closed_world~,
@@ -1699,8 +1886,22 @@ fn resolve_effective_pass_flags(
 }
 
 ///|
-fn default_inlining_options() -> InliningOptions {
-  InliningOptions::new()
+fn default_inlining_options(
+  always_inline_max_size? : Int = 2,
+  one_caller_inline_max_size? : Int = -1,
+  flexible_inline_max_size? : Int = 20,
+  max_combined_binary_size? : Int = 400 * 1024,
+  allow_functions_with_loops? : Bool = false,
+  partial_inlining_ifs? : Int = 0,
+) -> InliningOptions {
+  InliningOptions::new(
+    always_inline_max_size~,
+    one_caller_inline_max_size~,
+    flexible_inline_max_size~,
+    max_combined_binary_size~,
+    allow_functions_with_loops~,
+    partial_inlining_ifs~,
+  )
 }
 
 ///|
@@ -1710,6 +1911,12 @@ fn make_optimize_options(
   traps_never_happen : Bool,
   ignore_implicit_traps : Bool,
   monomorphize_min_benefit : Int,
+  inlining_always_inline_max_size : Int,
+  inlining_one_caller_inline_max_size : Int,
+  inlining_flexible_inline_max_size : Int,
+  inlining_max_combined_binary_size : Int,
+  inlining_allow_functions_with_loops : Bool,
+  inlining_partial_inlining_ifs : Int,
   closed_world : Bool,
   low_memory_unused : Bool,
   low_memory_bound : UInt64,
@@ -1718,7 +1925,14 @@ fn make_optimize_options(
   OptimizeOptions::new(
     optimize_level~,
     shrink_level~,
-    inlining=default_inlining_options(),
+    inlining=default_inlining_options(
+      always_inline_max_size=inlining_always_inline_max_size,
+      one_caller_inline_max_size=inlining_one_caller_inline_max_size,
+      flexible_inline_max_size=inlining_flexible_inline_max_size,
+      max_combined_binary_size=inlining_max_combined_binary_size,
+      allow_functions_with_loops=inlining_allow_functions_with_loops,
+      partial_inlining_ifs=inlining_partial_inlining_ifs,
+    ),
     monomorphize_min_benefit~,
     closed_world~,
     low_memory_unused~,
@@ -1752,6 +1966,12 @@ fn optimize_options_to_hot_pipeline_options(
     zero_filled_memory=options.zero_filled_memory,
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
+    inlining_always_inline_max_size=options.inlining.always_inline_max_size,
+    inlining_one_caller_inline_max_size=options.inlining.one_caller_inline_max_size,
+    inlining_flexible_inline_max_size=options.inlining.flexible_inline_max_size,
+    inlining_max_combined_binary_size=options.inlining.max_combined_binary_size,
+    inlining_allow_functions_with_loops=options.inlining.allow_functions_with_loops,
+    inlining_partial_inlining_ifs=options.inlining.partial_inlining_ifs,
     stack_function_passes=options.stack_function_passes,
     trace~,
     perf=match trace {
@@ -2811,7 +3031,6 @@ fn cmd_post_encode_repro_note(
 ) -> String {
   let _ = io
   let _ = mod
-  let _ = options
   let args = StringBuilder::new()
   let mut needs_space = false
   let write_arg = fn(text : String) {
@@ -2835,6 +3054,32 @@ fn cmd_post_encode_repro_note(
   }
   if ignore_implicit_traps {
     write_arg("--ignore-implicit-traps")
+  }
+  if options.inlining.always_inline_max_size != 2 {
+    write_arg(
+      "--always-inline-max-function-size \{options.inlining.always_inline_max_size}",
+    )
+  }
+  if options.inlining.flexible_inline_max_size != 20 {
+    write_arg(
+      "--flexible-inline-max-function-size \{options.inlining.flexible_inline_max_size}",
+    )
+  }
+  if options.inlining.one_caller_inline_max_size != -1 {
+    write_arg(
+      "--one-caller-inline-max-function-size \{options.inlining.one_caller_inline_max_size}",
+    )
+  }
+  if options.inlining.max_combined_binary_size != 400 * 1024 {
+    write_arg(
+      "--inline-max-combined-binary-size \{options.inlining.max_combined_binary_size}",
+    )
+  }
+  if options.inlining.allow_functions_with_loops {
+    write_arg("--inline-functions-with-loops")
+  }
+  if options.inlining.partial_inlining_ifs != 0 {
+    write_arg("--partial-inlining-ifs \{options.inlining.partial_inlining_ifs}")
   }
   if monomorphize_min_benefit != 5 {
     write_arg("--monomorphize-min-benefit \{monomorphize_min_benefit}")
@@ -3035,6 +3280,24 @@ fn cmd_build_help_text() -> String {
   )
   append_help_line(
     out, "--debug-serial-passes", "Debug mode: run one pass per segment, validate after each pass, and revalidate encoded output.",
+  )
+  append_help_line(
+    out, "--always-inline-max-function-size, -aimfs <N>", "Set the maximum size of functions that are always inlined (default 2).",
+  )
+  append_help_line(
+    out, "--flexible-inline-max-function-size, -fimfs <N>", "Set the aggressive lightweight-function inlining maximum (default 20).",
+  )
+  append_help_line(
+    out, "--one-caller-inline-max-function-size, -ocimfs <N|-1>", "Set the one-caller inlining maximum; -1 admits all sizes (default -1).",
+  )
+  append_help_line(
+    out, "--inline-max-combined-binary-size, -imcbs <N>", "Set the estimated combined caller/callee binary-size limit (default 409600).",
+  )
+  append_help_line(
+    out, "--inline-functions-with-loops, -ifwl", "Allow ordinary profitability inlining of functions that contain loops.",
+  )
+  append_help_line(
+    out, "--partial-inlining-ifs, -pii <N>", "Set the maximum leading guards considered for partial inlining; zero disables it.",
   )
   append_help_line(
     out, "--monomorphize-min-benefit <N>", "Set monomorphization benefit threshold.",
@@ -3585,6 +3848,12 @@ pub fn run_cmd_with_adapter(
         optimize_flags=cli_base.optimize_flags.copy(),
         trap_mode=cli_base.trap_mode,
         monomorphize_min_benefit=cli_base.monomorphize_min_benefit,
+        inlining_always_inline_max_size=cli_base.inlining_always_inline_max_size,
+        inlining_one_caller_inline_max_size=cli_base.inlining_one_caller_inline_max_size,
+        inlining_flexible_inline_max_size=cli_base.inlining_flexible_inline_max_size,
+        inlining_max_combined_binary_size=cli_base.inlining_max_combined_binary_size,
+        inlining_allow_functions_with_loops=cli_base.inlining_allow_functions_with_loops,
+        inlining_partial_inlining_ifs=cli_base.inlining_partial_inlining_ifs,
         low_memory_unused=cli_base.low_memory_unused,
         low_memory_bound=cli_base.low_memory_bound,
         closed_world=cli_base.closed_world,
@@ -3672,6 +3941,36 @@ pub fn run_cmd_with_adapter(
     Some(v) => v
     None => 5
   }
+  let inlining_always_inline_max_size = match
+    merged.inlining_always_inline_max_size {
+    Some(v) => v
+    None => 2
+  }
+  let inlining_one_caller_inline_max_size = match
+    merged.inlining_one_caller_inline_max_size {
+    Some(v) => v
+    None => -1
+  }
+  let inlining_flexible_inline_max_size = match
+    merged.inlining_flexible_inline_max_size {
+    Some(v) => v
+    None => 20
+  }
+  let inlining_max_combined_binary_size = match
+    merged.inlining_max_combined_binary_size {
+    Some(v) => v
+    None => 400 * 1024
+  }
+  let inlining_allow_functions_with_loops = match
+    merged.inlining_allow_functions_with_loops {
+    Some(v) => v
+    None => false
+  }
+  let inlining_partial_inlining_ifs = match
+    merged.inlining_partial_inlining_ifs {
+    Some(v) => v
+    None => 0
+  }
   let low_memory_unused = match merged.low_memory_unused {
     Some(v) => v
     None => false
@@ -3686,6 +3985,12 @@ pub fn run_cmd_with_adapter(
     traps_never_happen,
     ignore_implicit_traps,
     monomorphize_min_benefit,
+    inlining_always_inline_max_size,
+    inlining_one_caller_inline_max_size,
+    inlining_flexible_inline_max_size,
+    inlining_max_combined_binary_size,
+    inlining_allow_functions_with_loops,
+    inlining_partial_inlining_ifs,
     closed_world,
     low_memory_unused,
     low_memory_bound,

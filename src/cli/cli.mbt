@@ -253,6 +253,12 @@ pub struct CliParseResult {
   mut trap_mode : TrapMode?
   mut ignore_implicit_traps : Bool
   mut monomorphize_min_benefit : Int?
+  mut inlining_always_inline_max_size : Int?
+  mut inlining_one_caller_inline_max_size : Int?
+  mut inlining_flexible_inline_max_size : Int?
+  mut inlining_max_combined_binary_size : Int?
+  mut inlining_allow_functions_with_loops : Bool?
+  mut inlining_partial_inlining_ifs : Int?
   mut low_memory_unused : Bool?
   mut low_memory_bound : UInt64?
   mut closed_world : Bool?
@@ -275,6 +281,12 @@ pub fn CliParseResult::new(
   trap_mode? : TrapMode? = None,
   ignore_implicit_traps? : Bool = false,
   monomorphize_min_benefit? : Int? = None,
+  inlining_always_inline_max_size? : Int? = None,
+  inlining_one_caller_inline_max_size? : Int? = None,
+  inlining_flexible_inline_max_size? : Int? = None,
+  inlining_max_combined_binary_size? : Int? = None,
+  inlining_allow_functions_with_loops? : Bool? = None,
+  inlining_partial_inlining_ifs? : Int? = None,
   low_memory_unused? : Bool? = None,
   low_memory_bound? : UInt64? = None,
   closed_world? : Bool? = None,
@@ -295,6 +307,12 @@ pub fn CliParseResult::new(
     trap_mode,
     ignore_implicit_traps,
     monomorphize_min_benefit,
+    inlining_always_inline_max_size,
+    inlining_one_caller_inline_max_size,
+    inlining_flexible_inline_max_size,
+    inlining_max_combined_binary_size,
+    inlining_allow_functions_with_loops,
+    inlining_partial_inlining_ifs,
     low_memory_unused,
     low_memory_bound,
     closed_world,
@@ -749,6 +767,65 @@ pub fn cli_config_schema_json() -> String {
 }
 
 ///|
+fn inlining_flag_value(
+  args : Array[String],
+  index : Int,
+  inline_value : String?,
+  flag : String,
+  allow_minus_one? : Bool = false,
+) -> Result[(String, Bool), CliParseError] {
+  match inline_value {
+    Some(v) if v.length() > 0 => Ok((v, false))
+    Some(_) => Err(CliParseError::missing_flag_value(flag))
+    None =>
+      if index + 1 < args.length() &&
+        (
+          !looks_like_option_token(args[index + 1]) ||
+          (allow_minus_one && args[index + 1] == "-1")
+        ) {
+        Ok((args[index + 1], true))
+      } else {
+        Err(CliParseError::missing_flag_value(flag))
+      }
+  }
+}
+
+///|
+fn parse_inlining_non_negative_or_minus_one(
+  value : String,
+  allow_minus_one? : Bool = false,
+) -> Int? {
+  if allow_minus_one && trimmed_string(value) == "-1" {
+    Some(-1)
+  } else {
+    parse_non_negative_decimal(value)
+  }
+}
+
+///|
+fn expand_inlining_short_alias(arg : String) -> String {
+  let aliases : Array[(String, String)] = [
+    ("-aimfs", "--always-inline-max-function-size"),
+    ("-ocimfs", "--one-caller-inline-max-function-size"),
+    ("-fimfs", "--flexible-inline-max-function-size"),
+    ("-imcbs", "--inline-max-combined-binary-size"),
+    ("-ifwl", "--inline-functions-with-loops"),
+    ("-pii", "--partial-inlining-ifs"),
+  ]
+  for pair in aliases {
+    let (short, long) = pair
+    if arg == short {
+      return long
+    }
+    let prefix = "\{short}="
+    if arg.has_prefix(prefix) {
+      return "\{long}=\{arg.sub(start=prefix.length()).to_owned()}"
+    }
+  }
+  arg
+}
+
+///|
 pub fn parse_cli_args(
   args : Array[String],
   starshine_input? : String? = None,
@@ -757,7 +834,7 @@ pub fn parse_cli_args(
   let mut index = 0
   let mut positional_only = false
   while index < args.length() {
-    let arg = args[index]
+    let arg = expand_inlining_short_alias(args[index])
     if positional_only {
       append_input_glob(parsed.input_globs, arg)
       index += 1
@@ -1000,6 +1077,125 @@ pub fn parse_cli_args(
               None =>
                 return Err(
                   CliParseError::invalid_optimization_flag("--shrink-level"),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "always-inline-max-function-size" => {
+            let (value, consumed_next) = match
+              inlining_flag_value(
+                args, index, inline_value, "--always-inline-max-function-size",
+              ) {
+              Ok(value) => value
+              Err(err) => return Err(err)
+            }
+            match parse_non_negative_decimal(value) {
+              Some(parsed_value) =>
+                parsed.inlining_always_inline_max_size = Some(parsed_value)
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag(
+                    "--always-inline-max-function-size",
+                  ),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "one-caller-inline-max-function-size" => {
+            let (value, consumed_next) = match
+              inlining_flag_value(
+                args,
+                index,
+                inline_value,
+                "--one-caller-inline-max-function-size",
+                allow_minus_one=true,
+              ) {
+              Ok(value) => value
+              Err(err) => return Err(err)
+            }
+            match
+              parse_inlining_non_negative_or_minus_one(
+                value,
+                allow_minus_one=true,
+              ) {
+              Some(parsed_value) =>
+                parsed.inlining_one_caller_inline_max_size = Some(parsed_value)
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag(
+                    "--one-caller-inline-max-function-size",
+                  ),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "flexible-inline-max-function-size" => {
+            let (value, consumed_next) = match
+              inlining_flag_value(
+                args, index, inline_value, "--flexible-inline-max-function-size",
+              ) {
+              Ok(value) => value
+              Err(err) => return Err(err)
+            }
+            match parse_non_negative_decimal(value) {
+              Some(parsed_value) =>
+                parsed.inlining_flexible_inline_max_size = Some(parsed_value)
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag(
+                    "--flexible-inline-max-function-size",
+                  ),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "inline-max-combined-binary-size" => {
+            let (value, consumed_next) = match
+              inlining_flag_value(
+                args, index, inline_value, "--inline-max-combined-binary-size",
+              ) {
+              Ok(value) => value
+              Err(err) => return Err(err)
+            }
+            match parse_non_negative_decimal(value) {
+              Some(parsed_value) =>
+                parsed.inlining_max_combined_binary_size = Some(parsed_value)
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag(
+                    "--inline-max-combined-binary-size",
+                  ),
+                )
+            }
+            index += if consumed_next { 2 } else { 1 }
+          }
+          "inline-functions-with-loops" => {
+            if inline_value is Some(_) {
+              return Err(
+                CliParseError::unexpected_flag_value(
+                  "--inline-functions-with-loops",
+                ),
+              )
+            }
+            parsed.inlining_allow_functions_with_loops = Some(true)
+            index += 1
+          }
+          "partial-inlining-ifs" => {
+            let (value, consumed_next) = match
+              inlining_flag_value(
+                args, index, inline_value, "--partial-inlining-ifs",
+              ) {
+              Ok(value) => value
+              Err(err) => return Err(err)
+            }
+            match parse_non_negative_decimal(value) {
+              Some(parsed_value) =>
+                parsed.inlining_partial_inlining_ifs = Some(parsed_value)
+              None =>
+                return Err(
+                  CliParseError::invalid_optimization_flag(
+                    "--partial-inlining-ifs",
+                  ),
                 )
             }
             index += if consumed_next { 2 } else { 1 }

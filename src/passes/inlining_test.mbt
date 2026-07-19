@@ -30,6 +30,47 @@ fn inl_test_run_named(
 }
 
 ///|
+fn inl_test_run_named_with_options(
+  text : String,
+  names : Array[(UInt, String)],
+  passes : Array[String],
+  options : HotPipelineOptions,
+) -> @lib.Module {
+  let entries : Array[@lib.NameAssoc] = []
+  for pair in names {
+    let (idx, name) = pair
+    entries.push(@lib.NameAssoc::new(idx, @lib.Name::from_string(name)))
+  }
+  let mod_ = pass_test_module_from_wat(text).with_name_sec(
+    @lib.NameSec::new(func_names=Some(@lib.NameMap::new(entries))),
+  )
+  match run_hot_pipeline(mod_, options, passes) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected configured inlining success, got \{err}")
+  }
+}
+
+///|
+fn inl_test_count_named_func(mod_ : @lib.Module, expected : String) -> Int {
+  let mut count = 0
+  match mod_.name_sec {
+    Some(sec) =>
+      match sec.func_names {
+        Some(@lib.NameMap(entries)) =>
+          for entry in entries {
+            let @lib.NameAssoc(_, @lib.Name(name)) = entry
+            if name == expected {
+              count += 1
+            }
+          }
+        None => ()
+      }
+    None => ()
+  }
+  count
+}
+
+///|
 fn inl_test_count_func_annotation(
   mod_ : @lib.Module,
   target : UInt,
@@ -92,13 +133,17 @@ test "inlining-optimizing folds simple inlined i32 accumulator chains before nes
 }
 
 ///|
-test "inlining-optimizing is an active module pass under canonical and plain names" {
+test "inlining family passes are active module passes" {
   @debug.assert_eq(
     pass_registry_category("inlining-optimizing"),
     Some(HotPassRegistryCategory::module_pass()),
   )
   @debug.assert_eq(
     pass_registry_category("inlining"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  @debug.assert_eq(
+    pass_registry_category("inline-main"),
     Some(HotPassRegistryCategory::module_pass()),
   )
   @debug.assert_eq(
@@ -113,6 +158,92 @@ test "inlining-optimizing is an active module pass under canonical and plain nam
     pass_registry_category("no-partial-inline"),
     Some(HotPassRegistryCategory::module_pass()),
   )
+}
+
+///|
+test "inline-main inlines the exact defined wrapper call without deleting the helper" {
+  let source =
+    #|(module
+    #|  (func $__original_main (result i32)
+    #|    i32.const 0)
+    #|  (func $main (export "main") (param i32 i32) (result i32)
+    #|    call $__original_main))
+  let optimized = inl_test_run(source, pass_name="inline-main")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let helper = optimized.pretty_print_defined_func(0U)
+  let main = optimized.pretty_print_defined_func(1U)
+  assert_true(helper.contains("i32.const I32(0)"), msg=helper)
+  assert_true(main.contains("i32.const I32(0)"), msg=main)
+  assert_false(main.contains("call"), msg=main)
+}
+
+///|
+test "inline-main hoists a nested try_table return_call before inlining" {
+  let source =
+    #|(module
+    #|  (func $__original_main (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $main (export "main") (param i32) (result i32)
+    #|    try_table (result i32)
+    #|      local.get 0
+    #|      return_call $__original_main
+    #|    end))
+  let optimized = inl_test_run(source, pass_name="inline-main")
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          _,
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.TryTable(
+                        _,
+                        _,
+                        @lib.Expr(
+                          [@lib.LocalGet(_), @lib.LocalSet(_), @lib.Br(_)]
+                        )
+                      ),
+                      @lib.Return,
+                    ]
+                  )
+                ),
+                @lib.Block(_, @lib.Expr([@lib.LocalGet(_)])),
+                @lib.Return,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected inline-main to hoist the tail call out of try_table, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "inline-main leaves wrappers with multiple original-main calls unchanged" {
+  let source =
+    #|(module
+    #|  (func $__original_main (result i32)
+    #|    i32.const 0)
+    #|  (func $main (export "main") (param i32 i32) (result i32)
+    #|    call $__original_main
+    #|    drop
+    #|    call $__original_main))
+  let optimized = inl_test_run(source, pass_name="inline-main")
+  let main = optimized.pretty_print_defined_func(1U)
+  assert_true(main.contains("call (Func 0)"), msg=main)
 }
 
 ///|
@@ -373,13 +504,14 @@ test "inlining remaps non-function names when type synthesis appends block types
 }
 
 ///|
-test "inlining keeps function names but drops function-scoped local names after compaction" {
+test "inlining remaps valid function-scoped local names after compaction" {
   let source =
     #|(module
     #|  (type $t0 (func (result i32)))
     #|  (func $inline-me (type $t0)
     #|    i32.const 1)
     #|  (func $survivor (export "survivor") (type $t0)
+    #|    (local i32)
     #|    i32.const 2)
     #|  (func $run (export "run") (result i32)
     #|    call $inline-me))
@@ -426,10 +558,19 @@ test "inlining keeps function names but drops function-scoped local names after 
           )
       }
       match name_sec.local_names {
-        None => ()
+        Some(
+          @lib.IndirectNameMap(
+            [
+              @lib.IndirectNameAssoc(
+                0U,
+                @lib.NameMap([@lib.NameAssoc(0U, @lib.Name("stale-local"))])
+              ),
+            ]
+          )
+        ) => ()
         other =>
           fail(
-            "expected local names to be dropped, got \{@debug.to_string(other)}",
+            "expected remapped valid local names, got \{@debug.to_string(other)}",
           )
       }
     }
@@ -537,6 +678,27 @@ test "no-inline wildcard policy marks imported WAT function identifiers" {
 }
 
 ///|
+test "no-inline wildcard marks unnamed functions using stable internal names" {
+  let source =
+    #|(module
+    #|  (func (result i32)
+    #|    i32.const 5)
+    #|  (func (export "run") (result i32)
+    #|    call 0))
+  let optimized = match
+    pass_test_run_pipeline(source, ["no-inline=*", "inlining"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unnamed no-inline success, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("call (Func 0)"), msg=run)
+}
+
+///|
 test "no-inline no-match policy leaves annotation section absent" {
   let source =
     #|(module
@@ -560,7 +722,7 @@ test "function inline hint metadata does not act as no-inline policy" {
   let source =
     #|(module
     #|  (type $t0 (func (result i32)))
-    #|  (@metadata.code.inline "\\00")
+    #|  (@metadata.code.inline "\00")
     #|  (func $hinted (type $t0)
     #|    i32.const 11)
     #|  (func (export "run") (result i32)
@@ -570,6 +732,80 @@ test "function inline hint metadata does not act as no-inline policy" {
     Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
     None => fail("expected function section")
   }
+}
+
+///|
+test "inlining honors v131 binaryen never-inline toolchain annotation" {
+  let source =
+    #|(module
+    #|  (@binaryen.inline "\00")
+    #|  (func $never (result i32)
+    #|    i32.const 42)
+    #|  (func (export "run") (result i32)
+    #|    call $never))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("call (Func 0)"), msg=run)
+}
+
+///|
+test "inlining honors v131 binaryen always-inline toolchain annotation" {
+  let source =
+    #|(module
+    #|  (@binaryen.inline "\7f")
+    #|  (func $always (param i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    loop
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 4
+    #|      i32.lt_u
+    #|      br_if 0
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $always
+    #|    local.get 0
+    #|    call $always
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call"), msg=run)
+  assert_true(run.contains("loop"), msg=run)
+}
+
+///|
+test "no-full-inline policy overrides v131 binaryen always-inline annotation" {
+  let source =
+    #|(module
+    #|  (@binaryen.inline "\7f")
+    #|  (func $always (result i32)
+    #|    i32.const 42)
+    #|  (func (export "run") (result i32)
+    #|    call $always))
+  let optimized = inl_test_run_named(source, [(0U, "always"), (1U, "run")], [
+    "no-full-inline=always", "inlining",
+  ])
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("call (Func 0)"), msg=run)
 }
 
 ///|
@@ -1332,6 +1568,33 @@ test "inlining uses optimize-level three for may-not-shrink repeated-param wrapp
 }
 
 ///|
+test "inlining O3 admits may-grow trivial direct calls with duplicate operands" {
+  let source =
+    #|(module
+    #|  (type $leaf-type (func (param i32 i32) (result i32)))
+    #|  (import "env" "leaf" (func $leaf (type $leaf-type)))
+    #|  (func $wrapper (param i32) (result i32)
+    #|    local.get 0
+    #|    local.get 0
+    #|    call $leaf)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $wrapper
+    #|    local.get 0
+    #|    call $wrapper
+    #|    i32.add))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "leaf"), (1U, "wrapper"), (2U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(optimize_level=3, shrink_level=0),
+  )
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call (Func 1)"), msg=run)
+  assert_true(run.contains("call (Func 0)"), msg=run)
+}
+
+///|
 test "inlining treats repeated direct call wrappers as shrinking trivial" {
   let source =
     #|(module
@@ -1418,6 +1681,48 @@ test "inlining optimize-level three flexible policy rejects loops and surviving 
   }
   let call_caller = call_out.pretty_print_defined_func(1U)
   assert_true(call_caller.contains("call"), msg=call_caller)
+}
+
+///|
+test "inlining optimize-level three flexible policy allows indirect tail-call bodies" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (table funcref (elem $leaf))
+    #|  (func $leaf (type $t0) local.get 0)
+    #|  (elem declare func $leaf)
+    #|  (func $indirect-tail (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    return_call_indirect (type $t0))
+    #|  (func $ref-tail (param i32) (result i32)
+    #|    local.get 0
+    #|    ref.func $leaf
+    #|    return_call_ref (type $t0))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0 call $indirect-tail
+    #|    local.get 0 call $indirect-tail
+    #|    i32.add
+    #|    local.get 0 call $ref-tail
+    #|    local.get 0 call $ref-tail
+    #|    i32.add
+    #|    i32.add))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "leaf"), (1U, "indirect-tail"), (2U, "ref-tail"), (3U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      optimize_level=3,
+      shrink_level=0,
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=10,
+    ),
+  )
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_false(run.contains("return_call"), msg=run)
+  assert_true(run.contains("call_indirect"), msg=run)
+  assert_true(run.contains("call_ref"), msg=run)
 }
 
 ///|
@@ -1579,6 +1884,56 @@ test "inlining treats SIMD ternary wrappers as shrinking trivial" {
 }
 
 ///|
+test "inlining initializes nullable reference locals but not non-nullable locals" {
+  let source =
+    #|(module
+    #|  (func $nullable
+    #|    (local funcref))
+    #|  (func $non-nullable
+    #|    (local (ref func)))
+    #|  (func (export "run")
+    #|    call $nullable
+    #|    call $non-nullable))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(body))])) => {
+      assert_true(
+        locals
+        .iter()
+        .any(fn(vt) {
+          match vt {
+            @lib.RefTypeValType(rt) => rt.is_nullable()
+            _ => false
+          }
+        }),
+      )
+      assert_true(
+        locals
+        .iter()
+        .any(fn(vt) {
+          match vt {
+            @lib.RefTypeValType(rt) => rt.is_non_nullable()
+            _ => false
+          }
+        }),
+      )
+      let mut null_count = 0
+      for instr in body {
+        match instr {
+          @lib.RefNull(_) => null_count += 1
+          _ => ()
+        }
+      }
+      @debug.assert_eq(null_count, 1)
+    }
+    other =>
+      fail(
+        "expected one caller with copied ref locals, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "inlining zero-initializes appended defaultable callee locals in plain mode" {
   let source =
     #|(module
@@ -1595,6 +1950,24 @@ test "inlining zero-initializes appended defaultable callee locals in plain mode
   assert_true(caller.contains("F32 (local)"), msg=caller)
   assert_true(caller.contains("f32.const F32(0)"), msg=caller)
   assert_false(caller.contains("call"), msg=caller)
+}
+
+///|
+test "inlining does not plan direct calls in unreachable code" {
+  let source =
+    #|(module
+    #|  (func $tiny i32.const 1 drop)
+    #|  (func (export "run")
+    #|    unreachable
+    #|    call $tiny))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_true(run.contains("unreachable"), msg=run)
+  assert_true(run.contains("call (Func 0)"), msg=run)
 }
 
 ///|
@@ -1884,6 +2257,56 @@ test "inlining preserves nested return_call_ref when the callsite is tail" {
 }
 
 ///|
+test "inlining hoists a tail callsite out of try_table before copying the callee" {
+  let source =
+    #|(module
+    #|  (func $tiny (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    try_table (result i32)
+    #|      local.get 0
+    #|      return_call $tiny
+    #|    end))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  block_type,
+                  @lib.Expr(
+                    [
+                      @lib.TryTable(
+                        _,
+                        _,
+                        @lib.Expr(
+                          [@lib.LocalGet(_), @lib.LocalSet(_), @lib.Br(_)]
+                        )
+                      ),
+                      @lib.Return,
+                    ]
+                  )
+                ),
+                @lib.Block(_, @lib.Expr([@lib.LocalGet(_)])),
+                @lib.Return,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => @debug.assert_eq(block_type, @lib.BlockType::void_())
+    other =>
+      fail(
+        "expected tail callsite hoisted after original try body, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "inlining preserves return_call in try_table callsite" {
   let source =
     #|(module
@@ -1927,7 +2350,7 @@ test "inlining preserves nested return_call when the callsite is tail" {
 }
 
 ///|
-test "inlining leaves nested return_call callees alone at non-tail callsites" {
+test "inlining downgrades nested return_call at non-tail callsites" {
   let source =
     #|(module
     #|  (type $t0 (func (param i32) (result i32)))
@@ -1942,11 +2365,203 @@ test "inlining leaves nested return_call callees alone at non-tail callsites" {
     #|    i32.add))
   let optimized = inl_test_run(source, pass_name="inlining")
   match optimized.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
     None => fail("expected func section")
   }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("call (Func 0)"), msg=run)
+  assert_false(run.contains("return_call"), msg=run)
+  assert_true(run.contains("br"), msg=run)
+}
+
+///|
+test "inlining hoists nested direct return_call out of callee try_table" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (import "env" "leaf" (func $leaf (type $t0)))
+    #|  (func $tail (param i32) (result i32)
+    #|    try_table (result i32)
+    #|      local.get 0
+    #|      return_call $leaf
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $tail
+    #|    i32.const 1
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call (Func 1)"), msg=run)
+  assert_false(run.contains("return_call"), msg=run)
+  assert_true(run.contains("try_table"), msg=run)
+  assert_true(run.contains("call (Func 0)"), msg=run)
+  assert_true(run.contains("br"), msg=run)
+}
+
+///|
+test "nested tail hoisting evaluates call operands inside the original try" {
+  let source =
+    #|(module
+    #|  (type $producer (func (result i32)))
+    #|  (type $leaf-type (func (param i32) (result i32)))
+    #|  (import "env" "operand" (func $operand (type $producer)))
+    #|  (import "env" "leaf" (func $leaf (type $leaf-type)))
+    #|  (func $tail (result i32)
+    #|    try_table (result i32)
+    #|      call $operand
+    #|      return_call $leaf
+    #|    end)
+    #|  (func (export "run") (result i32)
+    #|    call $tail
+    #|    i32.const 1
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Block(
+                        _,
+                        @lib.Expr(
+                          [
+                            @lib.TryTable(
+                              _,
+                              _,
+                              @lib.Expr(
+                                [
+                                  @lib.Call(@lib.FuncIdx(0U)),
+                                  @lib.LocalSet(_),
+                                  @lib.Br(_),
+                                ]
+                              )
+                            ),
+                            @lib.Br(_),
+                          ]
+                        )
+                      ),
+                      @lib.LocalGet(_),
+                      @lib.Call(@lib.FuncIdx(1U)),
+                      @lib.Br(_),
+                    ]
+                  )
+                ),
+                @lib.I32Const(_),
+                @lib.I32Add,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected operand evaluation inside try and leaf call after it, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "inlining hoists nested return_call_indirect out of callee try_table" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (table funcref (elem $leaf))
+    #|  (func $leaf (type $t0) local.get 0)
+    #|  (func $tail (param i32) (result i32)
+    #|    try_table (result i32)
+    #|      local.get 0
+    #|      i32.const 0
+    #|      return_call_indirect (type $t0)
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0 call $tail i32.const 1 i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
   let run = optimized.pretty_print_defined_func(1U)
-  assert_true(run.contains("call (Func 1)"), msg=run)
+  assert_false(run.contains("call (Func 1)"), msg=run)
+  assert_false(run.contains("return_call_indirect"), msg=run)
+  assert_true(run.contains("call_indirect"), msg=run)
+  assert_true(run.contains("br"), msg=run)
+}
+
+///|
+test "inlining hoists nested return_call_ref out of callee try_table" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (param i32) (result i32)))
+    #|  (func $leaf (type $t0) local.get 0)
+    #|  (elem declare func $leaf)
+    #|  (func $tail (param i32) (result i32)
+    #|    try_table (result i32)
+    #|      local.get 0
+    #|      ref.func $leaf
+    #|      return_call_ref (type $t0)
+    #|    end)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0 call $tail i32.const 1 i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_false(run.contains("call (Func 1)"), msg=run)
+  assert_false(run.contains("return_call_ref"), msg=run)
+  assert_true(run.contains("call_ref"), msg=run)
+  assert_true(run.contains("br"), msg=run)
+}
+
+///|
+test "inlining handles ordinary try_table callees" {
+  let source =
+    #|(module
+    #|  (func $try-value (result i32)
+    #|    try_table (result i32)
+    #|      i32.const 7
+    #|    end)
+    #|  (func (export "run") (result i32)
+    #|    call $try-value
+    #|    call $try-value
+    #|    i32.add))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_true(run.contains("try_table"), msg=run)
+  assert_false(run.contains("call"), msg=run)
+}
+
+///|
+test "inlining keeps helpers referenced from global initializers" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (result i32)))
+    #|  (global funcref (ref.func $tiny))
+    #|  (func $tiny (type $t0)
+    #|    i32.const 7)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny))
+  let optimized = inl_test_run(source, pass_name="inlining")
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(1U)
+  assert_false(run.contains("call"), msg=run)
+  match optimized.global_sec {
+    Some(
+      @lib.GlobalSec(
+        [@lib.Global(_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(0U))]))]
+      )
+    ) => ()
+    other => fail("expected global ref.func root to survive, got \{other}")
+  }
 }
 
 ///|
@@ -2676,7 +3291,423 @@ fn inl_test_large_module_for_nested_cleanup_guard() -> String {
 }
 
 ///|
-test "inlining-optimizing skips nested cleanup passes on large modules" {
+test "shrinking trivial classification permits an ordered prefix of parameters" {
+  let source =
+    #|(module
+    #|  (func $const-with-unused (param i32 i32) (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    call $const-with-unused
+    #|    i32.const 3
+    #|    i32.const 4
+    #|    call $const-with-unused
+    #|    i32.add))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "const-with-unused"), (1U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=0,
+    ),
+  )
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call"), msg=run)
+  assert_true(run.contains("i32.const I32(7)"), msg=run)
+}
+
+///|
+test "tuned thresholds still inline all ordered-operand trivial instruction families" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $const (result i32)
+    #|    i32.const 7)
+    #|  (func $unary (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.eqz)
+    #|  (func $load (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.load)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    call $const
+    #|    call $const
+    #|    i32.add
+    #|    local.get 0
+    #|    call $unary
+    #|    local.get 0
+    #|    call $unary
+    #|    i32.add
+    #|    i32.add
+    #|    local.get 0
+    #|    call $load
+    #|    local.get 0
+    #|    call $load
+    #|    i32.add
+    #|    i32.add))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "const"), (1U, "unary"), (2U, "load"), (3U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=0,
+    ),
+  )
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call"), msg=run)
+  assert_true(run.contains("i32.const I32(7)"), msg=run)
+  assert_true(run.contains("i32.eqz"), msg=run)
+  assert_true(run.contains("i32.load"), msg=run)
+}
+
+///|
+test "inlining tuning bounds control always one-caller and flexible decisions" {
+  let one_caller =
+    #|(module
+    #|  (func $add1 (param i32) (result i32)
+    #|    local.get 0 i32.const 1 i32.add)
+    #|  (func $run (export "run") (param i32) (result i32)
+    #|    local.get 0 call $add1))
+  let bounded_one = inl_test_run_named_with_options(
+    one_caller,
+    [(0U, "add1"), (1U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(inlining_one_caller_inline_max_size=2),
+  )
+  assert_true(
+    bounded_one.pretty_print_defined_func(1U).contains("call (Func 0)"),
+  )
+
+  let two_callers =
+    #|(module
+    #|  (func $add1 (param i32) (result i32)
+    #|    local.get 0 i32.const 1 i32.add)
+    #|  (func $left (export "left") (param i32) (result i32)
+    #|    local.get 0 call $add1)
+    #|  (func $right (export "right") (param i32) (result i32)
+    #|    local.get 0 call $add1))
+  let flexible_blocked = inl_test_run_named_with_options(
+    two_callers,
+    [(0U, "add1"), (1U, "left"), (2U, "right")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      optimize_level=3,
+      inlining_always_inline_max_size=0,
+      inlining_flexible_inline_max_size=2,
+    ),
+  )
+  assert_true(
+    flexible_blocked.pretty_print_defined_func(1U).contains("call (Func 0)"),
+  )
+  let flexible_allowed = inl_test_run_named_with_options(
+    two_callers,
+    [(0U, "add1"), (1U, "left"), (2U, "right")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      optimize_level=3,
+      inlining_always_inline_max_size=0,
+      inlining_flexible_inline_max_size=3,
+    ),
+  )
+  assert_false(
+    flexible_allowed.pretty_print_defined_func(0U).contains("call (Func 0)"),
+  )
+}
+
+///|
+test "combined-size admission uses the iteration-start caller size per callsite" {
+  let source =
+    #|(module
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny
+    #|    call $tiny
+    #|    i32.add))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "tiny"), (1U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(inlining_max_combined_binary_size=11),
+  )
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call"), msg=run)
+}
+
+///|
+test "inlining loop and combined-size tuning matches Binaryen policy" {
+  let loop_source =
+    #|(module
+    #|  (func $looping (param i32) (result i32)
+    #|    loop
+    #|      nop
+    #|    end
+    #|    local.get 0 i32.const 1 i32.add)
+    #|  (func $left (export "left") (param i32) (result i32)
+    #|    local.get 0 call $looping)
+    #|  (func $right (export "right") (param i32) (result i32)
+    #|    local.get 0 call $looping))
+  let loops_blocked = inl_test_run_named_with_options(
+    loop_source,
+    [(0U, "looping"), (1U, "left"), (2U, "right")],
+    ["inlining"],
+    HotPipelineOptions::new(optimize_level=3),
+  )
+  assert_true(
+    loops_blocked.pretty_print_defined_func(1U).contains("call (Func 0)"),
+  )
+  let loops_allowed = inl_test_run_named_with_options(
+    loop_source,
+    [(0U, "looping"), (1U, "left"), (2U, "right")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      optimize_level=3,
+      inlining_allow_functions_with_loops=true,
+    ),
+  )
+  assert_false(
+    loops_allowed.pretty_print_defined_func(0U).contains("call (Func 0)"),
+  )
+
+  let tiny =
+    #|(module
+    #|  (func $tiny (result i32) i32.const 1)
+    #|  (func $run (export "run") (result i32) call $tiny))
+  let size_blocked = inl_test_run_named_with_options(
+    tiny,
+    [(0U, "tiny"), (1U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(inlining_max_combined_binary_size=5),
+  )
+  assert_true(
+    size_blocked.pretty_print_defined_func(1U).contains("call (Func 0)"),
+  )
+}
+
+///|
+test "partial analysis chooses full inline when the outlined remainder is profitable" {
+  let source =
+    #|(module
+    #|  (func $guarded (param i32)
+    #|    local.get 0
+    #|    if
+    #|      return
+    #|    end
+    #|    nop)
+    #|  (func (export "run") (param i32)
+    #|    local.get 0
+    #|    call $guarded
+    #|    local.get 0
+    #|    call $guarded))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "guarded"), (1U, "run")],
+    ["inlining"],
+    HotPipelineOptions::new(
+      optimize_level=3,
+      shrink_level=0,
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=3,
+      inlining_partial_inlining_ifs=1,
+    ),
+  )
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected function section")
+  }
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call"), msg=run)
+  assert_true(run.contains("nop"), msg=run)
+  assert_false(run.contains("byn-split"), msg=run)
+}
+
+///|
+test "inlining partially splits a leading return guard when enabled" {
+  let source =
+    #|(module
+    #|  (func $maybe (param i32)
+    #|    local.get 0
+    #|    if
+    #|      return
+    #|    end
+    #|    i32.const 1 drop i32.const 2 drop i32.const 3 drop
+    #|    i32.const 4 drop i32.const 5 drop i32.const 6 drop
+    #|    i32.const 7 drop i32.const 8 drop i32.const 9 drop
+    #|    i32.const 10 drop i32.const 11 drop i32.const 12 drop)
+    #|  (func $left (export "left") (param i32)
+    #|    local.get 0
+    #|    call $maybe)
+    #|  (func $right (export "right") (param i32)
+    #|    local.get 0
+    #|    call $maybe))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "maybe"), (1U, "left"), (2U, "right")],
+    ["no-full-inline=maybe", "inlining"],
+    HotPipelineOptions::new(optimize_level=3, inlining_partial_inlining_ifs=4),
+  )
+  let left = optimized.pretty_print_defined_func(1U)
+  assert_true(left.contains("i32.eqz"), msg=left)
+  assert_true(left.contains("call (Func"), msg=left)
+  assert_false(left.contains("call (Func 0)"), msg=left)
+  assert_eq(
+    inl_test_count_named_func(optimized, "byn-split-outlined-A$maybe"),
+    1,
+  )
+}
+
+///|
+test "inlining partially splits multiple leading guards with Pattern B" {
+  let source =
+    #|(module
+    #|  (func $maybe (param i32 i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 1 drop i32.const 2 drop i32.const 3 drop
+    #|      i32.const 4 drop i32.const 5 drop i32.const 6 drop
+    #|    end
+    #|    local.get 1
+    #|    if
+    #|      i32.const 7 drop i32.const 8 drop i32.const 9 drop
+    #|      i32.const 10 drop i32.const 11 drop i32.const 12 drop
+    #|    end)
+    #|  (func $left (export "left") (param i32 i32)
+    #|    local.get 0 local.get 1 call $maybe)
+    #|  (func $right (export "right") (param i32 i32)
+    #|    local.get 0 local.get 1 call $maybe))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "maybe"), (1U, "left"), (2U, "right")],
+    ["no-full-inline=maybe", "inlining"],
+    HotPipelineOptions::new(optimize_level=3, inlining_partial_inlining_ifs=4),
+  )
+  let left = optimized.pretty_print_defined_func(1U)
+  assert_true(left.contains("if (Void)"), msg=left)
+  assert_true(left.contains("call (Func"), msg=left)
+  assert_eq(
+    inl_test_count_named_func(optimized, "byn-split-outlined-B$maybe"),
+    1,
+  )
+  assert_eq(
+    inl_test_count_named_func(optimized, "byn-split-outlined-B$maybe$1"),
+    1,
+  )
+}
+
+///|
+test "inlining Pattern B treats trapping result arms as terminal exits" {
+  let source =
+    #|(module
+    #|  (func $guarded (param i32) (result i32)
+    #|    local.get 0
+    #|    if
+    #|      unreachable
+    #|    end
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $guarded
+    #|    local.get 0
+    #|    call $guarded
+    #|    i32.add))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "guarded"), (1U, "run")],
+    ["no-full-inline=guarded", "inlining"],
+    HotPipelineOptions::new(
+      optimize_level=3,
+      shrink_level=0,
+      inlining_always_inline_max_size=0,
+      inlining_one_caller_inline_max_size=0,
+      inlining_flexible_inline_max_size=0,
+      inlining_partial_inlining_ifs=1,
+    ),
+  )
+  assert_true(
+    inl_test_count_named_func(optimized, "byn-split-outlined-B$guarded") == 1,
+  )
+  let run = optimized.pretty_print_defined_func(0U)
+  assert_false(run.contains("call (Func 0)"), msg=run)
+  assert_true(run.contains("call (Func 1)"), msg=run)
+}
+
+///|
+test "inlining Pattern B returns outlined values before a simple final item" {
+  let source =
+    #|(module
+    #|  (func $choose (param i32) (result i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 1 drop i32.const 2 drop i32.const 3 drop
+    #|      i32.const 4 drop i32.const 5 drop i32.const 6 drop
+    #|      i32.const 7
+    #|      return
+    #|    end
+    #|    local.get 0)
+    #|  (func $left (export "left") (param i32) (result i32)
+    #|    local.get 0 call $choose)
+    #|  (func $right (export "right") (param i32) (result i32)
+    #|    local.get 0 call $choose))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "choose"), (1U, "left"), (2U, "right")],
+    ["no-full-inline=choose", "inlining"],
+    HotPipelineOptions::new(optimize_level=3, inlining_partial_inlining_ifs=4),
+  )
+  let left = optimized.pretty_print_defined_func(1U)
+  assert_true(left.contains("br (Label 1)"), msg=left)
+  assert_false(left.contains("call (Func 0)"), msg=left)
+  assert_eq(
+    inl_test_count_named_func(optimized, "byn-split-outlined-B$choose"),
+    1,
+  )
+}
+
+///|
+test "no-partial-inline suppresses the enabled partial splitter" {
+  let source =
+    #|(module
+    #|  (func $maybe (param i32)
+    #|    local.get 0
+    #|    if
+    #|      return
+    #|    end
+    #|    i32.const 1 drop i32.const 2 drop i32.const 3 drop
+    #|    i32.const 4 drop i32.const 5 drop i32.const 6 drop
+    #|    i32.const 7 drop i32.const 8 drop i32.const 9 drop
+    #|    i32.const 10 drop i32.const 11 drop i32.const 12 drop)
+    #|  (func $left (export "left") (param i32)
+    #|    local.get 0
+    #|    call $maybe)
+    #|  (func $right (export "right") (param i32)
+    #|    local.get 0
+    #|    call $maybe))
+  let optimized = inl_test_run_named_with_options(
+    source,
+    [(0U, "maybe"), (1U, "left"), (2U, "right")],
+    ["no-partial-inline=maybe", "inlining"],
+    HotPipelineOptions::new(optimize_level=3, inlining_partial_inlining_ifs=4),
+  )
+  let left = optimized.pretty_print_defined_func(1U)
+  assert_true(left.contains("call (Func 0)"), msg=left)
+  assert_eq(
+    inl_test_count_named_func(optimized, "byn-split-outlined-A$maybe"),
+    0,
+  )
+}
+
+///|
+test "inlining-optimizing runs touched nested cleanup on large modules" {
   let source = inl_test_large_module_for_nested_cleanup_guard()
   let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
     Ok(trace) => trace
@@ -2688,12 +3719,54 @@ test "inlining-optimizing skips nested cleanup passes on large modules" {
     }),
     msg=trace.to_string(),
   )
-  assert_false(
+  assert_true(
     trace.any(fn(line) {
       line.contains("pass[inlining-optimizing]:nested-pass name=")
     }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "inlining-optimizing runs nested cleanup when untouched tail calls survive" {
+  let source =
+    #|(module
+    #|  (type $t0 (func (result i32)))
+    #|  (import "env" "tail" (func $tail (type $t0)))
+    #|  (func $tiny (result i32)
+    #|    i32.const 1)
+    #|  (func (export "run") (result i32)
+    #|    call $tiny
+    #|    drop
+    #|    return_call $tail))
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced tail-call inlining success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[inlining-optimizing]:nested-pass name=precompute-propagate",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "inlining nested pipeline matches Binaryen v131 default function order" {
+  @debug.assert_eq(inlining_nested_function_pipeline_passes(4, 4), [
+    "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
+    "remove-unused-names", "remove-unused-brs", "remove-unused-names", "optimize-instructions",
+    "heap-store-optimization", "pick-load-signs", "precompute-propagate", "code-pushing",
+    "tuple-optimization", "simplify-locals-nostructure", "vacuum", "reorder-locals",
+    "remove-unused-brs", "heap2local", "merge-locals", "optimize-casts", "local-subtyping",
+    "coalesce-locals", "local-cse", "simplify-locals", "vacuum", "reorder-locals",
+    "coalesce-locals", "reorder-locals", "vacuum", "code-folding", "merge-blocks",
+    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute-propagate",
+    "optimize-instructions", "heap-store-optimization", "redundant-set-elimination",
+    "vacuum",
+  ])
 }
 
 ///|

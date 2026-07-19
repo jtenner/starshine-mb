@@ -31,60 +31,11 @@ test "inlining shape scanner treats only direct calls as flexible call blockers"
 }
 
 ///|
-test "inlining combined binary size guard matches default threshold" {
+test "inlining combined binary size guard matches strict Binaryen default threshold" {
   assert_true(inl_combined_binary_size_within_limit(1, 1))
-  assert_true(inl_combined_binary_size_within_limit(100000, 63840))
+  assert_true(inl_combined_binary_size_within_limit(100000, 63839))
+  assert_false(inl_combined_binary_size_within_limit(100000, 63840))
   assert_false(inl_combined_binary_size_within_limit(100000, 63841))
-}
-
-///|
-test "inlining final local cleanup coalesces artifact-like local bloat safely" {
-  let source =
-    #| (module
-    #|   (type $dead (func (param i64)))
-    #|   (func (export "run") (param i32) (result i32)
-    #|     (local i32 i32 i32 i32)
-    #|     local.get 0
-    #|     local.set 1
-    #|     local.get 1
-    #|     i32.const 1
-    #|     i32.add
-    #|     local.set 2
-    #|     local.get 2
-    #|     i32.const 2
-    #|     i32.add
-    #|     local.set 3
-    #|     local.get 3
-    #|     i32.const 3
-    #|     i32.add
-    #|     local.set 4
-    #|     nop
-    #|     i32.const 0
-    #|     drop
-    #|     local.get 0
-    #|     local.get 0
-    #|     drop
-    #|     drop
-    #|     local.get 4))
-  let input = pass_test_module_from_wat(source)
-  let cleaned = inl_run_final_local_cleanup(input)
-  match @validate.validate_module(cleaned) {
-    Ok(_) => ()
-    Err(err) =>
-      fail("expected final local cleanup output to validate, got \{err}")
-  }
-  match cleaned.code_sec {
-    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(instrs))])) => {
-      assert_true(locals.length() < 4, msg="locals=\{locals.length()}")
-      assert_false(instrs.any(fn(instr) { instr == @lib.Instruction::nop() }))
-      assert_false(instrs.any(fn(instr) { instr == @lib.Instruction::drop() }))
-    }
-    _ => fail("expected one cleaned function")
-  }
-  match cleaned.type_sec {
-    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
-    None => fail("expected compacted type section")
-  }
 }
 
 ///|
@@ -298,6 +249,98 @@ test "inlining detects polymorphic self-call suffixes before hot cleanup" {
   assert_false(inl_suffix_has_polymorphic_self_call(body, 1, 0))
   let func = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body))
   assert_true(inl_func_has_hot_unsafe_self_suffix(func, 1))
+}
+
+///|
+test "partial inlining simple unary classification matches Binaryen Unary" {
+  assert_true(inl_partial_simple_unary(@lib.Instruction::i32_trunc_f32s()))
+  assert_true(inl_partial_simple_unary(@lib.Instruction::v128_any_true()))
+  assert_true(
+    inl_partial_simple_unary(@lib.Instruction::i16x8_extend_low_i8x16s()),
+  )
+  assert_true(
+    inl_partial_simple_unary(
+      @lib.Instruction::i32x4_relaxed_trunc_zero_f64x2s(),
+    ),
+  )
+  assert_false(inl_partial_simple_unary(@lib.Instruction::ref_as_non_null()))
+  assert_false(inl_partial_simple_unary(@lib.Instruction::any_convert_extern()))
+  assert_false(inl_partial_simple_unary(@lib.Instruction::i31_get_s()))
+  assert_false(
+    inl_partial_simple_unary(
+      @lib.Instruction::i32_load(
+        @lib.MemArg::new(@lib.U32::new(0U), None, @lib.U64::new(0UL)),
+      ),
+    ),
+  )
+}
+
+///|
+test "inlining hoist wrappers preserve branches to the function label" {
+  let body = [
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+      ]),
+    ),
+    @lib.Instruction::try_table(
+      @lib.BlockType::void_(),
+      [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+      @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+    ),
+  ]
+  match inl_shift_outer_target_branches(body, 2) {
+    [
+      @lib.Br(@lib.LabelIdx(2U)),
+      @lib.Block(
+        _,
+        @lib.Expr([@lib.Br(@lib.LabelIdx(0U)), @lib.BrIf(@lib.LabelIdx(3U))])
+      ),
+      @lib.TryTable(
+        _,
+        [@lib.CatchAll(@lib.LabelIdx(2U))],
+        @lib.Expr([@lib.Br(@lib.LabelIdx(3U))])
+      ),
+    ] => ()
+    other =>
+      fail(
+        "expected only function-target depths to shift, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "inlining uses the selected table address width for indirect tail hoists" {
+  let type_idx = @lib.TypeIdx::new(0U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+      ),
+    ),
+  ])
+  let table_type = @lib.TableType::new(
+    @lib.RefType::abs(@lib.AbsHeapType::func()),
+    @lib.Limits::i64(1UL, None),
+  )
+  let mod_ = @lib.Module::new(
+    type_sec=Some(type_sec),
+    table_sec=Some(@lib.TableSec::new([@lib.Table::new(table_type, None)])),
+  )
+  let infos : Array[InlFunctionInfo] = []
+  match
+    inl_nested_return_call_operand_types(
+      @lib.Instruction::return_call_indirect(type_idx, @lib.TableIdx::new(0U)),
+      mod_,
+      infos,
+    ) {
+    Some(types) =>
+      @debug.assert_eq(types, [@lib.ValType::i32(), @lib.ValType::i64()])
+    None => fail("expected table64 indirect tail-call operand types")
+  }
 }
 
 ///|

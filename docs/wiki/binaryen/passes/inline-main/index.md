@@ -1,120 +1,83 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/inline-main.wast
+  - ../../../../../src/passes/inlining.mbt
+  - ../../../../../src/passes/inlining_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../agent-todo.md
-  - ../../no-dwarf-default-optimize-path.md
-  - ../tracker.md
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./special-case-contract-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./fuzzing.md
   - ../inlining/index.md
-  - ../monomorphize/index.md
-  - ../tracker.md
 ---
 
 # `inline-main`
 
-## Role
+## Status
 
-- `inline-main` is a real public Binaryen pass.
-- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
-- `agent-todo.md` currently has **no dedicated `inline-main` slice**.
-- Official Binaryen implements it in the same source file as ordinary `inlining`, but as a distinct public pass with a much narrower contract.
-- The retained 2026-04-24 source review is research note 0319, and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
+`inline-main` is an active, supported Starshine module pass aligned with Binaryen v131's special-case contract. It is intentionally absent from default optimize/shrink presets.
 
-## Why this pass matters
+## Contract
 
-- The original no-DWARF queue, the saved generated-artifact `-O4z` queue, and the first widened upstream-only dossier wave are already covered, so this folder is another explicit tracker expansion for a real local registry pass that still lacked its own canonical home.
-- `inline-main` is easy to blur together with plain `inlining`, because both reuse the same low-level inlining helper.
-- But the chooser logic is very different:
-  - `inlining` is a heuristic whole-module planner,
-  - while `inline-main` is a tiny wrapper-cleanup pass for one exact `main` / `__original_main` relation.
-- It also sits conceptually beside `monomorphize`, which makes a three-way distinction worth preserving:
-  - `inline-main` = exact wrapper special case,
-  - `inlining` = general direct-call inliner,
-  - `monomorphize` = callsite-context-specializing clone pass.
+The pass:
 
-## Beginner summary
+1. resolves functions named exactly `main` and `__original_main`;
+2. requires both to be defined;
+3. recursively counts direct `call` and `return_call` uses of `__original_main` inside `main`;
+4. requires exactly one matching call;
+5. inlines that call with the shared body-copy engine;
+6. retains `__original_main`.
 
-A good beginner mental model is:
+Missing/imported endpoints and wrappers with zero or multiple matching calls are no-ops. Profitability and ordinary no-inline heuristics do not participate.
 
-- some toolchains make `main` a wrapper,
-- the real user body lives in `__original_main`,
-- Binaryen checks whether `main` directly calls `__original_main` exactly once,
-- if yes, it inlines that one call using the ordinary inline-body rewriter,
-- otherwise it leaves the module alone.
+## Shared repair behavior
 
-So this pass is best taught as:
+Because `inline-main` reuses the ordinary inliner, successful rewrites include:
 
-- **wrapper cleanup for one historical toolchain pattern**
-- not heuristic general inlining
-- not a scheduler alias
-- not multi-call optimization
+- operand storage and local remapping;
+- defaultable/nondefaultable local handling;
+- scalar and multivalue result blocks;
+- return-to-branch rewriting;
+- nested direct/indirect/ref tail-call repair;
+- EH-aware hoisting when the matching `return_call` is inside `try_table`;
+- branch-depth repair for generated wrappers;
+- valid name-map preservation and stale label-map avoidance.
 
-## Most important durable takeaways
+The original helper is retained even after success, matching upstream.
 
-- The pass is a distinct public CLI name registered in upstream `pass.cpp`.
-- It does **not** appear in Binaryen's default no-DWARF `-O` / `-Os` preset.
-- The implementation only succeeds when both `main` and `__original_main` exist as **defined** functions.
-- The search surface is intentionally narrow: it scans only direct `Call` nodes inside `main`.
-- It bails out unless there is **exactly one** direct call to `__original_main`.
-- On success it reuses the same low-level `doInlining(...)` helper as ordinary `inlining`.
-- Because of that shared helper, successful rewrites still inherit real inline fixups:
-  - copied-body insertion
-  - return-to-branch rewriting
-  - label-uniqueness repair
-  - refinalization
-  - nondefaultable-local handling
-- The dedicated lit file proves that imported endpoints, missing endpoints, already-inlined bodies, and multi-call wrappers are all intentional no-op families.
+## Distinctions
 
-## Page map
+- `inline-main`: exact wrapper special case, no profitability, helper retained.
+- `inlining`: module-wide profitability-driven direct inliner.
+- `monomorphize`: callsite-context specialization through cloning.
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen implementation, helper dependencies, algorithmic phases, and neighboring-pass interaction story.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  File-by-file and test-by-test map of the upstream sources that define the pass contract.
-- [`./special-case-contract-and-boundaries.md`](./special-case-contract-and-boundaries.md)
-  Focused guide to the real teaching problem here: why `inline-main` is separate from plain `inlining`, what the exact-one-call rule means, and which parts of the rewrite are inherited from the shared helper.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly shape catalog showing the main positive, preserved, and bailout WAT families.
-- [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact local code-map and future-port plan showing that current Starshine keeps `inline-main` as a boundary-only name with request rejection, no owner file, no active preset role, and no backlog slice.
-- [`./fuzzing.md`](./fuzzing.md)
-  Planned-only comparison status plus the exact wrapper fixtures required before a future lane can produce meaningful comparisons.
+Do not add `inline-main` to presets merely because ordinary inlining is scheduled.
 
-## Current maintenance rule
+## Evidence
 
-- Treat this folder as the canonical home for future `inline-main` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
-- Keep the split from [`../inlining/index.md`](../inlining/index.md) explicit: plain `inlining` owns heuristic planning, while `inline-main` owns the one exact wrapper pattern.
-- Keep the split from [`../monomorphize/index.md`](../monomorphize/index.md) explicit too: `monomorphize` clones a specialized callee, while `inline-main` just inlines one wrapper call.
+Focused tests cover:
 
-## Sources
+- ordinary direct call;
+- matching `return_call`;
+- `return_call` nested in `try_table`;
+- exactly-one-call enforcement;
+- missing/imported endpoints;
+- helper retention;
+- unrelated-call preservation.
 
-- research note 0319
-- research note 0177
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../tracker.md`](../tracker.md)
-- Binaryen `version_129` implementation and test sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/find_all.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/metadata.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/names.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inline-main.wast>
-  - current-main spot check: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Inlining.cpp>
+The shared inlining suite is `120/120`, white-box invariants are `14/14`, and full `moon test` is `9452/9452`.
+
+Generic random fuzzing is only protocol smoke because exact names are rare. Meaningful generated evidence must author `main` / `__original_main` and record whether the exact call was selected; see [`fuzzing.md`](./fuzzing.md).
+
+## Shared boundaries
+
+Expression-level branch hints, source maps, copied callee debug-name synthesis, and legacy `try_delegate` are shared representation/metadata concerns rather than `inline-main` chooser or rewrite gaps.

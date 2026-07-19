@@ -29,6 +29,12 @@ pub struct HotPipelineOptions {
   zero_filled_memory : Bool
   optimize_level : Int
   shrink_level : Int
+  inlining_always_inline_max_size : Int
+  inlining_one_caller_inline_max_size : Int
+  inlining_flexible_inline_max_size : Int
+  inlining_max_combined_binary_size : Int
+  inlining_allow_functions_with_loops : Bool
+  inlining_partial_inlining_ifs : Int
   stack_function_passes : Bool
   trace_enabled : Bool
   trace : (String) -> Unit
@@ -45,6 +51,12 @@ pub fn HotPipelineOptions::new(
   zero_filled_memory? : Bool = false,
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  inlining_always_inline_max_size? : Int = 2,
+  inlining_one_caller_inline_max_size? : Int = -1,
+  inlining_flexible_inline_max_size? : Int = 20,
+  inlining_max_combined_binary_size? : Int = 400 * 1024,
+  inlining_allow_functions_with_loops? : Bool = false,
+  inlining_partial_inlining_ifs? : Int = 0,
   stack_function_passes? : Bool = false,
   trace? : ((String) -> Unit)? = None,
   perf? : HotPerfSession? = None,
@@ -58,6 +70,12 @@ pub fn HotPipelineOptions::new(
     zero_filled_memory,
     optimize_level,
     shrink_level,
+    inlining_always_inline_max_size,
+    inlining_one_caller_inline_max_size,
+    inlining_flexible_inline_max_size,
+    inlining_max_combined_binary_size,
+    inlining_allow_functions_with_loops,
+    inlining_partial_inlining_ifs,
     stack_function_passes,
     trace_enabled: trace is Some(_),
     trace: match trace {
@@ -58517,6 +58535,12 @@ fn run_hot_pipeline_apply_hot_pass(
           zero_filled_memory: options.zero_filled_memory,
           optimize_level: options.optimize_level,
           shrink_level: options.shrink_level,
+          inlining_always_inline_max_size: options.inlining_always_inline_max_size,
+          inlining_one_caller_inline_max_size: options.inlining_one_caller_inline_max_size,
+          inlining_flexible_inline_max_size: options.inlining_flexible_inline_max_size,
+          inlining_max_combined_binary_size: options.inlining_max_combined_binary_size,
+          inlining_allow_functions_with_loops: options.inlining_allow_functions_with_loops,
+          inlining_partial_inlining_ifs: options.inlining_partial_inlining_ifs,
           stack_function_passes: options.stack_function_passes,
           trace_enabled: options.trace_enabled,
           trace: fn(line) {
@@ -60713,6 +60737,7 @@ fn run_hot_pipeline_apply_module_pass(
         Ok(next) => next
         Err(err) => return Err(err)
       }
+    "inline-main" => inline_main_run_module_pass(mod_)
     "inlining" =>
       inlining_run_module_pass_with_perf(
         mod_,
@@ -60720,6 +60745,12 @@ fn run_hot_pipeline_apply_module_pass(
         pass_name="inlining",
         optimize_level=options.optimize_level,
         shrink_level=options.shrink_level,
+        always_inline_max_size=options.inlining_always_inline_max_size,
+        one_caller_inline_max_size=options.inlining_one_caller_inline_max_size,
+        flexible_inline_max_size=options.inlining_flexible_inline_max_size,
+        max_combined_binary_size=options.inlining_max_combined_binary_size,
+        allow_functions_with_loops=options.inlining_allow_functions_with_loops,
+        partial_inlining_ifs=options.inlining_partial_inlining_ifs,
         perf=options.perf,
       )
     "inlining-optimizing" =>
@@ -60730,6 +60761,12 @@ fn run_hot_pipeline_apply_module_pass(
         pass_name="inlining-optimizing",
         optimize_level=options.optimize_level,
         shrink_level=options.shrink_level,
+        always_inline_max_size=options.inlining_always_inline_max_size,
+        one_caller_inline_max_size=options.inlining_one_caller_inline_max_size,
+        flexible_inline_max_size=options.inlining_flexible_inline_max_size,
+        max_combined_binary_size=options.inlining_max_combined_binary_size,
+        allow_functions_with_loops=options.inlining_allow_functions_with_loops,
+        partial_inlining_ifs=options.inlining_partial_inlining_ifs,
         perf=options.perf,
       )
     _ =>

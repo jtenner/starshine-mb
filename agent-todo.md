@@ -12,6 +12,7 @@
 - A pass is not closed merely because an ordinary random lane found no mismatch. Source/docs breadth, pass-specific generation, validity, performance, and the required four-lane closeout matrix still apply.
 - Use `_build/native/release/build/cmd/cmd.exe` after a current native release build. Treat `target/native/...` as stale unless explicitly proven fresh.
 - Moon commands must run serially.
+- Repository-wide `bun validate full --profile ci --target wasm-gc` passes `moon info`, formatting, and all `9452/9452` tests, then remains blocked by a pre-existing randomized decoder round-trip abort in `src/fuzz` (reproduced July 19, 2026 on unrelated table-initializer instruction decoding). This is not an inlining-family failure.
 
 ## Binaryen v131 O4z Pass Ledger
 
@@ -51,7 +52,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `merge-blocks` | Closed for the current v0.1.0 audit. | None. |
 | `redundant-set-elimination` / `rse` | Direct behavior and 1x timing closed. | **Open scheduler slot.** |
 | `dae-optimizing` | Active-partial; direct DAE remains raw-red; nested cleanup is incomplete. | **Open implementation and closeout.** |
-| `inlining-optimizing` | **Reopened with plain `inlining` for v131:** released `@binaryen.inline` Always/Never policy is not consumed locally. | **Open shared-engine v131 parity; nested-scheduler proof remains under `[O4Z-NESTED]001`.** |
+| `inlining-optimizing` | The v131 shared-engine behavior audit is implemented locally: toolchain hints, CLI/configurable heuristics, complete trivial-instruction classes, Pattern A/B splitting, EH-aware direct/indirect/ref tail hoisting, roots, metadata repair, active `inline-main`, and exact nested order. **Release target: v0.2.0 or later; these changes are not part of the v0.1.0 release scope.** | Direct behavior has no open v131 transform-family gap. Track shipment under `[V02-INL]001`; shared DAE/SGO scheduler routing remains under `[O4Z-NESTED]001`. |
 | `duplicate-import-elimination` | Closed and scheduled. | None. |
 | `simplify-globals-optimizing` | Closed and scheduled. | Shared nested-scheduler proof only. |
 | `string-gathering` | Accepted direct/preset status. | Non-blocking decoder/performance follow-up only. |
@@ -104,15 +105,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Add unreachable flow-through cases for adjusted allocation types.
   - [ ] Run `heap2local-all`, the full four-lane matrix, timing, and O4z slot/neighborhood evidence against explicit v131.
 - **Exit criteria:** no stale-analysis or unreachable-flow mismatch remains and existing measured Starshine cleanup wins stay valid.
-
-### [V131-INL]001 - Consume released `@binaryen.inline` policy
-
-- **Goal:** align plain `inlining` and `inlining-optimizing` with v131 function-level toolchain Always/Never inline hints.
-- **Deliverables:**
-  - [ ] Confirm generic WAST/lowering carriage for `@binaryen.inline`, add focused coverage if absent, and add red-first inliner policy tests that distinguish it from `@metadata.code.inline` plus Starshine `no-inline*` markers.
-  - [ ] Honor Never/Always after `try_delegate` rejection and before normal full-inline heuristics; preserve and remap the annotation correctly, while documenting the separate upstream-only `strip-toolchain-annotations` boundary.
-  - [ ] Run both direct pass matrices and focused nested-suffix evidence against explicit v131.
-- **Exit criteria:** shared-engine v131 policy is green without conflating metadata, toolchain hints, and pass-level no-inline flags.
 
 ### [V131-SPOT]001 - Renew shared-helper-sensitive closed-pass evidence
 
@@ -246,10 +238,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - any newly widened scheduler owner from the primary O4z queue.
 - Closed DIE/once-reduction audit batches do not need duplicate active tasks.
 
-### [AUDIT]005 - Standalone no-inline policy tests
-
-- Add focused `no-inline`, `no-full-inline`, and `no-partial-inline` marker tests independent of inlining integration.
-
 ### [AUDIT]006 - Function `TypeIdx`/`RecIdx` invariant documentation
 
 - Finish the wiki/inline/test documentation that module function-section references are global `TypeIdx`, while `RecIdx` is rec-group-local and impossible in validated function-section positions.
@@ -260,7 +248,20 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - Nested-cleanup runtime experiments only with measured ownership.
 - Default-local compare normalization is tooling/cosmetic work, not a direct SGO correctness blocker.
 
-## v0.2.0 Deferred Work
+## v0.2.0 Or Later Work
+
+### [V02-INL]001 - Ship the Binaryen v131 inlining-family expansion
+
+- **Release target:** v0.2.0 or later. Do not count or publish these changes as part of v0.1.0.
+- **Implementation status:** completed locally on 2026-07-19; retain the implementation, tests, generated interfaces, harness admission, and documentation for the later release.
+- **Scope:** plain `inlining`, `inlining-optimizing`, active `inline-main`, `no-inline*` policy, Binaryen toolchain hints, all six CLI/configuration controls, complete represented trivial-instruction policy, Pattern A/B partial splitting, EH-safe direct/indirect/ref tail handling, roots, metadata repair, and touched nested cleanup order.
+- **Evidence:** focused inlining `120/120`, white-box `14/14`, CLI `54/54`, command `107/107`, full `9452/9452`; official-v131 GenValid closeout produced `10000/10000` normalized matches for both plain and optimizing modes with zero mismatches or failures.
+- **Release gate:** before the eventual v0.2.0-or-later publication, rerun generated interfaces, README API sync, the focused suites, the full repository suite, both explicit-v131 10,000-case lanes, and the repository-wide validation gate after the unrelated decoder fuzz blocker is resolved.
+
+### [AUDIT]005 - Standalone no-inline policy tests
+
+- **Status:** implemented 2026-07-19 as part of `[V02-INL]001`; not part of v0.1.0 scope.
+- Focused marker, deduplication, no-match, stripped-name wildcard, `no-full-inline`, `no-partial-inline`, clone-survival, and partial-split policy tests live in `src/passes/inlining_test.mbt`.
 
 ### Shared-Everything Threads
 
@@ -275,11 +276,11 @@ Keep the dependency order; detailed proposal rules live in the Shared-Everything
 7. Preserve proposal structures through HOT lift/lower with provenance and correct failure boundaries.
 8. Expose CLI flags, update docs, and run focused plus full proposal signoff.
 
-### [INL]020-[INL]024 - Deferred inlining breadth
+### [INL]020-[INL]021 - Optional future inlining breadth
 
-- Add EH/tail-call/multivalue/generated direct-call coverage only after the shared type/HOT substrate is ready.
 - Revisit tiny hot-path struct/array allocation inlining only with measured canonical-size and wall-time wins.
-- Keep table/indirect-call callee-recovery research deferred until the direct-call surface is stable.
+- Keep table/indirect-call **callee recovery** research deferred; v131's direct-call planner and copied-body indirect/ref-call handling are complete.
+- Expression-level code metadata, branch hints, source maps, and copied callee debug-name synthesis remain shared metadata-substrate work rather than open inlining transform families.
 
 ### [HOT]001-[HOT]004 - Deferred structural improvements
 

@@ -290,6 +290,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--dead-argument-elimination",
   "--dae",
   "--dae-optimizing",
+  "--inline-main",
   "--inlining",
   "--inlining-optimizing",
   "--string-gathering",

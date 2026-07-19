@@ -2104,6 +2104,51 @@ test "run_cmd_with_adapter plain inlining does not add an extra scratch local on
 }
 
 ///|
+test "run_cmd_with_adapter forwards Binaryen inlining tuning aliases" {
+  let source =
+    #|(module
+    #|  (func $const-with-unused (param i32 i32) (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 1 i32.const 2 call $const-with-unused
+    #|    i32.const 3 i32.const 4 call $const-with-unused
+    #|    i32.add))
+  let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["inl-flags.wasm"] },
+    read_file=fn(path) {
+      if path == "inl-flags.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--inlining", "-aimfs", "0", "-ocimfs", "0", "-fimfs", "0", "-imcbs", "1000",
+        "--out", "out.wasm", "inl-flags.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("unexpected configured inlining run failure: \{err}")
+  }
+  @debug.assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 1)
+    None => fail("expected configured inlining function section")
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies no-inline wildcard before plain inlining on wat identifiers" {
   let wat =
     #|(module
@@ -4780,6 +4825,40 @@ test "run_cmd_with_adapter still encodes changed RUME outputs" {
 }
 
 ///|
+test "config and optimize option construction preserve Binaryen inlining tuning" {
+  let config =
+    #|{
+    #|  "options": {
+    #|    "alwaysInlineMaxFunctionSize": 3,
+    #|    "one-caller-inline-max-function-size": -1,
+    #|    "flexibleInlineMaxFunctionSize": 31,
+    #|    "inline-max-combined-binary-size": 500000,
+    #|    "inlineFunctionsWithLoops": true,
+    #|    "partial-inlining-ifs": 4
+    #|  }
+    #|}
+  let parsed = match parse_config_json(config) {
+    Ok(value) => value
+    Err(err) => fail("unexpected inlining config parse failure: \{err}")
+  }
+  @debug.assert_eq(parsed.inlining_always_inline_max_size, Some(3))
+  @debug.assert_eq(parsed.inlining_one_caller_inline_max_size, Some(-1))
+  @debug.assert_eq(parsed.inlining_flexible_inline_max_size, Some(31))
+  @debug.assert_eq(parsed.inlining_max_combined_binary_size, Some(500000))
+  @debug.assert_eq(parsed.inlining_allow_functions_with_loops, Some(true))
+  @debug.assert_eq(parsed.inlining_partial_inlining_ifs, Some(4))
+  let options = make_optimize_options(
+    3, 0, false, false, 5, 3, -1, 31, 500000, true, 4, false, false, 1024UL, false,
+  )
+  @debug.assert_eq(options.inlining.always_inline_max_size, 3)
+  @debug.assert_eq(options.inlining.one_caller_inline_max_size, -1)
+  @debug.assert_eq(options.inlining.flexible_inline_max_size, 31)
+  @debug.assert_eq(options.inlining.max_combined_binary_size, 500000)
+  assert_true(options.inlining.allow_functions_with_loops)
+  @debug.assert_eq(options.inlining.partial_inlining_ifs, 4)
+}
+
+///|
 test "run_cmd_with_adapter uses config passes when cli does not provide pass flags" {
   let config_json =
     #|{
@@ -5347,6 +5426,12 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--vacuum"))
   assert_true(help.contains("--optimize"))
   assert_true(help.contains("--closed-world"))
+  assert_true(help.contains("--always-inline-max-function-size, -aimfs <N>"))
+  assert_true(
+    help.contains("--one-caller-inline-max-function-size, -ocimfs <N|-1>"),
+  )
+  assert_true(help.contains("--inline-functions-with-loops, -ifwl"))
+  assert_true(help.contains("--partial-inlining-ifs, -pii <N>"))
   assert_false(help.contains("--memory-packing"))
   assert_false(help.contains("--re-reloop"))
 }

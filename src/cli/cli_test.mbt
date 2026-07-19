@@ -378,6 +378,40 @@ test "parse_cli_args accepts inline long values for common option flags" {
 }
 
 ///|
+test "parse_cli_args accepts Binaryen inlining tuning flags and aliases" {
+  let parsed = parse_ok([
+    "--always-inline-max-function-size", "3", "-ocimfs", "-1", "--flexible-inline-max-function-size=31",
+    "-imcbs=500000", "--inline-functions-with-loops", "-pii", "4",
+  ])
+  @debug.assert_eq(parsed.inlining_always_inline_max_size, Some(3))
+  @debug.assert_eq(parsed.inlining_one_caller_inline_max_size, Some(-1))
+  @debug.assert_eq(parsed.inlining_flexible_inline_max_size, Some(31))
+  @debug.assert_eq(parsed.inlining_max_combined_binary_size, Some(500000))
+  @debug.assert_eq(parsed.inlining_allow_functions_with_loops, Some(true))
+  @debug.assert_eq(parsed.inlining_partial_inlining_ifs, Some(4))
+}
+
+///|
+test "parse_cli_args rejects invalid Binaryen inlining tuning values" {
+  @debug.assert_eq(
+    parse_err(["--always-inline-max-function-size", "-1"]),
+    CliParseError::missing_flag_value("--always-inline-max-function-size"),
+  )
+  @debug.assert_eq(
+    parse_err(["--one-caller-inline-max-function-size", "-2"]),
+    CliParseError::missing_flag_value("--one-caller-inline-max-function-size"),
+  )
+  @debug.assert_eq(
+    parse_err(["--partial-inlining-ifs=abc"]),
+    CliParseError::invalid_optimization_flag("--partial-inlining-ifs"),
+  )
+  @debug.assert_eq(
+    parse_err(["--inline-functions-with-loops=true"]),
+    CliParseError::unexpected_flag_value("--inline-functions-with-loops"),
+  )
+}
+
+///|
 test "parse_cli_args accepts named optimization option flags" {
   let parsed = parse_ok([
     "--monomorphize-min-benefit", "9", "--low-memory-unused", "--low-memory-bound",

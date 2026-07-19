@@ -180,4 +180,4 @@ Before:
   ;; cleanup-looking debris)
 ```
 
-Binaryen's filtered runner should clean only changed functions. Current Starshine's approximation restores untouched bodies after broad cleanup, and `[INL]002` is accepted for v0.1.0 as representation/factoring drift. Reopen scheduler work only with new correctness, validation, performance, or size evidence.
+Binaryen's filtered runner cleans only changed functions. Starshine now runs the represented v131 nested roster through touched-function filtering and tests that untouched bodies remain unchanged. Shared scheduler-API consolidation remains under `[O4Z-NESTED]001`, but the current inlining order and touched-only behavior are signed off.

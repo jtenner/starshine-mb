@@ -1,104 +1,74 @@
-# Deferred INL005 / INL006 Work
+# INL005 / INL006 Closeout And Shared-Metadata Boundaries
 
-Last updated: 2026-05-16.
+Last updated: 2026-07-19.
 
-This page records the inlining follow-up work that was **not** completed after `[INL]002` was accepted as representation/factoring drift. These items are **v0.2.0 backlog only**. They are not active v0.1.0 work and should not be picked up after DAE without new correctness, validation, performance, size, or user-facing evidence.
+This page supersedes the former v0.2.0 deferral. The Binaryen v131 inlining-family audit implemented `[INL]005`, closed the pass-owned portions of `[INL]006`, and removed the former EH tail-hoisting boundary.
 
-## Status summary
+## `[INL]005` partial inlining: closed
 
-- `[INL]005 - Partial Inlining Splitter`: **deferred to v0.2.0**. Not implemented, not a v0.1.0 blocker, and not worth doing merely for Binaryen WAT/byte-shape parity.
-- `[INL]006 - Residual Name/Annotation Repair`: **deferred to v0.2.0**. Tail-call and multi-result correctness surfaces now have focused coverage; the remaining unsupported surface is local/label name reconstruction and broader annotation collision repair after body rewrites.
+Starshine implements Binaryen's represented Pattern A and Pattern B families with the same policy gate: optimize level at least 3, shrink level 0, and positive `partialInliningIfs`.
 
-## `[INL]005` deferred work
+Implemented details:
 
-Starshine still lacks Binaryen's split/partial inlining pass for top-of-function conditional patterns.
+- leading simple Pattern A return guards;
+- multiple Pattern B guarded bodies and optional simple final values;
+- complete represented v131 Unary plus `RefIsNull` condition chains;
+- terminal result arms for return, tail-call, trap, throw, and other represented terminal-unreachable forms;
+- deterministic outlined helper naming;
+- parameter forwarding;
+- annotation and no-inline policy copy;
+- `no-full-inline` allowing partial splitting;
+- `no-partial-inline` and `no-inline` suppressing it;
+- cleanup of internal splitter markers.
 
-### Pattern A not done
+## `[INL]006` repair: pass-owned behavior closed
 
-Binaryen Pattern A recognizes a function beginning with a cheap guard such as:
+Implemented repair includes:
 
-```wat
-(func $maybe (param i32)
-  (block
-    (if (local.get 0)
-      (then return))
-    ;; heavy body
-  ))
-```
+- scalar and multivalue result block typing;
+- synthesized zero-param multivalue block types;
+- direct/indirect/ref nested tail-call lowering at non-tail sites;
+- direct/indirect/ref tail preservation at tail sites;
+- EH-aware operand localization and tail-call hoisting from `try_table`;
+- table32/table64 indirect target-local typing;
+- function-target and catch-target branch-depth repair after hoist wrappers;
+- defaultable and nondefaultable local handling;
+- function and annotation remapping;
+- valid caller local-name preservation;
+- untouched label-name preservation and stale rewritten-label-map removal.
 
-Binaryen can split this into an inlineable guard helper plus an outlined heavy helper, then inline the guard. Starshine does not currently create either helper, does not rewrite callers to the guard helper, and does not run splitter-specific helper cleanup.
+`inline-main` reuses the same repair path, including tail calls nested in `try_table`.
 
-### Pattern B not done
+## Shared metadata boundaries
 
-Binaryen Pattern B recognizes a small number of top-level cheap `if` guards with heavy bodies and an optional simple final item. Starshine does not currently split these into inlineable and outlined helper functions.
+The remaining differences are not pass-owned wasm behavior gaps:
 
-### Policy behavior not done
+- copied callee local/label debug names are not synthesized into callers;
+- expression-level `metadata.code.branch_hint` and other byte-offset code metadata are not represented locally;
+- source-map offset repair is not modeled;
+- legacy `try_delegate` is outside the current instruction representation.
 
-Binaryen has partial-inlining-specific policy knobs and no-partial-inline behavior. Starshine parses and preserves `no-partial-inline` policy markers, but there is no partial splitter for the marker to suppress. Official no-partial behavior remains deferred with `[INL]005`.
+These should reopen through the shared metadata, WAST, binary, or legacy-EH substrate—not through a new inlining transform slice.
 
-### Why deferred to v0.2.0
+## CLI and policy closeout
 
-Partial inlining can deliberately increase code size. No reduced Starshine correctness, validation, or clear pass-local performance/size win was established during this follow-up. Do not implement it for v0.1.0, and do not implement it merely for Binaryen WAT/byte-shape parity.
+Binaryen's six tuning controls now flow through CLI parsing, short aliases, help, JSON config, `OptimizeOptions`, `HotPipelineOptions`, and the shared pass:
 
-### Suggested future acceptance bar
+- `--always-inline-max-function-size` / `-aimfs`;
+- `--one-caller-inline-max-function-size` / `-ocimfs`;
+- `--flexible-inline-max-function-size` / `-fimfs`;
+- `--inline-max-combined-binary-size` / `-imcbs`;
+- `--inline-functions-with-loops` / `-ifwl`;
+- `--partial-inlining-ifs` / `-pii`.
 
-Before implementing `[INL]005`, add reduced Pattern A/B fixtures that prove at least one of:
+Released v131 `@binaryen.inline`, Starshine `no-inline*`, and `@metadata.code.inline` remain separate channels.
 
-- a semantic or validation issue is fixed;
-- a clear pass-local performance win exists;
-- a measured downstream optimization win offsets size growth;
-- a user-facing policy expectation requires the behavior.
+## Evidence
 
-Then compare direct `--pass inlining` and `--pass inlining-optimizing` on split-family repros.
-
-## `[INL]006` completed or narrowed surfaces
-
-The following `[INL]006` surfaces now have focused tests and commits in this follow-up:
-
-- nested direct `return_call` callee inlined only at an outer direct `return_call` callsite;
-- non-tail callsites for return-call-containing callees remain gated;
-- nested `return_call_indirect` and `return_call_ref` are preserved when inlined through an outer direct tail callsite;
-- direct `return_call` inlining inside a `try_table` callsite is covered;
-- no-param multi-result callees inline through a type-indexed wrapper block;
-- parameterized multi-result callees inline when a reusable zero-param result type exists;
-- otherwise-inlineable parameterized multi-result callees get a synthesized zero-param result block type;
-- function names compact correctly after helper removal;
-- non-function name maps for types, tables, memories, and globals survive synthesized type appends;
-- no-inline policy annotations continue to remap/deduplicate across compaction via the existing policy helper.
-
-Key evidence recorded in `agent-todo.md`, `docs/wiki/log.md`, and git history includes:
-
-- `moon test src/passes` latest follow-up lane: `1080/1080`;
-- full `moon test` latest follow-up lane: `3143/3143`;
-- wasm-smith smoke `.tmp/pass-fuzz-inlining-optimizing-inl006-name-type-wasm-smith-1000`: `996/1000` compared, `996` normalized matches, `0` mismatches, `0` validation failures, `4` Binaryen/tool command failures;
-- previous wasm-smith smokes for tail forms and multivalue synthesis also had `0` mismatches and `0` validation failures.
-
-## `[INL]006` v0.2.0 deferred work
-
-### Local/label name reconstruction not done
-
-Starshine still intentionally drops function-scoped local and label name maps after body rewrites. This is safer than preserving stale or collision-prone debug names.
-
-Binaryen-like full repair would need to:
-
-- copy callee local names into caller-local name maps after appended parameter/body locals;
-- avoid collisions with existing caller local names;
-- repair or synthesize label names for copied blocks/loops/if/try regions;
-- handle nested inlining waves and later helper compaction;
-- preserve determinism and avoid stale function-scoped maps after any body rewrite.
-
-This was not implemented because it is debug-name fidelity, not semantic correctness. Existing behavior is documented and tested: function names and non-function names survive where safe; local/label names are dropped after inlining rewrites. Keep this deferred unless a concrete user-facing debug-name or correctness requirement appears.
-
-### Broader annotation collision repair not done
-
-Function-level policy annotations are remapped and deduplicated, and `no_inline_copy_policy_annotations(...)` exists for clone/copy helpers. Broader Binaryen-like annotation collision/compaction behavior beyond the current internal no-inline policy markers remains unsupported unless a concrete Starshine annotation use case appears.
-
-## Reopen criteria
-
-Do not reopen accepted `[INL]001`, `[INL]002`, `[INL]003`, `[INL]004`, or `[INL]007` for these deferred items unless new evidence shows a semantic mismatch, wasm validation failure, exported/start/table/ref.func discrepancy, or a proven pass-local performance/code-size issue.
-
-Use:
-
-- v0.2.0 `[INL]005` for partial-splitting implementation or explicit rejection;
-- v0.2.0 `[INL]006` only for local/label/name/annotation repair with a concrete user-facing or correctness reason;
-- `[WALL]001` for aggregate whole-command runtime issues.
+- CLI parser: `54/54`;
+- command tests: `107/107`;
+- focused inlining: `120/120`;
+- white-box inlining: `14/14`;
+- full repository: `9452/9452`;
+- plain official-v131 GenValid: `.tmp/pass-fuzz-inlining-v131-closeout-10000`, `10000/10000` normalized matches, no failures;
+- optimizing official-v131 GenValid: `.tmp/pass-fuzz-inlining-optimizing-v131-closeout-10000`, `10000/10000` normalized matches, no failures.

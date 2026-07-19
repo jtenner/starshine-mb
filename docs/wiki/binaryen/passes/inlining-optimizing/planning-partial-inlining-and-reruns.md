@@ -1,133 +1,83 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/opt-utils.h
+  - ./index.md
   - ../inlining/index.md
-  - ./index.md
 related:
-  - ./index.md
-  - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
-  - ./wat-shapes.md
   - ./starshine-strategy.md
-  - ../inlining/heuristics-splitting-and-plain-vs-optimizing.md
+  - ./implementation-structure-and-tests.md
 ---
 
-# `inlining-optimizing`: planning, partial inlining, and reruns
+# `inlining-optimizing`: planning, splitting, and reruns
 
-## Big warning
+## 1. Planning is module-wide
 
-`inlining-optimizing` is not “inline more.” It is:
+The chosen actions are direct `call` / `return_call` sites, but the decision depends on module-wide facts:
 
-- the whole shared inliner;
-- plus changed-function cleanup immediately afterward.
+- references from direct calls and `ref.func`;
+- export/start/element/table/global roots;
+- function size, direct calls, loops, types, and policies;
+- same-wave inline-into/inline-from conflicts;
+- strict combined-size admission;
+- bounded repeated work.
 
-Both halves matter.
+Indirect/ref calls matter to copied-body behavior and flexible policy, but v131 does not use them as chosen callee-recovery actions.
 
-## 1. Whole-module planning decides both rewrite and deletion
+## 2. Profitability is layered
 
-The planner needs to know:
+The order is policy-significant:
 
-- which functions are defined versus imported;
-- which functions are exported or start roots;
-- which functions have `ref.func` / element/table-like uses;
-- direct call counts;
-- callee size and shape;
-- loops, calls, tail-call forms, and `try_delegate`;
-- explicit no-inline policy;
-- recursive growth hazards.
+1. explicit no-full-inline policy;
+2. toolchain Never/Always;
+3. always-inline size;
+4. one-caller size;
+5. shrinking trivial instructions;
+6. flexible maximum;
+7. O3/no-shrink gate;
+8. may-grow trivial instructions;
+9. no-direct-call and loop policy.
 
-That is why this pass belongs in module-pass scheduling, not a local HOT peephole.
+The trivial classes are derived from the actual one-instruction expression tree, not a narrow opcode list.
 
-## 2. Root survival is orthogonal to callsite rewrite
+## 3. Partial inlining is its own transform
 
-A direct call can disappear while the callee survives. Survival reasons include:
+Pattern A outlines the heavy suffix after a leading simple return guard. Pattern B outlines one or more guarded bodies and retains an optional simple final value.
 
-- export;
-- start function;
-- `ref.func` or element/table use;
-- other remaining calls;
-- explicit no-inline or structural non-inlineability;
-- Binaryen helper/representative retention behavior.
+The represented condition family matches v131 `LocalGet` / `GlobalGet` followed by Unary operations or `RefIsNull`. Result arms may terminate through return, tail call, trap, throw, or another represented unreachable exit.
 
-Current Starshine covers exported tiny-helper survival and has active exact-`unreachable` representative work, but not the full root/use matrix.
+`no-full-inline` allows splitting; `no-partial-inline` and `no-inline` suppress it.
 
-## 3. Direct-call action surface stays the current baseline
+## 4. EH tail calls require localization
 
-The reviewed `version_129` and 2026-04-25 current-main bridge support this wording:
+A nested tail call inside `try_table` cannot simply become an ordinary call in place: that would make the callee's exceptions catchable by a handler that the original tail call had exited.
 
-- chosen actions are direct `call` / `return_call` based;
-- `ref.func` counts keep boundaries alive;
-- `call_ref` / `return_call_ref` matter for copied-body repair and surrounding reasoning;
-- broad generic `call_ref` inlining is not the source-backed first-slice contract.
+Starshine now matches the v131 strategy:
 
-## 4. Partial inlining is a separate transformation
+1. evaluate operands inside the original EH region;
+2. spill them to correctly typed locals;
+3. branch out through generated wrapper blocks;
+4. reload operands and execute the non-tail call outside that EH region;
+5. branch to the inlined return target.
 
-Partial inlining is not “copy half a function.” It is:
+This applies to direct, indirect, and reference tail calls, including table64 indirect indices. Existing function-target branches and catch targets are depth-shifted when wrappers are added.
 
-1. split a narrow source shape into an inlineable helper plus outlined remainder;
-2. run ordinary inlining on the new helper.
+## 5. The optimizing suffix is touched-only
 
-Binaryen supports two narrow top-of-function families:
+After inlining, Binaryen prepends `precompute-propagate` and runs the default function pipeline only on changed functions. Starshine follows that order and tests the exact represented roster.
 
-- Pattern A: simple early guard/return then heavier work;
-- Pattern B: short simple top-level `if` ladder with no else arms and final-item local-dependency checks.
+Plain `inlining` stops before this stage.
 
-Current Starshine does not implement either.
+## 6. Evidence
 
-## 5. Touched functions are the bridge to the optimizing suffix
+- focused behavior: `120/120`;
+- white-box invariants: `14/14`;
+- full repository: `9452/9452`;
+- official v131 plain and optimizing GenValid: `10000/10000` normalized matches each, no failures.
 
-After core inlining, Binaryen knows which functions changed. The optimizing variant uses a filtered runner so cleanup runs only where it can matter.
+## 7. Remaining infrastructure work
 
-Touched-function fidelity matters because an unfiltered cleanup lane can:
-
-- rewrite untouched functions too early;
-- hide mismatches that belong to another pass;
-- create order drift in the late tail;
-- make direct-pass attribution harder.
-
-Current Starshine approximates this by running a broad cleanup lane, then restoring untouched function bodies and compacting touched locals. This is useful but not exact Binaryen behavior.
-
-## 6. `precompute-propagate` is not optional
-
-Binaryen prepends `precompute-propagate` before the default function pipeline. This is the concrete reason the optimizing suffix is powerful: inlined constants and copied expressions often become foldable before later cleanup passes see them.
-
-The local equivalent remains an approximation. `[INL]002` is accepted for v0.1.0 on correctness grounds; do not reopen it solely to chase exact scheduler byte/WAT shape without new correctness, validation, performance, or size evidence.
-
-## 7. The late-tail neighborhood consumes the result
-
-`inlining-optimizing` feeds:
-
-- `duplicate-function-elimination`;
-- `duplicate-import-elimination`;
-- `simplify-globals-optimizing`;
-- `remove-unused-module-elements`.
-
-So direct `--pass inlining-optimizing` parity should come before preset scheduling, but final v0.1.0 confidence also needs ordered-neighborhood replay once direct mismatches are gone.
-
-## 8. Current direct-lane frontier
-
-The standard seed-`0x5eed` artifact and the broadened seed-`0x1eed` artifact are both validation-clean and parity-green over compared cases, and the seed-`0x1eed` lane has no Starshine command failures after the narrow hot-unsafe helper guard.
-
-That means the immediate next useful questions are no longer about the four-function exact-`unreachable` survivor frontier. Instead focus on:
-
-- whether deferred direct-inliner Binaryen feature breadth should be split into follow-up slices or accepted as out of scope for the current supported surface;
-- whether plain `--pass inlining` should get its own independent broadened-seed signoff;
-- whether ordered-neighborhood replay is needed for later preset placement;
-- whether future exact nested cleanup work has evidence strong enough to reopen or supersede accepted `[INL]002`.
-
-## Good future-agent checklist
-
-When investigating an `inlining-optimizing` diff, classify it as one of:
-
-1. core eligibility mismatch;
-2. core rewrite/repair mismatch;
-3. helper deletion/retention mismatch;
-4. touched-function set mismatch;
-5. nested cleanup scheduler mismatch;
-6. downstream late-tail mismatch;
-7. Binaryen/tool parse/canonicalization failure;
-8. Starshine command failure in the current nested-cleanup approximation.
-
-Only categories 1-5 belong to direct `INL` work. Category 7 is ignored oracle/tool failure per user preference.
+`[O4Z-NESTED]001` owns one shared expansion API for DAE, inlining, and SGO. It must not change the already-tested inlining roster or touched-only semantics.

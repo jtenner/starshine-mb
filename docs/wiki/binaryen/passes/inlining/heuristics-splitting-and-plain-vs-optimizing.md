@@ -1,176 +1,126 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
-  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/test/lit/passes/toolchain-inlining.wast
-  - ../../release-horizon-and-oracles.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/passes/Inlining.cpp
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/version_131/src/tools/optimization-options.h
   - ./index.md
 related:
-  - ./index.md
   - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
   - ./compilation-hints-vs-no-inline-flags-and-clone-survival.md
-  - ./wat-shapes.md
-  - ./starshine-strategy.md
   - ../inlining-optimizing/index.md
 ---
 
-# `inlining`: heuristics, splitting, and plain-vs-optimizing
+# Inlining heuristics, splitting, and plain-vs-optimizing behavior
 
-This page focuses on the parts of the inliner that future agents most often overcompress. The older source rechecks remain useful for the splitting shapes, while v131 releases a function-level `@binaryen.inline` `AlwaysInline` / `NeverInline` override before generic full-inline profitability. The splitting boundaries themselves were not re-audited by the release change; see [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the precise reviewed scope.
+## 1. Two public stop points
 
-## The wrong one-line summary
-
-> Inline every small function.
-
-That misses the real contract. Binaryen instead asks:
-
-- Is the callee defined, reachable from a direct callsite, and non-recursive in this action?
-- Does the callee have roots or reference uses that force boundary survival?
-- Does the body fit one of several layered profitability families?
-- Would splitting a narrow top-of-function conditional region create a better inline unit?
-- Can copied locals, labels, returns, tail calls, and types be repaired safely?
-- Should the pass stop now (`inlining`) or run filtered nested cleanup (`inlining-optimizing`)?
-
-## 1. Plain and optimizing are different public contracts
-
-Both public names share the same upstream engine.
-
-| Public pass | Shared scan/plan/rewrite | Dead-helper cleanup | Nested useful-pass rerun |
+| Pass | Shared scan/plan/rewrite | Dead-helper cleanup | Touched nested cleanup |
 | --- | --- | --- | --- |
 | `inlining` | yes | yes | no |
 | `inlining-optimizing` | yes | yes | yes |
 
-The optimizing suffix is not a log label. It means: prepend `precompute-propagate`, then rerun Binaryen's default function optimization pipeline on changed functions.
+The optimizing suffix prepends `precompute-propagate` and runs the represented Binaryen v131 default function pipeline on changed functions only. Starshine tests this order explicitly.
 
-Current Starshine mirrors that split at the entrypoint level: plain `inlining` calls `inlining_run_module_pass(... optimize=false ...)`, while `inlining-optimizing` calls the same function with `optimize=true`. The optimizing cleanup now prepends the public touched-only `precompute-propagate` pass and runs the remaining cleanup lane through touched-function filtered adapters. The prefix is no longer a private approximation; the remaining parity gap is the exact option-specific Binaryen default-pipeline expansion.
+## 2. Chosen actions are direct
 
-## 2. Direct-call planning stays the source-backed baseline
+V131 chooses reachable direct `call` / `return_call` sites. Keep that separate from other call forms:
 
-The reviewed `version_129` chosen-action surface is reachable direct `call` / `return_call`.
+- `ref.func` contributes references and can keep a declaration alive;
+- `call_indirect` / `call_ref` and their tail forms can occur in copied code;
+- indirect/ref forms do not count as direct-call recursion hazards for flexible profitability;
+- speculative indirect/ref callee recovery is not part of this planner.
 
-Keep these facts separate:
+## 3. Profitability order
 
-- `ref.func` increments refs and can keep a callee boundary alive.
-- `call_ref` / `call_indirect` forms can exist in copied code and affect repair/conservatism.
-- The actual action planner is not a broad indirect/ref-call inliner in the reviewed release.
+For represented functions, Starshine follows the v131 order:
 
-This distinction is important for Starshine: the current direct-call subset is aligned with the safe first surface, even though many other Binaryen rules are still missing.
+1. explicit no-full-inline policy;
+2. toolchain `NeverInline` / `AlwaysInline`;
+3. `alwaysInlineMaxSize`;
+4. one reference, not globally rooted, within `oneCallerInlineMaxSize`;
+5. `TrivialInstruction::Shrinks`;
+6. `flexibleInlineMaxSize`;
+7. optimize level at least 3 and shrink level 0;
+8. `TrivialInstruction::MayNotShrink`;
+9. no direct calls and no loops unless loop inlining is enabled.
 
-## 3. “One use” is broader than “one direct caller”
+The combined caller/callee estimate must also remain strictly below `maxCombinedBinarySize`, using Binaryen's 2.5 encoded bytes per expression estimate.
 
-The one-caller heuristic uses counted uses plus root status. A function can have one direct call and still be non-disposable because it is:
-
-- exported;
-- the start function;
-- referenced by `ref.func` or element/table-like initialization;
-- used by another surviving callsite after filtering.
-
-Binaryen can therefore inline into one caller but keep the declaration.
-
-## 4. Trivial wrappers are special
+## 4. Trivial instructions
 
 ### `Shrinks`
 
-A single non-control instruction whose operands are exactly the params in order and exactly once. Inlining provably shrinks the call boundary.
+The body is one non-structured instruction whose direct children are parameter `local.get`s in order. Binaryen allows an ordered prefix: trailing unused parameters do not need to appear.
+
+Starshine derives this from the lifted expression tree, so the policy covers all represented instruction families rather than a hand-maintained subset.
 
 ### `MayNotShrink`
 
-Still tiny, but constants, repeated/skipped params, or extra scaffolding can grow code. Binaryen accepts this mainly under heavier speed focus.
+The body is still one instruction and each direct operand has expression size one, but operands may be constants, repeated locals, or otherwise not the exact ordered-prefix shape. These cases are admitted only after the O3/no-shrink gate.
 
-### `NotTrivial`
+### Why the distinction matters
 
-Everything else.
+A direct call with duplicate operands, an instruction with constants, a load, a SIMD/GC instruction, or a zero-operand constant body can follow a different policy path even when its raw instruction count is small.
 
-Starshine does not claim universal instruction coverage, but `[INL]003` is accepted for the current supported heuristic surface. It has the tiny/one-use eligibility rule plus source-backed `Shrinks` subsets: two-parameter stack bodies of the form `local.get 0`, `local.get 1`, then a whitelisted binary numeric/ref operator or one of `i32.store`, `i64.store`, `f32.store`, `f64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `v128.store`, `v128.store8_lane`, `v128.store16_lane`, `v128.store32_lane`, `v128.store64_lane`, supported SIMD plus GC heap-operation wrappers, `table.set`, or `table.grow`; and three-parameter stack bodies of the form `local.get 0`, `local.get 1`, `local.get 2`, then one of `select`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.copy`, `table.init`, or selected GC/SIMD ternary operations; four- and five-parameter ordered GC array init/fill/copy wrappers are also recognized. Those narrow shapes can inline even when multi-use. Ordered parameter-passthrough direct-call wrappers also count as shrinking trivial, matching Binaryen's `inlining-trivial-calls` family. Optimize/shrink levels are also threaded into `inlining`; at `optimize_level >= 3` and `shrink_level == 0`, Starshine accepts the first Binaryen-style flexible policy subset for no-call/no-loop callees with `size <= 20`, so a repeated-param `MayNotShrink` wrapper stays under default plain `inlining` and under O3+shrink mode, but inlines under `--optimize-level 3` alone.
+## 5. Policy controls
 
-## 5. `try_delegate`, loops, and calls are policy gates
+The public Binaryen-compatible controls are:
 
-- `try_delegate` blocks full inlining in the reviewed contract.
-- Loops are not invalid syntax, but default policy avoids loop-containing flexible inlines unless `allowFunctionsWithLoops` is enabled.
-- Direct calls in the callee matter because flexible cases generally require no direct calls; `call_indirect` and `call_ref` in copied code are not chosen-action sites and do not by themselves set the flexible `hasCalls` blocker.
-- Tail-call-containing callees require special conservatism/repair.
+- `--always-inline-max-function-size`, `-aimfs`;
+- `--one-caller-inline-max-function-size`, `-ocimfs`;
+- `--flexible-inline-max-function-size`, `-fimfs`;
+- `--inline-max-combined-binary-size`, `-imcbs`;
+- `--inline-functions-with-loops`, `-ifwl`;
+- `--partial-inlining-ifs`, `-pii`.
 
-These are not parser limitations; they are optimizer policy and safety gates.
+`@binaryen.inline`, `@metadata.code.inline`, `no-inline`, `no-full-inline`, and `no-partial-inline` are distinct channels.
 
-## 6. Full inlining is not the only action
+## 6. Partial Pattern A
 
-If a callee is not fully inlineable, Binaryen may try partial inlining under the right settings.
+Pattern A recognizes a leading simple guard whose true arm returns from a void function. It flips the guard and calls an outlined suffix on the opposite path.
 
-That does not mean copying a random half of a CFG. It means splitting the function into a smaller inlineable helper plus an outlined remainder, then using ordinary full inlining on the smaller unit.
+## 7. Partial Pattern B
 
-## 7. Partial Pattern A: guard then heavy work
+Pattern B recognizes a bounded sequence of top-level one-armed `if`s plus an optional simple final value.
 
-Source shape:
+Safety checks include:
 
-```wat
-(func $f (param $x i32)
-  (if (local.get $x)
-    (then (return)))
-  (call $heavy))
-```
-
-Binaryen can inline the cheap early guard and outline the heavier later work. Constants at callsites may then kill the guard entirely.
-
-## 8. Partial Pattern B: short top-level `if` ladder
-
-Pattern B is a small ladder, not arbitrary nested branching:
-
-- a short run of top-level `if`s;
 - simple conditions only;
 - no else arms;
-- bodies are unreachable or none-typed without returns;
-- optional final item is simple;
-- locals written in the `if` bodies are not read by the final item.
+- no escaping branches;
+- none-typed bodies without returns, or terminal-unreachable bodies;
+- no final-value read of a local written by an outlined arm;
+- configured maximum guard count.
 
-That final local-dependency gate prevents splitting from changing a guarded write's relationship to the later value.
+Result-producing terminal arms may end through return, tail call, trap, throw, or another represented terminal-unreachable instruction.
 
-## 9. “Simple” is intentionally tiny
+## 8. Simple conditions
 
-The splitter's simple-expression budget accepts only very small shapes such as:
+The v131 splitter accepts:
 
 - `local.get`;
 - `global.get`;
-- unary wrappers around simple expressions;
-- `ref.is_null` around simple expressions.
+- any represented Binaryen Unary operation around a simple expression;
+- `ref.is_null` around a simple expression.
 
-A guard that calls an arbitrary condition helper is not simple.
+Starshine includes scalar, conversion, SIMD, and relaxed-SIMD Unary operations represented locally. It deliberately excludes loads, ref casts, `ref.as_non_null`, and GC conversions, which are one-input operations but are not Binaryen's `Unary` class.
 
-## 10. No-inline policy is separate from inline-hint metadata
+## 9. EH tail calls
 
-The older tagged evidence distinguishes preserved `@metadata.code.inline` bytes from the `Function::noFullInline` / `Function::noPartialInline` flags set by the separate `no-inline*` pass family. Binaryen v131 adds a third axis: `FunctionInfoScanner` reads the function-level `@binaryen.inline` hint; the full-inline check rejects byte `\00` (`NeverInline`) and accepts byte `\7f` (`AlwaysInline`) after the `try_delegate` bailout, before generic profitability thresholds. Do not collapse that field into `metadata.code.inline`: the released producer and policy are deliberately separate.
+At non-tail outer callsites, nested `return_call`, `return_call_indirect`, and `return_call_ref` normally become a call plus branch to the inlined return block.
 
-Starshine currently implements only its local `no-inline*` policy markers, not this Binaryen toolchain-hint behavior. See [`./compilation-hints-vs-no-inline-flags-and-clone-survival.md`](./compilation-hints-vs-no-inline-flags-and-clone-survival.md) for the detailed boundary.
+When the nested tail call is inside `try_table`, operands are evaluated and spilled inside the EH region, then the call executes after branching out. This preserves the original rule that exceptions from the tail-called function are not caught by a handler in the exited frame.
 
-Current Starshine status: the first `no-inline*` policy surface is modeled through name-section wildcard marking and internal function annotations, [WAT/WAST function identifiers now populate that name lookup for defined and imported functions](../../../wast/identifier-name-and-annotation-authoring.md), full-inline suppression is honored by the direct inliner, annotation/function-name remapping preserves policy and later matching across helper compaction, stale local names are dropped after inlining rewrites, and `no_inline_copy_policy_annotations(...)` is available for future clone/copy transforms. `[INL]004` is accepted for this current policy surface; partial-inlining-specific no-inline behavior moves with `[INL]005`.
+The same mechanism repairs tail callsites inside caller `try_table` and `inline-main` wrappers. Added wrapper blocks shift existing function-target branches and catch targets correctly.
 
-## 11. Iteration has race guards
+## 10. Iteration and removal
 
-Binaryen discovers many opportunities but filters them to avoid bad same-wave interactions:
+The planner avoids same-wave inline-into/inline-from races, skips self-recursion, bounds repeated work, and repeats until no action remains or the cap is reached.
 
-- do not inline a function elsewhere in the same iteration if it was inlined into;
-- bound repeated operations per function name;
-- bound total iterations;
-- enforce a combined-size limit.
+Inlining a rooted function does not imply deleting it. Exports, start, elements, table/global initializers, `ref.func`, and surviving calls can preserve the declaration.
 
-Starshine now has bounded iterative waves, same-wave inline-into/inline-from race guards, the source-backed combined-size rail, and Binaryen's per-function repeated-work cap of five iterations. Exact partial-split action ordering remains tied to `[INL]005`, because Starshine has no splitter yet.
+## Evidence
 
-## 12. Plain `inlining` must leave cleanup debris
-
-Plain `inlining` may leave wrapper blocks, local sets, redundant constants, and dead-looking local traffic. That is expected. If a local test only matches Binaryen after running the optimizing nested cleanup suffix, it is not a proof of plain `inlining` parity.
-
-## Good future-agent checklist
-
-When a would-be inline does or does not happen, ask:
-
-1. Is the callsite a reachable direct `call` / `return_call`?
-2. Is the callee defined and not the same function?
-3. Is it rooted by export/start/ref.func/element/table use?
-4. Is it tiny, one-use, shrinking-trivial, or flexible-profitable?
-5. Does it contain `try_delegate`, loops, calls, or tail-call shapes that change policy?
-6. Does no-inline policy block full or partial inlining?
-7. Would partial Pattern A/B be required first?
-8. Would the result require tail-call, nondefaultable-local, label, or multi-result repair that the current Starshine subset lacks?
-9. Are you testing plain `inlining` or `inlining-optimizing`?
+Focused behavior is `120/120`; white-box invariants are `14/14`; both official-v131 plain and optimizing GenValid closeouts are `10000/10000` normalized matches with zero failures.

@@ -1,54 +1,57 @@
 ---
 kind: workflow
-status: planned
-last_reviewed: 2026-07-11
+status: supported
+last_reviewed: 2026-07-19
 sources:
-  - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../tooling/pass-fuzz-compare.md
-  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
-  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/inlining.mbt
+  - ../../../../../src/passes/inlining_test.mbt
 related:
   - ./index.md
   - ./starshine-strategy.md
-  - ../inlining/index.md
-  - ../../../tooling/pass-fuzz-compare.md
+  - ../inlining/fuzzing.md
 ---
 
-# `inline-main` fuzzing status
+# `inline-main` fuzzing
 
-## Current status: planned only
+## Admission
 
-Do **not** run or advertise `bun fuzz compare-pass --pass inline-main ...` as a current parity lane.
+`inline-main` is an active module pass and admitted compare-pass name.
 
-- The harness allowlist in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts) does not contain `inline-main`, so it rejects the flag before generation, Starshine, or Binaryen execution.
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) tracks `inline-main` as **boundary-only**, not as an active module pass. An admitted request would still stop at Starshine's boundary-only guard.
-- The pass's presence in Binaryen's shared inlining owner does not make it an alias for active Starshine `inlining`; its exact `main` / `__original_main` wrapper contract needs its own implementation and fixtures.
-- Rejection and zero-comparison outcomes are roster status, not transform-oracle evidence; see the local pass-eligibility preflight and harness/registry sources cited above.
+Generic random corpora are usually no-ops because meaningful transformation requires all of:
 
-Use `bun fuzz compare-pass --list-passes` only to inspect the current harness roster.
+- a defined function named exactly `main`;
+- a defined function named exactly `__original_main`;
+- exactly one direct matching `call` or `return_call` inside `main`.
 
-## Future executable lane
+Therefore generic normalized matches prove protocol compatibility only.
 
-Future admission needs an active Starshine pass, a harness-to-Binaryen `--inline-main` mapping, and fixtures that make the special-case pass act. An ordinary random direct-call profile is insufficient.
+## Required focused matrix
 
-Required directed cases include:
+A meaningful fixture or generated profile must include:
 
-- one defined `main` with exactly one direct call to defined `__original_main`;
-- missing/imported endpoints and zero or multiple direct-call no-ops;
-- wrapper return, local, label, and multivalue repair shapes inherited from the inliner; and
-- a contrast case showing ordinary `inlining` may have different eligibility/planning.
+- ordinary direct `call`;
+- direct `return_call`;
+- matching tail call nested inside `try_table`;
+- nested placement in block/if/loop structures;
+- `__original_main` containing nested direct/indirect/ref tail calls;
+- scalar and multivalue results;
+- nullable/nonnullable copied locals;
+- missing/imported endpoints;
+- zero and multiple matching calls;
+- unrelated direct calls that remain unchanged;
+- helper retention after success.
 
-After those gates are green, a future command may be:
+The current focused suite covers the chooser, ordinary/tail/EH-tail rewrite, no-op, and retention families through the shared `120/120` inlining tests.
 
-```text
-moon build --target native --release src/cmd
-bun fuzz compare-pass --pass inline-main --count 10000 --seed 0x5eed \
-  --gen-valid-profile <inline-main-wrapper-profile> \
-  --out-dir .tmp/pass-fuzz-inline-main --jobs auto \
-  --starshine-bin _build/native/release/build/cmd/cmd.exe \
-  --min-compared <meaningful-threshold>
-```
+## Generated-lane acceptance
 
-This is a **future template**, not current signoff guidance.
+Before a generated lane can count as closeout evidence, its manifest must record:
+
+- exact function-name creation;
+- selected call form and nesting shape;
+- whether the pass changed `main`;
+- whether `__original_main` remained declared;
+- validation of both Starshine and Binaryen outputs.
+
+Until then, direct focused tests plus the shared plain/optimizing `10000/10000` official-v131 closeouts are the durable evidence.
