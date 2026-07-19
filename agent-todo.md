@@ -97,6 +97,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-MODEL]001 - Replace parallel DAE facts with boundary candidates and epochs
 
 - **Owner:** `src/passes/dead_argument_elimination.mbt` analysis and scheduler layers.
+- **Status:** reason-coded decisions/counters and the coherent immutable original boundary snapshot are implemented; current boundary graph consolidation, SCC dependencies, epochs, stale-plan requeue, and de-artifacted scheduling remain open.
 - **Goal:** preserve one immutable original boundary snapshot, one incrementally refreshed current boundary graph, explicit caller/callee/result dependencies, and deterministic candidate epochs.
 - **Reason:** current legality still flows through many parallel arrays and specialized phases; stale candidates and repeated scans prevent a correctness-independent worklist.
 - **Deliverables:** reason-coded decisions/counters; coherent original/current records; SCC/component graph; function/signature/body epochs; stale-plan rejection and requeue; no correctness-critical low/high/reverse bands.

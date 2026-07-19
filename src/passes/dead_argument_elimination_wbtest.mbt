@@ -1318,12 +1318,23 @@ test "dae original boundary snapshot carries original counts escapes and call su
   assert_eq(snapshot.imported, 1)
   assert_eq(snapshot.defined, 2)
   assert_eq(snapshot.total, 3)
+  assert_eq(snapshot.type_indices.length(), 3)
   assert_eq(snapshot.param_counts, [1, 0])
   assert_true(snapshot.escaped[1])
   assert_false(snapshot.escaped[2])
   assert_eq(snapshot.call_summary.call_counts, [0, 1])
   assert_eq(snapshot.call_summary.prior_call_counts, [0, 1])
   assert_eq(snapshot.call_summary.nonself_undropped_call_counts, [0, 1])
+  assert_eq(snapshot.large_unreachable_prefixes, [false, false])
+  assert_eq(snapshot.private_result_dead_suffix_call_counts, [0, 0])
+  assert_eq(snapshot.private_result_same_operand_call_counts, [0, 0])
+  assert_eq(
+    snapshot.escaped_result_operand_call_facts.dead_suffix_escaped_result_operand_call_counts,
+    [0, 0],
+  )
+  assert_eq(snapshot.dead_suffix_other_calls, [false, false])
+  assert_eq(snapshot.dead_suffix_undropped_self_calls, [false, false])
+  assert_eq(snapshot.dead_suffix_mutual_calls, [false, false])
 }
 
 ///|

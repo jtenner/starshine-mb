@@ -261,6 +261,8 @@ The completion work also establishes a stable reason-coded diagnostic vocabulary
 
 ## Current Starshine original-result boundary proof surface
 
+`DaeOriginalBoundarySnapshot` is now the single immutable collection owner for original module identity and legality facts. One setup pass records imported/defined counts, original function type indices, escape visibility, parameter counts, large unreachable prefixes, the complete original call summary, and every result/dead-suffix evidence array and grouped fact carrier consumed by the core and later specialized phases. `dae_run_core_once(...)` receives that snapshot as one argument instead of more than thirty parallel arrays, so original facts cannot be accidentally recollected from a mutated current module or reordered independently. Current call/body facts remain separately refreshed and the epoch/invalidation graph is still open.
+
 The main Starshine core now groups original result-preservation and result-removal pruning through `DaeOriginalResultBoundaryContext`, `DaeOriginalResultBoundaryRow`, and `DaeOriginalResultBoundaryEvidence`. Shared original parameter, call, self-call, escape, and dead-suffix facts are indexed once into `DaeOriginalResultPreservationRow`; the prune row is derived from that row plus prune-only facts instead of performing a second parallel-array indexing pass.
 
 The resulting per-definition projection has multiple production consumers:
