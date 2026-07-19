@@ -15068,6 +15068,95 @@ test "vacuum batch writeback repair restores invalid changed functions" {
 }
 
 ///|
+test "filtered touched batch writeback restores only invalid changed functions" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let original_first = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+  )
+  let original_second = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(@lib.CodeSec::new([original_first, original_second]))
+  let candidate_second = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(3))]),
+  )
+  let candidate = input.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      candidate_second,
+    ]),
+  )
+  let trace : Array[String] = []
+  let repaired = match
+    run_hot_pipeline_repair_touched_batch_writeback(
+      input,
+      candidate,
+      [true, true],
+      "precompute-propagate",
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Some(mod_) => mod_
+    None => fail("expected filtered touched batch repair")
+  }
+  match repaired.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      assert_eq(funcs[0], original_first)
+      assert_eq(funcs[1], candidate_second)
+    }
+    None => fail("expected repaired code section")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[precompute-propagate]:skip-invalid-lower func=(Func 0) reason=writeback-batch-validate:",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "filtered hot pass stack rewrites only touched functions" {
+  let input = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 0
+      #|    i32.add)
+      #|  (func (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 0
+      #|    i32.add))
+    ),
+  )
+  let optimized = match
+    run_hot_pipeline_apply_hot_pass_stack_to_touched(
+      input,
+      [optimize_instructions_descriptor(), merge_blocks_descriptor()],
+      [true, false],
+      HotPipelineOptions::new(),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected filtered hot stack success, got \{err}")
+  }
+  let touched = optimized.pretty_print_defined_func(0U)
+  let untouched = optimized.pretty_print_defined_func(1U)
+  assert_false(touched.contains("i32.add"), msg=touched)
+  assert_true(untouched.contains("i32.add"), msg=untouched)
+}
+
+///|
 test "ssa-nomerge batch writeback repair restores invalid changed functions" {
   let input = @lib.Module::new()
     .with_type_sec(
@@ -19499,6 +19588,72 @@ test "DAEO post-component cleanup selected-definition validation rolls back an i
 }
 
 ///|
+test "DAEO broad changed-boundary cleanup reports non-fold body changes" {
+  let original = pass_test_module_from_wat(
+    "(module (func (param i32) (local i32) i32.const 0 local.set 1 local.get 1 drop))",
+  )
+  let current = pass_test_module_from_wat(
+    "(module (func (local i32) i32.const 0 local.set 0 local.get 0 drop))",
+  )
+  let (cleaned, changed) = match
+    run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
+      original,
+      current,
+      [true],
+      HotPipelineOptions::new(),
+      follow_folded_callees=false,
+    ) {
+    Ok(result) => result
+    Err(err) => fail("expected broad changed-boundary cleanup, got \{err}")
+  }
+  assert_true(cleaned != current)
+  assert_true(changed)
+}
+
+///|
+test "DAEO broad local cleanup retains valid definitions when a sibling candidate is invalid" {
+  let baseline = pass_test_module_from_wat("(module (func nop) (func))")
+  let candidate_funcs = match baseline.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section")
+  }
+  candidate_funcs[0] = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))
+  candidate_funcs[1] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let candidate = baseline.with_code_sec(@lib.CodeSec::new(candidate_funcs))
+  let (retained, accepted, rejected, rejection_errors) = run_hot_pipeline_dae_retain_valid_selected_defs(
+    baseline,
+    candidate,
+    [0, 1],
+  )
+  @debug.assert_eq(accepted, [0])
+  @debug.assert_eq(rejected, [1])
+  @debug.assert_eq(rejection_errors.length(), 1)
+  let retained_funcs = match retained.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected retained code section")
+  }
+  @debug.assert_eq(retained_funcs[0], candidate_funcs[0])
+  let baseline_funcs = match baseline.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected baseline code section")
+  }
+  @debug.assert_eq(retained_funcs[1], baseline_funcs[1])
+  match @validate.validate_module(retained) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected independently retained broad cleanup to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 test "DAEO post-component profitability proves a strict selected-function encoding reduction" {
   let original = pass_test_module_from_wat("(module (func nop nop))")
   let candidate = pass_test_module_from_wat("(module (func nop))")
@@ -22880,4 +23035,95 @@ test "DAEO broad-high structural primitives preserve stack/control shape" {
     @lib.Instruction::i32_const(@lib.I32::new(9)),
     @lib.Instruction::drop(),
   ])
+}
+
+///|
+test "simplify-locals lowered cleanup counts reads after block-local branch exits" {
+  let local_idx = @lib.LocalIdx::new(0U)
+  let func = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::i32()]),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32::new(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::block(
+            @lib.BlockType::val_type(@lib.ValType::i32()),
+            @lib.Expr::new([
+              @lib.Instruction::block(
+                @lib.BlockType::val_type(@lib.ValType::i32()),
+                @lib.Expr::new([
+                  @lib.Instruction::i32_const(@lib.I32::new(7)),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ]),
+              ),
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+            ]),
+          ),
+          @lib.Instruction::local_set(local_idx),
+          @lib.Instruction::i32_const(@lib.I32::new(0)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::local_get(local_idx),
+          @lib.Instruction::drop(),
+        ],
+        Some([]),
+      ),
+    ]),
+  )
+  let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+    func,
+  )
+  assert_false(changed)
+  @debug.assert_eq(cleaned, func)
+}
+
+///|
+test "simplify-locals lowered cleanup preserves non-defaultable initialization after block-local branch exits" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $A (struct))
+      #|  (func
+      #|    (local (ref $A))
+      #|    i32.const 1
+      #|    if $escape
+      #|      block $out (result (ref $A))
+      #|        block (result (ref $A))
+      #|          struct.new $A
+      #|          br $out
+      #|        end
+      #|        br $escape
+      #|      end
+      #|      local.set 0
+      #|      i32.const 0
+      #|      drop
+      #|      local.get 0
+      #|      drop
+      #|    end))
+    ),
+  )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected valid non-defaultable block-local branch fixture, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+    funcs[0],
+  )
+  assert_false(changed)
+  @debug.assert_eq(cleaned, funcs[0])
+  match
+    @validate.validate_module(mod_.with_code_sec(@lib.CodeSec::new([cleaned]))) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected block-local branch cleanup candidate to preserve definite initialization, got \{@validate.validation_error_message(err)}",
+      )
+  }
 }

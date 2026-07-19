@@ -115,3 +115,40 @@ test "liveness v1 ignores exceptional successors for live-out propagation" {
   assert_true(local_live_in(liveness, catch_block, 1))
   assert_false(local_live_out(liveness, body_block, 1))
 }
+
+///|
+test "liveness can include exceptional successors for boundary analysis" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let throw_ = hot_build_throw(func, @lib.TagIdx::new(0U), [])
+  let catch_get = hot_build_local_get(func, 1)
+  let catch_drop = hot_build_drop(func, catch_get)
+  let try_id = hot_build_try(
+    func,
+    @lib.BlockType::void_(),
+    [throw_],
+    catch_body=Some([catch_drop]),
+  )
+  hot_root_append(func, try_id)
+
+  let cfg = cfg_build(func)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def, include_exceptional_edges=true)
+  let body_block = cfg_block_for_region_root(
+    cfg,
+    hot_region_body_ref(func, try_id),
+    0,
+  ).unwrap()
+  let catch_block = cfg_block_for_region_root(
+    cfg,
+    hot_region_catch_ref(func, try_id).unwrap(),
+    0,
+  ).unwrap()
+
+  assert_true(local_live_in(liveness, catch_block, 1))
+  assert_true(local_live_out(liveness, body_block, 1))
+  assert_true(local_live_in(liveness, body_block, 1))
+}

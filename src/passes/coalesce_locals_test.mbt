@@ -2001,3 +2001,40 @@ test "coalesce-locals can merge through reorder-locals cleanup" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   )
 }
+
+///|
+test "coalesce-locals drops a never-read structured write before unreachable" {
+  let input =
+    #| (module
+    #|   (type $s (struct))
+    #|   (func (result (ref null $s)) (local (ref null $s))
+    #|     block
+    #|       ref.null $s
+    #|       local.set 0
+    #|       unreachable
+    #|     end
+    #|     unreachable))
+    #|
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(input),
+      HotPipelineOptions::new(),
+      ["coalesce-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected structured dead-write coalescing success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = cl_test_first_defined_func(optimized)
+  assert_false(cl_test_instrs_contain_local_set(instrs), msg=instrs.to_string())
+  assert_true(cl_test_instrs_contain_drop(instrs), msg=instrs.to_string())
+  assert_false(
+    instrs.any(fn(instr) {
+      match instr {
+        @lib.Block(_, _) => true
+        _ => false
+      }
+    }),
+    msg=instrs.to_string(),
+  )
+}

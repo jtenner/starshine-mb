@@ -103,7 +103,11 @@ fn liveness_require_use_def_shape(cfg : HotCfg, use_def : HotUseDef) -> Int {
 }
 
 ///|
-pub fn liveness_build(cfg : HotCfg, use_def : HotUseDef) -> HotLiveness {
+pub fn liveness_build(
+  cfg : HotCfg,
+  use_def : HotUseDef,
+  include_exceptional_edges? : Bool = false,
+) -> HotLiveness {
   let local_count = liveness_require_use_def_shape(cfg, use_def)
   let live_in_sets : Array[Bitset] = []
   let live_out_sets : Array[Bitset] = []
@@ -112,7 +116,6 @@ pub fn liveness_build(cfg : HotCfg, use_def : HotUseDef) -> HotLiveness {
     live_in_sets.push(bitset_new(local_count))
     live_out_sets.push(bitset_new(local_count))
   }
-  let include_exceptional_edges = false
   let queued = Array::make(block_count, false)
   let worklist : Array[BlockId] = []
   for block_id = 0; block_id < block_count; block_id = block_id + 1 {

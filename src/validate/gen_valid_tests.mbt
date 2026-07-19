@@ -1904,6 +1904,66 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
     gen_valid_profile_name(DaeOptimizingProfile),
     "dae-optimizing",
   )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingCoreProfile),
+    "dae-optimizing-core",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingManyTouchedProfile),
+    "dae-optimizing-many-touched",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingMediumModuleProfile),
+    "dae-optimizing-medium-module",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingLargeLocalsProfile),
+    "dae-optimizing-large-locals",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingTouchedCallerProfile),
+    "dae-optimizing-touched-caller",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingForwardedSuffixProfile),
+    "dae-optimizing-forwarded-suffix",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingResultControlProfile),
+    "dae-optimizing-result-control",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingStructuredLocalsProfile),
+    "dae-optimizing-structured-locals",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingReturnCleanupProfile),
+    "dae-optimizing-return-cleanup",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingImmutableFieldProfile),
+    "dae-optimizing-immutable-field",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingComputedEffectsProfile),
+    "dae-optimizing-computed-effects",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingTableEffectsProfile),
+    "dae-optimizing-table-effects",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingGcComputedProfile),
+    "dae-optimizing-gc-computed",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingTailBoundaryProfile),
+    "dae-optimizing-tail-boundary",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(DaeOptimizingTypeReuseProfile),
+    "dae-optimizing-type-reuse",
+  )
   @debug.assert_eq(gen_valid_profile_name(PassInliningProfile), "pass-inlining")
   @debug.assert_eq(
     gen_valid_profile_name(InliningOptimizingDirectWrapperProfile),
@@ -2068,6 +2128,46 @@ test "pass-targeted gen-valid profiles expose stable pass recipes" {
   @debug.assert_eq(gen_valid_config_label(dae_optimizing), "dae-optimizing")
   assert_true(dae_optimizing.features.allow_branch_heavy_control)
   assert_true(dae_optimizing.max_defined_funcs >= 5)
+  assert_true(gen_valid_profile_is_composite(DaeOptimizingProfile))
+  @debug.assert_eq(gen_valid_profile_members(DaeOptimizingProfile).length(), 15)
+  let dae_medium = GenValidConfig::for_profile(DaeOptimizingMediumModuleProfile)
+  assert_true(dae_medium.max_defined_funcs > 100)
+  let dae_many = GenValidConfig::for_profile(DaeOptimizingManyTouchedProfile)
+  assert_true(dae_many.max_defined_funcs >= 11)
+  let dae_large_locals = GenValidConfig::for_profile(
+    DaeOptimizingLargeLocalsProfile,
+  )
+  assert_true(dae_large_locals.max_locals > 128)
+  let dae_forwarded = GenValidConfig::for_profile(
+    DaeOptimizingForwardedSuffixProfile,
+  )
+  assert_true(dae_forwarded.features.allow_globals)
+  let dae_immutable = GenValidConfig::for_profile(
+    DaeOptimizingImmutableFieldProfile,
+  )
+  assert_true(dae_immutable.features.allow_globals)
+  assert_true(dae_immutable.features.allow_ref_types)
+  let dae_computed = GenValidConfig::for_profile(
+    DaeOptimizingComputedEffectsProfile,
+  )
+  assert_true(dae_computed.features.allow_mems)
+  assert_true(dae_computed.features.allow_globals)
+  assert_true(dae_computed.max_defined_funcs >= 4)
+  let dae_table = GenValidConfig::for_profile(DaeOptimizingTableEffectsProfile)
+  assert_true(dae_table.features.allow_tables)
+  assert_true(dae_table.features.allow_ref_types)
+  assert_true(dae_table.max_defined_funcs >= 4)
+  let dae_gc_computed = GenValidConfig::for_profile(
+    DaeOptimizingGcComputedProfile,
+  )
+  assert_true(dae_gc_computed.features.allow_ref_types)
+  assert_true(dae_gc_computed.max_defined_funcs >= 3)
+  let dae_tail = GenValidConfig::for_profile(DaeOptimizingTailBoundaryProfile)
+  assert_true(dae_tail.features.allow_tail_calls)
+  let dae_type_reuse = GenValidConfig::for_profile(
+    DaeOptimizingTypeReuseProfile,
+  )
+  assert_true(dae_type_reuse.max_defined_funcs >= 6)
 
   @debug.assert_eq(gen_valid_profile_members(DaeAllProfile).length(), 10)
 
@@ -3017,6 +3117,461 @@ test "dae-optimizing profile emits DAE trigger plus nested cleanup debris" {
     }
     None => fail("expected DAE optimizing code section")
   }
+}
+
+///|
+fn gen_valid_test_daeo_generate(
+  seed : UInt64,
+  profile : GenValidProfile,
+) -> GenValidGenerated {
+  match
+    gen_valid_module_result_from_seed(
+      seed,
+      GenValidConfig::for_profile(profile),
+    ) {
+    Ok(generated) => generated
+    Err(failure) => abort(failure.validation_error_message)
+  }
+}
+
+///|
+fn gen_valid_test_daeo_code_funcs(mod_ : Module) -> Array[Func] {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => funcs
+    None => abort("expected DAEO generated code section")
+  }
+}
+
+///|
+test "dae-optimizing aggregate selects every cleanup guard and boundary family" {
+  let expected = [
+    DaeOptimizingCoreProfile,
+    DaeOptimizingManyTouchedProfile,
+    DaeOptimizingMediumModuleProfile,
+    DaeOptimizingLargeLocalsProfile,
+    DaeOptimizingTouchedCallerProfile,
+    DaeOptimizingForwardedSuffixProfile,
+    DaeOptimizingResultControlProfile,
+    DaeOptimizingStructuredLocalsProfile,
+    DaeOptimizingReturnCleanupProfile,
+    DaeOptimizingImmutableFieldProfile,
+    DaeOptimizingComputedEffectsProfile,
+    DaeOptimizingTableEffectsProfile,
+    DaeOptimizingGcComputedProfile,
+    DaeOptimizingTailBoundaryProfile,
+    DaeOptimizingTypeReuseProfile,
+  ]
+  let seen : Array[GenValidProfile] = []
+  for case_index = 1; case_index <= 256; case_index = case_index + 1 {
+    let leaf = gen_valid_profile_leaf_for_case(
+      DaeOptimizingProfile,
+      0x5eedUL,
+      case_index,
+    )
+    assert_true(
+      expected.contains(leaf),
+      msg="unexpected DAEO leaf \{gen_valid_profile_name(leaf)}",
+    )
+    if !seen.contains(leaf) {
+      seen.push(leaf)
+    }
+  }
+  for profile in expected {
+    assert_true(
+      seen.contains(profile),
+      msg="dae-optimizing aggregate did not select \{gen_valid_profile_name(profile)}",
+    )
+  }
+}
+
+///|
+test "dae-optimizing guard profiles emit valid generated parity opportunities" {
+  let many = gen_valid_test_daeo_generate(
+    0xDAE1001UL,
+    DaeOptimizingManyTouchedProfile,
+  )
+  let many_funcs = gen_valid_test_daeo_code_funcs(many.wasm_module)
+  @debug.assert_eq(many.config_label, "dae-optimizing-many-touched")
+  @debug.assert_eq(many_funcs.length(), 11)
+  for helper_idx = 0; helper_idx < 10; helper_idx = helper_idx + 1 {
+    let Func(locals, Expr(body)) = many_funcs[helper_idx]
+    @debug.assert_eq(locals.length(), 1)
+    assert_true(
+      gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+        body,
+        LocalIdx::new(2U),
+      ),
+      msg="many-touched helper \{helper_idx} should retain post-boundary identity debris",
+    )
+  }
+
+  let medium = gen_valid_test_daeo_generate(
+    0xDAE1002UL,
+    DaeOptimizingMediumModuleProfile,
+  )
+  let medium_funcs = gen_valid_test_daeo_code_funcs(medium.wasm_module)
+  @debug.assert_eq(medium.config_label, "dae-optimizing-medium-module")
+  assert_true(medium_funcs.length() > 100)
+  let Func(medium_locals, Expr(medium_body)) = medium_funcs[0]
+  @debug.assert_eq(medium_locals.length(), 1)
+  assert_true(
+    gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+      medium_body,
+      LocalIdx::new(2U),
+    ),
+  )
+
+  let large = gen_valid_test_daeo_generate(
+    0xDAE1003UL,
+    DaeOptimizingLargeLocalsProfile,
+  )
+  let large_funcs = gen_valid_test_daeo_code_funcs(large.wasm_module)
+  @debug.assert_eq(large.config_label, "dae-optimizing-large-locals")
+  let Func(large_locals, Expr(large_body)) = large_funcs[0]
+  assert_true(large_locals.length() > 128)
+  assert_true(
+    gen_valid_test_instrs_have_local_get_i32_zero_add_sequence(
+      large_body,
+      LocalIdx::new(2U),
+    ),
+  )
+
+  for generated in [many, medium, large] {
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+  }
+}
+
+///|
+test "dae-optimizing boundary profiles generate touched callers forwarded suffixes and result control" {
+  let touched = gen_valid_test_daeo_generate(
+    0xDAE1004UL,
+    DaeOptimizingTouchedCallerProfile,
+  )
+  @debug.assert_eq(touched.config_label, "dae-optimizing-touched-caller")
+  assert_true(
+    gen_valid_test_to_module_local_write_count(touched.wasm_module) >= 2,
+  )
+  assert_true(gen_valid_test_module_has_local_copy(touched.wasm_module))
+
+  let forwarded = gen_valid_test_daeo_generate(
+    0xDAE1005UL,
+    DaeOptimizingForwardedSuffixProfile,
+  )
+  @debug.assert_eq(forwarded.config_label, "dae-optimizing-forwarded-suffix")
+  assert_true(gen_valid_test_module_has_global_set(forwarded.wasm_module))
+  match gen_valid_test_defined_func_type(forwarded.wasm_module, 1) {
+    Some(FuncType(params, results)) => {
+      @debug.assert_eq(params, [ValType::i32(), ValType::i32()])
+      @debug.assert_eq(results, [ValType::i32()])
+    }
+    None => fail("expected forwarded-suffix wrapper type")
+  }
+
+  let result_control = gen_valid_test_daeo_generate(
+    0xDAE1006UL,
+    DaeOptimizingResultControlProfile,
+  )
+  @debug.assert_eq(result_control.config_label, "dae-optimizing-result-control")
+  let result_funcs = gen_valid_test_daeo_code_funcs(result_control.wasm_module)
+  let Func(_, Expr(result_helper)) = result_funcs[0]
+  let result_caller = match result_funcs.get(1) {
+    Some(Func(_, Expr(body))) => body
+    None => []
+  }
+  assert_true(
+    gen_valid_test_instrs_have_call_drop_sequence(
+      result_caller,
+      FuncIdx::new(0U),
+    ),
+  )
+  assert_true(
+    result_helper.contains(
+      Instruction::block(
+        BlockType::val_type(ValType::i32()),
+        Expr::new([
+          Instruction::i32_const(I32(7)),
+          Instruction::br(LabelIdx::new(0U)),
+        ]),
+      ),
+    ),
+    msg="result-control helper should carry a branch result before DAE removes the dropped result",
+  )
+
+  for generated in [touched, forwarded, result_control] {
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+  }
+}
+
+///|
+test "dae-optimizing structured local profile samples diverse liveness shapes" {
+  let seen_labels : Array[String] = []
+  for seed_offset = 0; seed_offset < 64; seed_offset = seed_offset + 1 {
+    let seed = seed_offset.to_uint64()
+    let generated = gen_valid_test_daeo_generate(
+      seed,
+      DaeOptimizingStructuredLocalsProfile,
+    )
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    let funcs = gen_valid_test_daeo_code_funcs(generated.wasm_module)
+    @debug.assert_eq(funcs.length(), 3)
+    let Func(locals, _) = funcs[0]
+    @debug.assert_eq(locals.length(), 3)
+    let label = match
+      gen_valid_dae_optimizing_profile_case_label(
+        DaeOptimizingStructuredLocalsProfile,
+        seed,
+      ) {
+      Some(label) => label
+      None => fail("expected structured-locals case label")
+    }
+    if !seen_labels.contains(label) {
+      seen_labels.push(label)
+    }
+  }
+  @debug.assert_eq(seen_labels.length(), 7)
+
+  let return_cleanup = gen_valid_test_daeo_generate(
+    0xDAE1007UL,
+    DaeOptimizingReturnCleanupProfile,
+  )
+  let return_funcs = gen_valid_test_daeo_code_funcs(return_cleanup.wasm_module)
+  let Func(return_locals, Expr(return_body)) = return_funcs[0]
+  @debug.assert_eq(return_locals.length(), 3)
+  assert_true(return_body.contains(Instruction::return_()))
+  match validate_module(return_cleanup.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+}
+
+///|
+test "dae-optimizing GC boundary and type-reuse profiles emit source-owned shapes" {
+  let immutable = gen_valid_test_daeo_generate(
+    0xDAE1008UL,
+    DaeOptimizingImmutableFieldProfile,
+  )
+  let immutable_funcs = gen_valid_test_daeo_code_funcs(immutable.wasm_module)
+  @debug.assert_eq(immutable_funcs.length(), 3)
+  let Func(_, Expr(leaf_body)) = immutable_funcs[0]
+  let Func(_, Expr(target_body)) = immutable_funcs[1]
+  let Func(_, Expr(run_body)) = immutable_funcs[2]
+  assert_true(leaf_body.contains(Instruction::ref_is_null()))
+  assert_true(
+    target_body.any(fn(instr) {
+      match instr {
+        Instruction::StructGet(_, _) => true
+        _ => false
+      }
+    }),
+  )
+  assert_true(run_body.contains(Instruction::global_get(GlobalIdx::new(0U))))
+
+  let computed = gen_valid_test_daeo_generate(
+    0xDAE1009UL,
+    DaeOptimizingComputedEffectsProfile,
+  )
+  let computed_funcs = gen_valid_test_daeo_code_funcs(computed.wasm_module)
+  @debug.assert_eq(computed_funcs.length(), 4)
+  assert_true(computed.facts.has_mems)
+  assert_true(gen_valid_test_module_has_global_set(computed.wasm_module))
+
+  let table_effects = gen_valid_test_daeo_generate(
+    0xDAE1010UL,
+    DaeOptimizingTableEffectsProfile,
+  )
+  let table_funcs = gen_valid_test_daeo_code_funcs(table_effects.wasm_module)
+  @debug.assert_eq(table_funcs.length(), 4)
+  assert_true(table_effects.facts.has_tables)
+
+  let gc_computed = gen_valid_test_daeo_generate(
+    0xDAE1011UL,
+    DaeOptimizingGcComputedProfile,
+  )
+  let gc_computed_funcs = gen_valid_test_daeo_code_funcs(
+    gc_computed.wasm_module,
+  )
+  @debug.assert_eq(gc_computed_funcs.length(), 3)
+  assert_true(gc_computed.facts.uses_ref_types)
+  let gc_labels : Array[String] = []
+  for seed_offset = 0; seed_offset < 32; seed_offset = seed_offset + 1 {
+    let seed = seed_offset.to_uint64()
+    let generated = gen_valid_test_daeo_generate(
+      seed,
+      DaeOptimizingGcComputedProfile,
+    )
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    let label = match
+      gen_valid_dae_optimizing_profile_case_label(
+        DaeOptimizingGcComputedProfile,
+        seed,
+      ) {
+      Some(label) => label
+      None => fail("expected GC computed case label")
+    }
+    if !gc_labels.contains(label) {
+      gc_labels.push(label)
+    }
+  }
+  @debug.assert_eq(gc_labels.length(), 4)
+
+  let tail = gen_valid_test_daeo_generate(
+    0xDAE1012UL,
+    DaeOptimizingTailBoundaryProfile,
+  )
+  let tail_funcs = gen_valid_test_daeo_code_funcs(tail.wasm_module)
+  @debug.assert_eq(tail_funcs.length(), 3)
+  let Func(_, Expr(tail_run)) = tail_funcs[1]
+  assert_true(tail_run.contains(Instruction::return_call(FuncIdx::new(0U))))
+
+  let type_reuse = gen_valid_test_daeo_generate(
+    0xDAE1013UL,
+    DaeOptimizingTypeReuseProfile,
+  )
+  @debug.assert_eq(
+    gen_valid_test_daeo_code_funcs(type_reuse.wasm_module).length(),
+    6,
+  )
+  match type_reuse.wasm_module.type_sec {
+    Some(TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    None => fail("expected DAEO type-reuse type section")
+  }
+
+  for
+    generated in [
+      immutable, computed, table_effects, gc_computed, tail, type_reuse,
+    ] {
+    match validate_module(generated.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+  }
+}
+
+///|
+test "dae-optimizing leaf labels describe generated parity families" {
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingCoreProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:core-cleanup"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingManyTouchedProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:many-touched"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingMediumModuleProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:medium-module"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingLargeLocalsProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:large-locals"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingTouchedCallerProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:touched-caller"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingForwardedSuffixProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:forwarded-suffix"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingResultControlProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:result-control"),
+  )
+  assert_true(
+    match
+      gen_valid_dae_optimizing_profile_case_label(
+        DaeOptimizingStructuredLocalsProfile,
+        0x5eedUL,
+      ) {
+      Some(label) => label.starts_with("dae-optimizing:structured-")
+      None => false
+    },
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingReturnCleanupProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:return-cleanup"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingImmutableFieldProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:immutable-field"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingComputedEffectsProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:computed-effects"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingTableEffectsProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:table-effects"),
+  )
+  assert_true(
+    match
+      gen_valid_dae_optimizing_profile_case_label(
+        DaeOptimizingGcComputedProfile,
+        0x5eedUL,
+      ) {
+      Some(label) => label.starts_with("dae-optimizing:gc-")
+      None => false
+    },
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingTailBoundaryProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:tail-boundary"),
+  )
+  @debug.assert_eq(
+    gen_valid_dae_optimizing_profile_case_label(
+      DaeOptimizingTypeReuseProfile,
+      0x5eedUL,
+    ),
+    Some("dae-optimizing:type-reuse"),
+  )
 }
 
 ///|

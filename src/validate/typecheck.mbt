@@ -4344,7 +4344,16 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
         I64AtomicRmw32CmpxchgUOp =>
           typecheck_atomic_cmpxchg(st, ma, 32, ValType::i64())
       }
-    Br(l) => typecheck_br(st, l)
+    Br(l) => {
+      // Preserve the reachable target depth even though this path becomes
+      // unreachable. A sibling path may continue, and an enclosing block must
+      // still account for this branch when validating its merge result.
+      let was_reachable = st.reachable
+      match typecheck_br(st, l) {
+        Ok(out) => Ok(out.record_reachable_escape_label(was_reachable, l))
+        Err(err) => Err(err)
+      }
+    }
     Block(bt, e) => typecheck_block(st, bt, e)
     If(bt, th, el) => typecheck_if(st, bt, th, el)
     BrIf(l) => {

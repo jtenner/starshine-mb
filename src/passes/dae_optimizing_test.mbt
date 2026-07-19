@@ -243,6 +243,7 @@ fn dae_test_instrs_have_i32_div_s(instrs : Array[@lib.Instruction]) -> Bool {
       _ => false
     }
   })
+}
 
 ///|
 fn dae_test_count_substring(text : String, needle : String) -> Int {
@@ -596,6 +597,266 @@ test "dae alias removes a private unused scalar parameter at direct calls" {
     dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
   )
   assert_false(dae_test_instrs_have_i32_const(caller_body, 20))
+}
+
+///|
+test "plain dead-argument-elimination materializes uniform constant actuals" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_false(dae_test_instrs_have_i32_const(caller_body, 7))
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected plain DAE uniform-constant output to validate, got \{err}")
+  }
+}
+
+///|
+test "dae-optimizing ignores inactive conflicting uniform actuals" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $target
+    #|    unreachable
+    #|    i32.const 8
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected active-callsite uniform output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination removes an overwritten incoming parameter" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(callee_locals.length(), 1)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_true(
+    dae_test_instrs_have_direct_call(caller_body, @lib.FuncIdx::new(0U)),
+  )
+  assert_false(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected overwritten-parameter DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination uses CFG liveness across a branch target" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32)
+    #|    block
+    #|      i32.const 10
+    #|      local.set 0
+    #|      br 0
+    #|      local.get 0
+    #|      drop
+    #|    end
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(callee_locals.length(), 1)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_false(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected CFG-entry-liveness DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dae-optimizing uses CFG liveness across a branch target" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32)
+    #|    block
+    #|      i32.const 10
+    #|      local.set 0
+    #|      br 0
+    #|      local.get 0
+    #|      drop
+    #|    end
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dae-optimizing")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimizing CFG-entry-liveness output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination uses entry liveness in call-containing bodies" {
+  let source =
+    #|(module
+    #|  (func $side (export "side"))
+    #|  (func $f (param i32) (result i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|    call $side
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 1)
+  @debug.assert_eq(callee_locals.length(), 1)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 2)
+  assert_false(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected call-containing liveness DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dae-optimizing uses entry liveness in call-containing bodies" {
+  let source =
+    #|(module
+    #|  (func $side (export "side"))
+    #|  (func $f (param i32) (result i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|    call $side
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dae-optimizing")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected optimizing call-containing liveness output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination removes one overwritten incoming parameter from a mixed signature" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  let @lib.Func(callee_locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(callee_locals.length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected mixed overwritten-parameter DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination ignores incoming-param reads after return" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32)
+    #|    i32.const 10
+    #|    return
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_false(
+    dae_test_instrs_have_local_get(caller_body, @lib.LocalIdx::new(0U)),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected post-return-read DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination preserves uninhabitable dropped-call control" {
+  let source =
+    #|(module
+    #|  (func $f (result (ref none))
+    #|    unreachable)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    drop
+    #|    i32.const 1))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 0)
+  let @lib.Func(_, @lib.Expr(caller_body)) = dae_test_defined_func(optimized, 1)
+  assert_true(
+    dae_test_instrs_have_direct_call(caller_body, @lib.FuncIdx::new(0U)),
+  )
+  assert_true(dae_test_instrs_have_unreachable(caller_body))
+  assert_false(dae_test_instrs_have_i32_const(caller_body, 1))
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected uninhabitable-result DAE output to validate, got \{err}")
+  }
 }
 
 ///|
@@ -5969,6 +6230,117 @@ test "dae-optimizing removes a private unused scalar parameter at direct calls" 
 }
 
 ///|
+test "plain DAE initializes a removed written parameter from a uniform constant" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 1
+    #|    local.get 0
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected written uniform-constant plain DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dae-optimizing initializes a removed written parameter from a uniform constant" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 1
+    #|    local.get 0
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(locals.length(), 0)
+  assert_true(dae_test_instrs_have_i32_const(body, 16))
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected written uniform-constant DAEO output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dae-optimizing initializes one written uniform parameter in a mixed signature" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    local.set 2
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 2
+    #|    local.get 0
+    #|    i32.add
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    i32.const 7
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected mixed written uniform-constant DAEO output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dae-optimizing initializes a written parameter from a uniform immutable global" {
+  let source =
+    #|(module
+    #|  (global $constant i32 (i32.const 7))
+    #|  (func $f (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    i32.const 9
+    #|    local.set 0
+    #|    local.get 1
+    #|    local.get 0
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    global.get $constant
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected written immutable-global DAEO output to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "dae-optimizing materializes shared constant actuals into private callee params" {
   let source =
     #|(module
@@ -6823,7 +7195,7 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
   }
   for
     expected in [
-      "pass[dae-optimizing]:low-exact-param-chain-prefix primary_def=37 pass=precompute-propagate-prefix",
+      "pass[dae-optimizing]:low-exact-param-chain-prefix primary_def=37 pass=precompute-propagate",
       "pass[dae-optimizing]:low-exact-param-chain-converge iter=0 primary_def=38",
       "pass[dae-optimizing]:low-exact-param-chain-converge iter=1 primary_def=41",
       "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=[37, 38, 41] pass=simplify-locals",
@@ -9346,6 +9718,70 @@ test "dae-optimizing materializes non-adjacent loop dropped-prefix constant carr
 }
 
 ///|
+test "dae uses exceptional CFG liveness for overwritten try-table parameters" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func $target (param i32)
+    #|    block $caught
+    #|      try_table (catch $e $caught)
+    #|        i32.const 9
+    #|        local.set 0
+    #|        throw $e
+    #|      end
+    #|    end
+    #|    local.get 0
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    call $target))
+  for pass_name in ["dead-argument-elimination", "dae-optimizing"] {
+    let optimized = match pass_test_run_pipeline(source, [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} EH liveness success, got \{err}")
+    }
+    @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{pass_name} EH output to validate, got \{err}")
+    }
+  }
+}
+
+///|
+test "dae preserves try-table parameters live before an exceptional overwrite" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func $target (param i32)
+    #|    block $caught
+    #|      try_table (catch $e $caught)
+    #|        throw $e
+    #|        i32.const 9
+    #|        local.set 0
+    #|      end
+    #|    end
+    #|    local.get 0
+    #|    drop)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    call $target))
+  for pass_name in ["dead-argument-elimination", "dae-optimizing"] {
+    let optimized = match pass_test_run_pipeline(source, [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} EH guard success, got \{err}")
+    }
+    @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{pass_name} EH guard output to validate, got \{err}")
+    }
+  }
+}
+
+///|
 test "dae-optimizing materializes non-adjacent try-table constant carrier" {
   let target_def = 0
   let out = StringBuilder::new()
@@ -11577,6 +12013,43 @@ test "plain DAE localizes hard removed direct-call operands into typed scratch l
     Ok(_) => ()
     Err(err) =>
       fail("expected localized plain DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "plain DAE keeps a non-nullable ref stack-carried while localizing a removed operand" {
+  let source =
+    #|(module
+    #|  (type $s (struct))
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $make (result (ref $s))
+    #|    i32.const 1
+    #|    global.set $g
+    #|    struct.new_default $s)
+    #|  (func $side (result i32)
+    #|    i32.const 2
+    #|    global.set $g
+    #|    i32.const 7)
+    #|  (func $f (param (ref $s) i32) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    call $make
+    #|    block (result i32)
+    #|      call $side
+    #|    end
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+  let caller = optimized.pretty_print_defined_func(3U)
+  assert_true(caller.contains("local.set"), msg=caller)
+  assert_false(caller.contains("local.get"), msg=caller)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_true(caller.contains("(call (Func 1))"), msg=caller)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected non-nullable localized DAE output to validate, got \{err}")
   }
 }
 
@@ -14026,6 +14499,7 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
     "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
     "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=coalesce-locals",
     "pass[dae-optimizing]:nested-pass name=reorder-locals", "pass[dae-optimizing]:nested-pass name=vacuum",
+    "pass[dae-optimizing]:nested-pass name=remove-unused-brs",
   ])
 }
 
@@ -14071,18 +14545,17 @@ test "dae-optimizing nested precompute-propagate prefix only rewrites touched fu
 }
 
 ///|
-test "dae-optimizing traces oversized touched-function nested cleanup skip" {
+test "dae-optimizing routes oversized changed boundaries through transactional cleanup" {
   let source = "(module (func $f (param i32)" +
     dae_test_many_i32_locals(129) +
     " nop) (func (export \"run\") i32.const 1 call $f))"
-  let trace = match pass_test_capture_trace(source, ["dae-optimizing"]) {
-    Ok(trace) => trace
-    Err(err) => fail("expected traced oversized DAE success, got \{err}")
-  }
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(locals.length(), 0)
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-function touched=2",
+        "pass[dae-optimizing]:broad-changed-boundary-local-cleanup def=0 removed_locals=129 mode=direct",
       )
     }),
     msg=trace.to_string(),
@@ -14284,6 +14757,76 @@ test "dae-optimizing nested remove-unused-brs only rewrites touched functions" {
   let untouched = optimized.pretty_print_defined_func(2U)
   assert_false(touched.contains("(br"), msg=touched)
   assert_true(untouched.contains("(br"), msg=untouched)
+}
+
+///|
+test "dae-optimizing replays cleanup on material touched callers" {
+  let out = StringBuilder::new()
+  let prefix =
+    #|(module
+    #|  (import "env" "use" (func $use (param i32)))
+    #|  (func $f (param i32 i32 i32)
+    #|    block $exit
+    #|      local.get 1
+    #|      if
+    #|        br $exit
+    #|      else
+    #|        local.get 2
+    #|        if
+    #|          br $exit
+    #|        end
+    #|      end
+    #|    end)
+    #|  (func (export "run") (param i32 i32) (local i32 i32)
+    #|    i32.const 0
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.set 3
+    #|    local.get 3
+    #|    drop
+    #|
+  out.write_string(prefix)
+  for repeat_idx = 0; repeat_idx < 600; repeat_idx = repeat_idx + 1 {
+    out.write_string("    local.get 0\n    call $use\n")
+  }
+  let suffix =
+    #|    block $exit
+    #|      local.get 0
+    #|      if
+    #|        br $exit
+    #|      else
+    #|        local.get 1
+    #|        if
+    #|          br $exit
+    #|        end
+    #|      end
+    #|    end
+    #|    i32.const 0
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f)
+    #|
+  out.write_string(suffix)
+  for dummy_idx = 0; dummy_idx < 5000; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  let (optimized, trace) = dae_test_run_with_perf_trace(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  let touched = optimized.pretty_print_defined_func(0U)
+  assert_false(touched.contains("(if"), msg="\{touched}\n\{trace}")
+  assert_true(touched.contains("br_if"), msg="\{touched}\n\{trace}")
+  let caller = optimized.pretty_print_defined_func(1U)
+  let caller_local_count = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(locals, _) = funcs[1]
+      locals.length()
+    }
+    None => -1
+  }
+  @debug.assert_eq(caller_local_count, 0)
+  assert_false(caller.contains("(if"), msg="\{caller}\n\{trace}")
+  assert_true(caller.contains("br_if"), msg="\{caller}\n\{trace}")
 }
 
 ///|
@@ -15613,11 +16156,351 @@ test "dae-optimizing preserves case 000690 escaped self-call operand param" {
 }
 
 ///|
-fn dae_test_broad_removed_param_local_cleanup_module() -> String {
+fn dae_test_many_touched_cleanup_guard_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for helper_idx = 0; helper_idx < 10; helper_idx = helper_idx + 1 {
+    out.write_string(
+      "  (func $h\{helper_idx} (param i32 i32) (result i32) (local i32) local.get 1 local.set 2 local.get 2 i32.const 0 i32.add)\n",
+    )
+  }
+  out.write_string("  (func (export \"run\") (result i32)\n")
+  for helper_idx = 0; helper_idx < 10; helper_idx = helper_idx + 1 {
+    out.write_string(
+      "    i32.const \{helper_idx}\n    i32.const \{helper_idx + 7}\n    call $h\{helper_idx}\n",
+    )
+    if helper_idx < 9 {
+      out.write_string("    drop\n")
+    }
+  }
+  out.write_string("  )\n)\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing cleans changed boundaries when more than eight functions are touched" {
+  let optimized = dae_test_run(dae_test_many_touched_cleanup_guard_module())
+  for helper_idx = 0; helper_idx < 10; helper_idx = helper_idx + 1 {
+    let @lib.Func(locals, _) = dae_test_defined_func(optimized, helper_idx)
+    @debug.assert_eq(locals.length(), 0)
+    let helper = optimized.pretty_print_defined_func(
+      helper_idx.reinterpret_as_uint(),
+    )
+    assert_false(helper.contains("local.set"), msg=helper)
+    assert_false(helper.contains("local.tee"), msg=helper)
+    if helper_idx < 9 {
+      assert_false(helper.contains("drop"), msg=helper)
+    }
+  }
+}
+
+///|
+fn dae_test_medium_module_cleanup_guard_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (func $helper (param i32 i32) (result i32) (local i32) local.get 1 local.set 2 local.get 2 i32.const 0 i32.add)\n  (func (export \"run\") (result i32) i32.const 9 i32.const 7 call $helper)\n",
+  )
+  for dummy_idx = 0; dummy_idx < 101; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing cleans changed boundaries in modules above the generic size guard" {
+  let optimized = dae_test_run(dae_test_medium_module_cleanup_guard_module())
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(locals.length(), 0)
+  let helper = optimized.pretty_print_defined_func(0U)
+  assert_false(helper.contains("local.set"), msg=helper)
+  assert_false(helper.contains("local.tee"), msg=helper)
+}
+
+///|
+fn dae_test_large_locals_cleanup_guard_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (func $helper (param i32 i32) (result i32) (local",
+  )
+  for local_idx = 0; local_idx < 129; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(
+    ") local.get 1 local.set 2 local.get 2 i32.const 0 i32.add)\n  (func (export \"run\") (result i32) i32.const 9 i32.const 7 call $helper)\n)\n",
+  )
+  out.to_string()
+}
+
+///|
+test "dae-optimizing cleans changed boundaries above the generic local-count guard" {
+  let optimized = dae_test_run(dae_test_large_locals_cleanup_guard_module())
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(locals.length(), 0)
+  let helper = optimized.pretty_print_defined_func(0U)
+  assert_false(helper.contains("local.set"), msg=helper)
+  assert_false(helper.contains("local.tee"), msg=helper)
+}
+
+///|
+test "dae-optimizing removes a redundant return exposed by local cleanup" {
+  let source =
+    #|(module
+    #|  (func $helper (param i32 i32) (result i32) (local i32 i32 i32)
+    #|    local.get 1
+    #|    local.set 2
+    #|    local.get 2
+    #|    return
+    #|    i32.const 33
+    #|    local.set 3
+    #|    local.get 3)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 101
+    #|    i32.const 7
+    #|    call $helper)
+    #|  (func (result i32)
+    #|    i32.const 102
+    #|    i32.const 8
+    #|    call $helper))
+  let optimized = dae_test_run(source)
+  let helper = optimized.pretty_print_defined_func(0U)
+  assert_false(helper.contains("return"), msg=helper)
+  assert_true(helper.contains("local.get (Local 0)"), msg=helper)
+}
+
+///|
+test "dae-optimizing removes unread GC array constructor actuals" {
+  let array_type = @lib.TypeIdx::new(0U)
+  let array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(array_type)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::array(
+              @lib.FieldType::new(
+                @lib.StorageType::val_type(@lib.ValType::i32()),
+                @lib.Mut::var_(),
+              ),
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([array_ref, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(2U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::array_new(array_type),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::array_new_default(array_type),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::i32_const(@lib.I32(5)),
+            @lib.Instruction::array_new_fixed(array_type, @lib.U32::new(2U)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected GC array DAEO success, got \{err}")
+  }
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  for def_idx in [1U, 2U, 3U] {
+    let caller = optimized.pretty_print_defined_func(def_idx)
+    assert_false(caller.contains("array.new"), msg=caller)
+  }
+}
+
+///|
+test "dae-optimizing removes unread GC constructor actuals and prunes their dead type" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (func $helper (param (ref $box) i32) (result i32) local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 1
+    #|    struct.new $box
+    #|    i32.const 7
+    #|    call $helper)
+    #|  (func (result i32)
+    #|    i32.const 2
+    #|    struct.new $box
+    #|    i32.const 8
+    #|    call $helper))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  assert_false(optimized.pretty_print_defined_func(1U).contains("struct.new"))
+  assert_false(optimized.pretty_print_defined_func(2U).contains("struct.new"))
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
+    None => fail("expected compacted function types")
+  }
+}
+
+///|
+test "dae-optimizing removes unread table actuals while preserving growth and bounds traps" {
+  let source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (func $grow-helper (param i32 i32) (result i32) local.get 1)
+    #|  (func $get-helper (param funcref i32) (result i32) local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    ref.null func
+    #|    i32.const 1
+    #|    table.grow 0
+    #|    i32.const 7
+    #|    call $grow-helper)
+    #|  (func (result i32)
+    #|    i32.const 0
+    #|    table.get 0
+    #|    i32.const 8
+    #|    call $get-helper))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let grow_caller = optimized.pretty_print_defined_func(2U)
+  let get_caller = optimized.pretty_print_defined_func(3U)
+  assert_true(grow_caller.contains("table.grow"), msg=grow_caller)
+  assert_true(get_caller.contains("table.get"), msg=get_caller)
+}
+
+///|
+test "dae-optimizing removes unread computed actuals while preserving effects and traps" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $helper (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 1
+    #|    i32.const 2
+    #|    i32.add
+    #|    i32.const 99
+    #|    global.set $g
+    #|    i32.const 7
+    #|    call $helper)
+    #|  (func (result i32)
+    #|    i32.const 0
+    #|    memory.grow
+    #|    i32.const 100
+    #|    global.set $g
+    #|    i32.const 8
+    #|    call $helper)
+    #|  (func (result i32)
+    #|    i32.const 0
+    #|    i32.load
+    #|    i32.const 101
+    #|    global.set $g
+    #|    i32.const 9
+    #|    call $helper))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  let helper = optimized.pretty_print_defined_func(0U)
+  let pure = optimized.pretty_print_defined_func(1U)
+  let effectful = optimized.pretty_print_defined_func(2U)
+  let trapping = optimized.pretty_print_defined_func(3U)
+  assert_true(helper.contains("local.get (Local 0)"), msg=helper)
+  assert_false(pure.contains("i32.add"), msg=pure)
+  assert_true(pure.contains("global.set"), msg=pure)
+  assert_true(effectful.contains("memory.grow"), msg=effectful)
+  assert_true(effectful.contains("drop"), msg=effectful)
+  assert_true(trapping.contains("i32.load"), msg=trapping)
+  assert_true(trapping.contains("drop"), msg=trapping)
+}
+
+///|
+test "dae-optimizing folds small-module immutable global fields and follows exposed null callees" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (global $g (ref $box) (struct.new $box (i32.const 0)))
+    #|  (func $leaf (param (ref null $box)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func $target (param i32 (ref $box)) (result i32)
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1
+    #|    struct.get $box 0
+    #|    i32.eqz
+    #|    if (result (ref null $box))
+    #|      ref.null $box
+    #|    else
+    #|      local.get 1
+    #|    end
+    #|    call $leaf)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 0
+    #|    global.get $g
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let leaf = optimized.pretty_print_defined_func(0U)
+  let target = optimized.pretty_print_defined_func(1U)
+  assert_true(leaf.contains("i32.const I32(1)"), msg=leaf)
+  assert_false(target.contains("struct.get"), msg=target)
+  assert_false(target.contains("(if"), msg=target)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
+    None => fail("expected retained struct and compacted function types")
+  }
+}
+
+///|
+fn dae_test_broad_changed_boundary_local_cleanup_module() -> String {
   let helper_count = 10
   let total_defs = 4097
   let out = StringBuilder::new()
-  out.write_string("(module\n")
+  out.write_string("(module\n  (global $sink (mut i32) (i32.const 0))\n")
   out.write_string("  (func $target (param i32) (result i32) (local")
   for local_idx = 0; local_idx < 128; local_idx = local_idx + 1 {
     out.write_string(" i32")
@@ -15633,6 +16516,23 @@ fn dae_test_broad_removed_param_local_cleanup_module() -> String {
     out.write_string("\n    drop\n")
   }
   out.write_string("    i32.const 7)\n")
+  out.write_string("  (func $target2 (param i32) (result i32) (local")
+  for local_idx = 0; local_idx < 32; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(
+    ")\n    local.get 0\n    global.set $sink\n    block\n    end\n",
+  )
+  for local_idx = 0; local_idx < 8; local_idx = local_idx + 1 {
+    out.write_string("    i32.const ")
+    out.write_string((local_idx + 100).to_string())
+    out.write_string("\n    local.set ")
+    out.write_string((local_idx + 1).to_string())
+    out.write_string("\n    local.get ")
+    out.write_string((local_idx + 1).to_string())
+    out.write_string("\n    drop\n")
+  }
+  out.write_string("    i32.const 8)\n")
   for helper_idx = 0; helper_idx < helper_count; helper_idx = helper_idx + 1 {
     out.write_string("  (func $helper")
     out.write_string(helper_idx.to_string())
@@ -15646,8 +16546,10 @@ fn dae_test_broad_removed_param_local_cleanup_module() -> String {
     out.write_string(helper_idx.to_string())
     out.write_string("\n")
   }
-  out.write_string("    i32.const 99\n    call $target)\n")
-  for dummy_idx = helper_count + 2
+  out.write_string(
+    "    i32.const 100\n    call $target2\n    drop\n    i32.const 99\n    call $target)\n",
+  )
+  for dummy_idx = helper_count + 3
       dummy_idx < total_defs
       dummy_idx = dummy_idx + 1 {
     out.write_string("  (func)\n")
@@ -15657,32 +16559,214 @@ fn dae_test_broad_removed_param_local_cleanup_module() -> String {
 }
 
 ///|
-test "dae-optimizing cleans one ranked broad removed-param local family" {
-  let source = dae_test_broad_removed_param_local_cleanup_module()
+test "dae-optimizing cleans every broad changed-boundary local family" {
+  let source = dae_test_broad_changed_boundary_local_cleanup_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
   @debug.assert_eq(dae_test_func_params(plain, 0).length(), 0)
   @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(plain, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_results(plain, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 0)
   let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, 0)
+  let @lib.Func(plain_locals2, _) = dae_test_defined_func(plain, 1)
   let @lib.Func(optimized_locals, _) = dae_test_defined_func(optimized, 0)
+  let @lib.Func(optimized_locals2, _) = dae_test_defined_func(optimized, 1)
   @debug.assert_eq(plain_locals.length(), 128)
+  @debug.assert_eq(plain_locals2.length(), 32)
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-removed-param-local-cleanup def=0 removed_locals=96 mode=direct",
+        "pass[dae-optimizing]:broad-changed-boundary-local-cleanup def=0 removed_locals=96 mode=direct",
       )
     }),
     msg=trace.to_string(),
   )
-  @debug.assert_eq(optimized_locals.length(), 32)
+  @debug.assert_eq(optimized_locals.length(), 0)
+  @debug.assert_eq(optimized_locals2.length(), 0)
   let plain_func = plain.pretty_print_defined_func(0U)
   let optimized_func = optimized.pretty_print_defined_func(0U)
+  let optimized_func2 = optimized.pretty_print_defined_func(1U)
   assert_true(plain_func.contains("local.set"), msg=plain_func)
-  assert_true(optimized_func.contains("local.set"), msg=optimized_func)
+  assert_false(optimized_func.contains("local.set"), msg=optimized_func)
+  assert_false(optimized_func2.contains("local.set"), msg=optimized_func2)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:broad-changed-boundary-nested-batch pass=",
+      ) &&
+      line.contains("accepted_defs=")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:broad-changed-boundary-nested-cleanup def=0 accepted=true",
+      )
+    }),
+    msg=trace.to_string(),
+  )
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected broad removed-param cleanup output to validate: \{err}")
+      fail("expected broad changed-boundary cleanup output to validate: \{err}")
+  }
+}
+
+///|
+fn dae_test_cleanup_exposed_unread_params_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n  (global $sink (mut i32) (i32.const 0))\n")
+  for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
+    out.write_string("  (func $helper")
+    out.write_string(helper_idx.to_string())
+    out.write_string(" (param i32 i32)\n    i32.const ")
+    out.write_string(helper_idx.to_string())
+    out.write_string("\n    global.set $sink\n    local.get 1\n    drop)\n")
+  }
+  out.write_string("  (func (export \"run\")\n")
+  for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
+    out.write_string("    i32.const ")
+    out.write_string(helper_idx.to_string())
+    out.write_string("\n    i32.const 7\n    call $helper")
+    out.write_string(helper_idx.to_string())
+    out.write_string("\n")
+  }
+  out.write_string("  )\n)\n")
+  out.to_string()
+}
+
+///|
+test "dae-optimizing converges cleanup-exposed unread parameters in one invocation" {
+  let (once, trace) = dae_test_run_with_perf_trace(
+    dae_test_cleanup_exposed_unread_params_module(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:final-convergence")
+    }),
+    msg=trace.to_string(),
+  )
+  for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
+    @debug.assert_eq(dae_test_func_params(once, helper_idx).length(), 0)
+  }
+  let twice = match
+    run_hot_pipeline(once, HotPipelineOptions::new(), ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected second DAE optimizing invocation, got \{err}")
+  }
+  @debug.assert_eq(twice, once)
+}
+
+///|
+fn dae_test_large_uniform_const_actual_module() -> String {
+  let leaf_def = 5000
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (type $box (struct (field i32)))\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n  (global $g (ref $box) i32.const 0 struct.new $box)\n",
+  )
+  for dummy_idx = 0; dummy_idx < leaf_def; dummy_idx = dummy_idx + 1 {
+    out.write_string("  (func)\n")
+  }
+  out.write_string(
+    "  (func $leaf (param (ref null $box)) (result i32)\n    local.get 0\n    ref.is_null)\n  (func $target (param i32 (ref $box)) (result i32)\n    local.get 0\n    call $use_i32\n    local.get 1\n    struct.get $box 0\n    i32.eqz\n    if (result (ref null $box))\n      ref.null $box\n    else\n      local.get 1\n    end\n    call $leaf)\n  (func $literal (param i32) (result i32)\n",
+  )
+  for repeat_idx = 0; repeat_idx < 128; repeat_idx = repeat_idx + 1 {
+    out.write_string("    local.get 0\n    drop\n")
+  }
+  out.write_string(
+    "    local.get 0\n    i32.const 1\n    i32.add)\n  (func $forwarded (param i32) (result i32)\n",
+  )
+  for repeat_idx = 0; repeat_idx < 32; repeat_idx = repeat_idx + 1 {
+    out.write_string("    local.get 0\n    drop\n")
+  }
+  out.write_string(
+    "    local.get 0\n    call $forwarded_leaf)\n  (func $forwarded_leaf (param i32) (result i32)\n    local.get 0\n    i32.eqz)\n  (func $suffix (param (ref $box) i32) (result i32)\n",
+  )
+  for repeat_idx = 0; repeat_idx < 32; repeat_idx = repeat_idx + 1 {
+    out.write_string("    local.get 1\n    drop\n")
+  }
+  out.write_string(
+    "    local.get 1\n    call $use_i32\n    local.get 0\n    struct.get $box 0)\n  (func (export \"run\") (result i32)\n    i32.const 7\n    call $literal\n    call $use_i32\n    i32.const 0\n    call $forwarded\n    call $use_i32\n    i32.const 0\n    struct.new $box\n    i32.const 9\n    call $use_i32\n    i32.const 0\n    call $suffix\n    call $use_i32\n    i32.const 0\n    global.get $g\n    call $target)\n)\n",
+  )
+  out.to_string()
+}
+
+///|
+test "dae-optimizing revisits large-module uniform constant actuals" {
+  let source = dae_test_large_uniform_const_actual_module()
+  let plain = dae_test_run(source, pass_name="dead-argument-elimination")
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(plain, 5000).length(), 1)
+  assert_true(
+    dae_test_func_params(optimized, 5000).length() == 0,
+    msg="leaf=\{optimized.pretty_print_defined_func(5000U)} target=\{optimized.pretty_print_defined_func(5001U)} trace=\{trace}",
+  )
+  @debug.assert_eq(dae_test_func_params(plain, 5001).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 5001).length(), 0)
+  @debug.assert_eq(dae_test_func_params(plain, 5002).length(), 1)
+  assert_true(
+    dae_test_func_params(optimized, 5002).length() == 0,
+    msg="literal=\{optimized.pretty_print_defined_func(5002U)} trace=\{trace}",
+  )
+  @debug.assert_eq(dae_test_func_params(plain, 5003).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 5003).length(), 0)
+  @debug.assert_eq(dae_test_func_params(plain, 5004).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 5004).length(), 0)
+  @debug.assert_eq(dae_test_func_params(plain, 5005).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 5005).length(), 1)
+  let suffix = optimized.pretty_print_defined_func(5005U)
+  assert_false(suffix.contains("local.get (Local 1)"), msg=suffix)
+  let target = optimized.pretty_print_defined_func(5001U)
+  assert_false(target.contains("local.get (Local 1)"), msg=target)
+  assert_false(target.contains("struct.get"), msg=target)
+  assert_true(target.contains("call (Func 0)"), msg=target)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:large-uniform-const-revisit primary_def=5001",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:large-uniform-const-revisit primary_def=5002",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:large-uniform-const-revisit primary_def=5003",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:large-uniform-const-revisit primary_def=5004",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:large-uniform-const-revisit primary_def=5005",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large uniform-constant revisit output to validate: \{err}")
   }
 }
 
@@ -16245,7 +17329,7 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   assert_true(plain_mid.contains("unreachable"), msg=plain_mid)
   let mid = optimized.pretty_print_defined_func(8194U)
   let @lib.Func(mid_locals, _) = dae_test_defined_func(optimized, 8194)
-  @debug.assert_eq(mid_locals.length(), 2, msg=mid)
+  @debug.assert_eq(mid_locals.length(), 1, msg=mid)
   assert_false(mid.contains("unreachable"), msg=mid)
   assert_false(mid.contains("nop"), msg=mid)
   assert_true(dae_test_count_substring(mid, "call (Func 1)") == 7, msg=mid)
@@ -16394,7 +17478,12 @@ test "dae-optimizing converges through an unread callee before a computed cycle 
   let (optimized, trace) = dae_test_run_with_perf_trace(
     dae_test_broad_computed_carrier_cycle_module(),
   )
-  @debug.assert_eq(dae_test_func_params(optimized, 7007).length(), 1)
+  // The first wave removes the forwarding component; the bounded final wave
+  // then proves the helper result and its last argument dead. This eliminates
+  // the remaining helper boundary stack traffic without increasing module
+  // size, rather than retaining Binaryen's still-live i32 -> i32 shell.
+  @debug.assert_eq(dae_test_func_params(optimized, 7007).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 7007).length(), 0)
   for def_idx in [7004, 7005, 7006] {
     assert_true(
       dae_test_func_params(optimized, def_idx).length() == 1,
@@ -16736,7 +17825,7 @@ test "dae-optimizing rejects a conflicting forwarded-parameter cycle transaction
 }
 
 ///|
-test "dae-optimizing rejects a written forwarded-parameter cycle transaction" {
+test "dae-optimizing matches Binaryen's one-wave written forwarding cleanup" {
   let source =
     #|(module
     #|  (func (export "run") (result i32)
@@ -16753,7 +17842,7 @@ test "dae-optimizing rejects a written forwarded-parameter cycle transaction" {
     #|    call $a))
   let optimized = dae_test_run(source)
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
-  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
 }
 
 ///|

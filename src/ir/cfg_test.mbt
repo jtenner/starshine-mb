@@ -143,6 +143,25 @@ fn cfg_test_drop_result_if_fixture() -> (HotFunc, NodeId, NodeId) {
 }
 
 ///|
+test "cfg build can omit conservative try-table entry exception edges" {
+  let func = cfg_test_try_table_fixture()
+  let cfg = cfg_build(func, conservative_exception_entries=false)
+  let block_id = hot_root_get(func, 0)
+  let block_body = hot_region_body_ref(func, block_id)
+  let try_table_id = hot_region_get(func, block_body, 0)
+  let try_table_block = cfg_block_for_node(cfg, try_table_id).unwrap()
+  let body_block = cfg_block_for_region_root(
+    cfg,
+    hot_region_body_ref(func, try_table_id),
+    0,
+  ).unwrap()
+
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, try_table_block)), [
+    "{kind: FallthroughEdge, block: \{body_block}}",
+  ])
+}
+
+///|
 test "cfg build maps drop operand result-if arms to join continuation" {
   let (func, drop, result_if) = cfg_test_drop_result_if_fixture()
   let operand_id = hot_child_get(func, drop, 0)

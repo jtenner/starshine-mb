@@ -2,8 +2,10 @@
 kind: entity
 status: strong
 starshine_status: active
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
+  - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
+  - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
@@ -58,6 +60,8 @@ That is narrower than “merge any locals that look unused.”
 
 ## Current durable takeaways
 
+- The 2026-07-19 DAEO follow-up rejected generic loop-aware dense coloring. Early candidates passed Starshine validation but failed external definite initialization (`uninitialized local: 2`); a nondefaultable-local barrier made the standalone pass valid and `42,505` bytes smaller, but integrated DAEO became `+432` raw / `+806` canonical larger than the accepted artifact, increased canonical gross-positive bodies by `916` bytes, and added about `794.501s` pass-local time. The widening was reverted. Future loop coloring needs exact initialization state, per-family profitability, and bounded scheduling rather than a module-wide generic replay.
+- The 2026-07-18 DAEO Func-`41` audit exposed and reduced an exact structured terminal-dead-write family. For a void block ending in `unreachable`, `coalesce-locals` may flatten the block only when no `br`, `br_if`, `br_table`, or GC branch targets its label; the never-read local write becomes `drop`, and only the newly exposed terminal suffix is truncated. The focused 625-byte reducer now matches Binaryen v130 byte-for-byte. Non-`unreachable` terminal blocks and branch-targeted blocks remain unchanged. Fresh dedicated `coalesce-locals-all` and regular GenValid count-1000 smokes each normalize `1000/1000` with zero failures. See research note [`1650`](../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md).
 - Starshine's current direct-pass validation is green on focused tests, CLI coverage, full `moon test`, the refreshed 2026-07-04 regular GenValid direct parity lane after structured-scalar slot-order cleanup (`.tmp/pass-fuzz-coalesce-locals-genvalid-100000-structured-scalar-order-final-20260704`: `100000/100000` normalized), the dedicated `coalesce-locals-all` profile lane (`.tmp/pass-fuzz-coalesce-locals-profile-10000-structured-scalar-order-final-20260704`: `10000/10000` normalized, zero failures), the required `random-all-profiles` lane (`.tmp/pass-fuzz-coalesce-locals-random-all-profiles-10000-structured-scalar-order-final-20260704`: `10000/10000` normalized, zero failures), the explicit wasm-smith lane with the documented `unreachable-control-debris` normalizer (`9956/10000` compared, `9955` normalized, `1` compare-normalized, `0` mismatches), the preceding loop adjacent/unread-local lanes, the effective-copy weighting / copy-connected coloring lane, the prior structured-liveness lane, the path-disjoint branch-result lane, the source-write/destination-read guard lane, the destination-read guard lane, the earlier dense-guard lane, the older 2026-05-08 mixed-generator direct parity lane, earlier 10k `gen-valid` Binaryen compare, mixed-generator comparable cases, and compatible Binaryen 128 self-opt artifact compare on both rebuilt debug and optimized WASI artifacts.
 - The exact `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` and `reorder-locals -> coalesce-locals -> reorder-locals` neighborhoods are now both regression-covered in `src/passes/coalesce_locals_test.mbt`.
 - The debug-artifact `reorder-locals -> coalesce-locals -> reorder-locals` replay at `.tmp/self-opt-cl-reorder-sandwich-20260508` is green on normalized WAT and canonical-function equality.

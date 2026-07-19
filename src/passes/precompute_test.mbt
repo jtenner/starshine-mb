@@ -106,6 +106,68 @@ test "precompute folds exact i32 constant arithmetic" {
 }
 
 ///|
+test "precompute folds ref.is_null of an exact ref.null" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) ref.null none ref.is_null))",
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref-null precompute success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("ref.is_null"), msg=pretty)
+  assert_false(pretty.contains("ref.null"), msg=pretty)
+}
+
+///|
+test "precompute folds typed ref.is_null after DAE local compaction" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (func (result i32) (local (ref null $box))
+    #|    ref.null $box
+    #|    ref.is_null))
+  let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed ref-null precompute success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("ref.is_null"), msg=pretty)
+}
+
+///|
+test "precompute hot path folds typed ref.is_null of ref.null" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (func (result i32)
+    #|    ref.null $box
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  let ctx = HotPassContext::new(
+    precompute_propagate_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let result = precompute_propagate_run(ctx, func)
+  assert_true(result.changed)
+  @ir.hot_verify_all_or_abort(func)
+  let pretty = mod_
+    .with_code_sec(@lib.CodeSec::new([@ir.hot_lower_func(func)]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("ref.is_null"), msg=pretty)
+}
+
+///|
 test "precompute folds chained exact constants in one pass" {
   let optimized = match
     pass_test_run_pipeline(

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
+  - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
+  - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -36,6 +38,8 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 ## The honest current status
 
 `coalesce-locals` is now an active Starshine module pass with owner file [`../../../../../src/passes/coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt).
+
+The 2026-07-18 DAEO Func-`41` audit adds one exact structured cleanup family: after branch-aware dead-write rewriting, a void block whose direct tail is `unreachable` may be flattened only when no nested or direct branch targets that block label. Dead tails are truncated only when such a flatten actually occurs. The reduced 625-byte fixture now matches Binaryen v130 byte-for-byte without changing branch-targeted or non-`unreachable` terminal blocks.
 
 The current local strategy is direct-pass parity plus exact-slot proof:
 
@@ -153,6 +157,8 @@ Upstream Binaryen expects other passes to expose the right shapes first:
 
 Current Starshine now has the declaration/index rewrite neighbor (`reorder-locals`), the type-tightening neighbor (`local-subtyping`), the downstream cleanup neighbors (`local-cse` and `simplify-locals`), and older focused proof for both exact `coalesce-locals` neighborhoods.
 The refreshed startup-map GC/local prefix replay no longer shows a size-losing CL-owned local-slot drift after the structured `local.tee` cleanup, branch-aware effective-write hardening, effective-copy/copy-connected coloring, loop unread-local scratch, loop adjacent/non-adjacent copy-through improvements, narrow concrete-ref direct-struct-get packing, preferred-first GC-ref ordering, and structured-scalar slot-order preference. The checked drift is now a Starshine raw/code-body size win (`-20` raw bytes at `+ coalesce-locals`, `-18` at `+ local-cse`); per-function splitting still shows first textual diff `defined=3` as locally Starshine-smaller and loop-heavy function 18 as a smaller local residual (`+20` code-body bytes). Direct pass closeout is now green across regular GenValid 100k, dedicated `coalesce-locals-all` 10k, random all-profiles 10k, and cleanup-normalized wasm-smith 10k. Broader preset widening still needs a dedicated preset-scheduling slice with exact ordering tests and artifact evidence, but no active direct CL random-all mismatch family remains: immediate tee/drop debris, nested nonlocal block-escape live-write handling, sampled label-aware `return` / branch-to-block-continuation liveness, sampled top-level tail param reuse after ineffective dead writes, and structured-scalar slot-order drift are fixed for the sampled `ssa-nomerge-smoke` family, and the sampled `heap2local-struct` subfamily is replay-green.
+
+The July 19 DAEO loop-coloring experiment confirms that the current exact loop subsets are still the correct production boundary. Generic loop-aware coloring first admitted externally invalid definite-initialization shapes; after a nondefaultable-local barrier made the standalone output valid, integrated DAEO still regressed raw size by `432` bytes, canonical size by `806`, canonical gross-positive bodies by `916`, and pass time by about `794.501s`. That widening was reverted. A future expansion must carry exact initialization state and be selected by measured per-function profitability instead of replaying dense coloring across the broad changed-boundary batch.
 
 ## The right future Starshine implementation shape
 

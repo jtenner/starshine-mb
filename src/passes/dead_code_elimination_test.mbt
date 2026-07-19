@@ -714,7 +714,7 @@ test "dead-code-elimination keeps value roots that feed later roots in void regi
 test "dead-code-elimination keeps typed branch wrappers with label-targeted payload branches" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (param i32) (result i32) (local i32) block (result i32) block local.get 0 if i32.const 1 local.set 1 br 1 end i32.const 0 br 1 end end drop local.get 1))",
+      "(module (func (param i32) (result i32) (local i32) block (result i32) block local.get 0 if i32.const 1 local.set 1 br 1 end i32.const 0 br 1 end local.get 1 end drop local.get 1))",
       ["dead-code-elimination"],
     ) {
     Ok(mod_) => mod_
@@ -1321,7 +1321,7 @@ test "dead-code-elimination folds nonfallthrough prefix blocks into branch paylo
 ///|
 test "dead-code-elimination retargets stacked payload blocks to the inner result block" {
   let mod_ = pass_test_module_from_wat(
-    "(module (func (param i32) (result i32) (local i32) (block $outer (result i32) (block $exit (br $outer (block $inner (result i32) (block $cont (br $inner (if (result i32) (local.get 0) (then (i32.const 1) (local.set 1) (br $cont)) (else (br $exit)))))))) (i32.const 9))))",
+    "(module (func (param i32) (result i32) (local i32) (block $outer (result i32) (block $exit (br $outer (block $inner (result i32) (block $cont (br $inner (if (result i32) (local.get 0) (then (i32.const 1) (local.set 1) (br $cont)) (else (br $exit))))) (local.get 1)))) (i32.const 9))))",
   )
   let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
   let ctx = HotPassContext::new(
@@ -1361,7 +1361,7 @@ test "dead-code-elimination retargets stacked payload blocks to the inner result
 ///|
 test "dead-code-elimination preserves explicit unreachable in branchy carried result blocks" {
   let mod_ = pass_test_module_from_wat(
-    "(module (func (param i32) (result i32) (local i32 i32) (block $block2 (result i32) (block $block1 (br $block2 (block (result i32) (block $block (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block)) (else (local.set 2 (i32.const 9)) (br $block1))) unreachable) (local.get 1)))))))",
+    "(module (func (param i32) (result i32) (local i32 i32) (block $block2 (result i32) (block $block1 (br $block2 (block (result i32) (block $block (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block)) (else (local.set 2 (i32.const 9)) (br $block1))) unreachable) (local.get 1)))) (local.get 2))))",
   )
   let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
   let ctx = HotPassContext::new(
@@ -1445,7 +1445,7 @@ test "dead-code-elimination preserves outer wrapper payload forwarders in local.
 ///|
 test "dead-code-elimination rewrites split local.set wrapper forwarders" {
   let mod_ = pass_test_module_from_wat(
-    "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $outer (result i32) (block $exit (block $mid (result i32) (block $cont (local.get 0) (if (result i32) (local.get 1) (then (i32.const 1) (br $cont)) (else (i32.const 2))) (br $mid)) (local.get 0)) (br $outer (block $inner (result i32) (block $carry (br $inner (if (result i32) (local.get 1) (then (local.get 0) (br $carry)) (else (local.get 0)))))))) (local.get 2))) (local.get 2)))",
+    "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $outer (result i32) (block $exit (block $mid (result i32) (block $cont (local.get 0) (if (result i32) (local.get 1) (then (i32.const 1) (br $cont)) (else (i32.const 2))) (br $mid)) (local.get 0)) (br $outer (block $inner (result i32) (block $carry (br $inner (if (result i32) (local.get 1) (then (local.get 0) (br $carry)) (else (local.get 0))))) (local.get 0)))) (local.get 2))) (local.get 2)))",
   )
   let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
   let ctx = HotPassContext::new(

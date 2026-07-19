@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ./index.md
   - ../late-pipeline-dispatch.md
@@ -38,6 +39,7 @@ Starshine currently implements a focused HOT-IR `precompute` pass covering:
 - exact integer and floating unary/binary/comparison folds, including safe nontrapping integer division/remainder and rotates
 - raw stack-level shortcuts for no-candidate functions, nested nop-only control, adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result `block`s with no branch to the rewritten label, and preserved effectful/trapping dropped tails with no remaining precompute candidates, so they can skip HOT lift/lower safely while label-relative branchy arm picks and still-unsupported pure drop cleanup stay on the HOT path
 - exact integer and floating comparisons lowered to i32 boolean constants
+- exact `ref.is_null(ref.null ...) -> i32.const 1` folding in both the raw stack evaluator and HOT IR
 - immutable scalar-or-null `global.get` replacement
 - constant-`if` arm picking and supported parent folding through `select`
 - fresh GC/null identity, exact fresh-allocation `ref.test`, and immutable fresh-struct field reads
@@ -103,6 +105,10 @@ The core rewrite helpers also live in [`src/passes/precompute.mbt`](../../../../
 - `precompute_try_fold_global_get(...)`
   - rewrites immutable defined `global.get` to literal consts or `ref.null`
   - deliberately rejects `StringConst`, which keeps the local string gap explicit
+- `precompute_try_fold_ref_is_null(...)`
+  - rewrites exact HOT `RefIsNull(RefNull)` to `i32.const 1`
+  - also keeps the broader current exact/fresh non-null identity cases in the shared evaluator
+  - is mirrored by `precompute_raw_try_fold_unary(...)` for the stack-level exact-null form
 - `precompute_try_fold_unary(...)`
   - covers integer `eqz`, count/bit unary operations, floating unary operations, supported conversions/reinterpretations, sign extensions, and saturating truncations when represented by exact constants
 - `precompute_try_fold_binary(...)`
@@ -175,6 +181,7 @@ Each HOT round currently does:
    - `precompute_try_fold_global_get(...)`
    - `precompute_try_eliminate_dead_drop(...)`
    - `precompute_try_fold_constant_if(...)`
+   - `precompute_try_fold_ref_is_null(...)`
    - `precompute_try_fold_unary(...)`
    - `precompute_try_fold_binary(...)`
 3. `precompute_trim_region_nops(...)`
@@ -224,6 +231,9 @@ Important focused tests include:
 - `precompute folds exact i32 constant arithmetic`
 - `precompute folds chained exact constants in one pass`
 - `precompute folds exact i64 unsigned comparisons to i32 constants`
+- `precompute folds ref.is_null of an exact ref.null`
+- `precompute folds typed ref.is_null after DAE local compaction`
+- `precompute hot path folds typed ref.is_null of ref.null`
 - `precompute preserves trapping exact operators it does not fold`
 - `precompute folds constant false void ifs away`
 - `precompute folds constant true result ifs to the chosen arm`
@@ -286,6 +296,7 @@ Current Starshine `precompute` implements:
 - exact i32/i64 unary and binary scalar folds
 - conservative raw stack-level no-candidate, nested nop-only, scalar-fold, select-drop, and dropped-result-block shortcuts for safe no-HOT-lift cases, including preserved effectful/trapping dropped tails once raw folding has no remaining safe candidate
 - exact integer comparison folding to i32 booleans
+- exact null-test folding for `ref.is_null(ref.null ...)`
 - immutable defined-global folding for scalar and `ref.null` payloads
 - direct constant-`if` picking
 - dead pure-`drop` cleanup

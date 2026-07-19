@@ -210,6 +210,17 @@ fn cl_instrs_end_in_nonlocal_escape(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn cl_instrs_end_in_unreachable(instrs : Array[@lib.Instruction]) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
 fn cl_instr_escapes_following_sibling(instr : @lib.Instruction) -> Bool {
   if cl_instr_is_terminal(instr) {
     return true
@@ -815,8 +826,18 @@ fn cl_rewrite_func_structured_conservative(
     rewrite_liveness.effective,
     [0],
   )
+  let flattened_terminal_blocks = cl_flatten_terminal_unbranched_void_blocks(
+    rewritten_instrs,
+  )
+  let dead_tail_changed = if flattened_terminal_blocks {
+    cl_truncate_dead_tails(rewritten_instrs)
+  } else {
+    false
+  }
   let cleanup_changed = cl_remove_redundant_copy_pairs(rewritten_instrs)
   let changed = cleanup_changed ||
+    flattened_terminal_blocks ||
+    dead_tail_changed ||
     rewritten_instrs != original_instrs ||
     !cl_old_to_new_is_identity(coloring.old_to_new) ||
     rewritten_locals != body_locals
@@ -2823,6 +2844,121 @@ fn cl_rewrite_instrs_in_place(
       reachable = false
     }
   }
+}
+
+///|
+fn cl_instrs_reference_enclosing_label(
+  instrs : Array[@lib.Instruction],
+  depth : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(label_idx)
+      | @lib.BrIf(label_idx)
+      | @lib.BrOnNull(label_idx)
+      | @lib.BrOnNonNull(label_idx) =>
+        if cl_label_idx_raw(label_idx) == depth {
+          return true
+        }
+      @lib.BrOnCast(label_idx, _, _, _)
+      | @lib.BrOnCastFail(label_idx, _, _, _) =>
+        if cl_label_idx_raw(label_idx) == depth {
+          return true
+        }
+      @lib.BrTable(labels, default_label) => {
+        if cl_label_idx_raw(default_label) == depth {
+          return true
+        }
+        for label in labels {
+          if cl_label_idx_raw(label) == depth {
+            return true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_reference_enclosing_label(body, depth + 1) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_reference_enclosing_label(then_body, depth + 1) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_instrs_reference_enclosing_label(body, depth + 1) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_flatten_terminal_unbranched_void_blocks(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    let mut rewritten = instr
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        if cl_flatten_terminal_unbranched_void_blocks(body) {
+          changed = true
+        }
+        if block_type == @lib.BlockType::void_() &&
+          cl_instrs_end_in_unreachable(body) &&
+          !cl_instrs_reference_enclosing_label(body, 0) {
+          out.append(body)
+          changed = true
+          continue
+        }
+        rewritten = @lib.Instruction::block(block_type, @lib.Expr::new(body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        if cl_flatten_terminal_unbranched_void_blocks(body) {
+          changed = true
+        }
+        rewritten = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        if cl_flatten_terminal_unbranched_void_blocks(then_body) {
+          changed = true
+        }
+        match else_body {
+          Some(body) =>
+            if cl_flatten_terminal_unbranched_void_blocks(body) {
+              changed = true
+            }
+          None => ()
+        }
+        rewritten = @lib.Instruction::if_(block_type, then_body, else_body)
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        if cl_flatten_terminal_unbranched_void_blocks(body) {
+          changed = true
+        }
+        rewritten = @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(body),
+        )
+      }
+      _ => ()
+    }
+    out.push(rewritten)
+  }
+  if changed {
+    instrs.clear()
+    instrs.append(out)
+  }
+  changed
 }
 
 ///|

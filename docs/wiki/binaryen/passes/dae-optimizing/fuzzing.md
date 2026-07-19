@@ -1,8 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-19
 sources:
+  - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
+  - ../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md
+  - ../../../raw/research/1652-2026-07-19-dae-incoming-liveness-written-constants-and-bottom-results.md
+  - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
+  - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - ../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md
   - ../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md
   - ../../../raw/research/1641-2026-07-17-daeo-func8184-null-guard-and-call-argument.md
@@ -81,7 +86,29 @@ sources:
 
 ## Dedicated profile
 
-The pass-owned GenValid profile is `dae-optimizing`; `dae-optimizing-closeout` is an alias. It emits a deterministic five-function private-helper/direct-caller module where core DAE removes an unused helper parameter and leaves identity-add debris for the touched-function optimizing replay.
+The pass-owned GenValid aggregate is `dae-optimizing`. The aliases `dae-optimizing-closeout`, `dae-optimizing-all`, and `dae-optimizing-all-profiles` select the same aggregate.
+
+The aggregate has 15 weighted leaves:
+
+| leaf | generated ownership surface |
+|---|---|
+| `dae-optimizing-core` | private helper boundary rewrite plus ordinary touched-function cleanup |
+| `dae-optimizing-many-touched` | more than eight independently changed functions |
+| `dae-optimizing-medium-module` | modules above the old 100-function cleanup guard |
+| `dae-optimizing-large-locals` | changed functions above the old 128-local guard |
+| `dae-optimizing-touched-caller` | material callers whose callsite changes without a signature change |
+| `dae-optimizing-forwarded-suffix` | stack-carried older arguments plus an exact final constant suffix |
+| `dae-optimizing-result-control` | removed results followed by structured branch cleanup |
+| `dae-optimizing-structured-locals` | copy, sequential coloring, loop copy, branch result, `if` result, tee chain, and nested-block local cleanup |
+| `dae-optimizing-return-cleanup` | dead suffixes after an explicit return |
+| `dae-optimizing-immutable-field` | immutable global struct-field folding, null exposure, and downstream callee specialization |
+| `dae-optimizing-computed-effects` | pure computed actuals plus effectful/trapping replay through `global.set`, `memory.grow`, and loads |
+| `dae-optimizing-table-effects` | `table.grow` effects and `table.get` bounds traps |
+| `dae-optimizing-gc-computed` | `struct.new`, `array.new`, `array.new_default`, and `array.new_fixed` actuals |
+| `dae-optimizing-tail-boundary` | direct tail-call bailout behavior |
+| `dae-optimizing-type-reuse` | compacted function-signature reuse and conservative mixed type-section repair |
+
+The structured-local and GC-constructor subcases derive their selector from an independent GenValid stream seed rather than raw `seed % n`; this keeps aggregate coverage deterministic without correlating subcases with aggregate member selection. The manifest records both `selected_profile` and a stable `profile_case_label`, and focused tests require every leaf and every structured/GC subcase to appear in a bounded aggregate sample.
 
 Use the DAE cleanup normalizers on all generated DAEO lanes:
 
@@ -110,7 +137,34 @@ For each lane report requested/compared counts, normalized and cleanup-normalize
 
 ## Fresh current evidence
 
-Research note [`1645`](../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md) is the authoritative current four-lane closeout. A freshly relinked explicit native binary at SHA-256 `3180bb10194a19fff1c939beee4d6d2b20f1f830aee0be34fa7e37e1097f55fa` and explicit Binaryen v130 produce: regular `.tmp/pass-fuzz-daeo-closeout-regular-100000-v130-20260717` `100000/100000` normalized; dedicated `.tmp/pass-fuzz-daeo-closeout-dedicated-10000-v130-20260717` `10000/10000` normalized; wasm-smith `.tmp/pass-fuzz-daeo-closeout-wasm-smith-10000-v130-20260717` `9955` normalized plus `1` cleanup-normalized out of `9956`, with only the unchanged `44` Binaryen/oracle failures; random-all `.tmp/pass-fuzz-daeo-closeout-random-all-10000-v130-20260717` `9633` normalized plus the exact same `367` note-`1627` measured/source-backed cleanup wins. The `367` failure-directory names and all `3670` files are byte-identical to the prior reviewed corpus, with aggregate Starshine deltas `-110224` raw / `-797486` canonical / `-5465849` WAT and no canonical/WAT-positive case. All lanes use both DAE cleanup normalizers, `--jobs auto`, the explicit native binary, and the default persistent cache. There are no unknown/risky, generated size-losing, Starshine-validation, or true-semantic residuals. Direct generated closeout is current; public optimize/shrink/O4z artifact blockers remain separate.
+Research note [`1654`](../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md) adds a focused Binaryen-v131 exact regression for active uniform actual `7` plus inactive conflicting actual `8`; both tools remove the parameter and emit the same `call; unreachable` shape. Direct Starshine execution over the first `128` targeted inputs completes without command stderr or per-case timeout. Two outer-time-limited compare attempts stopped at `95` compared cases with `72` matches, `23` prior-family differences, and zero reported failures; those partial runs are diagnostic and do not replace the complete lane below.
+
+Research note [`1653`](../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md) is the current complete targeted Binaryen-v131 checkpoint. It adds unified stable callsite/function facts, repairs direct tail-callee ownership, extends incoming-value liveness through restricted call-free `try_table` exceptional edges, and batches touched HOT candidate-context validation with independent invalid-function rollback. The current lane is `.tmp/pass-fuzz-daeo-unified-tail-eh-filtered-v131-1024-20260719`:
+
+- requested/compared: `1024/1024` at seed `0x5eed`;
+- exact normalized matches: `823`;
+- cleanup-normalized matches: `0`;
+- remaining normalized differences: `201`;
+- validation/generator/property/command failures: `0/0/0/0`;
+- Binaryen cache hits/misses: `1024/0`;
+- all 15 leaves, all seven structured-local subcases, and all four GC-constructor subcases were emitted.
+
+Relative to note `1652`, the direct-tail repair converts `128` mismatches to exact matches with zero regression. The harness itself does not classify the `201` residuals. Saved-artifact inspection identifies exactly three measured Starshine-win families:
+
+| family | count | raw delta | canonical delta |
+|---|---:|---:|---:|
+| computed effects | 83 | `-1826` | `-830` |
+| table effects | 58 | `-464` | `-464` |
+| touched caller cleanup | 60 | `-830` | `-830` |
+| total | 201 | `-3120` | `-2124` |
+
+Every residual is smaller for Starshine. Computed/table cases preserve each effectful or trapping removed actual in source order while deleting the unused boundary parameter; touched-caller cases delete only proved dead local-copy traffic. Forwarded-suffix and immutable-field residuals now match Binaryen exactly. This is targeted generated parity-or-better evidence, not final pass closeout.
+
+The current fixed artifact is renewed separately in note `1653`: canonical gross-positive bodies are `2924 / +56531`, while first-invocation wall time falls from about `1241s` to `568.782s`. The output remains valid and byte-idempotent, but second-invocation convergence is `40.624s`, the canonical-remap ledger needs renewal, and all gross-positive bodies remain open. The required regular `100000`, dedicated `10000`, wasm-smith `10000`, and random-all `10000` matrix is still due. Plain `dae` / `dae2` requires separate Binaryen-v131 renewal.
+
+Research note [`1652`](../../../raw/research/1652-2026-07-19-dae-incoming-liveness-written-constants-and-bottom-results.md) remains the preceding source slice. Its accepted `.tmp/pass-fuzz-daeo-hot-liveness-unprofitable-v4-v131-1024-20260719` result was `695/329` with zero failures. Two rejected coarse throttle experiments produced `658/366`; unrestricted optimizing HOT liveness exposed the same 37-case regression, led by case `63`, and remains narrowed to written params. Plain DAE's accepted correct-profile smoke remains `.tmp/pass-fuzz-dae-hot-liveness-unprofitable-v131-1024-correct-20260719` at `512/512` with zero failures. The later `.tmp/pass-fuzz-dae-unified-tail-eh-v131-1024-20260719` attempt has `128` Binaryen command failures and is not accepted renewal evidence.
+
+Research note [`1645`](../../../raw/research/1645-2026-07-17-daeo-final-direct-closeout-matrix.md) is the authoritative prior four-lane closeout. A freshly relinked explicit native binary at SHA-256 `3180bb10194a19fff1c939beee4d6d2b20f1f830aee0be34fa7e37e1097f55fa` and explicit Binaryen v130 produce: regular `.tmp/pass-fuzz-daeo-closeout-regular-100000-v130-20260717` `100000/100000` normalized; dedicated `.tmp/pass-fuzz-daeo-closeout-dedicated-10000-v130-20260717` `10000/10000` normalized; wasm-smith `.tmp/pass-fuzz-daeo-closeout-wasm-smith-10000-v130-20260717` `9955` normalized plus `1` cleanup-normalized out of `9956`, with only the unchanged `44` Binaryen/oracle failures; random-all `.tmp/pass-fuzz-daeo-closeout-random-all-10000-v130-20260717` `9633` normalized plus the exact same `367` note-`1627` measured/source-backed cleanup wins. The `367` failure-directory names and all `3670` files are byte-identical to the prior reviewed corpus, with aggregate Starshine deltas `-110224` raw / `-797486` canonical / `-5465849` WAT and no canonical/WAT-positive case. All lanes use both DAE cleanup normalizers, `--jobs auto`, the explicit native binary, and the default persistent cache. There are no unknown/risky, generated size-losing, Starshine-validation, or true-semantic residuals. Direct generated closeout is current; public optimize/shrink/O4z artifact blockers remain separate.
 
 Research note [`1642`](../../../raw/research/1642-2026-07-17-daeo-func8185-immutable-field-delay.md) records the focused immutable-field-delay smokes with explicit native SHA-256 `20a36db6f8b546a1571533dd134cbc2bed244b5aebb4b8323f63e6967db5dcc5`: dedicated `.tmp/pass-fuzz-dae-optimizing-field6-final-profile-1000` and regular `.tmp/pass-fuzz-dae-optimizing-field6-final-regular-1000` each compare and normalize `1000/1000`, with zero cleanup-normalized matches, mismatches, validation/generator/property/command failures and Binaryen cache `1000/0`. Both use seed `0x5eed`, Binaryen v130, `--jobs auto`, the explicit native binary, and both DAE cleanup normalizers. These focused smokes accompany valid byte-identical first/second artifact outputs, canonical Func `8185` body `2462` matching the direct no-structure/vacuum probe, and a canonical-module gap of `+1498`; they do not replace the required four-lane closeout matrix.
 

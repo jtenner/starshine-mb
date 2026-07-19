@@ -3554,22 +3554,28 @@ fn emit_gen_valid_batch_profile_case_label(
   match gen_valid_code_folding_profile_case_label(leaf_profile, seed) {
     Some(label) => Some(label)
     None =>
-      match gen_valid_merge_locals_profile_case_label(leaf_profile, seed) {
+      match gen_valid_dae_optimizing_profile_case_label(leaf_profile, seed) {
         Some(label) => Some(label)
         None =>
-          match
-            gen_valid_tuple_optimization_trigger_profile_case_label(
-              leaf_profile, seed,
-            ) {
+          match gen_valid_merge_locals_profile_case_label(leaf_profile, seed) {
             Some(label) => Some(label)
             None =>
               match
-                gen_valid_inlining_optimizing_profile_case_label(
+                gen_valid_tuple_optimization_trigger_profile_case_label(
                   leaf_profile, seed,
                 ) {
                 Some(label) => Some(label)
                 None =>
-                  gen_valid_oi_trigger_profile_case_label(leaf_profile, seed)
+                  match
+                    gen_valid_inlining_optimizing_profile_case_label(
+                      leaf_profile, seed,
+                    ) {
+                    Some(label) => Some(label)
+                    None =>
+                      gen_valid_oi_trigger_profile_case_label(
+                        leaf_profile, seed,
+                      )
+                  }
               }
           }
       }

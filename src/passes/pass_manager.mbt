@@ -54227,43 +54227,10 @@ fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
 fn run_hot_pipeline_simplify_locals_lowered_instr_stops_following_body_instrs(
   instr : @lib.Instruction,
 ) -> Bool {
-  match instr {
-    @lib.Br(_)
-    | @lib.BrTable(_, _)
-    | @lib.Return
-    | @lib.Throw(_)
-    | @lib.ThrowRef
-    | @lib.Unreachable => true
-    @lib.Block(@lib.VoidBlockType, _) => false
-    @lib.Block(_, @lib.Expr(body)) =>
-      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(body)
-    @lib.Loop(@lib.VoidBlockType, _) => false
-    @lib.Loop(_, @lib.Expr(body)) =>
-      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(body)
-    @lib.If(@lib.VoidBlockType, _, _) => false
-    @lib.If(_, then_, Some(else_)) =>
-      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(then_) &&
-      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(else_)
-    _ => false
-  }
-}
-
-///|
-fn run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(
-  body : Array[@lib.Instruction],
-) -> Bool {
-  if body.length() == 0 {
-    return false
-  }
-  match body[body.length() - 1] {
-    @lib.Br(_)
-    | @lib.BrTable(_, _)
-    | @lib.Return
-    | @lib.Throw(_)
-    | @lib.ThrowRef
-    | @lib.Unreachable => true
-    _ => false
-  }
+  // A typed block can reach its following sibling through a nested branch to
+  // the block's own label even when its lexical tail escapes. Reuse the shared
+  // branch-depth-aware fallthrough proof instead of inspecting only the tail.
+  !run_hot_pipeline_dce_raw_instr_may_fallthrough(instr)
 }
 
 ///|
@@ -58938,6 +58905,48 @@ fn run_hot_pipeline_dce_nonvalidation_skip_invalid_lower_reason(
 }
 
 ///|
+fn run_hot_pipeline_touched_nonvalidation_skip_invalid_lower_reason(
+  descriptor_name : String,
+  result : HotPipelineFuncResult,
+) -> String? {
+  if result.unchanged_original {
+    return None
+  }
+  if descriptor_name == "precompute" ||
+    descriptor_name == "precompute-propagate" {
+    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+        result.func,
+      ) {
+      return Some("invalid-escape-carrier")
+    }
+    return None
+  }
+  if descriptor_name == "dead-code-elimination" {
+    return run_hot_pipeline_dce_nonvalidation_skip_invalid_lower_reason(result)
+  }
+  if descriptor_name == "simplify-locals" ||
+    descriptor_name == "simplify-locals-nostructure" ||
+    descriptor_name == "simplify-locals-no-structure" ||
+    descriptor_name == "simplify-locals-notee-nostructure" {
+    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+        result.func,
+      ) {
+      return Some("invalid-escape-carrier")
+    }
+    if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(result.func) {
+      return Some("suspicious-escape-carrier")
+    }
+    return None
+  }
+  if descriptor_name == "ssa-nomerge" {
+    return run_hot_pipeline_ssa_nomerge_nonvalidation_skip_invalid_lower_reason(
+      result,
+    )
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_skip_invalid_lower_reason(
   current_mod : @lib.Module,
   validation_mod : @lib.Module,
@@ -59498,6 +59507,9 @@ fn run_hot_pipeline_simplify_locals_should_skip_module_count(
   defined_function_count : Int,
 ) -> Bool {
   defined_function_count >= 2048
+}
+
+///|
 fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
   original_mod : @lib.Module,
   candidate_mod : @lib.Module,
@@ -59566,6 +59578,91 @@ fn run_hot_pipeline_ssa_nomerge_repair_batch_writeback(
         pipeline_trace_hook(
           options.trace,
           "ssa-nomerge",
+          "skip-invalid-lower",
+          payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
+        )
+      }
+      Some(candidate_mod.with_code_sec(@lib.CodeSec::new(repaired_defs)))
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_repair_touched_batch_writeback(
+  original_mod : @lib.Module,
+  candidate_mod : @lib.Module,
+  touched : Array[Bool],
+  descriptor_name : String,
+  options : HotPipelineOptions,
+) -> @lib.Module? {
+  let imported_func_count = run_hot_pipeline_imported_func_count(original_mod)
+  match (original_mod.code_sec, candidate_mod.code_sec) {
+    (Some(@lib.CodeSec(original_defs)), Some(@lib.CodeSec(candidate_defs))) => {
+      if original_defs.length() != candidate_defs.length() {
+        return None
+      }
+      let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
+      for code_idx = 0
+          code_idx < candidate_defs.length()
+          code_idx = code_idx + 1 {
+        if code_idx < touched.length() &&
+          touched[code_idx] &&
+          candidate_defs[code_idx] != original_defs[code_idx] {
+          changed_funcs.push(
+            (
+              @lib.FuncIdx::new(
+                (imported_func_count + code_idx).reinterpret_as_uint(),
+              ),
+              candidate_defs[code_idx],
+            ),
+          )
+        }
+      }
+      if changed_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      let invalid_funcs = match
+        @validate.validate_defined_funcs_against_module(
+          candidate_mod, changed_funcs,
+        ) {
+        Ok(errors) => errors
+        Err(err) => {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor_name,
+            "writeback-batch-invalid",
+            payload="err=\{err}",
+          )
+          return None
+        }
+      }
+      if invalid_funcs.length() == 0 {
+        return Some(candidate_mod)
+      }
+      pipeline_trace_hook(
+        options.trace,
+        descriptor_name,
+        "writeback-batch-invalid",
+        payload="changed=\{changed_funcs.length()} invalid=\{invalid_funcs.length()}",
+      )
+      let repaired_defs = candidate_defs.copy()
+      for item in invalid_funcs {
+        let (func_idx, err) = item
+        let @lib.FuncIdx(raw_func_idx) = func_idx
+        let code_idx = raw_func_idx.reinterpret_as_int() - imported_func_count
+        if code_idx < 0 ||
+          code_idx >= repaired_defs.length() ||
+          code_idx >= original_defs.length() ||
+          code_idx >= touched.length() ||
+          !touched[code_idx] ||
+          repaired_defs[code_idx] == original_defs[code_idx] {
+          return None
+        }
+        repaired_defs[code_idx] = original_defs[code_idx]
+        pipeline_trace_hook(
+          options.trace,
+          descriptor_name,
           "skip-invalid-lower",
           payload="func=\{func_idx} reason=writeback-batch-validate:\{err}",
         )
@@ -60433,6 +60530,220 @@ fn run_hot_pipeline_apply_hot_pass_stack(
 }
 
 ///|
+fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
+  mod_ : @lib.Module,
+  requested_descriptors : Array[@ir.HotPassDescriptor],
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  if requested_descriptors.length() == 0 {
+    return Ok(mod_)
+  }
+  let descriptors : Array[@ir.HotPassDescriptor] = []
+  for descriptor in requested_descriptors {
+    if descriptor.name == "pick-load-signs" &&
+      !run_hot_pipeline_module_has_memory(mod_) {
+      pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
+    } else {
+      descriptors.push(descriptor)
+    }
+  }
+  if descriptors.length() == 0 {
+    return Ok(mod_)
+  }
+  let module_state = HotPipelineModuleState::new()
+  let mut current_mod = mod_
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let mut lowered : Array[@lib.Func]? = None
+      for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
+        if code_idx >= touched.length() || !touched[code_idx] {
+          continue
+        }
+        let func_idx = @lib.FuncIdx::new(
+          (imported_func_count + code_idx).reinterpret_as_uint(),
+        )
+        let module_ctx = run_hot_pipeline_require_module_ctx(
+          current_mod, module_state, options,
+        )
+        let lift_start_us = perf_start_timer_opt(options.perf, "lift")
+        let func = match
+          @ir.hot_lift_func_with_context_result(
+            current_mod, func_idx, module_ctx,
+          ) {
+          Ok(func) => func
+          Err(err) => {
+            pipeline_trace_hook(
+              options.trace,
+              "filtered-hot-stack",
+              "lift-error",
+              payload="func_idx=\{func_idx} err=\{err}",
+            )
+            if options.validate_final_module {
+              return Err("func[\{func_idx}]: lift: \{err}")
+            }
+            continue
+          }
+        }
+        perf_stop_timer_opt(options.perf, "lift", lift_start_us)
+        let lifted_revision = @ir.hot_revision_current(func)
+        let cache = @ir.HotAnalysisCache::new()
+        let mut last_descriptor : @ir.HotPassDescriptor? = None
+        for descriptor in descriptors {
+          if run_hot_pipeline_pass_should_skip_typeidx_loop_func(
+              descriptor.name,
+            ) &&
+            run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) &&
+            !run_hot_pipeline_typeidx_loop_skip_can_try_raw_no_local_writes(
+              descriptor.name,
+              defs[code_idx],
+            ) {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-raw",
+              payload="reason=typed-loop-param-control func=\{func_idx}",
+            )
+            continue
+          }
+          if descriptor.name == "dead-code-elimination" {
+            let @lib.Func(locals, @lib.Expr(instrs)) = defs[code_idx]
+            if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+                defs[code_idx],
+              ) &&
+              !run_hot_pipeline_dce_raw_has_stack_polymorphic_if_before_br(
+                instrs,
+              ) {
+              pipeline_trace_hook(
+                options.trace,
+                descriptor.name,
+                "skip-invalid-lower",
+                payload="func=\{func_idx} reason=suspicious-escape-carrier-original",
+              )
+              continue
+            }
+            if locals.length() > 1000 {
+              pipeline_trace_hook(
+                options.trace,
+                descriptor.name,
+                "skip-raw",
+                payload="reason=large-local-dce-noop func=\{func_idx}",
+              )
+              continue
+            }
+          }
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "func",
+            payload="func_idx=\{func_idx}",
+          )
+          let ctx = HotPassContext::new(
+            descriptor,
+            cache,
+            options.verify_policy,
+            options.closed_world,
+            options.trace,
+            traps_never_happen=options.traps_never_happen,
+            ignore_implicit_traps=options.ignore_implicit_traps,
+            perf=options.perf,
+            module_ctx=Some(module_ctx),
+            optimize_level=options.optimize_level,
+            shrink_level=options.shrink_level,
+          )
+          match hot_pass_run(ctx, func) {
+            Ok(_) => last_descriptor = Some(descriptor)
+            Err(err) => return Err("func[\{func_idx}]: \{err}")
+          }
+        }
+        if @ir.hot_revision_current(func) == lifted_revision {
+          continue
+        }
+        let final_descriptor = match last_descriptor {
+          Some(descriptor) => descriptor
+          None => continue
+        }
+        let lower_state = {
+          next_type_sec: current_mod.type_sec,
+          type_sec_changed: false,
+        }
+        run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
+        let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+        let lowered_func = match options.verify_policy {
+          HotPipelineVerifyPolicy::AfterEachPass =>
+            run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+              @ir.hot_lower_func_with_options(
+                func,
+                run_hot_pipeline_lower_options_for_descriptor(
+                  final_descriptor.name,
+                ),
+              ),
+              final_descriptor.name,
+              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              current_mod,
+            )
+          HotPipelineVerifyPolicy::FinalModuleOnly =>
+            run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+              @ir.hot_lower_func_unverified_with_options(
+                func,
+                run_hot_pipeline_lower_options_for_descriptor(
+                  final_descriptor.name,
+                ),
+              ),
+              final_descriptor.name,
+              Some(run_hot_pipeline_original_func(mod_, func_idx)),
+              current_mod,
+            )
+        }
+        perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+        if lower_state.type_sec_changed {
+          current_mod = current_mod.with_type_sec(
+            lower_state.next_type_sec.unwrap(),
+          )
+        }
+        match lowered {
+          Some(defs_copy) => defs_copy[code_idx] = lowered_func
+          None => {
+            let defs_copy = defs.copy()
+            defs_copy[code_idx] = lowered_func
+            lowered = Some(defs_copy)
+          }
+        }
+      }
+      match lowered {
+        Some(lowered) => Some(@lib.CodeSec::new(lowered))
+        None => None
+      }
+    }
+    None => None
+  }
+  let candidate = match next_code_sec {
+    Some(code_sec) =>
+      run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+    None => current_mod
+  }
+  if next_code_sec is None {
+    return Ok(candidate)
+  }
+  match
+    run_hot_pipeline_repair_touched_batch_writeback(
+      mod_, candidate, touched, "filtered-hot-stack", options,
+    ) {
+    Some(repaired) => Ok(repaired)
+    None => {
+      pipeline_trace_hook(
+        options.trace,
+        "filtered-hot-stack",
+        "writeback-batch-rollback",
+        payload="reason=batch-validation-failed",
+      )
+      Ok(mod_)
+    }
+  }
+}
+
+///|
 fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
   [
     // Narrow scheduler slice: consume fresh expression/control/local cleanup
@@ -60446,7 +60757,7 @@ fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
     "pick-load-signs", "heap-store-optimization", "heap2local", "optimize-casts",
     "code-pushing", "simplify-locals", "code-folding", "precompute", "tuple-optimization",
     "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "coalesce-locals",
-    "reorder-locals", "vacuum",
+    "reorder-locals", "vacuum", "remove-unused-brs",
   ]
 }
 
@@ -60550,10 +60861,7 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         } else {
           current_mod
         }
-        let skip_invalid_lower_reason = run_hot_pipeline_skip_invalid_lower_reason(
-          current_mod,
-          validation_mod,
-          code_idx,
+        let skip_invalid_lower_reason = run_hot_pipeline_touched_nonvalidation_skip_invalid_lower_reason(
           descriptor.name,
           result,
         )
@@ -60671,13 +60979,33 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
     }
     None => None
   }
-  Ok(
-    match next_code_sec {
-      Some(code_sec) =>
-        run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
-      None => current_mod
-    },
-  )
+  let candidate = match next_code_sec {
+    Some(code_sec) =>
+      run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+    None => current_mod
+  }
+  if next_code_sec is None {
+    return Ok(candidate)
+  }
+  match
+    run_hot_pipeline_repair_touched_batch_writeback(
+      mod_,
+      candidate,
+      touched,
+      descriptor.name,
+      options,
+    ) {
+    Some(repaired) => Ok(repaired)
+    None => {
+      pipeline_trace_hook(
+        options.trace,
+        descriptor.name,
+        "writeback-batch-rollback",
+        payload="reason=batch-validation-failed",
+      )
+      Ok(mod_)
+    }
+  }
 }
 
 ///|
@@ -61244,6 +61572,100 @@ fn run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
     mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs)).without_name_sec()
   } else {
     mod_
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_retain_valid_selected_defs(
+  baseline : @lib.Module,
+  candidate : @lib.Module,
+  defs : Array[Int],
+) -> (@lib.Module, Array[Int], Array[Int], Array[String]) {
+  let baseline_funcs = match baseline.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (baseline, [], defs.copy(), ["baseline has no code section"])
+  }
+  let candidate_funcs = match candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return (baseline, [], defs.copy(), ["candidate has no code section"])
+  }
+  let imported = dae_imported_func_count(candidate)
+  let changed_funcs : Array[(@lib.FuncIdx, @lib.Func)] = []
+  for def_idx in defs {
+    if def_idx >= 0 &&
+      def_idx < baseline_funcs.length() &&
+      def_idx < candidate_funcs.length() &&
+      candidate_funcs[def_idx] != baseline_funcs[def_idx] {
+      changed_funcs.push(
+        (
+          @lib.FuncIdx::new((imported + def_idx).reinterpret_as_uint()),
+          candidate_funcs[def_idx],
+        ),
+      )
+    }
+  }
+  let invalid_errors : Array[String?] = Array::make(
+    candidate_funcs.length(),
+    None,
+  )
+  match
+    @validate.validate_defined_funcs_against_module(candidate, changed_funcs) {
+    Ok(invalid_funcs) =>
+      for item in invalid_funcs {
+        let (func_idx, err) = item
+        let @lib.FuncIdx(raw_func_idx) = func_idx
+        let def_idx = raw_func_idx.reinterpret_as_int() - imported
+        if def_idx >= 0 && def_idx < invalid_errors.length() {
+          invalid_errors[def_idx] = Some(err)
+        }
+      }
+    Err(err) =>
+      for item in changed_funcs {
+        let (func_idx, _) = item
+        let @lib.FuncIdx(raw_func_idx) = func_idx
+        let def_idx = raw_func_idx.reinterpret_as_int() - imported
+        if def_idx >= 0 && def_idx < invalid_errors.length() {
+          invalid_errors[def_idx] = Some(
+            @validate.validation_error_message(err),
+          )
+        }
+      }
+  }
+  let retained_funcs = baseline_funcs.copy()
+  let accepted : Array[Int] = []
+  let rejected : Array[Int] = []
+  let rejection_errors : Array[String] = []
+  for def_idx in defs {
+    if def_idx < 0 ||
+      def_idx >= baseline_funcs.length() ||
+      def_idx >= candidate_funcs.length() {
+      rejected.push(def_idx)
+      rejection_errors.push("definition out of range")
+      continue
+    }
+    match invalid_errors[def_idx] {
+      Some(err) => {
+        rejected.push(def_idx)
+        rejection_errors.push(err)
+      }
+      None => {
+        retained_funcs[def_idx] = candidate_funcs[def_idx]
+        accepted.push(def_idx)
+      }
+    }
+  }
+  if accepted.length() == 0 {
+    (baseline, accepted, rejected, rejection_errors)
+  } else {
+    (
+      baseline
+      .with_code_sec(@lib.CodeSec::new(retained_funcs))
+      .without_name_sec(),
+      accepted,
+      rejected,
+      rejection_errors,
+    )
   }
 }
 
@@ -63711,7 +64133,7 @@ fn run_hot_pipeline_apply_dae_broad_high_exact_literal_chain(
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(
         current,
-        precompute_propagate_prefix_descriptor(),
+        precompute_propagate_descriptor(),
         frontier_cleanup_defs,
         options,
       ) {
@@ -69114,6 +69536,8 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
   options : HotPipelineOptions,
+  bypass_size_guards? : Bool = false,
+  pass_names? : Array[String]? = None,
 ) -> Result[@lib.Module, String] {
   let touched_count = dae_count_touched(touched)
   if touched_count == 0 {
@@ -69126,42 +69550,47 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
     options.perf,
     "detail:dae:nested-total",
   )
-  if touched_count > 8 {
-    // The large-touched-set guard wins over per-function size reasons. Return
-    // before scanning touched bodies so artifact-sized DAE runs do not pay for a
-    // skip reason that cannot affect the emitted trace or output.
-    pipeline_trace_hook(
-      options.trace,
-      "dae-optimizing",
-      "nested-cleanup-skip",
-      payload="reason=large-touched-set touched=\{touched_count}",
+  if !bypass_size_guards {
+    if touched_count > 8 {
+      // The broad fallback remains bounded, but source-attributed selected
+      // functions may bypass this guard transactionally below.
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "nested-cleanup-skip",
+        payload="reason=large-touched-set touched=\{touched_count}",
+      )
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested-total",
+        nested_total_start_us,
+      )
+      return Ok(mod_)
+    }
+    let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
+      mod_, touched,
     )
-    perf_stop_timer_opt(
-      options.perf,
-      "detail:dae:nested-total",
-      nested_total_start_us,
-    )
-    return Ok(mod_)
+    if size_skip_reason != None {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "nested-cleanup-skip",
+        payload="reason=\{size_skip_reason.unwrap()} touched=\{touched_count}",
+      )
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested-total",
+        nested_total_start_us,
+      )
+      return Ok(mod_)
+    }
   }
-  let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
-    mod_, touched,
-  )
-  if size_skip_reason != None {
-    pipeline_trace_hook(
-      options.trace,
-      "dae-optimizing",
-      "nested-cleanup-skip",
-      payload="reason=\{size_skip_reason.unwrap()} touched=\{touched_count}",
-    )
-    perf_stop_timer_opt(
-      options.perf,
-      "detail:dae:nested-total",
-      nested_total_start_us,
-    )
-    return Ok(mod_)
+  let nested_passes = match pass_names {
+    Some(names) => names
+    None => run_hot_pipeline_dae_nested_cleanup_passes()
   }
   let mut current = mod_
-  for pass_name in run_hot_pipeline_dae_nested_cleanup_passes() {
+  for pass_name in nested_passes {
     let nested_pass_start_us = perf_start_timer_opt(
       options.perf,
       "detail:dae:nested:\{pass_name}",
@@ -69312,6 +69741,15 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
         )
         return Err("DAE nested cleanup pass \{pass_name}: \{err}")
       }
+    }
+    if pass_name == "tuple-optimization" {
+      // DAE's earlier raw cleanup can lower a tuple spill to a pure multivalue
+      // block followed by one drop per lane before the nested Binaryen stage
+      // runs. Recognize that lowered equivalent on touched functions so the
+      // tuple stage still reaches Binaryen's all-lanes-dead result.
+      current = dae_cleanup_touched_dropped_pure_multivalue_blocks(
+        current, touched,
+      )
     }
     perf_stop_timer_opt(
       options.perf,
@@ -70264,46 +70702,59 @@ fn run_hot_pipeline_dae_low_exact_param_chain_prefix_touched(
 }
 
 ///|
-fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
+fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
   original : @lib.Module,
   current : @lib.Module,
   touched : Array[Bool],
-) -> (@lib.Module, Int, Int, Bool) {
-  if dae_defined_func_count(current) <= 4096 {
-    return (current, -1, 0, false)
+  bypass_guards? : Bool = false,
+) -> (@lib.Module, Array[Int], Array[Int], Array[Bool]) {
+  if !bypass_guards &&
+    dae_defined_func_count(current) <= 4096 &&
+    dae_count_touched(touched) <= 8 &&
+    run_hot_pipeline_dae_nested_cleanup_size_skip_reason(current, touched)
+    is None {
+    let folded_probe = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
+      current, touched,
+    )
+    if folded_probe == current {
+      return (current, [], [], [])
+    }
   }
   let original_type_idxs = dae_collect_func_type_indices(original)
   let current_type_idxs = dae_collect_func_type_indices(current)
   let imported = dae_imported_func_count(current)
   let funcs = match current.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return (current, -1, 0, false)
+    None => return (current, [], [], [])
   }
-  let mut best_def = -1
-  let mut best_removed_locals = 0
-  let mut best_used_fallback = false
-  let mut best_func : @lib.Func? = None
+  let cleaned_defs : Array[Int] = []
+  let removed_local_counts : Array[Int] = []
+  let used_fallbacks : Array[Bool] = []
+  let mut rewritten : Array[@lib.Func]? = None
   for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
     if def_idx >= touched.length() || !touched[def_idx] {
       continue
     }
     let func = funcs[def_idx]
     let @lib.Func(locals, _) = func
-    if locals.length() < 128 {
+    let abs_idx = imported + def_idx
+    let (original_params, original_results) = match
+      dae_resolve_func_type(original, original_type_idxs, abs_idx) {
+      Some(@lib.FuncType(params, results)) => (params, results)
+      None => continue
+    }
+    let (current_params, current_results) = match
+      dae_resolve_func_type(current, current_type_idxs, abs_idx) {
+      Some(@lib.FuncType(params, results)) => (params, results)
+      None => continue
+    }
+    if original_params == current_params && original_results == current_results {
       continue
     }
-    let abs_idx = imported + def_idx
-    let original_params = match
-      dae_resolve_func_type(original, original_type_idxs, abs_idx) {
-      Some(@lib.FuncType(params, _)) => params
-      None => continue
-    }
-    let current_params = match
-      dae_resolve_func_type(current, current_type_idxs, abs_idx) {
-      Some(@lib.FuncType(params, _)) => params
-      None => continue
-    }
-    if original_params.length() <= current_params.length() {
+    if locals.length() == 0 {
+      cleaned_defs.push(def_idx)
+      removed_local_counts.push(0)
+      used_fallbacks.push(false)
       continue
     }
     let (direct_compacted, direct_changed) = run_hot_pipeline_raw_compact_unused_locals_after_prefix(
@@ -70315,7 +70766,7 @@ fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
     } else {
       0
     }
-    let (compacted, removed_locals, used_fallback) = if direct_removed >= 16 {
+    let (compacted, removed_locals, used_fallback) = if direct_removed > 0 {
       (direct_compacted, direct_removed, false)
     } else {
       let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
@@ -70332,39 +70783,794 @@ fn run_hot_pipeline_dae_broad_removed_param_local_cleanup(
       }
       (fallback_compacted, fallback_removed, true)
     }
-    if removed_locals < 16 {
+    if removed_locals <= 0 {
+      cleaned_defs.push(def_idx)
+      removed_local_counts.push(0)
+      used_fallbacks.push(used_fallback)
       continue
     }
-    if removed_locals > best_removed_locals ||
+    match rewritten {
+      Some(copy) => copy[def_idx] = compacted
+      None => {
+        let copy = funcs.copy()
+        copy[def_idx] = compacted
+        rewritten = Some(copy)
+      }
+    }
+    cleaned_defs.push(def_idx)
+    removed_local_counts.push(removed_locals)
+    used_fallbacks.push(used_fallback)
+  }
+  match rewritten {
+    Some(copy) =>
       (
-        removed_locals == best_removed_locals &&
-        (best_def < 0 || def_idx < best_def)
-      ) {
-      best_def = def_idx
-      best_removed_locals = removed_locals
-      best_used_fallback = used_fallback
-      best_func = Some(compacted)
+        current.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(),
+        cleaned_defs,
+        removed_local_counts,
+        used_fallbacks,
+      )
+    None => (current, cleaned_defs, removed_local_counts, used_fallbacks)
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
+  instrs : Array[@lib.Instruction],
+  imported : Int,
+  selected : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) => {
+        let def_idx = dae_func_idx_slot(func_idx) - imported
+        if def_idx >= 0 && def_idx < selected.length() {
+          selected[def_idx] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
+          body, imported, selected,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
+          then_body, imported, selected,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
+              body, imported, selected,
+            )
+          None => ()
+        }
+      }
+      _ => ()
     }
   }
-  match best_func {
-    Some(func) => {
-      let rewritten = funcs.copy()
-      rewritten[best_def] = func
-      (
-        current.with_code_sec(@lib.CodeSec::new(rewritten)).without_name_sec(),
-        best_def,
-        best_removed_locals,
-        best_used_fallback,
+}
+
+///|
+fn run_hot_pipeline_dae_collect_direct_callees_from_defs(
+  mod_ : @lib.Module,
+  caller_defs : Array[Int],
+) -> Array[Bool] {
+  let selected = Array::make(dae_defined_func_count(mod_), false)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return selected
+  }
+  let imported = dae_imported_func_count(mod_)
+  for caller_def in caller_defs {
+    if caller_def >= 0 && caller_def < funcs.length() {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
+        body, imported, selected,
       )
     }
-    None => (current, -1, 0, false)
   }
+  selected
+}
+
+///|
+fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
+  original : @lib.Module,
+  current : @lib.Module,
+  touched : Array[Bool],
+  options : HotPipelineOptions,
+  follow_folded_callees? : Bool = true,
+) -> Result[(@lib.Module, Bool), String] {
+  let (locally_cleaned, cleaned_defs, removed_local_counts, used_fallbacks) = run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
+    original,
+    current,
+    touched,
+    bypass_guards=!follow_folded_callees,
+  )
+  if cleaned_defs.length() == 0 {
+    return Ok((current, false))
+  }
+  let (independently_retained, _, rejected_local_defs, rejection_errors) = run_hot_pipeline_dae_retain_valid_selected_defs(
+    current, locally_cleaned, cleaned_defs,
+  )
+  if rejected_local_defs.length() > 0 {
+    for cleanup_idx = 0
+        cleanup_idx < cleaned_defs.length()
+        cleanup_idx = cleanup_idx + 1 {
+      if rejected_local_defs.contains(cleaned_defs[cleanup_idx]) {
+        removed_local_counts[cleanup_idx] = 0
+        used_fallbacks[cleanup_idx] = false
+      }
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "broad-changed-boundary-local-cleanup-rollback",
+      payload="defs=\{rejected_local_defs.to_string()} reason=selected-definition-validation",
+    )
+    let detail_count = if rejected_local_defs.length() < 16 {
+      rejected_local_defs.length()
+    } else {
+      16
+    }
+    for detail_idx = 0; detail_idx < detail_count; detail_idx = detail_idx + 1 {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "broad-changed-boundary-local-cleanup-reject",
+        payload="def=\{rejected_local_defs[detail_idx]} err=\{rejection_errors[detail_idx]}",
+      )
+    }
+  }
+  let mut cleaned_mod = match
+    @validate.validate_module(independently_retained) {
+    Ok(_) => independently_retained
+    Err(err) => {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "broad-changed-boundary-local-cleanup-rollback",
+        payload="defs=\{cleaned_defs.to_string()} reason=combined-validation err=\{@validate.validation_error_message(err)}",
+      )
+      return Ok((current, false))
+    }
+  }
+  // Binaryen reruns its filtered function pipeline on every function DAE
+  // modified, not only callees whose own signature changed. Admit material
+  // touched callers here while keeping the cheap small-function path limited
+  // to proved changed boundaries. Every later adapter remains transactional,
+  // individually non-larger, and module-validated.
+  match cleaned_mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+        if def_idx >= touched.length() ||
+          !touched[def_idx] ||
+          cleaned_defs.contains(def_idx) {
+          continue
+        }
+        match run_hot_pipeline_dae_encoded_func_size(funcs[def_idx]) {
+          Some(size) if size >= 2048 => {
+            cleaned_defs.push(def_idx)
+            removed_local_counts.push(0)
+            used_fallbacks.push(false)
+            pipeline_trace_hook(
+              options.trace,
+              "dae-optimizing",
+              "broad-material-touched-admit",
+              payload="def=\{def_idx} size=\{size}",
+            )
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  // Boundary constant materialization can inject immutable global reads into
+  // small functions with no local declarations. Fold their immutable struct
+  // fields before applying the heavier size-gated nested replay.
+  let all_changed_selected = Array::make(
+    dae_defined_func_count(cleaned_mod),
+    false,
+  )
+  for cleaned_def in cleaned_defs {
+    all_changed_selected[cleaned_def] = true
+  }
+  let fold_baseline = cleaned_mod
+  let fold_candidate = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
+    cleaned_mod, all_changed_selected,
+  )
+  let folded_defs : Array[Int] = []
+  if fold_baseline.type_sec == fold_candidate.type_sec {
+    let baseline_funcs = match fold_baseline.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => return Err("DAE broad changed-boundary fold baseline has no code")
+    }
+    let candidate_funcs = match fold_candidate.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None =>
+        return Err("DAE broad changed-boundary fold candidate has no code")
+    }
+    let retained_funcs = baseline_funcs.copy()
+    for cleaned_def in cleaned_defs {
+      if cleaned_def >= baseline_funcs.length() ||
+        cleaned_def >= candidate_funcs.length() {
+        continue
+      }
+      match
+        (
+          run_hot_pipeline_dae_encoded_func_size(baseline_funcs[cleaned_def]),
+          run_hot_pipeline_dae_encoded_func_size(candidate_funcs[cleaned_def]),
+        ) {
+        (Some(before), Some(after)) if after <= before &&
+          candidate_funcs[cleaned_def] != baseline_funcs[cleaned_def] => {
+          retained_funcs[cleaned_def] = candidate_funcs[cleaned_def]
+          folded_defs.push(cleaned_def)
+        }
+        _ => ()
+      }
+    }
+    if folded_defs.length() > 0 {
+      let retained = fold_baseline
+        .with_code_sec(@lib.CodeSec::new(retained_funcs))
+        .without_name_sec()
+      match @validate.validate_module(retained) {
+        Ok(_) => cleaned_mod = retained
+        Err(_) => folded_defs.clear()
+      }
+    }
+  }
+  pipeline_trace_hook(
+    options.trace,
+    "dae-optimizing",
+    "broad-changed-boundary-nested-batch",
+    payload="pass=immutable-global-struct-fields accepted_defs=\{folded_defs.to_string()}",
+  )
+  let nested_selected = Array::make(dae_defined_func_count(cleaned_mod), false)
+  let nested_defs : Array[Int] = []
+  let cleaned_funcs = match cleaned_mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Err("DAE broad changed-boundary cleanup has no code")
+  }
+  let accepted_passes_by_def : Array[Array[String]] = []
+  for cleanup_idx = 0
+      cleanup_idx < cleaned_defs.length()
+      cleanup_idx = cleanup_idx + 1 {
+    let cleaned_def = cleaned_defs[cleanup_idx]
+    // Direct compaction is cheap and applies to every proven boundary change.
+    // Reserve the heavier Binaryen nested replay for material declaration
+    // debris or already-large changed bodies. The latter keeps the source-owned
+    // post-signature replay for large functions even when compaction itself
+    // removes only a few declarations.
+    let material_body = match cleaned_funcs.get(cleaned_def) {
+      Some(func) =>
+        match run_hot_pipeline_dae_encoded_func_size(func) {
+          Some(size) => size >= 2048
+          None => false
+        }
+      None => false
+    }
+    if removed_local_counts[cleanup_idx] >= 16 ||
+      material_body ||
+      folded_defs.contains(cleaned_def) {
+      nested_selected[cleaned_def] = true
+      nested_defs.push(cleaned_def)
+    }
+    accepted_passes_by_def.push([])
+    if folded_defs.contains(cleaned_def) {
+      accepted_passes_by_def[cleanup_idx].push("immutable-global-struct-fields")
+    }
+    (options.trace)(
+      "pass[dae-optimizing]:broad-changed-boundary-local-cleanup def=\{cleaned_def} removed_locals=\{removed_local_counts[cleanup_idx]} mode=\{if used_fallbacks[cleanup_idx] { "fallback" } else { "direct" }}",
+    )
+  }
+  // Binaryen starts every worthwhile post-DAE function replay with
+  // precompute-propagate. Run the available exact prefix over every proved
+  // changed boundary, including small folded callees that do not qualify for
+  // the heavier replay. Retain only individually non-larger bodies and
+  // validate the combined writeback.
+  if !follow_folded_callees {
+    let broad_prefix_baseline = cleaned_mod
+    let broad_prefix_isolated = run_hot_pipeline_dae_clone_cleanup_defs(
+      cleaned_mod, cleaned_defs,
+    )
+    let broad_prefix_candidate = match
+      run_hot_pipeline_apply_dae_nested_cleanup(
+        broad_prefix_isolated,
+        all_changed_selected,
+        options,
+        bypass_size_guards=true,
+        pass_names=Some(["precompute-propagate"]),
+      ) {
+      Ok(next) => next
+      Err(err) =>
+        return Err(
+          "DAE broad changed-boundary all-function precompute-propagate: \{err}",
+        )
+    }
+    let broad_prefix_accepted : Array[Int] = []
+    if broad_prefix_baseline.type_sec == broad_prefix_candidate.type_sec {
+      let baseline_funcs = match broad_prefix_baseline.code_sec {
+        Some(@lib.CodeSec(funcs)) => funcs
+        None =>
+          return Err("DAE broad changed-boundary prefix baseline has no code")
+      }
+      let candidate_funcs = match broad_prefix_candidate.code_sec {
+        Some(@lib.CodeSec(funcs)) => funcs
+        None =>
+          return Err("DAE broad changed-boundary prefix candidate has no code")
+      }
+      let retained_funcs = baseline_funcs.copy()
+      for cleanup_idx = 0
+          cleanup_idx < cleaned_defs.length()
+          cleanup_idx = cleanup_idx + 1 {
+        let cleaned_def = cleaned_defs[cleanup_idx]
+        if cleaned_def >= baseline_funcs.length() ||
+          cleaned_def >= candidate_funcs.length() {
+          continue
+        }
+        match
+          (
+            run_hot_pipeline_dae_encoded_func_size(baseline_funcs[cleaned_def]),
+            run_hot_pipeline_dae_encoded_func_size(candidate_funcs[cleaned_def]),
+          ) {
+          (Some(before), Some(after)) if after <= before &&
+            candidate_funcs[cleaned_def] != baseline_funcs[cleaned_def] => {
+            retained_funcs[cleaned_def] = candidate_funcs[cleaned_def]
+            broad_prefix_accepted.push(cleaned_def)
+          }
+          _ => ()
+        }
+      }
+      if broad_prefix_accepted.length() > 0 {
+        let retained = broad_prefix_baseline
+          .with_code_sec(@lib.CodeSec::new(retained_funcs))
+          .without_name_sec()
+        match @validate.validate_module(retained) {
+          Ok(_) => {
+            cleaned_mod = retained
+            for cleanup_idx = 0
+                cleanup_idx < cleaned_defs.length()
+                cleanup_idx = cleanup_idx + 1 {
+              if broad_prefix_accepted.contains(cleaned_defs[cleanup_idx]) {
+                accepted_passes_by_def[cleanup_idx].push(
+                  "all-changed-precompute-propagate",
+                )
+              }
+            }
+          }
+          Err(_) => broad_prefix_accepted.clear()
+        }
+      }
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "broad-changed-boundary-nested-batch",
+      payload="pass=all-changed-precompute-propagate accepted_defs=\{broad_prefix_accepted.to_string()}",
+    )
+  }
+  // RemoveUnusedBrs is a cheap, source-ordered default-pipeline owner that can
+  // simplify control created by any signature change, including small changed
+  // functions that do not justify the heavier replay. Run it once over every
+  // proved changed boundary, retain only individually non-larger bodies, and
+  // validate the combined writeback before the material-body pipeline.
+  let broad_rub_baseline = cleaned_mod
+  let broad_rub_isolated = run_hot_pipeline_dae_clone_cleanup_defs(
+    cleaned_mod, cleaned_defs,
+  )
+  let broad_rub_candidate = match
+    run_hot_pipeline_apply_dae_nested_cleanup(
+      broad_rub_isolated,
+      all_changed_selected,
+      options,
+      bypass_size_guards=true,
+      pass_names=Some(["remove-unused-brs"]),
+    ) {
+    Ok(next) => next
+    Err(err) =>
+      return Err(
+        "DAE broad changed-boundary all-function remove-unused-brs: \{err}",
+      )
+  }
+  let broad_rub_accepted : Array[Int] = []
+  if broad_rub_baseline.type_sec == broad_rub_candidate.type_sec {
+    let baseline_funcs = match broad_rub_baseline.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => return Err("DAE broad changed-boundary RUB baseline has no code")
+    }
+    let candidate_funcs = match broad_rub_candidate.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => return Err("DAE broad changed-boundary RUB candidate has no code")
+    }
+    let retained_funcs = baseline_funcs.copy()
+    for cleanup_idx = 0
+        cleanup_idx < cleaned_defs.length()
+        cleanup_idx = cleanup_idx + 1 {
+      let cleaned_def = cleaned_defs[cleanup_idx]
+      if cleaned_def >= baseline_funcs.length() ||
+        cleaned_def >= candidate_funcs.length() {
+        continue
+      }
+      match
+        (
+          run_hot_pipeline_dae_encoded_func_size(baseline_funcs[cleaned_def]),
+          run_hot_pipeline_dae_encoded_func_size(candidate_funcs[cleaned_def]),
+        ) {
+        (Some(before), Some(after)) if after <= before &&
+          candidate_funcs[cleaned_def] != baseline_funcs[cleaned_def] => {
+          retained_funcs[cleaned_def] = candidate_funcs[cleaned_def]
+          broad_rub_accepted.push(cleaned_def)
+        }
+        _ => ()
+      }
+    }
+    if broad_rub_accepted.length() > 0 {
+      let retained = broad_rub_baseline
+        .with_code_sec(@lib.CodeSec::new(retained_funcs))
+        .without_name_sec()
+      match @validate.validate_module(retained) {
+        Ok(_) => {
+          cleaned_mod = retained
+          for cleanup_idx = 0
+              cleanup_idx < cleaned_defs.length()
+              cleanup_idx = cleanup_idx + 1 {
+            if broad_rub_accepted.contains(cleaned_defs[cleanup_idx]) {
+              accepted_passes_by_def[cleanup_idx].push(
+                "all-changed-remove-unused-brs",
+              )
+            }
+          }
+        }
+        Err(_) => broad_rub_accepted.clear()
+      }
+    }
+  }
+  pipeline_trace_hook(
+    options.trace,
+    "dae-optimizing",
+    "broad-changed-boundary-nested-batch",
+    payload="pass=all-changed-remove-unused-brs accepted_defs=\{broad_rub_accepted.to_string()}",
+  )
+  // Binaryen's optimizing sibling follows successful boundary rewrites with
+  // precompute-propagate and default function optimization. Run each adapter
+  // once over the complete fact-proven batch, then retain only individually
+  // smaller function bodies. This removes the former one-winner limit without
+  // paying one whole-module analysis setup per definition or offsetting a
+  // larger selected function with unrelated wins.
+  for
+    nested_pass in [
+      "precompute-propagate", "dead-code-elimination", "optimize-instructions", "simplify-locals",
+      "code-folding", "precompute", "merge-blocks", "remove-unused-brs", "merge-blocks",
+      "coalesce-locals", "reorder-locals", "vacuum",
+    ] {
+    if nested_defs.length() == 0 {
+      break
+    }
+    let nested_baseline = cleaned_mod
+    let nested_isolated = run_hot_pipeline_dae_clone_cleanup_defs(
+      cleaned_mod, nested_defs,
+    )
+    let nested_candidate = if nested_pass == "immutable-global-struct-fields" {
+      run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
+        nested_isolated, nested_selected,
+      )
+    } else {
+      match
+        run_hot_pipeline_apply_dae_nested_cleanup(
+          nested_isolated,
+          nested_selected,
+          options,
+          bypass_size_guards=true,
+          pass_names=Some([nested_pass]),
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE broad changed-boundary nested batch pass=\{nested_pass}: \{err}",
+          )
+      }
+    }
+    let accepted_defs : Array[Int] = []
+    if nested_baseline.type_sec == nested_candidate.type_sec {
+      let baseline_funcs = match nested_baseline.code_sec {
+        Some(@lib.CodeSec(funcs)) => funcs
+        None => return Err("DAE broad changed-boundary baseline has no code")
+      }
+      let candidate_funcs = match nested_candidate.code_sec {
+        Some(@lib.CodeSec(funcs)) => funcs
+        None => return Err("DAE broad changed-boundary candidate has no code")
+      }
+      let retained_funcs = baseline_funcs.copy()
+      for nested_idx = 0
+          nested_idx < nested_defs.length()
+          nested_idx = nested_idx + 1 {
+        let cleaned_def = nested_defs[nested_idx]
+        if cleaned_def >= baseline_funcs.length() ||
+          cleaned_def >= candidate_funcs.length() {
+          continue
+        }
+        match
+          (
+            run_hot_pipeline_dae_encoded_func_size(baseline_funcs[cleaned_def]),
+            run_hot_pipeline_dae_encoded_func_size(candidate_funcs[cleaned_def]),
+          ) {
+          (Some(before), Some(after)) if after <= before &&
+            candidate_funcs[cleaned_def] != baseline_funcs[cleaned_def] => {
+            retained_funcs[cleaned_def] = candidate_funcs[cleaned_def]
+            accepted_defs.push(cleaned_def)
+          }
+          _ => ()
+        }
+      }
+      if accepted_defs.length() > 0 {
+        let retained = nested_baseline
+          .with_code_sec(@lib.CodeSec::new(retained_funcs))
+          .without_name_sec()
+        match @validate.validate_module(retained) {
+          Ok(_) => {
+            cleaned_mod = retained
+            for cleanup_idx = 0
+                cleanup_idx < cleaned_defs.length()
+                cleanup_idx = cleanup_idx + 1 {
+              if accepted_defs.contains(cleaned_defs[cleanup_idx]) {
+                accepted_passes_by_def[cleanup_idx].push(nested_pass)
+              }
+            }
+          }
+          Err(_) => accepted_defs.clear()
+        }
+      }
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "broad-changed-boundary-nested-batch",
+      payload="pass=\{nested_pass} accepted_defs=\{accepted_defs.to_string()}",
+    )
+  }
+  // Some structured functions need the filtered pipeline's late control/local
+  // cleanup in single-function isolation. A batched adapter can conservatively
+  // skip an equal-size enabling rewrite, leaving a transient block/return shape
+  // that later local passes cannot flatten. Replay only the cheap tail, retain
+  // changed non-larger bodies, and validate every selected definition.
+  for cleanup_idx = 0
+      cleanup_idx < cleaned_defs.length()
+      cleanup_idx = cleanup_idx + 1 {
+    let cleaned_def = cleaned_defs[cleanup_idx]
+    if !nested_selected[cleaned_def] {
+      continue
+    }
+    let selected = Array::make(dae_defined_func_count(cleaned_mod), false)
+    selected[cleaned_def] = true
+    let repair_passes : Array[String] = []
+    for
+      repair_pass in [
+        "merge-blocks", "remove-unused-brs", "merge-blocks", "coalesce-locals", "vacuum",
+      ] {
+      let repair_baseline = cleaned_mod
+      let repair_isolated = run_hot_pipeline_dae_clone_cleanup_defs(
+        cleaned_mod,
+        [cleaned_def],
+      )
+      let repair_candidate = match
+        run_hot_pipeline_apply_dae_nested_cleanup(
+          repair_isolated,
+          selected,
+          options,
+          bypass_size_guards=true,
+          pass_names=Some([repair_pass]),
+        ) {
+        Ok(next) => next
+        Err(err) =>
+          return Err(
+            "DAE broad changed-boundary post-batch def=\{cleaned_def} pass=\{repair_pass}: \{err}",
+          )
+      }
+      let candidate_changed = match
+        (repair_baseline.code_sec, repair_candidate.code_sec) {
+        (Some(@lib.CodeSec(before)), Some(@lib.CodeSec(after))) =>
+          before.get(cleaned_def) != after.get(cleaned_def)
+        _ => false
+      }
+      if !candidate_changed {
+        continue
+      }
+      let (repair_validated, repair_valid) = run_hot_pipeline_dae_validate_selected_def_or_rollback(
+        repair_baseline, repair_candidate, cleaned_def,
+      )
+      if repair_valid {
+        match
+          run_hot_pipeline_dae_selected_func_encoded_not_larger(
+            repair_baseline, repair_validated, cleaned_def,
+          ) {
+          Some(true) => {
+            cleaned_mod = repair_validated
+            repair_passes.push(repair_pass)
+            accepted_passes_by_def[cleanup_idx].push("post-\{repair_pass}")
+          }
+          _ => ()
+        }
+      }
+    }
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "broad-changed-boundary-post-batch",
+      payload="def=\{cleaned_def} passes=\{repair_passes.to_string()}",
+    )
+  }
+  // Finish the source-ordered cheap fallback with vacuum for every changed
+  // boundary. This catches pure dropped-constant and nop debris even when a
+  // large touched set or module/function size guard excludes the heavier
+  // default-pipeline replay. Retain each body independently and validate the
+  // combined writeback exactly like the earlier all-changed RUB wave.
+  let broad_vacuum_selected = Array::make(
+    dae_defined_func_count(cleaned_mod),
+    false,
+  )
+  let broad_vacuum_defs : Array[Int] = []
+  let broad_vacuum_type_idxs = dae_collect_func_type_indices(cleaned_mod)
+  let broad_vacuum_imported = dae_imported_func_count(cleaned_mod)
+  for cleaned_def in cleaned_defs {
+    match
+      dae_resolve_func_type(
+        cleaned_mod,
+        broad_vacuum_type_idxs,
+        broad_vacuum_imported + cleaned_def,
+      ) {
+      Some(@lib.FuncType(_, results)) if results.length() == 0 => {
+        broad_vacuum_selected[cleaned_def] = true
+        broad_vacuum_defs.push(cleaned_def)
+      }
+      _ => ()
+    }
+  }
+  let broad_vacuum_baseline = cleaned_mod
+  let broad_vacuum_isolated = run_hot_pipeline_dae_clone_cleanup_defs(
+    cleaned_mod, broad_vacuum_defs,
+  )
+  let broad_vacuum_candidate = match
+    run_hot_pipeline_apply_dae_nested_cleanup(
+      broad_vacuum_isolated,
+      broad_vacuum_selected,
+      options,
+      bypass_size_guards=true,
+      pass_names=Some(["vacuum"]),
+    ) {
+    Ok(next) => next
+    Err(err) =>
+      return Err("DAE broad changed-boundary all-function vacuum: \{err}")
+  }
+  let broad_vacuum_accepted : Array[Int] = []
+  if broad_vacuum_baseline.type_sec == broad_vacuum_candidate.type_sec {
+    let baseline_funcs = match broad_vacuum_baseline.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None =>
+        return Err("DAE broad changed-boundary vacuum baseline has no code")
+    }
+    let candidate_funcs = match broad_vacuum_candidate.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None =>
+        return Err("DAE broad changed-boundary vacuum candidate has no code")
+    }
+    let retained_funcs = baseline_funcs.copy()
+    for vacuum_idx = 0
+        vacuum_idx < broad_vacuum_defs.length()
+        vacuum_idx = vacuum_idx + 1 {
+      let cleaned_def = broad_vacuum_defs[vacuum_idx]
+      if cleaned_def >= baseline_funcs.length() ||
+        cleaned_def >= candidate_funcs.length() {
+        continue
+      }
+      match
+        (
+          run_hot_pipeline_dae_encoded_func_size(baseline_funcs[cleaned_def]),
+          run_hot_pipeline_dae_encoded_func_size(candidate_funcs[cleaned_def]),
+        ) {
+        (Some(before), Some(after)) if after <= before &&
+          candidate_funcs[cleaned_def] != baseline_funcs[cleaned_def] => {
+          retained_funcs[cleaned_def] = candidate_funcs[cleaned_def]
+          broad_vacuum_accepted.push(cleaned_def)
+        }
+        _ => ()
+      }
+    }
+    if broad_vacuum_accepted.length() > 0 {
+      let retained = broad_vacuum_baseline
+        .with_code_sec(@lib.CodeSec::new(retained_funcs))
+        .without_name_sec()
+      match @validate.validate_module(retained) {
+        Ok(_) => {
+          cleaned_mod = retained
+          for cleanup_idx = 0
+              cleanup_idx < cleaned_defs.length()
+              cleanup_idx = cleanup_idx + 1 {
+            if broad_vacuum_accepted.contains(cleaned_defs[cleanup_idx]) {
+              accepted_passes_by_def[cleanup_idx].push("all-changed-vacuum")
+            }
+          }
+        }
+        Err(_) => broad_vacuum_accepted.clear()
+      }
+    }
+  }
+  pipeline_trace_hook(
+    options.trace,
+    "dae-optimizing",
+    "broad-changed-boundary-nested-batch",
+    payload="pass=all-changed-vacuum accepted_defs=\{broad_vacuum_accepted.to_string()}",
+  )
+  for cleanup_idx = 0
+      cleanup_idx < cleaned_defs.length()
+      cleanup_idx = cleanup_idx + 1 {
+    let accepted_passes = accepted_passes_by_def[cleanup_idx]
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "broad-changed-boundary-nested-cleanup",
+      payload="def=\{cleaned_defs[cleanup_idx]} accepted=\{accepted_passes.length() > 0} passes=\{accepted_passes.to_string()}",
+    )
+  }
+  if follow_folded_callees && folded_defs.length() > 0 {
+    // Folding an injected immutable global can expose a literal/default call
+    // operand in the changed caller. Reuse the existing exact call-slice and
+    // ownership proof on only those direct callees, then recursively clean the
+    // resulting boundary changes once.
+    let follow_baseline = cleaned_mod
+    let follow_selected = run_hot_pipeline_dae_collect_direct_callees_from_defs(
+      cleaned_mod, folded_defs,
+    )
+    let mut follow_mod = cleaned_mod
+    let mut follow_touched : Array[Bool] = []
+    let mut follow_iter = 0
+    while follow_iter < 64 {
+      let total = dae_imported_func_count(follow_mod) +
+        dae_defined_func_count(follow_mod)
+      let follow_facts = dae_collect_current_call_facts(follow_mod, total)
+      let follow_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+        follow_mod,
+        follow_selected,
+        follow_facts,
+        allow_immutable_global_get=true,
+      )
+      if !follow_result.changed {
+        break
+      }
+      follow_mod = follow_result.mod_out
+      follow_touched = dae_merge_touched(follow_touched, follow_result.touched)
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "broad-changed-boundary-folded-callee",
+        payload="iter=\{follow_iter} primary_def=\{follow_result.primary_def}",
+      )
+      follow_iter += 1
+    }
+    if follow_touched.length() > 0 {
+      let (follow_cleaned, _) = match
+        run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
+          follow_baseline,
+          follow_mod,
+          follow_touched,
+          options,
+          follow_folded_callees=false,
+        ) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+      cleaned_mod = follow_cleaned
+    }
+  }
+  let changed = cleaned_mod.type_sec != current.type_sec ||
+    cleaned_mod.func_sec != current.func_sec ||
+    cleaned_mod.code_sec != current.code_sec
+  Ok((cleaned_mod, changed))
 }
 
 ///|
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
+  allow_final_convergence? : Bool = true,
 ) -> Result[@lib.Module, String] {
   let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
   let result = dae_run_core(
@@ -70403,7 +71609,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         options.trace,
         "dae-optimizing",
         "low-exact-param-chain-prefix",
-        payload="primary_def=37 pass=precompute-propagate-prefix",
+        payload="primary_def=37 pass=precompute-propagate",
       )
       core_mod = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
         core_mod, prefix_touched,
@@ -70414,15 +71620,13 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       core_mod = match
         run_hot_pipeline_apply_hot_pass_to_touched(
           core_mod,
-          precompute_propagate_prefix_descriptor(),
+          precompute_propagate_descriptor(),
           prefix_touched,
           options,
         ) {
         Ok(next) => next
         Err(err) =>
-          return Err(
-            "DAE low exact-param prefix precompute-propagate-prefix: \{err}",
-          )
+          return Err("DAE low exact-param prefix precompute-propagate: \{err}")
       }
       let convergence = dae_run_low_exact_param_chain_convergence(
         core_mod, core_touched,
@@ -70472,20 +71676,6 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       }
     }
     None => ()
-  }
-  let (
-    removed_param_local_cleaned,
-    removed_param_local_def,
-    removed_locals,
-    removed_param_local_used_fallback,
-  ) = run_hot_pipeline_dae_broad_removed_param_local_cleanup(
-    mod_, core_mod, core_touched,
-  )
-  core_mod = removed_param_local_cleaned
-  if removed_param_local_def >= 0 {
-    (options.trace)(
-      "pass[dae-optimizing]:broad-removed-param-local-cleanup def=\{removed_param_local_def} removed_locals=\{removed_locals} mode=\{if removed_param_local_used_fallback { "fallback" } else { "direct" }}",
-    )
   }
   let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
     core_mod,
@@ -70596,7 +71786,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     core_mod = match
       run_hot_pipeline_apply_hot_pass_to_touched(
         core_mod,
-        precompute_propagate_prefix_descriptor(),
+        precompute_propagate_descriptor(),
         scc_cleanup_touched,
         options,
       ) {
@@ -70803,6 +71993,16 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       )
     }
   }
+  // Run the general changed-boundary fallback only after specialized DAEO
+  // convergence owners have consumed their original fact neighborhoods.
+  let (broad_cleaned, broad_cleanup_changed) = match
+    run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
+      mod_, core_mod, core_touched, options,
+    ) {
+    Ok(next) => next
+    Err(err) => return Err(err)
+  }
+  core_mod = broad_cleaned
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(core_mod, core_touched, options) {
     Ok(next) => next
@@ -70813,12 +72013,18 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   if run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
       cleaned, core_touched,
     ) ||
-    run_hot_pipeline_dae_has_touched_nop_body_with_params(cleaned, core_touched) {
+    run_hot_pipeline_dae_has_touched_nop_body_with_params(cleaned, core_touched) ||
+    broad_cleanup_changed {
     let post_cleanup_core_start_us = perf_start_timer_opt(
       options.perf,
       "detail:dae:post-cleanup-core",
     )
-    let post_cleanup = dae_run_core(cleaned, options.trace, perf=options.perf)
+    let post_cleanup = dae_run_core(
+      cleaned,
+      options.trace,
+      optimize=broad_cleanup_changed,
+      perf=options.perf,
+    )
     perf_stop_timer_opt(
       options.perf,
       "detail:dae:post-cleanup-core",
@@ -70826,6 +72032,16 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     )
     post_cleanup_mod = post_cleanup.mod_out
     post_cleanup_touched = post_cleanup.touched
+  }
+  if post_cleanup_touched.length() > 0 {
+    let (boundary_recleaned, _) = match
+      run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
+        cleaned, post_cleanup_mod, post_cleanup_touched, options,
+      ) {
+      Ok(next) => next
+      Err(err) => return Err(err)
+    }
+    post_cleanup_mod = boundary_recleaned
   }
   let recleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(
@@ -70869,7 +72085,71 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let field_delayed = run_hot_pipeline_apply_dae_post_reorder_immutable_field_delay(
     final_reordered, high_literal_field_delay_defs, options,
   )
-  Ok(field_delayed)
+  if !allow_final_convergence || !broad_cleanup_changed {
+    return Ok(field_delayed)
+  }
+  // The filtered replay can expose one final fact boundary only after local
+  // ordering, type pruning, and delayed immutable-field cleanup have all
+  // settled. Run one bounded complete optimizing wave over that finalized
+  // module, then retain it only when it validates and is strictly smaller.
+  // Equal-size alternate shapes remain aligned with the first-pass/Binaryen
+  // boundary instead of introducing unmeasured representation drift. Disabling
+  // this block in the recursive call makes the convergence bound explicit.
+  let converged = match
+    run_hot_pipeline_apply_dae_optimizing_module_pass(
+      field_delayed,
+      options,
+      allow_final_convergence=false,
+    ) {
+    Ok(next) => next
+    Err(err) => {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "final-convergence",
+        payload="accepted=false reason=retry-error err=\{err}",
+      )
+      return Ok(field_delayed)
+    }
+  }
+  if converged == field_delayed {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "final-convergence",
+      payload="accepted=false reason=unchanged",
+    )
+    return Ok(field_delayed)
+  }
+  match
+    (
+      run_hot_pipeline_dae_encoded_size(field_delayed),
+      run_hot_pipeline_dae_encoded_size(converged),
+      @validate.validate_module(converged),
+    ) {
+    (Some(before), Some(after), Ok(_)) if after < before => {
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "final-convergence",
+        payload="accepted=true before=\{before} after=\{after}",
+      )
+      Ok(converged)
+    }
+    (before, after, validation) => {
+      let reason = match validation {
+        Ok(_) => "non-smaller-or-unencodable"
+        Err(_) => "validation"
+      }
+      pipeline_trace_hook(
+        options.trace,
+        "dae-optimizing",
+        "final-convergence",
+        payload="accepted=false reason=\{reason} before=\{before.to_string()} after=\{after.to_string()}",
+      )
+      Ok(field_delayed)
+    }
+  }
 }
 
 ///|

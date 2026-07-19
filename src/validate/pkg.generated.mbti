@@ -58,6 +58,8 @@ pub fn gen_valid_const_expr_observed_op_matrix(@lib.Module) -> Array[GenValidCon
 
 pub fn gen_valid_coverage_template_signature(@lib.Module) -> String
 
+pub fn gen_valid_dae_optimizing_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_dead_argument_elimination_profile_config(GenValidProfile) -> GenValidConfig
 
 pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
@@ -1160,6 +1162,21 @@ pub enum GenValidProfile {
   DaeLocalizationProfile
   DaeConvergenceProfile
   DaeOptimizingProfile
+  DaeOptimizingCoreProfile
+  DaeOptimizingManyTouchedProfile
+  DaeOptimizingMediumModuleProfile
+  DaeOptimizingLargeLocalsProfile
+  DaeOptimizingTouchedCallerProfile
+  DaeOptimizingForwardedSuffixProfile
+  DaeOptimizingResultControlProfile
+  DaeOptimizingStructuredLocalsProfile
+  DaeOptimizingReturnCleanupProfile
+  DaeOptimizingImmutableFieldProfile
+  DaeOptimizingComputedEffectsProfile
+  DaeOptimizingTableEffectsProfile
+  DaeOptimizingGcComputedProfile
+  DaeOptimizingTailBoundaryProfile
+  DaeOptimizingTypeReuseProfile
   PassInliningProfile
   InliningOptimizingDirectWrapperProfile
   InliningOptimizingParamSpillProfile

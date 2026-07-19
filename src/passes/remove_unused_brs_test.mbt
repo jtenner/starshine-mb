@@ -3495,7 +3495,7 @@ test "remove-unused-brs lifts multi-value returned ladders through repeated hold
 test "remove-unused-brs keeps nested returned ladder branch exits stable under returned value-if ladders" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (func (param i32 i32) (result i32) (local i32) (block $exit (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 9)) (if (result i32) (local.get 1) (then (local.get 2)) (else (br $exit)))) (else (i32.const 4)))))))",
+      "(module (func (param i32 i32) (result i32) (local i32) (block $exit (result i32) (return (if (result i32) (local.get 0) (then (local.set 2 (i32.const 9)) (if (result i32) (local.get 1) (then (local.get 2)) (else (br $exit (i32.const 0))))) (else (i32.const 4))))) drop i32.const 7))",
       ["remove-unused-brs"],
     ) {
     Ok(mod_) => mod_

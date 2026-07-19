@@ -10572,6 +10572,59 @@ test "validate_module reports end-of-body underflow with stack shape" {
 }
 
 ///|
+test "validate_module rejects outer block result mismatch reachable through an inner block-local branch" {
+  let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let non_null_struct = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0U))),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([struct_type, sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::block(
+                  BlockType::val_type(non_null_struct),
+                  Expr::new([
+                    Instruction::i32_const(I32(1)),
+                    Instruction::if_(
+                      BlockType::void_(),
+                      [
+                        Instruction::struct_new_default(TypeIdx::new(0U)),
+                        Instruction::br(LabelIdx::new(1U)),
+                      ],
+                      Some([]),
+                    ),
+                    Instruction::i32_const(I32(0)),
+                    Instruction::br(LabelIdx::new(1U)),
+                  ]),
+                ),
+              ]),
+            ),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected outer i32 block to reject an inner branch-completed reference result",
+      )
+    Err(err) => {
+      @debug.assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(validation_error_message(err).contains("type mismatch"))
+    }
+  }
+}
+
+///|
 test "validate_module accepts initialized non-defaultable body locals" {
   let struct_type = RecType::new(SubType::comp_type(CompType::struct_([])))
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))

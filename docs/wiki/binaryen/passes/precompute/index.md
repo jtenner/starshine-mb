@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-07-18
 sources:
+  - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/0795-2026-06-20-precompute-final-closeout.md
@@ -169,6 +170,12 @@ What the documented upstream contract is (initially read at `version_129`, then 
   - Implementation-readiness bridge for future Starshine work: safe next slices, validation ladder, Binaryen oracle comparison order, current-main drift handling, and exact local code locations for HOT rewrites plus pass-manager writeback guards.
 - [`../precompute-propagate/index.md`](../precompute-propagate/index.md)
   - Dedicated dossier for the upstream aggressive / nested-rerun sibling, focused on the separate public pass name, the extra `LazyLocalGraph` propagation phase, and the `optimizeAfterInlining(...)` scheduler role.
+
+## 2026-07-18 exact-null fold used by DAEO
+
+Research note [`1650`](../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md) records the DAEO-facing exact case: `ref.is_null(ref.null ...)` becomes `i32.const 1` in both the raw unary evaluator and HOT IR. The raw path is owned by `precompute_raw_try_fold_unary(...)`; the HOT path is covered by `precompute_try_fold_ref_is_null(...)`, which also retains the broader current fresh-reference identity reasoning. Focused tests cover untyped raw execution, typed execution after DAE-style local compaction, and direct HOT execution through the propagate-prefix descriptor.
+
+This shared fold lets immutable-global struct-field propagation expose a null call argument and remove a downstream parameter without adding a DAEO-only final-shape rewrite. It does not by itself close the separate plain-precompute v131 renewal or DAEO's remaining output-parity and scheduler work.
 
 ## Historical post-`version_129` drift notes
 

@@ -57,6 +57,7 @@ pub struct HotCfg {
 priv struct CfgBuilder {
   cfg : HotCfg
   label_targets : Array[BlockId]
+  conservative_exception_entries : Bool
 }
 
 ///|
@@ -72,7 +73,10 @@ priv struct CfgRegionSegment {
 }
 
 ///|
-fn cfg_builder_new(func : HotFunc) -> CfgBuilder {
+fn cfg_builder_new(
+  func : HotFunc,
+  conservative_exception_entries : Bool,
+) -> CfgBuilder {
   let node_to_block : Array[BlockId] = []
   for _ in 0..<hot_node_count(func) {
     node_to_block.push(-1)
@@ -91,6 +95,7 @@ fn cfg_builder_new(func : HotFunc) -> CfgBuilder {
       exceptional_exit_block: None,
     },
     label_targets,
+    conservative_exception_entries,
   }
 }
 
@@ -570,12 +575,14 @@ fn cfg_builder_process_block(
       cfg_builder_connect_exits(builder, body_build.exit_blocks, continuation)
       match catch_build {
         Some(build) => {
-          cfg_builder_add_edge(
-            builder,
-            current_block,
-            build.entry_block.unwrap(),
-            CfgEdgeKind::ExceptionalEdge,
-          )
+          if builder.conservative_exception_entries {
+            cfg_builder_add_edge(
+              builder,
+              current_block,
+              build.entry_block.unwrap(),
+              CfgEdgeKind::ExceptionalEdge,
+            )
+          }
           cfg_builder_connect_exits(builder, build.exit_blocks, continuation)
         }
         None => ()
@@ -616,12 +623,14 @@ fn cfg_builder_process_block(
         body_build.entry_block.unwrap(),
         CfgEdgeKind::FallthroughEdge,
       )
-      cfg_builder_add_edge(
-        builder,
-        current_block,
-        catch_build.entry_block.unwrap(),
-        CfgEdgeKind::ExceptionalEdge,
-      )
+      if builder.conservative_exception_entries {
+        cfg_builder_add_edge(
+          builder,
+          current_block,
+          catch_build.entry_block.unwrap(),
+          CfgEdgeKind::ExceptionalEdge,
+        )
+      }
       cfg_builder_connect_exits(builder, body_build.exit_blocks, continuation)
       cfg_builder_connect_exits(builder, catch_build.exit_blocks, continuation)
       if synthetic_exit {
@@ -803,9 +812,12 @@ fn cfg_verify(cfg : HotCfg) -> Unit {
 }
 
 ///|
-pub fn cfg_build(func : HotFunc) -> HotCfg {
+pub fn cfg_build(
+  func : HotFunc,
+  conservative_exception_entries? : Bool = true,
+) -> HotCfg {
   hot_verify_all_or_abort(func)
-  let builder = cfg_builder_new(func)
+  let builder = cfg_builder_new(func, conservative_exception_entries)
   let entry_block = cfg_builder_add_block(builder, [], true)
   let exit_block = cfg_builder_add_block(builder, [], true)
   builder.cfg.entry_block = entry_block

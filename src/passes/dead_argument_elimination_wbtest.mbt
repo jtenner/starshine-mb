@@ -1026,7 +1026,15 @@ test "dae call boundary candidate centralizes owned callee counts" {
     None => fail("expected escaped boundary candidate")
   }
   match dae_call_boundary_candidate(facts, 2) {
-    Some(candidate) => assert_false(candidate.owned)
+    Some(candidate) => {
+      assert_true(candidate.owned)
+      assert_true(candidate.tail_callee)
+      match dae_dropped_result_candidate_from_boundary_facts(facts, 2) {
+        Some(result_candidate) =>
+          assert_false(result_candidate.owned_dropped_result_candidate)
+        None => fail("expected tail-callee result candidate evidence")
+      }
+    }
     None => fail("expected tail-call boundary candidate")
   }
   match dae_call_boundary_candidate(facts, 6) {
@@ -8007,8 +8015,10 @@ test "dae removed-param callee rewrite preserves mapped locals and constants" {
     @lib.Locals::from_types([@lib.ValType::i64(), @lib.ValType::f32()]),
   )
   assert_eq(evidence.body, [
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     @lib.Instruction::i64_const(@lib.I64(9L)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
   ])
@@ -14208,4 +14218,129 @@ test "dae forwarded-cycle collection prioritizes explicitly selected definitions
     limit=2,
   )
   @debug.assert_eq(cycle_batches, [[2, 3], [0, 1]])
+}
+
+///|
+test "dae hot entry liveness distinguishes forwarded and overwritten incoming values" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $a)
+      #|  (func $a (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 9
+      #|    call $b)
+      #|  (func $b (param i32 i32) (result i32)
+      #|    i32.const 4
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $a))
+    ),
+  )
+  assert_eq(dae_hot_param_entry_liveness(mod_, 1, 1), Some([true]))
+  assert_eq(dae_hot_param_entry_liveness(mod_, 2, 2), Some([false, false]))
+}
+
+///|
+test "dae hot entry liveness follows try-table exceptional exits" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func $target (param i32)
+      #|    block $caught
+      #|      try_table (catch $e $caught)
+      #|        i32.const 9
+      #|        local.set 0
+      #|        throw $e
+      #|      end
+      #|    end
+      #|    local.get 0
+      #|    drop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  assert_eq(dae_hot_param_entry_liveness(mod_, 0, 1), Some([false]))
+}
+
+///|
+test "dae current call facts record direct tail callees inside structured bodies" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (export "run")
+      #|    block
+      #|      call $dropped
+      #|      drop
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      return_call $tail
+      #|    end)
+      #|  (func $dropped (result i32)
+      #|    i32.const 1)
+      #|  (func $tail))
+    ),
+  )
+  let analysis = dae_collect_current_function_analysis(mod_, 3)
+  let facts = analysis.call_facts
+  assert_eq(facts.direct_calls, [0, 1, 1])
+  assert_eq(facts.dropped_calls, [0, 1, 0])
+  assert_eq(facts.direct_callers, [[], [0], [0]])
+  assert_eq(facts.tail_calls, [false, false, true])
+  let caller = analysis.function_infos[0]
+  assert_true(caller.stale)
+  assert_eq(caller.unused_params, [])
+  assert_true(caller.has_tail_calls)
+  assert_eq(caller.tail_callees, [2])
+  assert_true(caller.has_unseen_calls)
+  let dropped = analysis.function_infos[1]
+  assert_eq(dropped.calls.length(), 1)
+  assert_eq(dropped.dropped_calls.length(), 1)
+  assert_eq(dropped.calls[0].caller_def, 0)
+  assert_eq(dropped.calls[0].callee_abs, 1)
+  assert_eq(dropped.calls[0].path, [0, 0, 0])
+  assert_true(dropped.calls[0].active)
+  assert_true(dropped.calls[0].dropped)
+  assert_false(dropped.calls[0].tail)
+  let tail = analysis.function_infos[2]
+  assert_eq(tail.calls.length(), 1)
+  assert_eq(tail.calls[0].path, [2, 2, 0])
+  assert_true(tail.calls[0].tail)
+}
+
+///|
+test "dae stable callsites ignore inactive conflicting uniform actuals" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target
+      #|    unreachable
+      #|    i32.const 8
+      #|    call $target))
+    ),
+  )
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  assert_eq(snapshot.function_infos[0].calls.length(), 2)
+  assert_false(snapshot.function_infos[0].calls[1].active)
+  let values = dae_collect_uniform_const_actuals_from_function_infos(
+    mod_,
+    0,
+    1,
+    snapshot.type_indices,
+    snapshot.boundary_facts,
+    snapshot.function_infos,
+  )
+  match values {
+    Some([Some(@lib.I32Const(value))]) => assert_eq(value, 7)
+    _ => fail("expected only the active stable callsite literal")
+  }
 }

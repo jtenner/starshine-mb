@@ -381,7 +381,7 @@ test "hot lower peels split payload wrappers with void-if and trailing roots" {
 ///|
 test "hot lower preserves carried payload forwarders with trailing values" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (param i32) (result i32) (local i32) (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 1 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))))) (local.get 1)))))))",
+    "(module (func (param i32) (result i32) (local i32) (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 1 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))))) (local.get 1)))) (local.get 1))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   let pretty = @lib.Module::new()
@@ -434,7 +434,7 @@ test "hot lower preserves carried payload forwarders with trailing stores and re
 ///|
 test "hot lower keeps flattened parent-exit payloads unpacked when child exits still target the wrapper" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (param i32) (result i32) (local i32) (block $block10 (result i32) (block $block9 (block $block8 (local.set 1 (i32.const 1)) (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))) unreachable) (br $block10 (local.get 1))))))",
+    "(module (func (param i32) (result i32) (local i32) (block $block10 (result i32) (block $block9 (block $block8 (local.set 1 (i32.const 1)) (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))) unreachable) (br $block10 (local.get 1))) (local.get 1))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   @debug.assert_eq(
@@ -474,6 +474,7 @@ test "hot lower keeps flattened parent-exit payloads unpacked when child exits s
                 @lib.Instruction::br(@lib.LabelIdx::new(1U)),
               ]),
             ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
           ]),
         ),
       ]),
@@ -484,7 +485,7 @@ test "hot lower keeps flattened parent-exit payloads unpacked when child exits s
 ///|
 test "hot lower keeps split parent-exit payload wrappers unpacked when child exits still target the wrapper" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit1 (block $exit0 (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $exit0)) (else (local.set 2 (i32.const 9)) (br $exit1))) unreachable) (br $outer (local.get 2))))))",
+    "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit1 (block $exit0 (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $exit0)) (else (local.set 2 (i32.const 9)) (br $exit1))) unreachable) (br $outer (local.get 2))) (local.get 2))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   @debug.assert_eq(
@@ -522,6 +523,7 @@ test "hot lower keeps split parent-exit payload wrappers unpacked when child exi
                 @lib.Instruction::br(@lib.LabelIdx::new(1U)),
               ]),
             ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
           ]),
         ),
       ]),
@@ -918,7 +920,7 @@ test "hot lower preserves final typed wrappers when the prefix has mixed if exit
 ///|
 test "hot lower preserves final typed wrappers with same-typed branch-payload tails" {
   let fixture = ir_test_build_hot_from_wat(
-    "(module (func (param i32 i32) (result i32) (block (result i32) (block $block5 (local.get 0) drop (br $block5)) (block $block7 (result i32) (block $block6 (br $block7 (if (result i32) (local.get 0) (then (i32.const 7) (br $block6)) (else (i32.const 9) (br $block7)))))))))",
+    "(module (func (param i32 i32) (result i32) (block (result i32) (block $block5 (local.get 0) drop (br $block5)) (block $block7 (result i32) (block $block6 (br $block7 (if (result i32) (local.get 0) (then (i32.const 7) (br $block6)) (else (i32.const 9) (br $block7))))) (local.get 1)))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
   let pretty = @lib.Module::new()

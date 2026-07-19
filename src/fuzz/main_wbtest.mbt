@@ -2242,6 +2242,76 @@ test "gen-valid batch manifest labels duplicate-import-elimination profile leave
 }
 
 ///|
+test "emit gen-valid dae-optimizing aggregate records every cleanup family" {
+  let args = EmitGenValidBatchArgs::new(
+    256,
+    0x5eedUL,
+    "tmp/gen-valid-dae-optimizing",
+    profile="dae-optimizing",
+    max_attempts=256,
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let expected = [
+    "dae-optimizing-core", "dae-optimizing-many-touched", "dae-optimizing-medium-module",
+    "dae-optimizing-large-locals", "dae-optimizing-touched-caller", "dae-optimizing-forwarded-suffix",
+    "dae-optimizing-result-control", "dae-optimizing-structured-locals", "dae-optimizing-return-cleanup",
+    "dae-optimizing-immutable-field", "dae-optimizing-computed-effects", "dae-optimizing-table-effects",
+    "dae-optimizing-gc-computed", "dae-optimizing-tail-boundary", "dae-optimizing-type-reuse",
+  ]
+  let expected_cases = [
+    "dae-optimizing:core-cleanup", "dae-optimizing:many-touched", "dae-optimizing:medium-module",
+    "dae-optimizing:large-locals", "dae-optimizing:touched-caller", "dae-optimizing:forwarded-suffix",
+    "dae-optimizing:result-control", "dae-optimizing:structured-copy", "dae-optimizing:structured-sequential-color",
+    "dae-optimizing:structured-loop-copy", "dae-optimizing:structured-branch-result",
+    "dae-optimizing:structured-if-result", "dae-optimizing:structured-tee-chain",
+    "dae-optimizing:structured-nested-block", "dae-optimizing:return-cleanup", "dae-optimizing:immutable-field",
+    "dae-optimizing:computed-effects", "dae-optimizing:table-effects", "dae-optimizing:gc-struct-new",
+    "dae-optimizing:gc-array-new", "dae-optimizing:gc-array-new-default", "dae-optimizing:gc-array-new-fixed",
+    "dae-optimizing:tail-boundary", "dae-optimizing:type-reuse",
+  ]
+  let selected_profiles : Array[String] = []
+  let selected_cases : Array[String] = []
+  for item in selection.manifest {
+    @debug.assert_eq(item.config_label, "dae-optimizing")
+    assert_true(
+      expected.contains(item.selected_profile),
+      msg="unexpected DAEO selected profile \{item.selected_profile}",
+    )
+    if !selected_profiles.contains(item.selected_profile) {
+      selected_profiles.push(item.selected_profile)
+    }
+    match item.profile_case_label {
+      Some(label) => {
+        assert_true(label.starts_with("dae-optimizing:"), msg=label)
+        if !selected_cases.contains(label) {
+          selected_cases.push(label)
+        }
+      }
+      None => fail("expected DAEO profile case label")
+    }
+  }
+  for profile in expected {
+    assert_true(
+      selected_profiles.contains(profile),
+      msg="dae-optimizing aggregate did not select \{profile}",
+    )
+  }
+  for case_label in expected_cases {
+    assert_true(
+      selected_cases.contains(case_label),
+      msg="dae-optimizing aggregate did not generate \{case_label}",
+    )
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(manifest.contains("\"config_label\":\"dae-optimizing\""))
+  assert_true(manifest.contains("\"selected_profile\":\"dae-optimizing-"))
+  assert_true(manifest.contains("\"profile_case_label\":\"dae-optimizing:"))
+}
+
+///|
 test "gen-valid batch treats table-size transform without table as skipped candidate" {
   let args = EmitGenValidBatchArgs::new(
     1,

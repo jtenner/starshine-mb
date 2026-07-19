@@ -3491,8 +3491,7 @@ fn perf_test_make_nested_constructor_hot_skip_module() -> String {
     #|       local.get 8
     #|       call 5
     #|       local.tee 9
-    #|       local.set 10
-    #|       return
+    #|       drop
     #|     end
     #|     local.get 7))
     #|

@@ -107,7 +107,7 @@ pub fn cfg_block_get(HotCfg, Int) -> HotBlockInfo
 
 pub fn cfg_block_worklist_seed(HotCfg) -> Array[Int]
 
-pub fn cfg_build(HotFunc) -> HotCfg
+pub fn cfg_build(HotFunc, conservative_exception_entries? : Bool) -> HotCfg
 
 pub fn cfg_control_successor_policy(HotOp) -> CfgControlSuccessorPolicy?
 
@@ -761,7 +761,7 @@ pub fn live_in(HotLiveness, Int) -> Bitset
 
 pub fn live_out(HotLiveness, Int) -> Bitset
 
-pub fn liveness_build(HotCfg, HotUseDef) -> HotLiveness
+pub fn liveness_build(HotCfg, HotUseDef, include_exceptional_edges? : Bool) -> HotLiveness
 
 pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
