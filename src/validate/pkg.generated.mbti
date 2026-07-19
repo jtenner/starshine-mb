@@ -48,6 +48,8 @@ pub fn gen_invalid_seed_mode_name(GenInvalidSeedMode) -> String
 
 pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
+pub fn gen_valid_code_folding_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_config_label(GenValidConfig) -> String
 
 pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[GenValidConstExprAllowedOps]
@@ -1233,6 +1235,13 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  CodeFoldingIfArmsProfile
+  CodeFoldingBlockExitsProfile
+  CodeFoldingReturnsProfile
+  CodeFoldingTailCallsProfile
+  CodeFoldingMovementProfile
+  CodeFoldingEhProfile
+  CodeFoldingAllProfile
   TupleOptimizationSpillProfile
   TupleOptimizationCopyChainProfile
   TupleOptimizationTeeProfile

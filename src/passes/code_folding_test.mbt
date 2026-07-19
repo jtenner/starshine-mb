@@ -47,6 +47,33 @@ fn code_folding_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+fn code_folding_test_index_of(items : Array[String], needle : String) -> Int {
+  for i, item in items {
+    if item == needle {
+      return i
+    }
+  }
+  -1
+}
+
+///|
+test "code-folding owns the exact late O4z cleanup neighborhood" {
+  let expected = [
+    "vacuum", "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    "merge-blocks",
+  ]
+  for
+    passes in [
+      optimize_preset_passes(HotPipelineOptions::new()),
+      shrink_preset_passes(HotPipelineOptions::new()),
+    ] {
+    let idx = code_folding_test_index_of(passes, "code-folding")
+    assert_true(idx > 0)
+    @debug.assert_eq(passes[idx - 1:idx + 5], expected)
+  }
+}
+
+///|
 test "code-folding hoists identical if-arm suffixes" {
   let optimized = code_folding_test_run(
     (
@@ -311,7 +338,7 @@ test "code-folding folds embedded drop partial value if suffixes" {
 }
 
 ///|
-test "code-folding skips oversized functions" {
+test "code-folding folds large functions without a whole-pass size skip" {
   let prefix = code_folding_test_repeated_i32_drops(520)
   let optimized = code_folding_test_run(
     "(module (func (param i32) " +
@@ -323,13 +350,13 @@ test "code-folding skips oversized functions" {
   assert_true(pretty.contains("if"), msg=pretty)
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(9999)"),
-    2,
+    1,
     msg=pretty,
   )
 }
 
 ///|
-test "code-folding skips oversized if-arm suffix scan" {
+test "code-folding scans large if-arm suffixes without truncation" {
   let prefix = code_folding_test_repeated_i32_drops(130)
   let optimized = code_folding_test_run(
     "(module (func (param i32) (local.get 0) (if (then " +
@@ -340,34 +367,39 @@ test "code-folding skips oversized if-arm suffix scan" {
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(9999)"),
-    2,
+    1,
     msg=pretty,
   )
 }
 
 ///|
-test "code-folding skips oversized terminating-tail search" {
+test "code-folding searches terminating tails in large functions" {
   let prefix = code_folding_test_repeated_i32_drops(150)
+  let shared = " (call $sink) (i32.const 1) (drop) (i32.const 2) (drop) (i32.const 7) (return)"
   let optimized = code_folding_test_run(
     "(module (func $sink) (func (param i32) (result i32) " +
     prefix +
-    " (if (local.get 0) (then (call $sink) (i32.const 7) (return))) (call $sink) (i32.const 7) (return)))",
+    " (if (local.get 0) (then " +
+    shared +
+    "))" +
+    shared +
+    "))",
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_false(pretty.contains("br (Label"), msg=pretty)
+  assert_true(pretty.contains("br (Label"), msg=pretty)
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    2,
+    1,
     msg=pretty,
   )
 }
 
 ///|
-test "code-folding skips oversized embedded call value-if scan" {
+test "code-folding scans large embedded call value-if suffixes" {
   let prefix = code_folding_test_repeated_i32_drops(260)
   let optimized = code_folding_test_run(
     "(module (func $sink (param i32)) (func (param i32) (call $sink (if (result i32) (local.get 0) (then " +
@@ -379,10 +411,10 @@ test "code-folding skips oversized embedded call value-if scan" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("call"), msg=pretty)
-  assert_true(pretty.contains("if"), msg=pretty)
+  assert_false(pretty.contains("if"), msg=pretty)
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(9999)"),
-    2,
+    1,
     msg=pretty,
   )
 }
@@ -3751,6 +3783,41 @@ test "code-folding hoists block-exit tail before outer branch fallthrough" {
 }
 
 ///|
+test "code-folding intentionally leaves block-exit suffixes in typed tail regions" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32)
+      #|    (block $out
+      #|      (drop
+      #|        (if (result i32) (local.get 0)
+      #|          (then
+      #|            (local.get 1)
+      #|            (call $sink)
+      #|            (br $out)
+      #|            (i32.const 0))
+      #|          (else
+      #|            (local.get 1)
+      #|            (call $sink)
+      #|            (br $out)
+      #|            (i32.const 1))))))
+      #|  (func $sink (param i32)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  // Hot IR lowering can retain typed-region stack obligations around these
+  // unreachable exits. Leave the duplicate suffixes in place until movement
+  // can prove those obligations remain valid after hoisting.
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares full if arms ending in return" {
   let optimized = code_folding_test_run(
     (
@@ -3905,6 +3972,8 @@ test "code-folding shares non-adjacent return tails" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)
@@ -3912,6 +3981,8 @@ test "code-folding shares non-adjacent return tails" {
       #|    (call $sink)
       #|    (i32.const 7)
       #|    (drop)
+      #|    (nop)
+      #|    (nop)
       #|    (return)))
       #|,
     ),
@@ -3945,6 +4016,8 @@ test "code-folding shares non-root return tail subsets" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -3952,7 +4025,11 @@ test "code-folding shares non-root return tail subsets" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
+      #|    (nop)
+      #|    (nop)
       #|    (unreachable)))
       #|,
     ),
@@ -3996,6 +4073,8 @@ test "code-folding shares non-root return subsets excluding a different root ret
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -4003,9 +4082,13 @@ test "code-folding shares non-root return subsets excluding a different root ret
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (local.get 1)
       #|    (call $other)
+      #|    (nop)
+      #|    (nop)
       #|    (return)))
       #|,
     ),
@@ -4049,6 +4132,8 @@ test "code-folding shares arbitrary non-root return subset among distractor tail
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -4056,6 +4141,8 @@ test "code-folding shares arbitrary non-root return subset among distractor tail
       #|        (call $other)
       #|        (i32.const 8)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -4063,6 +4150,8 @@ test "code-folding shares arbitrary non-root return subset among distractor tail
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4095,7 +4184,7 @@ test "code-folding shares arbitrary non-root return subset among distractor tail
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    2,
+    3,
     msg=pretty,
   )
 }
@@ -4112,16 +4201,25 @@ test "code-folding shares arbitrary non-root unreachable subset among distractor
       #|      (then
       #|        (local.get 1)
       #|        (call $sink)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (if (local.get 0)
       #|      (then
       #|        (local.get 1)
       #|        (call $other)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (if (local.get 0)
       #|      (then
       #|        (local.get 1)
       #|        (call $sink)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4201,6 +4299,9 @@ test "code-folding folds deeper non-root return subset then shallow fixpoint" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -4208,6 +4309,9 @@ test "code-folding folds deeper non-root return subset then shallow fixpoint" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -4215,6 +4319,9 @@ test "code-folding folds deeper non-root return subset then shallow fixpoint" {
       #|        (call $other)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4253,12 +4360,16 @@ test "code-folding shares non-root structured block return suffixes" {
       #|        (block
       #|          (i32.const 7)
       #|          (drop))
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
       #|        (block
       #|          (i32.const 7)
       #|          (drop))
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4276,7 +4387,7 @@ test "code-folding shares non-root structured block return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4328,7 +4439,7 @@ test "code-folding shares non-root structured if return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4344,12 +4455,16 @@ test "code-folding shares non-root structured loop return suffixes" {
       #|        (loop
       #|          (i32.const 7)
       #|          (drop))
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
       #|        (loop
       #|          (i32.const 7)
       #|          (drop))
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4367,7 +4482,7 @@ test "code-folding shares non-root structured loop return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4384,6 +4499,8 @@ test "code-folding shares non-root self-branch block return suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (br $left))
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -4391,6 +4508,8 @@ test "code-folding shares non-root self-branch block return suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (br $right))
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4408,7 +4527,7 @@ test "code-folding shares non-root self-branch block return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4451,7 +4570,7 @@ test "code-folding shares internal-target conditional branch return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4503,7 +4622,7 @@ test "code-folding shares internal-target br-table return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4662,7 +4781,7 @@ test "code-folding shares non-root nested self-branch block return suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -4733,6 +4852,8 @@ test "code-folding shares non-root self-branch block unreachable suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (br $left))
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (if (local.get 0)
       #|      (then
@@ -4740,6 +4861,8 @@ test "code-folding shares non-root self-branch block unreachable suffixes" {
       #|          (i32.const 7)
       #|          (drop)
       #|          (br $right))
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -4967,6 +5090,8 @@ test "code-folding shares safe return subset past outside-target distractor" {
       #|          (call $sink)
       #|          (i32.const 7)
       #|          (drop)
+      #|          (nop)
+      #|          (nop)
       #|          (return)))
       #|      (if (local.get 0)
       #|        (then
@@ -4975,6 +5100,8 @@ test "code-folding shares safe return subset past outside-target distractor" {
       #|            (br_if $exit)
       #|            (i32.const 8)
       #|            (drop))
+      #|          (nop)
+      #|          (nop)
       #|          (return)))
       #|      (if (local.get 0)
       #|        (then
@@ -4982,6 +5109,8 @@ test "code-folding shares safe return subset past outside-target distractor" {
       #|          (call $sink)
       #|          (i32.const 7)
       #|          (drop)
+      #|          (nop)
+      #|          (nop)
       #|          (return))))))
       #|,
     ),
@@ -5006,7 +5135,7 @@ test "code-folding shares safe return subset past outside-target distractor" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    2,
+    3,
     msg=pretty,
   )
 }
@@ -5024,6 +5153,8 @@ test "code-folding shares non-root return tail subsets with root fallthrough" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 0)
       #|      (then
@@ -5031,6 +5162,8 @@ test "code-folding shares non-root return tail subsets with root fallthrough" {
       #|        (call $sink)
       #|        (i32.const 7)
       #|        (drop)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5053,7 +5186,7 @@ test "code-folding shares non-root return tail subsets with root fallthrough" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return"),
-    1,
+    2,
     msg=pretty,
   )
 }
@@ -5070,11 +5203,19 @@ test "code-folding shares block-backed unreachable tails" {
       #|        (block
       #|          (local.get 1)
       #|          (call $sink)
+      #|          (i32.const 7)
+      #|          (drop)
+      #|          (i32.const 8)
+      #|          (drop)
       #|          (unreachable))))
       #|    (i32.const 99)
       #|    (drop)
       #|    (local.get 1)
       #|    (call $sink)
+      #|    (i32.const 7)
+      #|    (drop)
+      #|    (i32.const 8)
+      #|    (drop)
       #|    (unreachable)))
       #|,
     ),
@@ -5106,11 +5247,17 @@ test "code-folding shares non-root unreachable tail subsets with root fallthroug
       #|      (then
       #|        (local.get 1)
       #|        (call $sink)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (if (local.get 0)
       #|      (then
       #|        (local.get 1)
       #|        (call $sink)
+      #|        (nop)
+      #|        (nop)
+      #|        (nop)
       #|        (unreachable)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5148,12 +5295,16 @@ test "code-folding shares direct return-call tails with typed results" {
       #|        (local.get 1)
       #|        (call $sink)
       #|        (local.get 1)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)
       #|    (local.get 1)
       #|    (call $sink)
       #|    (local.get 1)
+      #|    (nop)
+      #|    (nop)
       #|    (return_call $target)))
       #|,
     ),
@@ -5232,12 +5383,16 @@ test "code-folding shares non-root direct return-call tail subsets with root fal
       #|        (local.get 1)
       #|        (call $sink)
       #|        (local.get 1)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call $target)))
       #|    (if (local.get 0)
       #|      (then
       #|        (local.get 1)
       #|        (call $sink)
       #|        (local.get 1)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5276,18 +5431,24 @@ test "code-folding shares arbitrary non-root direct return-call subset among dis
       #|        (local.get 1)
       #|        (call $sink)
       #|        (local.get 1)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call $target)))
       #|    (if (local.get 0)
       #|      (then
       #|        (local.get 1)
       #|        (call $other)
       #|        (local.get 1)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call $other_target)))
       #|    (if (local.get 0)
       #|      (then
       #|        (local.get 1)
       #|        (call $sink)
       #|        (local.get 1)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call $target)))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5496,6 +5657,8 @@ test "code-folding shares return-call-indirect tails" {
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)
@@ -5503,6 +5666,8 @@ test "code-folding shares return-call-indirect tails" {
       #|    (call $sink)
       #|    (local.get 1)
       #|    (local.get 2)
+      #|    (nop)
+      #|    (nop)
       #|    (return_call_indirect (type $t))))
       #|,
     ),
@@ -5589,6 +5754,8 @@ test "code-folding shares non-root return-call-indirect tail subsets with root f
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (if (local.get 0)
       #|      (then
@@ -5596,6 +5763,8 @@ test "code-folding shares non-root return-call-indirect tail subsets with root f
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5637,6 +5806,8 @@ test "code-folding shares arbitrary non-root return-call-indirect subset among d
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (if (local.get 0)
       #|      (then
@@ -5644,6 +5815,8 @@ test "code-folding shares arbitrary non-root return-call-indirect subset among d
       #|        (call $other)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (if (local.get 0)
       #|      (then
@@ -5651,6 +5824,8 @@ test "code-folding shares arbitrary non-root return-call-indirect subset among d
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5696,6 +5871,8 @@ test "code-folding prefers deeper return-call-indirect subset over shallow all-t
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (if (local.get 0)
       #|      (then
@@ -5703,6 +5880,8 @@ test "code-folding prefers deeper return-call-indirect subset over shallow all-t
       #|        (call $other)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (if (local.get 0)
       #|      (then
@@ -5710,6 +5889,8 @@ test "code-folding prefers deeper return-call-indirect subset over shallow all-t
       #|        (call $sink)
       #|        (local.get 1)
       #|        (local.get 2)
+      #|        (nop)
+      #|        (nop)
       #|        (return_call_indirect (type $t))))
       #|    (i32.const 99)
       #|    (drop)))
@@ -5898,6 +6079,8 @@ test "code-folding shares return-call-ref tails" {
                 @lib.Instruction::call(@lib.FuncIdx::new(1U)),
                 @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
                 @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+                @lib.Instruction::nop(),
+                @lib.Instruction::nop(),
                 @lib.Instruction::return_call_ref(callee_type_idx),
               ],
               None,
@@ -5908,6 +6091,8 @@ test "code-folding shares return-call-ref tails" {
             @lib.Instruction::call(@lib.FuncIdx::new(1U)),
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+            @lib.Instruction::nop(),
+            @lib.Instruction::nop(),
             @lib.Instruction::return_call_ref(callee_type_idx),
           ]),
         ),
@@ -5951,6 +6136,8 @@ test "code-folding shares non-root return-call-ref tail subsets with root fallth
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
     @lib.Instruction::return_call_ref(callee_type_idx),
   ]
   let optimized = code_folding_test_run_module(
@@ -6014,6 +6201,8 @@ test "code-folding shares arbitrary non-root return-call-ref subset among distra
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
     @lib.Instruction::return_call_ref(callee_type_idx),
   ]
   let distractor_tail = [
@@ -6021,6 +6210,8 @@ test "code-folding shares arbitrary non-root return-call-ref subset among distra
     @lib.Instruction::call(@lib.FuncIdx::new(2U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
     @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
     @lib.Instruction::return_call_ref(callee_type_idx),
   ]
   let optimized = code_folding_test_run_module(
@@ -6178,6 +6369,8 @@ test "code-folding reaches a root-anchored terminating-tail fixpoint" {
       #|        (call $b)
       #|        (local.get 2)
       #|        (call $c)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (if (local.get 1)
       #|      (then
@@ -6185,6 +6378,8 @@ test "code-folding reaches a root-anchored terminating-tail fixpoint" {
       #|        (call $b)
       #|        (local.get 2)
       #|        (call $c)
+      #|        (nop)
+      #|        (nop)
       #|        (return)))
       #|    (local.get 2)
       #|    (call $a)
@@ -6192,6 +6387,8 @@ test "code-folding reaches a root-anchored terminating-tail fixpoint" {
       #|    (call $b)
       #|    (local.get 2)
       #|    (call $c)
+      #|    (nop)
+      #|    (nop)
       #|    (return)))
       #|,
     ),
@@ -6234,6 +6431,8 @@ test "code-folding late branch-cleanup neighborhood keeps fixpoint-exposed retur
         #|        (call $b)
         #|        (local.get 2)
         #|        (call $c)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (if (local.get 1)
         #|      (then
@@ -6241,6 +6440,8 @@ test "code-folding late branch-cleanup neighborhood keeps fixpoint-exposed retur
         #|        (call $b)
         #|        (local.get 2)
         #|        (call $c)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (local.get 2)
         #|    (call $a)
@@ -6248,6 +6449,8 @@ test "code-folding late branch-cleanup neighborhood keeps fixpoint-exposed retur
         #|    (call $b)
         #|    (local.get 2)
         #|    (call $c)
+        #|    (nop)
+        #|    (nop)
         #|    (return)))
         #|,
       ),
@@ -6299,6 +6502,8 @@ test "code-folding late branch-cleanup neighborhood keeps shared return tail val
         #|        (call $sink)
         #|        (i32.const 7)
         #|        (drop)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (i32.const 99)
         #|    (drop)
@@ -6306,6 +6511,8 @@ test "code-folding late branch-cleanup neighborhood keeps shared return tail val
         #|    (call $sink)
         #|    (i32.const 7)
         #|    (drop)
+        #|    (nop)
+        #|    (nop)
         #|    (return)))
         #|,
       ),
@@ -6346,6 +6553,8 @@ test "code-folding late branch-cleanup neighborhood keeps non-root return subset
         #|        (call $sink)
         #|        (i32.const 7)
         #|        (drop)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (if (local.get 0)
         #|      (then
@@ -6353,6 +6562,8 @@ test "code-folding late branch-cleanup neighborhood keeps non-root return subset
         #|        (call $sink)
         #|        (i32.const 7)
         #|        (drop)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (i32.const 99)
         #|    (drop)))
@@ -6403,6 +6614,8 @@ test "code-folding late branch-cleanup neighborhood keeps arbitrary non-root ret
         #|        (call $sink)
         #|        (i32.const 7)
         #|        (drop)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (if (local.get 0)
         #|      (then
@@ -6410,6 +6623,8 @@ test "code-folding late branch-cleanup neighborhood keeps arbitrary non-root ret
         #|        (call $other)
         #|        (i32.const 8)
         #|        (drop)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (if (local.get 0)
         #|      (then
@@ -6417,6 +6632,8 @@ test "code-folding late branch-cleanup neighborhood keeps arbitrary non-root ret
         #|        (call $sink)
         #|        (i32.const 7)
         #|        (drop)
+        #|        (nop)
+        #|        (nop)
         #|        (return)))
         #|    (i32.const 99)
         #|    (drop)))
@@ -6473,12 +6690,16 @@ test "code-folding late branch-cleanup neighborhood keeps shared return-call tai
         #|        (local.get 1)
         #|        (call $sink)
         #|        (local.get 1)
+        #|        (nop)
+        #|        (nop)
         #|        (return_call $target)))
         #|    (if (local.get 0)
         #|      (then
         #|        (local.get 1)
         #|        (call $sink)
         #|        (local.get 1)
+        #|        (nop)
+        #|        (nop)
         #|        (return_call $target)))
         #|    (i32.const 99)
         #|    (drop)))
@@ -7840,6 +8061,143 @@ test "code-folding hoists two-block void if suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares terminating returns with internal structured payloads" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (return
+      #|          (block (result i32)
+      #|            (i32.const 1) drop
+      #|            (i32.const 2) drop
+      #|            (i32.const 3)))))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (return
+      #|          (block (result i32)
+      #|            (i32.const 1) drop
+      #|            (i32.const 2) drop
+      #|            (i32.const 3)))))
+      #|    (unreachable)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(3)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding preserves Binaryen terminating-tail helper cost boundary" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (i32.const 1) drop
+      #|        (i32.const 2) drop
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (i32.const 1) drop
+      #|        (i32.const 2) drop
+      #|        (return)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br (Label"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds terminating tails above the old candidate limit" {
+  let mut text = "(module (func $sink) (func (param i32)"
+  for i = 0; i < 17; i = i + 1 {
+    text = text +
+      " (if (local.get 0) (then (call $sink) (i32.const 7) (drop) (return)))"
+  }
+  text = text + "))"
+  let optimized = code_folding_test_run(text)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds terminating tails above the old node limit" {
+  let prefix = code_folding_test_repeated_i32_drops(130)
+  let optimized = code_folding_test_run(
+    "(module (func $sink) (func (param i32)" +
+    prefix +
+    " (if (local.get 0) (then (call $sink) (i32.const 7) (drop) (i32.const 8) (drop) (return)))" +
+    " (if (local.get 0) (then (call $sink) (i32.const 7) (drop) (i32.const 8) (drop) (return)))))",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding does not skip foldable functions above the old size limit" {
+  let prefix = code_folding_test_repeated_i32_drops(520)
+  let optimized = code_folding_test_run(
+    "(module (func (param i32)" +
+    prefix +
+    " (if (local.get 0)" +
+    " (then (i32.const 60001) (drop) (i32.const 60002) (drop))" +
+    " (else (i32.const 60001) (drop) (i32.const 60002) (drop)))))",
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(60001)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(60002)"),
     1,
     msg=pretty,
   )

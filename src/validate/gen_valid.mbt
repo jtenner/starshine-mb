@@ -752,6 +752,13 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  CodeFoldingIfArmsProfile
+  CodeFoldingBlockExitsProfile
+  CodeFoldingReturnsProfile
+  CodeFoldingTailCallsProfile
+  CodeFoldingMovementProfile
+  CodeFoldingEhProfile
+  CodeFoldingAllProfile
   TupleOptimizationSpillProfile
   TupleOptimizationCopyChainProfile
   TupleOptimizationTeeProfile
@@ -990,6 +997,13 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetGlobalGetWindowProfile =>
       "code-pushing-multi-set-global-get-window"
     CodePushingAllProfile => "code-pushing-all"
+    CodeFoldingIfArmsProfile => "code-folding-if-arms"
+    CodeFoldingBlockExitsProfile => "code-folding-block-exits"
+    CodeFoldingReturnsProfile => "code-folding-returns"
+    CodeFoldingTailCallsProfile => "code-folding-tail-calls"
+    CodeFoldingMovementProfile => "code-folding-movement"
+    CodeFoldingEhProfile => "code-folding-eh"
+    CodeFoldingAllProfile => "code-folding-all"
     TupleOptimizationSpillProfile => "tuple-optimization-spill"
     TupleOptimizationCopyChainProfile => "tuple-optimization-copy-chain"
     TupleOptimizationTeeProfile => "tuple-optimization-tee"
@@ -1105,6 +1119,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
+    | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
     | Heap2LocalAllProfile
@@ -1227,6 +1242,15 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
+      ]
+    CodeFoldingAllProfile =>
+      [
+        GenValidProfileMember::new(CodeFoldingIfArmsProfile, 1),
+        GenValidProfileMember::new(CodeFoldingBlockExitsProfile, 1),
+        GenValidProfileMember::new(CodeFoldingReturnsProfile, 1),
+        GenValidProfileMember::new(CodeFoldingTailCallsProfile, 1),
+        GenValidProfileMember::new(CodeFoldingMovementProfile, 1),
+        GenValidProfileMember::new(CodeFoldingEhProfile, 1),
       ]
     TupleOptimizationAllProfile =>
       [
@@ -1600,6 +1624,13 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetLocalGetWindowProfile,
     CodePushingMultiSetGlobalGetWindowProfile,
     CodePushingAllProfile,
+    CodeFoldingIfArmsProfile,
+    CodeFoldingBlockExitsProfile,
+    CodeFoldingReturnsProfile,
+    CodeFoldingTailCallsProfile,
+    CodeFoldingMovementProfile,
+    CodeFoldingEhProfile,
+    CodeFoldingAllProfile,
     TupleOptimizationSpillProfile,
     TupleOptimizationCopyChainProfile,
     TupleOptimizationTeeProfile,
@@ -1769,6 +1800,8 @@ pub fn gen_valid_profile_by_name(
     "code-pushing" => Ok(CodePushingAllProfile)
     "code-pushing-closeout" => Ok(CodePushingAllProfile)
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
+    "code-folding" | "code-folding-closeout" | "code-folding-all-profiles" =>
+      Ok(CodeFoldingAllProfile)
     "tuple-optimization" => Ok(TupleOptimizationAllProfile)
     "tuple-optimization-closeout" => Ok(TupleOptimizationAllProfile)
     "tuple-optimization-all-profiles" => Ok(TupleOptimizationAllProfile)
@@ -3128,6 +3161,14 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
+    CodeFoldingIfArmsProfile
+    | CodeFoldingBlockExitsProfile
+    | CodeFoldingReturnsProfile
+    | CodeFoldingTailCallsProfile
+    | CodeFoldingMovementProfile
+    | CodeFoldingEhProfile => gen_valid_code_folding_profile_config(profile)
+    CodeFoldingAllProfile =>
+      gen_valid_code_folding_profile_config(CodeFoldingIfArmsProfile)
     TupleOptimizationSpillProfile
     | TupleOptimizationCopyChainProfile
     | TupleOptimizationTeeProfile =>
@@ -4483,6 +4524,345 @@ fn gen_valid_coalesce_locals_profile_config(
       allow_heap_store_optimization_body_generator: false,
       allow_heap2local_body_generator: false,
     },
+  }
+}
+
+///|
+fn gen_valid_code_folding_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let profile_tag = match profile {
+    CodeFoldingIfArmsProfile => 41
+    CodeFoldingBlockExitsProfile => 42
+    CodeFoldingReturnsProfile => 43
+    CodeFoldingTailCallsProfile => 44
+    CodeFoldingMovementProfile => 45
+    CodeFoldingEhProfile => 46
+    _ => 41
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == CodeFoldingEhProfile {
+      2
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: if profile == CodeFoldingTailCallsProfile {
+      2
+    } else {
+      1
+    },
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 1,
+    max_tags: if profile == CodeFoldingEhProfile {
+      1
+    } else {
+      0
+    },
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 2,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: profile_tag,
+    max_body_depth: 4,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: true,
+      allow_tags: profile == CodeFoldingEhProfile,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: profile == CodeFoldingEhProfile,
+      allow_calls: profile == CodeFoldingTailCallsProfile,
+      allow_call_indirect: false,
+      allow_tail_calls: profile == CodeFoldingTailCallsProfile,
+      allow_branch_heavy_control: true,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_code_folding_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(CodeFoldingIfArmsProfile) ||
+  config == GenValidConfig::for_profile(CodeFoldingBlockExitsProfile) ||
+  config == GenValidConfig::for_profile(CodeFoldingReturnsProfile) ||
+  config == GenValidConfig::for_profile(CodeFoldingTailCallsProfile) ||
+  config == GenValidConfig::for_profile(CodeFoldingMovementProfile) ||
+  config == GenValidConfig::for_profile(CodeFoldingEhProfile)
+}
+
+///|
+pub fn gen_valid_code_folding_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    CodeFoldingIfArmsProfile => Some("code-folding:if-arms")
+    CodeFoldingBlockExitsProfile => Some("code-folding:block-exits")
+    CodeFoldingReturnsProfile => Some("code-folding:returns-unreachable")
+    CodeFoldingTailCallsProfile => Some("code-folding:return-call")
+    CodeFoldingMovementProfile => Some("code-folding:internal-target-movement")
+    CodeFoldingEhProfile => Some("code-folding:eh-body")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_code_folding_i32_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([ValType::i32()], [])))
+}
+
+///|
+fn gen_valid_code_folding_shared_void_suffix() -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(7)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+    Instruction::i32_const(I32(8)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+  ]
+}
+
+///|
+fn gen_valid_code_folding_global_sec() -> GlobalSec {
+  GlobalSec::new([
+    Global::new(
+      GlobalType::new(ValType::i32(), true),
+      Expr::new([Instruction::i32_const(I32(0))]),
+    ),
+  ])
+}
+
+///|
+fn gen_valid_code_folding_if_arms_module() -> Module {
+  let left = [Instruction::i32_const(I32(1)), Instruction::drop()]
+  let right = [Instruction::i32_const(I32(2)), Instruction::drop()]
+  for instr in gen_valid_code_folding_shared_void_suffix() {
+    left.push(instr)
+  }
+  for instr in gen_valid_code_folding_shared_void_suffix() {
+    right.push(instr)
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_code_folding_i32_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_global_sec(gen_valid_code_folding_global_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), left, Some(right)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_code_folding_block_exits_module() -> Module {
+  let branch_tail = gen_valid_code_folding_shared_void_suffix()
+  branch_tail.push(Instruction::br(LabelIdx::new(1U)))
+  let body = [
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::if_(BlockType::void_(), branch_tail, None),
+  ]
+  for instr in gen_valid_code_folding_shared_void_suffix() {
+    body.push(instr)
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_code_folding_i32_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_global_sec(gen_valid_code_folding_global_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::block(BlockType::void_(), Expr::new(body))]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_code_folding_terminal_tail(
+  terminal : Instruction,
+) -> Array[Instruction] {
+  let tail = gen_valid_code_folding_shared_void_suffix()
+  tail.push(Instruction::i32_const(I32(9)))
+  tail.push(Instruction::global_set(GlobalIdx::new(0U)))
+  tail.push(Instruction::i32_const(I32(10)))
+  tail.push(Instruction::global_set(GlobalIdx::new(0U)))
+  tail.push(terminal)
+  tail
+}
+
+///|
+fn gen_valid_code_folding_returns_module() -> Module {
+  let tail = gen_valid_code_folding_terminal_tail(Instruction::return_())
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_code_folding_i32_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_global_sec(gen_valid_code_folding_global_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), tail, None),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), tail, None),
+          Instruction::i32_const(I32(99)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_code_folding_tail_calls_module() -> Module {
+  let target_type = gen_valid_code_folding_i32_void_type()
+  let caller_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32(), ValType::i32()], [])),
+  )
+  let tail = gen_valid_code_folding_shared_void_suffix()
+  tail.push(Instruction::i32_const(I32(9)))
+  tail.push(Instruction::global_set(GlobalIdx::new(0U)))
+  tail.push(Instruction::i32_const(I32(10)))
+  tail.push(Instruction::global_set(GlobalIdx::new(0U)))
+  tail.push(Instruction::local_get(LocalIdx::new(1U)))
+  tail.push(Instruction::return_call(FuncIdx::new(0U)))
+  Module::new()
+  .with_type_sec(TypeSec::new([target_type, caller_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+  .with_global_sec(gen_valid_code_folding_global_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), tail, None),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), tail, None),
+          Instruction::i32_const(I32(99)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_code_folding_movement_module() -> Module {
+  let internal = Instruction::block(
+    BlockType::void_(),
+    Expr::new([
+      Instruction::i32_const(I32(7)),
+      Instruction::global_set(GlobalIdx::new(0U)),
+      Instruction::i32_const(I32(8)),
+      Instruction::global_set(GlobalIdx::new(0U)),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+    ]),
+  )
+  let tail = [
+    internal,
+    Instruction::i32_const(I32(9)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+    Instruction::i32_const(I32(10)),
+    Instruction::global_set(GlobalIdx::new(0U)),
+    Instruction::return_(),
+  ]
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_code_folding_i32_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_global_sec(gen_valid_code_folding_global_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), tail, None),
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(BlockType::void_(), tail, None),
+          Instruction::i32_const(I32(99)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_code_folding_eh_module() -> Module {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let body_type = gen_valid_code_folding_i32_void_type()
+  let shared = gen_valid_code_folding_shared_void_suffix()
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, body_type]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_global_sec(gen_valid_code_folding_global_sec())
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::void_(),
+                [Catch::new(TagIdx::new(0U), LabelIdx::new(0U))],
+                Expr::new([
+                  Instruction::local_get(LocalIdx::new(0U)),
+                  Instruction::if_(BlockType::void_(), shared, Some(shared)),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_code_folding_profile_module(config : GenValidConfig) -> Module {
+  if config == GenValidConfig::for_profile(CodeFoldingBlockExitsProfile) {
+    gen_valid_code_folding_block_exits_module()
+  } else if config == GenValidConfig::for_profile(CodeFoldingReturnsProfile) {
+    gen_valid_code_folding_returns_module()
+  } else if config == GenValidConfig::for_profile(CodeFoldingTailCallsProfile) {
+    gen_valid_code_folding_tail_calls_module()
+  } else if config == GenValidConfig::for_profile(CodeFoldingMovementProfile) {
+    gen_valid_code_folding_movement_module()
+  } else if config == GenValidConfig::for_profile(CodeFoldingEhProfile) {
+    gen_valid_code_folding_eh_module()
+  } else {
+    gen_valid_code_folding_if_arms_module()
   }
 }
 
@@ -26226,6 +26606,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_code_folding_profile_config(config) {
+    return gen_valid_code_folding_profile_module(config)
+  }
   if gen_valid_is_duplicate_import_elimination_profile_config(config) {
     return gen_valid_duplicate_import_elimination_profile_module(config)
   }

@@ -24,6 +24,7 @@ using @validate {
   type ValidateValidFuzzStats,
   gen_invalid_named_seed_profile_name,
   gen_valid_config_label,
+  gen_valid_code_folding_profile_case_label,
   gen_valid_derive_stream_seed,
   gen_valid_module_result,
   gen_valid_module_result_from_seed,
