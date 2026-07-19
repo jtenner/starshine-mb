@@ -1260,9 +1260,34 @@ priv struct DaeModuleBoundarySnapshot {
   defined : Int
   total : Int
   type_indices : Array[@lib.TypeIdx]
+  function_types : Array[@lib.FuncType?]
+  funcs : Array[@lib.Func]
   call_facts : DaeCurrentCallFacts
   boundary_facts : DaeCallBoundaryFacts
   function_infos : Array[DaeFunctionInfo]
+}
+
+///|
+priv struct DaeFunctionEpochs {
+  mut signature_epoch : Int
+  mut body_epoch : Int
+}
+
+///|
+priv struct DaeCandidateEpoch {
+  def_idx : Int
+  module_epoch : Int
+  call_epoch : Int
+  signature_epoch : Int
+  body_epoch : Int
+}
+
+///|
+priv struct DaeCurrentBoundaryGraph {
+  mut snapshot : DaeModuleBoundarySnapshot
+  mut function_epochs : Array[DaeFunctionEpochs]
+  mut module_epoch : Int
+  mut call_epoch : Int
 }
 
 ///|
@@ -1656,14 +1681,173 @@ fn dae_collect_module_boundary_snapshot(
   let total = imported + defined
   let analysis = dae_collect_current_function_analysis(mod_, total)
   let call_facts = analysis.call_facts
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let function_types : Array[@lib.FuncType?] = []
+  let mut func_abs = 0
+  while func_abs < total {
+    function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
+    func_abs += 1
+  }
   {
     imported,
     defined,
     total,
-    type_indices: dae_collect_func_type_indices(mod_),
+    type_indices,
+    function_types,
+    funcs: match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => []
+    },
     call_facts,
     boundary_facts: dae_call_boundary_facts_from_current(call_facts),
     function_infos: analysis.function_infos,
+  }
+}
+
+///|
+fn dae_current_call_facts_equal(
+  left : DaeCurrentCallFacts,
+  right : DaeCurrentCallFacts,
+) -> Bool {
+  left.direct_calls == right.direct_calls &&
+  left.tail_calls == right.tail_calls &&
+  left.direct_callers == right.direct_callers &&
+  left.dropped_calls == right.dropped_calls &&
+  left.escaped == right.escaped
+}
+
+///|
+fn dae_make_function_epochs(
+  count : Int,
+  signature_epoch : Int,
+  body_epoch : Int,
+) -> Array[DaeFunctionEpochs] {
+  let epochs : Array[DaeFunctionEpochs] = []
+  let mut def_idx = 0
+  while def_idx < count {
+    epochs.push({ signature_epoch, body_epoch })
+    def_idx += 1
+  }
+  epochs
+}
+
+///|
+fn dae_current_boundary_graph_new(
+  mod_ : @lib.Module,
+) -> DaeCurrentBoundaryGraph {
+  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  {
+    snapshot,
+    function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
+    module_epoch: 0,
+    call_epoch: 0,
+  }
+}
+
+///|
+fn dae_boundary_candidate_epoch(
+  graph : DaeCurrentBoundaryGraph,
+  def_idx : Int,
+) -> DaeCandidateEpoch {
+  if def_idx < 0 || def_idx >= graph.function_epochs.length() {
+    return {
+      def_idx,
+      module_epoch: graph.module_epoch,
+      call_epoch: graph.call_epoch,
+      signature_epoch: -1,
+      body_epoch: -1,
+    }
+  }
+  let epochs = graph.function_epochs[def_idx]
+  {
+    def_idx,
+    module_epoch: graph.module_epoch,
+    call_epoch: graph.call_epoch,
+    signature_epoch: epochs.signature_epoch,
+    body_epoch: epochs.body_epoch,
+  }
+}
+
+///|
+fn dae_candidate_epoch_is_current(
+  graph : DaeCurrentBoundaryGraph,
+  candidate : DaeCandidateEpoch,
+) -> Bool {
+  if candidate.def_idx < 0 ||
+    candidate.def_idx >= graph.function_epochs.length() {
+    return false
+  }
+  let epochs = graph.function_epochs[candidate.def_idx]
+  candidate.module_epoch == graph.module_epoch &&
+  candidate.call_epoch == graph.call_epoch &&
+  candidate.signature_epoch == epochs.signature_epoch &&
+  candidate.body_epoch == epochs.body_epoch
+}
+
+///|
+fn dae_current_boundary_graph_refresh(
+  graph : DaeCurrentBoundaryGraph,
+  mod_ : @lib.Module,
+) -> Unit {
+  let previous = graph.snapshot
+  let next = dae_collect_module_boundary_snapshot(mod_)
+  let shape_changed = previous.imported != next.imported ||
+    previous.defined != next.defined ||
+    previous.total != next.total ||
+    graph.function_epochs.length() != next.defined
+  let mut changed = shape_changed
+  if shape_changed {
+    graph.function_epochs = dae_make_function_epochs(
+      next.defined,
+      graph.module_epoch + 1,
+      graph.module_epoch + 1,
+    )
+  } else {
+    let mut def_idx = 0
+    while def_idx < next.defined {
+      let previous_abs = previous.imported + def_idx
+      let next_abs = next.imported + def_idx
+      let signature_changed = previous_abs < 0 ||
+        previous_abs >= previous.function_types.length() ||
+        next_abs < 0 ||
+        next_abs >= next.function_types.length() ||
+        previous.function_types[previous_abs] != next.function_types[next_abs]
+      if signature_changed {
+        graph.function_epochs[def_idx].signature_epoch += 1
+        changed = true
+      }
+      let body_changed = def_idx >= previous.funcs.length() ||
+        def_idx >= next.funcs.length() ||
+        previous.funcs[def_idx] != next.funcs[def_idx]
+      if body_changed {
+        graph.function_epochs[def_idx].body_epoch += 1
+        changed = true
+      }
+      def_idx += 1
+    }
+  }
+  if !dae_current_call_facts_equal(previous.call_facts, next.call_facts) {
+    graph.call_epoch += 1
+    changed = true
+  }
+  if changed {
+    graph.module_epoch += 1
+  }
+  graph.snapshot = next
+}
+
+///|
+fn dae_boundary_facts_for_epoch(
+  graph : DaeCurrentBoundaryGraph,
+  expected_call_epoch : Int,
+  facts_override : DaeCallBoundaryFacts?,
+) -> DaeCallBoundaryFacts {
+  if expected_call_epoch >= 0 && expected_call_epoch != graph.call_epoch {
+    return graph.snapshot.boundary_facts
+  }
+  match facts_override {
+    Some(facts) => facts
+    None => graph.snapshot.boundary_facts
   }
 }
 
@@ -20398,6 +20582,8 @@ fn dae_run_core_once(
   optimize : Bool,
   skip_param_removal : Bool,
   original : DaeOriginalBoundarySnapshot,
+  current_graph : DaeCurrentBoundaryGraph,
+  expected_call_epoch? : Int = -1,
   max_def_exclusive? : Int = -1,
   start_def_inclusive? : Int = 0,
   boundary_facts_override? : DaeCallBoundaryFacts? = None,
@@ -20443,13 +20629,12 @@ fn dae_run_core_once(
   let original_dead_suffix_undropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.undropped_calls
   let original_dead_suffix_dropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.dropped_calls
   let original_dead_suffix_mutual_calls = original.dead_suffix_mutual_calls
-  let boundary_snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let boundary_snapshot = current_graph.snapshot
   let imported = boundary_snapshot.imported
   let defined = boundary_snapshot.defined
-  let boundary_facts = match boundary_facts_override {
-    Some(facts) => facts
-    None => boundary_snapshot.boundary_facts
-  }
+  let boundary_facts = dae_boundary_facts_for_epoch(
+    current_graph, expected_call_epoch, boundary_facts_override,
+  )
   let function_infos = boundary_snapshot.function_infos
   let direct_calls = boundary_facts.direct_calls
   let direct_callers = boundary_facts.direct_callers
@@ -20493,6 +20678,11 @@ fn dae_run_core_once(
   }
   while def_idx < scan_limit {
     let callee_abs = imported + def_idx
+    let candidate_epoch = dae_boundary_candidate_epoch(current_graph, def_idx)
+    if !dae_candidate_epoch_is_current(current_graph, candidate_epoch) {
+      def_idx += 1
+      continue
+    }
     if def_idx < already_rewritten_defs.length() &&
       already_rewritten_defs[def_idx] {
       def_idx += 1
@@ -36338,6 +36528,7 @@ fn dae_run_core(
       perf, "detail:dae:core:direct-gc-batch", direct_gc_batch_start_us,
     )
   }
+  let current_boundary_graph = dae_current_boundary_graph_new(current)
   let fixed_loop_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:fixed-loop",
   )
@@ -36353,12 +36544,9 @@ fn dae_run_core(
   let mut core_converged = false
   let mut unprofitable_removal_iters = 0
   while !core_converged {
-    let wave_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
-    let wave_boundary_facts = dae_call_boundary_facts_from_current(
-      wave_call_facts,
-    )
+    let wave_call_epoch = current_boundary_graph.call_epoch
+    let wave_call_facts = current_boundary_graph.snapshot.call_facts
+    let wave_boundary_facts = current_boundary_graph.snapshot.boundary_facts
     let wave_call_counts_anywhere = match current.code_sec {
       Some(@lib.CodeSec(funcs)) =>
         dae_collect_module_call_counts_anywhere(
@@ -36378,6 +36566,8 @@ fn dae_run_core(
         optimize,
         unprofitable_removal_iters > 0,
         original_boundary_snapshot,
+        current_boundary_graph,
+        expected_call_epoch=wave_call_epoch,
         start_def_inclusive=next_def,
         boundary_facts_override=Some(wave_boundary_facts),
       )
@@ -36422,6 +36612,10 @@ fn dae_run_core(
           }
         }
       }
+      dae_current_boundary_graph_refresh(
+        current_boundary_graph,
+        application.mod_out,
+      )
       current = application.mod_out
       touched = application.touched
       changed = application.changed

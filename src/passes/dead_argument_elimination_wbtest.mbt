@@ -14357,6 +14357,75 @@ test "dae stable callsites ignore inactive conflicting uniform actuals" {
 }
 
 ///|
+test "dae current boundary graph advances signature body and call epochs" {
+  let void_type = @lib.TypeIdx::new(0U)
+  let param_type = @lib.TypeIdx::new(1U)
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+  ])
+  let original = @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(@lib.FuncSec::new([void_type, void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let graph = dae_current_boundary_graph_new(original)
+  let def0_epoch = dae_boundary_candidate_epoch(graph, 0)
+  let def1_epoch = dae_boundary_candidate_epoch(graph, 1)
+  assert_true(dae_candidate_epoch_is_current(graph, def0_epoch))
+  assert_true(dae_candidate_epoch_is_current(graph, def1_epoch))
+  let changed = original
+    .with_func_sec(@lib.FuncSec::new([param_type, void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  dae_current_boundary_graph_refresh(graph, changed)
+  assert_eq(graph.module_epoch, 1)
+  assert_eq(graph.call_epoch, 0)
+  assert_eq(graph.function_epochs[0].signature_epoch, 1)
+  assert_eq(graph.function_epochs[0].body_epoch, 0)
+  assert_eq(graph.function_epochs[1].signature_epoch, 0)
+  assert_eq(graph.function_epochs[1].body_epoch, 1)
+  assert_false(dae_candidate_epoch_is_current(graph, def0_epoch))
+  assert_false(dae_candidate_epoch_is_current(graph, def1_epoch))
+  let before_call_epoch = dae_boundary_candidate_epoch(graph, 1)
+  let before_call_boundary = graph.snapshot.boundary_facts
+  let before_call_graph_epoch = graph.call_epoch
+  let with_call = changed.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+      ),
+    ]),
+  )
+  dae_current_boundary_graph_refresh(graph, with_call)
+  assert_eq(graph.module_epoch, 2)
+  assert_eq(graph.call_epoch, 1)
+  assert_eq(graph.function_epochs[1].body_epoch, 2)
+  assert_false(dae_candidate_epoch_is_current(graph, before_call_epoch))
+  let refreshed_boundary = dae_boundary_facts_for_epoch(
+    graph,
+    before_call_graph_epoch,
+    Some(before_call_boundary),
+  )
+  assert_eq(refreshed_boundary.direct_calls[0], 1)
+}
+
+///|
 test "dae reason codes classify boundary visibility and tail surfaces" {
   let cases = [
     (DaePrivateDirectBoundary, "candidate-produced"),
