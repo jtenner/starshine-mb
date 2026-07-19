@@ -7,6 +7,8 @@ sources:
   - ../../../../../src/passes/dead_argument_elimination.mbt
   - ../../../../../src/validate/gen_valid.mbt
   - ./fuzzing.md
+  - ./completion-matrix.md
+  - ./de-artifacting-inventory.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -16,6 +18,8 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ./completion-matrix.md
+  - ./de-artifacting-inventory.md
   - ../dae-optimizing/index.md
   - ../signature-pruning/index.md
   - ../tracker.md
@@ -29,7 +33,8 @@ related:
 - The public upstream CLI alias is `dae`.
 - It now has an active Starshine implementation surface in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt) and is wired as a module pass under both `dead-argument-elimination` and the upstream alias `dae`. Focused Moon tests for the direct-pass registry/dispatcher path are green, but direct DAE compare lanes still have many raw mismatches and are not signed off.
 - The current repo no-DWARF default optimize path uses the related later pass `dae-optimizing`, not this plain variant.
-- The two passes share the same core engine in upstream `version_129`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun.
+- The two passes share the same core engine in upstream `version_131`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun. The `version_130...version_131` source comparison leaves `DeadArgumentElimination.cpp` and its helper owners unchanged; v131 updates the expected unreachable local write from `local.tee` to `local.set` in `dae-gc.wast` and `dae2.wast`.
+- [`completion-matrix.md`](./completion-matrix.md) is the authoritative release ledger. [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) inventories selected definitions, numeric bands, iteration caps, and nested-cleanup guards that still block a generic release.
 
 ## Why it matters
 

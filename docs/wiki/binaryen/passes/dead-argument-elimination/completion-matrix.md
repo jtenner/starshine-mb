@@ -1,0 +1,123 @@
+---
+kind: workflow
+status: working
+last_reviewed: 2026-07-19
+sources:
+  - ../../../../../src/passes/dead_argument_elimination.mbt
+  - ../../../../../src/passes/dead_argument_elimination_wbtest.mbt
+  - ../../../../../src/passes/dae_optimizing_test.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../dae-optimizing/fuzzing.md
+  - ./fuzzing.md
+  - ./de-artifacting-inventory.md
+  - ../../../../../agent-todo.md
+related:
+  - ./index.md
+  - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
+  - ../dae-optimizing/index.md
+  - ../dae-optimizing/starshine-strategy.md
+  - ../../late-pipeline-dispatch.md
+---
+
+# Binaryen v131 DAE completion matrix
+
+This is the authoritative release ledger for plain `dead-argument-elimination` / `dae` and `dae-optimizing` / `dead-argument-elimination-optimizing` as of repository HEAD `07ec02a6d2b7cac069b9c0dcc7605c6e90851331` on 2026-07-19.
+
+It supersedes older prose that called selected DAE slices “closed” while the complete generic pass remained open. A row is closed only when its source-owned behavior is generic or narrowly classified, has focused positive and negative coverage, has current Binaryen-v131 generated evidence, and has no correctness-critical selected-definition dependency.
+
+## Source and baseline identity
+
+- Repository: `/home/jtenner/Projects/starshine-mb`
+- Branch: `main`
+- HEAD: `07ec02a6d2b7cac069b9c0dcc7605c6e90851331`
+- Working tree before baseline: clean
+- Upstream relation after fetch: local `main` equals `origin/main`; `origin/master` is one commit behind
+- Fresh native release binary: `_build/native/release/build/cmd/cmd.exe`
+- Native SHA-256: `336a8b70c84eef000e4b5bff949a3d263006759aaafc95a2b5db4be691e84ed5`
+- Official oracle: `.tmp/binaryen-version-131-bin/bin/wasm-opt`
+- Oracle version: `wasm-opt version 131 (version_131)`
+- Oracle SHA-256: `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`
+- Bare PATH `wasm-opt`: TinyGo Binaryen `version 116`; it is not acceptable evidence.
+
+The `version_130...version_131` primary-source comparison found no change in `DeadArgumentElimination.cpp`, `param-utils.h`, `opt-utils.h`, `lubs.h`, `type-updating.h`, or `return-utils.h`. The v131 DAE-specific fixture change is the expected `local.tee -> local.set` unreachable-value rendering in `dae-gc.wast`; `dae2.wast` has the same rendering update. Public registration additions in `pass.cpp` are unrelated (`constraint-analysis` and hidden `remove-start`). Therefore the v131 behavioral owner remains the v130 DAE implementation plus the v131 fixture correction, but all Starshine evidence below must still use the v131 binary.
+
+## Baseline tests and generated counters
+
+| Evidence | Result |
+|---|---|
+| DAE white-box | `212/212` |
+| Public DAE/DAEO file | `343/343` |
+| `src/passes` | `6171/6171` |
+| Full deterministic Moon | `9649/9649` |
+| `moon info` | 0 errors; existing warnings |
+| `moon fmt` | clean |
+| Native release build | passed |
+| Plain dedicated v131, 100 | `50` exact, `0` cleanup-normalized, `50` raw mismatches, zero failures |
+| Plain random-all v131, 100 | `89` exact, `1` cleanup-normalized, `10` raw mismatches, zero failures |
+| DAEO random-all v131, 100 | `93` exact, `1` cleanup-normalized, `6` raw mismatches, zero failures |
+| Plain wasm-smith v131, 100 requested | `99/99` exact comparable, `1` Binaryen `rec-group-zero` failure, zero Starshine failures |
+| DAEO wasm-smith v131, 100 requested | `99/99` exact comparable, `1` Binaryen `rec-group-zero` failure, zero Starshine failures |
+
+All baseline compare lanes used both documented DAE cleanup normalizers, explicit v131 `--wasm-opt-bin`, the fresh native Starshine binary, `--jobs auto`, and reduction disabled. Artifacts live under `.tmp/dae-release-baseline-20260719/` and are not committed.
+
+The latest complete targeted DAEO v131 aggregate before this baseline remains `1024/1024`: `823` exact plus `201` inspected smaller Starshine outputs, zero failures. The latest fixed self-hosted artifact checkpoint remains valid and byte-idempotent at raw/canonical `3,121,651 / 3,181,064`, versus Binaryen v131 `3,176,505 / 3,261,396`; first invocation is `568.782s`, second invocation is `40.624s`, and the open canonical gross-positive ledger is `2,924` bodies / `+56,531` bytes. Those numbers are current historical evidence from the same HEAD, not a fresh baseline replay with the newly hashed binary.
+
+Known unrelated repository blocker: `bun validate full --profile ci --target wasm-gc` reaches a pre-existing randomized decoder round-trip failure after the deterministic suite. It remains outside DAE ownership unless a minimized case proves otherwise.
+
+## Family matrix
+
+Status vocabulary:
+
+- **generic**: production behavior is selected from semantic/module facts, not artifact identity;
+- **mixed**: a generic path exists but selected/capped correctness or parity paths remain;
+- **selected**: production behavior depends materially on known definition identity or bands;
+- **absent**: no production owner yet;
+- **closed**: release evidence is complete for the row.
+
+| ID | Family | Binaryen-v131 source owner | Variant | Current Starshine owner | State | Positive focused tests | Negative safety tests | Dedicated generator profile | Current compare evidence | Residual classification | Remaining implementation | Dependencies | Exit criteria | Reopening criteria |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| DAE-A1 | Call-boundary visibility | `DeadArgumentElimination.cpp::DAEScanner` | both | `DaeFunctionInfo`, escape scan | generic-partial | private direct boundary | export, start, `ref.func`, element/table | `dae-unseen-call-boundary` | focused green; ordinary lanes mixed | unknown indirect/reference surfaces fail closed | unify all visibility reasons and tags/tables/type exposure in one original snapshot | boundary model | stable reason-coded classification and no signature edit on every visible surface | new proposal metadata or callable exposure |
+| DAE-A2 | Ordinary direct-call parameter removal | `param-utils.h::removeParameters` | both | generic candidate/caller/callee transaction | generic | first/middle/last and multi-param cases | used params, visible targets | `dae-unused-params` | baseline dedicated raw-red | Binaryen keeps unused replacement locals; Starshine often omits them, but generic architecture is still mixed with selected lanes | replace selected fallback scheduling with dependency worklist | A1, value slices, planner | all owned direct calls rewritten transactionally without definition gates | new call opcode or validation rule |
+| DAE-A3 | Direct `return_call` parameter repair | scanner + `ParamUtils` | both | direct-tail call facts and callsite repair | generic-partial | direct tail unused params | result incompatibility and indirect/ref tail | `dae-tail-call-boundary` | targeted v131 tail repair fixed 128 DAEO cases | plain raw shape differs through unused replacement local | include in generic candidate epochs and exact tail dependencies | A1, result graph | direct tail params rewrite; result changes remain legal | tail-call proposal changes |
+| DAE-A4 | Recursive forwarding | DAE graph/fixed point | both | adjacent forwarding, SCC helper, selected revisits | mixed | self recursion and selected cycles | conflicting values, escapes | `dae-convergence` | plain dedicated raw-red | output often differs by Binaryen replacement locals; broader mutual recursion unclosed | one SCC/component dependency graph | worklist, epochs | self/mutual/chain convergence with no selected seed | new recursive call form |
+| DAE-B1 | Uniform scalar constants | `ParamUtils::applyConstantValues` | both | literal/global/forwarded recognizers | mixed | integers, globals, forwarded constants | conflicts, writes/effect boundaries | `dae-constant-args` | plain dedicated raw-red; focused families green | direct substitution can be smaller than Binaryen local materialization; selected high-definition correctness paths remain | generic semantic-value equality for int/float/vector and current callsites | value slices, planner | no selected literal/default gate; documented materialization policy | Binaryen changes constant policy |
+| DAE-B2 | Immutable globals | `ParamUtils` constant values | both | immutable-global path plus bounded revisits | mixed | immutable scalar and reference globals | mutable globals, imported unknowns | `dae-constant-args`, DAEO immutable-field | targeted DAEO improved | broad module revisit uses `<=4096`, candidate bands, and `512` cap | dependency-driven global-value evidence | B1, worklist | all owned current actuals agree without module-size correctness gate | global mutability/const-expr changes |
+| DAE-B3 | Reference/null constants | DAE GC/constant helpers | both | `ref.null` and exact reference materialization | generic-partial | nullable null and exact allocation/null cases | non-null defaultability, incomparable refs | GC leaves | targeted v131 parity-or-better | broader exact/nullable representation and recursive groups open | central semantic constant and ref-type evidence | GC LUB, type repair | exact/null constants work through all supported carriers | heap-type rules change |
+| DAE-C1 | Effect-preserving removed operands | `ParamUtils::removeParameters` | both | `DaeOperandDisposition` and replay plan | generic | effectful call/global/memory/table operands | escaping control, unknown stack effect | `dae-effectful-args`, computed/table effects | DAEO residuals are smaller and effect/trap preserving | direct DAE and richer nested operands remain open | enrich common value-slice effect/trap metadata | value slices | left-to-right evaluation and all effects/traps preserved for every admitted opcode | new opcode effect semantics |
+| DAE-C2 | Localization | `ParamUtils::localizeParams` | both | typed DAE-owned scratch locals | generic-partial | sequential/nested callsites, exact-type reuse | escaping branch, arbitrary-local borrowing | `dae-localization` | prior singleton lanes green; baseline random lanes mixed | explicit requeue/frontier and cached stable callsite state absent | make localization a worklist transition | epochs, planner | localize once per epoch, validate, retry, terminate | local defaultability changes |
+| DAE-D1 | GC parameter refinement | `lubs.h`, `type-updating.h` | both | many candidate producers and LUB helpers | generic-partial | allocations, local.get, direct/ref/indirect call, select/control | no strict LUB, incomparable, escapes | `dae-arg-type-refinement` | focused and targeted lanes green | producer set is scanner-heavy and bounded | one producer API and central LUB | value slices, type repair | all source-backed producers use one deterministic combiner | subtyping/exactness changes |
+| DAE-D2 | GC result refinement | `lubs.h`, return/type updater | both | direct result/body refinement helpers | generic-partial | explicit/fallthrough/select/control/multivalue subsets | stale call type, branch mismatch, no strict refinement | `dae-return-type-refinement` | focused green; broad lanes not closed | nested carrier/control families remain bounded | unify argument/result evidence and rewrites | D1, control planner | all admitted lanes repaired transactionally | result typing changes |
+| DAE-E1 | Typed-select reconstruction | type updater | both | select value-slice and rewrite helpers | generic-partial | single/multivalue and several condition shapes | escaping branch and unknown condition slices | GC refinement leaves | focused green | arbitrary conditions and wider tuples open | generic select plan from common slices | value slices | no select-specific shape cap for representable source surface | select typing changes |
+| DAE-E2 | Type-indexed control reconstruction | type updater | both | typeidx control plan/application | generic-partial | block/if/loop zero-param and parametric subsets | incompatible params, branch mismatch | GC refinement leaves | focused green | broader parameterized/nested controls and `try_table` incomplete | tuple-aware control reconstruction plan | type repair | block/if/loop/try_table rebuilt from exact stack/control facts | control proposal changes |
+| DAE-E3 | Explicit-return analysis | `return-utils.h` | both | multiple explicit-return scanners | generic-partial | block/if/loop and mixed return/fallthrough subsets | missing operand, escaping branch | result refinement leaves | focused green | duplicate scanners and bounded carriers remain | common returned-value slice API | E2, result graph | explicit/fallthrough paths share one legality proof | return semantics change |
+| DAE-E4 | Multivalue result lanes | type updater + return utils | both | per-lane GC evidence and suffix scanners | generic-partial | flat, block, loop, select, simple if arms | lane mismatch and branch incompatibility | result refinement leaves | focused green | arbitrary carriers and lane observation incomplete | lane dependency graph and generic tuple plan | E2, E3 | source-backed multivalue controls/results reconstructed generically | multivalue typing changes |
+| DAE-F1 | Dropped-result legality | DAE result phase, `return-utils.h` | both | result boundary rows and repair plans | mixed | all-direct-dropped, uncalled, bottom result | mixed observed calls, live tails, escapes | `dae-unused-returns` | dedicated positive leaf exact; selected artifact paths remain | broad selected result definitions and caps remain | explicit result dependency graph | A1, tail graph | no result removed with any live observer or tail constraint | new observer surface |
+| DAE-F2 | Direct tail dependencies | DAE tail facts | both | direct tail callee facts | generic-partial | direct tail ownership | direct tail result removal | tail profile | targeted fix green | must move into candidate dependency/epoch model | result graph | params coordinated; result legality exact | tail-call changes |
+| DAE-F3 | Indirect/reference tail barriers | DAE scanner/type trees | both | conservative tail evidence | generic barrier | focused bailout | `return_call_indirect`, `return_call_ref` | boundary profiles | no known invalid rewrite | compatibility is not proven; always barrier | model target/signature relation only if source-backed | type graph | fail closed or prove exact compatible target set | typed-function-ref changes |
+| DAE-F4 | Uninhabited/bottom result repair | DAE TNH + return utils | both | call-plus-unreachable repair | generic-partial | `(ref none)` dropped result | reachable suffix and wrong bottom type | unused returns | focused v131 green | broader bottom/shared forms need matrix coverage | integrate with result plan | F1 | all supported bottom results preserve nonreturning control | heap-bottom changes |
+| DAE-G1 | Type reuse and append | `type-updating.h` | both | signature finalization/typeidx helpers | generic-partial | equivalent reuse and append | malformed/mismatched sections | type-reuse leaf | targeted green | multiple specialized type mutation tails remain | one type-section edit plan | planner | all signature/control changes use one finalizer | type encoding changes |
+| DAE-G2 | Recursive-group repair | type updater | both | flattened rec-group lookup/append | generic-partial | grouped lookup and append | wrong group and malformed index | type-reuse leaf | fixed artifact validates | pruning remains conservative and mixed-group breadth incomplete | central flattened-index map and rec-group edits | G1 | grouped signatures/control references remain valid | GC type-system changes |
+| DAE-G3 | Tag/table/element/type liveness | type updater and scanner | both | simple type-pruning mark/remap | generic-partial | imported tag regression, table/element escapes | active/passive exposure and sole users | unseen boundary, wasm-smith | baseline wasm-smith 99 comparable exact | globals, defined tags, unknown metadata and mixed retained indexed internals need complete proof | module-wide type user map | G1/G2 | no live type/reference pruned or corrupted | metadata/type users expand |
+| DAE-G4 | Names and metadata repair | pass/module utilities | both | mostly `without_name_sec()` | partial | stale name removal | unknown metadata preservation largely absent | none | validation only | stripping all known names is safe but not complete metadata repair | explicit metadata edit policy | planner | supported metadata intentionally remapped/preserved/removed | metadata support expands |
+| DAE-H1 | Original/current boundary separation | DAE scanner | both | original snapshot plus current facts | generic-partial | white-box row projections | stale/current mixing cases | all DAE profiles | behavior stable | original facts remain split across many parallel arrays | coherent original/current boundary records | epochs | original legality immutable; current facts refresh by invalidation | new legality fact |
+| DAE-H2 | Candidate epochs and staleness | DAE iteration | both | no explicit epochs | absent | none | stale count guards are ad hoc | convergence | no dedicated evidence | candidates can carry copied facts across specialized phases | function/signature/body epochs | H1 | stale plans rejected and requeued before mutation | dependency model changes |
+| DAE-H3 | Transactional rewrite planning | `ParamUtils`, type updater | both | several local plan/application carriers | mixed | callsite/type/result transaction tests | rollback tests in selected helpers | all | validation green | no single immutable boundary rewrite plan | unify caller/callee/control/type/metadata edits | H2, G1 | one plan validates candidate module then commits | module representation changes |
+| DAE-H4 | Reason-coded diagnostics | Binaryen debug/stats analog | both | trace strings and counters only | absent | none | none | none | not applicable | no stable decision enum/counter contract | add structured reasons and counters without output change | H1 | white-box classifications for all boundary decisions | new decision family |
+| DAE-I1 | Dependency-driven convergence | DAE loop/fixed point | both | generic forward wave plus many selected/capped revisits | mixed | convergence and selected scheduler tests | no-op break tests | `dae-convergence` | raw-red plain; targeted DAEO good | correctness/parity still relies on `8`, `14`, `21`, `32`, `64`, `512`, low/high bands, and selected arrays | deterministic worklist over callers/callees/components/results | H2/H3 | queue empties; caps only defensive fail-closed budgets | pathological component found |
+| DAE-I2 | Work budget | defensive only | both | many optimization caps | mixed | cap tests for helpers | no unified fail-closed budget | stress | no release proof | current caps select behavior, not just resource safety | one diagnostic budget outside correctness | I1 | budget excess leaves valid committed state and reproducer | adversarial complexity changes |
+| DAE-J1 | Optimizing touched set | `opt-utils.h::optimizeAfterInlining` | optimizing | DAE touched bitmaps and pass-manager adapters | generic-partial | touched-only and untouched preservation | import-offset and rollback tests | DAEO touched leaves | targeted v131 good | selected cleanup can bypass truthful generic set | exact touched/invalidated dependency propagation | planner/worklist | only actual changed functions and required dependents touched | nested pass metadata changes |
+| DAE-J2 | Nested `precompute-propagate` | `opt-utils.h` | optimizing | real public descriptor through touched adapter | generic-partial | exact nested order | plain negative | `dae-optimizing` | targeted profile good | DAE core also has private cleanup/follow-up forks | shared pipeline API, no semantic fork | shared scheduler | exact public pass used once in intended order | public pass contract changes |
+| DAE-J3 | Default O4z function pipeline | `PassRunner::addDefaultFunctionOptimizationPasses` | optimizing | 22-step DAE-local array and adapters | mixed | trace order | plain negative, touched-only | `dae-optimizing` | baseline DAEO random-all has 6 raw residuals | not shared with inlining/SGO; guards skip touched sets/functions | shared options/step API with feature/level requirements | O4Z-NESTED | DAE/inlining/SGO expand one truthful roster | O4z roster changes |
+| DAE-J4 | Combined DAEO lifecycle | DAE optimize flag + `opt-utils.h` | optimizing | core, nested passes, bespoke revisits/final retry | mixed | post-cleanup DAE rerun cases | plain separation | `dae-optimizing` | targeted `823/201`, fixed artifact valid | arbitrary lifecycle caps and selected post-cleanup families remain | finite boundary-cleanup dependency fixpoint | I1, J3 | exact touched cleanup and only source-required DAE revisits to fixpoint | Binaryen lifecycle changes |
+| DAE-K1 | Plain/optimizing separation | registration/optimize flag | both | separate aliases and dispatch | generic | plain leaves debris; optimizing cleans | plain emits no nested trace | plain + DAEO profiles | focused green | shared raw cleanup ownership needs clearer naming | keep mandatory repair separate from optimizing cleanup | H3/J3 | aliases equivalent within variant; no cleanup leak | scheduler changes |
+| DAE-K2 | Ordered preset placement | `pass.cpp` default postpasses | optimizing | optimize/shrink arrays | partial | exact slot tests | exact-once tests | scheduled DAEO | dedicated fixture reaches slot | full 56-slot Starshine roster still differs and large public artifact stops before DAEO in HSO | close direct pass, then reconcile complete roster | O4Z-PRESET | DAEO once in exact late slot with predecessors/successors | Binaryen roster changes |
+| DAE-L1 | Generated four-lane closeout | test/harness | both | pass-fuzz tooling | open | profiles exist | validation/runtime modes | plain aggregate, DAEO 15-leaf | only 100-case fresh baseline plus prior targeted evidence | no unclassified baseline failures, but not closeout-scale | run required 100k/10k/10k/10k for each variant | all behavior rows | zero true semantic/validation residuals; all drift classified | behavior changes |
+| DAE-L2 | Artifact/runtime/performance | pass + scheduler | both | perf timers and retained artifact | open | dedicated artifact tests | validation rollback | stress profiles | DAEO `568.782s`; second `40.624s`; plain artifact not renewed | pass-local far over target; gross-positive bodies open | phase counters, scan reduction, shared filtered pipeline | I1/J3 | accepted medians, runtime equality, bounded large modules | material regression |
+| DAE-L3 | Release integration | package/docs/release | both | v0.1.0 workspace | open | aliases/presets tested | no publication without gates | n/a | version remains `0.1.0` | DAE/DAEO release blockers active | close matrix, docs, validation, release notes, clean commits | all | no active DAE blocker and external publication boundary only | post-release regression |
+
+## Release interpretation
+
+The current pass is **active but not release-complete**. Strong pieces already exist: direct-call boundary ownership, transactional caller/callee edits, effect/trap replay, localization, substantial GC refinement, typeidx repair, direct-tail parameter handling, bottom-result repair, touched-only pass adapters, aliases, and late preset placement. The blockers are architectural rather than a single missing peephole: selected-definition production paths, arbitrary revisit caps, fragmented original/current facts, no candidate epoch model, no single rewrite plan, incomplete control/result dependency generality, no shared nested function-pipeline API, incomplete v131 four-lane evidence, and unacceptable fixed-artifact runtime.

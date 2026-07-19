@@ -4,6 +4,8 @@ status: supported
 last_reviewed: 2026-07-19
 sources:
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
+  - ../dead-argument-elimination/completion-matrix.md
+  - ../dead-argument-elimination/de-artifacting-inventory.md
   - ../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md
   - ../../../raw/research/1652-2026-07-19-dae-incoming-liveness-written-constants-and-bottom-results.md
   - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
@@ -142,6 +144,8 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/index.md
+  - ../dead-argument-elimination/completion-matrix.md
+  - ../dead-argument-elimination/de-artifacting-inventory.md
   - ../rse/index.md
   - ../local-cse/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -151,6 +155,8 @@ related:
 # `dae-optimizing`
 
 ## Role
+
+The shared release status is tracked in [`../dead-argument-elimination/completion-matrix.md`](../dead-argument-elimination/completion-matrix.md). The production selected-definition and numeric-guard debt is tracked in [`../dead-argument-elimination/de-artifacting-inventory.md`](../dead-argument-elimination/de-artifacting-inventory.md).
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
 - It is currently **partially implemented** in Starshine as an active module pass. The focused `[DAE]003` and `[DAE]004` breadth slices are closed by research notes `0661` and `0687`, and the recovered current preset tables schedule `dae-optimizing` once in both public `optimize` and `shrink`, immediately after `heap-store-optimization` and before `inlining-optimizing`.

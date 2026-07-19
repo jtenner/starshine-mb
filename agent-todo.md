@@ -94,6 +94,46 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Current sources:** `docs/wiki/binaryen/passes/dead-argument-elimination/`, `docs/wiki/binaryen/passes/dae-optimizing/`, and research notes `1645`, `1649`, `1650`, `1651`, `1652`, `1653`, and `1654`.
 - **Exit criteria:** zero unclassified gross-positive direct/optimizing residual families, a fresh green four-lane matrix for the widened behavior, real touched-only nested cleanup within an accepted runtime bound, no selected-function correctness dependency where a generic proof is feasible, and valid runtime-green O4z slot behavior after the late-HSO blocker.
 
+### [O4Z-DAE-MODEL]001 - Replace parallel DAE facts with boundary candidates and epochs
+
+- **Owner:** `src/passes/dead_argument_elimination.mbt` analysis and scheduler layers.
+- **Goal:** preserve one immutable original boundary snapshot, one incrementally refreshed current boundary graph, explicit caller/callee/result dependencies, and deterministic candidate epochs.
+- **Reason:** current legality still flows through many parallel arrays and specialized phases; stale candidates and repeated scans prevent a correctness-independent worklist.
+- **Deliverables:** reason-coded decisions/counters; coherent original/current records; SCC/component graph; function/signature/body epochs; stale-plan rejection and requeue; no correctness-critical low/high/reverse bands.
+- **Dependencies:** the v131 completion matrix and de-artifacting inventory in `docs/wiki/binaryen/passes/dead-argument-elimination/`.
+- **Exit criteria:** every boundary candidate names its dependencies and expected epochs; stale candidates never mutate; full-module facts are rescanned only when invalidated.
+- **Suggested tests:** export/start/ref.func/element/call_indirect/call_ref classification, direct and indirect tail barriers, mutual recursion, stale call-count retry, deterministic queue order.
+
+### [O4Z-DAE-PLAN]001 - Unify DAE value evidence and transactional rewrites
+
+- **Owner:** DAE value-slice, localization, GC refinement, dropped-result, and module finalization helpers.
+- **Goal:** construct one immutable caller/callee/control/type/metadata rewrite plan before mutation.
+- **Reason:** several local transactions are already sound, but signature-changing families still use separate evidence and application tails.
+- **Deliverables:** one value-slice carrier with stack/effect/trap/control metadata; parameter-action model; localization as a requeue transition; shared GC LUB evidence; result dependency graph; generic control/typeidx/multivalue reconstruction; one module finalizer.
+- **Dependencies:** `[O4Z-DAE-MODEL]001`.
+- **Exit criteria:** caller edits, callee projection, control/type repair, metadata policy, candidate validation, commit, rollback, and requeue are owned by one plan lifecycle.
+- **Suggested tests:** mixed removed/kept params, ambient-stack operands, escaping branches, trapping/effectful producers, direct return_call, GC argument/result LUB, typed select, typeidx block/if/loop/try_table, multivalue lanes, bottom results, grouped types, imported/defined tags.
+
+### [O4Z-DAE-WORKLIST]001 - Remove selected definitions and arbitrary boundary caps
+
+- **Owner:** `dae_run_core(...)` and selected DAE/DAEO helpers.
+- **Goal:** replace production Func-number gates, fixed candidate bands, and correctness-affecting iteration caps with a dependency-driven worklist.
+- **Reason:** the baseline inventory still finds hard-coded chains, wrapper lists, dropped-result fallbacks, local maps, and `8/14/21/32/64/512` policies.
+- **Deliverables:** generic component and result queues; defensive fail-closed work budget only; selected-only and guard-skip counters; generic focused replacements for every retained artifact fixture; removal of obsolete/unreachable lanes.
+- **Dependencies:** `[O4Z-DAE-MODEL]001`, `[O4Z-DAE-PLAN]001`.
+- **Exit criteria:** no correctness path depends on `FuncNNN`, definition windows, module cardinality, or productive-attempt caps; retained heuristics omit only optional profitability cleanup.
+- **Suggested tests:** long forwarding chains, many independent candidates, recursive components, localization no-progress, stale retry, large module with one candidate, large touched set, former Func237/288/3737/3765 fixtures through generic recognizers.
+
+### [O4Z-DAE-RELEASE]001 - Close plain DAE and DAEO evidence and release integration
+
+- **Owner:** shared nested scheduler, optimizer presets, validation tooling, DAE/DAEO dossiers, and v0.1.0 release metadata.
+- **Goal:** route DAE, inlining, and SGO through one touched default-function pipeline; close direct behavior, performance, artifacts, presets, docs, and release preparation.
+- **Reason:** DAEO currently has a DAE-local 22-step roster, broad touched/size skips, a `568.782s` fixed-artifact first invocation, and no current full v131 four-lane matrix; plain DAE is also unclosed.
+- **Deliverables:** shared pipeline API; exact touched `precompute-propagate -> O4z function pipeline`; combined finite DAEO lifecycle; direct plain and optimizing four-lane matrices; artifact validation/runtime/section/timing ledger; exact public roster and alias tests; completed docs and release notes.
+- **Dependencies:** `[O4Z-DAE-WORKLIST]001`, `[O4Z-NESTED]001`, `[O4Z-PRESET]001`, and resolution or precise attribution of pre-DAEO HSO wall ownership.
+- **Exit criteria:** completion matrix closed, no unclassified residual, accepted pass-local performance, runtime-green representative artifacts, exact-once preset placement, no active DAE release blocker, clean committed tree.
+- **Suggested tests:** plain-vs-optimizing debris split, nested trace order, untouched function identity, optimize/shrink/O4z exact order, repeated application, wasm-gc full gate, runtime replay, full required compare matrices.
+
 ### [O4Z-PRESET]001 - Reconcile the exact 56-slot public preset
 
 - **Status:** blocked on direct pass work above.
