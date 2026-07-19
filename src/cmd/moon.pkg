@@ -16,7 +16,8 @@ import {
   "moonbitlang/core/quickcheck/splitmix",
 }
 
+pkgtype(kind: "executable")
+
 options(
-  "is-main": true,
   link: { "wasm": { "export-memory-name": "memory" } },
 )
