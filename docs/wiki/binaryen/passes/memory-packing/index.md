@@ -31,7 +31,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct parity is **reopened**. The imported zero-filled, provably in-bounds active-overlap path previously documented as current-main drift is included in `version_131`; Starshine still rejects every overlap. `[V131-MP]001` owns source-order trampling cleanup, checked memory32/memory64 bounds, focused fixtures, and fresh four-lane/O4z evidence.
+Direct parity is **closed for the released behavior surface**. Starshine now neutralizes earlier bytes trampled by later active segments in source order, admits overlapping imported-memory segments only when `zero_filled_memory` is enabled and every active segment is provably within the declared minimum, and uses overflow-safe page-count bounds for memory32 and memory64, including maximal memory64 and ranges ending exactly at `2^64`. `[V131-MP]001` is complete with focused fixtures, explicit-v131 compare lanes, CLI option routing, and an exact O4z slot replay.
 
 ## Role
 
@@ -48,7 +48,7 @@ A better beginner summary is:
 - drops zero runs from active segments when memory's zero-initialized startup state already provides them,
 - rewrites passive `memory.init` / `data.drop` users into `memory.init` plus `memory.fill` sequences when needed,
 - preserves startup and dropped-segment trap behavior with top-byte retention or lazily-created drop-state globals,
-- and stays conservative around overlapping active segments, imported memory, GC data-segment users, memory64 corner cases, and segment-count limits.
+- and handles source-ordered active overlap while staying conservative around imported-memory traps, dynamic offsets, GC data-segment users, memory64 corner cases, and segment-count limits.
 
 So this is **not** just an active-data peephole pass.
 It is a whole-module segment-layout plus segment-op rewrite pass. For the underlying Starshine `DataMode`, data-count, and segment-header contract that this pass mutates, see [`../../../binary/data-element-and-datacount-sections.md`](../../../binary/data-element-and-datacount-sections.md).
@@ -84,14 +84,14 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 - The real safety story starts with a whole-module legality gate:
   - exactly one memory only
   - imported memory only when `zeroFilledMemory` is enabled
-  - overlapping active segments bail out unless v131 proves the narrow zero-filled imported-memory in-allocation path and neutralizes source-order trampling
+  - overlapping active segments are neutralized in source order; imported overlap additionally requires `zero_filled_memory` and an all-active-segments in-bounds proof
   - multiple active segments with dynamic offsets bail out
 - Passive segments are a major part of the real pass contract.
 - Upstream rewrites `memory.init` and `data.drop`, not just raw segment bytes.
 - Preserving trap behavior is mandatory unless `trapsNeverHappen` is allowed.
 - GC awareness exists here already, but mostly as a conservative boundary:
   - `array.new_data` and `array.init_data` users inhibit splitting today
-- V131 is the current released oracle and includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Existing v130 Starshine signoff is therefore historical and the released gap is owned by `[V131-MP]001`; see [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
+- V131 is the current released oracle and includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Starshine now implements that released rule; existing v130 signoff remains historical, while the current closeout is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md). See [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
 
 ## Biggest beginner correction
 

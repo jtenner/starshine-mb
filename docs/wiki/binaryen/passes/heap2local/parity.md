@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - ../tracker.md
@@ -28,7 +28,7 @@ related:
 - Safe flow-through cases include direct local owners, exclusive local-copy chains, direct tees, simple block or loop result flow, `ref.as_non_null`, `ref.eq`, `ref.test`, successful `ref.cast`, and descriptor-bearing `ref.get_desc` cases.
 - Immediate Binaryen bailout families include escapes through calls or returns, mixed local provenance, `if`-mediated value mixing, and nonconstant array sizes or indexes. Do **not** list atomic array access as a generic upstream bailout: the source-backed Binaryen contract has atomic/RMW/cmpxchg handling when nonescape and exclusivity are proven, even though current Starshine's direct-array subset is narrower.
 - Binaryen runs the array lowering first, then the struct rewrite, and each invocation is intentionally single-iteration.
-- V131 rebuilds `LazyLocalGraph`, parent, and branch-target analysis after every successful allocation rewrite, preventing stale scratch-local and parent-flow facts when multiple allocations are optimized in one function. This released change reopens parity under `[V131-H2L]001`.
+- V131 rebuilds `LazyLocalGraph`, parent, and branch-target analysis after every successful allocation rewrite, preventing stale scratch-local and parent-flow facts when multiple allocations are optimized in one function. The 2026-07-19 renewal closes Starshine's representable sequential-candidate surface; shared reference-valued ordered cmpxchg remains blocked separately.
 
 ## Current In-Tree Status
 
@@ -39,25 +39,32 @@ related:
 
 The current Starshine slice covers the full in-tree primary suite:
 
-- direct exclusive struct owners, repeated same-owner fresh allocations with self-copy writes, local-copy chains, tees, and simple block-result flow
+- direct exclusive struct owners, repeated same-owner fresh allocations with self-copy writes, local-copy chains, tees, simple block-result flow, and immediate branch-target flow
 - `ref.as_non_null`, direct `ref.eq`, and successful `ref.cast`
 - descriptor-bearing `struct.new_desc` and `struct.new_default_desc` plus `ref.get_desc`
 - constant-size `array.new_default`, `array.new`, and `array.new_fixed`
 - constant-index `array.get`, `array.get_s`, `array.get_u`, and `array.set`
 - direct array `ref.test`
+- nullable GC-supertype drop-only owners
+- direct fresh packed/unpacked struct and array reads, including fixed-array OOB trapping
 - bailout on parameter-backed mixed provenance
 
 The 2026-07-02 audit added a dedicated GenValid aggregate, `heap2local-all`, with leaves for struct scalarization (`heap2local-struct`), fixed-size array lowering (`heap2local-array`), and direct fresh-reference folds (`heap2local-ref`). Focused GenValid tests, parity fixes, the required four-lane compare matrix, pass-local timing, and generated O4z slot evidence are now recorded; use `heap2local-all` as the pass-specific closeout lane for future H2L refreshes.
 
-## Binaryen v131 gap
+## Binaryen v131 closeout and remaining blocker
 
-- V131 rebuilds LocalGraph, parent, and branch-target analyses after each successful allocation optimization so later candidates do not use stale state.
-- V131 also stops allocation type-flow adjustment on paths that are already `unreachable`.
-- Existing Starshine evidence does not prove those exact sequential-candidate and dead-flow families. `[V131-H2L]001` reopens direct and O4z parity.
+- V131 rebuilds LocalGraph, parent, and branch-target analyses after each successful allocation optimization so later candidates do not use stale state. Starshine's immutable candidate collection now has focused sequential struct, array, mixed-family, and immediate-branch-target coverage proving that later candidates remain valid after earlier rewrites append locals and replace control wrappers.
+- V131 also stops allocation type-flow adjustment on paths that are already `unreachable`. The official array-through-`br_if(return)` fixture now takes a narrow raw H2L path that emits the five scalar defaults and `return`, validates, and is canonically smaller than Binaryen v131 (`47` vs `54` bytes).
+- Broad random-profile triage additionally closed nullable GC-supertype drop-only owners and direct fresh packed/unpacked struct/array reads, including fixed-array out-of-bounds trapping.
+- The official shared `must-optimize-ref-eq` scratch-local case remains blocked: Starshine decodes the module, but validation rejects reference-valued aggregate atomic RMW/cmpxchg. This ordered shared-reference atomic surface must land before H2L can claim that fixture; no unsafe approximation is accepted.
 
-The older nondefaultable-local/refinalization boundary remains separate and is still not itself the reason for this reopen.
+The older nondefaultable-local/refinalization boundary remains separate.
 
 ## Current Evidence
+
+- The 2026-07-19 explicit-v131 refresh closes the representable reopen. Focused tests cover sequential mixed struct/array candidates, two immediate-branch struct candidates, two immediate-branch array candidates, the official unreachable-flow shape, GC-supertype drop-only ownership, direct fresh nonpacked reads, packed signed reads, and fixed-array OOB trapping. The direct branch workload is a measured Starshine win (`57` vs `81` canonical bytes; `0.031ms` vs `0.086ms` pass-local), and the official unreachable workload is `47` vs `54` canonical bytes with Starshine's exact raw path.
+- Final explicit-v131 lanes use `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131-bin/bin/wasm-opt`: regular `.tmp/h2l-v131-regular-10000-final` is `10000/10000` normalized; wasm-smith `.tmp/h2l-v131-wasm-smith-10000-final` is `9955` normalized plus one `unreachable-control-debris` normalized match, zero mismatches, and `44` Binaryen command failures; dedicated `.tmp/h2l-v131-all-10000-final` is `2474` normalized plus `7526` residual Starshine wins, with no residual H2L ops in either output and `203810` aggregate canonical bytes saved; random `.tmp/h2l-v131-random-all-10000-final` is `8517` normalized plus `1483` residual Starshine wins, no H2L-operation-presence differences, and `37178` aggregate bytes saved.
+- The rebuilt v131 O4z predecessor `.tmp/h2l-v131-o4z-slot/prefix-before-h2l.wasm` produces an exact canonical H2L slot match at `4180576` bytes. Starshine pass-local time is `101.912ms` versus Binaryen `160.650ms`; whole-command time remains slower (`2659.586ms` vs `553.163ms`) because non-pass decode/validation/tracing dominates and remains wall-time-owned.
 
 - A `2026-07-02` follow-up fixed the first reduced generated struct family: repeated same-owner fresh allocations plus self-copy writes are now scalarized, and the focused regression lives in `src/passes/heap2local_test.mbt`. Replay `.tmp/pass-fuzz-heap2local-case000001-after-sequential-owner` still mismatches raw compare (`1/1`, zero failures), but Starshine and Binaryen both scalarize the GC traffic; the residual is agent-classified as output-shape/local-debris drift from Binaryen preserving extra local/default/drop scaffolding that Starshine omits after proving the unused initialization is pure/nontrapping. The 100-case struct leaf smoke `.tmp/pass-fuzz-heap2local-struct-100-after-sequential-owner` compared `100/100` with `18` normalized and `82` residual mismatches; a classifier found every saved Starshine mismatch had no residual `struct.new`, `struct.get`, or `struct.set` and all `82/82` Starshine canonical wasm outputs were smaller than Binaryen's.
 - A later `2026-07-02` follow-up fixed two more generated families with red-first focused regressions in `src/passes/heap2local_test.mbt`: straight-line repeated same-owner fixed-array allocation epochs now lower through scalar element locals, and direct fresh-struct `ref.test` folds to a constant. Replays `.tmp/pass-fuzz-heap2local-case000015-after-sequential-array` and `.tmp/pass-fuzz-heap2local-case000004-after-direct-struct-reftest` still raw-mismatch but contain no residual generated H2L operations in Starshine output. Aggregate smoke `.tmp/pass-fuzz-heap2local-all-100-after-sequential-array-reftest` compared `100/100` with `22` normalized and `78` residual mismatches, zero failures, selected profiles `struct=49`, `array=22`, `ref=29`; all saved residuals have no `struct`/`array`/`ref.eq`/`ref.test` H2L traffic and `78/78` smaller Starshine canonical wasm.

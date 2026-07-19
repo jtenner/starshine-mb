@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
@@ -229,4 +229,4 @@ A future Starshine port should preserve all of these special-case rules honestly
 - EH nested-pop repair is part of the real pass boundary
 - packed access semantics must survive scalarization exactly
 - atomic/RMW/cmpxchg and descriptor families are part of the source-level contract even when dedicated test coverage is uneven
-- v131's per-allocation analysis reset is part of correctness and requires renewed parity evidence under `[V131-H2L]001`
+- v131's per-allocation analysis reset is part of correctness; the 2026-07-19 renewal covers representable sequential candidates, while shared reference-valued ordered cmpxchg remains a validator/atomic-semantics blocker

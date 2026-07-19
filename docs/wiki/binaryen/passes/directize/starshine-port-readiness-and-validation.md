@@ -151,7 +151,7 @@ This slice is now landed and revalidated for the explicit default pass:
 
 - `directize` is an active module pass,
 - explicit requests run the module-pass path,
-- focused tests demonstrate pre-v131 element-target rewrites, mutable-table bailout, defined null-hole trap rewrite, and select lowering; v131 declared-default cases remain open under `[V131-DIR]001`,
+- focused tests demonstrate element-target rewrites, mutable-table bailout, defined null-hole traps, select lowering, `ref.func` and unknown table defaults, and growth boundaries; the default v131 declared-default cases are closed,
 - the 2026-05-06 mixed-generator lane `.tmp/pass-fuzz-directize` compared 6759 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not broadening beyond the accepted public suffix without replaying the neighboring late tail.

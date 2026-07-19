@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../raw/binaryen/2026-06-19-optimize-instructions-version-130-source-refresh.md
@@ -36,7 +36,9 @@ related:
 
 ## Binaryen v131 status
 
-The 2026-07-12 Starshine closeout remains the v130 baseline, but direct parity is **reopened** for Binaryen v131. Upstream changed equal-input `ref.eq`, identical-arm `select`, idempotent-call/deep-effect equality, directional movement checks, and non-concrete select-arm bailout behavior. `[V131-OI]001` in `agent-todo.md` owns red-first focused fixtures and a fresh explicit-v131 four-lane plus O4z closeout.
+The representable Binaryen v131 surface is closed at parity or measured Starshine wins. Starshine now covers one- or two-evaluation equal-input `ref.eq`, trap-sensitive cast peeling, identical-arm `select` localization and directional barriers, non-concrete arm bailouts, idempotent-call parent/child effect ordering, raw double-`eqz` completion, and the precomputed late-O4z select shape. The explicit-v131 four-lane closeout has no validation/property failures, no size-losing canonical residual, and no unclassified comparable family.
+
+One upstream fixture remains a **representation blocker, not an optimizer deferral**: `optimize-instructions-global-effects-idempotent.wast` uses ordered memory atomics (`acqrel`) and shared GC types that Starshine's current text/binary instruction model cannot faithfully decode. The ordinary mutable-global idempotent ordering contract is regression-covered; the acquire/release-specific deep-effect pair must reopen when ordered memory-atomic representation lands.
 
 ## Role
 
@@ -139,11 +141,13 @@ Current durable answer:
 - the detailed prose still mostly teaches from the reviewed `version_129` dossier because that is where the original deep read was filed;
 - the 2026-06-19 `version_130` source/lit matrix remains the broad owner/family inventory and the 2026-07-12 closeout remains the historical local evidence baseline;
 - Binaryen `version_131` is now the release oracle and changes equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, directional movement checks, and non-concrete select bailout behavior;
-- `[V131-OI]001` must layer focused v131 fixtures and renewed direct/O4z evidence over the existing matrix rather than treating the v130 closeout as current.
+- the 2026-07-19 focused fixtures, explicit-v131 four-lane matrix, and O4z replays close that representable surface; ordered memory-atomic acquire/release behavior remains explicitly blocked on instruction representation.
 
 ## Current O4z audit inventory
 
-The older 2026-06-19 behavior inventory and `version_130` source matrix were the kickoff for the OI audit. The 2026-07-12 final matrix in [`./fuzzing.md`](./fuzzing.md) marks the v130 `[OI-INDEX]005` scope complete: regular GenValid is green at `100000/100000`, explicit wasm-smith leaves only three classified Starshine-win dead-value cleanups plus `44` Binaryen/tool failures, `pass-oi-all` leaves only the already-classified OI-M SB005 tuple-wrapper Starshine wins, and `random-all-profiles` leaves only classified `ssa-nomerge-smoke` Starshine cleanup wins. In other words, the reviewed Binaryen `version_130` OI contract was closed for true semantic mismatches. V131 has now met the release-drift reopen criterion, and `[V131-OI]001` is the active status bar.
+The 2026-07-19 v131 refresh supersedes the v130 status bar. On the 300-function directional-select workload, the early `remove-unused-brs -> optimize-instructions -> heap-store-optimization` neighborhood keeps Starshine's `3928`-byte output versus Binaryen's `5428` bytes; the final single replay is effectively wall-time neutral (`4.547ms` versus `4.520ms`), while the repeated isolated direct-pass workload favors Starshine whole-process. The late `merge-blocks -> precompute-propagate -> optimize-instructions -> heap-store-optimization -> rse -> vacuum` neighborhood converges to canonical-equal `3028`-byte output. Its isolated post-precompute OI slot now uses `v131-precomputed-identical-select`, producing `3028` bytes versus Binaryen's `4228` while completing whole-process faster; the full late neighborhood remains slower because the neighboring merge/precompute pipeline dominates, not because OI still enters HOT for the repeated select shape.
+
+The older 2026-07-12 v130 closeout remains historical evidence. Current explicit-v131 lane counts and residual classifications are maintained in [`./fuzzing.md`](./fuzzing.md).
 
 ## Current maintenance rule
 

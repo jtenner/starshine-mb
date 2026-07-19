@@ -59,7 +59,7 @@ related:
 - Debug-artifact pass-local timing: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements --timing-only --out-dir .tmp/rume-debug-artifact-timing-declonly` reported canonical wasm equality, Starshine pass runtime `25.198 ms`, Binaryen pass runtime `38.936 ms`, and no raw skip.
 - The prior 2026-05-06 revalidation remains useful historical evidence; see [research note 0545](./index.md).
 
-## Binaryen v131 gap
+## Binaryen v131 closeout
 
 V131 table-initial-value roots, overlap/null/wrong-type segment retention, reference-only trap-callee emptying, and `traps_never_happen` are implemented and covered by focused fixtures in `remove_unused_module_elements_test.mbt`.
 
@@ -90,7 +90,7 @@ This is an intentional Starshine win (correct OOB math, much smaller module), no
 
 Focused fixture: `remove-unused-module-elements drops nonempty in-bounds active data on unused memories` (matches Binaryen on ordinary memory32 sizes). Docs that previously claimed “nonempty active data always keeps defined memory” were corrected to match Binaryen’s import-visibility / trap-only startup rooting.
 
-Early neighborhoods / late-tail and a dedicated RUME GenValid profile remain open under `[V131-RUME]001`.
+A later final rerun on the completed branch reached `9955` normalized wasm-smith cases plus one smaller unreachable-memory cleanup, with `44` Binaryen/tool failures and no Starshine command or validation failures. The first and second early O4z neighborhoods are canonical/normalized equal at `4,961,792` and `4,959,592` bytes; first-slot pass-local timing is `88.401ms` Starshine versus `62.760ms` Binaryen (`1.41x`). Combined focused coverage after rebasing is `34/34`, including multi-member recursive-group validity. `[V131-RUME]001` is closed for direct behavior; the accepted late-tail replay is blocked before RUME by the separately tracked simplify-globals/vacuum invalid-local failure, and the dedicated RUME GenValid profile remains optional coverage work.
 
 ## Historical remaining gap
 
@@ -108,7 +108,7 @@ Early neighborhoods / late-tail and a dedicated RUME GenValid profile remain ope
 
 ## Practical Rule
 
-- Treat the v130 core as implemented, but treat v131 table-initial-value and overlap/trap behavior as active parity work rather than coverage-only maintenance.
+- Treat the direct v131 behavior as implemented; keep the separate second-early-slot scheduler discrepancy visible under preset reconciliation.
 - If a new mismatch appears, debug it as either:
   - liveness decision drift
   - imported-parent retention drift

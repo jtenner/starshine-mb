@@ -28,7 +28,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct RUME table-init / overlap / TNH liveness is implemented under `[V131-RUME]001`: callable table initializers root matching `call_indirect` targets, null/wrong-type and overlapping active writes are retained when they preserve traps, reference-only trap callees are emptied, and `traps_never_happen` may drop trap-only overwrites. Primary v131 oracle matrix (GenValid 100k, random-all 10k, wasm-smith 10k) is recorded in [`./parity.md`](./parity.md); early neighborhoods / late-tail and a RUME-owned GenValid profile remain open. The separate second-early-slot scheduler gap remains open.
+Direct Binaryen v131 behavior parity is **closed**. Starshine tracks indirect-call type reachability, callable table initializers, overlapping/null/wrong-type trap-preserving writes, `trapsNeverHappen`, reference-only function-body nullification, and multi-member recursive-group validity. The explicit GenValid, random-all, wasm-smith, focused-fixture, and early-neighborhood evidence is recorded in [`./parity.md`](./parity.md); the separate second-early-slot scheduler gap remains open under preset reconciliation.
 
 ## Role
 

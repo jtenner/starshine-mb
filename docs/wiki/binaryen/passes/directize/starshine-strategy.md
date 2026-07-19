@@ -40,7 +40,7 @@ For the first-slice order and validation ladder, use [`./starshine-port-readines
 
 ## The honest current status
 
-`directize` is implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`. Its existing oracle evidence closes the pre-v131 segment-driven default behavior, but v131 table-initial-value classification reopens direct parity under `[V131-DIR]001`.
+`directize` is implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`. Its explicit-v131 evidence now closes both the segment-driven behavior and table-initial-value known/trap/unknown classification; optional `directize-initial-contents-immutable` pass-arg support remains separate.
 
 The current local strategy is still deliberately conservative where the upstream pass is policy-sensitive:
 

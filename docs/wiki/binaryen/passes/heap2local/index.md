@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - ../tracker.md
@@ -40,7 +40,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct parity is **reopened**. V131 rebuilds LocalGraph, parent, and branch-target analyses after each successful allocation rewrite and stops type-flow adjustment on already-unreachable paths. `[V131-H2L]001` owns sequential-candidate and unreachable-flow fixtures plus refreshed `heap2local-all`, timing, and O4z evidence.
+The representable v131 surface is **closed**. Starshine now handles sequential branch-target struct/array candidates without stale candidate state, the released unreachable-flow array case, nullable GC-supertype owners whose only uses are drops, and direct fresh packed/unpacked struct and array reads. The remaining official `must-optimize-ref-eq` case uses shared reference-valued `acqrel` cmpxchg; Starshine decodes the binary but its validator still rejects reference-valued aggregate atomic RMW/cmpxchg, so that family remains an explicit representation/atomic-semantics blocker rather than a hidden H2L success claim.
 
 ## Role
 
@@ -147,7 +147,7 @@ What it actually is in Binaryen v131:
 
 The repo-wide release oracle is now Binaryen `version_131`. It includes the previously recorded array/cmpxchg/unreachable refinements and adds a broader correctness repair: after each successful array or struct scalarization, `heap2local` rebuilds `LazyLocalGraph`, `Parents`, and `BranchTargets` before analyzing the next allocation. This prevents scratch locals and rewritten parent/flow edges from being interpreted through stale analysis state.
 
-V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple optimized allocations around cmpxchg scratch locals and in `heap2local.wast` for unreachable control flow. Starshine's older v130 closeout evidence therefore no longer closes the released contract; `[V131-H2L]001` owns renewed focused and oracle parity.
+V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple optimized allocations around cmpxchg scratch locals and in `heap2local.wast` for unreachable control flow. Starshine now closes the sequential branch-target and unreachable-flow behavior it can represent. The shared reference-valued `acqrel` cmpxchg fixture remains blocked at validation/atomic semantics, and must be reopened with that instruction surface rather than approximated inside H2L.
 
 ## Current maintenance rule
 
@@ -156,10 +156,10 @@ V131 also adds direct fixture evidence in `heap2local-rmw.wast` for multiple opt
 - Keep the main correction explicit:
   - upstream `heap2local` is conservative GC scalarization, not generic stack allocation
 - Keep the array-first, exclusivity-proof, and validation-repair stories explicit whenever future docs or code changes touch this pass.
-- Keep the 2026-07-02 GenValid profile boundary explicit: `heap2local-all` now exists for dedicated fuzzing of struct, array, and ref-fold families. The required `10000` dedicated lane now runs to completion and exposes raw output-shape/local-debris residuals after generated H2L traffic removal. The ordinary `100000` GenValid lane is green, wasm-smith is green under the standard `unreachable-control-debris` normalizer for one unrelated raw residual, and broad `random-all-profiles` only re-exposes the same H2L raw residual family. The normalizer/alignment decision is currently to keep that H2L family raw and explicitly classified rather than add a semantic H2L normalizer that could hide future generated operations. The pass still needs pass-local timing and slot/neighborhood evidence before closeout.
+- Keep the v131 matrix explicit: `.tmp/h2l-v131-regular-10000-final` is `10000/10000` normalized; `.tmp/h2l-v131-wasm-smith-10000-final` is `9955` normalized plus one generic unreachable-control normalized match, with `44` Binaryen tool failures; `.tmp/h2l-v131-all-10000-final` has `2474` normalized and `7526` smaller Starshine residuals after both tools remove generated H2L traffic; `.tmp/h2l-v131-random-all-10000-final` has `8517` normalized and `1483` smaller residuals with no H2L-operation-presence differences. Keep these families raw and agent-classified so future allocation traffic cannot hide behind a broad normalizer.
 - Keep the 2026-05-08 backlog-closure boundary explicit too: the old `[H2L]002` neighbor-slot work is done, while nondefaultable-local repair remains an upstream/source-contract note until Starshine accepts that validator surface.
 - Keep the exact local navigation path explicit too: registry / preset placement in `src/passes/optimize.mbt`, dispatch in `src/passes/pass_manager.mbt`, rewrite logic in `src/passes/heap2local.mbt`, proof coverage in the focused local test files, and the line-range map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
-- Keep the v131 per-allocation analysis reset explicit until `[V131-H2L]001` proves Starshine parity for multiple interacting allocations.
+- Keep the v131 boundary explicit: independent and immediate-branch sequential candidates are proven; shared reference-valued ordered cmpxchg remains blocked by Starshine's validator/atomic model.
 
 ## Sources
 

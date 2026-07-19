@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "kind": "starshine.optimize-instructions.parity-matrix",
   "pass": "optimize-instructions",
-  "binaryenVersion": "version_130",
-  "lastReviewed": "2026-07-18",
+  "binaryenVersion": "version_131",
+  "lastReviewed": "2026-07-19",
   "statusVocabulary": [
     "covered",
     "mismatch",
@@ -25,6 +25,8 @@
     "docs/wiki/binaryen/passes/optimize-instructions/binaryen-strategy.md",
     "docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md",
     "docs/wiki/binaryen/passes/optimize-instructions/fuzzing.md",
+    "Binaryen version_131 OptimizeInstructions.cpp and optimize-instructions v131 lit diffs",
+    "Binaryen version_131 optimize-instructions-global-effects-idempotent.wast (ordered-memory-atomic representation blocker)",
     "src/passes/optimize_instructions.mbt",
     "src/passes/optimize_instructions_test.mbt",
     "src/passes/pass_manager.mbt",
@@ -1406,6 +1408,7 @@
       "litSources": [
         "optimize-instructions-default.wast",
         "optimize-instructions_idempotent.wast",
+        "optimize-instructions-global-effects-idempotent.wast",
         "optimize-instructions_branch-hints-fold.wast"
       ],
       "featureRequirements": [
@@ -1414,8 +1417,11 @@
       "binaryenOracleMode": "compare-pass normalized WAT; branch-hint rows remain representation boundary until Starshine models code metadata",
       "starshineStatus": "blocked-surface",
       "priority": "P1",
-      "blockerBoundaryReason": "Sampled source-backed OI-F boolean/select profile residuals were reduced by the 2026-06-30 dead-trap value-if rewrite: .tmp/oi-f-dead-trap-value-if-fix-count40-20260630 compared 40/40 with 40 normalized matches and zero failures across effectful-identical-select, trapping-dead-if-arm, value-if-drop-shell, and direct-if-select-shell labels. The remaining v0.1 row state is a source-backed blocked surface for Binaryen branch-hint/code-metadata and optimize-instructions-never-fold-or-reorder behavior because Starshine lacks expression-level branch-hint representation, code-metadata section plumbing, and OI pass-option support. This is a release boundary, not a request for more non-metadata generator breadth.",
+      "blockerBoundaryReason": "The representable v131 OI-F surface is covered: equal-reference evaluation, identical-select localization/barriers, non-concrete bailout, idempotent call-parent/child ordering, and precomputed select fast paths have focused tests and explicit-v131 four-lane/O4z evidence. The row remains blocked-surface only for two representation/option boundaries: branch-hint/code-metadata plus optimize-instructions-never-fold-or-reorder plumbing, and the v131 acquire/release global-effects fixture's ordered memory-atomic `acqrel` representation. Starshine cannot faithfully decode that fixture today; do not approximate its synchronization semantics inside OI.",
       "lastCheckedEvidence": [
+        "2026-07-19 v131 focused tests cover one/two-evaluation ref.eq, trap-sensitive cast peeling, scratch-local and conflicting identical selects, non-concrete nofunc bailout, idempotent mutable-global child ordering, raw double-eqz completion, and both generated select fast paths.",
+        "2026-07-19 explicit-v131 closeout: regular 10000/10000 with all canonical outputs 2..4 bytes smaller; pass-oi-all 8920 normalized plus 1080 strictly smaller tuple wins; random-all 7379 normalized plus 2621 canonical equal-or-smaller residuals; wasm-smith 9953/9956 normalized plus three smaller dead-prefix wins and 44 Binaryen/tool failures.",
+        "2026-07-19 ordered-memory-atomic blocker: Binaryen-produced optimize-instructions-global-effects-idempotent input decodes under Starshine/wasm-tools as an invalid huge memarg alignment because the acqrel immediate is not represented by the current memory-atomic instruction model.",
         "docs/wiki/binaryen/passes/optimize-instructions/index.md",
         "src/validate/gen_valid.mbt",
         "src/validate/gen_valid_tests.mbt",
@@ -1470,7 +1476,7 @@
         "profile": "pass-oi-boolean-select",
         "blockedUntilProfileExists": false
       },
-      "notes": "The source-backed pass-oi-boolean-select profile count40 grouped lane now normalized-matches direct-if/select, effectful-identical-select, value-if/drop, and trapping-dead-if-arm cases after the red-first dead-trap value-if reshaping slice. OI-F is finite for v0.1: sampled boolean/select/ternary shells are covered by source/test/grouped evidence, while branch-hint/code-metadata and never-fold/no-reorder option behavior are blocked until representation/pass-option support exists. Do not add OI-F labels for closeout, and do not use this non-descriptor evidence for OI-J descriptor/exactness/TNH/IIT.",
+      "notes": "The representable Binaryen-v131 OI-F contract is closed by focused source-backed tests and the current four-lane/O4z matrix. Keep only branch-hint/code-metadata, never-fold/no-reorder options, and ordered memory-atomic acquire/release synchronization as explicit blocked surfaces. Reopen the acquire/release pair when the instruction representation can encode its ordering immediate; do not substitute ordinary atomics or mutable globals as proof of synchronization semantics.",
       "classifiedCaseLabels": [
         {
           "label": "transform:oi-if-select-shell",

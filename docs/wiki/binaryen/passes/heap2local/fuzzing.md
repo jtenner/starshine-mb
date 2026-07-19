@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -58,6 +58,17 @@ Current signoff-lane refresh with `_build/native/release/build/cmd/cmd.exe`:
 - Explicit wasm-smith `.tmp/pass-fuzz-heap2local-wasm-smith-10000-20260702`: `9956/10000` compared, `9955` normalized, one raw mismatch, and `44` Binaryen/oracle command failures. The single mismatch, `case-009332-wasm-smith`, is unrelated to H2L and is the known unreachable-control-debris shape (`drop(unreachable)` before `unreachable`). Replay `.tmp/pass-fuzz-heap2local-wasm-smith-case9332-normalized` with `--normalize unreachable-control-debris` compared `1/1` with one compare-normalized match and zero failures. Full rerun `.tmp/pass-fuzz-heap2local-wasm-smith-10000-unreachable-normalized-20260702` compared `9956/10000` with `9955` normalized, `1` compare-normalized, `0` mismatches, and the same `44` command failures (`39` rec-group-zero plus invalid-tag/table-index/bad-section parser classes as recorded in `cases.jsonl`).
 - Broad random-all-profiles `.tmp/pass-fuzz-heap2local-genvalid-random-all-profiles-10000-20260702`: `10000/10000` compared, `8772` normalized, `1228` raw mismatches, zero validation/generator/property/command failures, Binaryen cache `2183/7817`. Selected profiles were `ssa-nomerge-smoke=1699`, `heap2local-array=454`, `coverage-forced-portable=1610`, `ssa-nomerge-parity=1644`, `heap2local-struct=715`, `binaryen-oracle-portable=1703`, `pass-fuzz-stress=1691`, and `heap2local-ref=484`. All mismatches came from the H2L leaves: `struct=587`, `array=221`, `ref=420`; classifier found no residual generated H2L ops in either output, `1228/1228` smaller Starshine canonical wasm, and the same stable deltas (`struct -26`, `array -23`, `ref -31` bytes).
 
+## Binaryen v131 refresh
+
+Final explicit-v131 lanes use `_build/native/release/build/cmd/cmd.exe`, `.tmp/binaryen-version-131-bin/bin/wasm-opt`, and `.tmp/h2l-v131-cache`:
+
+- Regular `.tmp/h2l-v131-regular-10000-final`: `10000/10000` normalized, zero failures or mismatches.
+- Wasm-smith `.tmp/h2l-v131-wasm-smith-10000-final`: `9956/10000` compared, `9955` normalized, one `unreachable-control-debris` compare-normalized match, zero mismatches, and `44` Binaryen command failures.
+- Dedicated `.tmp/h2l-v131-all-10000-final`: `2474` normalized plus `7526` raw residuals. Both outputs contain no generated H2L operations in every residual; Starshine is smaller in `7526/7526`, with stable deltas `struct -26`, `array -23`, and `ref -31`, saving `203810` canonical bytes in aggregate.
+- Random `.tmp/h2l-v131-random-all-10000-final`: `8517` normalized plus `1483` raw residuals, zero failures. The residual profiles are `local-subtyping-straight-line=712`, `heap2local-struct=297`, `heap2local-ref=206`, `heap2local-array=131`, `precompute-gc-values=72`, and `precompute-gc-atomic-boundary=65`; no scanned H2L operation has presence drift between outputs, Starshine is smaller in `1483/1483`, and aggregate savings are `37178` bytes.
+
+The random lane exposed and now locks additional direct behavior: nullable GC-supertype drop-only struct owners, direct fresh nonpacked and packed struct/array reads, and fixed-array OOB trapping. The official shared reference-valued `acqrel` cmpxchg fixture is not classified as green: Starshine decodes it but rejects it during validation because reference-valued aggregate atomic RMW/cmpxchg is not represented by the current validator/atomic semantics.
+
 ## Pass-local timing and O4z slot evidence
 
 A bounded pass-local probe over nine representative dedicated-profile inputs from `.tmp/pass-fuzz-heap2local-all-10000-full-residuals-after-array-reftest/inputs/gen-valid/` recorded Starshine H2L pass-local times between `0.031ms` and `0.044ms` (median `0.033ms`) versus Binaryen `0.061245ms` to `0.074439ms` (median `0.068469ms`). Every sampled case was inside the repo pass-local floor and kept the same smaller Starshine residual sizes (`79/105`, `83/106`, or `76/107` bytes depending on leaf).
@@ -84,11 +95,11 @@ The adjacent GC/local-cleanup neighborhood was replayed incrementally from the s
 
 ## Closeout status
 
-H2L is audit-complete for the current v0.1.0 direct-pass/O4z scope. The required four-lane compare matrix is recorded above; `heap2local-all` is the pass-specific profile; generated mismatches are explicitly agent-classified raw Starshine output-shape/local-debris wins after both tools remove generated H2L traffic; wasm-smith's one residual is unrelated unreachable-control debris normalized by an existing generic normalizer; pass-local timing is inside the repo floor; and the current generated O4z H2L slot is an exact match. Reopen only under the criteria above or if the neighbor-owned coalesce/local-cse gap is later shown to be caused by H2L output.
+H2L is audit-complete for the representable Binaryen v131 direct-pass/O4z scope. The required four-lane matrix is current; sequential branch-target and unreachable-flow behavior is focused and green; dedicated and random residuals have equal H2L-operation presence and strictly smaller Starshine output; wasm-smith's sole residual is generic unreachable-control debris; and the rebuilt v131 O4z H2L slot is an exact `4180576`-byte canonical match with pass-local `101.912ms` Starshine versus `160.650ms` Binaryen. Reopen for validation/property failures, H2L-operation drift, a size-losing residual, or when shared reference-valued ordered atomic RMW/cmpxchg becomes representable.
 
 ## Known exclusions
 
-The first dedicated profile intentionally focuses on validator-accepted H2L opportunities. It does not yet force nondefaultable-local repair, broad descriptor-cast traffic, escapes through calls/returns, mixed branch/select provenance, dynamic array sizes, dynamic array indexes, or atomic/RMW/cmpxchg corner cases. Those are audit targets only after focused source review and validator-surface proof.
+The dedicated profile intentionally focuses on validator-accepted H2L opportunities. It does not force nondefaultable-local repair, broad descriptor-cast traffic, escapes through calls/returns, mixed branch/select provenance, dynamic array sizes/indexes, or the full atomic/RMW/cmpxchg surface. In particular, the v131 shared reference-valued `acqrel` cmpxchg scratch-local fixture is a recorded validator/atomic-semantics blocker, not an accepted parity difference.
 
 ## Required signoff use
 

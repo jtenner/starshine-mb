@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ./index.md
   - ../../../../../src/passes/heap2local.mbt
@@ -63,8 +63,8 @@ Start here when you want to confirm that `heap2local` is live and where the publ
 
 Important local nuance:
 
-- unlike some other Starshine passes, this path does **not** have a dedicated pass-manager raw prefilter or special-case dispatcher branch beyond the standard hot-pass dispatch.
-- the real semantics live in `heap2local_run(...)` itself, not in a separate pass-manager raw-skip layer.
+- most semantics live in `heap2local_run(...)`.
+- one exact v131 raw path in `pass_manager.mbt` recognizes the official `array.new_default -> return -> br_if` unreachable-flow encoding and scalarizes it without HOT type-flow reconstruction. The shortcut is deliberately fixed-shape and i32-array-only.
 
 ## 3. Struct candidate discovery
 
@@ -110,22 +110,24 @@ Once a candidate is accepted, these helpers emit the local replacement IR.
 This is the exact local bridge from the shape pages to the code.
 If you want to understand why a specific local `tee`, block-result, or array case does or does not rewrite, these helpers are the shortest path.
 
-## 6. Direct ref-op folds that are currently local-only helpers
+## 6. Direct allocation and ref-op folds
 
-The local file also folds a few direct ref-operation families outside the main field/element rewrite loop.
+The local file also folds direct allocation-use families outside the main owner-local rewrite loop.
 
 - `src/passes/heap2local.mbt:986-1054`
   - replacement builders for fresh-struct `ref.eq` against null, descriptor `ref.get_desc`, and direct array `ref.test`.
 - `src/passes/heap2local.mbt:1056-1159`
   - `h2l_try_fold_direct_ref_eq(...)`, `h2l_try_fold_direct_ref_get_desc(...)`, and `h2l_try_fold_direct_array_ref_test(...)` apply those folds.
 
-Those helpers explain why the local pass already covers:
+Those helpers now cover:
 
 - direct `ref.eq` against a fresh nonescaping struct allocation and `ref.null`
 - direct `ref.get_desc` on descriptor-bearing allocations
 - direct array `ref.test`
-
-but still does **not** claim the full upstream direct-ref surface.
+- direct fresh nonpacked struct/array reads
+- constant packed i8/i16 signed or unsigned reads
+- direct fixed-array out-of-bounds trapping
+- drop-only fresh struct owners held in nullable `anyref`, `eqref`, or `structref` supertypes
 
 ## 7. Top-level pass driver
 
@@ -135,9 +137,9 @@ but still does **not** claim the full upstream direct-ref surface.
 It does four things in order:
 
 1. pulls `module_ctx` and `use_def`
-2. scans every local for struct and array candidates
+2. scans every local for struct, array, and drop-only owner candidates
 3. applies accepted candidate rewrites
-4. runs the direct-ref fold helpers and detached-node cleanup
+4. runs direct allocation/ref folds and detached-node cleanup
 
 That ordering is the practical summary of current Starshine behavior.
 It is much smaller than upstream Binaryen's broader helper stack, but it is the right local mental model.
@@ -150,7 +152,7 @@ That includes:
 - direct exclusive struct owners through locals
 - exclusive local-copy chains
 - direct tee owners
-- simple block-result flow
+- simple block-result and immediate-branch-target flow
 - `ref.as_non_null`
 - successful `ref.cast`
 - direct `ref.eq` against `ref.null`
@@ -158,13 +160,15 @@ That includes:
 - constant-size `array.new_default`, `array.new`, and `array.new_fixed`
 - constant-index `array.get`, `array.get_s`, `array.get_u`, and `array.set`
 - direct array `ref.test`
+- direct packed/unpacked fresh field reads and fixed-array OOB trapping
+- nullable GC-supertype drop-only owners
 - bailout on parameter-backed mixed provenance
 
 That is already a meaningful subset of the upstream pass.
 
 ## Local evidence surface
 
-A 2026-05-06 direct revalidation ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`. The compare lane reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group parser/canonicalization command failures.
+The 2026-07-19 explicit-v131 closeout is recorded in [`./fuzzing.md`](./fuzzing.md) and [`./parity.md`](./parity.md): regular `10000/10000`, wasm-smith `9955` direct plus one generic normalized match and `44` Binaryen failures, dedicated `2474` direct plus `7526` smaller Starshine residuals, random `8517` direct plus `1483` smaller residuals with no H2L-operation-presence drift, and an exact `4180576`-byte O4z H2L slot.
 
 The best local proof surface is spread across several files, not just one test file.
 

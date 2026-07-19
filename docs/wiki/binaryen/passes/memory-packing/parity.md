@@ -1,6 +1,6 @@
 ---
 kind: comparison
-status: working
+status: supported
 last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
@@ -24,10 +24,10 @@ related:
 ## Durable conclusions
 
 - Binaryen `version_129` `memory-packing` is a module-level segment-plus-segment-op rewrite pass, not just an active-segment splitter.
-- Current Starshine still does not model every Binaryen option and validity guard, but it now covers the core active and passive segment-user rewrite families: conservative dead passive cleanup, passive zero-range splitting, `memory.init` replacement with `memory.fill`, split-passive `data.drop` expansion, active segment-op cleanup, lowered active/split-passive `memory.init` operand side-effect preservation, data-name repair, `__llvm*` no-split handling, sorted active-overlap checking, active-only scan elision, and a fast path for common one-kept-range active segments.
+- Current Starshine covers the core active and passive segment-user rewrite families plus Binaryen v131 source-order overlap semantics: conservative dead passive cleanup, passive zero-range splitting, `memory.init` replacement with `memory.fill`, split-passive `data.drop` expansion, active segment-op cleanup, lowered active/split-passive `memory.init` operand side-effect preservation, data-name repair, `__llvm*` no-split handling, source-order trampling cleanup, imported all-active-segments in-bounds admission, active-only scan elision, and a fast path for common one-kept-range active segments.
 - The saved generated-artifact `-O4z` slot `3` is already green, which shows the local subset is useful and exercised by that artifact.
 - The 2026-05-07 saved dead-passive normalization family from `.tmp/recheck-memory-packing/` is now retired on current head.
-- That saved green slot is **not** proof that Starshine covers every v131 option-surface corner; focused tests cover imported-memory `zeroFilledMemory`, TNH trap elision, GC data-user conservatism, segment-count limiting, split-name suffixes, constant out-of-range passive source traps, and operand side-effect/trap preservation for lowered active/split-passive `memory.init` paths. They do **not** cover the released imported-memory overlap path.
+- Focused tests now cover the released v131 overlap path in addition to imported-memory `zeroFilledMemory`, TNH trap elision, GC data-user conservatism, segment-count limiting, split-name suffixes, constant out-of-range passive source traps, and operand side-effect/trap preservation for lowered active/split-passive `memory.init` paths.
 
 ## Current in-tree status
 
@@ -37,11 +37,11 @@ related:
 
 The current Starshine subset covers:
 
-- one defined memory only
+- exactly one defined memory, or one imported memory with `zero_filled_memory`
 - constant i32 or i64 active offsets
 - profitable active zero-range trimming
 - trap-preserving top-byte retention
-- overlap bailout
+- source-order overlap cleanup, with imported overlap gated by an all-active-segments in-bounds proof
 - conservative removal of passive segments with no non-`data.drop` referrers
 - passive data-index remapping after active or passive segment count changes
 - passive segment splitting around profitable zero ranges for constant-source `memory.init` users
@@ -65,13 +65,37 @@ The current Starshine subset covers:
 - common leading/trailing-zero active segments use a fast single-kept-range path while preserving traps
 - lowered active and split-passive `memory.init` paths preserve destination/source/size evaluation before `nop` / `unreachable` replacement when the pass rewrites constant-source/size users
 
-## Remaining gap
+## Binaryen v131 closeout
+
+`[V131-MP]001` is closed for the released representable surface. The implementation now:
+
+- zeroes bytes in earlier active segments that later source-order segments trample;
+- admits defined-memory overlap because partially applied initialization is unobservable outside a failed instantiation;
+- admits imported-memory overlap only with `zero_filled_memory` and only when every active segment is provably in bounds of the declared minimum;
+- computes bounds in pages to avoid maximal-memory64 byte-size overflow, including the exact range endpoint at `2^64`;
+- preserves high memory64 startup traps rather than truncating offsets to 32 bits; and
+- exposes `--zero-filled-memory` through the public CLI and repro-note forwarding path.
+
+Focused tests pass `37/37`; command-layer tests pass `107/107`; full `moon test` passes `9439/9439`.
+
+Explicit Binaryen v131 evidence uses `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
+
+- regular GenValid `.tmp/mp-v131-regular-10000`: `10000/10000` normalized, zero failures or mismatches;
+- explicit wasm-smith `.tmp/mp-v131-wasm-smith-10000`: `9955` direct normalized matches, one unrelated `drop(unreachable)` output-shape residual, `44` Binaryen/tool command failures, and zero validation/property failures;
+- broad random-all `.tmp/mp-v131-random-all-10000`: `10000/10000` normalized, zero failures or mismatches;
+- exact defined-overlap fixture `.tmp/mp-v131-defined-overlap-compare`: canonical equality at `33` bytes, pass-local `0.017ms` Starshine versus `0.088ms` Binaryen;
+- exact imported nonzero-trampler fixture `.tmp/mp-v131-imported-overlap-compare`: canonical equality at `46` bytes, pass-local `0.020ms` Starshine versus `0.102ms` Binaryen; and
+- rebuilt O4z slot `.tmp/mp-v131-o4z-slot/direct`: exact canonical and normalized equality at `4,954,978` bytes, pass-local `101.821ms` Starshine versus `61.168ms` Binaryen (`1.66x`, inside the repo `2x` target), with whole-command `776.671ms` versus `520.314ms`.
+
+The sole wasm-smith residual has no data section and differs only because Starshine retains one extra unreachable `drop`; it is agent-classified as generic representation drift outside `memory-packing`, not a pass semantic mismatch.
+
+## Historical gap
 
 The 2026-06-07 gap audit originally kept one main documented Binaryen gap around lowered `memory.init` operand side effects plus narrower option/validity gaps found by static inspection. The operand side-effect gap is now covered for the local rewrite surface: lowered active and split-passive constant-source/size `memory.init` rewrites evaluate and drop the original destination/source/size operands before the replacement `nop` or `unreachable`. A later closeout fixture also collapses trap-only destination debris to a single explicit trap when the destination operand is already an unconditional `unreachable` with only `drop`/`nop` debris.
 
 The earlier option-surface conclusion was correct for the 2026-06-07 snapshot: local `wasm-opt --version` reported `version_130`, and the then-reviewed `main` source was byte-identical. It is no longer a current-main claim. Merged PR #8882 changed `MemoryPacking.cpp` on 2026-07-10 without adding a new pass option: when `zeroFilledMemory` is true and the sole memory is imported, Binaryen can handle a provably-in-allocation overlap by neutralizing earlier bytes trampled by later active segments before ordinary packing. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
-This is now a concrete **released v131 parity gap**: Starshine still rejects every active overlap in `mp_can_optimize(...)`, including imported zero-filled in-allocation cases. Do not copy the upstream exception without the full source-order, checked bounds, page-size, and memory64 proof. Existing v130 closeout evidence remains historical, but `[V131-MP]001` reopens the pass until the released path is implemented and signed off.
+This became a concrete released v131 parity gap and is now closed. Starshine's implementation follows the full source-order, checked bounds, fixed page-size, and memory64 proof rather than broadly permitting imported overlap. Existing v130 closeout evidence remains historical; the current signoff is the explicit-v131 closeout above.
 
 ## Current evidence
 
@@ -126,13 +150,13 @@ That matches the documented scheduler story:
 
 ## In-tree focused tests
 
-The local focused suite currently covers five families:
+The local focused suite now covers the main active, overlap, and passive families:
 
-- active profitable zero-range splitting
-- active trap-preserving top-byte retention
-- overlap bailout
-- drop-only passive segment cleanup
-- passive data-index remapping after active splitting
+- active profitable zero-range splitting and startup-trap retention
+- defined/imported source-order trampling, partial overlap, zero/nonzero tramplers, and imported out-of-bounds bailouts
+- maximal and high-address memory64 bounds behavior
+- drop-only passive cleanup and data-index remapping
+- passive splitting, segment-op rewrites, GC boundaries, names, and segment-count validity
 
 The 2026-06-03 audit expanded focused coverage with imported-memory bailout, empty active trapping offsets, memory64 active offset, passive `array.new_data` / `array.init_data` remapping, unordered active segment layouts, and trailing-trap preservation after a nonzero prefix.
 

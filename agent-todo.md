@@ -21,8 +21,8 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | Pass | Current Starshine status | Active work |
 | --- | --- | --- |
 | `duplicate-function-elimination` | Direct behavior closed; both slots scheduled. | None. |
-| `remove-unused-module-elements` | **Reopened for v131:** table initial values, null/wrong-type trap retention, and overlapping element segments changed upstream. | **Open v131 direct reassessment plus existing scheduler gap:** second early slot. |
-| `memory-packing` | **Reopened for v131:** the imported zero-filled in-bounds overlap path is now released oracle behavior. | **Open v131 implementation and closeout.** |
+| `remove-unused-module-elements` | Closed for Binaryen-v131 direct behavior: table initializers, typed indirect-call reachability, overlap trap retention, TNH handling, reference-only body nullification, and recursive-group validity are covered. | **Open scheduler gap only:** second early slot. |
+| `memory-packing` | Closed at Binaryen-v131 behavior parity: source-order trampling, imported in-bounds admission, overflow-safe memory32/memory64 bounds, focused fixtures, four-lane evidence, and O4z slot proof are current. | None. |
 | `once-reduction` | Closed. | None. |
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
@@ -33,7 +33,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `dead-code-elimination` / `dce` | Closed. | None. |
 | `remove-unused-names` | Closed. | None. |
 | `remove-unused-brs` | Direct behavior closed. | **Open scheduler reconciliation:** Starshine has one extra slot. |
-| `optimize-instructions` | **Reopened for v131:** equal-ref, identical-select, idempotent-call/effect-order, and non-concrete-select behavior changed upstream. | **Open v131 focused parity and closeout.** |
+| `optimize-instructions` | Closed for the representable Binaryen-v131 surface with four-lane direct evidence, O4z neighborhood proof, size wins, and pass-local timing. | Ordered memory-atomic acquire/release evidence remains a representation blocker outside OI; reopen when that instruction surface lands. |
 | `heap-store-optimization` | Closed. | None. |
 | `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
 | `precompute` / `precompute-propagate` | Closed at Binaryen-v131-or-better behavior parity: the complete official fixture surface is admitted, broad control/effect flow is preserved or simplified more strongly, both required four-lane matrices are current, self-optimization validates, and repeated pass-local timing meets the `2x` target. | None; reopen for a semantic/validation failure, a pass-owned size-losing family, a source-backed missing evaluator family, or pass-local regression beyond `2x` Binaryen. |
@@ -42,7 +42,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
 | `vacuum` | Direct behavior closed. | **Open scheduler placement:** remove/justify extra early slot and restore final slot. |
 | `reorder-locals` | Closed; three slots scheduled. | None. |
-| `heap2local` | **Reopened for v131:** upstream now rebuilds analysis after each successful candidate and handles unreachable type-flow repair. | **Open v131 focused parity and O4z slot recheck.** |
+| `heap2local` | Closed for the representable v131 surface: sequential branch-target struct/array candidates, unreachable flow, GC-supertype drop-only owners, and direct fresh packed/unpacked reads are covered; the four-lane matrix and O4z slot are current. | Shared reference `acqrel` cmpxchg remains a validator/atomic-semantics representation blocker; reopen when that surface lands. |
 | `merge-locals` | Closed at Binaryen-v131 parity; both orientations, CFG influence, rollback, profiles, timing, and slot-27 scheduling completed on 2026-07-18. | None. |
 | `optimize-casts` | Closed. | None. |
 | `local-subtyping` | Closed. | None. |
@@ -57,59 +57,9 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `simplify-globals-optimizing` | Closed and scheduled. | Shared nested-scheduler proof only. |
 | `string-gathering` | Accepted direct/preset status. | Non-blocking decoder/performance follow-up only. |
 | `reorder-globals` | Accepted direct/preset status. | None. |
-| `directize` | **Reopened for v131:** table initial values now participate in known-target/trap/unknown classification. | **Open v131 direct and accepted late-tail suffix reassessment; optional pass-arg breadth remains separate.** |
+| `directize` | Closed for Binaryen-v131 default behavior: `ref.func`, null, unknown initializer, element override, growth, set/import/export boundaries, and known/trap/unknown classification are covered. | Optional `directize-initial-contents-immutable` pass-arg breadth remains separate. |
 
 ## Binaryen v131 Release Refresh
-
-### [V131-OI]001 - Reassess `optimize-instructions`
-
-- **Goal:** match v131's new equal-reference, identical-select, idempotent-call/effect-order, and non-concrete-select behavior.
-- **Deliverables:**
-  - [ ] Add red-first fixtures for one-evaluation `ref.eq`, scratch-local identical selects, deep-effect idempotent calls, directional effect barriers, and non-concrete arm bailout.
-  - [ ] Reconcile the OI family matrix and dedicated profile with `version_131` source/tests.
-  - [ ] Run the full four-lane matrix with explicit official v131 `--wasm-opt-bin` plus the scheduled O4z neighborhoods.
-- **Exit criteria:** no unclassified v131 OI family gap, validation failure, size-losing divergence without proof, or performance regression.
-
-### [V131-MP]001 - Implement released imported-overlap `memory-packing`
-
-- **Goal:** implement Binaryen v131's source-order trampling cleanup for overlapping active segments, including the imported-memory in-bounds gate.
-- **Deliverables:**
-  - [ ] Add red-first defined/imported, in-bounds/out-of-bounds, memory32/memory64, source-order, and partially trampled fixtures.
-  - [ ] Preserve checked arithmetic, page-size semantics, instantiation trap observability, data names, and segment-op rewrites.
-  - [ ] Refresh `memory-packing-all`, the full four-lane closeout, and O4z slot `3` evidence against explicit v131.
-- **Exit criteria:** released overlap behavior is implemented or a narrower source-backed blocker is recorded; the current unconditional overlap bailout is gone for admitted v131 cases.
-
-### [V131-RUME]001 - Reassess table-initial-value and overlap liveness
-
-- **Status:** focused v131 behavior + primary oracle matrix closed; early neighborhoods / late-tail / RUME-owned GenValid profile still open.
-- **Goal:** match v131 RUME retention for table initial values, null/wrong-type writes, overlapping/dynamic element segments, and TNH policy.
-- **Deliverables:**
-  - [x] Add red-first direct and return-indirect call fixtures for initializer targets, wrong-type traps, null trampling, dynamic offsets, and `trapsNeverHappen`.
-  - [x] Reconcile full RUME and non-function sibling behavior without over-rooting callable functions.
-  - [x] Classify wasm-smith `case-004700` (huge memory64 `Index` truncation) as Starshine-win; keep u64 OOB math.
-  - [x] GenValid regular 100k + random-all-profiles 10k + wasm-smith 10k against explicit v131 (see `parity.md`). `pass-cleanup` interim lane is not a usable RUME probe (body-shape noise).
-  - [x] `DFE -> RUME` neighborhood smoke 1k green vs v131.
-  - [ ] Run the remaining early RUME neighborhood(s) and the accepted late-tail suffix using explicit v131.
-  - [ ] Add a dedicated RUME GenValid profile (do not treat `pass-cleanup` as the pass-specific lane).
-- **Exit criteria:** v131 liveness/trap semantics are classified and green; the existing second-early-slot scheduler gap remains separately visible.
-
-### [V131-DIR]001 - Reassess `directize` table initial contents
-
-- **Goal:** add v131 known/trap/unknown classification for table initializers while preserving growth/set/import boundaries.
-- **Deliverables:**
-  - [ ] Add red-first `ref.func`, null, `global.get`, imported-table, grow, set, in-range, and out-of-range initializer fixtures.
-  - [ ] Preserve child effects, subtype checks, tail-call form, select lowering, EH repair, and refinalization.
-  - [ ] Run the full direct matrix and `string-gathering -> reorder-globals -> directize` late-tail proof against explicit v131.
-- **Exit criteria:** default v131 directize behavior is green; optional `directize-initial-contents-immutable` pass-arg work remains separately deferred.
-
-### [V131-H2L]001 - Reassess sequential-candidate and unreachable flow safety
-
-- **Goal:** match v131's post-mutation analysis rebuild and unreachable type-flow behavior.
-- **Deliverables:**
-  - [ ] Add red-first multiple sequential struct/array candidate fixtures that would expose stale LocalGraph/parent/branch-target data.
-  - [ ] Add unreachable flow-through cases for adjusted allocation types.
-  - [ ] Run `heap2local-all`, the full four-lane matrix, timing, and O4z slot/neighborhood evidence against explicit v131.
-- **Exit criteria:** no stale-analysis or unreachable-flow mismatch remains and existing measured Starshine cleanup wins stay valid.
 
 ### [V131-SPOT]001 - Renew shared-helper-sensitive closed-pass evidence
 

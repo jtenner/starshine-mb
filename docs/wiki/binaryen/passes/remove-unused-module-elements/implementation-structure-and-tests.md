@@ -194,7 +194,7 @@ They are teaching files for the deeper rules:
 
 ## Source-trust rule for this dossier
 
-Keep `version_129` as historical provenance for the original graph algorithm, but use `version_131` as the release oracle. The v131 owner and fixtures directly prove table-default call roots, wrong-type/default trap preservation, overlap conservatism, and the `trapsNeverHappen` relaxation. Those families require renewed Starshine evidence under `[V131-RUME]001`.
+Keep `version_129` as historical provenance for the original graph algorithm, but use `version_131` as the release oracle. The v131 owner and fixtures directly prove table-default call roots, wrong-type/default trap preservation, overlap conservatism, and the `trapsNeverHappen` relaxation. Those families are now implemented and covered by the focused and explicit-v131 evidence recorded in `parity.md`.
 
 ## Most important implementation takeaway
 

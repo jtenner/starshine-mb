@@ -22,7 +22,7 @@ related:
 
 ## Upstream source rule
 
-This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the broad pass model. For release-gating work, use Binaryen `version_131`. The v130 O4z matrix remains the historical Starshine closeout baseline, but v131 changes equal-input `ref.eq`, identical-arm `select`, idempotent/deep-effect equality, and directional trap/effect movement checks; `[V131-OI]001` owns renewal.
+This page's explanatory strategy prose was originally written against Binaryen `version_129` and remains useful for the broad pass model. For release-gating work, use Binaryen `version_131`. The 2026-07-19 refresh closes the representable v131 changes to equal-input `ref.eq`, identical-arm `select`, idempotent parent/child effect ordering, and directional trap/effect movement. The acquire/release-specific global-effects fixture remains blocked on ordered memory-atomic representation, not deferred optimizer logic.
 
 Primary files:
 

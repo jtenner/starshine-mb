@@ -28,7 +28,7 @@ related:
 
 ## Binaryen v131 status
 
-Default direct-pass parity is **reopened**. V131 classifies constant indirect-call targets using table initial values as well as element segments, distinguishing `ref.func`, null/default holes, unknown imported or `global.get` initializers, later sets, and growth. `[V131-DIR]001` owns focused implementation and late-tail reassessment; optional pass-arg support remains separate.
+Default direct-pass Binaryen v131 parity is **closed**. Starshine classifies constant indirect-call targets using table initial values and element segments: `ref.func` defaults become direct calls, null/default holes and immutable out-of-range indexes become traps, imported or `global.get` defaults remain unknown, element segments override defaults, later sets block optimization, and growth preserves known initial entries while leaving newly grown indexes unknown. Optional `directize-initial-contents-immutable` pass-arg support remains separate.
 
 ## Role
 

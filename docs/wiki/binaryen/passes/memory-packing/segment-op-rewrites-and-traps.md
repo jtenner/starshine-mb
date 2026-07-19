@@ -229,7 +229,7 @@ So upstream only optimizes imported-memory cases when the pass option says that 
 This matters because otherwise removing a zero run from an active segment would silently assume the host already provided zero bytes there.
 That is not generally safe.
 
-A released v131 rule now matters for active overlaps: merged PR #8882 allows a narrow imported-memory overlap path only when this option is enabled and the segments are provably within the declared allocation. It also neutralizes bytes from an earlier segment that a later segment tramples before range packing. This is not a general relaxation of overlap safety; v129/v130 and current Starshine use the conservative overlap bailout, while v131 requires the narrow proven exception. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+A released v131 rule now matters for active overlaps: merged PR #8882 allows a narrow imported-memory overlap path only when this option is enabled and every active segment is provably within the declared allocation. It neutralizes bytes from an earlier segment that a later segment tramples before range packing. This is not a general relaxation of overlap safety. Starshine now implements the same source-order cleanup and imported all-active-segments in-bounds gate, including overflow-safe memory64 page-count reasoning. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 ## Memory64 and high-bit immediates
 

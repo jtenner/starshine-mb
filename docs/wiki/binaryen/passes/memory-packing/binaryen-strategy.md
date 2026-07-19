@@ -353,7 +353,7 @@ The original 2026-04-22 check found no teaching-relevant drift from `version_129
 - existing local closeout evidence remains tied to `version_130`;
 - the imported-memory, in-allocation overlap exception from PR #8882 is released in `version_131` and is now required parity behavior.
 
-Treat `version_129` / `version_130` as the historical oracle for existing Starshine closeout evidence and v131 as the current required contract. The imported-overlap path is a released parity gap, not a trunk watchpoint. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+Treat `version_129` / `version_130` as the historical oracle for old Starshine closeout evidence and v131 as the current required contract. The imported-overlap path was a released parity gap and is now implemented and signed off in Starshine; it is not merely a trunk watchpoint. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) and [`./parity.md`](./parity.md).
 
 ## What a future port must preserve
 

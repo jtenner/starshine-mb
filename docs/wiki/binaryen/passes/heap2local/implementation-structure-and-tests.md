@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Heap2Local.cpp
@@ -113,7 +113,7 @@ Important evidence boundary:
 
 ## V131 release delta
 
-V131 changes the correctness contract for functions containing multiple optimizable allocations. After each successful array-to-struct or struct-to-local rewrite, the owner reconstructs `LazyLocalGraph`, `Parents`, and branch targets. The old scratch-info patching path is removed; later candidates are always analyzed against the rewritten function body. Starshine must prove this family under `[V131-H2L]001` rather than inheriting the older v130 closeout.
+V131 changes the correctness contract for functions containing multiple optimizable allocations. After each successful array-to-struct or struct-to-local rewrite, the owner reconstructs `LazyLocalGraph`, `Parents`, and branch targets. The old scratch-info patching path is removed; later candidates are always analyzed against the rewritten function body. Starshine's 2026-07-19 focused suite now proves independent, mixed, and immediate-branch sequential candidates; the shared reference-valued ordered-cmpxchg scratch fixture remains blocked by current validator/atomic semantics.
 
 ## Current Starshine implementation map
 
