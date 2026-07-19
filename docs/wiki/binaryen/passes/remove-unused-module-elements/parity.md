@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
@@ -61,7 +61,36 @@ related:
 
 ## Binaryen v131 gap
 
-V131 adds table-initial-value roots plus overlap/null/wrong-type segment retention needed to preserve indirect-call traps. Starshine's prior direct fixtures and compare lanes do not establish those families. `[V131-RUME]001` reopens direct RUME and its ordered neighborhoods.
+V131 table-initial-value roots, overlap/null/wrong-type segment retention, reference-only trap-callee emptying, and `traps_never_happen` are implemented and covered by focused fixtures in `remove_unused_module_elements_test.mbt`.
+
+### 2026-07-19 closeout matrix (explicit v131)
+
+Oracle: `.tmp/binaryen-version-131-bin/bin/wasm-opt` (`wasm-opt version 131 (version_131)`).
+Native Starshine: `_build/native/release/build/cmd/cmd.exe`.
+
+| Lane | Out-dir | Result |
+|------|---------|--------|
+| wasm-smith 10k (`--seed 0x5eed`) | `.tmp/pass-fuzz-rume-v131-closeout-wasm-smith-10000` | `9950` compared, `9949` normalized matches, **1** mismatch (`case-004700`), `50` command failures |
+| GenValid regular 100k (`--seed 0x5eed`) | `.tmp/pass-fuzz-rume-v131-closeout-genvalid-100000` | `100000` compared, `100000` normalized matches, `0` mismatches, `0` command failures |
+| random-all-profiles 10k (`--seed 0x5555`) | `.tmp/pass-fuzz-rume-v131-closeout-random-all-10000` | `10000` compared, `10000` normalized matches, `0` mismatches |
+| DFE → RUME neighborhood 1k | `.tmp/pass-fuzz-rume-v131-closeout-dfe-rume-1000` | `1000` compared, `1000` normalized matches, `0` mismatches |
+| pass-cleanup 10k (interim) | `.tmp/pass-fuzz-rume-v131-closeout-pass-cleanup-10000-noreduce` | **not a usable RUME probe**: hit `--max-failures 2000` with `2015/2015` mismatches; diffs are large-body local/`tee` expression-shape drift, not RUME keep/drop |
+
+Command-failure classes on the wasm-smith lane: `binaryen-rec-group-zero` 39, `starshine-command-failed` 6, `binaryen-bad-section-size` 3, `binaryen-invalid-tag-index` 1, `binaryen-table-index-out-of-range` 1.
+
+### Case `004700` classification (Starshine-win)
+
+Input: unused memory64 with a huge `initial`, one large-offset active data segment, and one in-bounds active data segment.
+Binaryen keeps the memory and both active segments; Starshine drops to `(module)`.
+
+Cause: Binaryen roots “may trap” active data with
+`maxWritten > Index(memory->initial << pageSizeLog2)`. Truncating the byte size to `Index` false-positives OOB on huge memory64 minima. Starshine compares against a full u64 byte size (`rume_mem_type_min_bytes`), so both segments are correctly in-bounds and unused defined memory is dropped.
+
+This is an intentional Starshine win (correct OOB math, much smaller module), not a parity gap to “fix” toward Binaryen’s `Index` truncation.
+
+Focused fixture: `remove-unused-module-elements drops nonempty in-bounds active data on unused memories` (matches Binaryen on ordinary memory32 sizes). Docs that previously claimed “nonempty active data always keeps defined memory” were corrected to match Binaryen’s import-visibility / trap-only startup rooting.
+
+Early neighborhoods / late-tail and a dedicated RUME GenValid profile remain open under `[V131-RUME]001`.
 
 ## Historical remaining gap
 

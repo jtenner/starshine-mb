@@ -28,7 +28,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct parity is **reopened**. V131 adds table-initial-value callable roots plus conservative retention for null/wrong-type and overlapping element-segment writes when those writes preserve indirect-call traps. `[V131-RUME]001` owns the direct pass, both early neighborhoods, and accepted late-tail reassessment; the separate second-early-slot scheduler gap remains open.
+Direct RUME table-init / overlap / TNH liveness is implemented under `[V131-RUME]001`: callable table initializers root matching `call_indirect` targets, null/wrong-type and overlapping active writes are retained when they preserve traps, reference-only trap callees are emptied, and `traps_never_happen` may drop trap-only overwrites. Primary v131 oracle matrix (GenValid 100k, random-all 10k, wasm-smith 10k) is recorded in [`./parity.md`](./parity.md); early neighborhoods / late-tail and a RUME-owned GenValid profile remain open. The separate second-early-slot scheduler gap remains open.
 
 ## Role
 

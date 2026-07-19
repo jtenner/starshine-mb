@@ -91,8 +91,11 @@ A null-only active elem payload can become a no-op only when removing its write 
 
 ### Active data parent retention
 
-A parent memory can be kept alive by an active data segment when the data bytes still matter.
-But zero-byte active data can become a no-op and stop retaining the memory.
+A parent memory stays alive when an active data segment may trap at startup
+(non-constant offset or out-of-bounds range) or writes to an imported memory.
+Nonempty in-bounds active data on an otherwise-unused defined memory does not
+keep that memory by itself. Once the memory is live for another reason, nonempty
+active data on it is retained.
 
 That is why the pass is more precise than “active segment mentions parent, so parent is live.”
 

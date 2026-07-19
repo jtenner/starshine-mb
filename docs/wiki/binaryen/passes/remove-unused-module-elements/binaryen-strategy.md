@@ -191,9 +191,11 @@ Binaryen does not automatically keep an active parent table or memory alive just
 The retained rule is closer to:
 
 - meaningful active elem segments can keep their parent table alive
-- meaningful active data segments can keep their parent memory alive
+- live memories keep their nonempty active data segments
+- defined-memory active data is rooted at startup only for import visibility or possible traps (non-const / OOB), not merely because bytes are nonempty
 - all-null active elem payloads can stop retaining the table only when default/overlap semantics do not make the write trap-preserving
 - zero-byte active data can stop retaining the memory
+- Binaryen computes OOB against `Index(initial << pageSizeLog2)`; Starshine uses a full u64 byte size (Starshine-win on huge memory64 false-positive traps)
 
 That nuance is a major source-backed reason this pass needs a real shape catalog.
 

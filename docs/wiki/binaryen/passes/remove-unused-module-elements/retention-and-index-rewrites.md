@@ -29,7 +29,7 @@ related:
 - Zero-byte active data should not keep a memory alive by itself.
 - Null-only active elem writes can be removed only when doing so cannot expose a callable default or earlier overlapping value and eliminate a trap; imported-table defaults remain unknown.
 - A live `ref.func` still needs a declaration source after function compaction; declaration-only active elem segments whose parent table is otherwise dead should be rewritten to declarative elems instead of retaining the dead table.
-- A used `call_indirect` / `return_call_indirect` table conservatively retains every mapped active elem in the current local liveness walk. This preserves v131 default/overlap trap semantics, but is broader than Binaryen's precise policy and has no local `trapsNeverHappen` mode; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
+- A used `call_indirect` / `return_call_indirect` table is kept and analyzed through `rume_use_indirect_call(...)`: matching-type callables are used, matching elems are referenced, and when traps may happen with a table init or possible overlap every active elem is referenced. Strong table users (`table.get` / export / etc.) still queue the table and retain mapped active elems. `traps_never_happen` skips trap-only retention; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
 ## Current In-Tree Rewrite Surface
 

@@ -74,7 +74,7 @@ This is where current Starshine makes the key policy decisions about:
 - start-function rooting, including the Binaryen-style no-op start-section drop; validator-level start metadata and imported-empty-signature rules live in [`../../../validate/start-section.md`](../../../validate/start-section.md)
 - export rooting across all module-element kinds
 - active imported-table / imported-memory parent retention for semantically meaningful elem/data initializers
-- default conservative retention of every active elem mapped to a used table, including tables reached by `call_indirect` / `return_call_indirect`
+- default conservative retention of strongly used tables' active elems, with precise `call_indirect` / `return_call_indirect` analysis via `rume_use_indirect_call(...)` (matching callables, trap-preserving references, TNH)
 - whether extraction mode should keep or suppress that imported-parent policy
 
 If a future mismatch looks like a keep-versus-drop decision, start here before looking at the remap code.
@@ -96,7 +96,7 @@ This cluster is the current local equivalent of the upstream `Analyzer` fixed po
 It is where Starshine walks:
 
 - direct calls and `ref.func`
-- `call_indirect` / `return_call_indirect` table users, whose active elements are conservatively retained
+- `call_indirect` / `return_call_indirect` through `rume_use_indirect_call(...)` (table keep, matching callables, trap-preserving elem references, TNH)
 - global/table/memory/tag users
 - elem/data segment user ops
 - active segment parents

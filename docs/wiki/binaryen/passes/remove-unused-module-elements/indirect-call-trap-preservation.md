@@ -60,23 +60,14 @@ Read [`wat-shapes.md`](wat-shapes.md) for the broader module-shape catalog and [
 
 ## Starshine mapping
 
-Starshine has an active module pass in [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt):
+Starshine's module pass in [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) now follows the v131 call-indirect policy:
 
-- `rume_scan_instruction(...)` marks a table used for `CallIndirect` and `ReturnCallIndirect`.
-- `rume_process_table(...)` walks the local table-to-active-element map and marks every active element segment for that used table.
-- `rume_process_elem(...)` then retains the active parent and its function/expression dependencies.
+- `rume_use_indirect_call(...)` keeps the table, uses matching-type callable table-init / elem functions, and only references matching-type element segments.
+- When traps may happen and the table has a `ref.func` init or possibly overlapping active segments, every active element for that table is referenced so trap-producing overwrites survive.
+- Reference-only functions kept solely for those trap writes are emptied to `unreachable`, matching Binaryen's used-versus-referenced split for this family.
+- `traps_never_happen` is threaded from `HotPipelineOptions` into RUME and skips the trap-preserving all-elem retention, so trap-only overwrites can be dropped.
 
-That conservative flow preserves the relevant default trap-sensitive table state. It is intentionally less precise than Binaryen's source-level distinction because Starshine currently applies active-element retention to every used table and has no `trapsNeverHappen` variant.
-
-## Current evidence and gap status
-
-The focused local suite covers active-element keep/drop and imported-parent retention, but no test currently isolates the wrong-type `call_indirect` trap shape above. Therefore:
-
-- **not a known semantic mismatch:** the current local table policy is conservative for this shape;
-- **not a parity win claim:** no size or pass-local measurement proves that the coarser local policy is better;
-- **open coverage/output-shape boundary:** add direct compatible-default-overwritten-by-wrong-type/null plus overlapping-segment fixtures before making table-retention cleanup more aggressive or adding a traps-never-happen mode.
-
-A future fixture should assert both that the module validates after RUME and that the element/function needed to preserve the wrong-type table state remains present under default semantics. If a traps-never-happen mode is added, it needs a separately documented policy and must not reuse default-mode parity evidence.
+Focused fixtures cover compatible-default overwritten by wrong-type, no-init wrong-type drop, non-overlapping drop, overlapping keep-plus-empty, and the TNH drop boundary.
 
 ## Sources
 

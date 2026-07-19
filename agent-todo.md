@@ -81,11 +81,16 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ### [V131-RUME]001 - Reassess table-initial-value and overlap liveness
 
+- **Status:** focused v131 behavior + primary oracle matrix closed; early neighborhoods / late-tail / RUME-owned GenValid profile still open.
 - **Goal:** match v131 RUME retention for table initial values, null/wrong-type writes, overlapping/dynamic element segments, and TNH policy.
 - **Deliverables:**
-  - [ ] Add red-first direct and return-indirect call fixtures for initializer targets, wrong-type traps, null trampling, dynamic offsets, and `trapsNeverHappen`.
-  - [ ] Reconcile full RUME and non-function sibling behavior without over-rooting callable functions.
-  - [ ] Run the full direct matrix plus both early RUME neighborhoods and the accepted late-tail suffix using explicit v131.
+  - [x] Add red-first direct and return-indirect call fixtures for initializer targets, wrong-type traps, null trampling, dynamic offsets, and `trapsNeverHappen`.
+  - [x] Reconcile full RUME and non-function sibling behavior without over-rooting callable functions.
+  - [x] Classify wasm-smith `case-004700` (huge memory64 `Index` truncation) as Starshine-win; keep u64 OOB math.
+  - [x] GenValid regular 100k + random-all-profiles 10k + wasm-smith 10k against explicit v131 (see `parity.md`). `pass-cleanup` interim lane is not a usable RUME probe (body-shape noise).
+  - [x] `DFE -> RUME` neighborhood smoke 1k green vs v131.
+  - [ ] Run the remaining early RUME neighborhood(s) and the accepted late-tail suffix using explicit v131.
+  - [ ] Add a dedicated RUME GenValid profile (do not treat `pass-cleanup` as the pass-specific lane).
 - **Exit criteria:** v131 liveness/trap semantics are classified and green; the existing second-early-slot scheduler gap remains separately visible.
 
 ### [V131-DIR]001 - Reassess `directize` table initial contents

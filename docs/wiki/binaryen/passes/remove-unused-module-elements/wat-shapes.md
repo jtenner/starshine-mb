@@ -228,7 +228,7 @@ Beginner takeaway:
 
 - export and start are not weak references here
 
-## 12. Meaningful active parents stay alive
+## 12. In-bounds active data on unused defined memory is dropped
 
 ```wat
 (module
@@ -237,8 +237,10 @@ Beginner takeaway:
 )
 ```
 
-Unlike the zero-byte case, this active data is meaningful.
-So the memory can stay live because the segment really initializes it.
+Binaryen does **not** keep `$m` alive just because the active bytes are nonempty.
+Startup roots for defined memories are import-visibility and possible instantiation traps
+(non-constant offsets or out-of-bounds ranges), not “meaningful init” by itself.
+Once a memory is live for another reason, nonempty active data on that memory stays.
 
 ## 13. Live surviving code must be fully remapped
 
