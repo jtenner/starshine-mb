@@ -257,6 +257,8 @@ The adjacent proof surface is split deliberately:
 
 This local evidence does not replace the upstream owner/test map above. It documents the current Starshine safety boundary around one extra cleanup direction that Binaryen plain DAE does not perform.
 
+The completion work also establishes a stable reason-coded diagnostic vocabulary without changing optimizer output. `DaeDecisionReason` assigns durable text codes to boundary visibility, tail dependencies, parameter/result observations, operand preservation/localization/trap decisions, GC refinement outcomes, stale facts, validation rollback, profitability, and work-budget rejection. Boundary candidates and operand rewrite dispositions now carry their primary reason, while `DaeDiagnostics` defines the family-level counters needed by the future dependency worklist and release evidence. Focused white-box tests lock the complete boundary-surface mapping, operand/GC classifications, and reason aggregation. This is intentionally a partial observability milestone: production-wide counter plumbing and migration of every decision site remain open in [`completion-matrix.md`](./completion-matrix.md).
+
 ## Current Starshine original-result boundary proof surface
 
 The main Starshine core now groups original result-preservation and result-removal pruning through `DaeOriginalResultBoundaryContext`, `DaeOriginalResultBoundaryRow`, and `DaeOriginalResultBoundaryEvidence`. Shared original parameter, call, self-call, escape, and dead-suffix facts are indexed once into `DaeOriginalResultPreservationRow`; the prune row is derived from that row plus prune-only facts instead of performing a second parallel-array indexing pass.

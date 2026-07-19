@@ -9,6 +9,262 @@ pub fn dae_optimizing_summary() -> String {
 }
 
 ///|
+priv enum DaeDecisionReason {
+  DaeCandidateApplied
+  DaeCandidateProduced
+  DaeNoStrictImprovement
+  DaeVisibleBoundary
+  DaeExportedFunction
+  DaeStartFunction
+  DaeEscapedThroughRefFunc
+  DaeActiveElementTableExposure
+  DaePassiveElementExposure
+  DaeUnknownIndirectCaller
+  DaeUnknownCallRefCaller
+  DaeDirectTailDependency
+  DaeIndirectTailDependency
+  DaeReferenceTailDependency
+  DaeParameterStillRead
+  DaeResultStillObserved
+  DaeUniformActualsDisagree
+  DaeActualValueSliceUnavailable
+  DaeOperandDirectlyDroppable
+  DaeOperandEffectsMustBeReplayed
+  DaeOperandRequiresLocalization
+  DaeOperandContainsEscapingControl
+  DaeOperandMayTrap
+  DaeUnknownObservability
+  DaeGcLubUnavailable
+  DaeGcRefinementNotStrict
+  DaeStaleCandidateFacts
+  DaeCallCountChanged
+  DaeTypeReconstructionUnavailable
+  DaeValidationRollback
+  DaeProfitabilityRejection
+  DaeWorkBudgetRejection
+}
+
+///|
+priv enum DaeBoundarySurface {
+  DaePrivateDirectBoundary
+  DaeExportedBoundary
+  DaeImportedBoundary
+  DaeStartBoundary
+  DaeRefFuncBoundary
+  DaeActiveElementBoundary
+  DaePassiveElementBoundary
+  DaeUnknownIndirectBoundary
+  DaeUnknownCallRefBoundary
+  DaeDirectReturnCallBoundary
+  DaeIndirectReturnCallBoundary
+  DaeReferenceReturnCallBoundary
+}
+
+///|
+priv struct DaeDiagnostics {
+  reason_counts : Array[Int]
+  mut boundaries_analyzed : Int
+  mut candidates_produced : Int
+  mut candidates_applied : Int
+  mut parameters_removed : Int
+  mut parameters_materialized : Int
+  mut parameter_types_refined : Int
+  mut result_types_refined : Int
+  mut results_removed : Int
+  mut callsites_rewritten : Int
+  mut return_call_sites_rewritten : Int
+  mut effectful_operands_replayed : Int
+  mut localization_retries : Int
+  mut scratch_locals_added : Int
+  mut scratch_locals_reused : Int
+  mut type_entries_reused : Int
+  mut type_entries_appended : Int
+  mut candidate_requeues : Int
+  mut candidate_stale_retries : Int
+  mut validation_rollbacks : Int
+  mut selected_only_rewrites : Int
+  mut guard_based_skips : Int
+  mut nested_functions_touched : Int
+  mut nested_passes_executed : Int
+}
+
+///|
+fn dae_decision_reason_index(reason : DaeDecisionReason) -> Int {
+  match reason {
+    DaeCandidateApplied => 0
+    DaeCandidateProduced => 1
+    DaeNoStrictImprovement => 2
+    DaeVisibleBoundary => 3
+    DaeExportedFunction => 4
+    DaeStartFunction => 5
+    DaeEscapedThroughRefFunc => 6
+    DaeActiveElementTableExposure => 7
+    DaePassiveElementExposure => 8
+    DaeUnknownIndirectCaller => 9
+    DaeUnknownCallRefCaller => 10
+    DaeDirectTailDependency => 11
+    DaeIndirectTailDependency => 12
+    DaeReferenceTailDependency => 13
+    DaeParameterStillRead => 14
+    DaeResultStillObserved => 15
+    DaeUniformActualsDisagree => 16
+    DaeActualValueSliceUnavailable => 17
+    DaeOperandDirectlyDroppable => 18
+    DaeOperandEffectsMustBeReplayed => 19
+    DaeOperandRequiresLocalization => 20
+    DaeOperandContainsEscapingControl => 21
+    DaeOperandMayTrap => 22
+    DaeUnknownObservability => 23
+    DaeGcLubUnavailable => 24
+    DaeGcRefinementNotStrict => 25
+    DaeStaleCandidateFacts => 26
+    DaeCallCountChanged => 27
+    DaeTypeReconstructionUnavailable => 28
+    DaeValidationRollback => 29
+    DaeProfitabilityRejection => 30
+    DaeWorkBudgetRejection => 31
+  }
+}
+
+///|
+fn dae_decision_reason_code(reason : DaeDecisionReason) -> String {
+  match reason {
+    DaeCandidateApplied => "candidate-applied"
+    DaeCandidateProduced => "candidate-produced"
+    DaeNoStrictImprovement => "no-strict-improvement"
+    DaeVisibleBoundary => "visible-boundary"
+    DaeExportedFunction => "exported-function"
+    DaeStartFunction => "start-function"
+    DaeEscapedThroughRefFunc => "escaped-through-ref.func"
+    DaeActiveElementTableExposure => "active-element-table-exposure"
+    DaePassiveElementExposure => "passive-element-exposure"
+    DaeUnknownIndirectCaller => "unknown-indirect-caller"
+    DaeUnknownCallRefCaller => "unknown-call_ref-caller"
+    DaeDirectTailDependency => "direct-tail-dependency"
+    DaeIndirectTailDependency => "indirect-tail-dependency"
+    DaeReferenceTailDependency => "reference-tail-dependency"
+    DaeParameterStillRead => "parameter-still-read"
+    DaeResultStillObserved => "result-still-observed"
+    DaeUniformActualsDisagree => "uniform-actuals-disagree"
+    DaeActualValueSliceUnavailable => "actual-value-slice-unavailable"
+    DaeOperandDirectlyDroppable => "operand-directly-droppable"
+    DaeOperandEffectsMustBeReplayed => "operand-effects-must-be-replayed"
+    DaeOperandRequiresLocalization => "operand-requires-localization"
+    DaeOperandContainsEscapingControl => "operand-contains-escaping-control"
+    DaeOperandMayTrap => "operand-may-trap"
+    DaeUnknownObservability => "unknown-observability"
+    DaeGcLubUnavailable => "gc-lub-unavailable"
+    DaeGcRefinementNotStrict => "gc-refinement-not-strict"
+    DaeStaleCandidateFacts => "stale-candidate-facts"
+    DaeCallCountChanged => "call-count-changed"
+    DaeTypeReconstructionUnavailable => "type-reconstruction-unavailable"
+    DaeValidationRollback => "validation-rollback"
+    DaeProfitabilityRejection => "profitability-rejection"
+    DaeWorkBudgetRejection => "work-budget-rejection"
+  }
+}
+
+///|
+fn dae_boundary_surface_reason(
+  surface : DaeBoundarySurface,
+) -> DaeDecisionReason {
+  match surface {
+    DaePrivateDirectBoundary => DaeCandidateProduced
+    DaeExportedBoundary => DaeExportedFunction
+    DaeImportedBoundary => DaeVisibleBoundary
+    DaeStartBoundary => DaeStartFunction
+    DaeRefFuncBoundary => DaeEscapedThroughRefFunc
+    DaeActiveElementBoundary => DaeActiveElementTableExposure
+    DaePassiveElementBoundary => DaePassiveElementExposure
+    DaeUnknownIndirectBoundary => DaeUnknownIndirectCaller
+    DaeUnknownCallRefBoundary => DaeUnknownCallRefCaller
+    DaeDirectReturnCallBoundary => DaeDirectTailDependency
+    DaeIndirectReturnCallBoundary => DaeIndirectTailDependency
+    DaeReferenceReturnCallBoundary => DaeReferenceTailDependency
+  }
+}
+
+///|
+fn dae_operand_decision_reason(
+  operand : DaeOperandDisposition,
+  effects_must_be_replayed : Bool,
+  may_trap : Bool,
+) -> DaeDecisionReason {
+  if operand.has_branch {
+    DaeOperandContainsEscapingControl
+  } else if may_trap {
+    DaeOperandMayTrap
+  } else if operand.droppable_without_repair {
+    DaeOperandDirectlyDroppable
+  } else if effects_must_be_replayed || operand.preserve_effects_on_removal {
+    DaeOperandEffectsMustBeReplayed
+  } else {
+    DaeOperandRequiresLocalization
+  }
+}
+
+///|
+fn dae_gc_refinement_decision_reason(
+  lub_available : Bool,
+  strict_improvement : Bool,
+) -> DaeDecisionReason {
+  if !lub_available {
+    DaeGcLubUnavailable
+  } else if !strict_improvement {
+    DaeGcRefinementNotStrict
+  } else {
+    DaeCandidateApplied
+  }
+}
+
+///|
+fn dae_diagnostics_new() -> DaeDiagnostics {
+  {
+    reason_counts: Array::make(32, 0),
+    boundaries_analyzed: 0,
+    candidates_produced: 0,
+    candidates_applied: 0,
+    parameters_removed: 0,
+    parameters_materialized: 0,
+    parameter_types_refined: 0,
+    result_types_refined: 0,
+    results_removed: 0,
+    callsites_rewritten: 0,
+    return_call_sites_rewritten: 0,
+    effectful_operands_replayed: 0,
+    localization_retries: 0,
+    scratch_locals_added: 0,
+    scratch_locals_reused: 0,
+    type_entries_reused: 0,
+    type_entries_appended: 0,
+    candidate_requeues: 0,
+    candidate_stale_retries: 0,
+    validation_rollbacks: 0,
+    selected_only_rewrites: 0,
+    guard_based_skips: 0,
+    nested_functions_touched: 0,
+    nested_passes_executed: 0,
+  }
+}
+
+///|
+fn dae_diagnostics_record_reason(
+  diagnostics : DaeDiagnostics,
+  reason : DaeDecisionReason,
+) -> Unit {
+  let index = dae_decision_reason_index(reason)
+  diagnostics.reason_counts[index] = diagnostics.reason_counts[index] + 1
+}
+
+///|
+fn dae_diagnostics_reason_count(
+  diagnostics : DaeDiagnostics,
+  reason : DaeDecisionReason,
+) -> Int {
+  diagnostics.reason_counts[dae_decision_reason_index(reason)]
+}
+
+///|
 priv struct DaeCallShape {
   start : Int
   end : Int
@@ -47,6 +303,7 @@ priv struct DaeOperandRewriteDisposition {
   localization_available : Bool
   has_escaping_branch : Bool
   action : DaeOperandRewriteAction
+  reason : DaeDecisionReason
 }
 
 ///|
@@ -922,6 +1179,7 @@ priv struct DaeCallBoundaryFacts {
 priv struct DaeCallBoundaryCandidate {
   owned : Bool
   tail_callee : Bool
+  decision_reason : DaeDecisionReason
   direct_call_count : Int
   dropped_call_count : Int
   direct_callers : Array[Int]
@@ -1497,6 +1755,13 @@ fn dae_call_boundary_candidate(
   Some({
     owned: !escaped,
     tail_callee: tail_call,
+    decision_reason: if escaped {
+      DaeVisibleBoundary
+    } else if tail_call {
+      DaeDirectTailDependency
+    } else {
+      DaeCandidateProduced
+    },
     direct_call_count,
     dropped_call_count: dae_call_boundary_count_at(
       facts.dropped_calls,
@@ -3383,14 +3648,16 @@ fn dae_operand_rewrite_disposition(
   localization_available~ : Bool,
   has_escaping_branch~ : Bool,
 ) -> DaeOperandRewriteDisposition {
-  {
-    operand,
-    localization_available,
-    has_escaping_branch,
-    action: dae_operand_rewrite_action(
-      operand, localization_available, has_escaping_branch,
-    ),
+  let action = dae_operand_rewrite_action(
+    operand, localization_available, has_escaping_branch,
+  )
+  let reason = match action {
+    DaeDropOperandDirectly => DaeOperandDirectlyDroppable
+    DaePreserveOperandEffectsAndDropValue => DaeOperandEffectsMustBeReplayed
+    DaeLocalizeOperandAndRetry => DaeOperandRequiresLocalization
+    DaeRejectEscapingOperandRewrite => DaeOperandContainsEscapingControl
   }
+  { operand, localization_available, has_escaping_branch, action, reason }
 }
 
 ///|

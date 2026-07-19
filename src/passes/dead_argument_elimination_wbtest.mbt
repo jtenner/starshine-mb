@@ -14344,3 +14344,110 @@ test "dae stable callsites ignore inactive conflicting uniform actuals" {
     _ => fail("expected only the active stable callsite literal")
   }
 }
+
+///|
+test "dae reason codes classify boundary visibility and tail surfaces" {
+  let cases = [
+    (DaePrivateDirectBoundary, "candidate-produced"),
+    (DaeExportedBoundary, "exported-function"),
+    (DaeImportedBoundary, "visible-boundary"),
+    (DaeStartBoundary, "start-function"),
+    (DaeRefFuncBoundary, "escaped-through-ref.func"),
+    (DaeActiveElementBoundary, "active-element-table-exposure"),
+    (DaePassiveElementBoundary, "passive-element-exposure"),
+    (DaeUnknownIndirectBoundary, "unknown-indirect-caller"),
+    (DaeUnknownCallRefBoundary, "unknown-call_ref-caller"),
+    (DaeDirectReturnCallBoundary, "direct-tail-dependency"),
+    (DaeIndirectReturnCallBoundary, "indirect-tail-dependency"),
+    (DaeReferenceReturnCallBoundary, "reference-tail-dependency"),
+  ]
+  for case in cases {
+    let (surface, expected) = case
+    assert_eq(
+      dae_decision_reason_code(dae_boundary_surface_reason(surface)),
+      expected,
+    )
+  }
+}
+
+///|
+test "dae reason codes classify operand preservation decisions" {
+  let pure : DaeOperandDisposition = {
+    start: 0,
+    end: 1,
+    droppable_without_repair: true,
+    preserve_effects_on_removal: false,
+    has_branch: false,
+    has_effect_or_branch: false,
+  }
+  let effectful : DaeOperandDisposition = {
+    start: 0,
+    end: 1,
+    droppable_without_repair: false,
+    preserve_effects_on_removal: true,
+    has_branch: false,
+    has_effect_or_branch: true,
+  }
+  let branchful : DaeOperandDisposition = {
+    start: 0,
+    end: 1,
+    droppable_without_repair: false,
+    preserve_effects_on_removal: false,
+    has_branch: true,
+    has_effect_or_branch: true,
+  }
+  assert_eq(
+    dae_decision_reason_code(dae_operand_decision_reason(pure, false, false)),
+    "operand-directly-droppable",
+  )
+  assert_eq(
+    dae_decision_reason_code(
+      dae_operand_decision_reason(effectful, true, false),
+    ),
+    "operand-effects-must-be-replayed",
+  )
+  assert_eq(
+    dae_decision_reason_code(
+      dae_operand_decision_reason(effectful, false, true),
+    ),
+    "operand-may-trap",
+  )
+  assert_eq(
+    dae_decision_reason_code(
+      dae_operand_decision_reason(branchful, false, false),
+    ),
+    "operand-contains-escaping-control",
+  )
+}
+
+///|
+test "dae reason codes distinguish strict and non-strict GC refinement" {
+  assert_eq(
+    dae_decision_reason_code(dae_gc_refinement_decision_reason(true, true)),
+    "candidate-applied",
+  )
+  assert_eq(
+    dae_decision_reason_code(dae_gc_refinement_decision_reason(true, false)),
+    "gc-refinement-not-strict",
+  )
+  assert_eq(
+    dae_decision_reason_code(dae_gc_refinement_decision_reason(false, false)),
+    "gc-lub-unavailable",
+  )
+}
+
+///|
+test "dae diagnostic counters aggregate stable reason events" {
+  let diagnostics = dae_diagnostics_new()
+  dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+  dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+  dae_diagnostics_record_reason(diagnostics, DaeValidationRollback)
+  diagnostics.boundaries_analyzed += 3
+  diagnostics.parameters_removed += 2
+  diagnostics.return_call_sites_rewritten += 1
+  assert_eq(diagnostics.boundaries_analyzed, 3)
+  assert_eq(diagnostics.parameters_removed, 2)
+  assert_eq(diagnostics.return_call_sites_rewritten, 1)
+  assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateApplied), 2)
+  assert_eq(dae_diagnostics_reason_count(diagnostics, DaeValidationRollback), 1)
+}
