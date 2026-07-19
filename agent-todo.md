@@ -48,7 +48,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `local-subtyping` | Closed. | None. |
 | `coalesce-locals` | Direct behavior closed. | **Open extended-neighborhood shape parity:** the full slot-27 suffix can renumber locals differently even when `merge-locals` is a byte no-op in both tools. |
 | `simplify-locals` | Closed. | None. |
-| `code-folding` | Active narrow direct pass; not preset-ready. | **Open behavior breadth and scheduling.** |
+| `code-folding` | Closed: Binaryen-v131 semantics, external validity, canonical late scheduling, and pass-local performance completed on 2026-07-19. | None; final representative medians are `1.70x` on the candidate-heavy fixture and `1.98x` on the large debug artifact. |
 | `merge-blocks` | Closed for the current v0.1.0 audit. | None. |
 | `redundant-set-elimination` / `rse` | Direct behavior and 1x timing closed. | **Open scheduler slot.** |
 | `dae-optimizing` | Active-partial; direct DAE remains raw-red; nested cleanup is incomplete. | **Open implementation and closeout.** |
@@ -117,19 +117,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ## v0.1.0 Primary O4z Work
 
-### [O4Z-CF]001 - Finish and schedule `code-folding`
-
-- **Status:** active narrow direct HOT pass; prior direct audit accepted a subset, but current living docs still disclaim full Binaryen tail-sharing coverage and preset readiness.
-- **Goal:** close the remaining source-backed terminating-tail/expression-exit families and schedule slot 38.
-- **Why:** a subset signoff is not enough for O4z behavior parity, and `code-folding` is absent from both public presets.
-- **Deliverables:**
-  - [ ] Reconcile the v130/current cost/search structure and remaining exact tail-family matrix.
-  - [ ] Implement or narrowly classify remaining named/unnamed, typed, EH, multivalue, and expression-parent families.
-  - [ ] Add a pass-specific aggregate profile and current four-lane closeout.
-  - [ ] Recheck candidate-heavy pass-local timing after current source-cost reconciliation.
-  - [ ] Prove `vacuum -> code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks`.
-- **Exit criteria:** no broad source-backed behavior disclaimer remains, direct closeout is current, and slot 38 is scheduled with exact-order tests.
-
 ### [O4Z-DAE]001 - Complete `dae-optimizing`
 
 - **Status:** highest remaining implemented-pass risk. Direct/plain DAE remains raw-red; the latest reduction-disabled 10000-case evidence is `5000` normalized dedicated direct, `9136` normalized direct random-all, and `9633` normalized optimizing random-all, with zero failures but unresolved families. Current `dae_run_nested_cleanup(...)` applies one exact-ref fold/rerun path and otherwise returns the module unchanged.
@@ -157,7 +144,8 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [x] Replace both plain `precompute` substitutions with `precompute-propagate`.
   - [x] Add `merge-locals` after `heap2local`; the exact `heap2local -> merge-locals -> optimize-casts` lane is `10000/10000` green.
   - [ ] Reconcile the downstream local-numbering shape gap in the extended `local-subtyping -> coalesce-locals -> local-cse` suffix; a reduced probe is byte-identical with and without `merge-locals` in each tool, so this does not reopen the pass.
-  - [ ] Add `code-folding` before the first late `merge-blocks`.
+  - [x] Add `code-folding` before the first late `merge-blocks`; direct four-lane parity and exact-order scheduling closed on 2026-07-18.
+  - [ ] Reconcile the classified post-`code-folding` cleanup shapes: return/tail-call and movement fixtures are smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing gaps in neighboring `merge-blocks` / branch cleanup.
   - [ ] Add `redundant-set-elimination -> vacuum` after late HSO.
   - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside the Binaryen 56 slots.
   - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact order tests.

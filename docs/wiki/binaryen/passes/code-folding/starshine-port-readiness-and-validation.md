@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ./index.md
   - ./binaryen-strategy.md
@@ -34,6 +34,8 @@ related:
 
 # Starshine `code-folding` port readiness and validation
 
+> **Superseding status (2026-07-19):** implementation breadth, externally validated direct four-lane parity, dedicated family generation, public preset scheduling, and pass-local performance are complete. The focused suite has 193 tests and the current v131 lanes are documented in [`./fuzzing.md`](./fuzzing.md). An externally detected typed-tail-region invalid fold is guarded, representative outputs validate with `wasm-tools`, and final five-run medians are `1.70x` Binaryen on the candidate fixture and `1.98x` on the large artifact. The staged plan below is retained as historical implementation rationale; items claiming missing direct breadth, a missing preset slot, or an open timing blocker are no longer active. Classified post-pass cleanup-shape gaps remain under preset reconciliation.
+
 This page is the practical bridge from the source-backed Binaryen dossier to a future Starshine implementation.
 Read it after:
 
@@ -44,19 +46,19 @@ Read it after:
 
 ## Current local starting point
 
-`code-folding` is active in Starshine as a narrowed HOT direct pass. It has an owner file, focused tests, registry entry, and `pass_manager` dispatcher arm. Its v0.1.0 direct-pass signoff is accepted under the repo criteria; it does **not** yet have full Binaryen coverage or public preset-slot proof.
+`code-folding` is active in Starshine as a HOT direct pass with an owner file, focused tests, registry entry, and `pass_manager` dispatcher arm. Direct Binaryen-v131 semantics, external validity, public preset-slot proof, and representative pass-local timing are accepted. The historical staged breadth discussion below is retained for provenance.
 
 The local surfaces that already exist are active implementation and planning surfaces:
 
 | Surface | Location | What it proves |
 | --- | --- | --- |
-| Active owner | `src/passes/code_folding.mbt` | `code-folding` has a real HOT descriptor and transform for the current narrow subset, now with explicit typed named-block exit-tail provenance, single-result multi-root suffix plans, and the first source-backed multi-value branch-plus-fallthrough payload suffix. |
-| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives, typed named-block payload, multi-root, and first multi-value suffix positives, terminal `if` subsets, and bailouts are regression-protected. |
+| Active owner | `src/passes/code_folding.mbt` | `code-folding` implements the accepted Binaryen-v131 block-exit and terminating-tail families with typed-region, branch-scope, movement, EH, and profitability guards. |
+| Focused tests | `src/passes/code_folding_test.mbt` | 193 focused cases protect large searches, structured payloads, helper-cost boundaries, EH, multivalue, named/unnamed exits, expression parents, and typed-region validity. |
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot pass, not a removed-name placeholder. |
 | Dispatcher arm | `src/passes/pass_manager.mbt` | active requests dispatch to `code_folding_run(ctx, func)`. |
 | CLI spelling preservation | `src/cli/cli_test.mbt` | `--code-folding` parses and explicit pass-token order is stable. |
-| Direct revalidation | `.tmp/pass-fuzz-code-folding-cf002-terminal-if`, `docs/wiki/binaryen/passes/code-folding/index.md` | latest executed harness lane had `6759` normalized matches and `0` semantic mismatches; direct debug-artifact timing stayed inside the <=2x Binaryen floor, but this evidence predates the June typed block-exit payload widening. |
-| Backlog slice | `agent-todo.md` | `[O4Z-AUDIT-CF]` tracks fresh fixture validation, direct compare, pass-local timing, and late-slot replay before the audit closes. |
+| Direct revalidation | `docs/wiki/binaryen/passes/code-folding/fuzzing.md` | the externally validated four-lane v131 matrix and rebuilt post-performance `10000/10000` dedicated replay have zero direct mismatches or validation failures. |
+| Backlog status | `agent-todo.md` | `code-folding` has no active direct-pass slice after semantic, validity, scheduling, and timing closeout. |
 | Canonical late slot | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | the pass belongs immediately before the late `merge-blocks` cluster in the no-DWARF function phase. |
 
 ## Remaining Starshine slice order
