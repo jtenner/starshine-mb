@@ -87,6 +87,78 @@ pub fn HotPipelineOptions::new(
 }
 
 ///|
+fn run_hot_pipeline_threshold_guard_class(
+  pass_name : String,
+  reason : String,
+) -> String? {
+  if pass_name == "remove-unused-brs" {
+    if reason == "simd-parser-br-table-stack-hazard-noop" ||
+      reason == "unchecked-moderate-call-mesh-noop" {
+      return Some("correctness")
+    }
+    if reason == "large-void-if-return-ladder-noop" ||
+      reason == "large-result-br-table-dispatch-ladder-noop" ||
+      reason == "large-value-if-branch-ladder-noop" ||
+      reason == "large-drop-heavy-branch-ladder-noop" ||
+      reason == "moderate-control-ladder-noop" ||
+      reason == "large-typed-br-table-encoder-ladder-noop" ||
+      reason == "unique-loop-select-return-ladder-noop" ||
+      reason == "structured-return-ladder-noop" ||
+      reason == "large-local-dispatch-noop" ||
+      reason == "refcount-payload-parser-noop" {
+      return Some("performance")
+    }
+  }
+  if pass_name == "simplify-locals" {
+    if reason == "root-local-set-stack-hazard-noop" ||
+      reason == "unchecked-small-structured-call-mesh-noop" {
+      return Some("correctness")
+    }
+    if reason == "large-module-simplify-locals-noop" ||
+      reason == "straight-line-builder-churn" ||
+      reason == "huge-straight-line-call-builder" ||
+      reason == "multivalue-call-heavy-ladder" ||
+      reason == "giant-validator-structured-call-heavy-noop" ||
+      reason == "branch-dense-structured-call-heavy-noop" ||
+      reason == "low-local-decision-ladder-noop" ||
+      reason == "low-local-loop-return-call-ladder-noop" ||
+      reason == "mid-local-structured-call-ladder-noop" ||
+      reason == "low-local-structured-call-heavy-noop" ||
+      reason == "parser-structured-call-heavy" ||
+      reason == "decode-structured-call-heavy" ||
+      reason == "encode-structured-call-heavy" ||
+      reason == "branchy-decode-structured-call-heavy" ||
+      reason == "transformer-catch-structured-call-heavy" ||
+      reason == "branchy-structured-call-heavy" ||
+      reason == "dense-structured-call-heavy" ||
+      reason == "stringview-trim-loop-churn" ||
+      reason == "transformer-structured-call-heavy" ||
+      reason == "small-loop-call-heavy" ||
+      reason == "block-rich-structured-call-heavy-noop" ||
+      reason == "call-dense-structured-walker-noop" ||
+      reason == "medium-structured-call-heavy" ||
+      reason == "loop-heavy-structured-call-heavy" ||
+      reason == "giant-structured-call-heavy" ||
+      reason == "giant-structured-local-churn" ||
+      reason == "giant-local-func-noop" {
+      return Some("performance")
+    }
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_threshold_trace_payload(
+  pass_name : String,
+  reason : String,
+) -> String {
+  match run_hot_pipeline_threshold_guard_class(pass_name, reason) {
+    Some(class_) => "reason=\{reason} guard=\{class_}"
+    None => "reason=\{reason}"
+  }
+}
+
+///|
 pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
@@ -1828,21 +1900,41 @@ priv struct RawRemoveUnusedBrsShape {
 
 ///|
 fn RawRemoveUnusedBrsShape::new() -> RawRemoveUnusedBrsShape {
+  RawRemoveUnusedBrsShape::with_counts()
+}
+
+///|
+fn RawRemoveUnusedBrsShape::with_counts(
+  call_count? : Int = 0,
+  local_set_count? : Int = 0,
+  local_tee_count? : Int = 0,
+  if_count? : Int = 0,
+  return_count? : Int = 0,
+  select_count? : Int = 0,
+  br_if_count? : Int = 0,
+  block_count? : Int = 0,
+  value_block_count? : Int = 0,
+  void_block_count? : Int = 0,
+  loop_count? : Int = 0,
+  br_count? : Int = 0,
+  br_table_count? : Int = 0,
+  drop_count? : Int = 0,
+) -> RawRemoveUnusedBrsShape {
   {
-    call_count: 0,
-    local_set_count: 0,
-    local_tee_count: 0,
-    if_count: 0,
-    return_count: 0,
-    select_count: 0,
-    br_if_count: 0,
-    block_count: 0,
-    value_block_count: 0,
-    void_block_count: 0,
-    loop_count: 0,
-    br_count: 0,
-    br_table_count: 0,
-    drop_count: 0,
+    call_count,
+    local_set_count,
+    local_tee_count,
+    if_count,
+    return_count,
+    select_count,
+    br_if_count,
+    block_count,
+    value_block_count,
+    void_block_count,
+    loop_count,
+    br_count,
+    br_table_count,
+    drop_count,
   }
 }
 
@@ -1936,6 +2028,14 @@ fn run_hot_pipeline_raw_remove_unused_brs_leading_any_block_chain_depth(
 }
 
 ///|
+// Raw RUB threshold policy.
+//
+// The `large`, `moderate`, and structured-ladder predicates below are
+// empirical performance envelopes for shapes already proved to be pass
+// no-ops. Their numeric bounds are not WebAssembly legality rules. Keep each
+// accepted family paired with a stable trace reason and boundary tests before
+// widening it. The SIMD parser and `unchecked` families are stricter
+// correctness/writeback guards and must not be treated as tuning knobs.
 fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -2779,6 +2879,35 @@ priv struct RawSimplifyLocalsGateStats {
 }
 
 ///|
+fn RawSimplifyLocalsGateStats::new(
+  locals_count? : Int = 0,
+  instr_count? : Int = 0,
+  has_structured_control? : Bool = false,
+  if_count? : Int = 0,
+  block_count? : Int = 0,
+  loop_count? : Int = 0,
+  local_set_count? : Int = 0,
+  local_get_count? : Int = 0,
+  call_count? : Int = 0,
+  return_count? : Int = 0,
+  exact_tail_count? : Int = 0,
+) -> RawSimplifyLocalsGateStats {
+  {
+    locals_count,
+    instr_count,
+    has_structured_control,
+    if_count,
+    block_count,
+    loop_count,
+    local_set_count,
+    local_get_count,
+    call_count,
+    return_count,
+    exact_tail_count,
+  }
+}
+
+///|
 fn RawSimplifyLocalsShape::new() -> RawSimplifyLocalsShape {
   {
     if_count: 0,
@@ -3302,22 +3431,30 @@ fn run_hot_pipeline_raw_simplify_locals_gate_stats(
   )
   let shape = RawSimplifyLocalsShape::new()
   run_hot_pipeline_raw_simplify_locals_scan_shape(instrs, shape)
-  {
-    locals_count: locals.length(),
-    instr_count,
-    has_structured_control,
-    if_count: shape.if_count,
-    block_count: shape.block_count,
-    loop_count: shape.loop_count,
-    local_set_count: shape.local_set_count,
-    local_get_count: shape.local_get_count,
-    call_count: shape.call_count,
-    return_count: shape.return_count,
-    exact_tail_count: shape.exact_tail_count,
-  }
+  RawSimplifyLocalsGateStats::new(
+    locals_count=locals.length(),
+    instr_count~,
+    has_structured_control~,
+    if_count=shape.if_count,
+    block_count=shape.block_count,
+    loop_count=shape.loop_count,
+    local_set_count=shape.local_set_count,
+    local_get_count=shape.local_get_count,
+    call_count=shape.call_count,
+    return_count=shape.return_count,
+    exact_tail_count=shape.exact_tail_count,
+  )
 }
 
 ///|
+// Raw SimplifyLocals threshold policy.
+//
+// These predicates describe measured artifact-shape envelopes. Rewrite gates
+// admit bounded raw fast paths; skip gates avoid disproportionately expensive
+// lift/lower or validation work while preserving the original function. They
+// are performance policy unless their trace classification says `correctness`.
+// Treat every numeric edge as inclusive/exclusive API and keep representative
+// ±1 tests in `pass_manager_threshold_wbtest.mbt`.
 #cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
   locals : @lib.Locals,
@@ -3359,15 +3496,23 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_giant_func_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 1500 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 2000
+}
+
+///|
 #cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
-  stats.locals_count >= 1500 &&
-  stats.has_structured_control &&
-  stats.instr_count >= 2000
+  run_hot_pipeline_raw_simplify_locals_giant_func_stats(
+    run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs),
+  )
 }
 
 ///|
@@ -7332,9 +7477,9 @@ fn run_hot_pipeline_raw_simplify_locals(
   let should_skip_low_local_structured_call_heavy = stats.locals_count <= 8 &&
     stats.has_structured_control &&
     stats.if_count >= 128
-  let should_skip_giant_func = stats.locals_count >= 1500 &&
-    stats.has_structured_control &&
-    stats.instr_count >= 2000
+  let should_skip_giant_func = run_hot_pipeline_raw_simplify_locals_giant_func_stats(
+    stats,
+  )
   let should_rewrite_structured_pure_call_tails = stats.has_structured_control &&
     stats.locals_count >= 128 &&
     stats.instr_count >= 256 &&
@@ -52946,6 +53091,30 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_large_local_dispatch_stats(
+  locals_count : Int,
+  instr_count : Int,
+  has_deep_dispatch : Bool,
+) -> Bool {
+  locals_count > 96 && instr_count > 1000 && has_deep_dispatch
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_refcount_payload_stats(
+  optimize_level : Int,
+  shrink_level : Int,
+  locals_count : Int,
+  shape : RawRemoveUnusedBrsShape,
+) -> Bool {
+  optimize_level >= 4 &&
+  shrink_level >= 1 &&
+  locals_count >= 128 &&
+  shape.call_count >= 8 &&
+  shape.local_set_count >= 20 &&
+  shape.if_count >= 4
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_large_mostly_default_targets(
   labels : Array[@lib.LabelIdx],
   default_ : @lib.LabelIdx,
@@ -53181,9 +53350,11 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   let large_stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(instrs, large_stats)
-  if locals.length() > 96 &&
-    large_stats.instrs > 1000 &&
-    run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(instrs) {
+  if run_hot_pipeline_raw_remove_unused_brs_large_local_dispatch_stats(
+      locals.length(),
+      large_stats.instrs,
+      run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(instrs),
+    ) {
     return Some({
       reason: "large-local-dispatch-noop",
       func: original,
@@ -53204,12 +53375,12 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   let final_shape = RawRemoveUnusedBrsShape::new()
   run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, final_shape)
-  if options.optimize_level >= 4 &&
-    options.shrink_level >= 1 &&
-    locals.length() >= 128 &&
-    final_shape.call_count >= 8 &&
-    final_shape.local_set_count >= 20 &&
-    final_shape.if_count >= 4 {
+  if run_hot_pipeline_raw_remove_unused_brs_refcount_payload_stats(
+      options.optimize_level,
+      options.shrink_level,
+      locals.length(),
+      final_shape,
+    ) {
     return Some({
       reason: "refcount-payload-parser-noop",
       func: original,
@@ -58479,6 +58650,16 @@ fn run_hot_pipeline_vacuum_repair_batch_writeback(
 }
 
 ///|
+// The whole-module SimplifyLocals cutoff is a performance guard. It avoids
+// per-function setup on artifact-scale modules; it is not a semantic limit.
+// Keep the 2047/2048/2049 boundary test and the classified trace in sync.
+fn run_hot_pipeline_simplify_locals_should_skip_module_count(
+  defined_function_count : Int,
+) -> Bool {
+  defined_function_count >= 2048
+}
+
+///|
 fn run_hot_pipeline_apply_hot_pass(
   mod_ : @lib.Module,
   entry : HotPassRegistryEntry,
@@ -58496,12 +58677,13 @@ fn run_hot_pipeline_apply_hot_pass(
   }
   match mod_.code_sec {
     Some(@lib.CodeSec(defs)) =>
-      if descriptor.name == "simplify-locals" && defs.length() >= 2048 {
+      if descriptor.name == "simplify-locals" &&
+        run_hot_pipeline_simplify_locals_should_skip_module_count(defs.length()) {
         pipeline_trace_hook(
           options.trace,
           descriptor.name,
           "skip-large-module",
-          payload="reason=large-module-simplify-locals-noop funcs=\{defs.length()}",
+          payload="\{run_hot_pipeline_threshold_trace_payload(descriptor.name, "large-module-simplify-locals-noop")} funcs=\{defs.length()}",
         )
         return Ok(mod_)
       }
@@ -58722,7 +58904,10 @@ fn run_hot_pipeline_apply_hot_pass(
               options.trace,
               descriptor.name,
               "skip-raw",
-              payload="reason=\{result.reason}",
+              payload=run_hot_pipeline_threshold_trace_payload(
+                descriptor.name,
+                result.reason,
+              ),
             )
           }
         }
@@ -59226,7 +59411,10 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
               options.trace,
               descriptor.name,
               "skip-raw",
-              payload="reason=\{result.reason}",
+              payload=run_hot_pipeline_threshold_trace_payload(
+                descriptor.name,
+                result.reason,
+              ),
             )
           }
         }

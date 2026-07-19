@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -152,6 +152,8 @@ That difference explains why:
   - What each local test lane and compare lane proves.
 - [`./performance-and-artifact-frontiers.md`](./performance-and-artifact-frontiers.md)
   - Runtime and artifact-hotspot maintenance notes.
+- [`../../pass-manager-threshold-guards.md`](../../pass-manager-threshold-guards.md)
+  - Cross-pass threshold policy, SimplifyLocals gate classification, stable trace reasons, and focused boundary-test rules.
 - [`./parity.md`](./parity.md)
   - Current local parity status.
 

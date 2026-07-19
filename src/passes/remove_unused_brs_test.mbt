@@ -196,7 +196,7 @@ test "remove-unused-brs skips large local-heavy json-as dispatch functions" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[remove-unused-brs]:skip-raw reason=large-local-dispatch-noop",
+        "pass[remove-unused-brs]:skip-raw reason=large-local-dispatch-noop guard=performance",
       )
     }),
     msg=trace.to_string(),

@@ -12,7 +12,7 @@
 - A pass is not closed merely because an ordinary random lane found no mismatch. Source/docs breadth, pass-specific generation, validity, performance, and the required four-lane closeout matrix still apply.
 - Use `_build/native/release/build/cmd/cmd.exe` after a current native release build. Treat `target/native/...` as stale unless explicitly proven fresh.
 - Moon commands must run serially.
-- Repository-wide `bun validate full --profile ci --target wasm-gc` passes `moon info`, formatting, and all `9452/9452` tests, then remains blocked by a pre-existing randomized decoder round-trip abort in `src/fuzz` (reproduced July 19, 2026 on unrelated table-initializer instruction decoding). This is not an inlining-family failure.
+- Repository-wide `bun validate full --profile ci --target wasm-gc` passes `moon info`, formatting, checking, and the full deterministic suite, then remains blocked by a pre-existing randomized decoder round-trip abort in `src/fuzz`. The July 19, 2026 `[AUDIT]002` run passed `9435/9435` deterministic tests before reproducing an unrelated `i64.store32 align=32 offset=14882` decode as `array.store`; an earlier run reproduced the same blocker family on table-initializer instruction decoding.
 
 ## Binaryen v131 O4z Pass Ledger
 
@@ -194,12 +194,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - Separate pass-local time from decode, validation, HOT lift/lower, parse/emit, buffering, caching, and process startup.
 - Keep aggregate wall time outside direct pass correctness closeout unless a pass is clearly the owner.
 - Current recurring targets: self-optimization command overhead, repeated HOT lifting, validation/encoding, and any newly widened exact O4z preset.
-
-### [AUDIT]002 - Raw skip and threshold boundary coverage
-
-- Inventory all `can_skip`, `unchecked`, `giant`, `large`, and numeric threshold gates in `src/passes/pass_manager.mbt`.
-- Add focused ±1 boundary tests and trace reasons for RUB and simplify-locals gate families.
-- Distinguish correctness guards from performance guards and remove unexplained magic thresholds.
 
 ### [TOOL]001 - Self-opt compare normalization symmetry
 

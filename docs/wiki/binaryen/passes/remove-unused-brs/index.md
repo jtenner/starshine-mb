@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 sources:
   - ../../release-horizon-and-oracles.md
   - ../late-pipeline-dispatch.md
@@ -159,6 +159,8 @@ What it actually is in `version_130`:
   - HOT-lift guide for returned-ladder artifact shapes.
 - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)
   - Local raw/hot skip rules, mutation limits, and performance heuristics.
+- [`../../pass-manager-threshold-guards.md`](../../pass-manager-threshold-guards.md)
+  - Cross-pass threshold policy, complete RUB gate classification, stable trace reasons, and focused boundary-test rules.
 - [`./parity.md`](./parity.md)
   - Current artifact signoff state, retired blockers, remaining gaps, and traced hotspot history.
 

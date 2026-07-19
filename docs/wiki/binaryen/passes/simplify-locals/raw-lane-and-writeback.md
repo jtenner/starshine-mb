@@ -105,7 +105,7 @@ related:
 
 ### 2026-06-04 Audit Boundary
 
-The `[O4Z-AUDIT-SL]` closeout refreshed direct and generated late-neighborhood semantic evidence, but intentionally did **not** claim that every raw threshold is boundary-tested. The remaining raw skip/gate boundary work stays under `[AUDIT002-F]` / `[AUDIT002-G]`, especially small structured call-mesh gates, giant validator / no-structure gates, practical `±1` thresholds, and public-pipeline fixtures that prove intended cleanup or intentional skip with a trace reason.
+The `[O4Z-AUDIT-SL]` closeout refreshed direct and generated late-neighborhood semantic evidence. The follow-up `[AUDIT]002` threshold audit closed on 2026-07-19: [`../../pass-manager-threshold-guards.md`](../../pass-manager-threshold-guards.md) now classifies the raw gates, `pass_manager_threshold_wbtest.mbt` covers representative small unchecked, giant-validator, generic giant, and module-cutoff `±1` boundaries, and public-pipeline tests lock classified trace reasons. Future threshold changes follow that page's maintenance rules rather than the retired `[AUDIT002-F]` / `[AUDIT002-G]` labels.
 
 ### `validator-structured-call-heavy`
 

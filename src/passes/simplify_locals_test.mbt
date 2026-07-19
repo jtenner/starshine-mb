@@ -263,7 +263,7 @@ test "simplify-locals skips very large modules conservatively" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[simplify-locals]:skip-large-module reason=large-module-simplify-locals-noop funcs=2048",
+        "pass[simplify-locals]:skip-large-module reason=large-module-simplify-locals-noop guard=performance funcs=2048",
       )
     }),
   )
