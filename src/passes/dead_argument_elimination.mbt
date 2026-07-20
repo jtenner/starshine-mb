@@ -2618,8 +2618,15 @@ fn dae_process_work_item(
           type_indices_override=Some(graph.snapshot.type_indices),
         ),
       )
-    DaeUniformActualWork
-    | DaeGcParameterRefinementWork
+    DaeUniformActualWork =>
+      Some(
+        dae_try_rewrite_exact_literal_def_with_facts_once(
+          current,
+          item.target_def,
+          graph.snapshot.call_facts,
+        ),
+      )
+    DaeGcParameterRefinementWork
     | DaeGcResultRefinementWork
     | DaeDroppedResultWork
     | DaeControlReconstructionWork
@@ -34036,6 +34043,44 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   let mut touched_out = touched
   let mut changed_out = changed
   let productive_defs : Array[Int] = []
+  if !allow_immutable_global_get {
+    let original = dae_collect_original_boundary_snapshot(current)
+    let graph = dae_current_boundary_graph_new(current)
+    let mut dependencies = dae_boundary_dependency_graph_new(graph)
+    let diagnostics = dae_diagnostics_new()
+    for candidate_def in candidate_defs {
+      if productive_limit >= 0 && productive_defs.length() >= productive_limit {
+        break
+      }
+      let item = dae_work_item_new(
+        graph,
+        dependencies,
+        candidate_def,
+        DaeUniformActualWork,
+      )
+      match
+        dae_process_work_item(
+          original, mod_out, touched_out, changed_out, graph, dependencies, item,
+          diagnostics,
+        ) {
+        DaeWorkCommitted(application) => {
+          mod_out = application.mod_out
+          touched_out = application.touched
+          changed_out = application.changed
+          productive_defs.push(application.primary_def)
+          dae_current_boundary_graph_refresh(graph, mod_out)
+          dependencies = dae_boundary_dependency_graph_new(graph)
+        }
+        _ => ()
+      }
+    }
+    return {
+      mod_out,
+      touched: touched_out,
+      changed: changed_out,
+      productive_defs,
+    }
+  }
   for candidate_def in candidate_defs {
     if productive_limit >= 0 && productive_defs.length() >= productive_limit {
       break

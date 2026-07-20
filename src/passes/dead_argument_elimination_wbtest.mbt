@@ -15120,6 +15120,52 @@ test "dae component rewrite plan validation failure restores the complete module
 }
 
 ///|
+test "dae family dispatcher commits uniform literal work" {
+  let source =
+    #|(module
+    #|  (func $identity (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $identity))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  let item = dae_work_item_new(graph, dependencies, 0, DaeUniformActualWork)
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      item,
+      diagnostics,
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_true(application.applied)
+      assert_eq(application.primary_def, 0)
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType(params, [result])) => {
+          assert_eq(params, [])
+          assert_eq(result, @lib.ValType::i32())
+        }
+        _ => fail("expected rewritten nullary i32 identity")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid uniform literal commit, got \{err}")
+      }
+    }
+    _ => fail("expected uniform literal family to commit")
+  }
+}
+
+///|
 test "dae forwarding family component includes exact one-way parameter forwarders" {
   let source =
     #|(module
