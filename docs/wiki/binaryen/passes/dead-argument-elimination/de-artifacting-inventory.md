@@ -51,7 +51,7 @@ The raw scan is preserved locally at `.tmp/dae-release-baseline-20260719/product
 | Late selected cleanup | definitions `287, 288, 298, 299, 311, 313, 408, 867` and later local/control lanes; exact-literal definitions `326/327/328/1795` removed | 2/4 | exact direct callees of bodies changed by each cleanup phase now receive a semantic uniform frontier; remaining local/control transforms belong in shared touched passes |
 | Func-288 local map | fixed 118-slot bitmap and explicit local-number groups | 2/4 | replace with generic liveness/coalescing evidence or remove the production rewrite |
 | Func-237 cleanup family | numerous `Func237`-named recognizers and repeated selected scheduling | 2/4 | extract generic control/local transforms into owning passes; retain Func237 only as a regression artifact |
-| Func-3737/3765 suffix bridge | exact `def_idx == 3765`, dependency on definition `3737` | 1/4 | uniform-value forwarding/component recognizer; remove identity test |
+| Func-3737/3765 suffix bridge | exact definitions `3737/3765`, caller `281`, and hard-coded `i32.const 1024` helpers deleted | removed | generic forwarding/uniform and unread families already produce byte-identical artifact output; reopen only for a minimized exact dependency miss |
 | Definition-505 special cleanup switch | `def_idx == 505` | 2/4 | prove a generic result/control cleanup predicate or remove |
 | Zero-tee selected list | `215, 260, 261, 1137, 1978` | 2/4 | shared SimplifyLocals/vacuum ownership |
 
