@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-20
 sources:
   - ./index.md
 related:
@@ -176,6 +176,12 @@ Owns the type-repair surface after param or result changes.
 
 Owns the optimizing replay suffix.
 It matters because the DAE changes are expected to feed the nested cleanup replay on touched functions.
+
+## Starshine shared nested scheduler
+
+Starshine now mirrors Binaryen v131's `optimizeAfterInlining` composition directly: `run_hot_pipeline_dae_nested_cleanup_passes()` prepends one touched-only public `precompute-propagate`, then appends the same `inlining_nested_function_pipeline_passes(4, 4)` roster used by `inlining-optimizing`. The DAE runner supplies touched-function adapters for `merge-locals` and `local-subtyping`, reuses the ordinary hot-pass adapters for the rest, and performs validated final cleanup for dropped multivalue blocks and root-terminal returns exposed by the shared flatten/default-function sequence.
+
+The trace tests no longer duplicate a private DAE pass list. They assert that DAE emits the required prefix followed by the shared inlining roster, while focused behavior tests retain plain-DAE separation, untouched-function preservation, Binaryen's `load8_u; extend8_s` shape, effect/trap-preserving multivalue cleanup, and no redundant root `return` after unused-result cleanup.
 
 ## Official tests and what they prove
 

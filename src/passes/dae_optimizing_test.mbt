@@ -12400,11 +12400,13 @@ test "dae-optimizing reruns DAE after unused-return cleanup exposes dead params"
   assert_true(main.contains("(call (Func 1))"), msg=main)
   assert_false(main.contains("i32.const I32(10)"), msg=main)
   assert_false(main.contains("i32.const I32(11)"), msg=main)
+  assert_false(main.contains("return"), msg=main)
   assert_true(helper.contains("nop"), msg=helper)
   assert_false(helper.contains("local.get"), msg=helper)
   assert_true(other.contains("(call (Func 1))"), msg=other)
   assert_false(other.contains("i32.const I32(20)"), msg=other)
   assert_false(other.contains("i32.const I32(21)"), msg=other)
+  assert_false(other.contains("return"), msg=other)
 }
 
 ///|
@@ -14579,19 +14581,11 @@ test "dae-optimizing traces the guarded nested cleanup pass order" {
       nested_passes.push(line)
     }
   }
-  @debug.assert_eq(nested_passes, [
-    "pass[dae-optimizing]:nested-pass name=precompute-propagate", "pass[dae-optimizing]:nested-pass name=dead-code-elimination",
-    "pass[dae-optimizing]:nested-pass name=optimize-instructions", "pass[dae-optimizing]:nested-pass name=local-cse",
-    "pass[dae-optimizing]:nested-pass name=pick-load-signs", "pass[dae-optimizing]:nested-pass name=heap-store-optimization",
-    "pass[dae-optimizing]:nested-pass name=heap2local", "pass[dae-optimizing]:nested-pass name=optimize-casts",
-    "pass[dae-optimizing]:nested-pass name=code-pushing", "pass[dae-optimizing]:nested-pass name=simplify-locals",
-    "pass[dae-optimizing]:nested-pass name=code-folding", "pass[dae-optimizing]:nested-pass name=precompute",
-    "pass[dae-optimizing]:nested-pass name=tuple-optimization", "pass[dae-optimizing]:nested-pass name=merge-blocks",
-    "pass[dae-optimizing]:nested-pass name=remove-unused-brs", "pass[dae-optimizing]:nested-pass name=remove-unused-names",
-    "pass[dae-optimizing]:nested-pass name=merge-blocks", "pass[dae-optimizing]:nested-pass name=coalesce-locals",
-    "pass[dae-optimizing]:nested-pass name=reorder-locals", "pass[dae-optimizing]:nested-pass name=vacuum",
-    "pass[dae-optimizing]:nested-pass name=remove-unused-brs",
-  ])
+  let expected = ["pass[dae-optimizing]:nested-pass name=precompute-propagate"]
+  for pass_name in inlining_nested_function_pipeline_passes(4, 4) {
+    expected.push("pass[dae-optimizing]:nested-pass name=\{pass_name}")
+  }
+  @debug.assert_eq(nested_passes, expected)
 }
 
 ///|
@@ -14684,7 +14678,7 @@ test "dae-optimizing traces large touched set nested cleanup skip" {
 }
 
 ///|
-test "dae-optimizing traces nested local-cse before simplify-locals" {
+test "dae-optimizing traces shared Binaryen v131 nested function prelude" {
   let source =
     #|(module
     #|  (import "env" "use" (func $use (param i32 i32)))
@@ -14705,19 +14699,19 @@ test "dae-optimizing traces nested local-cse before simplify-locals" {
     Ok(trace) => trace
     Err(err) => fail("expected traced DAE success, got \{err}")
   }
-  let mut local_cse_idx = -1
-  let mut simplify_locals_idx = -1
-  for idx = 0; idx < trace.length(); idx = idx + 1 {
-    if local_cse_idx < 0 && trace[idx].contains("pass[local-cse]:start") {
-      local_cse_idx = idx
-    }
-    if simplify_locals_idx < 0 &&
-      trace[idx].contains("pass[simplify-locals]:start") {
-      simplify_locals_idx = idx
+  let expected_prelude = [
+    "pass[dae-optimizing]:nested-pass name=precompute-propagate", "pass[dae-optimizing]:nested-pass name=ssa-nomerge",
+    "pass[dae-optimizing]:nested-pass name=flatten", "pass[dae-optimizing]:nested-pass name=simplify-locals-notee-nostructure",
+    "pass[dae-optimizing]:nested-pass name=local-cse",
+  ]
+  let mut next_expected = 0
+  for line in trace {
+    if next_expected < expected_prelude.length() &&
+      line == expected_prelude[next_expected] {
+      next_expected += 1
     }
   }
-  assert_true(local_cse_idx >= 0, msg=trace.to_string())
-  assert_true(simplify_locals_idx > local_cse_idx, msg=trace.to_string())
+  @debug.assert_eq(next_expected, expected_prelude.length())
 }
 
 ///|
@@ -15119,7 +15113,7 @@ test "dae-optimizing nested code-pushing only rewrites touched functions" {
 }
 
 ///|
-test "dae-optimizing nested pick-load-signs only rewrites touched functions" {
+test "dae-optimizing shared nested pipeline preserves Binaryen load shape and untouched functions" {
   let source =
     #|(module
     #|  (memory 1)
@@ -15145,9 +15139,13 @@ test "dae-optimizing nested pick-load-signs only rewrites touched functions" {
   }
   let touched = optimized.pretty_print_defined_func(0U)
   let untouched = optimized.pretty_print_defined_func(2U)
-  assert_true(touched.contains("i32.load8s"), msg=touched)
-  assert_false(touched.contains("i32.load8u"), msg=touched)
+  assert_true(touched.contains("i32.load8u"), msg=touched)
+  assert_true(touched.contains("i32.extend8s"), msg=touched)
+  assert_false(touched.contains("local.set"), msg=touched)
+  assert_false(touched.contains("local.get"), msg=touched)
   assert_true(untouched.contains("i32.load8u"), msg=untouched)
+  assert_true(untouched.contains("local.set"), msg=untouched)
+  assert_true(untouched.contains("local.get"), msg=untouched)
 }
 
 ///|

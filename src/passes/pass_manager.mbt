@@ -60745,20 +60745,13 @@ fn run_hot_pipeline_apply_hot_pass_stack_to_touched(
 
 ///|
 fn run_hot_pipeline_dae_nested_cleanup_passes() -> Array[String] {
-  [
-    // Narrow scheduler slice: consume fresh expression/control/local cleanup
-    // opportunities DAE creates with currently function-filterable passes, but
-    // do not run Starshine's full default function pipeline yet. The full
-    // Binaryen-equivalent lane still depends on a faster filtered batch runner
-    // plus the public `precompute-propagate` implementation. Start with the
-    // touched-only public pass over default-init and SSA-backed local constant
-    // facts before the narrower cleanup subset.
-    "precompute-propagate", "dead-code-elimination", "optimize-instructions", "local-cse",
-    "pick-load-signs", "heap-store-optimization", "heap2local", "optimize-casts",
-    "code-pushing", "simplify-locals", "code-folding", "precompute", "tuple-optimization",
-    "merge-blocks", "remove-unused-brs", "remove-unused-names", "merge-blocks", "coalesce-locals",
-    "reorder-locals", "vacuum", "remove-unused-brs",
-  ]
+  // Binaryen v131's optimizeAfterInlining lane prepends one
+  // precompute-propagate pass, then runs the same default function pipeline
+  // used by inlining at the active O4z settings. Keep one shared roster so DAE
+  // cannot drift from the public/default function scheduler.
+  let passes = ["precompute-propagate"]
+  passes.append(inlining_nested_function_pipeline_passes(4, 4))
+  passes
 }
 
 ///|
@@ -69532,6 +69525,47 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_dae_strip_touched_terminal_returns(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> @lib.Module {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return mod_
+  }
+  let mut rewritten : Array[@lib.Func]? = None
+  for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= touched.length() || !touched[def_idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    if body.length() == 0 ||
+      body[body.length() - 1] != @lib.Instruction::return_() {
+      continue
+    }
+    if rewritten == None {
+      rewritten = Some(funcs.copy())
+    }
+    let next_body = body.copy()
+    ignore(next_body.pop())
+    rewritten.unwrap()[def_idx] = @lib.Func::new(
+      locals,
+      @lib.Expr::new(next_body),
+    )
+  }
+  match rewritten {
+    Some(funcs) => {
+      let candidate = mod_.with_code_sec(@lib.CodeSec::new(funcs))
+      match @validate.validate_module(candidate) {
+        Ok(_) => candidate
+        Err(_) => mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_dae_nested_cleanup(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -69704,6 +69738,60 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       )
       continue
     }
+    if pass_name == "merge-locals" {
+      current = match
+        run_hot_pipeline_apply_merge_locals_to_touched(
+          current, touched, options,
+        ) {
+        Ok(next) => next
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested-total",
+            nested_total_start_us,
+          )
+          return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        }
+      }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
+      continue
+    }
+    if pass_name == "local-subtyping" {
+      pipeline_trace_hook(options.trace, "local-subtyping", "start")
+      current = match
+        run_hot_pipeline_apply_local_subtyping_to_touched(current, touched) {
+        Ok(next) => next
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested-total",
+            nested_total_start_us,
+          )
+          return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        }
+      }
+      pipeline_trace_hook(options.trace, "local-subtyping", "done")
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
+      continue
+    }
     let descriptor = match
       run_hot_pipeline_dae_nested_cleanup_descriptor(pass_name) {
       Ok(descriptor) => descriptor
@@ -69755,6 +69843,14 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       nested_pass_start_us,
     )
   }
+  // The shared flatten/default-function sequence can leave the equivalent
+  // dropped multivalue block form until its final cleanup slots. Reapply DAE's
+  // effect/trap-preserving tuple projection once after the complete roster so
+  // the nested result matches Binaryen's optimizeAfterInlining fixpoint.
+  current = dae_cleanup_touched_dropped_pure_multivalue_blocks(current, touched)
+  current = run_hot_pipeline_dae_strip_touched_terminal_returns(
+    current, touched,
+  )
   perf_stop_timer_opt(
     options.perf,
     "detail:dae:nested-total",
