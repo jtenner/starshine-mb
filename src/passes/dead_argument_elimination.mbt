@@ -37053,9 +37053,6 @@ fn dae_run_broad_uniform_parameter_flow(
   changed : Bool,
 ) -> DaeExactLiteralWorklistApplication {
   let defined = dae_defined_func_count(current)
-  if defined <= 1024 {
-    return { mod_out: current, touched, changed, productive_defs: [] }
-  }
   let total = dae_imported_func_count(current) + defined
   let call_facts = dae_collect_current_call_facts(current, total)
   let candidates : Array[Int] = []
