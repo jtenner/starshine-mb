@@ -33516,6 +33516,65 @@ fn dae_collect_fact_dropped_result_candidate_defs(
 }
 
 ///|
+fn dae_order_selected_candidates_caller_first(
+  mod_ : @lib.Module,
+  selected : Array[Bool],
+) -> Array[Int] {
+  let dependencies = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  let pending = selected.copy()
+  let ordered : Array[Int] = []
+  let mut remaining = 0
+  for is_selected in pending {
+    if is_selected {
+      remaining += 1
+    }
+  }
+  while remaining > 0 {
+    let mut selected_def = -1
+    let mut def_idx = 0
+    while def_idx < pending.length() {
+      if pending[def_idx] {
+        let mut has_pending_caller = false
+        if def_idx < dependencies.callers_by_def.length() {
+          for caller_def in dependencies.callers_by_def[def_idx] {
+            if caller_def >= 0 &&
+              caller_def < pending.length() &&
+              pending[caller_def] {
+              has_pending_caller = true
+              break
+            }
+          }
+        }
+        if !has_pending_caller {
+          selected_def = def_idx
+          break
+        }
+      }
+      def_idx += 1
+    }
+    if selected_def < 0 {
+      def_idx = 0
+      while def_idx < pending.length() {
+        if pending[def_idx] {
+          selected_def = def_idx
+          break
+        }
+        def_idx += 1
+      }
+    }
+    if selected_def < 0 {
+      break
+    }
+    pending[selected_def] = false
+    remaining -= 1
+    ordered.push(selected_def)
+  }
+  ordered
+}
+
+///|
 fn dae_try_remove_dropped_result_def_with_facts(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -39636,24 +39695,9 @@ fn dae_run_core(
     let selected = dae_collect_fact_dropped_result_candidate_defs(
       current, fact_dropped_result_call_facts,
     )
-    let candidate_defs : Array[Int] = []
-    if original_defined <= 4096 {
-      let mut def_idx = 0
-      while def_idx < selected.length() {
-        if selected[def_idx] {
-          candidate_defs.push(def_idx)
-        }
-        def_idx += 1
-      }
-    } else {
-      let mut def_idx = selected.length() - 1
-      while def_idx >= 0 {
-        if selected[def_idx] {
-          candidate_defs.push(def_idx)
-        }
-        def_idx -= 1
-      }
-    }
+    let candidate_defs = dae_order_selected_candidates_caller_first(
+      current, selected,
+    )
     let fact_dropped_result = dae_run_dropped_result_candidate_worklist_with_facts(
       current, touched, changed, candidate_defs,
     )
