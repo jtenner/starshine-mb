@@ -14951,6 +14951,139 @@ test "dae parameter flow records exact reordered forwarding slots and tail compo
 }
 
 ///|
+test "dae parameter flow solves reordered multi-parameter uniforms across a recursive component" {
+  let source =
+    #|(module
+    #|  (func $a (param i32 i64)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $b)
+    #|  (func $b (param i32 i64)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $a)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    i64.const 11
+    #|    call $a))
+  let mod_ = pass_test_module_from_wat(source)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  let solution = dae_solve_parameter_flow(current, dependencies)
+  match dae_parameter_flow_state_at(solution, 0, 0) {
+    DaeParameterUniform(value) =>
+      assert_eq(value, @lib.Instruction::i32_const(@lib.I32(7)))
+    _ => fail("expected a.param0 to converge to i32.const 7")
+  }
+  match dae_parameter_flow_state_at(solution, 0, 1) {
+    DaeParameterUniform(value) =>
+      assert_eq(value, @lib.Instruction::i64_const(@lib.I64(11L)))
+    _ => fail("expected a.param1 to converge to i64.const 11")
+  }
+  match dae_parameter_flow_state_at(solution, 1, 0) {
+    DaeParameterUniform(value) =>
+      assert_eq(value, @lib.Instruction::i32_const(@lib.I32(7)))
+    _ => fail("expected b.param0 to converge through a.param0")
+  }
+  match dae_parameter_flow_state_at(solution, 1, 1) {
+    DaeParameterUniform(value) =>
+      assert_eq(value, @lib.Instruction::i64_const(@lib.I64(11L)))
+    _ => fail("expected b.param1 to converge through a.param1")
+  }
+}
+
+///|
+test "dae uniform dispatcher consumes solved forwarding values" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $wrapper (param i32) (result i32)
+    #|    local.get 0
+    #|    call $target)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $wrapper))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  let solution = dae_solve_parameter_flow(current, dependencies)
+  let value = match dae_parameter_flow_state_at(solution, 0, 0) {
+    DaeParameterUniform(value) => value
+    _ => fail("expected target uniform value through wrapper forwarding")
+  }
+  let item = {
+    ..dae_work_item_new(current, dependencies, 0, DaeUniformActualWork),
+    uniform_values: [Some(value)],
+  }
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      current,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType(params, [result])) => {
+          assert_eq(params.length(), 0)
+          assert_eq(result, @lib.ValType::i32())
+        }
+        _ => fail("expected nullary target after solved uniform dispatch")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid solved uniform rewrite, got \{err}")
+      }
+    }
+    _ => fail("expected solved uniform value to commit through dispatcher")
+  }
+}
+
+///|
+test "dae uniform candidate worklist solves forwarded values before direct literal exposure" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $wrapper (param i32) (result i32)
+    #|    local.get 0
+    #|    call $target)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $wrapper))
+  let mod_ = pass_test_module_from_wat(source)
+  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
+  let application = dae_run_exact_literal_candidate_worklist_with_facts(
+    mod_,
+    [],
+    false,
+    [0],
+    dae_collect_current_call_facts(mod_, total),
+    -1,
+  )
+  assert_eq(application.productive_defs, [0])
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, [result])) => {
+      assert_eq(params.length(), 0)
+      assert_eq(result, @lib.ValType::i32())
+    }
+    _ => fail("expected candidate worklist to materialize solved target value")
+  }
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid solved worklist output, got \{err}")
+  }
+}
+
+///|
 test "dae boundary dependency graph assigns deterministic direct-call components" {
   let void_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()

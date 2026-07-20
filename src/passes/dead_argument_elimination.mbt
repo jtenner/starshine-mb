@@ -1093,6 +1093,26 @@ priv struct DaeForwardedParamNode {
 }
 
 ///|
+priv enum DaeParameterFlowState {
+  DaeParameterForwardedOnly
+  DaeParameterUniform(@lib.Instruction)
+  DaeParameterConflict
+  DaeParameterBlocked
+}
+
+///|
+priv struct DaeParameterFlowFact {
+  def_idx : Int
+  param_idx : Int
+  mut state : DaeParameterFlowState
+}
+
+///|
+priv struct DaeParameterFlowSolution {
+  facts : Array[DaeParameterFlowFact]
+}
+
+///|
 priv struct DaeForwardedParamSccApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -1345,6 +1365,7 @@ priv struct DaeWorkItem {
   component_id : Int
   component_members : Array[Int]
   family : DaeWorkFamily
+  uniform_values : Array[@lib.Instruction?]
   expected_module_epoch : Int
   expected_call_epoch : Int
   expected_signature_epoch : Int
@@ -2603,6 +2624,7 @@ fn dae_work_item_new(
     component_id,
     component_members,
     family,
+    uniform_values: [],
     expected_module_epoch: epoch.module_epoch,
     expected_call_epoch: epoch.call_epoch,
     expected_signature_epoch: epoch.signature_epoch,
@@ -2687,13 +2709,24 @@ fn dae_process_work_item(
         ),
       )
     DaeUniformActualWork =>
-      Some(
-        dae_try_rewrite_exact_literal_def_with_facts_once(
-          current,
-          item.target_def,
-          graph.snapshot.call_facts,
-        ),
-      )
+      if item.uniform_values.length() > 0 {
+        Some(
+          dae_try_rewrite_uniform_values_def_with_facts_once(
+            current,
+            item.target_def,
+            graph.snapshot.call_facts,
+            item.uniform_values,
+          ),
+        )
+      } else {
+        Some(
+          dae_try_rewrite_exact_literal_def_with_facts_once(
+            current,
+            item.target_def,
+            graph.snapshot.call_facts,
+          ),
+        )
+      }
     DaeGcParameterRefinementWork
     | DaeGcResultRefinementWork
     | DaeDroppedResultWork
@@ -33968,6 +34001,85 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
 }
 
 ///|
+fn dae_try_rewrite_uniform_values_def_with_facts_once(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  call_facts : DaeCurrentCallFacts,
+  uniform_values : Array[@lib.Instruction?],
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let callee_abs = imported + def_idx
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let boundary_candidate = match
+    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+    Some(candidate) => candidate
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if !boundary_candidate.owned ||
+    boundary_candidate.has_self_direct_caller ||
+    !boundary_candidate.allows_nonself_direct_rewrite {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let params = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if uniform_values.length() != params.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let remove = Array::make(params.length(), false)
+  let const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let mut any = false
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    match uniform_values[param_idx] {
+      Some(value) if local_use.gets[param_idx] &&
+        !local_use.writes[param_idx] &&
+        dae_instr_is_materializable_const(value) => {
+        remove[param_idx] = true
+        const_params[param_idx] = Some(value)
+        any = true
+      }
+      _ => ()
+    }
+    param_idx += 1
+  }
+  if !any {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_rewrite_candidate(
+    mod_,
+    callee_abs,
+    remove,
+    const_params,
+    local_use,
+    boundary_candidate.direct_call_count,
+    boundary_candidate.direct_callers,
+  )
+}
+
+///|
 fn dae_collect_exact_literal_candidate_defs_with_facts(
   mod_ : @lib.Module,
   call_facts : DaeCurrentCallFacts,
@@ -34098,10 +34210,9 @@ fn dae_exact_literal_candidate_is_single_param_identity(
 }
 
 ///|
-fn dae_exact_literal_candidate_is_fully_uniform_constructor(
+fn dae_exact_literal_candidate_has_scalar_constructor_shape(
   mod_ : @lib.Module,
   def_idx : Int,
-  call_facts : DaeCurrentCallFacts,
 ) -> Bool {
   let imported = dae_imported_func_count(mod_)
   let type_indices = dae_collect_func_type_indices(mod_)
@@ -34113,17 +34224,6 @@ fn dae_exact_literal_candidate_is_fully_uniform_constructor(
     return false
   }
   let callee_abs = imported + def_idx
-  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
-  let boundary_candidate = match
-    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
-    Some(candidate) => candidate
-    None => return false
-  }
-  if !boundary_candidate.owned ||
-    boundary_candidate.has_self_direct_caller ||
-    !boundary_candidate.allows_nonself_direct_rewrite {
-    return false
-  }
   let params = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(@lib.FuncType(params, _)) => params
     None => return false
@@ -34179,17 +34279,6 @@ fn dae_exact_literal_candidate_is_fully_uniform_constructor(
     callee_abs,
     params.length(),
   )
-  let uniform = match
-    dae_collect_uniform_const_actuals_from_boundary_facts(
-      mod_,
-      callee_abs,
-      params.length(),
-      type_indices,
-      boundary_facts,
-    ) {
-    Some(values) => values
-    None => return false
-  }
   let mut param_idx = 0
   while param_idx < params.length() {
     let usage = dae_local_usage_evidence(
@@ -34201,10 +34290,6 @@ fn dae_exact_literal_candidate_is_fully_uniform_constructor(
       usage.get_count != 1 ||
       usage.write_count != 0 {
       return false
-    }
-    match uniform[param_idx] {
-      Some(value) if dae_instr_is_materializable_const(value) => ()
-      _ => return false
     }
     param_idx += 1
   }
@@ -34229,17 +34314,27 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
     let original = dae_collect_original_boundary_snapshot(current)
     let graph = dae_current_boundary_graph_new(current)
     let mut dependencies = dae_boundary_dependency_graph_new(graph)
+    let mut flow = dae_solve_parameter_flow(
+      graph,
+      dependencies,
+      seed_defs=candidate_defs,
+    )
     let diagnostics = dae_diagnostics_new()
     for candidate_def in candidate_defs {
       if productive_limit >= 0 && productive_defs.length() >= productive_limit {
         break
       }
-      let item = dae_work_item_new(
-        graph,
-        dependencies,
-        candidate_def,
-        DaeUniformActualWork,
-      )
+      let item = {
+        ..dae_work_item_new(
+          graph,
+          dependencies,
+          candidate_def,
+          DaeUniformActualWork,
+        ),
+        uniform_values: dae_parameter_flow_uniform_values_for_def(
+          graph, flow, candidate_def,
+        ),
+      }
       match
         dae_process_work_item(
           original, mod_out, touched_out, changed_out, graph, dependencies, item,
@@ -34252,6 +34347,11 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
           productive_defs.push(application.primary_def)
           dae_current_boundary_graph_refresh(graph, mod_out)
           dependencies = dae_boundary_dependency_graph_new(graph)
+          flow = dae_solve_parameter_flow(
+            graph,
+            dependencies,
+            seed_defs=candidate_defs,
+          )
         }
         _ => ()
       }
@@ -34687,6 +34787,200 @@ fn dae_collect_forwarded_param_scc_node(
   }
   states[node_idx] = 2
   true
+}
+
+///|
+fn dae_parameter_flow_edge_epochs_are_current(
+  graph : DaeCurrentBoundaryGraph,
+  edge : DaeParameterForwardingEdge,
+) -> Bool {
+  if edge.caller_def < 0 ||
+    edge.caller_def >= graph.function_epochs.length() ||
+    edge.callee_def < 0 ||
+    edge.callee_def >= graph.function_epochs.length() {
+    return false
+  }
+  let caller = graph.function_epochs[edge.caller_def]
+  let callee = graph.function_epochs[edge.callee_def]
+  caller.signature_epoch == edge.caller_signature_epoch &&
+  caller.body_epoch == edge.caller_body_epoch &&
+  callee.signature_epoch == edge.callee_signature_epoch &&
+  callee.body_epoch == edge.callee_body_epoch
+}
+
+///|
+fn dae_parameter_flow_fact_index(
+  facts : Array[DaeParameterFlowFact],
+  def_idx : Int,
+  param_idx : Int,
+) -> Int {
+  let mut fact_idx = 0
+  while fact_idx < facts.length() {
+    if facts[fact_idx].def_idx == def_idx &&
+      facts[fact_idx].param_idx == param_idx {
+      return fact_idx
+    }
+    fact_idx += 1
+  }
+  -1
+}
+
+///|
+fn dae_parameter_flow_record(
+  facts : Array[DaeParameterFlowFact],
+  def_idx : Int,
+  param_idx : Int,
+  state : DaeParameterFlowState,
+) -> Unit {
+  let fact_idx = dae_parameter_flow_fact_index(facts, def_idx, param_idx)
+  if fact_idx < 0 {
+    facts.push({ def_idx, param_idx, state })
+    return
+  }
+  let existing = facts[fact_idx].state
+  facts[fact_idx].state = match (existing, state) {
+    (DaeParameterConflict, _) | (_, DaeParameterConflict) =>
+      DaeParameterConflict
+    (DaeParameterBlocked, _) | (_, DaeParameterBlocked) => DaeParameterBlocked
+    (DaeParameterUniform(left), DaeParameterUniform(right)) =>
+      if dae_materialized_const_equal(left, right) {
+        DaeParameterUniform(left)
+      } else {
+        DaeParameterConflict
+      }
+    (DaeParameterUniform(value), DaeParameterForwardedOnly)
+    | (DaeParameterForwardedOnly, DaeParameterUniform(value)) =>
+      DaeParameterUniform(value)
+    (DaeParameterForwardedOnly, DaeParameterForwardedOnly) =>
+      DaeParameterForwardedOnly
+  }
+}
+
+///|
+fn dae_solve_parameter_flow(
+  graph : DaeCurrentBoundaryGraph,
+  dependencies : DaeBoundaryDependencyGraph,
+  seed_defs? : Array[Int] = [],
+) -> DaeParameterFlowSolution {
+  for edge in dependencies.parameter_forwarding_edges {
+    if !dae_parameter_flow_edge_epochs_are_current(graph, edge) {
+      return { facts: [] }
+    }
+  }
+  let facts : Array[DaeParameterFlowFact] = []
+  let boundary_facts = graph.snapshot.boundary_facts
+  let imported = graph.snapshot.imported
+  let defs : Array[Int] = []
+  if seed_defs.length() == 0 {
+    let mut def_idx = 0
+    while def_idx < graph.snapshot.defined {
+      defs.push(def_idx)
+      def_idx += 1
+    }
+  } else {
+    for def_idx in seed_defs {
+      if def_idx >= 0 &&
+        def_idx < graph.snapshot.defined &&
+        !defs.contains(def_idx) {
+        defs.push(def_idx)
+      }
+    }
+  }
+  for def_idx in defs {
+    let callee_abs = imported + def_idx
+    let params = match
+      dae_resolve_func_type(graph.mod_, graph.snapshot.type_indices, callee_abs) {
+      Some(@lib.FuncType(params, _)) => params
+      None => continue
+    }
+    let mut param_idx = 0
+    while param_idx < params.length() {
+      let nodes : Array[DaeForwardedParamNode] = []
+      let states : Array[Int] = []
+      let cycle_nodes : Array[DaeForwardedParamNode] = []
+      let constant : Array[@lib.Instruction?] = [None]
+      let flags = [true, false, false]
+      let collected = dae_collect_forwarded_param_scc_node(
+        graph.mod_,
+        callee_abs,
+        param_idx,
+        graph.snapshot.type_indices,
+        boundary_facts,
+        nodes,
+        states,
+        cycle_nodes,
+        constant,
+        flags,
+      )
+      if collected {
+        let state = match constant[0] {
+          Some(value) => DaeParameterUniform(value)
+          None => DaeParameterForwardedOnly
+        }
+        for node in nodes {
+          let node_def = node.callee_abs - imported
+          if node_def >= 0 && node_def < graph.snapshot.defined {
+            dae_parameter_flow_record(facts, node_def, node.param_idx, state)
+          }
+        }
+      }
+      param_idx += 1
+    }
+  }
+  { facts, }
+}
+
+///|
+fn dae_parameter_flow_state_at(
+  solution : DaeParameterFlowSolution,
+  def_idx : Int,
+  param_idx : Int,
+) -> DaeParameterFlowState {
+  let fact_idx = dae_parameter_flow_fact_index(
+    solution.facts,
+    def_idx,
+    param_idx,
+  )
+  if fact_idx < 0 {
+    DaeParameterBlocked
+  } else {
+    solution.facts[fact_idx].state
+  }
+}
+
+///|
+fn dae_parameter_flow_uniform_values_for_def(
+  graph : DaeCurrentBoundaryGraph,
+  solution : DaeParameterFlowSolution,
+  def_idx : Int,
+) -> Array[@lib.Instruction?] {
+  if def_idx < 0 || def_idx >= graph.snapshot.defined {
+    return []
+  }
+  let callee_abs = graph.snapshot.imported + def_idx
+  let params = match
+    dae_resolve_func_type(graph.mod_, graph.snapshot.type_indices, callee_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return []
+  }
+  let values : Array[@lib.Instruction?] = Array::make(params.length(), None)
+  let mut any = false
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    match dae_parameter_flow_state_at(solution, def_idx, param_idx) {
+      DaeParameterUniform(value) => {
+        values[param_idx] = Some(value)
+        any = true
+      }
+      _ => ()
+    }
+    param_idx += 1
+  }
+  if any {
+    values
+  } else {
+    []
+  }
 }
 
 ///|
@@ -36318,6 +36612,38 @@ fn dae_run_forwarded_param_scc_transaction(
     seed_def += 1
   }
   None
+}
+
+///|
+fn dae_run_broad_uniform_parameter_flow(
+  current : @lib.Module,
+  candidate_source : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+) -> DaeExactLiteralWorklistApplication {
+  let defined = dae_defined_func_count(current)
+  if defined <= 1024 {
+    return { mod_out: current, touched, changed, productive_defs: [] }
+  }
+  let total = dae_imported_func_count(current) + defined
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let candidates : Array[Int] = []
+  let source_defined = dae_defined_func_count(candidate_source)
+  let mut candidate_def = 0
+  while candidate_def < defined && candidate_def < source_defined {
+    if dae_exact_literal_candidate_is_single_param_identity(
+        candidate_source, candidate_def,
+      ) ||
+      dae_exact_literal_candidate_has_scalar_constructor_shape(
+        candidate_source, candidate_def,
+      ) {
+      candidates.push(candidate_def)
+    }
+    candidate_def += 1
+  }
+  dae_run_exact_literal_candidate_worklist_with_facts(
+    current, touched, changed, candidates, call_facts, -1,
+  )
 }
 
 ///|
@@ -38780,63 +39106,15 @@ fn dae_run_core(
   let selected_scratch_defs = Array::make(original_defined, false)
   let mut reverse_iter = 0
   if original_defined > 1024 {
-    let broad_identity_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
-    let broad_identity_candidates : Array[Int] = []
-    for
-      candidate_def in dae_collect_exact_literal_candidate_defs_with_facts(
-        current, broad_identity_call_facts, original_defined,
-      ) {
-      if dae_exact_literal_candidate_is_single_param_identity(
-          current, candidate_def,
-        ) ||
-        dae_exact_literal_candidate_is_fully_uniform_constructor(
-          current, candidate_def, broad_identity_call_facts,
-        ) {
-        broad_identity_candidates.push(candidate_def)
-      }
-    }
-    let broad_identity_application = dae_run_exact_literal_candidate_worklist_with_facts(
-      current, touched, changed, broad_identity_candidates, broad_identity_call_facts,
-      -1,
-    )
-    current = broad_identity_application.mod_out
-    touched = broad_identity_application.touched
-    changed = broad_identity_application.changed
-    for primary_def in broad_identity_application.productive_defs {
-      trace(
-        "pass[dae-optimizing]:broad-exact-identity primary_def=\{primary_def}",
+    if !optimize {
+      let broad_uniform = dae_run_broad_uniform_parameter_flow(
+        current, mod_, touched, changed,
       )
-    }
-    // The debug artifact's remaining reverse exact-literal lane has a stable high-wrapper
-    // chain. Route only that chain through the selected-def helper on large
-    // modules so we avoid rescanning thousands of unrelated functions while
-    // preserving the existing small-module exploratory reverse pass. The lane
-    // rewrites call operands but does not add/remove direct call sites, so one
-    // shared call-fact snapshot is enough for the selected chain.
-    let reverse_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
-    for reverse_def in [4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584] {
-      if reverse_def >= 0 && reverse_def < selected_scratch_defs.length() {
-        selected_scratch_defs[reverse_def] = true
-        let reverse_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-          current, selected_scratch_defs, reverse_call_facts,
-        )
-        selected_scratch_defs[reverse_def] = false
-        let reverse_application = dae_apply_core_result(
-          current, touched, changed, reverse_result,
-        )
-        if reverse_application.applied {
-          current = reverse_application.mod_out
-          touched = reverse_application.touched
-          changed = reverse_application.changed
-          trace(
-            "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_application.primary_def}",
-          )
-          reverse_iter += 1
-        }
+      current = broad_uniform.mod_out
+      touched = broad_uniform.touched
+      changed = broad_uniform.changed
+      for primary_def in broad_uniform.productive_defs {
+        trace("pass[dae]:broad-exact-uniform primary_def=\{primary_def}")
       }
     }
   } else {

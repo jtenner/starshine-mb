@@ -71845,6 +71845,19 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
     None => ()
   }
+  let broad_uniform = dae_run_broad_uniform_parameter_flow(
+    core_mod,
+    mod_,
+    core_touched,
+    result.changed,
+  )
+  core_mod = broad_uniform.mod_out
+  core_touched = broad_uniform.touched
+  for primary_def in broad_uniform.productive_defs {
+    (options.trace)(
+      "pass[dae-optimizing]:broad-exact-uniform primary_def=\{primary_def}",
+    )
+  }
   let payoff_chain = dae_run_broad_dropped_result_payoff_chain(
     core_mod,
     core_touched,

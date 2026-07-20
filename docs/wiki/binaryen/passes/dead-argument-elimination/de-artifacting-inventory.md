@@ -41,7 +41,7 @@ The raw scan is preserved locally at `.tmp/dae-release-baseline-20260719/product
 
 | Production surface | Current examples | Category | Required disposition |
 |---|---|---:|---|
-| Large reverse exact-literal chain | definitions `4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584`; broad single-parameter identities and fully-uniform scalar allocation/store constructors are now discovered generically at any definition; exact typed per-slot forwarding edges retain reordered indices, tail composition, and epochs | 1 | solve uniform values monotonically over the per-slot forwarding graph, prove every remaining retained member enters through that path, then delete the fixed list |
+| Large reverse exact-literal chain | the former fixed definitions `4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584` are deleted from production; original-module identity and scalar allocation/store constructor shapes seed a monotone current-module per-slot uniform solver, which runs after forwarding-component work in DAEO and at the final broad plain-DAE boundary | 6 | fixed identity list removed; retain the artifact fixture and reopen only if a current exact forwarding/value-slice dependency cannot recover the same boundary |
 | Low wrapper/callee boundary order | fixed wrapper list beginning `128, 131, 133, ... 196` | 1 | derive wrapper/callee component order from the current call graph |
 | Exact parameter chain | definitions `37, 38, 41`; selected `37`, then `[38, 41]` | 1 | recognize the parameter-position dependency component generically |
 | Early selected body cleanup | definitions `233, 236, 237, 256, 267, 268` | 2/4 | move reusable cleanup into shared passes; retain artifact fixtures as regressions |

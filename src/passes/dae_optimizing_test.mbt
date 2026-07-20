@@ -11561,6 +11561,50 @@ test "dae-optimizing discovers a fully uniform multi-parameter constructor witho
 }
 
 ///|
+test "dae-optimizing solves a high-definition uniform identity through a recursive forwarding component" {
+  let first_flow_def = 4200
+  let target_def = first_flow_def + 2
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for def_idx = 0; def_idx < first_flow_def; def_idx = def_idx + 1 {
+    out.write_string("  (func $pad\{def_idx})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $a (param i32) (result i32)
+      #|    local.get 0
+      #|    call $b)
+      #|  (func $b (param i32) (result i32)
+      #|    local.get 0
+      #|    call $target
+      #|    drop
+      #|    local.get 0
+      #|    call $a)
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $a))
+    ),
+  )
+  let source = out.to_string()
+  for pass_name in ["dead-argument-elimination", "dae-optimizing"] {
+    let optimized = dae_test_run(source, pass_name~)
+    assert_true(
+      dae_test_func_params(optimized, target_def).length() == 0,
+      msg="expected solved target parameter removal for \{pass_name}: \{optimized.pretty_print_func(@lib.FuncIdx::new(target_def.reinterpret_as_uint()))}",
+    )
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected valid solved recursive uniform output for \{pass_name}, got \{err}",
+        )
+    }
+  }
+}
+
+///|
 test "dae-optimizing materializes forwarded const actuals before a reverse-starved wrapper chain" {
   let source =
     #|(module
