@@ -37779,6 +37779,49 @@ fn dae_try_rewrite_selected_func408_pair_if_carrier_once(
 }
 
 ///|
+fn dae_collect_single_const_local_call_candidates(
+  mod_ : @lib.Module,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let selected = Array::make(funcs.length(), false)
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let params = match
+      dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+      Some(@lib.FuncType(params, [_])) if params.length() == 1 => params
+      _ => {
+        def_idx += 1
+        continue
+      }
+    }
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    if locals.length() == 1 && body.length() == 5 {
+      let local_idx = @lib.LocalIdx::new(params.length().reinterpret_as_uint())
+      match (body[0], body[1], body[2], body[3], body[4]) {
+        (
+          @lib.I32Const(_),
+          @lib.LocalSet(set_idx),
+          @lib.LocalGet(_),
+          @lib.LocalGet(get_idx),
+          @lib.Call(_),
+        ) if dae_local_idx_equal(set_idx, local_idx) &&
+          dae_local_idx_equal(get_idx, local_idx) &&
+          dae_local_usage_evidence_has_single_get_write(body, local_idx) =>
+          selected[def_idx] = true
+        _ => ()
+      }
+    }
+    def_idx += 1
+  }
+  selected
+}
+
+///|
 fn dae_try_inline_selected_i32_const_local_sets_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -39381,25 +39424,26 @@ fn dae_run_core(
     perf, "detail:dae:core:selected-lanes:late-shapes",
   )
   let late_shapes_input = current
-  if 408 < selected_scratch_defs.length() {
-    let mut func408_const_iter = 0
-    while func408_const_iter < 4 {
-      selected_scratch_defs[408] = true
-      let selected_func408_consts = dae_try_inline_selected_i32_const_local_sets_once(
-        current, selected_scratch_defs,
-      )
-      selected_scratch_defs[408] = false
-      if !selected_func408_consts.changed {
-        break
-      }
-      current = selected_func408_consts.mod_out
-      touched = dae_merge_touched(touched, selected_func408_consts.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func408-const-locals iter=\{func408_const_iter} primary_def=\{selected_func408_consts.primary_def}",
-      )
-      changed = true
-      func408_const_iter += 1
+  let const_local_candidates = dae_collect_single_const_local_call_candidates(
+    mod_,
+  )
+  let mut const_local_iteration = 0
+  while true {
+    let const_local_result = dae_try_inline_selected_i32_const_local_sets_once(
+      current, const_local_candidates,
+    )
+    if !const_local_result.changed {
+      break
     }
+    current = const_local_result.mod_out
+    touched = dae_merge_touched(touched, const_local_result.touched)
+    trace(
+      "pass[dae-optimizing]:semantic-const-locals iter=\{const_local_iteration} primary_def=\{const_local_result.primary_def}",
+    )
+    changed = true
+    const_local_iteration += 1
+  }
+  if 408 < selected_scratch_defs.length() {
     selected_scratch_defs[408] = true
     let selected_func408_pair_if = dae_try_rewrite_selected_func408_pair_if_carrier_once(
       current, selected_scratch_defs,
