@@ -39372,44 +39372,8 @@ fn dae_run_core(
       fact_dropped_result_wave += 1
     }
   }
-  if 298 < selected_scratch_defs.length() {
-    selected_scratch_defs[298] = true
-    let selected_func298_loop = dae_try_retarget_selected_func298_loop_carriers_once(
-      current, selected_scratch_defs, trace,
-    )
-    selected_scratch_defs[298] = false
-    if selected_func298_loop.changed {
-      current = selected_func298_loop.mod_out
-      touched = dae_merge_touched(touched, selected_func298_loop.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func298-loop-carriers primary_def=\{selected_func298_loop.primary_def}",
-      )
-      changed = true
-    }
-  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs", dropped_result_selected_defs_start_us,
-  )
-  let dropped_result_func299_start_us = perf_start_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:func299-if",
-  )
-  if 299 < selected_scratch_defs.length() {
-    selected_scratch_defs[299] = true
-    let selected_func299_if = dae_try_swap_selected_func299_inverted_result_if_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[299] = false
-    if selected_func299_if.changed {
-      current = selected_func299_if.mod_out
-      touched = dae_merge_touched(touched, selected_func299_if.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func299-inverted-result-if primary_def=\{selected_func299_if.primary_def}",
-      )
-      changed = true
-    }
-  }
-  perf_stop_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:func299-if", dropped_result_func299_start_us,
   )
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results", dropped_results_start_us,

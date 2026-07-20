@@ -7482,7 +7482,7 @@ test "dae-optimizing preserves exported Func256 loop carriers like Binaryen" {
 }
 
 ///|
-test "dae-optimizing compacts selected Func298 loop carriers and strips debris" {
+test "dae-optimizing preserves exported Func298 loop carriers like Binaryen" {
   let target_def = 298
   let out = StringBuilder::new()
   out.write_string("(module\n  (memory 1)\n")
@@ -7552,12 +7552,12 @@ test "dae-optimizing compacts selected Func298 loop carriers and strips debris" 
   let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
     optimized, target_def,
   )
-  @debug.assert_eq(locals.length(), 2)
-  assert_false(
+  @debug.assert_eq(locals.length(), 11)
+  assert_true(
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(11U)),
     msg=target,
   )
-  assert_false(
+  assert_true(
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(12U)),
     msg=target,
   )
@@ -7565,15 +7565,12 @@ test "dae-optimizing compacts selected Func298 loop carriers and strips debris" 
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(13U)),
     msg=target,
   )
-  assert_true(target.contains("i32.gt_s"), msg=target)
-  assert_true(target.contains("(block I32"), msg=target)
-  assert_false(target.contains("local.tee"), msg=target)
-  assert_false(target.contains("(i32.const I32(0)) return"), msg=target)
-  assert_false(target.contains("i32.const I32(0), drop"), msg=target)
+  assert_true(target.contains("i32.lt_s"), msg=target)
+  assert_true(target.contains("local.tee"), msg=target)
 }
 
 ///|
-test "dae-optimizing swaps selected Func299 inverted result-if" {
+test "dae-optimizing preserves exported Func299 inverted result-if like Binaryen" {
   let target_def = 299
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -7618,8 +7615,8 @@ test "dae-optimizing swaps selected Func299 inverted result-if" {
     target_def.reinterpret_as_uint(),
   )
   let @lib.Func(locals, _) = dae_test_defined_func(optimized, target_def)
-  @debug.assert_eq(locals.length(), 0)
-  assert_false(target.contains("i32.eqz"), msg=target)
+  @debug.assert_eq(locals.length(), 1)
+  assert_true(target.contains("i32.eqz"), msg=target)
   assert_true(target.contains("(call (Func \{target_def + 1}))"), msg=target)
   assert_true(target.contains("(call (Func \{target_def + 2}))"), msg=target)
   assert_true(target.contains("(call (Func \{target_def + 3}))"), msg=target)
@@ -14378,7 +14375,7 @@ test "dae-optimizing perf trace breaks down core, nested cleanup, and type pruni
     ),
     msg=text,
   )
-  assert_true(
+  assert_false(
     text.contains(
       "perf:timer name=detail:dae:core:selected-lanes:dropped-results:func299-if",
     ),
