@@ -2733,9 +2733,27 @@ fn dae_process_work_item(
           ),
         )
       }
-    DaeGcParameterRefinementWork
-    | DaeGcResultRefinementWork
-    | DaeDroppedResultWork
+    DaeGcParameterRefinementWork =>
+      Some(
+        dae_try_refine_direct_gc_types_for_def_with_facts(
+          current,
+          item.target_def,
+          graph.snapshot.call_facts,
+          true,
+          true,
+        ),
+      )
+    DaeGcResultRefinementWork =>
+      Some(
+        dae_try_refine_direct_gc_types_for_def_with_facts(
+          current,
+          item.target_def,
+          graph.snapshot.call_facts,
+          false,
+          true,
+        ),
+      )
+    DaeDroppedResultWork
     | DaeControlReconstructionWork
     | DaeTypeRepairRetryWork
     | DaePostCleanupBoundaryRevisitWork => None
@@ -14070,6 +14088,7 @@ fn dae_try_refine_direct_gc_types(
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
   refine_params? : Bool = true,
+  refine_results? : Bool = true,
 ) -> DaePassResult {
   if direct_call_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -14186,362 +14205,374 @@ fn dae_try_refine_direct_gc_types(
       }
     }
   }
-  let result_func_locals = Some(@lib.FunctionLocals::new(next_params, locals))
-  if results.length() == 1 {
-    match
-      dae_direct_gc_result_candidate_body(
-        mod_,
-        type_indices,
-        result_func_locals,
-        body,
-        results[0],
-      ) {
-      Some((candidate_type, rewritten_body)) =>
-        match
-          dae_refined_gc_candidate_ref_type(mod_, results[0], candidate_type) {
-          Some(refined) => {
-            next_results[0] = refined
-            changed = true
-            match rewritten_body {
-              Some(instrs) => {
-                next_body = instrs
-                result_body_changed = true
-              }
-              None => ()
-            }
-          }
-          None => ()
-        }
-      None => ()
-    }
-  } else {
-    match
-      dae_try_refine_mixed_multi_result_if_fallthrough_body(
-        mod_, type_indices, result_func_locals, body, results, next_results,
-      ) {
-      Some(rewritten_body) => {
-        next_body = rewritten_body
-        result_body_changed = true
-        changed = true
-      }
-      None => ()
-    }
-    match
-      dae_try_refine_multi_result_single_if_operand_body(
-        mod_, type_indices, result_func_locals, body, results, next_results,
-      ) {
-      Some(rewritten_body) => {
-        next_body = rewritten_body
-        result_body_changed = true
-        changed = true
-      }
-      None => ()
-    }
-    match
-      dae_try_refine_multi_result_select_operand_body(
-        mod_, type_indices, result_func_locals, body, results, next_results,
-      ) {
-      Some(rewritten_body) => {
-        next_body = rewritten_body
-        result_body_changed = true
-        changed = true
-      }
-      None => ()
-    }
-    match mod_.type_sec {
-      Some(type_sec) => {
-        let active_type_sec = match rewrite_type_sec {
-          Some(current_type_sec) => current_type_sec
-          None => type_sec
-        }
-        match
-          dae_try_refine_parametric_typeidx_multi_result_terminal_control_body(
-            mod_, active_type_sec, type_indices, result_func_locals, body, results,
-            next_results,
-          ) {
-          Some((next_type_sec, rewritten_body)) => {
-            rewrite_type_sec = Some(next_type_sec)
-            next_body = rewritten_body
-            result_body_changed = true
-            changed = true
-          }
-          None => ()
-        }
-      }
-      None => ()
-    }
-    if body.length() > 0 {
-      match body[body.length() - 1] {
-        @lib.If(block_type, then_body, Some(else_body)) =>
-          match
-            dae_control_block_type_zero_input_output_count_evidence(
-              block_type,
-              mod_.type_sec,
-              results.length(),
-            ) {
-            Some(_) =>
-              match
-                dae_multi_result_if_pair_gc_refinement_evidence(
-                  mod_, type_indices, result_func_locals, then_body, else_body, results,
-                ) {
-                Some(evidence) => {
-                  let pair_evidence = evidence.pair
-                  match
-                    dae_apply_control_result_pair_refinements(
-                      pair_evidence, next_results,
-                    ) {
-                    Some(_) => changed = true
-                    None => ()
-                  }
-                  match mod_.type_sec {
-                    Some(type_sec) => {
-                      let active_type_sec = match rewrite_type_sec {
-                        Some(current_type_sec) => current_type_sec
-                        None => type_sec
-                      }
-                      let application = match
-                        dae_rebuild_typeidx_control_in_body(
-                          active_type_sec,
-                          body,
-                          body.length() - 1,
-                          2,
-                          [],
-                          pair_evidence.refined_results,
-                          pair_evidence.rewritten_then_body,
-                          Some(pair_evidence.rewritten_else_body),
-                        ) {
-                        Some(application) => application
-                        None =>
-                          return {
-                            mod_out: mod_,
-                            touched: [],
-                            changed: false,
-                            primary_def: -1,
-                          }
-                      }
-                      rewrite_type_sec = Some(application.type_sec)
-                      next_body = application.body
-                      result_body_changed = true
-                    }
-                    None => ()
-                  }
-                  ignore(evidence.then_slice)
-                  ignore(evidence.else_slice)
-                }
-                None => ()
-              }
-            _ => ()
-          }
-        _ => ()
-      }
-    }
-    if body.length() >= 2 {
-      match (body[body.length() - 2], body[body.length() - 1]) {
-        (@lib.If(block_type, then_body, Some(else_body)), @lib.Unreachable) =>
-          match
-            dae_control_block_type_zero_input_output_count_evidence(
-              block_type,
-              mod_.type_sec,
-              0,
-            ) {
-            Some(_) =>
-              match
-                dae_multi_result_if_pair_gc_refinement_evidence(
-                  mod_,
-                  type_indices,
-                  result_func_locals,
-                  then_body,
-                  else_body,
-                  results,
-                  require_terminal_return=true,
-                ) {
-                Some(evidence) => {
-                  let pair_evidence = evidence.pair
-                  match
-                    dae_apply_control_result_pair_refinements(
-                      pair_evidence, next_results,
-                    ) {
-                    Some(_) => changed = true
-                    None => ()
-                  }
-                  if evidence.if_body_changed {
-                    let rewritten = @lib.Instruction::if_(
-                      block_type,
-                      pair_evidence.rewritten_then_body,
-                      Some(pair_evidence.rewritten_else_body),
-                    )
-                    let rewritten_body = body.copy()
-                    rewritten_body[rewritten_body.length() - 2] = rewritten
-                    next_body = rewritten_body
-                    result_body_changed = true
-                  }
-                  ignore(evidence.then_slice)
-                  ignore(evidence.else_slice)
-                }
-                None => ()
-              }
-            _ => ()
-          }
-        _ => ()
-      }
-    }
-    let mut candidate_body = body
-    let mut flatten_block_carrier = false
-    let mut preserve_loop_carrier = false
-    match body {
-      [@lib.Block(block_type, @lib.Expr(block_body))] =>
-        match
-          dae_control_block_type_zero_input_output_count_evidence(
-            block_type,
-            mod_.type_sec,
-            results.length(),
-          ) {
-          Some(_) => {
-            candidate_body = block_body
-            flatten_block_carrier = true
-          }
-          None => ()
-        }
-      [@lib.Loop(block_type, @lib.Expr(loop_body))] =>
-        match
-          dae_control_block_type_zero_input_output_count_evidence(
-            block_type,
-            mod_.type_sec,
-            results.length(),
-          ) {
-          Some(_) => {
-            candidate_body = loop_body
-            preserve_loop_carrier = true
-          }
-          None => ()
-        }
-      _ => ()
-    }
-    if flatten_block_carrier && !preserve_loop_carrier {
-      let mut keep_unwrapping = true
-      while keep_unwrapping {
-        keep_unwrapping = false
-        match candidate_body {
-          [@lib.Block(block_type, @lib.Expr(block_body))] =>
-            match
-              dae_control_block_type_zero_input_output_count_evidence(
-                block_type,
-                mod_.type_sec,
-                results.length(),
-              ) {
-              Some(_) if dae_effect_free_body_evidence(block_body) is Some(_) ||
-                dae_terminal_return_body_evidence(block_body) is Some(_) => {
-                candidate_body = block_body
-                keep_unwrapping = true
-              }
-              _ => ()
-            }
-          _ => ()
-        }
-      }
-    }
-    let mut result_start = -1
-    let mut result_end = candidate_body.length()
-    if candidate_body.length() > 0 {
-      match candidate_body[candidate_body.length() - 1] {
-        @lib.Return => result_end = candidate_body.length() - 1
-        _ => ()
-      }
-    }
-    if result_end >= results.length() {
-      let candidate_start = result_end - results.length()
-      if dae_trivially_dropped_prefix_evidence(candidate_body, candidate_start)
-        is Some(_) {
-        result_start = candidate_start
-      }
-    }
-    if result_start >= 0 &&
-      dae_body_prefix_has_function_return(candidate_body, result_start) {
-      result_start = -1
-    }
-    if result_start >= 0 &&
-      !(preserve_loop_carrier && result_end != candidate_body.length()) {
-      let result_slice = match
-        dae_make_multi_result_control_slice(
-          candidate_body,
-          result_start,
-          results.length(),
-          0,
-          flatten_block_carrier,
-          false,
-        ) {
-        Some(slice) => slice
-        None =>
-          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-      }
-      let mut rewritten_body = candidate_body
-      let mut multi_result_changed = false
-      let mut multi_result_body_changed = false
+  if refine_results {
+    let result_func_locals = Some(@lib.FunctionLocals::new(next_params, locals))
+    if results.length() == 1 {
       match
-        dae_control_result_slice_gc_evidence(
+        dae_direct_gc_result_candidate_body(
           mod_,
           type_indices,
           result_func_locals,
-          result_slice,
-          results,
-          require_refined=true,
+          body,
+          results[0],
         ) {
-        Some(evidence) => {
-          rewritten_body = evidence.rewritten_body
-          multi_result_body_changed = evidence.body_changed
+        Some((candidate_type, rewritten_body)) =>
           match
-            dae_apply_control_result_single_refinements(evidence, next_results) {
-            Some(_) => {
+            dae_refined_gc_candidate_ref_type(mod_, results[0], candidate_type) {
+            Some(refined) => {
+              next_results[0] = refined
               changed = true
-              multi_result_changed = true
+              match rewritten_body {
+                Some(instrs) => {
+                  next_body = instrs
+                  result_body_changed = true
+                }
+                None => ()
+              }
+            }
+            None => ()
+          }
+        None => ()
+      }
+    } else {
+      match
+        dae_try_refine_mixed_multi_result_if_fallthrough_body(
+          mod_, type_indices, result_func_locals, body, results, next_results,
+        ) {
+        Some(rewritten_body) => {
+          next_body = rewritten_body
+          result_body_changed = true
+          changed = true
+        }
+        None => ()
+      }
+      match
+        dae_try_refine_multi_result_single_if_operand_body(
+          mod_, type_indices, result_func_locals, body, results, next_results,
+        ) {
+        Some(rewritten_body) => {
+          next_body = rewritten_body
+          result_body_changed = true
+          changed = true
+        }
+        None => ()
+      }
+      match
+        dae_try_refine_multi_result_select_operand_body(
+          mod_, type_indices, result_func_locals, body, results, next_results,
+        ) {
+        Some(rewritten_body) => {
+          next_body = rewritten_body
+          result_body_changed = true
+          changed = true
+        }
+        None => ()
+      }
+      match mod_.type_sec {
+        Some(type_sec) => {
+          let active_type_sec = match rewrite_type_sec {
+            Some(current_type_sec) => current_type_sec
+            None => type_sec
+          }
+          match
+            dae_try_refine_parametric_typeidx_multi_result_terminal_control_body(
+              mod_, active_type_sec, type_indices, result_func_locals, body, results,
+              next_results,
+            ) {
+            Some((next_type_sec, rewritten_body)) => {
+              rewrite_type_sec = Some(next_type_sec)
+              next_body = rewritten_body
+              result_body_changed = true
+              changed = true
             }
             None => ()
           }
         }
         None => ()
       }
-      if multi_result_changed &&
-        (
-          multi_result_body_changed ||
-          flatten_block_carrier ||
-          preserve_loop_carrier
-        ) {
-        if preserve_loop_carrier {
-          match mod_.type_sec {
-            Some(type_sec) => {
-              let active_type_sec = match rewrite_type_sec {
-                Some(current_type_sec) => current_type_sec
-                None => type_sec
-              }
-              let application = match
-                dae_rebuild_typeidx_control_in_body(
-                  active_type_sec,
-                  body,
-                  0,
-                  1,
-                  [],
-                  next_results,
-                  rewritten_body,
-                  None,
-                ) {
-                Some(application) => application
-                None =>
-                  return {
-                    mod_out: mod_,
-                    touched: [],
-                    changed: false,
-                    primary_def: -1,
+      if body.length() > 0 {
+        match body[body.length() - 1] {
+          @lib.If(block_type, then_body, Some(else_body)) =>
+            match
+              dae_control_block_type_zero_input_output_count_evidence(
+                block_type,
+                mod_.type_sec,
+                results.length(),
+              ) {
+              Some(_) =>
+                match
+                  dae_multi_result_if_pair_gc_refinement_evidence(
+                    mod_, type_indices, result_func_locals, then_body, else_body,
+                    results,
+                  ) {
+                  Some(evidence) => {
+                    let pair_evidence = evidence.pair
+                    match
+                      dae_apply_control_result_pair_refinements(
+                        pair_evidence, next_results,
+                      ) {
+                      Some(_) => changed = true
+                      None => ()
+                    }
+                    match mod_.type_sec {
+                      Some(type_sec) => {
+                        let active_type_sec = match rewrite_type_sec {
+                          Some(current_type_sec) => current_type_sec
+                          None => type_sec
+                        }
+                        let application = match
+                          dae_rebuild_typeidx_control_in_body(
+                            active_type_sec,
+                            body,
+                            body.length() - 1,
+                            2,
+                            [],
+                            pair_evidence.refined_results,
+                            pair_evidence.rewritten_then_body,
+                            Some(pair_evidence.rewritten_else_body),
+                          ) {
+                          Some(application) => application
+                          None =>
+                            return {
+                              mod_out: mod_,
+                              touched: [],
+                              changed: false,
+                              primary_def: -1,
+                            }
+                        }
+                        rewrite_type_sec = Some(application.type_sec)
+                        next_body = application.body
+                        result_body_changed = true
+                      }
+                      None => ()
+                    }
+                    ignore(evidence.then_slice)
+                    ignore(evidence.else_slice)
                   }
-              }
-              rewrite_type_sec = Some(application.type_sec)
-              next_body = application.body
-              result_body_changed = true
+                  None => ()
+                }
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+      if body.length() >= 2 {
+        match (body[body.length() - 2], body[body.length() - 1]) {
+          (@lib.If(block_type, then_body, Some(else_body)), @lib.Unreachable) =>
+            match
+              dae_control_block_type_zero_input_output_count_evidence(
+                block_type,
+                mod_.type_sec,
+                0,
+              ) {
+              Some(_) =>
+                match
+                  dae_multi_result_if_pair_gc_refinement_evidence(
+                    mod_,
+                    type_indices,
+                    result_func_locals,
+                    then_body,
+                    else_body,
+                    results,
+                    require_terminal_return=true,
+                  ) {
+                  Some(evidence) => {
+                    let pair_evidence = evidence.pair
+                    match
+                      dae_apply_control_result_pair_refinements(
+                        pair_evidence, next_results,
+                      ) {
+                      Some(_) => changed = true
+                      None => ()
+                    }
+                    if evidence.if_body_changed {
+                      let rewritten = @lib.Instruction::if_(
+                        block_type,
+                        pair_evidence.rewritten_then_body,
+                        Some(pair_evidence.rewritten_else_body),
+                      )
+                      let rewritten_body = body.copy()
+                      rewritten_body[rewritten_body.length() - 2] = rewritten
+                      next_body = rewritten_body
+                      result_body_changed = true
+                    }
+                    ignore(evidence.then_slice)
+                    ignore(evidence.else_slice)
+                  }
+                  None => ()
+                }
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+      let mut candidate_body = body
+      let mut flatten_block_carrier = false
+      let mut preserve_loop_carrier = false
+      match body {
+        [@lib.Block(block_type, @lib.Expr(block_body))] =>
+          match
+            dae_control_block_type_zero_input_output_count_evidence(
+              block_type,
+              mod_.type_sec,
+              results.length(),
+            ) {
+            Some(_) => {
+              candidate_body = block_body
+              flatten_block_carrier = true
             }
             None => ()
           }
-        } else {
-          next_body = rewritten_body
-          result_body_changed = true
+        [@lib.Loop(block_type, @lib.Expr(loop_body))] =>
+          match
+            dae_control_block_type_zero_input_output_count_evidence(
+              block_type,
+              mod_.type_sec,
+              results.length(),
+            ) {
+            Some(_) => {
+              candidate_body = loop_body
+              preserve_loop_carrier = true
+            }
+            None => ()
+          }
+        _ => ()
+      }
+      if flatten_block_carrier && !preserve_loop_carrier {
+        let mut keep_unwrapping = true
+        while keep_unwrapping {
+          keep_unwrapping = false
+          match candidate_body {
+            [@lib.Block(block_type, @lib.Expr(block_body))] =>
+              match
+                dae_control_block_type_zero_input_output_count_evidence(
+                  block_type,
+                  mod_.type_sec,
+                  results.length(),
+                ) {
+                Some(_) if dae_effect_free_body_evidence(block_body) is Some(_) ||
+                  dae_terminal_return_body_evidence(block_body) is Some(_) => {
+                  candidate_body = block_body
+                  keep_unwrapping = true
+                }
+                _ => ()
+              }
+            _ => ()
+          }
+        }
+      }
+      let mut result_start = -1
+      let mut result_end = candidate_body.length()
+      if candidate_body.length() > 0 {
+        match candidate_body[candidate_body.length() - 1] {
+          @lib.Return => result_end = candidate_body.length() - 1
+          _ => ()
+        }
+      }
+      if result_end >= results.length() {
+        let candidate_start = result_end - results.length()
+        if dae_trivially_dropped_prefix_evidence(
+            candidate_body, candidate_start,
+          )
+          is Some(_) {
+          result_start = candidate_start
+        }
+      }
+      if result_start >= 0 &&
+        dae_body_prefix_has_function_return(candidate_body, result_start) {
+        result_start = -1
+      }
+      if result_start >= 0 &&
+        !(preserve_loop_carrier && result_end != candidate_body.length()) {
+        let result_slice = match
+          dae_make_multi_result_control_slice(
+            candidate_body,
+            result_start,
+            results.length(),
+            0,
+            flatten_block_carrier,
+            false,
+          ) {
+          Some(slice) => slice
+          None =>
+            return {
+              mod_out: mod_,
+              touched: [],
+              changed: false,
+              primary_def: -1,
+            }
+        }
+        let mut rewritten_body = candidate_body
+        let mut multi_result_changed = false
+        let mut multi_result_body_changed = false
+        match
+          dae_control_result_slice_gc_evidence(
+            mod_,
+            type_indices,
+            result_func_locals,
+            result_slice,
+            results,
+            require_refined=true,
+          ) {
+          Some(evidence) => {
+            rewritten_body = evidence.rewritten_body
+            multi_result_body_changed = evidence.body_changed
+            match
+              dae_apply_control_result_single_refinements(
+                evidence, next_results,
+              ) {
+              Some(_) => {
+                changed = true
+                multi_result_changed = true
+              }
+              None => ()
+            }
+          }
+          None => ()
+        }
+        if multi_result_changed &&
+          (
+            multi_result_body_changed ||
+            flatten_block_carrier ||
+            preserve_loop_carrier
+          ) {
+          if preserve_loop_carrier {
+            match mod_.type_sec {
+              Some(type_sec) => {
+                let active_type_sec = match rewrite_type_sec {
+                  Some(current_type_sec) => current_type_sec
+                  None => type_sec
+                }
+                let application = match
+                  dae_rebuild_typeidx_control_in_body(
+                    active_type_sec,
+                    body,
+                    0,
+                    1,
+                    [],
+                    next_results,
+                    rewritten_body,
+                    None,
+                  ) {
+                  Some(application) => application
+                  None =>
+                    return {
+                      mod_out: mod_,
+                      touched: [],
+                      changed: false,
+                      primary_def: -1,
+                    }
+                }
+                rewrite_type_sec = Some(application.type_sec)
+                next_body = application.body
+                result_body_changed = true
+              }
+              None => ()
+            }
+          } else {
+            next_body = rewritten_body
+            result_body_changed = true
+          }
         }
       }
     }
@@ -14573,6 +14604,38 @@ fn dae_try_refine_direct_gc_types(
       update_mod, def_idx, next_params, next_results,
     )
   }
+}
+
+///|
+fn dae_try_refine_direct_gc_types_for_def_with_facts(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  call_facts : DaeCurrentCallFacts,
+  refine_params : Bool,
+  refine_results : Bool,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let callee_abs = imported + def_idx
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let candidate = match
+    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+    Some(candidate) => candidate
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if !candidate.owned ||
+    candidate.has_self_direct_caller ||
+    !candidate.allows_nonself_direct_rewrite {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  dae_try_refine_direct_gc_types(
+    mod_,
+    callee_abs,
+    candidate.direct_call_count,
+    candidate.direct_callers,
+    refine_params~,
+    refine_results~,
+  )
 }
 
 ///|
@@ -36708,36 +36771,38 @@ fn dae_run_low_exact_param_chain_initial(
   current : @lib.Module,
   touched : Array[Bool],
 ) -> DaeExactLiteralWorklistApplication {
-  let imported = dae_imported_func_count(current)
-  let total = imported + dae_defined_func_count(current)
-  let call_facts = dae_collect_current_call_facts(current, total)
+  let total = dae_imported_func_count(current) + dae_defined_func_count(current)
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = false
   let productive_defs : Array[Int] = []
+  let original = dae_collect_original_boundary_snapshot(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
   for chain_def in [37, 38, 41] {
-    let callee_abs = imported + chain_def
-    if callee_abs < 0 ||
-      callee_abs >= call_facts.direct_calls.length() ||
-      callee_abs >= call_facts.direct_callers.length() {
-      continue
-    }
-    let result = dae_try_refine_direct_gc_types(
-      mod_out,
-      callee_abs,
-      call_facts.direct_calls[callee_abs],
-      call_facts.direct_callers[callee_abs],
+    let item = dae_work_item_new(
+      graph,
+      dependencies,
+      chain_def,
+      DaeGcParameterRefinementWork,
     )
-    let application = dae_apply_core_result(
-      mod_out, touched_out, changed_out, result,
-    )
-    if application.applied {
-      mod_out = application.mod_out
-      touched_out = application.touched
-      changed_out = application.changed
-      productive_defs.push(application.primary_def)
+    match
+      dae_process_work_item(
+        original, mod_out, touched_out, changed_out, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkCommitted(application) => {
+        mod_out = application.mod_out
+        touched_out = application.touched
+        changed_out = application.changed
+        productive_defs.push(application.primary_def)
+        dae_current_boundary_graph_refresh(graph, mod_out)
+        dependencies = dae_boundary_dependency_graph_new(graph)
+      }
+      _ => ()
     }
   }
+  let call_facts = dae_collect_current_call_facts(mod_out, total)
   let selected = Array::make(dae_defined_func_count(current), false)
   if 37 < selected.length() {
     selected[37] = true
@@ -36814,12 +36879,10 @@ fn dae_append_terminal_result_dependency_postorder(
   def_idx : Int,
   imported : Int,
   defined : Int,
-  remaining_depth : Int,
   queued : Array[Bool],
   queue : Array[Int],
 ) -> Unit {
-  if remaining_depth <= 0 ||
-    def_idx < 0 ||
+  if def_idx < 0 ||
     def_idx >= defined ||
     def_idx >= funcs.length() ||
     queued[def_idx] {
@@ -36833,13 +36896,7 @@ fn dae_append_terminal_result_dependency_postorder(
         let callee_def = dae_func_idx_slot(func_idx) - imported
         if callee_def != def_idx {
           dae_append_terminal_result_dependency_postorder(
-            funcs,
-            callee_def,
-            imported,
-            defined,
-            remaining_depth - 1,
-            queued,
-            queue,
+            funcs, callee_def, imported, defined, queued, queue,
           )
         }
       }
@@ -36860,7 +36917,7 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
 ) -> DaeExactLiteralWorklistApplication {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
-  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  ignore(call_facts.direct_calls.length())
   let funcs = match current.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return { mod_out: current, touched, changed, productive_defs: [] }
@@ -36869,7 +36926,7 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   let queued = Array::make(defined, false)
   for seed_def in seed_defs {
     dae_append_terminal_result_dependency_postorder(
-      funcs, seed_def, imported, defined, 16, queued, queue,
+      funcs, seed_def, imported, defined, queued, queue,
     )
   }
   let seen = Array::make(defined, false)
@@ -36877,6 +36934,10 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = changed
+  let original = dae_collect_original_boundary_snapshot(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
   let mut queue_idx = 0
   while queue_idx < queue.length() {
     if productive_limit >= 0 && productive_defs.length() >= productive_limit {
@@ -36888,38 +36949,43 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
       continue
     }
     seen[def_idx] = true
-    let callee_abs = imported + def_idx
-    let boundary_candidate = match
-      dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
-      Some(candidate) => candidate
-      None => continue
+    let before_callers = if def_idx < dependencies.callers_by_def.length() {
+      dependencies.callers_by_def[def_idx].copy()
+    } else {
+      []
     }
-    if !boundary_candidate.owned ||
-      boundary_candidate.has_self_direct_caller ||
-      !boundary_candidate.allows_nonself_direct_rewrite {
-      continue
-    }
-    let result = dae_try_refine_direct_gc_types(
-      mod_out,
-      callee_abs,
-      boundary_candidate.direct_call_count,
-      boundary_candidate.direct_callers,
-      refine_params=false,
+    let item = dae_work_item_new(
+      graph,
+      dependencies,
+      def_idx,
+      DaeGcResultRefinementWork,
     )
-    let application = dae_apply_core_result(
-      mod_out, touched_out, changed_out, result,
-    )
-    if !application.applied {
-      continue
-    }
-    mod_out = application.mod_out
-    touched_out = application.touched
-    changed_out = application.changed
-    productive_defs.push(application.primary_def)
-    for caller_def in boundary_candidate.direct_callers {
-      if caller_def >= 0 && caller_def < defined && !seen[caller_def] {
-        queue.push(caller_def)
+    match
+      dae_process_work_item(
+        original, mod_out, touched_out, changed_out, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkCommitted(application) => {
+        mod_out = application.mod_out
+        touched_out = application.touched
+        changed_out = application.changed
+        productive_defs.push(application.primary_def)
+        dae_current_boundary_graph_refresh(graph, mod_out)
+        dependencies = dae_boundary_dependency_graph_new(graph)
+        let callers = before_callers
+        if def_idx < dependencies.callers_by_def.length() {
+          for caller_def in dependencies.callers_by_def[def_idx] {
+            if !callers.contains(caller_def) {
+              callers.push(caller_def)
+            }
+          }
+        }
+        for caller_def in callers {
+          if caller_def >= 0 && caller_def < defined && !seen[caller_def] {
+            queue.push(caller_def)
+          }
+        }
       }
+      _ => ()
     }
   }
   { mod_out, touched: touched_out, changed: changed_out, productive_defs }

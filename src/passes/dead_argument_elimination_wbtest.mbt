@@ -15047,6 +15047,174 @@ test "dae uniform dispatcher consumes solved forwarding values" {
 }
 
 ///|
+test "dae GC parameter refinement work commits through dispatcher" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  let item = dae_work_item_new(
+    current,
+    dependencies,
+    0,
+    DaeGcParameterRefinementWork,
+  )
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      current,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let expected = @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          exact=true,
+        ),
+      )
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType([param], [result])) => {
+          assert_eq(param, expected)
+          assert_eq(result, @lib.ValType::i32())
+        }
+        _ => fail("expected exact GC parameter refinement")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid GC parameter dispatch, got \{err}")
+      }
+    }
+    _ => fail("expected GC parameter refinement work to commit")
+  }
+}
+
+///|
+test "dae GC result refinement work commits through dispatcher" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (result (ref null $base))
+    #|    struct.new_default $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $target
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  let item = dae_work_item_new(
+    current,
+    dependencies,
+    0,
+    DaeGcResultRefinementWork,
+  )
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      current,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let expected = @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          exact=true,
+        ),
+      )
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
+        _ => fail("expected exact GC result refinement")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid GC result dispatch, got \{err}")
+      }
+    }
+    _ => fail("expected GC result refinement work to commit")
+  }
+}
+
+///|
+test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
+  let function_count = 20
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (type $base (sub (struct)))
+      #|  (type $leaf (sub $base (struct)))
+      #|  (func $f0 (result (ref null $base))
+      #|    struct.new_default $leaf)
+    ),
+  )
+  let mut def_idx = 1
+  while def_idx < function_count {
+    out.write_string(
+      "  (func $f\{def_idx} (result (ref null $base)) call $f\{def_idx - 1})\n",
+    )
+    def_idx += 1
+  }
+  out.write_string(
+    "  (func (export \"run\") (result i32) call $f\{function_count - 1} ref.is_null))",
+  )
+  let mod_ = pass_test_module_from_wat(out.to_string())
+  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
+  let application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+    mod_,
+    [],
+    false,
+    [function_count - 1],
+    dae_collect_current_call_facts(mod_, total),
+    -1,
+  )
+  assert_eq(application.productive_defs.length(), function_count)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  def_idx = 0
+  while def_idx < function_count {
+    match dae_resolve_func_type(application.mod_out, type_indices, def_idx) {
+      Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
+      _ => fail("expected exact result at dependency definition \{def_idx}")
+    }
+    def_idx += 1
+  }
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid deep GC result worklist, got \{err}")
+  }
+}
+
+///|
 test "dae uniform dispatcher carries immutable-global specialization policy" {
   let source =
     #|(module
@@ -15528,7 +15696,7 @@ test "dae family dispatcher commits unread parameter work and terminates no-op f
     graph,
     dependencies,
     0,
-    DaeGcResultRefinementWork,
+    DaeControlReconstructionWork,
   )
   match
     dae_process_work_item(
@@ -15542,7 +15710,7 @@ test "dae family dispatcher commits unread parameter work and terminates no-op f
       diagnostics,
     ) {
     DaeWorkDeferred(DaeNoStrictImprovement) => ()
-    _ => fail("expected unmigrated family to terminate as deferred")
+    _ => fail("expected control-reconstruction family to remain deferred")
   }
   assert_eq(diagnostics.boundaries_analyzed, 2)
   assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateApplied), 1)
