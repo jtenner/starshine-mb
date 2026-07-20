@@ -39448,84 +39448,84 @@ fn dae_run_core(
     )
     low_revisit_iter += 1
   }
-  if original_defined > 4096 {
-    // Broad modules can contain profitable low exact/default candidates that the
-    // fixed eight-iteration core never reaches. Build the ordered low worklist
-    // once from one current caller-fact snapshot, then revalidate and apply each
-    // candidate against the evolving module. Signature and operand rewrites do
-    // not change direct-call edges, so the snapshot remains valid for this batch.
-    let low_exact_literal_call_facts = dae_collect_current_call_facts(
-      current, original_total,
+  // Exact nullable/type/call-fact admission is independent of module size.
+  // Run it after the ordinary reverse phase so it cannot preempt that proof.
+  // Broad modules can contain profitable low exact/default candidates that the
+  // fixed eight-iteration core never reaches. Build the ordered low worklist
+  // once from one current caller-fact snapshot, then revalidate and apply each
+  // candidate against the evolving module. Signature and operand rewrites do
+  // not change direct-call edges, so the snapshot remains valid for this batch.
+  let low_exact_literal_call_facts = dae_collect_current_call_facts(
+    current, original_total,
+  )
+  let low_exact_literal_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
+    current,
+    low_exact_literal_call_facts,
+    original_defined,
+    min_param_count=8,
+    require_all_nullable_refs=true,
+  )
+  let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
+    current, touched, changed, low_exact_literal_candidates, low_exact_literal_call_facts,
+    -1,
+  )
+  current = low_exact_literal_application.mod_out
+  touched = low_exact_literal_application.touched
+  changed = low_exact_literal_application.changed
+  for iter, primary_def in low_exact_literal_application.productive_defs {
+    trace(
+      "pass[dae-optimizing]:low-exact-literal-worklist iter=\{iter} primary_def=\{primary_def}",
     )
-    let low_exact_literal_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
-      current,
-      low_exact_literal_call_facts,
-      original_defined,
-      min_param_count=8,
-      require_all_nullable_refs=true,
-    )
-    let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
-      current, touched, changed, low_exact_literal_candidates, low_exact_literal_call_facts,
-      -1,
-    )
-    current = low_exact_literal_application.mod_out
-    touched = low_exact_literal_application.touched
-    changed = low_exact_literal_application.changed
-    for iter, primary_def in low_exact_literal_application.productive_defs {
-      trace(
-        "pass[dae-optimizing]:low-exact-literal-worklist iter=\{iter} primary_def=\{primary_def}",
-      )
+  }
+  let low_exact_cleanup_defs = Array::make(original_defined, false)
+  for productive_def in low_exact_literal_application.productive_defs {
+    if productive_def >= 0 && productive_def < low_exact_cleanup_defs.length() {
+      low_exact_cleanup_defs[productive_def] = true
     }
-    let low_exact_cleanup_defs = Array::make(original_defined, false)
-    for productive_def in low_exact_literal_application.productive_defs {
-      if productive_def >= 0 && productive_def < low_exact_cleanup_defs.length() {
-        low_exact_cleanup_defs[productive_def] = true
-      }
-    }
-    let low_exact_null_if_cleanup = dae_try_fold_selected_ref_null_is_null_ifs_once(
-      current, low_exact_cleanup_defs,
+  }
+  let low_exact_null_if_cleanup = dae_try_fold_selected_ref_null_is_null_ifs_once(
+    current, low_exact_cleanup_defs,
+  )
+  let low_exact_null_if_application = dae_apply_core_result(
+    current, touched, changed, low_exact_null_if_cleanup,
+  )
+  if low_exact_null_if_application.applied {
+    current = low_exact_null_if_application.mod_out
+    touched = low_exact_null_if_application.touched
+    changed = low_exact_null_if_application.changed
+    trace(
+      "pass[dae-optimizing]:low-exact-null-if-cleanup primary_def=\{low_exact_null_if_application.primary_def}",
     )
-    let low_exact_null_if_application = dae_apply_core_result(
-      current, touched, changed, low_exact_null_if_cleanup,
+  }
+  let low_exact_terminal_locals = dae_try_inline_selected_terminal_call_local_sets_once(
+    current, low_exact_cleanup_defs,
+  )
+  let low_exact_terminal_application = dae_apply_core_result(
+    current, touched, changed, low_exact_terminal_locals,
+  )
+  if low_exact_terminal_application.applied {
+    current = low_exact_terminal_application.mod_out
+    touched = low_exact_terminal_application.touched
+    changed = low_exact_terminal_application.changed
+    trace(
+      "pass[dae-optimizing]:low-exact-terminal-call-locals primary_def=\{low_exact_terminal_application.primary_def}",
     )
-    if low_exact_null_if_application.applied {
-      current = low_exact_null_if_application.mod_out
-      touched = low_exact_null_if_application.touched
-      changed = low_exact_null_if_application.changed
-      trace(
-        "pass[dae-optimizing]:low-exact-null-if-cleanup primary_def=\{low_exact_null_if_application.primary_def}",
-      )
-    }
-    let low_exact_terminal_locals = dae_try_inline_selected_terminal_call_local_sets_once(
-      current, low_exact_cleanup_defs,
+  }
+  let low_exact_result_application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+    current,
+    touched,
+    changed,
+    low_exact_literal_application.productive_defs,
+    low_exact_literal_call_facts,
+    -1,
+  )
+  current = low_exact_result_application.mod_out
+  touched = low_exact_result_application.touched
+  changed = low_exact_result_application.changed
+  for iter, primary_def in low_exact_result_application.productive_defs {
+    trace(
+      "pass[dae-optimizing]:low-exact-result-worklist iter=\{iter} primary_def=\{primary_def}",
     )
-    let low_exact_terminal_application = dae_apply_core_result(
-      current, touched, changed, low_exact_terminal_locals,
-    )
-    if low_exact_terminal_application.applied {
-      current = low_exact_terminal_application.mod_out
-      touched = low_exact_terminal_application.touched
-      changed = low_exact_terminal_application.changed
-      trace(
-        "pass[dae-optimizing]:low-exact-terminal-call-locals primary_def=\{low_exact_terminal_application.primary_def}",
-      )
-    }
-    let low_exact_result_application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(
-      current,
-      touched,
-      changed,
-      low_exact_literal_application.productive_defs,
-      low_exact_literal_call_facts,
-      -1,
-    )
-    current = low_exact_result_application.mod_out
-    touched = low_exact_result_application.touched
-    changed = low_exact_result_application.changed
-    for iter, primary_def in low_exact_result_application.productive_defs {
-      trace(
-        "pass[dae-optimizing]:low-exact-result-worklist iter=\{iter} primary_def=\{primary_def}",
-      )
-    }
   }
   if original_defined <= 4096 {
     let immutable_global_candidates : Array[Int] = []
