@@ -15047,6 +15047,54 @@ test "dae uniform dispatcher consumes solved forwarding values" {
 }
 
 ///|
+test "dae uniform dispatcher carries immutable-global specialization policy" {
+  let source =
+    #|(module
+    #|  (global $value i32 (i32.const 7))
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    global.get $value
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  let item = {
+    ..dae_work_item_new(current, dependencies, 0, DaeUniformActualWork),
+    allow_immutable_global_get: true,
+  }
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      current,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType(params, [result])) => {
+          assert_eq(params.length(), 0)
+          assert_eq(result, @lib.ValType::i32())
+        }
+        _ =>
+          fail("expected immutable-global specialization to remove parameter")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid immutable-global dispatch, got \{err}")
+      }
+    }
+    _ => fail("expected immutable-global policy work item to commit")
+  }
+}
+
+///|
 test "dae uniform candidate worklist solves forwarded values before direct literal exposure" {
   let source =
     #|(module

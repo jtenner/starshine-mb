@@ -1366,6 +1366,7 @@ priv struct DaeWorkItem {
   component_members : Array[Int]
   family : DaeWorkFamily
   uniform_values : Array[@lib.Instruction?]
+  allow_immutable_global_get : Bool
   expected_module_epoch : Int
   expected_call_epoch : Int
   expected_signature_epoch : Int
@@ -2625,6 +2626,7 @@ fn dae_work_item_new(
     component_members,
     family,
     uniform_values: [],
+    allow_immutable_global_get: false,
     expected_module_epoch: epoch.module_epoch,
     expected_call_epoch: epoch.call_epoch,
     expected_signature_epoch: epoch.signature_epoch,
@@ -2667,7 +2669,10 @@ fn dae_process_work_item(
     diagnostics.candidate_stale_retries += 1
     diagnostics.candidate_requeues += 1
     return DaeWorkRequeue([
-      dae_work_item_new(graph, dependencies, item.target_def, item.family),
+      {
+        ..dae_work_item_new(graph, dependencies, item.target_def, item.family),
+        allow_immutable_global_get: item.allow_immutable_global_get,
+      },
     ])
   }
   if item.family == DaeForwardingWork {
@@ -2724,6 +2729,7 @@ fn dae_process_work_item(
             current,
             item.target_def,
             graph.snapshot.call_facts,
+            allow_immutable_global_get=item.allow_immutable_global_get,
           ),
         )
       }
@@ -34310,77 +34316,52 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   let mut touched_out = touched
   let mut changed_out = changed
   let productive_defs : Array[Int] = []
-  if !allow_immutable_global_get {
-    let original = dae_collect_original_boundary_snapshot(current)
-    let graph = dae_current_boundary_graph_new(current)
-    let mut dependencies = dae_boundary_dependency_graph_new(graph)
-    let mut flow = dae_solve_parameter_flow(
-      graph,
-      dependencies,
-      seed_defs=candidate_defs,
-    )
-    let diagnostics = dae_diagnostics_new()
-    for candidate_def in candidate_defs {
-      if productive_limit >= 0 && productive_defs.length() >= productive_limit {
-        break
-      }
-      let item = {
-        ..dae_work_item_new(
-          graph,
-          dependencies,
-          candidate_def,
-          DaeUniformActualWork,
-        ),
-        uniform_values: dae_parameter_flow_uniform_values_for_def(
-          graph, flow, candidate_def,
-        ),
-      }
-      match
-        dae_process_work_item(
-          original, mod_out, touched_out, changed_out, graph, dependencies, item,
-          diagnostics,
-        ) {
-        DaeWorkCommitted(application) => {
-          mod_out = application.mod_out
-          touched_out = application.touched
-          changed_out = application.changed
-          productive_defs.push(application.primary_def)
-          dae_current_boundary_graph_refresh(graph, mod_out)
-          dependencies = dae_boundary_dependency_graph_new(graph)
+  ignore(call_facts.direct_calls.length())
+  let original = dae_collect_original_boundary_snapshot(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let mut flow = if allow_immutable_global_get {
+    { facts: [] }
+  } else {
+    dae_solve_parameter_flow(graph, dependencies, seed_defs=candidate_defs)
+  }
+  let diagnostics = dae_diagnostics_new()
+  for candidate_def in candidate_defs {
+    if productive_limit >= 0 && productive_defs.length() >= productive_limit {
+      break
+    }
+    let item = {
+      ..dae_work_item_new(
+        graph,
+        dependencies,
+        candidate_def,
+        DaeUniformActualWork,
+      ),
+      uniform_values: dae_parameter_flow_uniform_values_for_def(
+        graph, flow, candidate_def,
+      ),
+      allow_immutable_global_get,
+    }
+    match
+      dae_process_work_item(
+        original, mod_out, touched_out, changed_out, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkCommitted(application) => {
+        mod_out = application.mod_out
+        touched_out = application.touched
+        changed_out = application.changed
+        productive_defs.push(application.primary_def)
+        dae_current_boundary_graph_refresh(graph, mod_out)
+        dependencies = dae_boundary_dependency_graph_new(graph)
+        if !allow_immutable_global_get {
           flow = dae_solve_parameter_flow(
             graph,
             dependencies,
             seed_defs=candidate_defs,
           )
         }
-        _ => ()
       }
-    }
-    return {
-      mod_out,
-      touched: touched_out,
-      changed: changed_out,
-      productive_defs,
-    }
-  }
-  for candidate_def in candidate_defs {
-    if productive_limit >= 0 && productive_defs.length() >= productive_limit {
-      break
-    }
-    let result = dae_try_rewrite_exact_literal_def_with_facts_once(
-      mod_out,
-      candidate_def,
-      call_facts,
-      allow_immutable_global_get~,
-    )
-    let application = dae_apply_core_result(
-      mod_out, touched_out, changed_out, result,
-    )
-    if application.applied {
-      mod_out = application.mod_out
-      touched_out = application.touched
-      changed_out = application.changed
-      productive_defs.push(application.primary_def)
+      _ => ()
     }
   }
   { mod_out, touched: touched_out, changed: changed_out, productive_defs }
@@ -39267,40 +39248,40 @@ fn dae_run_core(
       )
     }
   }
-  let mut immutable_global_revisit_iter = 0
-  while original_defined <= 4096 && immutable_global_revisit_iter < 64 {
-    let immutable_global_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
-    let mut found = false
+  if original_defined <= 4096 {
+    let immutable_global_candidates : Array[Int] = []
     let mut candidate_def = 0
-    while candidate_def < original_defined && candidate_def < 4096 && !found {
-      selected_scratch_defs[candidate_def] = true
-      let global_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current,
-        selected_scratch_defs,
-        immutable_global_call_facts,
-        allow_immutable_global_get=true,
-      )
-      selected_scratch_defs[candidate_def] = false
-      let global_application = dae_apply_core_result(
-        current, touched, changed, global_result,
-      )
-      if global_application.applied {
-        current = global_application.mod_out
-        touched = global_application.touched
-        changed = global_application.changed
-        trace(
-          "pass[dae-optimizing]:immutable-global-revisit iter=\{immutable_global_revisit_iter} primary_def=\{global_application.primary_def}",
-        )
-        found = true
-      }
+    while candidate_def < original_defined {
+      immutable_global_candidates.push(candidate_def)
       candidate_def += 1
     }
-    if !found {
-      break
+    let mut immutable_global_wave = 0
+    while true {
+      let immutable_global_call_facts = dae_collect_current_call_facts(
+        current, original_total,
+      )
+      let global_application = dae_run_exact_literal_candidate_worklist_with_facts(
+        current,
+        touched,
+        changed,
+        immutable_global_candidates,
+        immutable_global_call_facts,
+        -1,
+        allow_immutable_global_get=true,
+      )
+      if global_application.productive_defs.length() == 0 {
+        break
+      }
+      current = global_application.mod_out
+      touched = global_application.touched
+      changed = global_application.changed
+      for primary_def in global_application.productive_defs {
+        trace(
+          "pass[dae-optimizing]:immutable-global-revisit wave=\{immutable_global_wave} primary_def=\{primary_def}",
+        )
+      }
+      immutable_global_wave += 1
     }
-    immutable_global_revisit_iter += 1
   }
   if optimize && original_defined > 4096 {
     // The former whole-definition revisit was intentionally disabled on broad
