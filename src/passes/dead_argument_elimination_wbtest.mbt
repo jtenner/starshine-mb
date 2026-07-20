@@ -14826,6 +14826,107 @@ test "dae boundary dependency graph records callers callees and self edges" {
 }
 
 ///|
+test "dae boundary dependency graph assigns deterministic direct-call components" {
+  let void_type = @lib.TypeIdx::new(0U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        void_type, void_type, void_type, void_type, void_type, void_type,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(3U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(4U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::return_call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let graph = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  assert_eq(graph.component_by_def, [0, 0, 1, 1, 1, 2])
+  assert_eq(graph.component_members, [[0, 1], [2, 3, 4], [5]])
+  assert_eq(graph.return_callers_by_def[2], [4])
+}
+
+///|
+test "dae family worklist is epoch aware component ordered and duplicate resistant" {
+  let void_type = @lib.TypeIdx::new(0U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([void_type, void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let boundary = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(boundary)
+  let worklist = dae_boundary_worklist_families(boundary, dependencies, [
+    DaeUnusedParameterWork,
+    DaeUniformActualWork,
+  ])
+  let first = dae_boundary_worklist_take_item(worklist).unwrap()
+  let second = dae_boundary_worklist_take_item(worklist).unwrap()
+  assert_eq(first.target_def, 0)
+  assert_eq(first.family, DaeUnusedParameterWork)
+  assert_eq(second.target_def, 0)
+  assert_eq(second.family, DaeUniformActualWork)
+  assert_true(dae_work_item_epoch_is_current(boundary, first))
+  while dae_boundary_worklist_take_item(worklist) is Some(_) {
+
+  }
+  dae_boundary_worklist_requeue_items(worklist, [first, first])
+  assert_eq(dae_boundary_worklist_take_item(worklist), Some(first))
+  assert_eq(dae_boundary_worklist_take_item(worklist), None)
+  let changed = mod_.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::nop(),
+        ]),
+      ),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+    ]),
+  )
+  dae_current_boundary_graph_refresh(boundary, changed)
+  assert_false(dae_work_item_epoch_is_current(boundary, first))
+}
+
+///|
 test "dae boundary worklist requeues invalidated dependencies deterministically" {
   let worklist = dae_boundary_worklist_all(4)
   assert_eq(dae_boundary_worklist_take(worklist), Some(0))

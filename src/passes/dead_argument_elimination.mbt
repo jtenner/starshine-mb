@@ -1294,13 +1294,52 @@ priv struct DaeCurrentBoundaryGraph {
 priv struct DaeBoundaryDependencyGraph {
   callers_by_def : Array[Array[Int]]
   callees_by_def : Array[Array[Int]]
+  return_callers_by_def : Array[Array[Int]]
+  parameter_forwarders_by_def : Array[Array[Int]]
+  uniform_value_forwarders_by_def : Array[Array[Int]]
+  result_forwarders_by_def : Array[Array[Int]]
+  result_observers_by_def : Array[Array[Int]]
+  tail_result_dependencies_by_def : Array[Array[Int]]
+  type_dependencies_by_def : Array[Array[Int]]
+  body_use_dependencies_by_def : Array[Array[Int]]
+  nested_cleanup_dependencies_by_def : Array[Array[Int]]
+  component_by_def : Array[Int]
+  component_members : Array[Array[Int]]
 }
+
+///|
+priv enum DaeWorkFamily {
+  DaeUnusedParameterWork
+  DaeUniformActualWork
+  DaeForwardingWork
+  DaeLocalizationRetryWork
+  DaeGcParameterRefinementWork
+  DaeGcResultRefinementWork
+  DaeDroppedResultWork
+  DaeControlReconstructionWork
+  DaeTypeRepairRetryWork
+  DaePostCleanupBoundaryRevisitWork
+} derive(Eq, Debug)
+
+///|
+priv struct DaeWorkItem {
+  target_def : Int
+  component_id : Int
+  family : DaeWorkFamily
+  expected_module_epoch : Int
+  expected_call_epoch : Int
+  expected_signature_epoch : Int
+  expected_body_epoch : Int
+} derive(Eq, Debug)
 
 ///|
 priv struct DaeBoundaryWorklist {
   queue : Array[Int]
   queued : Array[Bool]
   mut cursor : Int
+  family_queue : Array[DaeWorkItem]
+  family_queued : Array[Array[Bool]]
+  mut family_cursor : Int
 }
 
 ///|
@@ -1949,19 +1988,155 @@ fn dae_current_boundary_graph_refresh(
 }
 
 ///|
+fn dae_dependency_adjacency_new(defined : Int) -> Array[Array[Int]] {
+  let out : Array[Array[Int]] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    out.push([])
+    def_idx += 1
+  }
+  out
+}
+
+///|
+fn dae_dependency_adjacency_copy(
+  source : Array[Array[Int]],
+) -> Array[Array[Int]] {
+  let out : Array[Array[Int]] = []
+  for row in source {
+    out.push(row.copy())
+  }
+  out
+}
+
+///|
+fn dae_dependency_adjacency_union(
+  left : Array[Array[Int]],
+  right : Array[Array[Int]],
+) -> Array[Array[Int]] {
+  let count = if left.length() > right.length() {
+    left.length()
+  } else {
+    right.length()
+  }
+  let out = dae_dependency_adjacency_new(count)
+  let mut def_idx = 0
+  while def_idx < count {
+    if def_idx < left.length() {
+      for dependency in left[def_idx] {
+        if !out[def_idx].contains(dependency) {
+          out[def_idx].push(dependency)
+        }
+      }
+    }
+    if def_idx < right.length() {
+      for dependency in right[def_idx] {
+        if !out[def_idx].contains(dependency) {
+          out[def_idx].push(dependency)
+        }
+      }
+    }
+    def_idx += 1
+  }
+  out
+}
+
+///|
+fn dae_boundary_scc_visit(
+  node : Int,
+  edges : Array[Array[Int]],
+  next_index : Array[Int],
+  indices : Array[Int],
+  lowlinks : Array[Int],
+  stack : Array[Int],
+  on_stack : Array[Bool],
+  raw_component_by_def : Array[Int],
+  raw_component_count : Array[Int],
+) -> Unit {
+  indices[node] = next_index[0]
+  lowlinks[node] = next_index[0]
+  next_index[0] += 1
+  stack.push(node)
+  on_stack[node] = true
+  for dependency in edges[node] {
+    if dependency < 0 || dependency >= edges.length() {
+      continue
+    }
+    if indices[dependency] < 0 {
+      dae_boundary_scc_visit(
+        dependency, edges, next_index, indices, lowlinks, stack, on_stack, raw_component_by_def,
+        raw_component_count,
+      )
+      if lowlinks[dependency] < lowlinks[node] {
+        lowlinks[node] = lowlinks[dependency]
+      }
+    } else if on_stack[dependency] && indices[dependency] < lowlinks[node] {
+      lowlinks[node] = indices[dependency]
+    }
+  }
+  if lowlinks[node] != indices[node] {
+    return
+  }
+  while stack.length() > 0 {
+    let component_def = stack.pop().unwrap()
+    on_stack[component_def] = false
+    raw_component_by_def[component_def] = raw_component_count[0]
+    if component_def == node {
+      break
+    }
+  }
+  raw_component_count[0] += 1
+}
+
+///|
+fn dae_boundary_components(
+  callees_by_def : Array[Array[Int]],
+) -> (Array[Int], Array[Array[Int]]) {
+  let defined = callees_by_def.length()
+  let indices = Array::make(defined, -1)
+  let lowlinks = Array::make(defined, -1)
+  let on_stack = Array::make(defined, false)
+  let stack : Array[Int] = []
+  let raw_component_by_def = Array::make(defined, -1)
+  let next_index = [0]
+  let raw_component_count = [0]
+  let mut def_idx = 0
+  while def_idx < defined {
+    if indices[def_idx] < 0 {
+      dae_boundary_scc_visit(
+        def_idx, callees_by_def, next_index, indices, lowlinks, stack, on_stack,
+        raw_component_by_def, raw_component_count,
+      )
+    }
+    def_idx += 1
+  }
+  let normalized_by_raw = Array::make(raw_component_count[0], -1)
+  let component_by_def = Array::make(defined, -1)
+  let component_members : Array[Array[Int]] = []
+  def_idx = 0
+  while def_idx < defined {
+    let raw_component = raw_component_by_def[def_idx]
+    if normalized_by_raw[raw_component] < 0 {
+      normalized_by_raw[raw_component] = component_members.length()
+      component_members.push([])
+    }
+    let component_id = normalized_by_raw[raw_component]
+    component_by_def[def_idx] = component_id
+    component_members[component_id].push(def_idx)
+    def_idx += 1
+  }
+  (component_by_def, component_members)
+}
+
+///|
 fn dae_boundary_dependency_graph_new(
   graph : DaeCurrentBoundaryGraph,
 ) -> DaeBoundaryDependencyGraph {
   let imported = graph.snapshot.imported
   let defined = graph.snapshot.defined
-  let callers_by_def : Array[Array[Int]] = []
-  let callees_by_def : Array[Array[Int]] = []
-  let mut def_idx = 0
-  while def_idx < defined {
-    callers_by_def.push([])
-    callees_by_def.push([])
-    def_idx += 1
-  }
+  let callers_by_def = dae_dependency_adjacency_new(defined)
+  let callees_by_def = dae_dependency_adjacency_new(defined)
+  let return_callers_by_def = dae_dependency_adjacency_new(defined)
   let direct_callers = graph.snapshot.call_facts.direct_callers
   let mut callee_def = 0
   while callee_def < defined {
@@ -1980,7 +2155,57 @@ fn dae_boundary_dependency_graph_new(
     }
     callee_def += 1
   }
-  { callers_by_def, callees_by_def }
+  let mut caller_def = 0
+  while caller_def < defined &&
+        caller_def < graph.snapshot.function_infos.length() {
+    for callee_abs in graph.snapshot.function_infos[caller_def].tail_callees {
+      let target_def = callee_abs - imported
+      if target_def >= 0 &&
+        target_def < defined &&
+        !return_callers_by_def[target_def].contains(caller_def) {
+        return_callers_by_def[target_def].push(caller_def)
+      }
+    }
+    caller_def += 1
+  }
+  let (component_by_def, component_members) = dae_boundary_components(
+    callees_by_def,
+  )
+  let caller_callee_dependencies = dae_dependency_adjacency_union(
+    callers_by_def, callees_by_def,
+  )
+  {
+    callers_by_def,
+    callees_by_def,
+    return_callers_by_def,
+    // These domains deliberately begin as conservative direct-boundary
+    // dependencies. Family-specific evidence can narrow them without changing
+    // scheduler identity or risking a missed invalidation.
+    parameter_forwarders_by_def: dae_dependency_adjacency_copy(
+      caller_callee_dependencies,
+    ),
+    uniform_value_forwarders_by_def: dae_dependency_adjacency_copy(
+      caller_callee_dependencies,
+    ),
+    result_forwarders_by_def: dae_dependency_adjacency_copy(
+      caller_callee_dependencies,
+    ),
+    result_observers_by_def: dae_dependency_adjacency_copy(callers_by_def),
+    tail_result_dependencies_by_def: dae_dependency_adjacency_copy(
+      return_callers_by_def,
+    ),
+    type_dependencies_by_def: dae_dependency_adjacency_copy(
+      caller_callee_dependencies,
+    ),
+    body_use_dependencies_by_def: dae_dependency_adjacency_copy(
+      caller_callee_dependencies,
+    ),
+    nested_cleanup_dependencies_by_def: dae_dependency_adjacency_copy(
+      caller_callee_dependencies,
+    ),
+    component_by_def,
+    component_members,
+  }
 }
 
 ///|
@@ -2042,6 +2267,60 @@ fn dae_boundary_dependency_invalidations(
 }
 
 ///|
+fn dae_work_family_slot(family : DaeWorkFamily) -> Int {
+  match family {
+    DaeUnusedParameterWork => 0
+    DaeUniformActualWork => 1
+    DaeForwardingWork => 2
+    DaeLocalizationRetryWork => 3
+    DaeGcParameterRefinementWork => 4
+    DaeGcResultRefinementWork => 5
+    DaeDroppedResultWork => 6
+    DaeControlReconstructionWork => 7
+    DaeTypeRepairRetryWork => 8
+    DaePostCleanupBoundaryRevisitWork => 9
+  }
+}
+
+///|
+fn dae_work_item_new(
+  graph : DaeCurrentBoundaryGraph,
+  dependencies : DaeBoundaryDependencyGraph,
+  target_def : Int,
+  family : DaeWorkFamily,
+) -> DaeWorkItem {
+  let epoch = dae_boundary_candidate_epoch(graph, target_def)
+  {
+    target_def,
+    component_id: if target_def >= 0 &&
+      target_def < dependencies.component_by_def.length() {
+      dependencies.component_by_def[target_def]
+    } else {
+      -1
+    },
+    family,
+    expected_module_epoch: epoch.module_epoch,
+    expected_call_epoch: epoch.call_epoch,
+    expected_signature_epoch: epoch.signature_epoch,
+    expected_body_epoch: epoch.body_epoch,
+  }
+}
+
+///|
+fn dae_work_item_epoch_is_current(
+  graph : DaeCurrentBoundaryGraph,
+  item : DaeWorkItem,
+) -> Bool {
+  dae_candidate_epoch_is_current(graph, {
+    def_idx: item.target_def,
+    module_epoch: item.expected_module_epoch,
+    call_epoch: item.expected_call_epoch,
+    signature_epoch: item.expected_signature_epoch,
+    body_epoch: item.expected_body_epoch,
+  })
+}
+
+///|
 fn dae_boundary_worklist_all(defined : Int) -> DaeBoundaryWorklist {
   let queue : Array[Int] = []
   let queued = Array::make(defined, false)
@@ -2051,7 +2330,52 @@ fn dae_boundary_worklist_all(defined : Int) -> DaeBoundaryWorklist {
     queued[def_idx] = true
     def_idx += 1
   }
-  { queue, queued, cursor: 0 }
+  {
+    queue,
+    queued,
+    cursor: 0,
+    family_queue: [],
+    family_queued: [],
+    family_cursor: 0,
+  }
+}
+
+///|
+fn dae_boundary_worklist_families(
+  graph : DaeCurrentBoundaryGraph,
+  dependencies : DaeBoundaryDependencyGraph,
+  families : Array[DaeWorkFamily],
+) -> DaeBoundaryWorklist {
+  let family_queue : Array[DaeWorkItem] = []
+  let family_queued : Array[Array[Bool]] = []
+  let mut def_idx = 0
+  while def_idx < graph.snapshot.defined {
+    family_queued.push(Array::make(10, false))
+    def_idx += 1
+  }
+  let mut component_id = 0
+  while component_id < dependencies.component_members.length() {
+    for member_def in dependencies.component_members[component_id] {
+      for family in families {
+        let slot = dae_work_family_slot(family)
+        if !family_queued[member_def][slot] {
+          family_queue.push(
+            dae_work_item_new(graph, dependencies, member_def, family),
+          )
+          family_queued[member_def][slot] = true
+        }
+      }
+    }
+    component_id += 1
+  }
+  {
+    queue: [],
+    queued: Array::make(graph.snapshot.defined, false),
+    cursor: 0,
+    family_queue,
+    family_queued,
+    family_cursor: 0,
+  }
 }
 
 ///|
@@ -2080,6 +2404,55 @@ fn dae_boundary_worklist_requeue(
       worklist.queued[def_idx] = true
     }
   }
+}
+
+///|
+fn dae_boundary_worklist_take_item(
+  worklist : DaeBoundaryWorklist,
+) -> DaeWorkItem? {
+  if worklist.family_cursor >= worklist.family_queue.length() {
+    return None
+  }
+  let item = worklist.family_queue[worklist.family_cursor]
+  worklist.family_cursor += 1
+  if item.target_def >= 0 && item.target_def < worklist.family_queued.length() {
+    let slot = dae_work_family_slot(item.family)
+    worklist.family_queued[item.target_def][slot] = false
+  }
+  Some(item)
+}
+
+///|
+fn dae_boundary_worklist_requeue_items(
+  worklist : DaeBoundaryWorklist,
+  items : Array[DaeWorkItem],
+) -> Unit {
+  for item in items {
+    if item.target_def < 0 || item.target_def >= worklist.family_queued.length() {
+      continue
+    }
+    let slot = dae_work_family_slot(item.family)
+    if !worklist.family_queued[item.target_def][slot] {
+      worklist.family_queue.push(item)
+      worklist.family_queued[item.target_def][slot] = true
+    }
+  }
+}
+
+///|
+fn dae_work_items_for_defs(
+  graph : DaeCurrentBoundaryGraph,
+  dependencies : DaeBoundaryDependencyGraph,
+  defs : Array[Int],
+  family : DaeWorkFamily,
+) -> Array[DaeWorkItem] {
+  let items : Array[DaeWorkItem] = []
+  for def_idx in defs {
+    if def_idx >= 0 && def_idx < graph.snapshot.defined {
+      items.push(dae_work_item_new(graph, dependencies, def_idx, family))
+    }
+  }
+  items
 }
 
 ///|
@@ -37277,21 +37650,31 @@ fn dae_run_computed_unread_param_dependency_worklist(
   let mut current = current_in
   let mut touched = touched_in
   let mut changed = changed_in
-  let defined = dae_defined_func_count(current)
   let graph = dae_current_boundary_graph_new(current)
-  let worklist = dae_boundary_worklist_all(defined)
+  let family = if require_localization_retry {
+    DaeLocalizationRetryWork
+  } else {
+    DaeUnusedParameterWork
+  }
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let worklist = dae_boundary_worklist_families(graph, dependencies, [family])
   let mut iteration = 0
   let mut applied = false
   while true {
-    let def_idx = match dae_boundary_worklist_take(worklist) {
+    let item = match dae_boundary_worklist_take_item(worklist) {
       Some(value) => value
       None => break
+    }
+    if !dae_work_item_epoch_is_current(graph, item) {
+      dae_boundary_worklist_requeue_items(worklist, [
+        dae_work_item_new(graph, dependencies, item.target_def, item.family),
+      ])
+      continue
     }
     let before_dependencies = dependencies
     let result = dae_try_rewrite_unread_params_for_def_with_facts(
       current,
-      def_idx,
+      item.target_def,
       graph.snapshot.call_facts,
       allow_stack_carried_void_effects=true,
       require_localization_retry~,
@@ -37314,9 +37697,12 @@ fn dae_run_computed_unread_param_dependency_worklist(
     touched = application.touched
     changed = application.changed
     applied = true
-    dae_boundary_worklist_requeue(worklist, invalidated)
+    dae_boundary_worklist_requeue_items(
+      worklist,
+      dae_work_items_for_defs(graph, dependencies, invalidated, family),
+    )
     trace(
-      "pass[dae-optimizing]:computed-unread-param iter=\{iteration} primary_def=\{application.primary_def}",
+      "pass[dae-optimizing]:computed-unread-param iter=\{iteration} component=\{item.component_id} family=\{dae_work_family_slot(item.family)} primary_def=\{application.primary_def}",
     )
     iteration += 1
   }
