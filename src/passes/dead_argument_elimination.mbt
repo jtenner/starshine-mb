@@ -38440,18 +38440,6 @@ fn dae_try_specialize_func867_default_args_once(
 }
 
 ///|
-fn dae_try_specialize_selected_func867_default_args_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-) -> DaePassResult {
-  let def_idx = 867
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  dae_try_specialize_func867_default_args_once(mod_, def_idx)
-}
-
-///|
 fn dae_restore_dead_suffix_self_operand_params(
   original : @lib.Module,
   current : @lib.Module,
@@ -39297,19 +39285,6 @@ fn dae_run_core(
       )
     }
   }
-  if 867 < selected_scratch_defs.length() {
-    let selected_func867_defaults_application = dae_run_singleton_selected_core_rewrite(
-      current, touched, changed, selected_scratch_defs, 867, dae_try_specialize_selected_func867_default_args_once,
-    )
-    if selected_func867_defaults_application.applied {
-      current = selected_func867_defaults_application.mod_out
-      touched = selected_func867_defaults_application.touched
-      changed = selected_func867_defaults_application.changed
-      trace(
-        "pass[dae-optimizing]:selected-func867-default-args primary_def=\{selected_func867_defaults_application.primary_def}",
-      )
-    }
-  }
   if 233 < selected_scratch_defs.length() {
     let selected_const_if_application = dae_run_singleton_selected_core_rewrite(
       current, touched, changed, selected_scratch_defs, 233, dae_try_simplify_selected_const_if_defs_once,
@@ -39520,21 +39495,6 @@ fn dae_run_core(
       func313_arg_iter += 1
     }
   }
-  if 287 < selected_scratch_defs.length() {
-    selected_scratch_defs[287] = true
-    let selected_func287_setup = dae_try_compact_selected_func287_setup_locals_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[287] = false
-    if selected_func287_setup.changed {
-      current = selected_func287_setup.mod_out
-      touched = dae_merge_touched(touched, selected_func287_setup.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func287-setup-locals primary_def=\{selected_func287_setup.primary_def}",
-      )
-      changed = true
-    }
-  }
   if 288 < selected_scratch_defs.length() {
     selected_scratch_defs[288] = true
     let selected_func288_carriers = dae_try_compact_selected_func288_switch_carriers_once(
@@ -39664,21 +39624,6 @@ fn dae_run_core(
   let post_raw_selected_lanes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:post-raw-selected-lanes",
   )
-  if 246 < selected_scratch_defs.length() {
-    selected_scratch_defs[246] = true
-    let selected_func246_builder = dae_try_fold_selected_func246_builder_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[246] = false
-    if selected_func246_builder.changed {
-      current = selected_func246_builder.mod_out
-      touched = dae_merge_touched(touched, selected_func246_builder.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func246-builder primary_def=\{selected_func246_builder.primary_def}",
-      )
-      changed = true
-    }
-  }
   let func327_cleanup_input = current
   if 327 < selected_scratch_defs.length() {
     selected_scratch_defs[327] = true
