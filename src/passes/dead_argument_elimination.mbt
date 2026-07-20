@@ -34639,6 +34639,42 @@ fn dae_exact_literal_candidate_is_single_param_identity(
 }
 
 ///|
+fn dae_exact_literal_candidate_is_single_param_call_sink(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Bool {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return false
+  }
+  let param = match
+    dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+    Some(@lib.FuncType([param], [])) => param
+    _ => return false
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() != 0 ||
+    body.length() != 2 ||
+    body[0] != @lib.Instruction::local_get(@lib.LocalIdx::new(0U)) {
+    return false
+  }
+  match body[1] {
+    @lib.Call(target_idx) =>
+      match
+        dae_resolve_func_type(mod_, type_indices, dae_func_idx_slot(target_idx)) {
+        Some(@lib.FuncType([target_param], [])) => target_param == param
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn dae_exact_literal_candidate_is_single_param_pure_expression(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -34879,6 +34915,7 @@ fn dae_func_directly_calls_def(
 ///|
 fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
   mod_ : @lib.Module,
+  root_defs : Array[Int],
 ) -> Array[DaeBroadExactParamAdjacentCleanupCandidate] {
   let candidates : Array[DaeBroadExactParamAdjacentCleanupCandidate] = []
   let imported = dae_imported_func_count(mod_)
@@ -34888,8 +34925,8 @@ fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
   }
   let defined = funcs.length()
   let type_indices = dae_collect_func_type_indices(mod_)
-  let first_limit = if defined < 8200 { defined - 1 } else { 8199 }
-  let mut first_def = 4097
+  let first_limit = defined - 1
+  let mut first_def = 0
   while first_def < first_limit {
     let second_def = first_def + 1
     let @lib.Func(first_locals, @lib.Expr(first_body)) = funcs[first_def]
@@ -34906,11 +34943,18 @@ fn dae_collect_broad_exact_param_adjacent_cleanup_candidates(
       ) {
       let payoff = dae_dropped_result_payoff_instrs(first_body) +
         dae_dropped_result_payoff_instrs(second_body)
-      let root_start = if first_def - 8 > 4096 { first_def - 8 } else { 4096 }
-      let mut root_def = root_start
-      while root_def < first_def && root_def < 8192 {
-        candidates.push({ root_def, first_def, second_def, payoff })
-        root_def += 1
+      for root_def in root_defs {
+        if root_def >= 0 &&
+          root_def < defined &&
+          root_def != first_def &&
+          root_def != second_def &&
+          !candidates.any(fn(candidate) {
+            candidate.root_def == root_def &&
+            candidate.first_def == first_def &&
+            candidate.second_def == second_def
+          }) {
+          candidates.push({ root_def, first_def, second_def, payoff })
+        }
       }
     }
     first_def += 1
@@ -37062,6 +37106,9 @@ fn dae_run_broad_uniform_parameter_flow(
     if dae_exact_literal_candidate_is_single_param_identity(
         candidate_source, candidate_def,
       ) ||
+      dae_exact_literal_candidate_is_single_param_call_sink(
+        candidate_source, candidate_def,
+      ) ||
       dae_exact_literal_candidate_is_single_param_pure_expression(
         candidate_source, candidate_def,
       ) ||
@@ -37078,21 +37125,96 @@ fn dae_run_broad_uniform_parameter_flow(
 }
 
 ///|
-fn dae_run_broad_exact_param_adjacent_cleanup_root(
+fn dae_collect_applied_call_sink_uniform_defs(
+  candidate_source : @lib.Module,
   current : @lib.Module,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let source_imported = dae_imported_func_count(candidate_source)
+  let current_imported = dae_imported_func_count(current)
+  let source_types = dae_collect_func_type_indices(candidate_source)
+  let current_types = dae_collect_func_type_indices(current)
+  let defined = dae_defined_func_count(current)
+  let source_defined = dae_defined_func_count(candidate_source)
+  let mut def_idx = 0
+  while def_idx < defined && def_idx < source_defined {
+    if dae_exact_literal_candidate_is_single_param_call_sink(
+        candidate_source, def_idx,
+      ) {
+      match
+        (
+          dae_resolve_func_type(
+            candidate_source,
+            source_types,
+            source_imported + def_idx,
+          ),
+          dae_resolve_func_type(
+            current,
+            current_types,
+            current_imported + def_idx,
+          ),
+        ) {
+        (
+          Some(@lib.FuncType(source_params, _)),
+          Some(@lib.FuncType(current_params, _)),
+        ) if current_params.length() < source_params.length() =>
+          candidates.push(def_idx)
+        _ => ()
+      }
+    }
+    def_idx += 1
+  }
+  candidates
+}
+
+///|
+fn dae_run_call_sink_uniform_parameter_flow(
+  current : @lib.Module,
+  candidate_source : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+) -> DaeExactLiteralWorklistApplication {
+  let defined = dae_defined_func_count(current)
+  let total = dae_imported_func_count(current) + defined
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let candidates : Array[Int] = []
+  let source_defined = dae_defined_func_count(candidate_source)
+  let mut candidate_def = 0
+  while candidate_def < defined && candidate_def < source_defined {
+    if dae_exact_literal_candidate_is_single_param_call_sink(
+        candidate_source, candidate_def,
+      ) {
+      candidates.push(candidate_def)
+    }
+    candidate_def += 1
+  }
+  dae_run_exact_literal_candidate_worklist_with_facts(
+    current, touched, changed, candidates, call_facts, -1,
+  )
+}
+
+///|
+fn dae_run_broad_exact_param_adjacent_cleanup_root(
+  candidate_source : @lib.Module,
+  current : @lib.Module,
+  root_defs : Array[Int],
   touched : Array[Bool],
   changed : Bool,
   trace : (String) -> Unit,
 ) -> DaeBroadExactParamAdjacentCleanupApplication {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
-  if defined <= 8192 {
-    return { mod_out: current, touched, candidate: None }
-  }
   let total = imported + defined
   let call_facts = dae_collect_current_call_facts(current, total)
+  let source_imported = dae_imported_func_count(candidate_source)
+  let source_total = source_imported + dae_defined_func_count(candidate_source)
+  let source_call_facts = dae_collect_current_call_facts(
+    candidate_source, source_total,
+  )
+  let source_type_indices = dae_collect_func_type_indices(candidate_source)
+  let current_type_indices = dae_collect_func_type_indices(current)
   let neighborhood_candidates = dae_collect_broad_exact_param_adjacent_cleanup_candidates(
-    current,
+    current, root_defs,
   )
   let successful_roots = Array::make(defined, false)
   let successful_pairs = Array::make(defined, false)
@@ -37102,13 +37224,39 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
   let mut best_aggregates = -1
   let mut best_payoff = -1
   let mut best_candidate : DaeBroadExactParamAdjacentCleanupCandidate? = None
+  let mut best_root_already_applied = false
   for candidate in neighborhood_candidates {
     let root_result = dae_try_rewrite_exact_literal_def_with_facts_once(
       current,
       candidate.root_def,
       call_facts,
     )
-    if !root_result.changed {
+    let root_already_applied = if !root_result.changed {
+      let source_result = dae_try_rewrite_exact_literal_def_with_facts_once(
+        candidate_source,
+        candidate.root_def,
+        source_call_facts,
+      )
+      let source_abs = source_imported + candidate.root_def
+      let current_abs = imported + candidate.root_def
+      source_result.changed &&
+      (match
+        (
+          dae_resolve_func_type(
+            candidate_source, source_type_indices, source_abs,
+          ),
+          dae_resolve_func_type(current, current_type_indices, current_abs),
+        ) {
+        (
+          Some(@lib.FuncType(source_params, _)),
+          Some(@lib.FuncType(current_params, _)),
+        ) => current_params.length() < source_params.length()
+        _ => false
+      })
+    } else {
+      false
+    }
+    if !root_result.changed && !root_already_applied {
       continue
     }
     if !successful_roots[candidate.root_def] {
@@ -37129,6 +37277,7 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
       best_aggregates = aggregates
       best_payoff = candidate.payoff
       best_candidate = Some(candidate)
+      best_root_already_applied = root_already_applied
     }
   }
   trace(
@@ -37136,6 +37285,9 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
   )
   if best_root < 0 {
     return { mod_out: current, touched, candidate: None }
+  }
+  if best_root_already_applied {
+    return { mod_out: current, touched, candidate: best_candidate }
   }
   let root_result = dae_try_rewrite_exact_literal_def_with_facts_once(
     current, best_root, call_facts,

@@ -71565,8 +71565,26 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
   let mut core_mod = result.mod_out
   let mut core_touched = result.touched
-  let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
+  let call_sink_uniform = dae_run_call_sink_uniform_parameter_flow(
     core_mod,
+    mod_,
+    core_touched,
+    result.changed,
+  )
+  core_mod = call_sink_uniform.mod_out
+  core_touched = call_sink_uniform.touched
+  let call_sink_frontier = dae_collect_applied_call_sink_uniform_defs(
+    mod_, core_mod,
+  )
+  for primary_def in call_sink_uniform.productive_defs {
+    (options.trace)(
+      "pass[dae-optimizing]:call-sink-uniform primary_def=\{primary_def}",
+    )
+  }
+  let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
+    mod_,
+    core_mod,
+    call_sink_frontier,
     core_touched,
     result.changed,
     options.trace,
@@ -71779,7 +71797,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       )
     }
     let post_literal_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
+      mod_,
       core_mod,
+      payoff_final_reorder_defs,
       core_touched,
       true,
       options.trace,

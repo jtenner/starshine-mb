@@ -16863,9 +16863,9 @@ test "dae-optimizing revisits large-module uniform constant actuals" {
 
 ///|
 fn dae_test_broad_exact_param_adjacent_cleanup_module() -> String {
-  let root_def = 7000
-  let pair_first_def = 7004
-  let total_defs = 8193
+  let root_def = 500
+  let pair_first_def = 504
+  let total_defs = 513
   let out = StringBuilder::new()
   out.write_string(
     "(module\n  (import \"env\" \"use_i32\" (func $use_i32 (param i32)))\n",
@@ -16938,9 +16938,9 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
   let source = dae_test_broad_exact_param_adjacent_cleanup_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
-  @debug.assert_eq(dae_test_func_params(plain, 7000).length(), 1)
-  @debug.assert_eq(dae_test_func_params(optimized, 7000).length(), 0)
-  for def_idx in [7004, 7005] {
+  @debug.assert_eq(dae_test_func_params(plain, 500).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 500).length(), 0)
+  for def_idx in [504, 505] {
     let @lib.Func(plain_locals, _) = dae_test_defined_func(plain, def_idx)
     let @lib.Func(optimized_locals, _) = dae_test_defined_func(
       optimized, def_idx,
@@ -16966,7 +16966,7 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=7000 defs=[7004, 7005] payoff=142 local_order=type-stable ordered_defs=2",
+        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=500 defs=[504, 505] payoff=142 local_order=type-stable ordered_defs=2",
       )
     }),
     msg=trace.to_string(),
