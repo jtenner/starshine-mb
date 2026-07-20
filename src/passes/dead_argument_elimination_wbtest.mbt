@@ -14947,6 +14947,143 @@ test "dae family worklist is epoch aware component ordered and duplicate resista
 }
 
 ///|
+fn dae_forwarded_component_plan_fixture() -> @lib.Module {
+  let param_type = @lib.TypeIdx::new(0U)
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([param_type, param_type]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+        ]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+test "dae component rewrite plan validates and commits every forwarding member" {
+  let mod_ = dae_forwarded_component_plan_fixture()
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let boundary_facts = graph.snapshot.boundary_facts
+  let nodes = dae_collect_forwarded_param_component(
+    mod_,
+    [0, 1],
+    graph.snapshot.type_indices,
+    boundary_facts,
+  )
+  assert_eq(nodes.length(), 2)
+  let plan = dae_build_forwarded_param_component_rewrite_plan(
+    mod_,
+    graph,
+    dependencies,
+    [],
+    nodes,
+    boundary_facts,
+  ).unwrap()
+  assert_eq(plan.member_defs, [0, 1])
+  match dae_apply_component_rewrite_plan(mod_, graph, plan) {
+    DaeComponentPlanCommitted(application) => {
+      assert_eq(application.defs, [0, 1])
+      assert_eq(application.param_count, 2)
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid component commit, got \{err}")
+      }
+    }
+    _ => fail("expected atomic component commit")
+  }
+}
+
+///|
+test "dae component rewrite plan rejects stale member and rolls back all members" {
+  let mod_ = dae_forwarded_component_plan_fixture()
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let boundary_facts = graph.snapshot.boundary_facts
+  let nodes = dae_collect_forwarded_param_component(
+    mod_,
+    [0, 1],
+    graph.snapshot.type_indices,
+    boundary_facts,
+  )
+  let plan = dae_build_forwarded_param_component_rewrite_plan(
+    mod_,
+    graph,
+    dependencies,
+    [],
+    nodes,
+    boundary_facts,
+  ).unwrap()
+  graph.function_epochs[1].body_epoch += 1
+  match dae_apply_component_rewrite_plan(mod_, graph, plan) {
+    DaeComponentPlanRejected(unchanged, DaeStaleCandidateFacts) =>
+      assert_eq(unchanged, mod_)
+    _ => fail("expected stale component rollback")
+  }
+}
+
+///|
+test "dae component rewrite plan validation failure restores the complete module" {
+  let mod_ = dae_forwarded_component_plan_fixture()
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let boundary_facts = graph.snapshot.boundary_facts
+  let nodes = dae_collect_forwarded_param_component(
+    mod_,
+    [0, 1],
+    graph.snapshot.type_indices,
+    boundary_facts,
+  )
+  let plan = dae_build_forwarded_param_component_rewrite_plan(
+    mod_,
+    graph,
+    dependencies,
+    [],
+    nodes,
+    boundary_facts,
+  ).unwrap()
+  let invalid_funcs = match plan.candidate.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => []
+  }
+  invalid_funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([@lib.Instruction::i32_const(1)]),
+  )
+  let invalid_candidate = {
+    ..plan.candidate,
+    mod_out: plan.candidate.mod_out.with_code_sec(
+      @lib.CodeSec::new(invalid_funcs),
+    ),
+  }
+  let invalid_plan = { ..plan, candidate: invalid_candidate }
+  match dae_apply_component_rewrite_plan(mod_, graph, invalid_plan) {
+    DaeComponentPlanRejected(unchanged, DaeValidationRollback) =>
+      assert_eq(unchanged, mod_)
+    _ => fail("expected validation rollback for every component member")
+  }
+}
+
+///|
 test "dae family dispatcher commits unread parameter work and terminates no-op families" {
   let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
   let original = dae_collect_original_boundary_snapshot(mod_)
