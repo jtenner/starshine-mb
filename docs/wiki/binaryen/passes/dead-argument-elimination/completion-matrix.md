@@ -63,6 +63,8 @@ The `version_130...version_131` primary-source comparison found no change in `De
 
 All baseline compare lanes used both documented DAE cleanup normalizers, explicit v131 `--wasm-opt-bin`, the fresh native Starshine binary, `--jobs auto`, and reduction disabled. Artifacts live under `.tmp/dae-release-baseline-20260719/` and are not committed.
 
+Latest post-architecture deterministic checkpoint at `cd99f9365` on July 20, 2026: full `moon test` passes `9665/9665`. This closes the stale full-suite checkpoint after the boundary snapshot, epochs, rewrite transactions, dependency queues, frontier-policy restoration, computed retry, and broad identity-constant commits; existing compiler warnings remain. It does not replace the still-open full repository gate or the four required release comparison lanes.
+
 The latest complete targeted DAEO v131 aggregate before this baseline remains `1024/1024`: `823` exact plus `201` inspected smaller Starshine outputs, zero failures. The latest fixed self-hosted artifact checkpoint remains valid and byte-idempotent at raw/canonical `3,121,651 / 3,181,064`, versus Binaryen v131 `3,176,505 / 3,261,396`; first invocation is `568.782s`, second invocation is `40.624s`, and the open canonical gross-positive ledger is `2,924` bodies / `+56,531` bytes. Those numbers are current historical evidence from the same HEAD, not a fresh baseline replay with the newly hashed binary.
 
 Known unrelated repository blocker: `bun validate full --profile ci --target wasm-gc` reaches a pre-existing randomized decoder round-trip failure after the deterministic suite. It remains outside DAE ownership unless a minimized case proves otherwise.
