@@ -45,7 +45,7 @@ The raw scan is preserved locally at `.tmp/dae-release-baseline-20260719/product
 | Low wrapper/callee boundary order | fixed wrapper list beginning `128, 131, 133, ... 196` | 1 | derive wrapper/callee component order from the current call graph |
 | Exact parameter chain | definitions `37, 38, 41`; selected `37`, then `[38, 41]` | 1 | recognize the parameter-position dependency component generically |
 | Early selected body cleanup | definitions `233, 236, 237, 256, 267, 268` | 2/4 | move reusable cleanup into shared passes; retain artifact fixtures as regressions |
-| Selected dropped-result fallbacks | definitions `3566, 3732, 3814` | 1/4 | generic result-dependency worklist; preserve fixtures |
+| Selected dropped-result fallbacks | former definitions `3566, 3732, 3814` are removed from production; exact fact-selected candidates now run through `DaeDroppedResultWork` with refreshed graph epochs | 6 | fixed fallback list deleted; retain fixtures and reopen only for a classified exact result-dependency gap |
 | Selected unread-parameter fallback | definitions `505, 3799` | 1/6 | generic unread-param candidate queue; verify whether `3799` is obsolete and delete if unproductive |
 | Mid exact-literal list | `267, 268, 287, 288, 311, 408, 428, 504, 505, 538, 869, 1777, 4206, 4368` | 1/4 | semantic uniform-value candidates ordered by dependencies, not identity |
 | Late selected cleanup | definitions `287, 288, 298, 299, 311, 313, 408, 538, 867` and later selected lanes | 2/4 | shared local/control passes with touched filtering; fixtures stay |

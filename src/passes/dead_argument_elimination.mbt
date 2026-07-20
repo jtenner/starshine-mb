@@ -2753,8 +2753,15 @@ fn dae_process_work_item(
           true,
         ),
       )
-    DaeDroppedResultWork
-    | DaeControlReconstructionWork
+    DaeDroppedResultWork =>
+      Some(
+        dae_try_remove_dropped_result_def_with_facts(
+          current,
+          item.target_def,
+          graph.snapshot.call_facts,
+        ),
+      )
+    DaeControlReconstructionWork
     | DaeTypeRepairRetryWork
     | DaePostCleanupBoundaryRevisitWork => None
     DaeForwardingWork => None
@@ -33279,6 +33286,143 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
 }
 
 ///|
+fn dae_collect_descending_selected_def_candidates(
+  selected_defs : Array[Bool],
+  defined : Int,
+) -> Array[Int] {
+  dae_collect_descending_selected_def_attempts(selected_defs, defined, -1)
+}
+
+///|
+fn dae_collect_descending_selected_def_attempts(
+  selected_defs : Array[Bool],
+  defined : Int,
+  attempt_limit : Int,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let limit = if defined < selected_defs.length() {
+    defined
+  } else {
+    selected_defs.length()
+  }
+  let mut def_idx = limit - 1
+  while def_idx >= 0 &&
+        (attempt_limit < 0 || candidates.length() < attempt_limit) {
+    if selected_defs[def_idx] {
+      candidates.push(def_idx)
+    }
+    def_idx -= 1
+  }
+  candidates
+}
+
+///|
+fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
+  []
+}
+
+///|
+fn dae_push_unique_candidate(candidates : Array[Int], def_idx : Int) -> Unit {
+  if !candidates.contains(def_idx) {
+    candidates.push(def_idx)
+  }
+}
+
+///|
+fn dae_collect_bucketed_large_dropped_result_attempts(
+  selected_defs : Array[Bool],
+  defined : Int,
+  attempt_limit : Int,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let high_quota = 4
+  let fallback_quota = 4
+  let low_quota = 2
+  let mut high_seen = 0
+  for
+    def_idx in dae_collect_descending_selected_def_candidates(
+      selected_defs, defined,
+    ) {
+    if high_seen < high_quota && candidates.length() < attempt_limit {
+      dae_push_unique_candidate(candidates, def_idx)
+      high_seen += 1
+    }
+  }
+  let mut fallback_seen = 0
+  for def_idx in dae_selected_dropped_result_fallback_neighborhood_defs() {
+    if fallback_seen < fallback_quota &&
+      candidates.length() < attempt_limit &&
+      def_idx >= 0 &&
+      def_idx < defined &&
+      def_idx < selected_defs.length() &&
+      selected_defs[def_idx] {
+      dae_push_unique_candidate(candidates, def_idx)
+      fallback_seen += 1
+    }
+  }
+  let limit = if defined < selected_defs.length() {
+    defined
+  } else {
+    selected_defs.length()
+  }
+  let mut low_seen = 0
+  let mut def_idx = 0
+  while def_idx < limit &&
+        low_seen < low_quota &&
+        candidates.length() < attempt_limit {
+    if selected_defs[def_idx] {
+      let before = candidates.length()
+      dae_push_unique_candidate(candidates, def_idx)
+      if candidates.length() > before {
+        low_seen += 1
+      }
+    }
+    def_idx += 1
+  }
+  candidates
+}
+
+///|
+fn dae_run_dropped_result_candidate_worklist_with_facts(
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  candidate_defs : Array[Int],
+) -> DaeExactLiteralWorklistApplication {
+  let original = dae_collect_original_boundary_snapshot(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  let productive_defs : Array[Int] = []
+  let mut mod_out = current
+  let mut touched_out = touched
+  let mut changed_out = changed
+  for candidate_def in candidate_defs {
+    let item = dae_work_item_new(
+      graph,
+      dependencies,
+      candidate_def,
+      DaeDroppedResultWork,
+    )
+    match
+      dae_process_work_item(
+        original, mod_out, touched_out, changed_out, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkCommitted(application) => {
+        mod_out = application.mod_out
+        touched_out = application.touched
+        changed_out = application.changed
+        productive_defs.push(application.primary_def)
+        dae_current_boundary_graph_refresh(graph, mod_out)
+        dependencies = dae_boundary_dependency_graph_new(graph)
+      }
+      _ => ()
+    }
+  }
+  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+}
+
+///|
 fn dae_dropped_result_payoff_instrs(instrs : Array[@lib.Instruction]) -> Int {
   let mut payoff = 0
   for instr in instrs {
@@ -33537,151 +33681,6 @@ fn dae_collect_dropped_result_payoff_cleanup_candidates(
     ignore(candidates.remove(best_idx))
   }
   selected
-}
-
-///|
-fn dae_collect_descending_selected_def_candidates(
-  selected_defs : Array[Bool],
-  defined : Int,
-) -> Array[Int] {
-  dae_collect_descending_selected_def_attempts(selected_defs, defined, -1)
-}
-
-///|
-fn dae_collect_descending_selected_def_attempts(
-  selected_defs : Array[Bool],
-  defined : Int,
-  attempt_limit : Int,
-) -> Array[Int] {
-  let candidates : Array[Int] = []
-  let limit = if defined < selected_defs.length() {
-    defined
-  } else {
-    selected_defs.length()
-  }
-  let mut def_idx = limit - 1
-  while def_idx >= 0 &&
-        (attempt_limit < 0 || candidates.length() < attempt_limit) {
-    if selected_defs[def_idx] {
-      candidates.push(def_idx)
-    }
-    def_idx -= 1
-  }
-  candidates
-}
-
-///|
-fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
-  []
-}
-
-///|
-fn dae_push_unique_candidate(candidates : Array[Int], def_idx : Int) -> Unit {
-  if !candidates.contains(def_idx) {
-    candidates.push(def_idx)
-  }
-}
-
-///|
-fn dae_collect_bucketed_large_dropped_result_attempts(
-  selected_defs : Array[Bool],
-  defined : Int,
-  attempt_limit : Int,
-) -> Array[Int] {
-  let candidates : Array[Int] = []
-  let high_quota = 4
-  let fallback_quota = 4
-  let low_quota = 2
-  let mut high_seen = 0
-  for
-    def_idx in dae_collect_descending_selected_def_candidates(
-      selected_defs, defined,
-    ) {
-    if high_seen < high_quota && candidates.length() < attempt_limit {
-      dae_push_unique_candidate(candidates, def_idx)
-      high_seen += 1
-    }
-  }
-  let mut fallback_seen = 0
-  for def_idx in dae_selected_dropped_result_fallback_neighborhood_defs() {
-    if fallback_seen < fallback_quota &&
-      candidates.length() < attempt_limit &&
-      def_idx >= 0 &&
-      def_idx < defined &&
-      def_idx < selected_defs.length() &&
-      selected_defs[def_idx] {
-      dae_push_unique_candidate(candidates, def_idx)
-      fallback_seen += 1
-    }
-  }
-  let limit = if defined < selected_defs.length() {
-    defined
-  } else {
-    selected_defs.length()
-  }
-  let mut low_seen = 0
-  let mut def_idx = 0
-  while def_idx < limit &&
-        low_seen < low_quota &&
-        candidates.length() < attempt_limit {
-    if selected_defs[def_idx] {
-      let before = candidates.length()
-      dae_push_unique_candidate(candidates, def_idx)
-      if candidates.length() > before {
-        low_seen += 1
-      }
-    }
-    def_idx += 1
-  }
-  candidates
-}
-
-///|
-fn dae_try_remove_dropped_results_from_attempts_with_facts_once(
-  mod_ : @lib.Module,
-  attempts : Array[Int],
-  call_facts : DaeCurrentCallFacts,
-  perf? : HotPerfSession? = None,
-) -> DaePassResult {
-  let helper_start_us = perf_start_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
-  )
-  for def_idx in attempts {
-    let result = dae_try_remove_dropped_result_def_with_facts(
-      mod_,
-      def_idx,
-      call_facts,
-      perf~,
-    )
-    if result.changed {
-      perf_stop_timer_opt(
-        perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
-        helper_start_us,
-      )
-      return result
-    }
-  }
-  perf_stop_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
-    helper_start_us,
-  )
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-}
-
-///|
-fn dae_try_remove_descending_dropped_results_with_facts_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-  call_facts : DaeCurrentCallFacts,
-  perf? : HotPerfSession? = None,
-) -> DaePassResult {
-  let defined = dae_defined_func_count(mod_)
-  dae_try_remove_dropped_results_from_attempts_with_facts_once(
-    mod_,
-    dae_collect_descending_selected_def_candidates(selected_defs, defined),
-    call_facts,
-    perf~,
-  )
 }
 
 ///|
@@ -39745,116 +39744,57 @@ fn dae_run_core(
   let dropped_results_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results",
   )
-  let dropped_result_call_facts_start_us = perf_start_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:call-facts",
-  )
-  let selected_dropped_result_call_facts = dae_collect_current_call_facts(
-    current, original_total,
-  )
-  perf_stop_timer_opt(
-    perf, "detail:dae:core:selected-lanes:dropped-results:call-facts", dropped_result_call_facts_start_us,
-  )
   let dropped_result_selected_defs_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
   if original_defined <= 8192 {
-    let fact_dropped_result_limit = if original_defined <= 4096 {
-      32
-    } else if original_defined <= 4608 {
-      14
-    } else {
-      8
-    }
-    let mut fact_dropped_result_iter = 0
-    while fact_dropped_result_iter < fact_dropped_result_limit {
+    let mut fact_dropped_result_wave = 0
+    while true {
+      let fact_dropped_result_call_facts_start_us = perf_start_timer_opt(
+        perf, "detail:dae:core:selected-lanes:dropped-results:call-facts",
+      )
       let fact_dropped_result_call_facts = dae_collect_current_call_facts(
         current, original_total,
       )
-      let fact_dropped_result_defs = dae_collect_fact_dropped_result_candidate_defs(
+      perf_stop_timer_opt(
+        perf, "detail:dae:core:selected-lanes:dropped-results:call-facts", fact_dropped_result_call_facts_start_us,
+      )
+      let selected = dae_collect_fact_dropped_result_candidate_defs(
         current, fact_dropped_result_call_facts,
       )
-      let fact_dropped_result = if original_defined <= 4096 {
-        dae_try_remove_selected_defs_dropped_results_with_facts_once(
-          current,
-          fact_dropped_result_defs,
-          fact_dropped_result_call_facts,
-          perf~,
-        )
-      } else if original_defined > 8192 {
-        // Staged DAE004 bucketed broad-large order. This branch is unreachable
-        // under the surrounding guard today; keep the collector compiled while
-        // the active switch waits for pass-local timing evidence.
-        dae_try_remove_dropped_results_from_attempts_with_facts_once(
-          current,
-          dae_collect_bucketed_large_dropped_result_attempts(
-            fact_dropped_result_defs, original_defined, fact_dropped_result_limit,
-          ),
-          fact_dropped_result_call_facts,
-          perf~,
-        )
+      let candidate_defs : Array[Int] = []
+      if original_defined <= 4096 {
+        let mut def_idx = 0
+        while def_idx < selected.length() {
+          if selected[def_idx] {
+            candidate_defs.push(def_idx)
+          }
+          def_idx += 1
+        }
       } else {
-        dae_try_remove_descending_dropped_results_with_facts_once(
-          current,
-          fact_dropped_result_defs,
-          fact_dropped_result_call_facts,
-          perf~,
-        )
+        let mut def_idx = selected.length() - 1
+        while def_idx >= 0 {
+          if selected[def_idx] {
+            candidate_defs.push(def_idx)
+          }
+          def_idx -= 1
+        }
       }
-      if !fact_dropped_result.changed {
+      let fact_dropped_result = dae_run_dropped_result_candidate_worklist_with_facts(
+        current, touched, changed, candidate_defs,
+      )
+      if fact_dropped_result.productive_defs.length() == 0 {
         break
       }
       current = fact_dropped_result.mod_out
-      touched = dae_merge_touched(touched, fact_dropped_result.touched)
-      trace(
-        "pass[dae-optimizing]:fact-dropped-result iter=\{fact_dropped_result_iter} primary_def=\{fact_dropped_result.primary_def}",
-      )
-      changed = true
-      fact_dropped_result_iter += 1
-    }
-  }
-  for selected_result_def in [3566, 3732, 3814] {
-    if selected_result_def < selected_scratch_defs.length() {
-      selected_scratch_defs[selected_result_def] = true
-      let selected_result_call_facts = selected_dropped_result_call_facts
-      let selected_result_callee_abs = original_imported + selected_result_def
-      let selected_result_direct = if selected_result_callee_abs <
-        selected_result_call_facts.direct_calls.length() {
-        selected_result_call_facts.direct_calls[selected_result_callee_abs]
-      } else {
-        0
-      }
-      let selected_result_dropped = if selected_result_callee_abs <
-        selected_result_call_facts.dropped_calls.length() {
-        selected_result_call_facts.dropped_calls[selected_result_callee_abs]
-      } else {
-        0
-      }
-      let selected_result_callers = if selected_result_callee_abs <
-        selected_result_call_facts.direct_callers.length() {
-        selected_result_call_facts.direct_callers[selected_result_callee_abs]
-      } else {
-        []
-      }
-      let selected_result_live = selected_result_direct -
-        selected_result_dropped
-      trace(
-        "pass[dae-optimizing]:selected-dropped-result-candidate def=\{selected_result_def} callee_abs=\{selected_result_callee_abs} callers=\{selected_result_callers} direct=\{selected_result_direct} dropped=\{selected_result_dropped} live=\{selected_result_live} dead_suffix=unknown facts=current bucket=selected-fallback fact_attempted=false",
-      )
-      let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-        current,
-        selected_scratch_defs,
-        selected_result_call_facts,
-        perf~,
-      )
-      selected_scratch_defs[selected_result_def] = false
-      if selected_result.changed {
-        current = selected_result.mod_out
-        touched = dae_merge_touched(touched, selected_result.touched)
+      touched = fact_dropped_result.touched
+      changed = fact_dropped_result.changed
+      for primary_def in fact_dropped_result.productive_defs {
         trace(
-          "pass[dae-optimizing]:selected-dropped-result primary_def=\{selected_result.primary_def}",
+          "pass[dae-optimizing]:fact-dropped-result wave=\{fact_dropped_result_wave} primary_def=\{primary_def}",
         )
-        changed = true
       }
+      fact_dropped_result_wave += 1
     }
   }
   if 298 < selected_scratch_defs.length() {

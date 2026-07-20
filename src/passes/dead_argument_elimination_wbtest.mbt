@@ -15047,6 +15047,46 @@ test "dae uniform dispatcher consumes solved forwarding values" {
 }
 
 ///|
+test "dae dropped-result work commits through dispatcher" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run")
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  let item = dae_work_item_new(current, dependencies, 0, DaeDroppedResultWork)
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      current,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType([], results)) => assert_eq(results.length(), 0)
+        _ => fail("expected dropped result to be removed")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid dropped-result dispatch, got \{err}")
+      }
+    }
+    _ => fail("expected dropped-result work to commit")
+  }
+}
+
+///|
 test "dae GC parameter refinement work commits through dispatcher" {
   let source =
     #|(module
