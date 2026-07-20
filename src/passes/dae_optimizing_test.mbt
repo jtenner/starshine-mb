@@ -8188,9 +8188,9 @@ test "dae-optimizing unwraps a touched suffix staging block" {
 }
 
 ///|
-test "dae-optimizing specializes selected Func323 default suffix params" {
-  let caller_def = 313
-  let callee_def = 323
+test "dae-optimizing specializes a single-caller global suffix component" {
+  let caller_def = 813
+  let callee_def = 823
   let out = StringBuilder::new()
   out.write_string("(module\n  (global $g i32 (i32.const 169472))\n")
   for i = 0; i < caller_def; i = i + 1 {

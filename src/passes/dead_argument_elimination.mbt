@@ -33147,22 +33147,27 @@ fn dae_try_rewrite_func313_call323_global_suffix(
 }
 
 ///|
-fn dae_try_rewrite_selected_func323_global_suffix_once(
+fn dae_try_rewrite_global_suffix_candidate_once(
   mod_ : @lib.Module,
-  selected_defs : Array[Bool],
+  def_idx : Int,
+  boundary_snapshot : DaeModuleBoundarySnapshot,
   trace : (String) -> Unit,
 ) -> DaePassResult {
-  let def_idx = 323
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let boundary_snapshot = dae_collect_module_boundary_snapshot(mod_)
   let callee_abs = boundary_snapshot.imported + def_idx
   let type_indices = boundary_snapshot.type_indices
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() => funcs
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let call_facts = boundary_snapshot.call_facts
+  if callee_abs >= call_facts.direct_calls.length() ||
+    call_facts.direct_calls[callee_abs] != 1 ||
+    call_facts.escaped[callee_abs] ||
+    call_facts.tail_calls[callee_abs] ||
+    call_facts.direct_callers[callee_abs].length() != 1 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let caller_def = call_facts.direct_callers[callee_abs][0]
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(func_type) => func_type
     None =>
@@ -33172,20 +33177,20 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   if params.length() == 7 && results == [@lib.ValType::i32()] {
     match
       dae_try_strip_func313_dropped_call323_global_suffix(
-        mod_, funcs, 313, callee_abs,
+        mod_, funcs, caller_def, callee_abs,
       ) {
       Some(rewritten_caller) => {
         let rewritten_funcs = funcs.copy()
-        rewritten_funcs[313] = rewritten_caller
+        rewritten_funcs[caller_def] = rewritten_caller
         let touched = Array::make(funcs.length(), false)
-        touched[313] = true
+        touched[caller_def] = true
         return {
           mod_out: mod_
           .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
           .without_name_sec(),
           touched,
           changed: true,
-          primary_def: 313,
+          primary_def: caller_def,
         }
       }
       None => ()
@@ -33194,7 +33199,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   if (params.length() != 8 && params.length() != 9) ||
     results != [@lib.ValType::i32()] {
     trace(
-      "pass[dae-optimizing]:selected-func323-global-suffix skip=type params=\{params.length()} results=\{results.length()}",
+      "pass[dae-optimizing]:global-suffix skip=type def=\{def_idx} params=\{params.length()} results=\{results.length()}",
     )
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -33204,16 +33209,6 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
     }
     p += 1
-  }
-  let call_facts = boundary_snapshot.call_facts
-  if callee_abs >= call_facts.direct_calls.length() ||
-    call_facts.direct_calls[callee_abs] != 1 ||
-    call_facts.escaped[callee_abs] ||
-    call_facts.tail_calls[callee_abs] ||
-    call_facts.direct_callers[callee_abs].length() != 1 ||
-    call_facts.direct_callers[callee_abs][0] != 313 {
-    trace("pass[dae-optimizing]:selected-func323-global-suffix skip=calls")
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.Func(locals, _) = funcs[def_idx]
   let local_use = dae_local_use_for_callee(
@@ -33252,7 +33247,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   }
   let rewritten_caller = match
     dae_try_rewrite_func313_call323_global_suffix(
-      mod_, funcs, type_indices, 313, callee_abs,
+      mod_, funcs, type_indices, caller_def, callee_abs,
     ) {
     Some(func) => func
     None => {
@@ -33263,7 +33258,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     }
   }
   let rewritten_funcs = funcs.copy()
-  rewritten_funcs[313] = rewritten_caller
+  rewritten_funcs[caller_def] = rewritten_caller
   let callee_rewrite = match
     dae_removed_param_callee_rewrite_evidence(
       rewritten_funcs[def_idx],
@@ -33291,6 +33286,55 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     results,
     DaeTouchModuleCodeChangedFuncs,
   )
+}
+
+///|
+fn dae_try_rewrite_selected_func323_global_suffix_once(
+  original : @lib.Module,
+  current : @lib.Module,
+  selected_defs : Array[Bool],
+  trace : (String) -> Unit,
+) -> DaePassResult {
+  let defined = dae_defined_func_count(current)
+  let boundary_snapshot = dae_collect_module_boundary_snapshot(current)
+  let original_funcs = match original.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  }
+  let current_funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  }
+  let mut def_idx = 0
+  while def_idx < defined && def_idx < selected_defs.length() {
+    if selected_defs[def_idx] {
+      let callee_abs = boundary_snapshot.imported + def_idx
+      let callers = if callee_abs <
+        boundary_snapshot.call_facts.direct_callers.length() {
+        boundary_snapshot.call_facts.direct_callers[callee_abs]
+      } else {
+        []
+      }
+      if callers.length() == 1 {
+        let caller_def = callers[0]
+        if caller_def >= 0 &&
+          caller_def < original_funcs.length() &&
+          caller_def < current_funcs.length() &&
+          original_funcs[caller_def] != current_funcs[caller_def] {
+          let result = dae_try_rewrite_global_suffix_candidate_once(
+            current, def_idx, boundary_snapshot, trace,
+          )
+          if result.changed {
+            return result
+          }
+        }
+      }
+    }
+    def_idx += 1
+  }
+  { mod_out: current, touched: [], changed: false, primary_def: -1 }
 }
 
 ///|
@@ -39602,20 +39646,23 @@ fn dae_run_core(
     )
     changed = true
   }
-  if 323 < selected_scratch_defs.length() {
-    selected_scratch_defs[323] = true
-    let selected_func323_global = dae_try_rewrite_selected_func323_global_suffix_once(
-      current, selected_scratch_defs, trace,
+  let global_suffix_candidates = Array::make(
+    dae_defined_func_count(current),
+    true,
+  )
+  while true {
+    let global_suffix_result = dae_try_rewrite_selected_func323_global_suffix_once(
+      mod_, current, global_suffix_candidates, trace,
     )
-    selected_scratch_defs[323] = false
-    if selected_func323_global.changed {
-      current = selected_func323_global.mod_out
-      touched = dae_merge_touched(touched, selected_func323_global.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func323-global-suffix primary_def=\{selected_func323_global.primary_def}",
-      )
-      changed = true
+    if !global_suffix_result.changed {
+      break
     }
+    current = global_suffix_result.mod_out
+    touched = dae_merge_touched(touched, global_suffix_result.touched)
+    trace(
+      "pass[dae-optimizing]:single-caller-global-suffix primary_def=\{global_suffix_result.primary_def}",
+    )
+    changed = true
   }
   // Shape cleanup can expose uniform operands only at direct callees of bodies
   // changed by this phase. Seed that exact invalidation frontier instead of
