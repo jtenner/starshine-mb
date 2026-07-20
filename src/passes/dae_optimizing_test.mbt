@@ -17004,7 +17004,7 @@ fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
   )
   out.write_string("  (func $wrapper (result i32) call $target)\n")
   out.write_string("  (func (export \"run\") call $wrapper drop)\n")
-  for dummy_idx = 3; dummy_idx < 8193; dummy_idx = dummy_idx + 1 {
+  for dummy_idx = 3; dummy_idx < 513; dummy_idx = dummy_idx + 1 {
     out.write_string("  (func)\n")
   }
   out.write_string(")\n")
@@ -17012,7 +17012,7 @@ fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
 }
 
 ///|
-test "dae-optimizing converges selected cleanup after a broad dropped-result wrapper chain" {
+test "dae-optimizing converges payoff cleanup independent of module size" {
   let source = dae_test_broad_dropped_result_payoff_chain_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
@@ -17028,7 +17028,7 @@ test "dae-optimizing converges selected cleanup after a broad dropped-result wra
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0 payoff=166 local_order=type-stable ordered_defs=1",
+        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0 payoff=166",
       )
     }),
     msg=trace.to_string(),

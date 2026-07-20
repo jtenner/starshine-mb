@@ -33856,9 +33856,6 @@ fn dae_collect_dropped_result_payoff_chain_candidates(
   let candidates : Array[DaeDroppedResultPayoffChainCandidate] = []
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
-  if defined <= 8192 {
-    return candidates
-  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return candidates
@@ -33907,15 +33904,12 @@ fn dae_run_broad_dropped_result_payoff_chain(
 ) -> DaeExactLiteralWorklistApplication {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
-  if defined <= 8192 {
-    return { mod_out: current, touched, changed, productive_defs: [] }
-  }
   let total = imported + defined
   let mut current_mod = current
   let mut current_touched = touched
   let productive_defs : Array[Int] = []
   let mut iteration = 0
-  while iteration < 2 {
+  while true {
     let call_facts = dae_collect_current_call_facts(current_mod, total)
     let candidates = dae_collect_dropped_result_payoff_chain_candidates(
       current_mod, call_facts,
@@ -33982,7 +33976,7 @@ fn dae_collect_dropped_result_payoff_cleanup_candidates(
   let candidates : Array[DaeDroppedResultPayoffChainCandidate] = []
   let imported = dae_imported_func_count(original)
   let defined = dae_defined_func_count(original)
-  if defined <= 8192 || dae_defined_func_count(current) != defined {
+  if dae_defined_func_count(current) != defined {
     return candidates
   }
   let original_funcs = match original.code_sec {
@@ -34037,7 +34031,7 @@ fn dae_collect_dropped_result_payoff_cleanup_candidates(
     }
   }
   let selected : Array[DaeDroppedResultPayoffChainCandidate] = []
-  while candidates.length() > 0 && selected.length() < 2 {
+  while candidates.length() > 0 {
     let mut best_idx = 0
     for idx = 1; idx < candidates.length(); idx = idx + 1 {
       if candidates[idx].payoff > candidates[best_idx].payoff {
