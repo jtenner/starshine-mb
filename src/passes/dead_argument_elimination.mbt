@@ -39577,53 +39577,9 @@ fn dae_run_core(
   let low_wrapper_callees_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:low-wrapper-callees",
   )
-  let mut low_callee_iter = 0
-  let low_callee_selected_defs = dae_collect_direct_callee_defs_from_caller_prefix(
-    current, 64,
-  )
   let low_callee_call_facts = dae_collect_current_call_facts(
     current, original_total,
   )
-  while true {
-    let low_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, low_callee_selected_defs, low_callee_call_facts,
-    )
-    let low_callee_application = dae_apply_primary_selected_core_result(
-      current, touched, changed, low_callee_selected_defs, low_callee_result,
-    )
-    if !low_callee_application.applied {
-      break
-    }
-    current = low_callee_application.mod_out
-    touched = low_callee_application.touched
-    changed = low_callee_application.changed
-    trace(
-      "pass[dae-optimizing]:low-callee-core iter=\{low_callee_iter} primary_def=\{low_callee_application.primary_def}",
-    )
-    low_callee_iter += 1
-  }
-  let mut low_wrapper_callee_iter = 0
-  let low_wrapper_callee_selected_defs = dae_collect_shifted_forward_wrapper_callee_defs(
-    current, 64, 128,
-  )
-  while true {
-    let low_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, low_wrapper_callee_selected_defs, low_callee_call_facts,
-    )
-    let low_wrapper_callee_application = dae_apply_primary_selected_core_result(
-      current, touched, changed, low_wrapper_callee_selected_defs, low_wrapper_callee_result,
-    )
-    if !low_wrapper_callee_application.applied {
-      break
-    }
-    current = low_wrapper_callee_application.mod_out
-    touched = low_wrapper_callee_application.touched
-    changed = low_wrapper_callee_application.changed
-    trace(
-      "pass[dae-optimizing]:low-wrapper-callee-core iter=\{low_wrapper_callee_iter} primary_def=\{low_wrapper_callee_application.primary_def}",
-    )
-    low_wrapper_callee_iter += 1
-  }
   // Keep the phase-local forwarding seed, but derive targets from exact current
   // wrapper shape rather than a fixed wrapper-definition list.
   let boundary_callee_order = dae_collect_shifted_forward_wrapper_callee_order(
