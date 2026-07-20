@@ -8692,6 +8692,16 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
+test "dae rewritten-control cleanup preserves Binaryen zero-tee shape" {
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ]
+  assert_eq(dae_simplify_rewritten_control_instrs(body, true), body)
+}
+
+///|
 test "dae broad exact-literal seed recognizes pure single-parameter expressions" {
   let mod_ = pass_test_module_from_wat(
     (

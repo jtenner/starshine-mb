@@ -53,7 +53,7 @@ The raw scan is preserved locally at `.tmp/dae-release-baseline-20260719/product
 | Func-237 cleanup family | numerous `Func237`-named recognizers and repeated selected scheduling | 2/4 | extract generic control/local transforms into owning passes; retain Func237 only as a regression artifact |
 | Func-3737/3765 suffix bridge | exact definitions `3737/3765`, caller `281`, and hard-coded `i32.const 1024` helpers deleted | removed | generic forwarding/uniform and unread families already produce byte-identical artifact output; reopen only for a minimized exact dependency miss |
 | Definition-505 special cleanup switch | former `def_idx == 505` control-cleanup switch removed; branch-safe rewritten-control simplification now applies uniformly after validated parameter rewrites | removed | focused/full validation and byte-identical artifact output; reopen only for a minimized generic cleanup regression |
-| Zero-tee selected list | `215, 260, 261, 1137, 1978` | 2/4 | shared SimplifyLocals/vacuum ownership |
+| Zero-tee selected list | definitions `215, 260, 261, 1137, 1978` and the private split helper deleted | removed | Binaryen-v131 direct DAEO preserves the tee shape on arbitrary definitions, and the lane was unproductive on the current artifact; focused expectations now match the oracle |
 
 No new production `FuncNNN` or fixed-definition gate may be added during DAE completion.
 

@@ -6565,7 +6565,7 @@ test "dae-optimizing rewrites every direct call when a caller hits the same call
 }
 
 ///|
-test "dae-optimizing splits selected Func215 zero tee before result copy" {
+test "dae-optimizing preserves Binaryen zero tee shape at former Func215 identity" {
   let target_def = 215
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -6587,32 +6587,28 @@ test "dae-optimizing splits selected Func215 zero tee before result copy" {
   let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(
     optimized, target_def,
   )
-  @debug.assert_eq(body.length(), 5)
+  @debug.assert_eq(body.length(), 4)
   @debug.assert_eq(body[0], @lib.Instruction::i32_const(@lib.I32(0)))
   @debug.assert_eq(
     body[1],
-    @lib.Instruction::local_set(@lib.LocalIdx::new(15U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(15U)),
   )
   @debug.assert_eq(
     body[2],
-    @lib.Instruction::local_get(@lib.LocalIdx::new(15U)),
-  )
-  @debug.assert_eq(
-    body[3],
     @lib.Instruction::local_set(@lib.LocalIdx::new(18U)),
   )
   @debug.assert_eq(
-    body[4],
+    body[3],
     @lib.Instruction::local_get(@lib.LocalIdx::new(18U)),
   )
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_false(target.contains("local.tee"), msg=target)
+  assert_true(target.contains("local.tee"), msg=target)
 }
 
 ///|
-test "dae-optimizing splits selected Func260 zero tees before result copies" {
+test "dae-optimizing preserves Binaryen zero tee shape at former Func260 identity" {
   let target_def = 260
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -6637,35 +6633,27 @@ test "dae-optimizing splits selected Func260 zero tees before result copies" {
   let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(
     optimized, target_def,
   )
-  @debug.assert_eq(body.length(), 9)
+  @debug.assert_eq(body.length(), 7)
   @debug.assert_eq(
     body[1],
-    @lib.Instruction::local_set(@lib.LocalIdx::new(15U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(15U)),
   )
   @debug.assert_eq(
     body[2],
-    @lib.Instruction::local_get(@lib.LocalIdx::new(15U)),
-  )
-  @debug.assert_eq(
-    body[3],
     @lib.Instruction::local_set(@lib.LocalIdx::new(18U)),
   )
   @debug.assert_eq(
+    body[4],
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(16U)),
+  )
+  @debug.assert_eq(
     body[5],
-    @lib.Instruction::local_set(@lib.LocalIdx::new(16U)),
-  )
-  @debug.assert_eq(
-    body[6],
-    @lib.Instruction::local_get(@lib.LocalIdx::new(16U)),
-  )
-  @debug.assert_eq(
-    body[7],
     @lib.Instruction::local_set(@lib.LocalIdx::new(19U)),
   )
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_false(target.contains("local.tee"), msg=target)
+  assert_true(target.contains("local.tee"), msg=target)
 }
 
 ///|
