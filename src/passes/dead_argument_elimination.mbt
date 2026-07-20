@@ -1333,6 +1333,14 @@ priv struct DaeWorkItem {
 } derive(Eq, Debug)
 
 ///|
+priv enum DaeWorkOutcome {
+  DaeWorkNoChange(DaeDecisionReason)
+  DaeWorkDeferred(DaeDecisionReason)
+  DaeWorkRequeue(Array[DaeWorkItem])
+  DaeWorkCommitted(DaeCoreResultApplication)
+}
+
+///|
 priv struct DaeBoundaryWorklist {
   queue : Array[Int]
   queued : Array[Bool]
@@ -2318,6 +2326,72 @@ fn dae_work_item_epoch_is_current(
     signature_epoch: item.expected_signature_epoch,
     body_epoch: item.expected_body_epoch,
   })
+}
+
+///|
+fn dae_process_work_item(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  graph : DaeCurrentBoundaryGraph,
+  dependencies : DaeBoundaryDependencyGraph,
+  item : DaeWorkItem,
+  diagnostics : DaeDiagnostics,
+) -> DaeWorkOutcome {
+  ignore(original.imported)
+  diagnostics.boundaries_analyzed += 1
+  if !dae_work_item_epoch_is_current(graph, item) {
+    dae_diagnostics_record_reason(diagnostics, DaeStaleCandidateFacts)
+    if item.target_def < 0 || item.target_def >= graph.snapshot.defined {
+      return DaeWorkNoChange(DaeStaleCandidateFacts)
+    }
+    diagnostics.candidate_stale_retries += 1
+    diagnostics.candidate_requeues += 1
+    return DaeWorkRequeue([
+      dae_work_item_new(graph, dependencies, item.target_def, item.family),
+    ])
+  }
+  let result = match item.family {
+    DaeUnusedParameterWork | DaeLocalizationRetryWork =>
+      Some(
+        dae_try_rewrite_unread_params_for_def_with_facts(
+          current,
+          item.target_def,
+          graph.snapshot.call_facts,
+          allow_stack_carried_void_effects=true,
+          require_localization_retry=item.family == DaeLocalizationRetryWork,
+          type_indices_override=Some(graph.snapshot.type_indices),
+        ),
+      )
+    DaeUniformActualWork
+    | DaeForwardingWork
+    | DaeGcParameterRefinementWork
+    | DaeGcResultRefinementWork
+    | DaeDroppedResultWork
+    | DaeControlReconstructionWork
+    | DaeTypeRepairRetryWork
+    | DaePostCleanupBoundaryRevisitWork => None
+  }
+  match result {
+    None => {
+      dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+      DaeWorkDeferred(DaeNoStrictImprovement)
+    }
+    Some(candidate) => {
+      let application = dae_apply_core_result(
+        current, touched, changed, candidate,
+      )
+      if application.applied {
+        diagnostics.candidates_applied += 1
+        dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+        DaeWorkCommitted(application)
+      } else {
+        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+        DaeWorkNoChange(DaeNoStrictImprovement)
+      }
+    }
+  }
 }
 
 ///|
@@ -37624,6 +37698,7 @@ fn dae_restore_dead_suffix_self_operand_params(
 
 ///|
 fn dae_run_computed_unread_param_dependency_worklist(
+  original : DaeOriginalBoundarySnapshot,
   current_in : @lib.Module,
   touched_in : Array[Bool],
   changed_in : Bool,
@@ -37641,6 +37716,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
   }
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
   let worklist = dae_boundary_worklist_families(graph, dependencies, [family])
+  let diagnostics = dae_diagnostics_new()
   let mut iteration = 0
   let mut applied = false
   while true {
@@ -37648,46 +37724,39 @@ fn dae_run_computed_unread_param_dependency_worklist(
       Some(value) => value
       None => break
     }
-    if !dae_work_item_epoch_is_current(graph, item) {
-      dae_boundary_worklist_requeue_items(worklist, [
-        dae_work_item_new(graph, dependencies, item.target_def, item.family),
-      ])
-      continue
-    }
     let before_dependencies = dependencies
-    let result = dae_try_rewrite_unread_params_for_def_with_facts(
-      current,
-      item.target_def,
-      graph.snapshot.call_facts,
-      allow_stack_carried_void_effects=true,
-      require_localization_retry~,
-      type_indices_override=Some(graph.snapshot.type_indices),
-    )
-    let application = dae_apply_core_result(current, touched, changed, result)
-    if !application.applied {
-      continue
+    match
+      dae_process_work_item(
+        original, current, touched, changed, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkRequeue(items) =>
+        dae_boundary_worklist_requeue_items(worklist, items)
+      DaeWorkCommitted(application) => {
+        dae_current_boundary_graph_refresh(graph, application.mod_out)
+        let after_dependencies = dae_boundary_dependency_graph_new(graph)
+        let invalidated = dae_boundary_dependency_invalidations(
+          before_dependencies,
+          after_dependencies,
+          application.touched,
+          application.primary_def,
+        )
+        dependencies = after_dependencies
+        current = application.mod_out
+        touched = application.touched
+        changed = application.changed
+        applied = true
+        let requeued = dae_work_items_for_defs(
+          graph, dependencies, invalidated, family,
+        )
+        diagnostics.candidate_requeues += requeued.length()
+        dae_boundary_worklist_requeue_items(worklist, requeued)
+        trace(
+          "pass[dae-optimizing]:computed-unread-param iter=\{iteration} component=\{item.component_id} family=\{dae_work_family_slot(item.family)} primary_def=\{application.primary_def}",
+        )
+        iteration += 1
+      }
+      DaeWorkNoChange(_) | DaeWorkDeferred(_) => ()
     }
-    dae_current_boundary_graph_refresh(graph, application.mod_out)
-    let after_dependencies = dae_boundary_dependency_graph_new(graph)
-    let invalidated = dae_boundary_dependency_invalidations(
-      before_dependencies,
-      after_dependencies,
-      application.touched,
-      application.primary_def,
-    )
-    dependencies = after_dependencies
-    current = application.mod_out
-    touched = application.touched
-    changed = application.changed
-    applied = true
-    dae_boundary_worklist_requeue_items(
-      worklist,
-      dae_work_items_for_defs(graph, dependencies, invalidated, family),
-    )
-    trace(
-      "pass[dae-optimizing]:computed-unread-param iter=\{iteration} component=\{item.component_id} family=\{dae_work_family_slot(item.family)} primary_def=\{application.primary_def}",
-    )
-    iteration += 1
   }
   { mod_out: current, touched, changed, applied, primary_def: -1 }
 }
@@ -37976,6 +38045,7 @@ fn dae_run_core(
     // Preserve the established small-module phase order while replacing its
     // selected-all array and `defined * 2 + 1` cap with dependency exhaustion.
     let computed_application = dae_run_computed_unread_param_dependency_worklist(
+      original_boundary_snapshot,
       current,
       touched,
       changed,

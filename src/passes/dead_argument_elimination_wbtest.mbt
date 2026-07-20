@@ -14947,6 +14947,111 @@ test "dae family worklist is epoch aware component ordered and duplicate resista
 }
 
 ///|
+test "dae family dispatcher commits unread parameter work and terminates no-op families" {
+  let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  let unused = dae_work_item_new(graph, dependencies, 0, DaeUnusedParameterWork)
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      unused,
+      diagnostics,
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_true(application.applied)
+      assert_eq(application.primary_def, 0)
+    }
+    _ => fail("expected unread parameter work to commit")
+  }
+  let deferred = dae_work_item_new(
+    graph,
+    dependencies,
+    0,
+    DaeGcResultRefinementWork,
+  )
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      deferred,
+      diagnostics,
+    ) {
+    DaeWorkDeferred(DaeNoStrictImprovement) => ()
+    _ => fail("expected unmigrated family to terminate as deferred")
+  }
+  assert_eq(diagnostics.boundaries_analyzed, 2)
+  assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateApplied), 1)
+  assert_eq(
+    dae_diagnostics_reason_count(diagnostics, DaeNoStrictImprovement),
+    1,
+  )
+}
+
+///|
+test "dae family dispatcher refreshes productive stale work and drops dead targets" {
+  let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  let stale = dae_work_item_new(
+    graph,
+    dependencies,
+    0,
+    DaeLocalizationRetryWork,
+  )
+  graph.module_epoch += 1
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      stale,
+      diagnostics,
+    ) {
+    DaeWorkRequeue(items) => {
+      assert_eq(items.length(), 1)
+      assert_eq(items[0].target_def, 0)
+      assert_eq(items[0].family, DaeLocalizationRetryWork)
+      assert_true(dae_work_item_epoch_is_current(graph, items[0]))
+    }
+    _ => fail("expected stale productive work to refresh")
+  }
+  let removed_target : DaeWorkItem = { ..stale, target_def: 99 }
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      removed_target,
+      diagnostics,
+    ) {
+    DaeWorkNoChange(DaeStaleCandidateFacts) => ()
+    _ => fail("expected stale removed target to terminate")
+  }
+  assert_eq(diagnostics.candidate_stale_retries, 1)
+  assert_eq(diagnostics.candidate_requeues, 1)
+}
+
+///|
 test "dae boundary worklist requeues invalidated dependencies deterministically" {
   let worklist = dae_boundary_worklist_all(4)
   assert_eq(dae_boundary_worklist_take(worklist), Some(0))
