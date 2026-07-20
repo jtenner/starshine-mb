@@ -11011,7 +11011,7 @@ test "dae-optimizing reaches low dropped-result callee after large descending bu
 }
 
 ///|
-test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
+test "dae-optimizing materializes pure exact-literal callees across definition ranges" {
   for
     target_def in [
       311, 408, 428, 538, 869, 1720, 1755, 1775, 1794, 2156, 3736, 4117, 4134, 4303,
@@ -11047,7 +11047,10 @@ test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
       ),
     )
     let optimized = dae_test_run(out.to_string())
-    @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+    assert_true(
+      dae_test_func_params(optimized, target_def).length() == 0,
+      msg="target_def=\{target_def}",
+    )
   }
 }
 

@@ -8692,6 +8692,31 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
+test "dae broad exact-literal seed recognizes pure single-parameter expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func)
+      #|  (func $pure (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func $trapping (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.div_s))
+      #|,
+    ),
+  )
+  assert_true(
+    dae_exact_literal_candidate_is_single_param_pure_expression(mod_, 1),
+  )
+  assert_false(
+    dae_exact_literal_candidate_is_single_param_pure_expression(mod_, 2),
+  )
+}
+
+///|
 test "dae shifted forwarding wrapper order is derived without definition identities" {
   let mod_ = pass_test_module_from_wat(
     (

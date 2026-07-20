@@ -34374,6 +34374,33 @@ fn dae_exact_literal_candidate_is_single_param_identity(
 }
 
 ///|
+fn dae_exact_literal_candidate_is_single_param_pure_expression(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Bool {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return false
+  }
+  match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+    Some(@lib.FuncType([_], [_])) => {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      locals.length() == 0 &&
+      body.length() == 3 &&
+      body[0] == @lib.Instruction::local_get(@lib.LocalIdx::new(0U)) &&
+      dae_instr_is_materializable_const(body[1]) &&
+      dae_instr_is_nontrapping_pure_binary(body[2])
+    }
+    _ => false
+  }
+}
+
+///|
 fn dae_exact_literal_candidate_has_scalar_constructor_shape(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -36771,6 +36798,9 @@ fn dae_run_broad_uniform_parameter_flow(
   let mut candidate_def = 0
   while candidate_def < defined && candidate_def < source_defined {
     if dae_exact_literal_candidate_is_single_param_identity(
+        candidate_source, candidate_def,
+      ) ||
+      dae_exact_literal_candidate_is_single_param_pure_expression(
         candidate_source, candidate_def,
       ) ||
       dae_exact_literal_candidate_has_scalar_constructor_shape(
@@ -39809,67 +39839,6 @@ fn dae_run_core(
   let literal_unread_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:literal-unread",
   )
-  for selected_unread_def in [505, 3799] {
-    if selected_unread_def >= 0 &&
-      selected_unread_def < selected_scratch_defs.length() {
-      selected_scratch_defs[selected_unread_def] = true
-      let selected_unread_call_facts = dae_collect_current_call_facts(
-        current, original_total,
-      )
-      let selected_unread = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-        current, selected_scratch_defs, selected_unread_call_facts,
-      )
-      selected_scratch_defs[selected_unread_def] = false
-      if selected_unread.changed {
-        current = selected_unread.mod_out
-        touched = dae_merge_touched(touched, selected_unread.touched)
-        trace(
-          "pass[dae-optimizing]:selected-unread-before-literals primary_def=\{selected_unread.primary_def}",
-        )
-        changed = true
-      }
-    }
-  }
-  for
-    mid_literal_def in [
-      267, 268, 287, 288, 311, 408, 428, 504, 505, 538, 869, 1777, 4206, 4368,
-    ] {
-    if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
-      selected_scratch_defs[mid_literal_def] = true
-      let mid_literal_call_facts = if mid_literal_def == 505 {
-        dae_collect_current_call_facts(current, original_total)
-      } else {
-        low_callee_call_facts
-      }
-      let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_scratch_defs, mid_literal_call_facts,
-      )
-      selected_scratch_defs[mid_literal_def] = false
-      if mid_literal_result.changed {
-        current = mid_literal_result.mod_out
-        touched = dae_merge_touched(touched, mid_literal_result.touched)
-        trace(
-          "pass[dae-optimizing]:mid-exact-literal primary_def=\{mid_literal_result.primary_def}",
-        )
-        changed = true
-      }
-    }
-  }
-  if 538 < selected_scratch_defs.length() {
-    selected_scratch_defs[538] = true
-    let selected_func538_unread = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, selected_scratch_defs, low_callee_call_facts,
-    )
-    selected_scratch_defs[538] = false
-    if selected_func538_unread.changed {
-      current = selected_func538_unread.mod_out
-      touched = dae_merge_touched(touched, selected_func538_unread.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func538-unread primary_def=\{selected_func538_unread.primary_def}",
-      )
-      changed = true
-    }
-  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:literal-unread", literal_unread_start_us,
   )
@@ -40028,27 +39997,6 @@ fn dae_run_core(
       changed = func260_fold_application.changed
     }
   }
-  for mid_global_literal_def in [313] {
-    if mid_global_literal_def >= 0 &&
-      mid_global_literal_def < selected_scratch_defs.length() {
-      selected_scratch_defs[mid_global_literal_def] = true
-      let mid_global_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current,
-        selected_scratch_defs,
-        low_callee_call_facts,
-        allow_immutable_global_get=true,
-      )
-      selected_scratch_defs[mid_global_literal_def] = false
-      if mid_global_literal_result.changed {
-        current = mid_global_literal_result.mod_out
-        touched = dae_merge_touched(touched, mid_global_literal_result.touched)
-        trace(
-          "pass[dae-optimizing]:mid-global-exact-literal primary_def=\{mid_global_literal_result.primary_def}",
-        )
-        changed = true
-      }
-    }
-  }
   if 313 < selected_scratch_defs.length() {
     let mut func313_arg_iter = 0
     while func313_arg_iter < 2 {
@@ -40100,32 +40048,6 @@ fn dae_run_core(
         "pass[dae-optimizing]:selected-func326-zero-actual primary_def=\{selected_func326_zero.primary_def}",
       )
       changed = true
-    }
-  }
-  for
-    high_literal_def in [
-      1720, 1755, 1775, 1794, 2156, 3736, 3799, 4117, 4134, 4303, 4320,
-    ] {
-    if high_literal_def >= 0 &&
-      high_literal_def < selected_scratch_defs.length() {
-      selected_scratch_defs[high_literal_def] = true
-      let high_literal_call_facts = if high_literal_def == 3799 {
-        dae_collect_current_call_facts(current, original_total)
-      } else {
-        low_callee_call_facts
-      }
-      let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_scratch_defs, high_literal_call_facts,
-      )
-      selected_scratch_defs[high_literal_def] = false
-      if high_literal_result.changed {
-        current = high_literal_result.mod_out
-        touched = dae_merge_touched(touched, high_literal_result.touched)
-        trace(
-          "pass[dae-optimizing]:high-exact-literal primary_def=\{high_literal_result.primary_def}",
-        )
-        changed = true
-      }
     }
   }
   perf_stop_timer_opt(
