@@ -52,7 +52,7 @@ The raw scan is preserved locally at `.tmp/dae-release-baseline-20260719/product
 | Func-288 local map | fixed 118-slot bitmap and explicit local-number groups | 2/4 | replace with generic liveness/coalescing evidence or remove the production rewrite |
 | Func-237 cleanup family | numerous `Func237`-named recognizers and repeated selected scheduling | 2/4 | extract generic control/local transforms into owning passes; retain Func237 only as a regression artifact |
 | Func-3737/3765 suffix bridge | exact definitions `3737/3765`, caller `281`, and hard-coded `i32.const 1024` helpers deleted | removed | generic forwarding/uniform and unread families already produce byte-identical artifact output; reopen only for a minimized exact dependency miss |
-| Definition-505 special cleanup switch | `def_idx == 505` | 2/4 | prove a generic result/control cleanup predicate or remove |
+| Definition-505 special cleanup switch | former `def_idx == 505` control-cleanup switch removed; branch-safe rewritten-control simplification now applies uniformly after validated parameter rewrites | removed | focused/full validation and byte-identical artifact output; reopen only for a minimized generic cleanup regression |
 | Zero-tee selected list | `215, 260, 261, 1137, 1978` | 2/4 | shared SimplifyLocals/vacuum ownership |
 
 No new production `FuncNNN` or fixed-definition gate may be added during DAE completion.

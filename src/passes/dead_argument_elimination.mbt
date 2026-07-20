@@ -15861,7 +15861,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         callee_evidence.kept_params.length(),
         rewritten_written_locals,
       ),
-      def_idx == 505,
+      true,
     ),
   )
   let callee_rewrite = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -17639,7 +17639,7 @@ fn dae_apply_removed_param_callee_rewrite(
         rewrite.kept_params.length(),
         rewritten_written_locals,
       ),
-      def_idx == 505,
+      true,
     ),
   )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
