@@ -39322,55 +39322,53 @@ fn dae_run_core(
   let dropped_result_selected_defs_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
-  if original_defined <= 8192 {
-    let mut fact_dropped_result_wave = 0
-    while true {
-      let fact_dropped_result_call_facts_start_us = perf_start_timer_opt(
-        perf, "detail:dae:core:selected-lanes:dropped-results:call-facts",
-      )
-      let fact_dropped_result_call_facts = dae_collect_current_call_facts(
-        current, original_total,
-      )
-      perf_stop_timer_opt(
-        perf, "detail:dae:core:selected-lanes:dropped-results:call-facts", fact_dropped_result_call_facts_start_us,
-      )
-      let selected = dae_collect_fact_dropped_result_candidate_defs(
-        current, fact_dropped_result_call_facts,
-      )
-      let candidate_defs : Array[Int] = []
-      if original_defined <= 4096 {
-        let mut def_idx = 0
-        while def_idx < selected.length() {
-          if selected[def_idx] {
-            candidate_defs.push(def_idx)
-          }
-          def_idx += 1
+  let mut fact_dropped_result_wave = 0
+  while true {
+    let fact_dropped_result_call_facts_start_us = perf_start_timer_opt(
+      perf, "detail:dae:core:selected-lanes:dropped-results:call-facts",
+    )
+    let fact_dropped_result_call_facts = dae_collect_current_call_facts(
+      current, original_total,
+    )
+    perf_stop_timer_opt(
+      perf, "detail:dae:core:selected-lanes:dropped-results:call-facts", fact_dropped_result_call_facts_start_us,
+    )
+    let selected = dae_collect_fact_dropped_result_candidate_defs(
+      current, fact_dropped_result_call_facts,
+    )
+    let candidate_defs : Array[Int] = []
+    if original_defined <= 4096 {
+      let mut def_idx = 0
+      while def_idx < selected.length() {
+        if selected[def_idx] {
+          candidate_defs.push(def_idx)
         }
-      } else {
-        let mut def_idx = selected.length() - 1
-        while def_idx >= 0 {
-          if selected[def_idx] {
-            candidate_defs.push(def_idx)
-          }
-          def_idx -= 1
+        def_idx += 1
+      }
+    } else {
+      let mut def_idx = selected.length() - 1
+      while def_idx >= 0 {
+        if selected[def_idx] {
+          candidate_defs.push(def_idx)
         }
+        def_idx -= 1
       }
-      let fact_dropped_result = dae_run_dropped_result_candidate_worklist_with_facts(
-        current, touched, changed, candidate_defs,
-      )
-      if fact_dropped_result.productive_defs.length() == 0 {
-        break
-      }
-      current = fact_dropped_result.mod_out
-      touched = fact_dropped_result.touched
-      changed = fact_dropped_result.changed
-      for primary_def in fact_dropped_result.productive_defs {
-        trace(
-          "pass[dae-optimizing]:fact-dropped-result wave=\{fact_dropped_result_wave} primary_def=\{primary_def}",
-        )
-      }
-      fact_dropped_result_wave += 1
     }
+    let fact_dropped_result = dae_run_dropped_result_candidate_worklist_with_facts(
+      current, touched, changed, candidate_defs,
+    )
+    if fact_dropped_result.productive_defs.length() == 0 {
+      break
+    }
+    current = fact_dropped_result.mod_out
+    touched = fact_dropped_result.touched
+    changed = fact_dropped_result.changed
+    for primary_def in fact_dropped_result.productive_defs {
+      trace(
+        "pass[dae-optimizing]:fact-dropped-result wave=\{fact_dropped_result_wave} primary_def=\{primary_def}",
+      )
+    }
+    fact_dropped_result_wave += 1
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs", dropped_result_selected_defs_start_us,

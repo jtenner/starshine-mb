@@ -70,7 +70,7 @@ No new production `FuncNNN` or fixed-definition gate may be added during DAE com
 | Immutable-global revisit | modules `<=4096`, first `4096`, `64` rewrites | 1 | module-size correctness bypass | dependency queue and cached global facts |
 | Large uniform constants | modules `>4096`, callee node count `>=64`, max `512` | 1/3 | useful prefilter, but cannot be the only correctness path | separate generic correctness queue from optional heavy-body profitability prioritization |
 | Low caller/callee bands | caller prefix `64`, shifted range `64..128`; limits `14` and `21` | 1 | artifact-derived scheduling | explicit caller/callee and forwarding dependencies |
-| Dropped-result dispatch | `<=4096 => 32`, `<=4608 => 14`, else `8`, disabled above `8192` | 1 | correctness/parity depends on module cardinality | result dependency worklist with current-fact requeue |
+| Dropped-result dispatch | productive caps and the `8192` disablement removed; ascending through `4096`, descending above it remains | 1/2 | work is generic and finite, but ordering still depends on module cardinality | derive ordering from result dependencies rather than definition count |
 | Selected const-if/body loops | bounds `2`, `4`, `8`, and other local fixpoint caps | 2/3 | acceptable only for local cleanup if omission is semantics-neutral; not acceptable for boundary correctness | move to owning pass; prove monotonic local rewrite or retain as optional profitability guard |
 | Nested touched-set skip | broad `touched_count > 8` remains; small call-free functions with any removed local now enter isolated nested cleanup instead of requiring `>=16` removed locals | 2/3 | exact semantic admission closes the former Func236 gap without violating one-wave frontier; broad chunked/filterable shared pipeline still required |
 | Nested function/module size skips | large function/local/control guards | 2/3/7 | some are validation safeguards, others broad performance proxies | classify each as correctness or performance; replace module-wide proxies with pass-local conservative bailouts |
@@ -88,7 +88,7 @@ The retained startup-map/debug artifact and historical Func-specific WAT/body fi
 
 ### Category 6: obsolete/unreachable candidates
 
-The dropped-result branch guarded by `original_defined > 8192` inside an enclosing `original_defined <=8192` block is unreachable and should be removed or restructured when the generic result worklist lands. Definition `3799` is documented historically as an unproductive selected entry yet remains in the selected unread list; it requires a focused no-production proof and deletion.
+The dropped-result `8192` disablement and its unreachable inner branch are removed; current-fact candidate waves now run at every module size. Definition `3799` is also gone from production with the selected unread list.
 
 ### Category 7: narrow boundaries
 
