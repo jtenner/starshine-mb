@@ -14759,6 +14759,66 @@ test "dae scalar rewrite plan handles imports multiple callers and repeated call
 }
 
 ///|
+test "dae boundary dependency graph records callers callees and self edges" {
+  let void_type = @lib.TypeIdx::new(0U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([void_type, void_type, void_type, void_type]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let graph = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  assert_eq(graph.callees_by_def, [[1, 2], [2], [2], []])
+  assert_eq(graph.callers_by_def, [[], [0], [0, 1, 2], []])
+  assert_eq(
+    dae_boundary_dependency_invalidations(
+      graph,
+      graph,
+      [false, true, false, false],
+      1,
+    ),
+    [0, 1, 2],
+  )
+}
+
+///|
+test "dae boundary worklist requeues invalidated dependencies deterministically" {
+  let worklist = dae_boundary_worklist_all(4)
+  assert_eq(dae_boundary_worklist_take(worklist), Some(0))
+  dae_boundary_worklist_requeue(worklist, [2, 0, 2, 3])
+  assert_eq(dae_boundary_worklist_take(worklist), Some(1))
+  assert_eq(dae_boundary_worklist_take(worklist), Some(2))
+  assert_eq(dae_boundary_worklist_take(worklist), Some(3))
+  assert_eq(dae_boundary_worklist_take(worklist), Some(0))
+  assert_eq(dae_boundary_worklist_take(worklist), None)
+}
+
+///|
 test "dae current boundary graph advances signature body and call epochs" {
   let void_type = @lib.TypeIdx::new(0U)
   let param_type = @lib.TypeIdx::new(1U)

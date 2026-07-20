@@ -97,7 +97,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-MODEL]001 - Replace parallel DAE facts with boundary candidates and epochs
 
 - **Owner:** `src/passes/dead_argument_elimination.mbt` analysis and scheduler layers.
-- **Status:** reason-coded decisions/counters, the coherent immutable original snapshot, and the mutable current boundary graph with module/call/signature/body epochs are implemented. The fixed core refreshes after each commit and rejects stale wave call facts; SCC dependencies, epoch-bearing plans across specialized phases, stale-plan requeue through one queue, and de-artifacted scheduling remain open.
+- **Status:** reason-coded decisions/counters, the coherent immutable original snapshot, and the mutable current boundary graph with module/call/signature/body epochs are implemented. The ordinary core now uses a deterministic uncapped caller/callee dependency worklist, refreshes after each commit, and requeues exact touched neighborhoods. SCC components, epoch-bearing plans across specialized phases, stale-plan requeue outside the scalar transaction, and de-artifacted later scheduling remain open.
 - **Goal:** preserve one immutable original boundary snapshot, one incrementally refreshed current boundary graph, explicit caller/callee/result dependencies, and deterministic candidate epochs.
 - **Reason:** current legality still flows through many parallel arrays and specialized phases; stale candidates and repeated scans prevent a correctness-independent worklist.
 - **Deliverables:** reason-coded decisions/counters; coherent original/current records; SCC/component graph; function/signature/body epochs; stale-plan rejection and requeue; no correctness-critical low/high/reverse bands.
@@ -119,6 +119,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-WORKLIST]001 - Remove selected definitions and arbitrary boundary caps
 
 - **Owner:** `dae_run_core(...)` and selected DAE/DAEO helpers.
+- **Status:** the ordinary core forward-wave scheduler and single-caller stop are replaced by an uncapped deterministic queue over current caller/callee invalidations. Computed/localized retries, constants, GC/results, SCC ordering, and selected artifact lanes still use separate arrays, bands, or caps.
 - **Goal:** replace production Func-number gates, fixed candidate bands, and correctness-affecting iteration caps with a dependency-driven worklist.
 - **Reason:** the baseline inventory still finds hard-coded chains, wrapper lists, dropped-result fallbacks, local maps, and `8/14/21/32/64/512` policies.
 - **Deliverables:** generic component and result queues; defensive fail-closed work budget only; selected-only and guard-skip counters; generic focused replacements for every retained artifact fixture; removal of obsolete/unreachable lanes.

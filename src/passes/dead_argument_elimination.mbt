@@ -1291,6 +1291,19 @@ priv struct DaeCurrentBoundaryGraph {
 }
 
 ///|
+priv struct DaeBoundaryDependencyGraph {
+  callers_by_def : Array[Array[Int]]
+  callees_by_def : Array[Array[Int]]
+}
+
+///|
+priv struct DaeBoundaryWorklist {
+  queue : Array[Int]
+  queued : Array[Bool]
+  mut cursor : Int
+}
+
+///|
 priv enum DaeParameterAction {
   DaeKeepParameter
   DaeRemoveParameter
@@ -1933,6 +1946,140 @@ fn dae_current_boundary_graph_refresh(
     graph.module_epoch += 1
   }
   graph.snapshot = next
+}
+
+///|
+fn dae_boundary_dependency_graph_new(
+  graph : DaeCurrentBoundaryGraph,
+) -> DaeBoundaryDependencyGraph {
+  let imported = graph.snapshot.imported
+  let defined = graph.snapshot.defined
+  let callers_by_def : Array[Array[Int]] = []
+  let callees_by_def : Array[Array[Int]] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    callers_by_def.push([])
+    callees_by_def.push([])
+    def_idx += 1
+  }
+  let direct_callers = graph.snapshot.call_facts.direct_callers
+  let mut callee_def = 0
+  while callee_def < defined {
+    let callee_abs = imported + callee_def
+    if callee_abs >= 0 && callee_abs < direct_callers.length() {
+      for caller_def in direct_callers[callee_abs] {
+        if caller_def >= 0 && caller_def < defined {
+          if !callers_by_def[callee_def].contains(caller_def) {
+            callers_by_def[callee_def].push(caller_def)
+          }
+          if !callees_by_def[caller_def].contains(callee_def) {
+            callees_by_def[caller_def].push(callee_def)
+          }
+        }
+      }
+    }
+    callee_def += 1
+  }
+  { callers_by_def, callees_by_def }
+}
+
+///|
+fn dae_boundary_dependency_invalidations(
+  before : DaeBoundaryDependencyGraph,
+  after : DaeBoundaryDependencyGraph,
+  touched : Array[Bool],
+  primary_def : Int,
+) -> Array[Int] {
+  let defined = if before.callers_by_def.length() >
+    after.callers_by_def.length() {
+    before.callers_by_def.length()
+  } else {
+    after.callers_by_def.length()
+  }
+  let invalidated = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < defined {
+    let is_touched = def_idx == primary_def ||
+      (def_idx < touched.length() && touched[def_idx])
+    if is_touched {
+      invalidated[def_idx] = true
+      if def_idx < before.callers_by_def.length() {
+        for dependency in before.callers_by_def[def_idx] {
+          if dependency >= 0 && dependency < defined {
+            invalidated[dependency] = true
+          }
+        }
+        for dependency in before.callees_by_def[def_idx] {
+          if dependency >= 0 && dependency < defined {
+            invalidated[dependency] = true
+          }
+        }
+      }
+      if def_idx < after.callers_by_def.length() {
+        for dependency in after.callers_by_def[def_idx] {
+          if dependency >= 0 && dependency < defined {
+            invalidated[dependency] = true
+          }
+        }
+        for dependency in after.callees_by_def[def_idx] {
+          if dependency >= 0 && dependency < defined {
+            invalidated[dependency] = true
+          }
+        }
+      }
+    }
+    def_idx += 1
+  }
+  let out : Array[Int] = []
+  def_idx = 0
+  while def_idx < defined {
+    if invalidated[def_idx] {
+      out.push(def_idx)
+    }
+    def_idx += 1
+  }
+  out
+}
+
+///|
+fn dae_boundary_worklist_all(defined : Int) -> DaeBoundaryWorklist {
+  let queue : Array[Int] = []
+  let queued = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < defined {
+    queue.push(def_idx)
+    queued[def_idx] = true
+    def_idx += 1
+  }
+  { queue, queued, cursor: 0 }
+}
+
+///|
+fn dae_boundary_worklist_take(worklist : DaeBoundaryWorklist) -> Int? {
+  if worklist.cursor >= worklist.queue.length() {
+    return None
+  }
+  let def_idx = worklist.queue[worklist.cursor]
+  worklist.cursor += 1
+  if def_idx >= 0 && def_idx < worklist.queued.length() {
+    worklist.queued[def_idx] = false
+  }
+  Some(def_idx)
+}
+
+///|
+fn dae_boundary_worklist_requeue(
+  worklist : DaeBoundaryWorklist,
+  defs : Array[Int],
+) -> Unit {
+  for def_idx in defs {
+    if def_idx >= 0 &&
+      def_idx < worklist.queued.length() &&
+      !worklist.queued[def_idx] {
+      worklist.queue.push(def_idx)
+      worklist.queued[def_idx] = true
+    }
+  }
 }
 
 ///|
@@ -37212,110 +37359,81 @@ fn dae_run_core(
     perf, "detail:dae:core:fixed-loop",
   )
   let mut iter = 0
-  // No caller in the fixed core loop marks defs as already rewritten between
-  // scans; an empty skip bitmap is equivalent to a freshly allocated all-false
-  // defined-sized bitmap and avoids per-iteration large-module allocation churn.
-  // Binaryen applies every currently profitable boundary in one iteration and
-  // then rescans only to discover caller/callee convergence. Reuse one complete
-  // direct-call snapshot across each forward wave instead of rescanning the
-  // whole module after every individual signature transaction.
+  // Boundary availability is monotonic under the core's signature/result
+  // reductions, but it is not definition-order local: rewriting one boundary
+  // can expose work in its callers, callees, or itself. Seed every definition
+  // once, then requeue only the dependency neighborhood invalidated by a
+  // committed transaction. Queue membership prevents duplicate pending work;
+  // termination follows from an empty queue rather than an iteration budget.
   let no_already_rewritten_defs : Array[Bool] = []
-  let mut core_converged = false
-  let mut unprofitable_removal_iters = 0
-  while !core_converged {
-    let wave_call_epoch = current_boundary_graph.call_epoch
-    let wave_call_facts = current_boundary_graph.snapshot.call_facts
-    let wave_boundary_facts = current_boundary_graph.snapshot.boundary_facts
-    let wave_call_counts_anywhere = match current.code_sec {
+  let core_worklist = dae_boundary_worklist_all(original_defined)
+  let mut current_dependencies = dae_boundary_dependency_graph_new(
+    current_boundary_graph,
+  )
+  let mut current_call_counts_anywhere = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      dae_collect_module_call_counts_anywhere(
+        funcs, original_imported, original_defined,
+      )
+    None => Array::make(original_defined, 0)
+  }
+  while true {
+    let def_idx = match dae_boundary_worklist_take(core_worklist) {
+      Some(value) => value
+      None => break
+    }
+    let before_dependencies = current_dependencies
+    let call_epoch = current_boundary_graph.call_epoch
+    let boundary_facts = current_boundary_graph.snapshot.boundary_facts
+    let result = dae_run_core_once(
+      current,
+      no_already_rewritten_defs,
+      current_call_counts_anywhere,
+      optimize,
+      false,
+      original_boundary_snapshot,
+      current_boundary_graph,
+      expected_call_epoch=call_epoch,
+      max_def_exclusive=def_idx + 1,
+      start_def_inclusive=def_idx,
+      boundary_facts_override=Some(boundary_facts),
+    )
+    let application = dae_apply_core_result(current, touched, changed, result)
+    if !application.applied {
+      continue
+    }
+    dae_current_boundary_graph_refresh(
+      current_boundary_graph,
+      application.mod_out,
+    )
+    let after_dependencies = dae_boundary_dependency_graph_new(
+      current_boundary_graph,
+    )
+    let invalidated = dae_boundary_dependency_invalidations(
+      before_dependencies,
+      after_dependencies,
+      application.touched,
+      application.primary_def,
+    )
+    current_dependencies = after_dependencies
+    current = application.mod_out
+    touched = application.touched
+    changed = application.changed
+    current_call_counts_anywhere = match current.code_sec {
       Some(@lib.CodeSec(funcs)) =>
         dae_collect_module_call_counts_anywhere(
           funcs, original_imported, original_defined,
         )
       None => Array::make(original_defined, 0)
     }
-    let mut next_def = 0
-    let mut wave_changed = false
-    let mut wave_param_removals = 0
-    let mut wave_single_caller_param_removals = 0
-    while next_def < original_defined {
-      let result = dae_run_core_once(
-        current,
-        no_already_rewritten_defs,
-        wave_call_counts_anywhere,
-        optimize,
-        unprofitable_removal_iters > 0,
-        original_boundary_snapshot,
-        current_boundary_graph,
-        expected_call_epoch=wave_call_epoch,
-        start_def_inclusive=next_def,
-        boundary_facts_override=Some(wave_boundary_facts),
-      )
-      let before_primary_param_count = if result.primary_def >= 0 {
-        let before_type_indices = dae_collect_func_type_indices(current)
-        match
-          dae_resolve_func_type(
-            current,
-            before_type_indices,
-            original_imported + result.primary_def,
-          ) {
-          Some(@lib.FuncType(params, _)) => params.length()
-          None => -1
-        }
-      } else {
-        -1
-      }
-      let application = dae_apply_core_result(current, touched, changed, result)
-      if !application.applied {
-        break
-      }
-      if application.primary_def >= 0 && before_primary_param_count >= 0 {
-        let after_type_indices = dae_collect_func_type_indices(
-          application.mod_out,
-        )
-        let after_param_count = match
-          dae_resolve_func_type(
-            application.mod_out,
-            after_type_indices,
-            original_imported + application.primary_def,
-          ) {
-          Some(@lib.FuncType(params, _)) => params.length()
-          None => before_primary_param_count
-        }
-        if after_param_count < before_primary_param_count {
-          wave_param_removals += 1
-          let callee_abs = original_imported + application.primary_def
-          if callee_abs >= 0 &&
-            callee_abs < wave_call_facts.direct_calls.length() &&
-            wave_call_facts.direct_calls[callee_abs] == 1 {
-            wave_single_caller_param_removals += 1
-          }
-        }
-      }
-      dae_current_boundary_graph_refresh(
-        current_boundary_graph,
-        application.mod_out,
-      )
-      current = application.mod_out
-      touched = application.touched
-      changed = application.changed
-      wave_changed = true
-      trace(
-        "pass[dae-optimizing]:core iter=\{iter} primary_def=\{application.primary_def}",
-      )
-      iter += 1
-      next_def = application.primary_def + 1
-    }
-    let unprofitable_param_wave = wave_param_removals == 1 &&
-      wave_single_caller_param_removals == 1
-    if unprofitable_param_wave && unprofitable_removal_iters == 0 {
-      unprofitable_removal_iters += 1
-      trace(
-        "pass[dae-optimizing]:core skip=further-param-removal unprofitable_iters=\{unprofitable_removal_iters} removals=1 single_callers=1",
-      )
-    }
-    core_converged = !wave_changed
+    dae_boundary_worklist_requeue(core_worklist, invalidated)
+    trace(
+      "pass[dae-optimizing]:core-worklist iter=\{iter} primary_def=\{application.primary_def}",
+    )
+    iter += 1
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
+  let unprofitable_removal_iters = 0
   if optimize && original_defined < 1024 {
     // The ordinary fixed loop intentionally uses the strict value slicer.
     // Retry private unread-parameter boundaries only after it converges, using

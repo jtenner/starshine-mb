@@ -6897,11 +6897,11 @@ test "dae-optimizing core converges beyond the former eight-rewrite cap" {
     }
   }
   @debug.assert_eq(core_trace, [
-    "pass[dae-optimizing]:core iter=0 primary_def=0", "pass[dae-optimizing]:core iter=1 primary_def=1",
-    "pass[dae-optimizing]:core iter=2 primary_def=2", "pass[dae-optimizing]:core iter=3 primary_def=3",
-    "pass[dae-optimizing]:core iter=4 primary_def=4", "pass[dae-optimizing]:core iter=5 primary_def=5",
-    "pass[dae-optimizing]:core iter=6 primary_def=6", "pass[dae-optimizing]:core iter=7 primary_def=7",
-    "pass[dae-optimizing]:core iter=8 primary_def=8", "pass[dae-optimizing]:core iter=9 primary_def=9",
+    "pass[dae-optimizing]:core-worklist iter=0 primary_def=0", "pass[dae-optimizing]:core-worklist iter=1 primary_def=1",
+    "pass[dae-optimizing]:core-worklist iter=2 primary_def=2", "pass[dae-optimizing]:core-worklist iter=3 primary_def=3",
+    "pass[dae-optimizing]:core-worklist iter=4 primary_def=4", "pass[dae-optimizing]:core-worklist iter=5 primary_def=5",
+    "pass[dae-optimizing]:core-worklist iter=6 primary_def=6", "pass[dae-optimizing]:core-worklist iter=7 primary_def=7",
+    "pass[dae-optimizing]:core-worklist iter=8 primary_def=8", "pass[dae-optimizing]:core-worklist iter=9 primary_def=9",
   ])
   @debug.assert_eq(reverse_trace, [])
 }
@@ -7303,7 +7303,7 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
     }
     assert_true(
       trace.contains(
-        "pass[dae-optimizing]:core iter=8 primary_def=\{boundary_def + 1}",
+        "pass[dae-optimizing]:core-worklist iter=8 primary_def=\{boundary_def + 1}",
       ),
       msg=trace.to_string(),
     )
@@ -11713,7 +11713,7 @@ test "dae-optimizing materializes forwarded const actuals before a reverse-starv
     Err(err) => fail("expected traced DAE success, got \{err}")
   }
   assert_true(
-    trace.contains("pass[dae-optimizing]:core iter=6 primary_def=6"),
+    trace.contains("pass[dae-optimizing]:core-worklist iter=6 primary_def=6"),
     msg=trace.to_string(),
   )
 }
@@ -17825,7 +17825,7 @@ test "dae-optimizing rejects a conflicting forwarded-parameter cycle transaction
 }
 
 ///|
-test "dae-optimizing matches Binaryen's one-wave written forwarding cleanup" {
+test "dae-optimizing worklist removes a newly unread written forwarding param" {
   let source =
     #|(module
     #|  (func (export "run") (result i32)
@@ -17841,8 +17841,12 @@ test "dae-optimizing matches Binaryen's one-wave written forwarding cleanup" {
     #|    local.get 0
     #|    call $a))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected converged written-forwarding output, got \{err}")
+  }
 }
 
 ///|
