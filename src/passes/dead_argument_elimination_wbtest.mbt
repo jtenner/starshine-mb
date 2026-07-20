@@ -15120,6 +15120,42 @@ test "dae component rewrite plan validation failure restores the complete module
 }
 
 ///|
+test "dae family dispatcher commits a forwarding component atomically" {
+  let mod_ = dae_forwarded_component_plan_fixture()
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  let forwarding = dae_work_item_new(graph, dependencies, 0, DaeForwardingWork)
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      forwarding,
+      diagnostics,
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_true(application.applied)
+      assert_true(application.changed)
+      assert_eq(application.primary_def, 0)
+      assert_true(application.touched[0])
+      assert_true(application.touched[1])
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) =>
+          fail("expected valid forwarding dispatch commit, got \{err}")
+      }
+    }
+    _ => fail("expected forwarding family to commit its complete component")
+  }
+  assert_eq(diagnostics.candidates_applied, 1)
+}
+
+///|
 test "dae family dispatcher commits unread parameter work and terminates no-op families" {
   let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
   let original = dae_collect_original_boundary_snapshot(mod_)

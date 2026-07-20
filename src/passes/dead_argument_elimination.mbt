@@ -2541,6 +2541,34 @@ fn dae_process_work_item(
       dae_work_item_new(graph, dependencies, item.target_def, item.family),
     ])
   }
+  if item.family == DaeForwardingWork {
+    let component_members = if item.component_id >= 0 &&
+      item.component_id < dependencies.component_members.length() {
+      dependencies.component_members[item.component_id]
+    } else {
+      []
+    }
+    match
+      dae_run_forwarded_param_component_transaction_with_graph(
+        current, touched, component_members, graph, dependencies,
+      ) {
+      Some(candidate) => {
+        diagnostics.candidates_applied += 1
+        dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+        return DaeWorkCommitted({
+          mod_out: candidate.mod_out,
+          touched: dae_merge_touched(touched, candidate.touched),
+          changed: true,
+          applied: true,
+          primary_def: item.target_def,
+        })
+      }
+      None => {
+        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+        return DaeWorkNoChange(DaeNoStrictImprovement)
+      }
+    }
+  }
   let result = match item.family {
     DaeUnusedParameterWork | DaeLocalizationRetryWork =>
       Some(
@@ -2554,13 +2582,13 @@ fn dae_process_work_item(
         ),
       )
     DaeUniformActualWork
-    | DaeForwardingWork
     | DaeGcParameterRefinementWork
     | DaeGcResultRefinementWork
     | DaeDroppedResultWork
     | DaeControlReconstructionWork
     | DaeTypeRepairRetryWork
     | DaePostCleanupBoundaryRevisitWork => None
+    DaeForwardingWork => None
   }
   match result {
     None => {
@@ -35585,17 +35613,17 @@ fn dae_apply_component_rewrite_plan(
 }
 
 ///|
-fn dae_run_forwarded_param_component_transaction(
+fn dae_run_forwarded_param_component_transaction_with_graph(
   current : @lib.Module,
   touched : Array[Bool],
   cycle_defs : Array[Int],
+  graph : DaeCurrentBoundaryGraph,
+  dependencies : DaeBoundaryDependencyGraph,
 ) -> DaeForwardedParamSccApplication? {
   if cycle_defs.length() < 2 {
     return None
   }
   let total = dae_imported_func_count(current) + dae_defined_func_count(current)
-  let graph = dae_current_boundary_graph_new(current)
-  let dependencies = dae_boundary_dependency_graph_new(graph)
   let boundary_facts = graph.snapshot.boundary_facts
   let nodes = dae_collect_forwarded_param_component(
     current,
@@ -35644,6 +35672,19 @@ fn dae_run_forwarded_param_component_transaction(
     defs: application.defs,
     param_count: application.param_count,
   })
+}
+
+///|
+fn dae_run_forwarded_param_component_transaction(
+  current : @lib.Module,
+  touched : Array[Bool],
+  cycle_defs : Array[Int],
+) -> DaeForwardedParamSccApplication? {
+  let graph = dae_current_boundary_graph_new(current)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  dae_run_forwarded_param_component_transaction_with_graph(
+    current, touched, cycle_defs, graph, dependencies,
+  )
 }
 
 ///|
