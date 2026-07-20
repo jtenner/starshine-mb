@@ -39460,37 +39460,6 @@ fn dae_run_core(
       func313_arg_iter += 1
     }
   }
-  if 288 < selected_scratch_defs.length() {
-    selected_scratch_defs[288] = true
-    let selected_func288_carriers = dae_try_compact_selected_func288_switch_carriers_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[288] = false
-    if selected_func288_carriers.changed {
-      current = selected_func288_carriers.mod_out
-      touched = dae_merge_touched(touched, selected_func288_carriers.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func288-switch-carriers primary_def=\{selected_func288_carriers.primary_def}",
-      )
-      changed = true
-    }
-    selected_scratch_defs[288] = true
-    let selected_func288_return_wrapper = dae_try_flatten_selected_func288_return_wrapper_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[288] = false
-    if selected_func288_return_wrapper.changed {
-      current = selected_func288_return_wrapper.mod_out
-      touched = dae_merge_touched(
-        touched,
-        selected_func288_return_wrapper.touched,
-      )
-      trace(
-        "pass[dae-optimizing]:selected-func288-return-wrapper primary_def=\{selected_func288_return_wrapper.primary_def}",
-      )
-      changed = true
-    }
-  }
   if 313 < selected_scratch_defs.length() {
     let mut func313_arg_iter = 0
     while func313_arg_iter < 2 {

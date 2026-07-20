@@ -9066,7 +9066,7 @@ test "dae-optimizing compacts selected Func287 setup locals after default remova
 }
 
 ///|
-test "dae-optimizing compacts selected Func288 switch carrier locals" {
+test "dae-optimizing preserves exported Func288 switch carriers like Binaryen" {
   let caller_def = 288
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -9099,20 +9099,17 @@ test "dae-optimizing compacts selected Func288 switch carrier locals" {
     caller_def.reinterpret_as_uint(),
   )
   let @lib.Func(locals, _) = dae_test_defined_func(optimized, caller_def)
-  @debug.assert_eq(locals.length(), 3)
-  assert_false(caller.contains("nop"), msg=caller)
-  assert_false(caller.contains("(Local 14)"), msg=caller)
-  assert_false(caller.contains("(Local 15)"), msg=caller)
-  assert_false(caller.contains("(Local 76)"), msg=caller)
-  assert_false(caller.contains("(Local 91)"), msg=caller)
-  assert_false(caller.contains("offset=U64(8)"), msg=caller)
-  assert_true(caller.contains("i32.const I32(8)"), msg=caller)
-  assert_true(caller.contains("(local.set (Local 0))"), msg=caller)
-  assert_true(caller.contains("(local.set (Local 1))"), msg=caller)
+  @debug.assert_eq(locals.length(), 118)
+  assert_true(caller.contains("nop"), msg=caller)
+  assert_true(caller.contains("(Local 14)"), msg=caller)
+  assert_true(caller.contains("(Local 15)"), msg=caller)
+  assert_true(caller.contains("(Local 76)"), msg=caller)
+  assert_true(caller.contains("(Local 91)"), msg=caller)
+  assert_true(caller.contains("offset=U64(8)"), msg=caller)
 }
 
 ///|
-test "dae-optimizing flattens selected Func288 return result wrapper" {
+test "dae-optimizing preserves exported Func288 return wrapper like Binaryen" {
   let caller_def = 288
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -9138,9 +9135,8 @@ test "dae-optimizing flattens selected Func288 return result wrapper" {
   let caller = optimized.pretty_print_defined_func(
     caller_def.reinterpret_as_uint(),
   )
-  assert_false(caller.contains("(return\n    (block"), msg=caller)
-  assert_false(caller.contains("(br (Label 2))"), msg=caller)
-  assert_true(caller.contains("(br (Label 1))"), msg=caller)
+  assert_true(caller.contains("(block I32"), msg=caller)
+  assert_true(caller.contains("(br (Label 2))"), msg=caller)
   assert_true(caller.contains("return"), msg=caller)
 }
 
