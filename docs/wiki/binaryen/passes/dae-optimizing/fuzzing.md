@@ -137,6 +137,19 @@ For each lane report requested/compared counts, normalized and cleanup-normalize
 
 ## Fresh current evidence
 
+The July 20, 2026 Binaryen-v131 direct closeout uses native Starshine SHA-256 `95daa8811dceffee74da3082cfb765e17b2d7497db27aa54090ccb94fce42e8c` and explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
+
+| lane | requested / compared | exact | cleanup-normalized | residuals | failures |
+|---|---:|---:|---:|---:|---:|
+| regular GenValid | `100000 / 100000` | `100000` | `0` | `0` | `0` |
+| dedicated `dae-optimizing` | `10000 / 10000` | `6365` | `0` | `3635` classified Starshine wins | `0` |
+| explicit wasm-smith | `10000 / 9956` | `9955` | `1` | `0` | `44` Binaryen-only tool failures |
+| random-all | `10000 / 10000` | `9243` | `62` | `695` classified Starshine wins | `0` |
+
+Dedicated residuals are exactly five generated families: immutable field `931`, computed effects `886`, forwarded suffix `634`, touched caller `595`, and table effects `589`. Every canonical wasm output is smaller for Starshine; aggregate canonical delta is `-33,568` bytes, with no equal-size or size-losing case.
+
+Random-all residuals are coverage-forced-portable `174`, precompute-propagate local facts `106`, DAE effectful args `88`, computed effects `74`, immutable field `58`, forwarded suffix `54`, table effects `52`, touched caller `49`, and localization `40`. Every residual is canonically smaller for Starshine; aggregate canonical delta is `-603,405` bytes. The `44` wasm-smith command failures are entirely Binaryen-v131 oracle failures: rec-group-zero `39`, invalid tag index `1`, table index out of range `1`, and bad section size `3`. There are zero Starshine validation, generator, property, command, size-losing, unknown/risky, or true-semantic residuals. Artifacts are under `.tmp/dae-v131-closeout-*20260720/` and remain local.
+
 Research note [`1654`](../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md) adds a focused Binaryen-v131 exact regression for active uniform actual `7` plus inactive conflicting actual `8`; both tools remove the parameter and emit the same `call; unreachable` shape. Direct Starshine execution over the first `128` targeted inputs completes without command stderr or per-case timeout. Two outer-time-limited compare attempts stopped at `95` compared cases with `72` matches, `23` prior-family differences, and zero reported failures; those partial runs are diagnostic and do not replace the complete lane below.
 
 Research note [`1653`](../../../raw/research/1653-2026-07-19-daeo-unified-call-facts-tail-boundaries-and-filtered-validation.md) is the current complete targeted Binaryen-v131 checkpoint. It adds unified stable callsite/function facts, repairs direct tail-callee ownership, extends incoming-value liveness through restricted call-free `try_table` exceptional edges, and batches touched HOT candidate-context validation with independent invalid-function rollback. The current lane is `.tmp/pass-fuzz-daeo-unified-tail-eh-filtered-v131-1024-20260719`:

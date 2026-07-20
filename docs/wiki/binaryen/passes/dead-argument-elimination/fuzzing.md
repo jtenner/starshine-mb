@@ -80,7 +80,22 @@ Optimizing sibling dedicated-profile smoke with DAE cleanup normalizers:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --gen-valid-profile dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing-profile-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
 ```
 
-Closeout still requires the full pass matrix from [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md): regular GenValid `100000`, explicit `--wasm-smith` `10000`, dedicated DAE profile `10000`, and random all-profiles `10000`, with direct DAE and `dae-optimizing` reported separately.
+Closeout requires the full pass matrix from [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md): regular GenValid `100000`, explicit `--wasm-smith` `10000`, dedicated DAE profile `10000`, and random all-profiles `10000`, with direct DAE and `dae-optimizing` reported separately.
+
+## July 20, 2026 Binaryen-v131 closeout
+
+The current direct plain-DAE matrix uses native Starshine SHA-256 `95daa8811dceffee74da3082cfb765e17b2d7497db27aa54090ccb94fce42e8c` and explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
+
+| lane | requested / compared | exact | cleanup-normalized | residuals | failures |
+|---|---:|---:|---:|---:|---:|
+| regular GenValid | `100000 / 100000` | `100000` | `0` | `0` | `0` |
+| dedicated `dead-argument-elimination` | `10000 / 10000` | `5000` | `0` | `5000` classified Starshine wins | `0` |
+| explicit wasm-smith | `10000 / 9956` | `9956` | `0` | `0` | `44` Binaryen-only tool failures |
+| random-all | `10000 / 10000` | `8521` | `62` | `1417` classified Starshine wins | `0` |
+
+Dedicated residuals are exactly unused params `1875`, constant args `1875`, tail-call boundary `625`, and convergence `625`. Every canonical wasm output is smaller for Starshine; aggregate canonical delta is `-18,750` bytes.
+
+Random-all has `1320` canonically smaller residuals and `97` equal-canonical-size residuals. The equal-size set is exactly optimizing return cleanup `53` plus structured locals `44`; every one removes at least one redundant local declaration without increasing canonical size. Across all `1417` residuals the canonical delta is `-905,956` bytes, and no case is larger for Starshine. The `44` wasm-smith command failures are entirely Binaryen-v131 oracle failures: rec-group-zero `39`, invalid tag index `1`, table index out of range `1`, and bad section size `3`. There are zero Starshine validation, generator, property, command, size-losing, unknown/risky, or true-semantic residuals. Artifacts are under `.tmp/dae-v131-closeout-plain-*20260720/` and remain local.
 
 ## Current blockers
 
