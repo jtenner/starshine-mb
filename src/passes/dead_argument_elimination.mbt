@@ -39457,19 +39457,6 @@ fn dae_run_core(
       )
       changed = true
     }
-    selected_scratch_defs[408] = true
-    let selected_func408_nops = dae_try_remove_selected_nops_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[408] = false
-    if selected_func408_nops.changed {
-      current = selected_func408_nops.mod_out
-      touched = dae_merge_touched(touched, selected_func408_nops.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func408-nops primary_def=\{selected_func408_nops.primary_def}",
-      )
-      changed = true
-    }
   }
   if 311 < selected_scratch_defs.length() {
     let mut func311_arg_iter = 0

@@ -11136,7 +11136,7 @@ test "dae-optimizing reshapes selected Func408 pair-if carrier" {
 }
 
 ///|
-test "dae-optimizing removes selected Func408 nops" {
+test "dae-optimizing preserves Binaryen nops without a DAE boundary change" {
   let target_def = 408
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -11170,7 +11170,7 @@ test "dae-optimizing removes selected Func408 nops" {
   let target = optimized.pretty_print_defined_func(
     target_def.reinterpret_as_uint(),
   )
-  assert_false(target.contains("nop"), msg=target)
+  assert_true(target.contains("nop"), msg=target)
 }
 
 ///|
