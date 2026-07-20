@@ -32603,7 +32603,7 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
     let mut rewritten = folded_consts
     let mut changed = const_changed
     let mut swap_iter = 0
-    while swap_iter < 4 {
+    while true {
       match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
         Some(next) => {
           rewritten = next
@@ -32636,7 +32636,7 @@ fn dae_try_rewrite_selected_func311_terminal_call_args_once(
         }
     }
     let mut const_local_iter = 0
-    while const_local_iter < 4 {
+    while true {
       match
         dae_try_inline_i32_const_local_set_instrs_once(rewritten, param_count) {
         Some(next) => {
@@ -32860,7 +32860,7 @@ fn dae_try_rewrite_selected_func313_terminal_call_args_once(
     let mut rewritten = folded_consts
     let mut changed = const_changed
     let mut swap_iter = 0
-    while swap_iter < 9 {
+    while true {
       match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
         Some(next) => {
           rewritten = next
