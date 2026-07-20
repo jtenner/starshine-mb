@@ -39405,20 +39405,17 @@ fn dae_run_core(
     changed = true
     const_local_iteration += 1
   }
-  if 408 < selected_scratch_defs.length() {
-    selected_scratch_defs[408] = true
-    let selected_func408_pair_if = dae_try_rewrite_selected_func408_pair_if_carrier_once(
-      current, selected_scratch_defs,
+  let pair_if_candidates = touched.copy()
+  let pair_if_result = dae_try_rewrite_selected_func408_pair_if_carrier_once(
+    current, pair_if_candidates,
+  )
+  if pair_if_result.changed {
+    current = pair_if_result.mod_out
+    touched = dae_merge_touched(touched, pair_if_result.touched)
+    trace(
+      "pass[dae-optimizing]:touched-pair-if-carrier primary_def=\{pair_if_result.primary_def}",
     )
-    selected_scratch_defs[408] = false
-    if selected_func408_pair_if.changed {
-      current = selected_func408_pair_if.mod_out
-      touched = dae_merge_touched(touched, selected_func408_pair_if.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func408-pair-if-carrier primary_def=\{selected_func408_pair_if.primary_def}",
-      )
-      changed = true
-    }
+    changed = true
   }
   if 311 < selected_scratch_defs.length() {
     let mut func311_arg_iter = 0

@@ -11071,8 +11071,8 @@ test "dae-optimizing inlines selected Func408 single-use const local" {
 }
 
 ///|
-test "dae-optimizing reshapes selected Func408 pair-if carrier" {
-  let target_def = 408
+test "dae-optimizing reshapes a touched pair-if carrier at an arbitrary definition" {
+  let target_def = 709
   let out = StringBuilder::new()
   out.write_string("(module\n")
   for i = 0; i < target_def; i = i + 1 {
