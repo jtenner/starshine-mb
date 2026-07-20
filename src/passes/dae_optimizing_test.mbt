@@ -8403,9 +8403,9 @@ test "dae-optimizing materializes selected Func260 helper exact literals" {
 }
 
 ///|
-test "dae-optimizing folds selected Func327 const-if before Func328 default args" {
-  let caller_def = 327
-  let target_def = 328
+test "dae-optimizing folds a changed terminal caller before default args" {
+  let caller_def = 727
+  let target_def = 728
   let out = StringBuilder::new()
   out.write_string("(module\n")
   for i = 0; i < caller_def; i = i + 1 {
@@ -8470,8 +8470,8 @@ test "dae-optimizing folds selected Func327 const-if before Func328 default args
 }
 
 ///|
-test "dae-optimizing lowers selected Func327 pure default wrappers to selects" {
-  let caller_def = 327
+test "dae-optimizing lowers changed pure default wrappers to selects" {
+  let caller_def = 727
   let out = StringBuilder::new()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < caller_def; i = i + 1 {

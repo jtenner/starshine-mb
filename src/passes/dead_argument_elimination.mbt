@@ -38074,6 +38074,51 @@ fn dae_try_fold_selected_i64_sentinel_wrap_ifs_once(
 }
 
 ///|
+fn dae_collect_terminal_callers_of_changed_boundaries(
+  original : @lib.Module,
+  current : @lib.Module,
+) -> Array[Bool] {
+  let original_type_indices = dae_collect_func_type_indices(original)
+  let current_type_indices = dae_collect_func_type_indices(current)
+  let current_funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let selected = Array::make(current_funcs.length(), false)
+  let mut def_idx = 0
+  while def_idx < current_funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = current_funcs[def_idx]
+    if body.length() > 0 {
+      match body[body.length() - 1] {
+        @lib.Call(target_idx) => {
+          let target_abs = dae_func_idx_slot(target_idx)
+          let boundary_changed = match
+            (
+              dae_resolve_func_type(original, original_type_indices, target_abs),
+              dae_resolve_func_type(current, current_type_indices, target_abs),
+            ) {
+            (
+              Some(@lib.FuncType(original_params, original_results)),
+              Some(@lib.FuncType(current_params, current_results)),
+            ) =>
+              original_params != current_params ||
+              original_results != current_results
+            _ => false
+          }
+          let (_, has_constant_if) = dae_fold_const_i32_eq_if_instrs_once(body)
+          if boundary_changed || has_constant_if {
+            selected[def_idx] = true
+          }
+        }
+        _ => ()
+      }
+    }
+    def_idx += 1
+  }
+  selected
+}
+
+///|
 fn dae_try_inline_selected_terminal_call_local_sets_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -38325,108 +38370,86 @@ fn dae_try_cleanup_selected_func327_default_wrappers_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
 ) -> DaePassResult {
-  let def_idx = 327
-  if def_idx >= selected_defs.length() || !selected_defs[def_idx] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let (funcs, func_type) = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) if def_idx < funcs.length() =>
-      match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
-        Some(func_type) => (funcs, func_type)
-        None =>
-          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-      }
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.FuncType(params, results) = func_type
-  if params !=
-    [
-      @lib.ValType::i64(),
-      @lib.ValType::i64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i64(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-      @lib.ValType::i32(),
-    ] ||
-    results != [@lib.ValType::i32()] {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let param_count = 8
-  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
-  let mut rewritten = body
-  let mut changed = false
-  let mut swap_iter = 0
-  while swap_iter < 2 {
-    match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
-      Some(next) => {
-        rewritten = next
-        changed = true
-      }
-      None => break
+  let rewrite_func = fn(
+    func : @lib.Func,
+    _def_idx : Int,
+    func_type : @lib.FuncType,
+    _type_sec : @lib.TypeSec?,
+  ) -> @lib.Func? {
+    let @lib.FuncType(params, results) = func_type
+    if params !=
+      [
+        @lib.ValType::i64(),
+        @lib.ValType::i64(),
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ] ||
+      results != [@lib.ValType::i32()] {
+      return None
     }
-    swap_iter += 1
-  }
-  let mut select_iter = 0
-  while select_iter < 8 {
-    match dae_try_lower_func327_default_wrapper_selects_once(rewritten) {
-      Some(next) => {
-        rewritten = next
-        changed = true
-      }
-      None => break
-    }
-    select_iter += 1
-  }
-  let mut mapped = rewritten
-  let total_locals = param_count + locals.length()
-  if total_locals > 25 && dae_func327_can_remap_i64_temp25_to_param0(rewritten) {
-    match locals.at(25 - param_count) {
-      Some(local_type) if local_type == @lib.ValType::i64() => {
-        let local_map = Array::make(total_locals, 0)
-        let mut map_idx = 0
-        while map_idx < local_map.length() {
-          local_map[map_idx] = map_idx
-          map_idx += 1
-        }
-        local_map[25] = 0
-        let remapped = dae_rewrite_locals_instrs(rewritten, local_map)
-        if remapped != rewritten {
-          mapped = remapped
+    let param_count = 8
+    let @lib.Func(locals, @lib.Expr(body)) = func
+    let mut rewritten = body
+    let mut changed = false
+    while true {
+      match dae_try_swap_i32_eq_zero_if_instrs_once(rewritten) {
+        Some(next) => {
+          rewritten = next
           changed = true
         }
+        None => break
       }
-      _ => ()
     }
+    while true {
+      match dae_try_lower_func327_default_wrapper_selects_once(rewritten) {
+        Some(next) => {
+          rewritten = next
+          changed = true
+        }
+        None => break
+      }
+    }
+    let mut mapped = rewritten
+    let total_locals = param_count + locals.length()
+    if total_locals > 25 &&
+      dae_func327_can_remap_i64_temp25_to_param0(rewritten) {
+      match locals.at(25 - param_count) {
+        Some(local_type) if local_type == @lib.ValType::i64() => {
+          let local_map = Array::make(total_locals, 0)
+          let mut map_idx = 0
+          while map_idx < local_map.length() {
+            local_map[map_idx] = map_idx
+            map_idx += 1
+          }
+          local_map[25] = 0
+          let remapped = dae_rewrite_locals_instrs(rewritten, local_map)
+          if remapped != rewritten {
+            mapped = remapped
+            changed = true
+          }
+        }
+        _ => ()
+      }
+    }
+    let rewritten_locals = if dae_instrs_reference_local_at_or_above(
+        mapped, param_count,
+      ) {
+      dae_trim_trailing_unused_func237_locals(locals, mapped, param_count)
+    } else {
+      @lib.Locals::from_types([])
+    }
+    if !changed && mapped == body && rewritten_locals == locals {
+      return None
+    }
+    Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(mapped)))
   }
-  let rewritten_locals = if dae_instrs_reference_local_at_or_above(
-      mapped, param_count,
-    ) {
-    dae_trim_trailing_unused_func237_locals(locals, mapped, param_count)
-  } else {
-    @lib.Locals::from_types([])
-  }
-  if !changed && mapped == body && rewritten_locals == locals {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  rewritten_funcs[def_idx] = @lib.Func::new(
-    rewritten_locals,
-    @lib.Expr::new(mapped),
+  dae_apply_selected_typed_func_rewrites_to_fixpoint(
+    mod_, selected_defs, rewrite_func,
   )
-  let touched = Array::make(funcs.length(), false)
-  touched[def_idx] = true
-  {
-    mod_out: mod_
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: def_idx,
-  }
 }
 
 ///|
@@ -39637,101 +39660,58 @@ fn dae_run_core(
   let post_raw_selected_lanes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:post-raw-selected-lanes",
   )
-  let func327_cleanup_input = current
-  if 327 < selected_scratch_defs.length() {
-    selected_scratch_defs[327] = true
-    let selected_func327_terminal_call = dae_try_inline_selected_terminal_call_local_sets_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[327] = false
-    if selected_func327_terminal_call.changed {
-      current = selected_func327_terminal_call.mod_out
-      touched = dae_merge_touched(
-        touched,
-        selected_func327_terminal_call.touched,
-      )
-      trace(
-        "pass[dae-optimizing]:selected-func327-terminal-call-locals primary_def=\{selected_func327_terminal_call.primary_def}",
-      )
-      changed = true
-    }
-  }
-  if 327 < selected_scratch_defs.length() {
-    let selected_func327_const_if_application = dae_run_singleton_selected_core_rewrite(
-      current, touched, changed, selected_scratch_defs, 327, dae_try_simplify_selected_const_if_defs_once,
-    )
-    if selected_func327_const_if_application.applied {
-      current = selected_func327_const_if_application.mod_out
-      touched = selected_func327_const_if_application.touched
-      trace(
-        "pass[dae-optimizing]:selected-func327-const-if-before-func328-defaults primary_def=\{selected_func327_const_if_application.primary_def}",
-      )
-      changed = selected_func327_const_if_application.changed
-    }
-    selected_scratch_defs[327] = true
-    let selected_func327_wrappers = dae_try_cleanup_selected_func327_default_wrappers_once(
-      current, selected_scratch_defs,
-    )
-    selected_scratch_defs[327] = false
-    if selected_func327_wrappers.changed {
-      current = selected_func327_wrappers.mod_out
-      touched = dae_merge_touched(touched, selected_func327_wrappers.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func327-default-wrapper-selects primary_def=\{selected_func327_wrappers.primary_def}",
-      )
-      changed = true
-    }
-  }
-  let func327_uniform = dae_run_changed_direct_callee_uniform_frontier(
-    func327_cleanup_input, current, touched, changed,
+  let changed_terminal_cleanup_input = current
+  let changed_terminal_candidates = dae_collect_terminal_callers_of_changed_boundaries(
+    mod_, current,
   )
-  current = func327_uniform.mod_out
-  touched = func327_uniform.touched
-  changed = func327_uniform.changed
-  for primary_def in func327_uniform.productive_defs {
+  while true {
+    let const_if_result = dae_try_simplify_selected_const_if_defs_once(
+      current, changed_terminal_candidates,
+    )
+    if !const_if_result.changed {
+      break
+    }
+    current = const_if_result.mod_out
+    touched = dae_merge_touched(touched, const_if_result.touched)
     trace(
-      "pass[dae-optimizing]:post-func327-uniform primary_def=\{primary_def}",
+      "pass[dae-optimizing]:changed-terminal-const-if primary_def=\{const_if_result.primary_def}",
     )
+    changed = true
   }
-  let func1794_cleanup_input = current
-  if 1794 < selected_scratch_defs.length() {
-    let selected_func1794_const_if_application = dae_run_singleton_selected_core_rewrite(
-      current, touched, changed, selected_scratch_defs, 1794, dae_try_simplify_selected_const_if_defs_once,
+  while true {
+    let terminal_local_result = dae_try_inline_selected_terminal_call_local_sets_once(
+      current, changed_terminal_candidates,
     )
-    if selected_func1794_const_if_application.applied {
-      current = selected_func1794_const_if_application.mod_out
-      touched = selected_func1794_const_if_application.touched
-      trace(
-        "pass[dae-optimizing]:selected-func1794-const-if-before-func1795-defaults primary_def=\{selected_func1794_const_if_application.primary_def}",
-      )
-      changed = selected_func1794_const_if_application.changed
+    if !terminal_local_result.changed {
+      break
     }
-    selected_scratch_defs[1794] = true
-    let selected_func1794_terminal_call = dae_try_inline_selected_terminal_call_local_sets_once(
-      current, selected_scratch_defs,
+    current = terminal_local_result.mod_out
+    touched = dae_merge_touched(touched, terminal_local_result.touched)
+    trace(
+      "pass[dae-optimizing]:changed-terminal-call-locals primary_def=\{terminal_local_result.primary_def}",
     )
-    selected_scratch_defs[1794] = false
-    if selected_func1794_terminal_call.changed {
-      current = selected_func1794_terminal_call.mod_out
-      touched = dae_merge_touched(
-        touched,
-        selected_func1794_terminal_call.touched,
-      )
-      trace(
-        "pass[dae-optimizing]:selected-func1794-terminal-call-locals-before-func1795-defaults primary_def=\{selected_func1794_terminal_call.primary_def}",
-      )
-      changed = true
-    }
+    changed = true
   }
-  let func1794_uniform = dae_run_changed_direct_callee_uniform_frontier(
-    func1794_cleanup_input, current, touched, changed,
+  let default_wrapper_result = dae_try_cleanup_selected_func327_default_wrappers_once(
+    current, changed_terminal_candidates,
   )
-  current = func1794_uniform.mod_out
-  touched = func1794_uniform.touched
-  changed = func1794_uniform.changed
-  for primary_def in func1794_uniform.productive_defs {
+  if default_wrapper_result.changed {
+    current = default_wrapper_result.mod_out
+    touched = dae_merge_touched(touched, default_wrapper_result.touched)
     trace(
-      "pass[dae-optimizing]:post-func1794-uniform primary_def=\{primary_def}",
+      "pass[dae-optimizing]:changed-terminal-default-wrappers primary_def=\{default_wrapper_result.primary_def}",
+    )
+    changed = true
+  }
+  let changed_terminal_uniform = dae_run_changed_direct_callee_uniform_frontier(
+    changed_terminal_cleanup_input, current, touched, changed,
+  )
+  current = changed_terminal_uniform.mod_out
+  touched = changed_terminal_uniform.touched
+  changed = changed_terminal_uniform.changed
+  for primary_def in changed_terminal_uniform.productive_defs {
+    trace(
+      "pass[dae-optimizing]:post-changed-terminal-uniform primary_def=\{primary_def}",
     )
   }
   let final_return_suffix_cleanup = dae_strip_module_root_return_suffix_once(
