@@ -23617,6 +23617,42 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 }
 
 ///|
+fn dae_collect_shifted_forward_wrapper_callee_order(
+  mod_ : @lib.Module,
+  min_caller_def_inclusive : Int,
+  max_caller_def_exclusive : Int,
+) -> Array[Int] {
+  let defined = dae_defined_func_count(mod_)
+  let caller_start = if min_caller_def_inclusive > 0 &&
+    min_caller_def_inclusive < defined {
+    min_caller_def_inclusive
+  } else if min_caller_def_inclusive >= defined {
+    defined
+  } else {
+    0
+  }
+  let caller_limit = if max_caller_def_exclusive >= caller_start &&
+    max_caller_def_exclusive < defined {
+    max_caller_def_exclusive
+  } else {
+    defined
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let ordered : Array[Int] = []
+  let mut caller_def = caller_start
+  while caller_def < caller_limit {
+    let callee_def = dae_find_shifted_forward_wrapper_callee_def(
+      mod_, type_indices, caller_def,
+    )
+    if callee_def >= 0 && !ordered.contains(callee_def) {
+      ordered.push(callee_def)
+    }
+    caller_def += 1
+  }
+  ordered
+}
+
+///|
 fn dae_collect_shifted_forward_wrapper_callee_defs(
   mod_ : @lib.Module,
   min_caller_def_inclusive : Int,
@@ -39224,7 +39260,7 @@ fn dae_run_core(
       }
     }
   } else {
-    while reverse_iter < 8 {
+    while true {
       let reverse_result = dae_try_rewrite_reverse_exact_literal_once(
         current, original_param_counts, original_call_counts, original_active_nonself_call_counts,
         original_active_parameterized_nonself_call_counts, original_nonself_undropped_call_counts,
@@ -39253,7 +39289,7 @@ fn dae_run_core(
     }
   }
   let mut low_revisit_iter = 0
-  while original_defined <= 4096 && low_revisit_iter < 64 {
+  while original_defined <= 4096 {
     let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
       current,
       original_param_counts,
@@ -39312,7 +39348,7 @@ fn dae_run_core(
     )
     let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
       current, touched, changed, low_exact_literal_candidates, low_exact_literal_call_facts,
-      64,
+      -1,
     )
     current = low_exact_literal_application.mod_out
     touched = low_exact_literal_application.touched
@@ -39362,7 +39398,7 @@ fn dae_run_core(
       changed,
       low_exact_literal_application.productive_defs,
       low_exact_literal_call_facts,
-      16,
+      -1,
     )
     current = low_exact_result_application.mod_out
     touched = low_exact_result_application.touched
@@ -39419,9 +39455,8 @@ fn dae_run_core(
     )
     let large_selected = Array::make(original_defined, false)
     let all_large_defs = Array::make(original_defined, true)
-    let mut large_revisit_count = 0
     for candidate_def = 0
-        candidate_def < large_global_defs.length() && large_revisit_count < 512
+        candidate_def < large_global_defs.length()
         candidate_def = candidate_def + 1 {
       if !large_global_defs[candidate_def] {
         continue
@@ -39470,7 +39505,6 @@ fn dae_run_core(
           }
           None => ()
         }
-        large_revisit_count += 1
       } else {
         trace(
           "pass[dae-optimizing]:large-uniform-const-rejected primary_def=\{candidate_def}",
@@ -39491,7 +39525,7 @@ fn dae_run_core(
   let low_callee_call_facts = dae_collect_current_call_facts(
     current, original_total,
   )
-  while low_callee_iter < 14 {
+  while true {
     let low_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, low_callee_selected_defs, low_callee_call_facts,
     )
@@ -39513,7 +39547,7 @@ fn dae_run_core(
   let low_wrapper_callee_selected_defs = dae_collect_shifted_forward_wrapper_callee_defs(
     current, 64, 128,
   )
-  while low_wrapper_callee_iter < 21 {
+  while true {
     let low_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, low_wrapper_callee_selected_defs, low_callee_call_facts,
     )
@@ -39531,52 +39565,32 @@ fn dae_run_core(
     )
     low_wrapper_callee_iter += 1
   }
-  // Unread-param rewrites shrink signatures and rewrite operands, but the
-  // selected artifact lanes do not add/remove direct call sites. Reuse the same
-  // low-lane call facts for the low-wrapper and boundary unread-param families.
-  // The boundary lane uses this fixed wrapper family as a candidate scheduler.
-  // Queue the wrapper/callee pairs once; each selected rewrite revalidates the
-  // callee against the current module before mutating, and stale candidates
-  // simply become no-ops.
-  let boundary_type_indices = dae_collect_func_type_indices(current)
-  let boundary_wrapper_order : Array[Int] = []
-  let boundary_callee_order : Array[Int] = []
-  for
-    boundary_wrapper_def in [
-      128, 131, 133, 135, 142, 143, 144, 145, 146, 148, 149, 151, 152, 157, 158,
-      159, 161, 162, 167, 170, 175, 176, 177, 178, 180, 181, 182, 184, 186, 187,
-      188, 189, 191, 196,
-    ] {
-    let boundary_callee_def = dae_find_shifted_forward_wrapper_callee_def(
-      current, boundary_type_indices, boundary_wrapper_def,
-    )
-    if boundary_callee_def >= 0 &&
-      boundary_callee_def < selected_scratch_defs.length() {
-      boundary_wrapper_order.push(boundary_wrapper_def)
-      boundary_callee_order.push(boundary_callee_def)
+  // Keep the phase-local forwarding seed, but derive targets from exact current
+  // wrapper shape rather than a fixed wrapper-definition list.
+  let boundary_callee_order = dae_collect_shifted_forward_wrapper_callee_order(
+    current, 0, original_defined,
+  )
+  for boundary_callee_def in boundary_callee_order {
+    if boundary_callee_def < 0 ||
+      boundary_callee_def >= selected_scratch_defs.length() {
+      continue
     }
-  }
-  let mut boundary_order_idx = 0
-  while boundary_order_idx < boundary_callee_order.length() {
-    let boundary_wrapper_def = boundary_wrapper_order[boundary_order_idx]
-    let boundary_callee_def = boundary_callee_order[boundary_order_idx]
     selected_scratch_defs[boundary_callee_def] = true
-    let boundary_wrapper_callee_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+    let boundary_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current, selected_scratch_defs, low_callee_call_facts,
     )
     selected_scratch_defs[boundary_callee_def] = false
-    let boundary_wrapper_callee_application = dae_apply_core_result(
-      current, touched, changed, boundary_wrapper_callee_result,
+    let boundary_application = dae_apply_core_result(
+      current, touched, changed, boundary_result,
     )
-    if boundary_wrapper_callee_application.applied {
-      current = boundary_wrapper_callee_application.mod_out
-      touched = boundary_wrapper_callee_application.touched
-      changed = boundary_wrapper_callee_application.changed
+    if boundary_application.applied {
+      current = boundary_application.mod_out
+      touched = boundary_application.touched
+      changed = boundary_application.changed
       trace(
-        "pass[dae-optimizing]:boundary-wrapper-callee-core wrapper_def=\{boundary_wrapper_def} primary_def=\{boundary_wrapper_callee_application.primary_def}",
+        "pass[dae-optimizing]:boundary-wrapper-callee-core primary_def=\{boundary_application.primary_def}",
       )
     }
-    boundary_order_idx += 1
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:low-wrapper-callees", low_wrapper_callees_start_us,

@@ -8692,6 +8692,23 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
+test "dae shifted forwarding wrapper order is derived without definition identities" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $wa (param i32 i32) local.get 1 call $ta)
+      #|  (func)
+      #|  (func $wb (param i32 i32) local.get 1 call $tb)
+      #|  (func $wa2 (param i32 i32) local.get 1 call $ta)
+      #|  (func $ta (param i32) local.get 0 drop)
+      #|  (func $tb (param i32) local.get 0 drop))
+      #|,
+    ),
+  )
+  assert_eq(dae_collect_shifted_forward_wrapper_callee_order(mod_, 0, 4), [4, 5])
+}
+
+///|
 test "dae selected dropped-result fallback skips covered entries" {
   let fallback = dae_selected_dropped_result_fallback_neighborhood_defs()
   assert_false(fallback.contains(3799))
