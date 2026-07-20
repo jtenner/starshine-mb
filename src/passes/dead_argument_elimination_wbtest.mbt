@@ -15193,42 +15193,44 @@ test "dae GC result refinement work commits through dispatcher" {
   let original = dae_collect_original_boundary_snapshot(mod_)
   let current = dae_current_boundary_graph_new(mod_)
   let dependencies = dae_boundary_dependency_graph_new(current)
-  let item = dae_work_item_new(
-    current,
-    dependencies,
-    0,
-    DaeGcResultRefinementWork,
-  )
-  match
-    dae_process_work_item(
-      original,
-      mod_,
-      [],
-      false,
-      current,
-      dependencies,
-      item,
-      dae_diagnostics_new(),
-    ) {
-    DaeWorkCommitted(application) => {
-      let expected = @lib.ValType::ref_type(
-        @lib.RefType::new(
-          false,
-          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
-          exact=true,
-        ),
-      )
-      let type_indices = dae_collect_func_type_indices(application.mod_out)
-      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
-        Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
-        _ => fail("expected exact GC result refinement")
+  for
+    family in [
+      DaeGcResultRefinementWork,
+      DaeControlReconstructionWork,
+      DaeTypeRepairRetryWork,
+    ] {
+    let item = dae_work_item_new(current, dependencies, 0, family)
+    match
+      dae_process_work_item(
+        original,
+        mod_,
+        [],
+        false,
+        current,
+        dependencies,
+        item,
+        dae_diagnostics_new(),
+      ) {
+      DaeWorkCommitted(application) => {
+        let expected = @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            exact=true,
+          ),
+        )
+        let type_indices = dae_collect_func_type_indices(application.mod_out)
+        match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+          Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
+          _ => fail("expected exact GC result refinement")
+        }
+        match @validate.validate_module(application.mod_out) {
+          Ok(_) => ()
+          Err(err) => fail("expected valid GC result dispatch, got \{err}")
+        }
       }
-      match @validate.validate_module(application.mod_out) {
-        Ok(_) => ()
-        Err(err) => fail("expected valid GC result dispatch, got \{err}")
-      }
+      _ => fail("expected result/control/type refinement work to commit")
     }
-    _ => fail("expected GC result refinement work to commit")
   }
 }
 
@@ -15783,8 +15785,8 @@ test "dae family dispatcher commits unread parameter work and terminates no-op f
       deferred,
       diagnostics,
     ) {
-    DaeWorkDeferred(DaeNoStrictImprovement) => ()
-    _ => fail("expected control-reconstruction family to remain deferred")
+    DaeWorkNoChange(DaeNoStrictImprovement) => ()
+    _ => fail("expected inapplicable control-reconstruction work to terminate")
   }
   assert_eq(diagnostics.boundaries_analyzed, 2)
   assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateApplied), 1)

@@ -2763,7 +2763,16 @@ fn dae_process_work_item(
           graph.snapshot.call_facts,
         ),
       )
-    DaeControlReconstructionWork | DaeTypeRepairRetryWork => None
+    DaeControlReconstructionWork | DaeTypeRepairRetryWork =>
+      Some(
+        dae_try_refine_direct_gc_types_for_def_with_facts(
+          current,
+          item.target_def,
+          graph.snapshot.call_facts,
+          false,
+          true,
+        ),
+      )
     DaeForwardingWork => None
   }
   match result {
