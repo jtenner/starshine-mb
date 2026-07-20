@@ -1292,10 +1292,25 @@ priv struct DaeCurrentBoundaryGraph {
 }
 
 ///|
+priv struct DaeParameterForwardingEdge {
+  caller_def : Int
+  caller_param_idx : Int
+  callee_def : Int
+  callee_param_idx : Int
+  direct_tail : Bool
+  source_type : @lib.ValType
+  caller_signature_epoch : Int
+  caller_body_epoch : Int
+  callee_signature_epoch : Int
+  callee_body_epoch : Int
+} derive(Eq, Debug)
+
+///|
 priv struct DaeBoundaryDependencyGraph {
   callers_by_def : Array[Array[Int]]
   callees_by_def : Array[Array[Int]]
   return_callers_by_def : Array[Array[Int]]
+  parameter_forwarding_edges : Array[DaeParameterForwardingEdge]
   parameter_forwarders_by_def : Array[Array[Int]]
   uniform_value_forwarders_by_def : Array[Array[Int]]
   result_forwarders_by_def : Array[Array[Int]]
@@ -2188,15 +2203,27 @@ fn dae_record_parameter_forwarding_dependency(
   caller_param_count : Int,
   type_indices : Array[@lib.TypeIdx],
   target_abs : Int,
+  direct_tail : Bool,
+  function_epochs : Array[DaeFunctionEpochs],
+  edges : Array[DaeParameterForwardingEdge],
   out : Array[Array[Int]],
 ) -> Unit {
   let imported = dae_imported_func_count(current)
   let target_def = target_abs - imported
-  if target_def < 0 || target_def >= out.length() {
+  if target_def < 0 ||
+    target_def >= out.length() ||
+    caller_def < 0 ||
+    caller_def >= function_epochs.length() ||
+    target_def >= function_epochs.length() {
     return
   }
   let target_params = match
     dae_resolve_func_type(current, type_indices, target_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return
+  }
+  let caller_params = match
+    dae_resolve_func_type(current, type_indices, imported + caller_def) {
     Some(@lib.FuncType(params, _)) => params
     None => return
   }
@@ -2224,8 +2251,33 @@ fn dae_record_parameter_forwarding_dependency(
             let local_slot = dae_local_idx_slot(local_idx)
             if local_slot >= 0 &&
               local_slot < caller_param_count &&
-              !out[target_def].contains(caller_def) {
-              out[target_def].push(caller_def)
+              local_slot < caller_params.length() &&
+              caller_params[local_slot] == target_params[param_idx] {
+              if !edges.any(fn(edge) {
+                  edge.caller_def == caller_def &&
+                  edge.caller_param_idx == local_slot &&
+                  edge.callee_def == target_def &&
+                  edge.callee_param_idx == param_idx &&
+                  edge.direct_tail == direct_tail
+                }) {
+                let caller_epochs = function_epochs[caller_def]
+                let callee_epochs = function_epochs[target_def]
+                edges.push({
+                  caller_def,
+                  caller_param_idx: local_slot,
+                  callee_def: target_def,
+                  callee_param_idx: param_idx,
+                  direct_tail,
+                  source_type: caller_params[local_slot],
+                  caller_signature_epoch: caller_epochs.signature_epoch,
+                  caller_body_epoch: caller_epochs.body_epoch,
+                  callee_signature_epoch: callee_epochs.signature_epoch,
+                  callee_body_epoch: callee_epochs.body_epoch,
+                })
+              }
+              if !out[target_def].contains(caller_def) {
+                out[target_def].push(caller_def)
+              }
             }
           }
           _ => ()
@@ -2244,6 +2296,8 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
   caller_def : Int,
   caller_param_count : Int,
   type_indices : Array[@lib.TypeIdx],
+  function_epochs : Array[DaeFunctionEpochs],
+  edges : Array[DaeParameterForwardingEdge],
   out : Array[Array[Int]],
 ) -> Unit {
   let mut idx = 0
@@ -2259,6 +2313,9 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
           caller_param_count,
           type_indices,
           dae_func_idx_slot(func_idx),
+          false,
+          function_epochs,
+          edges,
           out,
         )
       @lib.ReturnCall(func_idx) =>
@@ -2271,6 +2328,9 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
           caller_param_count,
           type_indices,
           dae_func_idx_slot(func_idx),
+          true,
+          function_epochs,
+          edges,
           out,
         )
       @lib.Block(_, @lib.Expr(_))
@@ -2286,6 +2346,8 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
               caller_def,
               caller_param_count,
               type_indices,
+              function_epochs,
+              edges,
               out,
             )
             match children.secondary_body {
@@ -2297,6 +2359,8 @@ fn dae_collect_parameter_forwarding_dependencies_instrs(
                   caller_def,
                   caller_param_count,
                   type_indices,
+                  function_epochs,
+                  edges,
                   out,
                 )
               None => ()
@@ -2350,6 +2414,7 @@ fn dae_boundary_dependency_graph_new(
     }
     caller_def += 1
   }
+  let parameter_forwarding_edges : Array[DaeParameterForwardingEdge] = []
   let parameter_forwarders_by_def = dae_dependency_adjacency_new(defined)
   caller_def = 0
   while caller_def < defined && caller_def < graph.snapshot.funcs.length() {
@@ -2367,6 +2432,8 @@ fn dae_boundary_dependency_graph_new(
       caller_def,
       caller_param_count,
       graph.snapshot.type_indices,
+      graph.function_epochs,
+      parameter_forwarding_edges,
       parameter_forwarders_by_def,
     )
     caller_def += 1
@@ -2399,6 +2466,7 @@ fn dae_boundary_dependency_graph_new(
     callers_by_def,
     callees_by_def,
     return_callers_by_def,
+    parameter_forwarding_edges,
     parameter_forwarders_by_def,
     // Uniform-value evidence is invalidated by the bodies of every exact
     // current direct caller, but not by unrelated callees of the target.
@@ -34030,6 +34098,120 @@ fn dae_exact_literal_candidate_is_single_param_identity(
 }
 
 ///|
+fn dae_exact_literal_candidate_is_fully_uniform_constructor(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  call_facts : DaeCurrentCallFacts,
+) -> Bool {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return false
+  }
+  let callee_abs = imported + def_idx
+  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
+  let boundary_candidate = match
+    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+    Some(candidate) => candidate
+    None => return false
+  }
+  if !boundary_candidate.owned ||
+    boundary_candidate.has_self_direct_caller ||
+    !boundary_candidate.allows_nonself_direct_rewrite {
+    return false
+  }
+  let params = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return false
+  }
+  if params.length() < 2 ||
+    !params.all(fn(param) {
+      param == @lib.ValType::i32() ||
+      param == @lib.ValType::i64() ||
+      param == @lib.ValType::f32() ||
+      param == @lib.ValType::f64() ||
+      param == @lib.ValType::v128()
+    }) {
+    return false
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  if locals.length() != 1 || body.length() < 6 {
+    return false
+  }
+  let constructor_local = @lib.LocalIdx::new(
+    params.length().reinterpret_as_uint(),
+  )
+  match (body[0], body[1], body[2], body[body.length() - 1]) {
+    (
+      @lib.I32Const(_),
+      @lib.Call(_),
+      @lib.LocalTee(allocated_local),
+      @lib.LocalGet(returned_local),
+    ) if dae_local_idx_equal(allocated_local, constructor_local) &&
+      dae_local_idx_equal(returned_local, constructor_local) => ()
+    _ => return false
+  }
+  let mut store_count = 0
+  for instr in body {
+    match instr {
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) => store_count += 1
+      _ => ()
+    }
+  }
+  if store_count < params.length() {
+    return false
+  }
+  let local_use = dae_local_use_for_callee(
+    funcs[def_idx],
+    params.length() + locals.length(),
+    callee_abs,
+    params.length(),
+  )
+  let uniform = match
+    dae_collect_uniform_const_actuals_from_boundary_facts(
+      mod_,
+      callee_abs,
+      params.length(),
+      type_indices,
+      boundary_facts,
+    ) {
+    Some(values) => values
+    None => return false
+  }
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    let usage = dae_local_usage_evidence(
+      body,
+      @lib.LocalIdx::new(param_idx.reinterpret_as_uint()),
+    )
+    if !local_use.gets[param_idx] ||
+      local_use.writes[param_idx] ||
+      usage.get_count != 1 ||
+      usage.write_count != 0 {
+      return false
+    }
+    match uniform[param_idx] {
+      Some(value) if dae_instr_is_materializable_const(value) => ()
+      _ => return false
+    }
+    param_idx += 1
+  }
+  true
+}
+
+///|
 fn dae_run_exact_literal_candidate_worklist_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
@@ -38608,6 +38790,9 @@ fn dae_run_core(
       ) {
       if dae_exact_literal_candidate_is_single_param_identity(
           current, candidate_def,
+        ) ||
+        dae_exact_literal_candidate_is_fully_uniform_constructor(
+          current, candidate_def, broad_identity_call_facts,
         ) {
         broad_identity_candidates.push(candidate_def)
       }

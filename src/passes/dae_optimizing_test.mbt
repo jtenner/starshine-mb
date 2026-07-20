@@ -11520,6 +11520,47 @@ test "dae-optimizing discovers a broad exact-literal candidate without a definit
 }
 
 ///|
+test "dae-optimizing discovers a fully uniform multi-parameter constructor without a definition list" {
+  let target_def = 4200
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (import \"env\" \"malloc\" (func $malloc (param i32) (result i32)))\n  (memory 1)\n",
+  )
+  for def_idx = 0; def_idx < target_def; def_idx = def_idx + 1 {
+    out.write_string("  (func $pad\{def_idx})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i64 i64) (result i32)
+      #|    (local i32)
+      #|    i32.const 24
+      #|    call $malloc
+      #|    local.tee 3
+      #|    local.get 0
+      #|    i32.store
+      #|    local.get 3
+      #|    local.get 1
+      #|    i64.store offset=8
+      #|    local.get 3
+      #|    local.get 2
+      #|    i64.store offset=16
+      #|    local.get 3)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    i64.const 11
+      #|    i64.const 13
+      #|    call $target))
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid broad multi-parameter output, got \{err}")
+  }
+}
+
+///|
 test "dae-optimizing materializes forwarded const actuals before a reverse-starved wrapper chain" {
   let source =
     #|(module

@@ -14882,6 +14882,75 @@ test "dae dependency graph distinguishes exact parameter forwarding from constan
 }
 
 ///|
+test "dae parameter flow records exact reordered forwarding slots and tail composition" {
+  let pair = @lib.TypeIdx::new(0U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([pair, @lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  assert_eq(dependencies.parameter_forwarding_edges.length(), 2)
+  assert_eq(dependencies.parameter_forwarding_edges[0].caller_def, 1)
+  assert_eq(dependencies.parameter_forwarding_edges[0].caller_param_idx, 1)
+  assert_eq(dependencies.parameter_forwarding_edges[0].callee_def, 0)
+  assert_eq(dependencies.parameter_forwarding_edges[0].callee_param_idx, 0)
+  assert_true(dependencies.parameter_forwarding_edges[0].direct_tail)
+  assert_eq(
+    dependencies.parameter_forwarding_edges[0].source_type,
+    @lib.ValType::i32(),
+  )
+  assert_eq(dependencies.parameter_forwarding_edges[1].caller_param_idx, 0)
+  assert_eq(dependencies.parameter_forwarding_edges[1].callee_param_idx, 1)
+  assert_true(dependencies.parameter_forwarding_edges[1].direct_tail)
+  assert_eq(
+    dependencies.parameter_forwarding_edges[1].source_type,
+    @lib.ValType::i64(),
+  )
+  assert_eq(
+    dependencies.parameter_forwarding_edges[0].caller_body_epoch,
+    current.function_epochs[1].body_epoch,
+  )
+  assert_eq(
+    dependencies.parameter_forwarding_edges[0].callee_signature_epoch,
+    current.function_epochs[0].signature_epoch,
+  )
+}
+
+///|
 test "dae boundary dependency graph assigns deterministic direct-call components" {
   let void_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()
