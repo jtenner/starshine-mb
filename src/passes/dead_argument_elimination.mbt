@@ -1284,6 +1284,7 @@ priv struct DaeCandidateEpoch {
 
 ///|
 priv struct DaeCurrentBoundaryGraph {
+  mut mod_ : @lib.Module
   mut snapshot : DaeModuleBoundarySnapshot
   mut function_epochs : Array[DaeFunctionEpochs]
   mut module_epoch : Int
@@ -1932,6 +1933,7 @@ fn dae_current_boundary_graph_new(
 ) -> DaeCurrentBoundaryGraph {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   {
+    mod_,
     snapshot,
     function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
     module_epoch: 0,
@@ -2028,6 +2030,7 @@ fn dae_current_boundary_graph_refresh(
   if changed {
     graph.module_epoch += 1
   }
+  graph.mod_ = mod_
   graph.snapshot = next
 }
 
@@ -2173,6 +2176,138 @@ fn dae_boundary_components(
 }
 
 ///|
+fn dae_record_parameter_forwarding_dependency(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  entry_stack_values : Int,
+  current : @lib.Module,
+  caller_def : Int,
+  caller_param_count : Int,
+  type_indices : Array[@lib.TypeIdx],
+  target_abs : Int,
+  out : Array[Array[Int]],
+) -> Unit {
+  let imported = dae_imported_func_count(current)
+  let target_def = target_abs - imported
+  if target_def < 0 || target_def >= out.length() {
+    return
+  }
+  let target_params = match
+    dae_resolve_func_type(current, type_indices, target_abs) {
+    Some(@lib.FuncType(params, _)) => params
+    None => return
+  }
+  if target_params.length() == 0 {
+    return
+  }
+  let evidence = match
+    dae_callsite_value_slice_evidence(
+      instrs,
+      call_idx,
+      target_params.length(),
+      entry_stack_values,
+      current,
+      type_indices,
+    ) {
+    Some(value) => value
+    None => return
+  }
+  let mut param_idx = 0
+  while param_idx < target_params.length() {
+    match dae_callsite_single_instruction_actual(evidence, param_idx, instrs) {
+      Some(actual) =>
+        match actual.instr {
+          @lib.LocalGet(local_idx) => {
+            let local_slot = dae_local_idx_slot(local_idx)
+            if local_slot >= 0 &&
+              local_slot < caller_param_count &&
+              !out[target_def].contains(caller_def) {
+              out[target_def].push(caller_def)
+            }
+          }
+          _ => ()
+        }
+      None => ()
+    }
+    param_idx += 1
+  }
+}
+
+///|
+fn dae_collect_parameter_forwarding_dependencies_instrs(
+  instrs : Array[@lib.Instruction],
+  entry_stack_values : Int,
+  current : @lib.Module,
+  caller_def : Int,
+  caller_param_count : Int,
+  type_indices : Array[@lib.TypeIdx],
+  out : Array[Array[Int]],
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.Call(func_idx) =>
+        dae_record_parameter_forwarding_dependency(
+          instrs,
+          idx,
+          entry_stack_values,
+          current,
+          caller_def,
+          caller_param_count,
+          type_indices,
+          dae_func_idx_slot(func_idx),
+          out,
+        )
+      @lib.ReturnCall(func_idx) =>
+        dae_record_parameter_forwarding_dependency(
+          instrs,
+          idx,
+          entry_stack_values,
+          current,
+          caller_def,
+          caller_param_count,
+          type_indices,
+          dae_func_idx_slot(func_idx),
+          out,
+        )
+      @lib.Block(_, @lib.Expr(_))
+      | @lib.Loop(_, @lib.Expr(_))
+      | @lib.TryTable(_, _, @lib.Expr(_))
+      | @lib.If(_, _, _) =>
+        match dae_nested_control_children_evidence(instrs[idx], current) {
+          Some(children) => {
+            dae_collect_parameter_forwarding_dependencies_instrs(
+              children.primary_body,
+              children.entry_stack_values,
+              current,
+              caller_def,
+              caller_param_count,
+              type_indices,
+              out,
+            )
+            match children.secondary_body {
+              Some(body) =>
+                dae_collect_parameter_forwarding_dependencies_instrs(
+                  body,
+                  children.entry_stack_values,
+                  current,
+                  caller_def,
+                  caller_param_count,
+                  type_indices,
+                  out,
+                )
+              None => ()
+            }
+          }
+          None => ()
+        }
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
 fn dae_boundary_dependency_graph_new(
   graph : DaeCurrentBoundaryGraph,
 ) -> DaeBoundaryDependencyGraph {
@@ -2212,6 +2347,27 @@ fn dae_boundary_dependency_graph_new(
     }
     caller_def += 1
   }
+  let parameter_forwarders_by_def = dae_dependency_adjacency_new(defined)
+  caller_def = 0
+  while caller_def < defined && caller_def < graph.snapshot.funcs.length() {
+    let caller_abs = imported + caller_def
+    let caller_param_count = match
+      dae_resolve_func_type(graph.mod_, graph.snapshot.type_indices, caller_abs) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => 0
+    }
+    let @lib.Func(_, @lib.Expr(body)) = graph.snapshot.funcs[caller_def]
+    dae_collect_parameter_forwarding_dependencies_instrs(
+      body,
+      0,
+      graph.mod_,
+      caller_def,
+      caller_param_count,
+      graph.snapshot.type_indices,
+      parameter_forwarders_by_def,
+    )
+    caller_def += 1
+  }
   let (component_by_def, component_members) = dae_boundary_components(
     callees_by_def,
   )
@@ -2222,14 +2378,11 @@ fn dae_boundary_dependency_graph_new(
     callers_by_def,
     callees_by_def,
     return_callers_by_def,
-    // These domains deliberately begin as conservative direct-boundary
-    // dependencies. Family-specific evidence can narrow them without changing
-    // scheduler identity or risking a missed invalidation.
-    parameter_forwarders_by_def: dae_dependency_adjacency_copy(
-      caller_callee_dependencies,
-    ),
+    parameter_forwarders_by_def,
+    // Uniform-value evidence is invalidated by the bodies of every exact
+    // current direct caller, but not by unrelated callees of the target.
     uniform_value_forwarders_by_def: dae_dependency_adjacency_copy(
-      caller_callee_dependencies,
+      callers_by_def,
     ),
     result_forwarders_by_def: dae_dependency_adjacency_copy(
       caller_callee_dependencies,

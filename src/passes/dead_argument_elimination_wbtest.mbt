@@ -14846,6 +14846,42 @@ test "dae boundary dependency graph records callers callees and self edges" {
 }
 
 ///|
+test "dae dependency graph distinguishes exact parameter forwarding from constant calls" {
+  let unary = @lib.TypeIdx::new(0U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([unary, unary, unary]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::i32_const(7),
+            @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+          ]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let graph = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  assert_eq(graph.parameter_forwarders_by_def, [[], [0], []])
+  assert_eq(graph.uniform_value_forwarders_by_def, [[], [0], [0]])
+}
+
+///|
 test "dae boundary dependency graph assigns deterministic direct-call components" {
   let void_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()
