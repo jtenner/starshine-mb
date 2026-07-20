@@ -15854,14 +15854,16 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     callee_evidence.body,
     rewritten_total_locals,
   )
-  let callee_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_simplify_default_zero_high_guard_instrs(
-        callee_evidence.body,
-        callee_evidence.kept_params.length(),
-        rewritten_written_locals,
+  let callee_body = dae_fold_const_eq_if_instrs_until_stable(
+    dae_simplify_rewritten_add_zero_instrs(
+      dae_simplify_rewritten_control_instrs(
+        dae_simplify_default_zero_high_guard_instrs(
+          callee_evidence.body,
+          callee_evidence.kept_params.length(),
+          rewritten_written_locals,
+        ),
+        true,
       ),
-      true,
     ),
   )
   let callee_rewrite = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -17632,14 +17634,16 @@ fn dae_apply_removed_param_callee_rewrite(
     rewrite.body,
     rewritten_total_locals,
   )
-  let new_body = dae_simplify_rewritten_add_zero_instrs(
-    dae_simplify_rewritten_control_instrs(
-      dae_simplify_default_zero_high_guard_instrs(
-        rewrite.body,
-        rewrite.kept_params.length(),
-        rewritten_written_locals,
+  let new_body = dae_fold_const_eq_if_instrs_until_stable(
+    dae_simplify_rewritten_add_zero_instrs(
+      dae_simplify_rewritten_control_instrs(
+        dae_simplify_default_zero_high_guard_instrs(
+          rewrite.body,
+          rewrite.kept_params.length(),
+          rewritten_written_locals,
+        ),
+        true,
       ),
-      true,
     ),
   )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -24083,6 +24087,21 @@ fn dae_fold_const_i32_eq_if_instrs_once(
     idx += 1
   }
   (out, changed)
+}
+
+///|
+fn dae_fold_const_eq_if_instrs_until_stable(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let mut current = instrs
+  while true {
+    let (next, changed) = dae_fold_const_i32_eq_if_instrs_once(current)
+    if !changed {
+      return current
+    }
+    current = next
+  }
+  current
 }
 
 ///|
@@ -39477,26 +39496,6 @@ fn dae_run_core(
         "pass[dae-optimizing]:selected-func288-return-wrapper primary_def=\{selected_func288_return_wrapper.primary_def}",
       )
       changed = true
-    }
-  }
-  for func260_fold_def in [267, 268] {
-    if func260_fold_def >= 0 &&
-      func260_fold_def < selected_scratch_defs.length() {
-      let trace_func260_fold = fn(
-        iteration : Int,
-        application : DaeCoreResultApplication,
-      ) -> Unit {
-        trace(
-          "pass[dae-optimizing]:selected-func260-helper-const-if iter=\{iteration} primary_def=\{application.primary_def}",
-        )
-      }
-      let func260_fold_application = dae_run_bounded_singleton_selected_core_rewrite(
-        current, touched, changed, selected_scratch_defs, func260_fold_def, 8, dae_try_simplify_selected_const_if_defs_once,
-        trace_func260_fold,
-      )
-      current = func260_fold_application.mod_out
-      touched = func260_fold_application.touched
-      changed = func260_fold_application.changed
     }
   }
   if 313 < selected_scratch_defs.length() {
