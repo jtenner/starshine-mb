@@ -23617,6 +23617,80 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 }
 
 ///|
+fn dae_collect_changed_direct_callee_defs(
+  before : @lib.Module,
+  current : @lib.Module,
+) -> Array[Int] {
+  let before_funcs = match before.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let current_funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  if before_funcs.length() != current_funcs.length() {
+    return []
+  }
+  let imported = dae_imported_func_count(current)
+  let defined = current_funcs.length()
+  let seeds : Array[Int] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    if before_funcs[def_idx] != current_funcs[def_idx] {
+      let @lib.Func(_, @lib.Expr(body)) = current_funcs[def_idx]
+      let callees : Array[Int] = []
+      dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
+      for callee_def in callees {
+        if callee_def >= 0 &&
+          callee_def < defined &&
+          !seeds.contains(callee_def) {
+          seeds.push(callee_def)
+        }
+      }
+    }
+    def_idx += 1
+  }
+  seeds
+}
+
+///|
+fn dae_run_changed_direct_callee_uniform_frontier(
+  before : @lib.Module,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+) -> DaeExactLiteralWorklistApplication {
+  let seed_defs = dae_collect_changed_direct_callee_defs(before, current)
+  if seed_defs.length() == 0 {
+    return { mod_out: current, touched, changed, productive_defs: [] }
+  }
+  let total = dae_imported_func_count(current) + dae_defined_func_count(current)
+  let call_facts = dae_collect_current_call_facts(current, total)
+  let all_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
+    current,
+    call_facts,
+    -1,
+    allow_immutable_global_get=true,
+  )
+  let candidates : Array[Int] = []
+  for candidate_def in all_candidates {
+    if seed_defs.contains(candidate_def) {
+      candidates.push(candidate_def)
+    }
+  }
+  dae_run_exact_literal_candidate_worklist_with_facts(
+    current,
+    touched,
+    changed,
+    candidates,
+    call_facts,
+    -1,
+    allow_immutable_global_get=true,
+  )
+}
+
+///|
 fn dae_collect_shifted_forward_wrapper_callee_order(
   mod_ : @lib.Module,
   min_caller_def_inclusive : Int,
@@ -39845,6 +39919,7 @@ fn dae_run_core(
   let late_shapes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:late-shapes",
   )
+  let late_shapes_input = current
   if 408 < selected_scratch_defs.length() {
     let mut func408_const_iter = 0
     while func408_const_iter < 4 {
@@ -40032,23 +40107,17 @@ fn dae_run_core(
       changed = true
     }
   }
-  if 326 < selected_scratch_defs.length() {
-    selected_scratch_defs[326] = true
-    let func326_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
-    let selected_func326_zero = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_scratch_defs, func326_call_facts,
-    )
-    selected_scratch_defs[326] = false
-    if selected_func326_zero.changed {
-      current = selected_func326_zero.mod_out
-      touched = dae_merge_touched(touched, selected_func326_zero.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func326-zero-actual primary_def=\{selected_func326_zero.primary_def}",
-      )
-      changed = true
-    }
+  // Shape cleanup can expose uniform operands only at direct callees of bodies
+  // changed by this phase. Seed that exact invalidation frontier instead of
+  // rescanning/admitting every module definition.
+  let post_shape_uniform = dae_run_changed_direct_callee_uniform_frontier(
+    late_shapes_input, current, touched, changed,
+  )
+  current = post_shape_uniform.mod_out
+  touched = post_shape_uniform.touched
+  changed = post_shape_uniform.changed
+  for primary_def in post_shape_uniform.productive_defs {
+    trace("pass[dae-optimizing]:post-shape-uniform primary_def=\{primary_def}")
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:late-shapes", late_shapes_start_us,
@@ -40174,23 +40243,8 @@ fn dae_run_core(
       changed = true
     }
   }
+  let func327_cleanup_input = current
   if 327 < selected_scratch_defs.length() {
-    selected_scratch_defs[327] = true
-    let func327_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
-    let selected_func327_defaults = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_scratch_defs, func327_call_facts,
-    )
-    selected_scratch_defs[327] = false
-    if selected_func327_defaults.changed {
-      current = selected_func327_defaults.mod_out
-      touched = dae_merge_touched(touched, selected_func327_defaults.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func327-default-args primary_def=\{selected_func327_defaults.primary_def}",
-      )
-      changed = true
-    }
     selected_scratch_defs[327] = true
     let selected_func327_terminal_call = dae_try_inline_selected_terminal_call_local_sets_once(
       current, selected_scratch_defs,
@@ -40234,24 +40288,18 @@ fn dae_run_core(
       changed = true
     }
   }
-  if 328 < selected_scratch_defs.length() {
-    selected_scratch_defs[328] = true
-    let func328_call_facts = dae_collect_current_call_facts(
-      current, original_total,
+  let func327_uniform = dae_run_changed_direct_callee_uniform_frontier(
+    func327_cleanup_input, current, touched, changed,
+  )
+  current = func327_uniform.mod_out
+  touched = func327_uniform.touched
+  changed = func327_uniform.changed
+  for primary_def in func327_uniform.productive_defs {
+    trace(
+      "pass[dae-optimizing]:post-func327-uniform primary_def=\{primary_def}",
     )
-    let selected_func328_defaults = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_scratch_defs, func328_call_facts,
-    )
-    selected_scratch_defs[328] = false
-    if selected_func328_defaults.changed {
-      current = selected_func328_defaults.mod_out
-      touched = dae_merge_touched(touched, selected_func328_defaults.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func328-default-args primary_def=\{selected_func328_defaults.primary_def}",
-      )
-      changed = true
-    }
   }
+  let func1794_cleanup_input = current
   if 1794 < selected_scratch_defs.length() {
     let selected_func1794_const_if_application = dae_run_singleton_selected_core_rewrite(
       current, touched, changed, selected_scratch_defs, 1794, dae_try_simplify_selected_const_if_defs_once,
@@ -40281,23 +40329,16 @@ fn dae_run_core(
       changed = true
     }
   }
-  if 1795 < selected_scratch_defs.length() {
-    selected_scratch_defs[1795] = true
-    let func1795_call_facts = dae_collect_current_call_facts(
-      current, original_total,
+  let func1794_uniform = dae_run_changed_direct_callee_uniform_frontier(
+    func1794_cleanup_input, current, touched, changed,
+  )
+  current = func1794_uniform.mod_out
+  touched = func1794_uniform.touched
+  changed = func1794_uniform.changed
+  for primary_def in func1794_uniform.productive_defs {
+    trace(
+      "pass[dae-optimizing]:post-func1794-uniform primary_def=\{primary_def}",
     )
-    let selected_func1795_defaults = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-      current, selected_scratch_defs, func1795_call_facts,
-    )
-    selected_scratch_defs[1795] = false
-    if selected_func1795_defaults.changed {
-      current = selected_func1795_defaults.mod_out
-      touched = dae_merge_touched(touched, selected_func1795_defaults.touched)
-      trace(
-        "pass[dae-optimizing]:selected-func1795-default-args primary_def=\{selected_func1795_defaults.primary_def}",
-      )
-      changed = true
-    }
   }
   if 3737 < selected_scratch_defs.length() {
     let selected_func3737_wrapper = dae_try_remove_func3737_wrapper_suffix_param_once(
