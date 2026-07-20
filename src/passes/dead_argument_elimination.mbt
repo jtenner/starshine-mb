@@ -39251,23 +39251,6 @@ fn dae_run_core(
   let early_shapes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:early-shapes",
   )
-  if 236 < selected_scratch_defs.length() {
-    selected_scratch_defs[236] = true
-    let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
-      current, selected_scratch_defs,
-    )
-    let selected_func236_application = dae_apply_selected_core_result(
-      current, touched, changed, selected_scratch_defs, 236, selected_func236_locals,
-    )
-    if selected_func236_application.applied {
-      current = selected_func236_application.mod_out
-      touched = selected_func236_application.touched
-      changed = selected_func236_application.changed
-      trace(
-        "pass[dae-optimizing]:selected-func236-locals primary_def=\{selected_func236_application.primary_def}",
-      )
-    }
-  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:early-shapes", early_shapes_start_us,
   )

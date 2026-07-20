@@ -69552,8 +69552,6 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   )
   if !bypass_size_guards {
     if touched_count > 8 {
-      // The broad fallback remains bounded, but source-attributed selected
-      // functions may bypass this guard transactionally below.
       pipeline_trace_hook(
         options.trace,
         "dae-optimizing",
@@ -71018,7 +71016,22 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
         }
       None => false
     }
+    let small_call_free_local_cleanup = if removed_local_counts[cleanup_idx] > 0 {
+      match cleaned_funcs.get(cleaned_def) {
+        Some(@lib.Func(_, @lib.Expr(body))) => {
+          let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
+            body,
+          )
+          !has_structured_control &&
+          !body.any(fn(instr) { dae_instr_contains_call(instr) })
+        }
+        None => false
+      }
+    } else {
+      false
+    }
     if removed_local_counts[cleanup_idx] >= 16 ||
+      small_call_free_local_cleanup ||
       material_body ||
       folded_defs.contains(cleaned_def) {
       nested_selected[cleaned_def] = true
