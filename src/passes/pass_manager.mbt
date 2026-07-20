@@ -72032,8 +72032,11 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       options.perf,
       "detail:dae:post-cleanup-core",
     )
+    let boundary_revisit = dae_run_post_cleanup_boundary_revisit_worklist(
+      cleaned, core_touched,
+    )
     let post_cleanup = dae_run_core(
-      cleaned,
+      boundary_revisit.mod_out,
       options.trace,
       optimize=broad_cleanup_changed,
       perf=options.perf,
@@ -72044,7 +72047,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       post_cleanup_core_start_us,
     )
     post_cleanup_mod = post_cleanup.mod_out
-    post_cleanup_touched = post_cleanup.touched
+    post_cleanup_touched = dae_merge_touched(
+      boundary_revisit.touched,
+      post_cleanup.touched,
+    )
   }
   if post_cleanup_touched.length() > 0 {
     let (boundary_recleaned, _) = match

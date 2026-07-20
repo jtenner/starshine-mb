@@ -2702,7 +2702,9 @@ fn dae_process_work_item(
     }
   }
   let result = match item.family {
-    DaeUnusedParameterWork | DaeLocalizationRetryWork =>
+    DaeUnusedParameterWork
+    | DaeLocalizationRetryWork
+    | DaePostCleanupBoundaryRevisitWork =>
       Some(
         dae_try_rewrite_unread_params_for_def_with_facts(
           current,
@@ -2761,9 +2763,7 @@ fn dae_process_work_item(
           graph.snapshot.call_facts,
         ),
       )
-    DaeControlReconstructionWork
-    | DaeTypeRepairRetryWork
-    | DaePostCleanupBoundaryRevisitWork => None
+    DaeControlReconstructionWork | DaeTypeRepairRetryWork => None
     DaeForwardingWork => None
   }
   match result {
@@ -33420,6 +33420,57 @@ fn dae_run_dropped_result_candidate_worklist_with_facts(
     }
   }
   { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+}
+
+///|
+fn dae_run_post_cleanup_boundary_revisit_worklist(
+  current : @lib.Module,
+  touched : Array[Bool],
+) -> DaePassResult {
+  let defined = dae_defined_func_count(current)
+  if touched.length() != defined {
+    return { mod_out: current, touched, changed: false, primary_def: -1 }
+  }
+  let original = dae_collect_original_boundary_snapshot(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  let mut mod_out = current
+  let mut touched_out = touched
+  let mut changed = false
+  let mut primary_def = -1
+  let mut def_idx = 0
+  while def_idx < defined {
+    if touched[def_idx] {
+      let item = dae_work_item_new(
+        graph,
+        dependencies,
+        def_idx,
+        DaePostCleanupBoundaryRevisitWork,
+      )
+      match
+        dae_process_work_item(
+          original, mod_out, touched_out, changed, graph, dependencies, item, diagnostics,
+        ) {
+        DaeWorkCommitted(application) => {
+          mod_out = application.mod_out
+          touched_out = application.touched
+          changed = application.changed
+          if primary_def < 0 {
+            primary_def = application.primary_def
+          }
+          dae_current_boundary_graph_refresh(graph, mod_out)
+          dependencies = dae_boundary_dependency_graph_new(graph)
+        }
+        _ => ()
+      }
+    }
+    def_idx += 1
+  }
+  if !changed {
+    return { mod_out: current, touched: [], changed: false, primary_def: -1 }
+  }
+  { mod_out, touched: touched_out, changed, primary_def }
 }
 
 ///|

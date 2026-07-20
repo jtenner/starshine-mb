@@ -15047,6 +15047,40 @@ test "dae uniform dispatcher consumes solved forwarding values" {
 }
 
 ///|
+test "dae post-cleanup boundary revisit commits through dispatcher" {
+  let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let item = dae_work_item_new(
+    graph,
+    dependencies,
+    0,
+    DaePostCleanupBoundaryRevisitWork,
+  )
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_eq(application.primary_def, 0)
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid post-cleanup revisit, got \{err}")
+      }
+    }
+    _ => fail("expected post-cleanup boundary revisit to commit")
+  }
+}
+
+///|
 test "dae dropped-result work commits through dispatcher" {
   let source =
     #|(module
