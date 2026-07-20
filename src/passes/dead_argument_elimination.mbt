@@ -39460,7 +39460,7 @@ fn dae_run_core(
     let low_exact_literal_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
       current,
       low_exact_literal_call_facts,
-      4096,
+      original_defined,
       min_param_count=8,
       require_all_nullable_refs=true,
     )
