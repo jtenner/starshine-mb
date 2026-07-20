@@ -41,7 +41,7 @@ The raw scan is preserved locally at `.tmp/dae-release-baseline-20260719/product
 
 | Production surface | Current examples | Category | Required disposition |
 |---|---|---:|---|
-| Large reverse exact-literal chain | definitions `4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584` | 1 | replace with reverse dependency ordering over uniform-value forwarding edges |
+| Large reverse exact-literal chain | definitions `4593, 4592, 4591, 4589, 4588, 4587, 4586, 4584`; broad single-parameter identity wrappers are now discovered generically at any definition | 1 | extend the proven identity predicate to dependency-ordered multi-parameter forwarding edges, then delete the remaining fixed list |
 | Low wrapper/callee boundary order | fixed wrapper list beginning `128, 131, 133, ... 196` | 1 | derive wrapper/callee component order from the current call graph |
 | Exact parameter chain | definitions `37, 38, 41`; selected `37`, then `[38, 41]` | 1 | recognize the parameter-position dependency component generically |
 | Early selected body cleanup | definitions `233, 236, 237, 256, 267, 268` | 2/4 | move reusable cleanup into shared passes; retain artifact fixtures as regressions |

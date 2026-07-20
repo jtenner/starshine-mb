@@ -33298,6 +33298,30 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
 }
 
 ///|
+fn dae_exact_literal_candidate_is_single_param_identity(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Bool {
+  let imported = dae_imported_func_count(mod_)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return false
+  }
+  match dae_resolve_func_type(mod_, type_indices, imported + def_idx) {
+    Some(@lib.FuncType([param], [result])) if param == result => {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+      locals.length() == 0 &&
+      body == [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]
+    }
+    _ => false
+  }
+}
+
+///|
 fn dae_run_exact_literal_candidate_worklist_with_facts(
   current : @lib.Module,
   touched : Array[Bool],
@@ -37615,7 +37639,33 @@ fn dae_run_core(
   let selected_scratch_defs = Array::make(original_defined, false)
   let mut reverse_iter = 0
   if original_defined > 1024 {
-    // The debug artifact's reverse exact-literal lane has a stable high-wrapper
+    let broad_identity_call_facts = dae_collect_current_call_facts(
+      current, original_total,
+    )
+    let broad_identity_candidates : Array[Int] = []
+    for
+      candidate_def in dae_collect_exact_literal_candidate_defs_with_facts(
+        current, broad_identity_call_facts, original_defined,
+      ) {
+      if dae_exact_literal_candidate_is_single_param_identity(
+          current, candidate_def,
+        ) {
+        broad_identity_candidates.push(candidate_def)
+      }
+    }
+    let broad_identity_application = dae_run_exact_literal_candidate_worklist_with_facts(
+      current, touched, changed, broad_identity_candidates, broad_identity_call_facts,
+      -1,
+    )
+    current = broad_identity_application.mod_out
+    touched = broad_identity_application.touched
+    changed = broad_identity_application.changed
+    for primary_def in broad_identity_application.productive_defs {
+      trace(
+        "pass[dae-optimizing]:broad-exact-identity primary_def=\{primary_def}",
+      )
+    }
+    // The debug artifact's remaining reverse exact-literal lane has a stable high-wrapper
     // chain. Route only that chain through the selected-def helper on large
     // modules so we avoid rescanning thousands of unrelated functions while
     // preserving the existing small-module exploratory reverse pass. The lane
