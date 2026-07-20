@@ -14203,6 +14203,26 @@ test "dae raw cleanup strips empty zero-result try_tables even with catches" {
 }
 
 ///|
+test "dae forwarded-cycle collection converges beyond the old eight-component limit" {
+  let mut funcs = ""
+  let mut pair = 0
+  while pair < 9 {
+    let first = pair * 2
+    let second = first + 1
+    funcs = funcs +
+      "  (func $f\{first} (param i32) local.get 0 call $f\{second})\n" +
+      "  (func $f\{second} (param i32) local.get 0 call $f\{first})\n"
+    pair += 1
+  }
+  let mod_ = pass_test_module_from_wat("(module\n" + funcs + ")")
+  let touched = Array::make(18, true)
+  let cycle_batches = dae_collect_forwarded_param_cycle_batches(mod_, touched)
+  assert_eq(cycle_batches.length(), 9)
+  assert_eq(cycle_batches[0], [0, 1])
+  assert_eq(cycle_batches[8], [16, 17])
+}
+
+///|
 test "dae forwarded-cycle collection prioritizes explicitly selected definitions" {
   let mod_ = pass_test_module_from_wat(
     (

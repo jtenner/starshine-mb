@@ -34382,11 +34382,11 @@ fn dae_collect_forwarded_param_cycle_batches(
   touched : Array[Bool],
   preferred_defs? : Array[Int] = [],
   excluded_defs? : Array[Int] = [],
-  limit? : Int = 8,
+  limit? : Int = -1,
 ) -> Array[Array[Int]] {
   let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
-  if defined == 0 || touched.length() != defined || limit <= 0 {
+  if defined == 0 || touched.length() != defined || limit == 0 {
     return []
   }
   let total = imported + defined
@@ -34396,7 +34396,7 @@ fn dae_collect_forwarded_param_cycle_batches(
   let batches : Array[Array[Int]] = []
   let processed_defs = excluded_defs.copy()
   let ordered_preferred_defs = preferred_defs.copy()
-  while batches.length() < limit {
+  while limit < 0 || batches.length() < limit {
     let defs = dae_collect_forwarded_param_cycle_defs_with_facts(
       current, touched, ordered_preferred_defs, processed_defs, imported, defined,
       type_indices, boundary_facts,
@@ -34427,12 +34427,7 @@ fn dae_forwarded_param_direct_call_target_after_get(
   }
   let mut values_above = 0
   let mut idx = get_idx + 1
-  let limit = if get_idx + 129 < instrs.length() {
-    get_idx + 129
-  } else {
-    instrs.length()
-  }
-  while idx < limit {
+  while idx < instrs.length() {
     match instrs[idx] {
       @lib.Call(func_idx) => {
         let callee_abs = dae_func_idx_slot(func_idx)
@@ -34555,9 +34550,6 @@ fn dae_collect_forwarded_param_component_node(
       flags[0] = true
     }
     return states[existing_idx] != 0
-  }
-  if nodes.length() >= 64 {
-    return false
   }
   let imported = dae_imported_func_count(current)
   let def_idx = callee_abs - imported
@@ -34924,9 +34916,8 @@ fn dae_collect_forwarded_param_component(
         }
       }
       if collected && (flags[0] || flags[1]) && cycle_member_defs >= 2 {
-        let mut round = 0
         let mut changed = true
-        while changed && round < 8 && nodes.length() < 64 {
+        while changed {
           changed = false
           let frontier = nodes.copy()
           for target in frontier {
@@ -34966,7 +34957,6 @@ fn dae_collect_forwarded_param_component(
               }
             }
           }
-          round += 1
         }
         return nodes
       }
@@ -35428,8 +35418,7 @@ fn dae_run_forwarded_param_dead_callee_convergence(
     Array::make(defined, false)
   }
   let sink_defs : Array[Int] = []
-  let mut sink_round = 0
-  while sink_round < 8 {
+  while true {
     let sink_candidates = dae_collect_forwarded_param_dead_callee_defs(
       mod_out, cycle_defs,
     )
@@ -35442,9 +35431,8 @@ fn dae_run_forwarded_param_dead_callee_convergence(
         sink_selected[def_idx] = true
       }
     }
-    let mut iteration = 0
     let mut round_changed = false
-    while iteration < 16 {
+    while true {
       let call_facts = dae_collect_current_call_facts(mod_out, total)
       let result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
         mod_out, sink_selected, call_facts,
@@ -35458,12 +35446,10 @@ fn dae_run_forwarded_param_dead_callee_convergence(
         sink_defs.push(result.primary_def)
       }
       round_changed = true
-      iteration += 1
     }
     if !round_changed {
       break
     }
-    sink_round += 1
   }
   if sink_defs.length() == 0 {
     return None
@@ -35475,9 +35461,7 @@ fn dae_run_forwarded_param_dead_callee_convergence(
     }
   }
   let productive_cycle_defs : Array[Int] = []
-  let mut iteration = 0
-  let cycle_limit = cycle_defs.length() * 4
-  while iteration < cycle_limit {
+  while true {
     let call_facts = dae_collect_current_call_facts(mod_out, total)
     let result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       mod_out, cycle_selected, call_facts,
@@ -35491,7 +35475,6 @@ fn dae_run_forwarded_param_dead_callee_convergence(
       !productive_cycle_defs.contains(result.primary_def) {
       productive_cycle_defs.push(result.primary_def)
     }
-    iteration += 1
   }
   Some({
     mod_out,
