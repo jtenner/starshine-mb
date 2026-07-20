@@ -70672,36 +70672,6 @@ fn run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
 }
 
 ///|
-fn run_hot_pipeline_dae_low_exact_param_chain_prefix_touched(
-  mod_ : @lib.Module,
-  touched : Array[Bool],
-) -> Array[Bool]? {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return None
-  }
-  let type_idxs = dae_collect_func_type_indices(mod_)
-  if funcs.length() <= 4096 || touched.length() <= 164 || !touched[164] {
-    return None
-  }
-  let imported = dae_imported_func_count(mod_)
-  let params37 = match dae_resolve_func_type(mod_, type_idxs, imported + 37) {
-    Some(@lib.FuncType(params, _)) => params
-    None => return None
-  }
-  let params38 = match dae_resolve_func_type(mod_, type_idxs, imported + 38) {
-    Some(@lib.FuncType(params, _)) => params
-    None => return None
-  }
-  if params37.length() != 2 || params38.length() != 3 {
-    return None
-  }
-  let selected = Array::make(funcs.length(), false)
-  selected[37] = true
-  Some(selected)
-}
-
-///|
 fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
   original : @lib.Module,
   current : @lib.Module,
@@ -71582,101 +71552,6 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
   let mut core_mod = result.mod_out
   let mut core_touched = result.touched
-  if dae_defined_func_count(core_mod) > 4096 &&
-    core_touched.length() > 164 &&
-    core_touched[164] {
-    let initial = dae_run_low_exact_param_chain_initial(core_mod, core_touched)
-    core_mod = initial.mod_out
-    core_touched = initial.touched
-    for iter, primary_def in initial.productive_defs {
-      let kind = if iter + 1 == initial.productive_defs.length() &&
-        primary_def == 37 {
-        "literal"
-      } else {
-        "refine"
-      }
-      (options.trace)(
-        "pass[dae-optimizing]:low-exact-param-chain iter=\{iter} kind=\{kind} primary_def=\{primary_def}",
-      )
-    }
-  }
-  match
-    run_hot_pipeline_dae_low_exact_param_chain_prefix_touched(
-      core_mod, core_touched,
-    ) {
-    Some(prefix_touched) => {
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "low-exact-param-chain-prefix",
-        payload="primary_def=37 pass=precompute-propagate",
-      )
-      core_mod = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
-        core_mod, prefix_touched,
-      )
-      core_mod = run_hot_pipeline_dae_fold_i32_tee_compare_ifs_touched(
-        core_mod, prefix_touched,
-      )
-      core_mod = match
-        run_hot_pipeline_apply_hot_pass_to_touched(
-          core_mod,
-          precompute_propagate_descriptor(),
-          prefix_touched,
-          options,
-        ) {
-        Ok(next) => next
-        Err(err) =>
-          return Err("DAE low exact-param prefix precompute-propagate: \{err}")
-      }
-      let convergence = dae_run_low_exact_param_chain_convergence(
-        core_mod, core_touched,
-      )
-      core_mod = convergence.mod_out
-      core_touched = convergence.touched
-      for iter, primary_def in convergence.productive_defs {
-        (options.trace)(
-          "pass[dae-optimizing]:low-exact-param-chain-converge iter=\{iter} primary_def=\{primary_def}",
-        )
-      }
-      let cleanup_touched = prefix_touched.copy()
-      if 38 < cleanup_touched.length() {
-        cleanup_touched[38] = true
-      }
-      for def_idx in convergence.productive_defs {
-        if def_idx >= 0 && def_idx < cleanup_touched.length() {
-          cleanup_touched[def_idx] = true
-        }
-      }
-      let cleanup_defs : Array[Int] = []
-      for def_idx = 0; def_idx < cleanup_touched.length(); def_idx = def_idx + 1 {
-        if cleanup_touched[def_idx] {
-          cleanup_defs.push(def_idx)
-        }
-      }
-      for cleanup_pass in ["simplify-locals", "vacuum"] {
-        let descriptor = match
-          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-          Ok(descriptor) => descriptor
-          Err(err) => return Err(err)
-        }
-        core_mod = match
-          run_hot_pipeline_apply_hot_pass_to_touched(
-            core_mod, descriptor, cleanup_touched, options,
-          ) {
-          Ok(next) => next
-          Err(err) =>
-            return Err("DAE low exact-param \{cleanup_pass} cleanup: \{err}")
-        }
-        pipeline_trace_hook(
-          options.trace,
-          "dae-optimizing",
-          "low-exact-param-chain-cleanup",
-          payload="defs=\{cleanup_defs.to_string()} pass=\{cleanup_pass}",
-        )
-      }
-    }
-    None => ()
-  }
   let broad_adjacent = dae_run_broad_exact_param_adjacent_cleanup_root(
     core_mod,
     core_touched,

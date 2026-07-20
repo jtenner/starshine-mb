@@ -7193,16 +7193,16 @@ test "dae-optimizing batches low null-default candidates on broad modules" {
     Ok(trace) => trace
     Err(err) => fail("expected traced broad-module DAE success, got \{err}")
   }
-  for
-    expected in [
-      "pass[dae-optimizing]:low-exact-param-chain-prefix primary_def=37 pass=precompute-propagate",
-      "pass[dae-optimizing]:low-exact-param-chain-converge iter=0 primary_def=38",
-      "pass[dae-optimizing]:low-exact-param-chain-converge iter=1 primary_def=41",
-      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=[37, 38, 41] pass=simplify-locals",
-      "pass[dae-optimizing]:low-exact-param-chain-cleanup defs=[37, 38, 41] pass=vacuum",
-    ] {
-    assert_true(chain_trace.contains(expected), msg=chain_trace.to_string())
-  }
+  assert_true(
+    chain_trace.contains(
+      "pass[dae-optimizing]:direct-gc-batch wave=0 first_def=37",
+    ),
+    msg=chain_trace.to_string(),
+  )
+  assert_false(
+    chain_trace.any(fn(line) { line.contains("low-exact-param-chain") }),
+    msg=chain_trace.to_string(),
+  )
   @debug.assert_eq(dae_test_func_results(optimized, target_def), [exact_leaf])
   @debug.assert_eq(dae_test_func_results(optimized, 43), [exact_leaf])
   @debug.assert_eq(dae_test_func_results(optimized, 42), [exact_leaf])
