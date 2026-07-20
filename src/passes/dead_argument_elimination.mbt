@@ -42,7 +42,7 @@ priv enum DaeDecisionReason {
   DaeValidationRollback
   DaeProfitabilityRejection
   DaeWorkBudgetRejection
-}
+} derive(Eq)
 
 ///|
 priv enum DaeBoundarySurface {
@@ -1288,6 +1288,105 @@ priv struct DaeCurrentBoundaryGraph {
   mut function_epochs : Array[DaeFunctionEpochs]
   mut module_epoch : Int
   mut call_epoch : Int
+}
+
+///|
+priv enum DaeParameterAction {
+  DaeKeepParameter
+  DaeRemoveParameter
+  DaeMaterializeParameter(@lib.Instruction)
+  DaeLocalizeParameter
+}
+
+///|
+priv enum DaeResultAction {
+  DaeKeepResult
+  DaeRemoveResult
+  DaeRefineResult(@lib.ValType)
+}
+
+///|
+priv struct DaeCallerEpochExpectation {
+  def_idx : Int
+  signature_epoch : Int
+  body_epoch : Int
+  direct_calls : Int
+  return_calls : Int
+}
+
+///|
+priv struct DaeCallerRewritePlan {
+  def_idx : Int
+  func : @lib.Func
+  calls_rewritten : Int
+  return_calls_rewritten : Int
+}
+
+///|
+priv struct DaeLocalProjectionPlan {
+  local_map : Array[Int]
+  preserved_removed_params : Array[Bool]
+}
+
+///|
+priv struct DaeControlTypeRewritePlan {
+  owner_def : Int
+  old_results : Array[@lib.ValType]
+  new_results : Array[@lib.ValType]
+}
+
+///|
+priv struct DaeTypeSectionRewritePlan {
+  expected : @lib.TypeSec
+  replacement : @lib.TypeSec
+  replacement_type_idx : @lib.TypeIdx
+}
+
+///|
+priv struct DaeFunctionSectionRewritePlan {
+  expected : Array[@lib.TypeIdx]
+  replacement : Array[@lib.TypeIdx]
+}
+
+///|
+priv enum DaeMetadataRewritePlan {
+  DaePreserveMetadata
+  DaeStripStaleNames
+}
+
+///|
+priv struct DaeRewritePlan {
+  target_def : Int
+  target_abs : Int
+  expected_module_epoch : Int
+  expected_call_epoch : Int
+  expected_target_signature_epoch : Int
+  expected_target_body_epoch : Int
+  expected_callers : Array[DaeCallerEpochExpectation]
+  expected_direct_call_count : Int
+  expected_return_call_count : Int
+  parameter_actions : Array[DaeParameterAction]
+  result_actions : Array[DaeResultAction]
+  old_signature : @lib.FuncType
+  replacement_signature : @lib.FuncType
+  caller_rewrites : Array[DaeCallerRewritePlan]
+  callee_rewrite : @lib.Func
+  local_projection : DaeLocalProjectionPlan
+  control_type_rewrites : Array[DaeControlTypeRewritePlan]
+  type_section_rewrite : DaeTypeSectionRewritePlan
+  function_section_rewrite : DaeFunctionSectionRewritePlan
+  touched_functions : Array[Bool]
+  invalidated_dependencies : Array[Int]
+  metadata_rewrite : DaeMetadataRewritePlan
+  rewritten_funcs : Array[@lib.Func]
+  decision_reason : DaeDecisionReason
+}
+
+///|
+priv struct DaeRewritePlanApplication {
+  result : DaePassResult
+  applied : Bool
+  reason : DaeDecisionReason
 }
 
 ///|
@@ -14524,6 +14623,541 @@ fn dae_try_apply_direct_gc_batch(
 }
 
 ///|
+fn dae_count_target_call_kinds_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> (Int, Int) {
+  let mut direct_calls = 0
+  let mut return_calls = 0
+  for instr in instrs {
+    match instr {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        direct_calls += 1
+      @lib.ReturnCall(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        direct_calls += 1
+        return_calls += 1
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (nested_direct, nested_return) = dae_count_target_call_kinds_instrs(
+          body, callee_abs,
+        )
+        direct_calls += nested_direct
+        return_calls += nested_return
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_direct, then_return) = dae_count_target_call_kinds_instrs(
+          then_body, callee_abs,
+        )
+        direct_calls += then_direct
+        return_calls += then_return
+        match else_body {
+          Some(body) => {
+            let (else_direct, else_return) = dae_count_target_call_kinds_instrs(
+              body, callee_abs,
+            )
+            direct_calls += else_direct
+            return_calls += else_return
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (direct_calls, return_calls)
+}
+
+///|
+fn dae_rewrite_plan_rejection(
+  mod_ : @lib.Module,
+  reason : DaeDecisionReason,
+) -> DaeRewritePlanApplication {
+  {
+    result: { mod_out: mod_, touched: [], changed: false, primary_def: -1 },
+    applied: false,
+    reason,
+  }
+}
+
+///|
+fn dae_build_scalar_unused_param_rewrite_plan(
+  mod_ : @lib.Module,
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
+  callee_abs : Int,
+  remove : Array[Bool],
+  local_use : DaeLocalUse,
+  direct_call_count : Int,
+  direct_caller_defs : Array[Int],
+) -> DaeRewritePlan? {
+  let def_idx = callee_abs - graph.snapshot.imported
+  if graph.snapshot.imported != original.imported ||
+    def_idx < 0 ||
+    def_idx >= original.defined ||
+    def_idx >= graph.snapshot.defined ||
+    def_idx >= graph.snapshot.funcs.length() ||
+    remove.length() == 0 ||
+    !remove.any(fn(value) { value }) {
+    return None
+  }
+  let old_signature = match graph.snapshot.function_types[callee_abs] {
+    Some(signature) => signature
+    None => return None
+  }
+  let @lib.FuncType(params, results) = old_signature
+  if remove.length() != params.length() ||
+    local_use.writes.length() < params.length() ||
+    local_use.gets.length() < params.length() {
+    return None
+  }
+  let boundary_candidate = match
+    dae_call_boundary_candidate(
+      graph.snapshot.boundary_facts,
+      callee_abs,
+      def_idx~,
+    ) {
+    Some(candidate) if candidate.owned => candidate
+    _ => return None
+  }
+  if boundary_candidate.direct_call_count != direct_call_count ||
+    boundary_candidate.direct_callers != direct_caller_defs {
+    return None
+  }
+  let localized_params = Array::make(params.length(), false)
+  let rewrite_caller = fn(caller_func, caller_def) {
+    let @lib.Func(locals, @lib.Expr(body)) = caller_func
+    let caller_abs = graph.snapshot.imported + caller_def
+    let caller_params = match graph.snapshot.function_types[caller_abs] {
+      Some(@lib.FuncType(caller_params, _)) => caller_params
+      None =>
+        return {
+          func: caller_func,
+          calls_rewritten: 0,
+          changed: false,
+          ok: false,
+        }
+    }
+    let localization = {
+      first_scratch_local: dae_next_free_local_idx(
+        body,
+        caller_params.length() + locals.length(),
+      ),
+      param_types: params,
+      scratch_local_types: [],
+      localized_params,
+    }
+    let result = dae_rewrite_calls_instrs(
+      body,
+      callee_abs,
+      remove,
+      0,
+      mod_,
+      graph.snapshot.type_indices,
+      localization=Some(localization),
+    )
+    if !result.ok || localization.localized_params.any(fn(value) { value }) {
+      return {
+        func: caller_func,
+        calls_rewritten: 0,
+        changed: false,
+        ok: false,
+      }
+    }
+    if result.calls_rewritten > 0 {
+      {
+        func: @lib.Func::new(locals, @lib.Expr::new(result.instrs)),
+        calls_rewritten: result.calls_rewritten,
+        changed: true,
+        ok: true,
+      }
+    } else {
+      { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+    }
+  }
+  let caller_application = dae_apply_direct_caller_scope_rewrite(
+    graph.snapshot.funcs,
+    direct_caller_defs,
+    rewrite_caller,
+  )
+  if !caller_application.ok ||
+    caller_application.calls_rewritten != direct_call_count {
+    return None
+  }
+  let no_const_params : Array[@lib.Instruction?] = Array::make(
+    params.length(),
+    None,
+  )
+  let callee_evidence = match
+    dae_removed_param_callee_rewrite_evidence(
+      caller_application.funcs[def_idx],
+      params,
+      remove,
+      no_const_params,
+      local_use,
+      localized_params,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  let rewritten_total_locals = callee_evidence.kept_params.length() +
+    callee_evidence.locals.length()
+  let rewritten_written_locals = dae_collect_written_locals(
+    callee_evidence.body,
+    rewritten_total_locals,
+  )
+  let callee_body = dae_simplify_rewritten_add_zero_instrs(
+    dae_simplify_rewritten_control_instrs(
+      dae_simplify_default_zero_high_guard_instrs(
+        callee_evidence.body,
+        callee_evidence.kept_params.length(),
+        rewritten_written_locals,
+      ),
+      def_idx == 505,
+    ),
+  )
+  let callee_rewrite = dae_simplify_to_unreachable_when_prefix_unobservable(
+    @lib.Func::new(callee_evidence.locals, @lib.Expr::new(callee_body)),
+  )
+  let rewritten_funcs = caller_application.funcs
+  rewritten_funcs[def_idx] = callee_rewrite
+  let context = match
+    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
+    Some(context) => context
+    None => return None
+  }
+  let (next_type_sec, replacement_type_idx) = dae_update_defined_func_type(
+    mod_,
+    context.type_sec,
+    context.type_idxs,
+    def_idx,
+    callee_evidence.kept_params,
+    results,
+  )
+  let next_type_idxs = context.type_idxs.copy()
+  next_type_idxs[def_idx] = replacement_type_idx
+  let parameter_actions : Array[DaeParameterAction] = []
+  let preserved_removed_params = Array::make(params.length(), false)
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    if remove[param_idx] {
+      parameter_actions.push(DaeRemoveParameter)
+      preserved_removed_params[param_idx] = local_use.writes[param_idx]
+    } else {
+      parameter_actions.push(DaeKeepParameter)
+    }
+    param_idx += 1
+  }
+  let result_actions : Array[DaeResultAction] = []
+  for _ in results {
+    result_actions.push(DaeKeepResult)
+  }
+  let expected_callers : Array[DaeCallerEpochExpectation] = []
+  let caller_rewrites : Array[DaeCallerRewritePlan] = []
+  let mut expected_return_call_count = 0
+  for caller_def in direct_caller_defs {
+    if caller_def < 0 ||
+      caller_def >= graph.function_epochs.length() ||
+      caller_def >= graph.snapshot.funcs.length() {
+      return None
+    }
+    let epochs = graph.function_epochs[caller_def]
+    let @lib.Func(_, @lib.Expr(caller_body)) = graph.snapshot.funcs[caller_def]
+    let (caller_direct_calls, caller_return_calls) = dae_count_target_call_kinds_instrs(
+      caller_body, callee_abs,
+    )
+    expected_return_call_count += caller_return_calls
+    expected_callers.push({
+      def_idx: caller_def,
+      signature_epoch: epochs.signature_epoch,
+      body_epoch: epochs.body_epoch,
+      direct_calls: caller_direct_calls,
+      return_calls: caller_return_calls,
+    })
+    if caller_application.changed_defs[caller_def] {
+      caller_rewrites.push({
+        def_idx: caller_def,
+        func: rewritten_funcs[caller_def],
+        calls_rewritten: caller_direct_calls,
+        return_calls_rewritten: caller_return_calls,
+      })
+    }
+  }
+  let touched = Array::make(graph.snapshot.defined, false)
+  let invalidated_dependencies : Array[Int] = [def_idx]
+  let mut touched_idx = 0
+  while touched_idx < rewritten_funcs.length() {
+    if graph.snapshot.funcs[touched_idx] != rewritten_funcs[touched_idx] {
+      touched[touched_idx] = true
+      if !invalidated_dependencies.contains(touched_idx) {
+        invalidated_dependencies.push(touched_idx)
+      }
+    }
+    touched_idx += 1
+  }
+  touched[def_idx] = true
+  let target_epochs = graph.function_epochs[def_idx]
+  Some({
+    target_def: def_idx,
+    target_abs: callee_abs,
+    expected_module_epoch: graph.module_epoch,
+    expected_call_epoch: graph.call_epoch,
+    expected_target_signature_epoch: target_epochs.signature_epoch,
+    expected_target_body_epoch: target_epochs.body_epoch,
+    expected_callers,
+    expected_direct_call_count: direct_call_count,
+    expected_return_call_count,
+    parameter_actions,
+    result_actions,
+    old_signature,
+    replacement_signature: @lib.FuncType::new(
+      callee_evidence.kept_params,
+      results,
+    ),
+    caller_rewrites,
+    callee_rewrite,
+    local_projection: {
+      local_map: dae_build_local_map(
+        params,
+        match graph.snapshot.funcs[def_idx] {
+          @lib.Func(locals, _) => locals.length()
+        },
+        remove,
+        local_use,
+      ),
+      preserved_removed_params,
+    },
+    control_type_rewrites: [],
+    type_section_rewrite: {
+      expected: context.type_sec,
+      replacement: next_type_sec,
+      replacement_type_idx,
+    },
+    function_section_rewrite: {
+      expected: context.type_idxs,
+      replacement: next_type_idxs,
+    },
+    touched_functions: touched,
+    invalidated_dependencies,
+    metadata_rewrite: DaeStripStaleNames,
+    rewritten_funcs,
+    decision_reason: DaeCandidateProduced,
+  })
+}
+
+///|
+fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
+  let @lib.FuncType(old_params, old_results) = plan.old_signature
+  let @lib.FuncType(next_params, next_results) = plan.replacement_signature
+  if plan.parameter_actions.length() != old_params.length() ||
+    plan.result_actions.length() != old_results.length() ||
+    plan.local_projection.preserved_removed_params.length() != old_params.length() ||
+    plan.local_projection.local_map.length() < old_params.length() ||
+    plan.target_def < 0 ||
+    plan.target_def >= plan.rewritten_funcs.length() ||
+    plan.target_def >= plan.touched_functions.length() ||
+    plan.rewritten_funcs[plan.target_def] != plan.callee_rewrite ||
+    plan.function_section_rewrite.replacement[plan.target_def] !=
+    plan.type_section_rewrite.replacement_type_idx ||
+    dae_type_sec_func_type(
+      plan.type_section_rewrite.replacement,
+      plan.type_section_rewrite.replacement_type_idx,
+    ) != Some(plan.replacement_signature) ||
+    next_results != old_results ||
+    !plan.touched_functions[plan.target_def] ||
+    !plan.invalidated_dependencies.contains(plan.target_def) ||
+    plan.control_type_rewrites.length() != 0 ||
+    plan.decision_reason != DaeCandidateProduced {
+    return false
+  }
+  let mut expected_next_params = 0
+  for action in plan.parameter_actions {
+    match action {
+      DaeKeepParameter => expected_next_params += 1
+      DaeRemoveParameter => ()
+      DaeMaterializeParameter(_) | DaeLocalizeParameter => return false
+    }
+  }
+  if expected_next_params != next_params.length() {
+    return false
+  }
+  for action in plan.result_actions {
+    match action {
+      DaeKeepResult => ()
+      DaeRemoveResult | DaeRefineResult(_) => return false
+    }
+  }
+  for rewrite in plan.caller_rewrites {
+    if rewrite.def_idx < 0 ||
+      rewrite.def_idx >= plan.rewritten_funcs.length() ||
+      rewrite.func != plan.rewritten_funcs[rewrite.def_idx] ||
+      rewrite.calls_rewritten <= 0 ||
+      rewrite.return_calls_rewritten < 0 ||
+      rewrite.return_calls_rewritten > rewrite.calls_rewritten {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn dae_apply_rewrite_plan(
+  mod_ : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  plan : DaeRewritePlan,
+) -> DaeRewritePlanApplication {
+  if !dae_rewrite_plan_is_consistent(plan) {
+    return dae_rewrite_plan_rejection(
+      mod_, DaeTypeReconstructionUnavailable,
+    )
+  }
+  if plan.expected_module_epoch != graph.module_epoch {
+    return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
+  }
+  if plan.expected_call_epoch != graph.call_epoch {
+    return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
+  }
+  if plan.target_def < 0 ||
+    plan.target_def >= graph.function_epochs.length() ||
+    plan.target_abs != graph.snapshot.imported + plan.target_def {
+    return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
+  }
+  let target_epochs = graph.function_epochs[plan.target_def]
+  if target_epochs.signature_epoch != plan.expected_target_signature_epoch ||
+    target_epochs.body_epoch != plan.expected_target_body_epoch {
+    return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
+  }
+  if plan.target_abs < 0 ||
+    plan.target_abs >= graph.snapshot.function_types.length() ||
+    graph.snapshot.function_types[plan.target_abs] != Some(plan.old_signature) {
+    return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
+  }
+  let mut direct_calls = 0
+  let mut return_calls = 0
+  for expected in plan.expected_callers {
+    if expected.def_idx < 0 ||
+      expected.def_idx >= graph.function_epochs.length() ||
+      expected.def_idx >= graph.snapshot.funcs.length() {
+      return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
+    }
+    let epochs = graph.function_epochs[expected.def_idx]
+    if epochs.signature_epoch != expected.signature_epoch ||
+      epochs.body_epoch != expected.body_epoch {
+      return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
+    }
+    let @lib.Func(_, @lib.Expr(body)) = graph.snapshot.funcs[expected.def_idx]
+    let (caller_direct, caller_return) = dae_count_target_call_kinds_instrs(
+      body,
+      plan.target_abs,
+    )
+    if caller_direct != expected.direct_calls ||
+      caller_return != expected.return_calls {
+      return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
+    }
+    direct_calls += caller_direct
+    return_calls += caller_return
+  }
+  if direct_calls != plan.expected_direct_call_count ||
+    return_calls != plan.expected_return_call_count {
+    return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
+  }
+  match (mod_.type_sec, mod_.func_sec, mod_.code_sec) {
+    (Some(type_sec), Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      if type_sec != plan.type_section_rewrite.expected ||
+        type_idxs != plan.function_section_rewrite.expected ||
+        funcs != graph.snapshot.funcs ||
+        plan.rewritten_funcs.length() != funcs.length() {
+        return dae_rewrite_plan_rejection(
+          mod_,
+          DaeTypeReconstructionUnavailable,
+        )
+      }
+    _ =>
+      return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
+  }
+  let candidate = mod_
+    .with_type_sec(plan.type_section_rewrite.replacement)
+    .with_func_sec(@lib.FuncSec::new(plan.function_section_rewrite.replacement))
+    .with_code_sec(@lib.CodeSec::new(plan.rewritten_funcs))
+  let candidate = match plan.metadata_rewrite {
+    DaePreserveMetadata => candidate
+    DaeStripStaleNames => candidate.without_name_sec()
+  }
+  match @validate.validate_module(candidate) {
+    Ok(_) =>
+      {
+        result: {
+          mod_out: candidate,
+          touched: plan.touched_functions,
+          changed: true,
+          primary_def: plan.target_def,
+        },
+        applied: true,
+        reason: DaeCandidateApplied,
+      }
+    Err(_) => dae_rewrite_plan_rejection(mod_, DaeValidationRollback)
+  }
+}
+
+///|
+fn dae_rewrite_plan_with_callee(
+  plan : DaeRewritePlan,
+  callee : @lib.Func,
+) -> DaeRewritePlan {
+  let rewritten_funcs = plan.rewritten_funcs.copy()
+  if plan.target_def >= 0 && plan.target_def < rewritten_funcs.length() {
+    rewritten_funcs[plan.target_def] = callee
+  }
+  {
+    target_def: plan.target_def,
+    target_abs: plan.target_abs,
+    expected_module_epoch: plan.expected_module_epoch,
+    expected_call_epoch: plan.expected_call_epoch,
+    expected_target_signature_epoch: plan.expected_target_signature_epoch,
+    expected_target_body_epoch: plan.expected_target_body_epoch,
+    expected_callers: plan.expected_callers,
+    expected_direct_call_count: plan.expected_direct_call_count,
+    expected_return_call_count: plan.expected_return_call_count,
+    parameter_actions: plan.parameter_actions,
+    result_actions: plan.result_actions,
+    old_signature: plan.old_signature,
+    replacement_signature: plan.replacement_signature,
+    caller_rewrites: plan.caller_rewrites,
+    callee_rewrite: callee,
+    local_projection: plan.local_projection,
+    control_type_rewrites: plan.control_type_rewrites,
+    type_section_rewrite: plan.type_section_rewrite,
+    function_section_rewrite: plan.function_section_rewrite,
+    touched_functions: plan.touched_functions,
+    invalidated_dependencies: plan.invalidated_dependencies,
+    metadata_rewrite: plan.metadata_rewrite,
+    rewritten_funcs,
+    decision_reason: plan.decision_reason,
+  }
+}
+
+///|
+fn dae_try_rewrite_scalar_unused_param_candidate(
+  mod_ : @lib.Module,
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
+  callee_abs : Int,
+  remove : Array[Bool],
+  local_use : DaeLocalUse,
+  direct_call_count : Int,
+  direct_caller_defs : Array[Int],
+) -> DaeRewritePlanApplication {
+  match
+    dae_build_scalar_unused_param_rewrite_plan(
+      mod_, original, graph, callee_abs, remove, local_use, direct_call_count, direct_caller_defs,
+    ) {
+    Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan)
+    None => dae_rewrite_plan_rejection(mod_, DaeActualValueSliceUnavailable)
+  }
+}
+
+///|
 fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -21308,6 +21942,27 @@ fn dae_run_core_once(
     }
     let preserve_current_result = original_result_preservation_for_def
     if any && !skip_param_removal {
+      let scalar_unused_only = rewrite_mod == mod_ &&
+        const_params.all(fn(value) { value is None })
+      if scalar_unused_only {
+        let planned = dae_try_rewrite_scalar_unused_param_candidate(
+          mod_,
+          original,
+          current_graph,
+          callee_abs,
+          remove,
+          local_use,
+          direct_calls[callee_abs],
+          direct_callers[callee_abs],
+        )
+        if planned.applied {
+          return planned.result
+        }
+        if planned.reason != DaeActualValueSliceUnavailable {
+          def_idx += 1
+          continue
+        }
+      }
       let result = dae_try_rewrite_candidate(
         rewrite_mod,
         callee_abs,

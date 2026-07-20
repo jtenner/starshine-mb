@@ -14357,6 +14357,234 @@ test "dae stable callsites ignore inactive conflicting uniform actuals" {
 }
 
 ///|
+fn dae_scalar_rewrite_plan_fixture(
+  tail_call? : Bool = false,
+) -> (
+  @lib.Module,
+  DaeOriginalBoundarySnapshot,
+  DaeCurrentBoundaryGraph,
+  DaeRewritePlan,
+) {
+  let target_type = @lib.TypeIdx::new(0U)
+  let caller_type = @lib.TypeIdx::new(1U)
+  let replacement_type = @lib.TypeIdx::new(2U)
+  let call_instr = if tail_call {
+    @lib.Instruction::return_call(@lib.FuncIdx::new(0U))
+  } else {
+    @lib.Instruction::call(@lib.FuncIdx::new(0U))
+  }
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([target_type, caller_type, caller_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(10)),
+            @lib.Instruction::i32_const(@lib.I32(20)),
+            call_instr,
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(9))]),
+        ),
+      ]),
+    )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let local_use = dae_local_use_for_callee(graph.snapshot.funcs[0], 2, 0, 2)
+  let plan = dae_build_scalar_unused_param_rewrite_plan(
+    mod_,
+    original,
+    graph,
+    0,
+    [true, false],
+    local_use,
+    1,
+    [1],
+  ).unwrap()
+  ignore(replacement_type)
+  (mod_, original, graph, plan)
+}
+
+///|
+test "dae scalar rewrite plan commits caller callee type and touched transaction" {
+  let (mod_, _, graph, plan) = dae_scalar_rewrite_plan_fixture()
+  assert_eq(
+    plan.type_section_rewrite.replacement_type_idx,
+    @lib.TypeIdx::new(2U),
+  )
+  assert_eq(plan.expected_direct_call_count, 1)
+  assert_eq(plan.expected_return_call_count, 0)
+  assert_eq(plan.caller_rewrites.length(), 1)
+  assert_eq(plan.local_projection.preserved_removed_params, [false, false])
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  assert_eq(dae_decision_reason_code(application.reason), "candidate-applied")
+  assert_true(application.result.touched[0])
+  assert_true(application.result.touched[1])
+  assert_false(application.result.touched[2])
+  assert_eq(
+    application.result.mod_out.pretty_print_func(@lib.FuncIdx::new(2U)),
+    mod_.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+  let next_types = dae_collect_func_type_indices(application.result.mod_out)
+  match dae_resolve_func_type(application.result.mod_out, next_types, 0) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [@lib.ValType::i32()])
+      assert_eq(results, [@lib.ValType::i32()])
+    }
+    None => fail("expected rewritten target signature")
+  }
+}
+
+///|
+test "dae scalar rewrite plan rejects stale target and caller epochs" {
+  let (mod_, _, signature_graph, signature_plan) = dae_scalar_rewrite_plan_fixture()
+  signature_graph.function_epochs[0].signature_epoch += 1
+  let signature_rejection = dae_apply_rewrite_plan(
+    mod_, signature_graph, signature_plan,
+  )
+  assert_false(signature_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(signature_rejection.reason),
+    "stale-candidate-facts",
+  )
+
+  let (mod_, _, body_graph, body_plan) = dae_scalar_rewrite_plan_fixture()
+  body_graph.function_epochs[0].body_epoch += 1
+  let body_rejection = dae_apply_rewrite_plan(mod_, body_graph, body_plan)
+  assert_false(body_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(body_rejection.reason),
+    "stale-candidate-facts",
+  )
+
+  let (mod_, _, caller_graph, caller_plan) = dae_scalar_rewrite_plan_fixture()
+  caller_graph.function_epochs[1].body_epoch += 1
+  let caller_rejection = dae_apply_rewrite_plan(mod_, caller_graph, caller_plan)
+  assert_false(caller_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(caller_rejection.reason),
+    "stale-candidate-facts",
+  )
+}
+
+///|
+test "dae scalar rewrite plan rejects stale calls and call composition" {
+  let (mod_, _, call_graph, call_plan) = dae_scalar_rewrite_plan_fixture()
+  call_graph.call_epoch += 1
+  let call_rejection = dae_apply_rewrite_plan(mod_, call_graph, call_plan)
+  assert_false(call_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(call_rejection.reason),
+    "call-count-changed",
+  )
+
+  let (mod_, _, count_graph, count_plan) = dae_scalar_rewrite_plan_fixture()
+  let @lib.Func(locals, @lib.Expr(body)) = count_graph.snapshot.funcs[1]
+  let changed_body = body.copy()
+  changed_body.insert(0, @lib.Instruction::i32_const(@lib.I32(30)))
+  changed_body.insert(1, @lib.Instruction::i32_const(@lib.I32(40)))
+  changed_body.insert(2, @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+  count_graph.snapshot.funcs[1] = @lib.Func::new(
+    locals,
+    @lib.Expr::new(changed_body),
+  )
+  let count_rejection = dae_apply_rewrite_plan(mod_, count_graph, count_plan)
+  assert_false(count_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(count_rejection.reason),
+    "call-count-changed",
+  )
+
+  let (mod_, _, tail_graph, tail_plan) = dae_scalar_rewrite_plan_fixture()
+  tail_graph.snapshot.funcs[1] = match tail_graph.snapshot.funcs[1] {
+    @lib.Func(locals, @lib.Expr(body)) => {
+      let changed_body = body.copy()
+      changed_body[changed_body.length() - 1] = @lib.Instruction::return_call(
+        @lib.FuncIdx::new(0U),
+      )
+      @lib.Func::new(locals, @lib.Expr::new(changed_body))
+    }
+  }
+  let tail_rejection = dae_apply_rewrite_plan(mod_, tail_graph, tail_plan)
+  assert_false(tail_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(tail_rejection.reason),
+    "call-count-changed",
+  )
+}
+
+///|
+test "dae scalar rewrite plan rejects changed type resolution and invalid candidate" {
+  let (mod_, _, graph, plan) = dae_scalar_rewrite_plan_fixture()
+  let changed_type_mod = mod_.with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    ]),
+  )
+  let type_rejection = dae_apply_rewrite_plan(changed_type_mod, graph, plan)
+  assert_false(type_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(type_rejection.reason),
+    "type-reconstruction-unavailable",
+  )
+
+  let (mod_, _, graph, plan) = dae_scalar_rewrite_plan_fixture()
+  let invalid_plan = dae_rewrite_plan_with_callee(
+    plan,
+    @lib.Func::new(
+      @lib.Locals::empty(),
+      @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(99U))]),
+    ),
+  )
+  let validation_rejection = dae_apply_rewrite_plan(mod_, graph, invalid_plan)
+  assert_false(validation_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(validation_rejection.reason),
+    "validation-rollback",
+  )
+  assert_eq(validation_rejection.result.mod_out, mod_)
+}
+
+///|
+test "dae scalar rewrite plan records direct return_call composition" {
+  let (mod_, _, graph, plan) = dae_scalar_rewrite_plan_fixture(tail_call=true)
+  assert_eq(plan.expected_direct_call_count, 1)
+  assert_eq(plan.expected_return_call_count, 1)
+  assert_eq(plan.caller_rewrites[0].return_calls_rewritten, 1)
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+}
+
+///|
 test "dae current boundary graph advances signature body and call epochs" {
   let void_type = @lib.TypeIdx::new(0U)
   let param_type = @lib.TypeIdx::new(1U)
