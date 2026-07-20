@@ -19,6 +19,61 @@ test "run_hot_pipeline applies optimize preset through the hot pass manager" {
 }
 
 ///|
+test "public O4z optimize preset executes the late RSE vacuum DAEO neighborhood" {
+  let input = pass_test_module_from_wat(
+    "(module (func (export \"run\") (result i32) nop i32.const 7))",
+  )
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+      ["optimize"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected O4z optimize pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z optimized module to validate, got \{err}")
+  }
+  let mut rse_start = -1
+  let mut late_vacuum_start = -1
+  let mut dae_start = -1
+  let mut inlining_start = -1
+  for idx, line in trace {
+    if line.starts_with("pass[redundant-set-elimination]:") && dae_start < 0 {
+      rse_start = idx
+    } else if line.starts_with("pass[vacuum]:") &&
+      rse_start >= 0 &&
+      dae_start < 0 {
+      late_vacuum_start = idx
+    } else if line == "pass[dae-optimizing]:start" && dae_start < 0 {
+      dae_start = idx
+    } else if line == "pass[inlining-optimizing]:start" && inlining_start < 0 {
+      inlining_start = idx
+    }
+  }
+  assert_true(rse_start >= 0, msg="expected public preset RSE execution")
+  assert_true(
+    late_vacuum_start > rse_start,
+    msg="expected final vacuum after RSE before DAEO",
+  )
+  assert_true(
+    dae_start > late_vacuum_start,
+    msg="expected DAEO after the final function cleanup",
+  )
+  assert_true(
+    inlining_start > dae_start,
+    msg="expected inlining-optimizing after DAEO",
+  )
+}
+
+///|
 test "vacuum skips O4z raw pass until self-opt CLI flag parsing is safe" {
   let trace : Array[String] = []
   match

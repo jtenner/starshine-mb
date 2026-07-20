@@ -63,8 +63,8 @@ Current performance status:
 
 | Surface | Current state | Future action |
 | --- | --- | --- |
-| Registry | `src/passes/optimize.mbt:253-256` now has an active `"redundant-set-elimination"` hot-pass entry. | Keep it direct-only until the late preset slot is proven. |
-| Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"`, builds a validation environment for raw subtype checks, and has a raw fast path before hot lift. | Extend the raw/HOT implementations only for new semantic/parity cases or future preset scheduling. |
+| Registry | `src/passes/optimize.mbt` has an active `"redundant-set-elimination"` hot-pass entry and synchronized optimize/shrink registry/runtime rosters. | Preserve the canonical late `heap-store-optimization -> redundant-set-elimination -> vacuum` neighborhood. |
+| Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"`, builds a validation environment for raw subtype checks, and has a raw fast path before hot lift. | Extend the raw/HOT implementations only for new semantic/parity cases. |
 | Owner file | `src/passes/rse.mbt` owns descriptor, summary, raw/HOT value identities, branch merge sentinels, structured label-exit tracking, body-local default identities, and strict-subtype raw get retargeting. | Keep new behavior beside this owner with focused tests. |
 | HOT local surfaces | [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records local reads/writes, but no value-number CFG flow. | Reuse only the collection pieces that fit; add explicit value identity and merge logic. |
 | Type context | [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) and later helpers expose module subtype/function type context. | Use this for strict-subtype retargeting checks. |
@@ -102,15 +102,9 @@ Add same-value local maps and strict-subtype checks for reference locals.
 Use Binaryen `rse-gc.wast` as the oracle family.
 The rewritten operation should be a local-index retarget, not expression cloning.
 
-### Slice 4: final cleanup and scheduling proof
+### Slice 4: final cleanup and scheduling proof — closed 2026-07-20
 
-Compare:
-
-- direct `--rse`;
-- `--rse --vacuum`;
-- the historical no-DWARF late tail around slot `46`.
-
-Only then should the pass enter public preset scheduling.
+The direct and `rse -> vacuum` evidence was already green. The public optimize/shrink rosters now schedule `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing`; registry tests fix DAEO at one-based slot `48`, and a public O4z trace proves the late RSE/vacuum pair executes before DAEO.
 
 ## Validation checklist
 
@@ -138,6 +132,7 @@ Only then should the pass enter public preset scheduling.
 - [x] Conservative raw `try_table` barrier: nested body rewrites still run, but post-`try_table` local facts are cleared so unmodeled body writes cannot make later same-value sets fold unsafely.
 - [x] No changes to globals, memory stores, struct stores, or array stores.
 - [x] Late `--rse --vacuum` lane classified for RSE002: final 2026-05-10 replay at `.tmp/rse002-rse-vacuum-final-signoff3` remains exact-red at `defined=208 abs=225`, but the former `defined=0 abs=17` nested `drop(...)` / `nop` debris and `defined=29 abs=46` empty-then / double-`eqz` drift are fixed. The remaining first diff is inherited from direct `--vacuum`: `.tmp/rse002-vacuum-baseline` has the same first differing function, and the focused Starshine WAT/pretty files are byte-identical with and without RSE. A 2026-05-11 `vacuum` follow-up at `.tmp/vacuum-large-nested-rse-debris` keeps the same first diff but fixes the real size/code-quality gap in `defined=518`, reducing Starshine's body from the prior `682,619` bytes to `497,292` bytes vs Binaryen `495,884`.
+- [x] Public late-tail scheduling: optimize/shrink registry and runtime rosters place `redundant-set-elimination -> vacuum` immediately before one-based DAEO slot `48`; focused registry and O4z execution tests pass on 2026-07-20.
 
 ## Open design questions
 
@@ -152,4 +147,4 @@ Only then should the pass enter public preset scheduling.
 - `LocalGraph` parity.
 - Memory/global/heap-field store deletion.
 - Generic expression substitution for local gets.
-- Preset scheduling before direct pass parity.
+- Additional preset placement outside the proven late HSO/RSE/vacuum neighborhood.

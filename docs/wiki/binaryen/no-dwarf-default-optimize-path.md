@@ -38,6 +38,10 @@ related:
 - Post-pass phase:
   `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`
 
+## 2026-07-20 Starshine late-tail integration
+
+Starshine's public optimize/shrink registry descriptors and runtime rosters now agree on the late `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing -> inlining-optimizing` neighborhood. Focused tests fix DAEO at one-based slot `48` and prove the public O4z path executes that order. This closes placement/execution, not the separate full-artifact preset replay or DAEO nested-cleanup work.
+
 ## 2026-07-18 release-order refresh
 
 Binaryen `version_131` preserves the v130 default scheduler exactly. The detailed historical path below remains useful, while pass-local behavior must now be read against the v131 release-impact audit. In particular, unchanged order does not mean unchanged owner contracts: OI, memory-packing, RUME, directize, heap2local, and inlining are reopened separately.

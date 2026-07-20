@@ -376,12 +376,15 @@ fn registry_test_assert_dae_optimizing_late_slot(
     }
   }
   @debug.assert_eq(dae_count, 1)
-  assert_true(dae_idx > 0, msg="expected \{label} DAEO predecessor")
+  @debug.assert_eq(dae_idx, 47)
+  assert_true(dae_idx >= 3, msg="expected \{label} DAEO cleanup prelude")
   assert_true(
     dae_idx + 1 < passes.length(),
     msg="expected \{label} DAEO successor",
   )
-  @debug.assert_eq(passes[dae_idx - 1], "heap-store-optimization")
+  @debug.assert_eq(passes[dae_idx - 3], "heap-store-optimization")
+  @debug.assert_eq(passes[dae_idx - 2], "redundant-set-elimination")
+  @debug.assert_eq(passes[dae_idx - 1], "vacuum")
   @debug.assert_eq(passes[dae_idx + 1], "inlining-optimizing")
 }
 

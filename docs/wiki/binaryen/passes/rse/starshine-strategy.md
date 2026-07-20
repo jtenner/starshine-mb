@@ -46,8 +46,8 @@ Current local behavior:
 - `src/passes/rse.mbt` owns the descriptor, summary, HOT same-value rewrite, raw lowered-function value tracker, default body-local identities, branch merge sentinels, raw strict-subtype local-get retargeting, raw identity-preserving refinement wrappers for `ref.as_non_null` / `ref.cast` / `ref.cast_desc_eq`, raw `string.const` / `any.convert_extern` identities, conservative `try_table` fact barriers, safe loop-invariant/default/same-write subsets, loop untouched-local preservation, stable-entry backedge probes, post-loop source agreement, and unknown `local.get` value materialization for local-copy equality. The 2026-07-05 family-matrix closure replayed the official `rse_all-features.wast` probe with an empty Binaryen-vs-Starshine diff for the prior `$loop`, `$merge`, `$many-merges`, and `$fuzz-nan` residuals.
 - `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
 - `src/passes/pass_manager.mbt` dispatches the hot pass, constructs the module validation environment needed for raw subtype checks, and runs the raw fast path before hot lift for lowered functions.
-- `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, raw branch-merge/default/refined-get behavior, and registry classification.
-- The pass remains **direct-only**; the late no-DWARF preset slot is not scheduled yet.
+- `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, `src/passes/registry_test.mbt`, and `src/passes/optimize_test.mbt` cover CLI, direct HOT behavior, raw branch-merge/default/refined-get behavior, registry classification, exact late-slot placement, and public preset execution.
+- The public optimize/shrink rosters now schedule the canonical late `heap-store-optimization -> redundant-set-elimination -> vacuum` tail immediately before one-based DAEO slot `48`.
 
 ## Corrected local strategy
 
@@ -76,7 +76,7 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 - `src/passes/pass_manager.mbt`
   - Runs `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
   - Keeps the normal hot-pass dispatcher arm for focused HOT tests and fallback behavior.
-  - Keeps preset placement near the final cleanup cluster deferred until a separate late-tail scheduling change.
+  - Executes the scheduled late tail before DAEO; the public O4z trace proves RSE and the following final vacuum run before `dae-optimizing`.
 
 ### Owner file
 
