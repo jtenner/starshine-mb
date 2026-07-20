@@ -108,7 +108,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-PLAN]001 - Unify DAE value evidence and transactional rewrites
 
 - **Owner:** DAE value-slice, localization, GC refinement, dropped-result, and module finalization helpers.
-- **Status:** the common epoch-bearing `DaeRewritePlan` and validated atomic application boundary are implemented, and ordinary private scalar unread-parameter removal is the first production consumer. Constant materialization, localization, GC argument/result refinement, dropped results, control reconstruction, selected paths, and worklist ownership remain open.
+- **Status:** the common epoch-bearing `DaeRewritePlan` and validated atomic application boundary are implemented. Ordinary private scalar unread-parameter removal now covers imports, repeated/multiple callers, direct/`return_call`, type reuse/append, written removed-slot preservation, and speculative callee cleanup inside the transaction. Constant materialization, localization, GC argument/result refinement, dropped results, control reconstruction, selected paths, and worklist ownership remain open.
 - **Goal:** construct one immutable caller/callee/control/type/metadata rewrite plan before mutation.
 - **Reason:** several local transactions are already sound, but signature-changing families still use separate evidence and application tails.
 - **Deliverables:** one value-slice carrier with stack/effect/trap/control metadata; parameter-action model; localization as a requeue transition; shared GC LUB evidence; result dependency graph; generic control/typeidx/multivalue reconstruction; one module finalizer.

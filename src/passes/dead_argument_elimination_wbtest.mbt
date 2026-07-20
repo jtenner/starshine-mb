@@ -14585,6 +14585,180 @@ test "dae scalar rewrite plan records direct return_call composition" {
 }
 
 ///|
+test "dae scalar rewrite plan appends missing type and preserves written removed slot" {
+  let (base, _, _, _) = dae_scalar_rewrite_plan_fixture()
+  let @lib.TypeSec(types) = base.type_sec.unwrap()
+  let no_replacement_type = base
+    .with_type_sec(@lib.TypeSec::new([types[0], types[1]]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+  let original = dae_collect_original_boundary_snapshot(no_replacement_type)
+  let graph = dae_current_boundary_graph_new(no_replacement_type)
+  let local_use = dae_local_use_for_callee(graph.snapshot.funcs[0], 2, 0, 2)
+  let append_plan = dae_build_scalar_unused_param_rewrite_plan(
+    no_replacement_type,
+    original,
+    graph,
+    0,
+    [true, false],
+    local_use,
+    1,
+    [1],
+  ).unwrap()
+  assert_eq(
+    dae_type_idx_slot(append_plan.type_section_rewrite.replacement_type_idx),
+    Some(2),
+  )
+  assert_true(
+    dae_apply_rewrite_plan(no_replacement_type, graph, append_plan).applied,
+  )
+
+  let written_mod = base.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(4)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        ]),
+      ),
+      graph.snapshot.funcs[1],
+      graph.snapshot.funcs[2],
+    ]),
+  )
+  let written_original = dae_collect_original_boundary_snapshot(written_mod)
+  let written_graph = dae_current_boundary_graph_new(written_mod)
+  let written_use = dae_local_use_for_callee(
+    written_graph.snapshot.funcs[0],
+    2,
+    0,
+    2,
+  )
+  let written_plan = dae_build_scalar_unused_param_rewrite_plan(
+    written_mod,
+    written_original,
+    written_graph,
+    0,
+    [true, false],
+    written_use,
+    1,
+    [1],
+  ).unwrap()
+  assert_eq(written_plan.local_projection.preserved_removed_params, [
+    true, false,
+  ])
+  let written_application = dae_apply_rewrite_plan(
+    written_mod, written_graph, written_plan,
+  )
+  assert_true(written_application.applied)
+  match written_application.result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(locals, _) = funcs[0]
+      assert_eq(locals.length(), 1)
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
+test "dae scalar rewrite plan handles imports multiple callers and repeated calls" {
+  let imported_type = @lib.TypeIdx::new(0U)
+  let target_type = @lib.TypeIdx::new(1U)
+  let caller_type = @lib.TypeIdx::new(2U)
+  let replacement_type = @lib.TypeIdx::new(3U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("imp"),
+          @lib.ExternType::func(imported_type),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([target_type, caller_type, caller_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(5)),
+            @lib.Instruction::i32_const(@lib.I32(6)),
+            @lib.Instruction::return_call(@lib.FuncIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let local_use = dae_local_use_for_callee(graph.snapshot.funcs[0], 2, 1, 2)
+  let plan = dae_build_scalar_unused_param_rewrite_plan(
+    mod_,
+    original,
+    graph,
+    1,
+    [true, false],
+    local_use,
+    3,
+    [1, 2],
+  ).unwrap()
+  assert_eq(plan.target_def, 0)
+  assert_eq(plan.expected_direct_call_count, 3)
+  assert_eq(plan.expected_return_call_count, 1)
+  assert_eq(plan.caller_rewrites.length(), 2)
+  assert_eq(plan.type_section_rewrite.replacement_type_idx, replacement_type)
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  assert_true(application.result.touched[0])
+  assert_true(application.result.touched[1])
+  assert_true(application.result.touched[2])
+}
+
+///|
 test "dae current boundary graph advances signature body and call epochs" {
   let void_type = @lib.TypeIdx::new(0U)
   let param_type = @lib.TypeIdx::new(1U)

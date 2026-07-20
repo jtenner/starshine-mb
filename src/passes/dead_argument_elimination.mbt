@@ -14691,6 +14691,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   local_use : DaeLocalUse,
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
+  callee_source? : @lib.Func? = None,
 ) -> DaeRewritePlan? {
   let def_idx = callee_abs - graph.snapshot.imported
   if graph.snapshot.imported != original.imported ||
@@ -14789,6 +14790,11 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     params.length(),
     None,
   )
+  match callee_source {
+    Some(_) if caller_application.changed_defs[def_idx] => return None
+    Some(source) => caller_application.funcs[def_idx] = source
+    None => ()
+  }
   let callee_evidence = match
     dae_removed_param_callee_rewrite_evidence(
       caller_application.funcs[def_idx],
@@ -14952,7 +14958,8 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
   let @lib.FuncType(next_params, next_results) = plan.replacement_signature
   if plan.parameter_actions.length() != old_params.length() ||
     plan.result_actions.length() != old_results.length() ||
-    plan.local_projection.preserved_removed_params.length() != old_params.length() ||
+    plan.local_projection.preserved_removed_params.length() !=
+    old_params.length() ||
     plan.local_projection.local_map.length() < old_params.length() ||
     plan.target_def < 0 ||
     plan.target_def >= plan.rewritten_funcs.length() ||
@@ -14963,7 +14970,8 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
     dae_type_sec_func_type(
       plan.type_section_rewrite.replacement,
       plan.type_section_rewrite.replacement_type_idx,
-    ) != Some(plan.replacement_signature) ||
+    ) !=
+    Some(plan.replacement_signature) ||
     next_results != old_results ||
     !plan.touched_functions[plan.target_def] ||
     !plan.invalidated_dependencies.contains(plan.target_def) ||
@@ -15008,9 +15016,7 @@ fn dae_apply_rewrite_plan(
   plan : DaeRewritePlan,
 ) -> DaeRewritePlanApplication {
   if !dae_rewrite_plan_is_consistent(plan) {
-    return dae_rewrite_plan_rejection(
-      mod_, DaeTypeReconstructionUnavailable,
-    )
+    return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
   }
   if plan.expected_module_epoch != graph.module_epoch {
     return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
@@ -15147,10 +15153,19 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   local_use : DaeLocalUse,
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
+  callee_source? : @lib.Func? = None,
 ) -> DaeRewritePlanApplication {
   match
     dae_build_scalar_unused_param_rewrite_plan(
-      mod_, original, graph, callee_abs, remove, local_use, direct_call_count, direct_caller_defs,
+      mod_,
+      original,
+      graph,
+      callee_abs,
+      remove,
+      local_use,
+      direct_call_count,
+      direct_caller_defs,
+      callee_source~,
     ) {
     Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan)
     None => dae_rewrite_plan_rejection(mod_, DaeActualValueSliceUnavailable)
@@ -21942,9 +21957,17 @@ fn dae_run_core_once(
     }
     let preserve_current_result = original_result_preservation_for_def
     if any && !skip_param_removal {
-      let scalar_unused_only = rewrite_mod == mod_ &&
-        const_params.all(fn(value) { value is None })
+      let scalar_unused_only = const_params.all(fn(value) { value is None })
       if scalar_unused_only {
+        let callee_source = if rewrite_mod == mod_ {
+          None
+        } else {
+          match rewrite_mod.code_sec {
+            Some(@lib.CodeSec(rewrite_funcs)) if def_idx >= 0 &&
+              def_idx < rewrite_funcs.length() => Some(rewrite_funcs[def_idx])
+            _ => None
+          }
+        }
         let planned = dae_try_rewrite_scalar_unused_param_candidate(
           mod_,
           original,
@@ -21954,6 +21977,7 @@ fn dae_run_core_once(
           local_use,
           direct_calls[callee_abs],
           direct_callers[callee_abs],
+          callee_source~,
         )
         if planned.applied {
           return planned.result
