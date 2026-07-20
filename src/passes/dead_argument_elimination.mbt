@@ -37377,63 +37377,117 @@ fn dae_run_core(
       )
     None => Array::make(original_defined, 0)
   }
-  while true {
-    let def_idx = match dae_boundary_worklist_take(core_worklist) {
-      Some(value) => value
-      None => break
-    }
-    let before_dependencies = current_dependencies
-    let call_epoch = current_boundary_graph.call_epoch
-    let boundary_facts = current_boundary_graph.snapshot.boundary_facts
-    let result = dae_run_core_once(
-      current,
-      no_already_rewritten_defs,
-      current_call_counts_anywhere,
-      optimize,
-      false,
-      original_boundary_snapshot,
-      current_boundary_graph,
-      expected_call_epoch=call_epoch,
-      max_def_exclusive=def_idx + 1,
-      start_def_inclusive=def_idx,
-      boundary_facts_override=Some(boundary_facts),
-    )
-    let application = dae_apply_core_result(current, touched, changed, result)
-    if !application.applied {
-      continue
-    }
-    dae_current_boundary_graph_refresh(
-      current_boundary_graph,
-      application.mod_out,
-    )
-    let after_dependencies = dae_boundary_dependency_graph_new(
-      current_boundary_graph,
-    )
-    let invalidated = dae_boundary_dependency_invalidations(
-      before_dependencies,
-      after_dependencies,
-      application.touched,
-      application.primary_def,
-    )
-    current_dependencies = after_dependencies
-    current = application.mod_out
-    touched = application.touched
-    changed = application.changed
-    current_call_counts_anywhere = match current.code_sec {
-      Some(@lib.CodeSec(funcs)) =>
-        dae_collect_module_call_counts_anywhere(
-          funcs, original_imported, original_defined,
+  let mut unprofitable_removal_iters = 0
+  while core_worklist.cursor < core_worklist.queue.length() {
+    // Keep Binaryen's one-wave profitability boundary while making discovery
+    // dependency-driven: work enqueued by this frontier is processed in the
+    // next frontier, after the source-backed single-caller stop is classified.
+    let wave_end = core_worklist.queue.length()
+    let mut wave_param_removals = 0
+    let mut wave_single_caller_param_removals = 0
+    while core_worklist.cursor < wave_end {
+      let def_idx = match dae_boundary_worklist_take(core_worklist) {
+        Some(value) => value
+        None => break
+      }
+      let before_dependencies = current_dependencies
+      let before_call_facts = current_boundary_graph.snapshot.call_facts
+      let call_epoch = current_boundary_graph.call_epoch
+      let boundary_facts = current_boundary_graph.snapshot.boundary_facts
+      let result = dae_run_core_once(
+        current,
+        no_already_rewritten_defs,
+        current_call_counts_anywhere,
+        optimize,
+        unprofitable_removal_iters > 0,
+        original_boundary_snapshot,
+        current_boundary_graph,
+        expected_call_epoch=call_epoch,
+        max_def_exclusive=def_idx + 1,
+        start_def_inclusive=def_idx,
+        boundary_facts_override=Some(boundary_facts),
+      )
+      let before_primary_param_count = if result.primary_def >= 0 {
+        let before_type_indices = dae_collect_func_type_indices(current)
+        match
+          dae_resolve_func_type(
+            current,
+            before_type_indices,
+            original_imported + result.primary_def,
+          ) {
+          Some(@lib.FuncType(params, _)) => params.length()
+          None => -1
+        }
+      } else {
+        -1
+      }
+      let application = dae_apply_core_result(current, touched, changed, result)
+      if !application.applied {
+        continue
+      }
+      if application.primary_def >= 0 && before_primary_param_count >= 0 {
+        let after_type_indices = dae_collect_func_type_indices(
+          application.mod_out,
         )
-      None => Array::make(original_defined, 0)
+        let after_param_count = match
+          dae_resolve_func_type(
+            application.mod_out,
+            after_type_indices,
+            original_imported + application.primary_def,
+          ) {
+          Some(@lib.FuncType(params, _)) => params.length()
+          None => before_primary_param_count
+        }
+        if after_param_count < before_primary_param_count {
+          wave_param_removals += 1
+          let callee_abs = original_imported + application.primary_def
+          if callee_abs >= 0 &&
+            callee_abs < before_call_facts.direct_calls.length() &&
+            before_call_facts.direct_calls[callee_abs] == 1 {
+            wave_single_caller_param_removals += 1
+          }
+        }
+      }
+      dae_current_boundary_graph_refresh(
+        current_boundary_graph,
+        application.mod_out,
+      )
+      let after_dependencies = dae_boundary_dependency_graph_new(
+        current_boundary_graph,
+      )
+      let invalidated = dae_boundary_dependency_invalidations(
+        before_dependencies,
+        after_dependencies,
+        application.touched,
+        application.primary_def,
+      )
+      current_dependencies = after_dependencies
+      current = application.mod_out
+      touched = application.touched
+      changed = application.changed
+      current_call_counts_anywhere = match current.code_sec {
+        Some(@lib.CodeSec(funcs)) =>
+          dae_collect_module_call_counts_anywhere(
+            funcs, original_imported, original_defined,
+          )
+        None => Array::make(original_defined, 0)
+      }
+      dae_boundary_worklist_requeue(core_worklist, invalidated)
+      trace(
+        "pass[dae-optimizing]:core-worklist iter=\{iter} primary_def=\{application.primary_def}",
+      )
+      iter += 1
     }
-    dae_boundary_worklist_requeue(core_worklist, invalidated)
-    trace(
-      "pass[dae-optimizing]:core-worklist iter=\{iter} primary_def=\{application.primary_def}",
-    )
-    iter += 1
+    let unprofitable_param_wave = wave_param_removals == 1 &&
+      wave_single_caller_param_removals == 1
+    if unprofitable_param_wave && unprofitable_removal_iters == 0 {
+      unprofitable_removal_iters += 1
+      trace(
+        "pass[dae-optimizing]:core-worklist skip=further-param-removal unprofitable_iters=\{unprofitable_removal_iters} removals=1 single_callers=1",
+      )
+    }
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
-  let unprofitable_removal_iters = 0
   if optimize && original_defined < 1024 {
     // The ordinary fixed loop intentionally uses the strict value slicer.
     // Retry private unread-parameter boundaries only after it converges, using

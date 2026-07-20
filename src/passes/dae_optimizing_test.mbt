@@ -17825,7 +17825,7 @@ test "dae-optimizing rejects a conflicting forwarded-parameter cycle transaction
 }
 
 ///|
-test "dae-optimizing worklist removes a newly unread written forwarding param" {
+test "dae-optimizing worklist preserves Binaryen's one-wave written forwarding stop" {
   let source =
     #|(module
     #|  (func (export "run") (result i32)
@@ -17841,11 +17841,11 @@ test "dae-optimizing worklist removes a newly unread written forwarding param" {
     #|    local.get 0
     #|    call $a))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
   match @validate.validate_module(optimized) {
     Ok(_) => ()
-    Err(err) => fail("expected converged written-forwarding output, got \{err}")
+    Err(err) => fail("expected one-wave written-forwarding output, got \{err}")
   }
 }
 
