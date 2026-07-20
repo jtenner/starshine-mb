@@ -39268,36 +39268,6 @@ fn dae_run_core(
       )
     }
   }
-  if 256 < selected_scratch_defs.length() {
-    selected_scratch_defs[256] = true
-    let selected_func256_loop = dae_try_retarget_selected_func256_loop_carriers_once(
-      current, selected_scratch_defs,
-    )
-    let selected_func256_loop_application = dae_apply_selected_core_result(
-      current, touched, changed, selected_scratch_defs, 256, selected_func256_loop,
-    )
-    if selected_func256_loop_application.applied {
-      current = selected_func256_loop_application.mod_out
-      touched = selected_func256_loop_application.touched
-      changed = selected_func256_loop_application.changed
-      trace(
-        "pass[dae-optimizing]:selected-func256-loop-carriers primary_def=\{selected_func256_loop_application.primary_def}",
-      )
-    }
-  }
-  if 233 < selected_scratch_defs.length() {
-    let selected_const_if_application = dae_run_singleton_selected_core_rewrite(
-      current, touched, changed, selected_scratch_defs, 233, dae_try_simplify_selected_const_if_defs_once,
-    )
-    if selected_const_if_application.applied {
-      current = selected_const_if_application.mod_out
-      touched = selected_const_if_application.touched
-      trace(
-        "pass[dae-optimizing]:selected-const-if primary_def=\{selected_const_if_application.primary_def}",
-      )
-      changed = selected_const_if_application.changed
-    }
-  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:early-shapes", early_shapes_start_us,
   )

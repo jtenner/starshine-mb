@@ -7299,7 +7299,7 @@ test "dae-optimizing revisits wrapper boundaries for unread callee params" {
 }
 
 ///|
-test "dae-optimizing folds selected mid-prefix constant result-if wrappers" {
+test "dae-optimizing preserves Binaryen constant result-if without a DAE boundary change" {
   let target_def = 233
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -7341,8 +7341,8 @@ test "dae-optimizing folds selected mid-prefix constant result-if wrappers" {
     target_def.reinterpret_as_uint(),
   )
   assert_true(target.contains("(call (Func \{target_def + 2}))"), msg=target)
-  assert_false(target.contains("if"), msg=target)
-  assert_false(target.contains("i32.eq"), msg=target)
+  assert_true(target.contains("if"), msg=target)
+  assert_true(target.contains("i32.eq"), msg=target)
 }
 
 ///|
@@ -7403,7 +7403,7 @@ test "dae-optimizing retargets selected Func236 temporary locals and strips Bina
 }
 
 ///|
-test "dae-optimizing retargets selected Func256 loop carriers and strips debris" {
+test "dae-optimizing preserves exported Func256 loop carriers like Binaryen" {
   let target_def = 256
   let out = StringBuilder::new()
   out.write_string("(module\n  (type $loop (func (param i32)))\n  (memory 1)\n")
@@ -7464,12 +7464,12 @@ test "dae-optimizing retargets selected Func256 loop carriers and strips debris"
   let @lib.Func(locals, @lib.Expr(body)) = dae_test_defined_func(
     optimized, target_def,
   )
-  @debug.assert_eq(locals.length(), 2)
-  assert_false(
+  @debug.assert_eq(locals.length(), 11)
+  assert_true(
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(11U)),
     msg=target,
   )
-  assert_false(
+  assert_true(
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(12U)),
     msg=target,
   )
@@ -7477,11 +7477,8 @@ test "dae-optimizing retargets selected Func256 loop carriers and strips debris"
     dae_test_instrs_reference_local(body, @lib.LocalIdx::new(13U)),
     msg=target,
   )
-  assert_true(target.contains("i32.gt_s"), msg=target)
-  assert_true(target.contains("(block (Void)"), msg=target)
-  assert_true(target.contains("(block I32"), msg=target)
-  assert_false(target.contains("local.tee"), msg=target)
-  assert_false(target.contains("i32.const 0, drop"), msg=target)
+  assert_true(target.contains("i32.lt_s"), msg=target)
+  assert_true(target.contains("local.tee"), msg=target)
 }
 
 ///|
