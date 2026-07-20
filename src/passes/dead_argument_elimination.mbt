@@ -1306,6 +1306,8 @@ priv struct DaeBoundaryDependencyGraph {
   nested_cleanup_dependencies_by_def : Array[Array[Int]]
   component_by_def : Array[Int]
   component_members : Array[Array[Int]]
+  forwarding_component_by_def : Array[Int]
+  forwarding_component_members : Array[Array[Int]]
 }
 
 ///|
@@ -1326,6 +1328,7 @@ priv enum DaeWorkFamily {
 priv struct DaeWorkItem {
   target_def : Int
   component_id : Int
+  component_members : Array[Int]
   family : DaeWorkFamily
   expected_module_epoch : Int
   expected_call_epoch : Int
@@ -2371,6 +2374,24 @@ fn dae_boundary_dependency_graph_new(
   let (component_by_def, component_members) = dae_boundary_components(
     callees_by_def,
   )
+  let forwarding_adjacency = dae_dependency_adjacency_new(defined)
+  let mut target_def = 0
+  while target_def < parameter_forwarders_by_def.length() {
+    for forwarder_def in parameter_forwarders_by_def[target_def] {
+      if forwarder_def >= 0 && forwarder_def < defined {
+        if !forwarding_adjacency[target_def].contains(forwarder_def) {
+          forwarding_adjacency[target_def].push(forwarder_def)
+        }
+        if !forwarding_adjacency[forwarder_def].contains(target_def) {
+          forwarding_adjacency[forwarder_def].push(target_def)
+        }
+      }
+    }
+    target_def += 1
+  }
+  let (forwarding_component_by_def, forwarding_component_members) = dae_boundary_components(
+    forwarding_adjacency,
+  )
   let caller_callee_dependencies = dae_dependency_adjacency_union(
     callers_by_def, callees_by_def,
   )
@@ -2402,6 +2423,8 @@ fn dae_boundary_dependency_graph_new(
     ),
     component_by_def,
     component_members,
+    forwarding_component_by_def,
+    forwarding_component_members,
   }
 }
 
@@ -2487,14 +2510,30 @@ fn dae_work_item_new(
   family : DaeWorkFamily,
 ) -> DaeWorkItem {
   let epoch = dae_boundary_candidate_epoch(graph, target_def)
+  let component_id = if family == DaeForwardingWork &&
+    target_def >= 0 &&
+    target_def < dependencies.forwarding_component_by_def.length() {
+    dependencies.forwarding_component_by_def[target_def]
+  } else if target_def >= 0 &&
+    target_def < dependencies.component_by_def.length() {
+    dependencies.component_by_def[target_def]
+  } else {
+    -1
+  }
+  let component_members = if family == DaeForwardingWork &&
+    component_id >= 0 &&
+    component_id < dependencies.forwarding_component_members.length() {
+    dependencies.forwarding_component_members[component_id].copy()
+  } else if component_id >= 0 &&
+    component_id < dependencies.component_members.length() {
+    dependencies.component_members[component_id].copy()
+  } else {
+    []
+  }
   {
     target_def,
-    component_id: if target_def >= 0 &&
-      target_def < dependencies.component_by_def.length() {
-      dependencies.component_by_def[target_def]
-    } else {
-      -1
-    },
+    component_id,
+    component_members,
     family,
     expected_module_epoch: epoch.module_epoch,
     expected_call_epoch: epoch.call_epoch,
@@ -2542,15 +2581,13 @@ fn dae_process_work_item(
     ])
   }
   if item.family == DaeForwardingWork {
-    let component_members = if item.component_id >= 0 &&
-      item.component_id < dependencies.component_members.length() {
-      dependencies.component_members[item.component_id]
-    } else {
-      []
-    }
     match
       dae_run_forwarded_param_component_transaction_with_graph(
-        current, touched, component_members, graph, dependencies,
+        current,
+        touched,
+        item.component_members,
+        graph,
+        dependencies,
       ) {
       Some(candidate) => {
         diagnostics.candidates_applied += 1
@@ -35680,11 +35717,48 @@ fn dae_run_forwarded_param_component_transaction(
   touched : Array[Bool],
   cycle_defs : Array[Int],
 ) -> DaeForwardedParamSccApplication? {
+  if cycle_defs.length() < 2 {
+    return None
+  }
   let graph = dae_current_boundary_graph_new(current)
   let dependencies = dae_boundary_dependency_graph_new(graph)
-  dae_run_forwarded_param_component_transaction_with_graph(
-    current, touched, cycle_defs, graph, dependencies,
+  let target_def = cycle_defs[0]
+  let item = {
+    ..dae_work_item_new(graph, dependencies, target_def, DaeForwardingWork),
+    component_members: cycle_defs.copy(),
+  }
+  let nodes = dae_collect_forwarded_param_component(
+    current,
+    cycle_defs,
+    graph.snapshot.type_indices,
+    graph.snapshot.boundary_facts,
   )
+  if nodes.length() == 0 {
+    return None
+  }
+  let rewritten_defs : Array[Int] = []
+  let imported = graph.snapshot.imported
+  for node in nodes {
+    let def_idx = node.callee_abs - imported
+    if def_idx >= 0 && !rewritten_defs.contains(def_idx) {
+      rewritten_defs.push(def_idx)
+    }
+  }
+  let original = dae_collect_original_boundary_snapshot(current)
+  let diagnostics = dae_diagnostics_new()
+  match
+    dae_process_work_item(
+      original, current, touched, false, graph, dependencies, item, diagnostics,
+    ) {
+    DaeWorkCommitted(application) =>
+      Some({
+        mod_out: application.mod_out,
+        touched: application.touched,
+        defs: rewritten_defs,
+        param_count: nodes.length(),
+      })
+    _ => None
+  }
 }
 
 ///|

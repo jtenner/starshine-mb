@@ -15120,6 +15120,54 @@ test "dae component rewrite plan validation failure restores the complete module
 }
 
 ///|
+test "dae forwarding family component includes exact one-way parameter forwarders" {
+  let source =
+    #|(module
+    #|  (func $a (param i32 i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a)
+    #|  (func $bridge (param i32)
+    #|    local.get 0
+    #|    i32.const 9
+    #|    call $a))
+  let mod_ = pass_test_module_from_wat(source)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  assert_eq(dependencies.component_members, [[0, 1], [2]])
+  assert_eq(dependencies.forwarding_component_by_def, [0, 0, 0])
+  assert_eq(dependencies.forwarding_component_members, [[0, 1, 2]])
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let diagnostics = dae_diagnostics_new()
+  let forwarding = dae_work_item_new(graph, dependencies, 0, DaeForwardingWork)
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      forwarding,
+      diagnostics,
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_true(application.touched[0])
+      assert_true(application.touched[1])
+      assert_true(application.touched[2])
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid forwarding-family commit, got \{err}")
+      }
+    }
+    _ => fail("expected exact forwarding-family component to commit")
+  }
+}
+
+///|
 test "dae family dispatcher commits a forwarding component atomically" {
   let mod_ = dae_forwarded_component_plan_fixture()
   let original = dae_collect_original_boundary_snapshot(mod_)
