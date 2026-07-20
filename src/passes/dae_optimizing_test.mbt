@@ -7623,8 +7623,8 @@ test "dae-optimizing preserves exported Func299 inverted result-if like Binaryen
 }
 
 ///|
-test "dae-optimizing inlines selected Func311 staged terminal call args" {
-  let target_def = 311
+test "dae-optimizing inlines touched staged terminal call args" {
+  let target_def = 711
   let out = StringBuilder::new()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < target_def; i = i + 1 {
@@ -7844,8 +7844,8 @@ test "dae-optimizing inlines selected Func311 staged terminal call args" {
 }
 
 ///|
-test "dae-optimizing remaps selected Func311 final i64 temp to Binaryen local" {
-  let target_def = 311
+test "dae-optimizing remaps a touched final i64 temp to Binaryen local" {
+  let target_def = 711
   let out = StringBuilder::new()
   out.write_string("(module\n  (memory 1)\n")
   for i = 0; i < target_def; i = i + 1 {
@@ -7906,8 +7906,8 @@ test "dae-optimizing remaps selected Func311 final i64 temp to Binaryen local" {
 }
 
 ///|
-test "dae-optimizing inlines selected Func313 staged terminal call args" {
-  let target_def = 313
+test "dae-optimizing inlines a second touched staged terminal call family" {
+  let target_def = 713
   let out = StringBuilder::new()
   out.write_string("(module\n  (memory 1)\n  (global $g i32 (i32.const 42))\n")
   for i = 0; i < target_def; i = i + 1 {
@@ -8100,8 +8100,8 @@ test "dae-optimizing inlines selected Func313 staged terminal call args" {
 }
 
 ///|
-test "dae-optimizing unwraps selected Func313 suffix staging block" {
-  let target_def = 313
+test "dae-optimizing unwraps a touched suffix staging block" {
+  let target_def = 713
   let out = StringBuilder::new()
   out.write_string("(module\n  (memory 1)\n  (global $g i32 (i32.const 42))\n")
   for i = 0; i < target_def; i = i + 1 {
