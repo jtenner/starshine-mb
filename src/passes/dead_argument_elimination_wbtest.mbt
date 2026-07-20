@@ -14759,6 +14759,25 @@ test "dae scalar rewrite plan handles imports multiple callers and repeated call
 }
 
 ///|
+test "dae exact unread-parameter candidate uses one current definition" {
+  let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
+  let facts = dae_collect_current_call_facts(
+    mod_,
+    dae_imported_func_count(mod_) + dae_defined_func_count(mod_),
+  )
+  let result = dae_try_rewrite_unread_params_for_def_with_facts(
+    mod_,
+    0,
+    facts,
+    allow_stack_carried_void_effects=true,
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 0)
+  assert_true(result.touched[0])
+  assert_true(result.touched[1])
+}
+
+///|
 test "dae boundary dependency graph records callers callees and self edges" {
   let void_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()

@@ -22873,18 +22873,32 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   call_facts : DaeCurrentCallFacts,
   allow_stack_carried_void_effects? : Bool = false,
   require_localization_retry? : Bool = false,
+  only_def? : Int = -1,
+  type_indices_override? : Array[@lib.TypeIdx]? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match type_indices_override {
+    Some(indices) => indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let mut def_idx = 0
-  while def_idx < funcs.length() && def_idx < selected_defs.length() {
-    if !selected_defs[def_idx] {
+  let scan_limit = if only_def >= 0 && only_def < funcs.length() {
+    only_def + 1
+  } else if only_def >= funcs.length() {
+    funcs.length()
+  } else if selected_defs.length() < funcs.length() {
+    selected_defs.length()
+  } else {
+    funcs.length()
+  }
+  let mut def_idx = if only_def >= 0 { only_def } else { 0 }
+  while def_idx < scan_limit {
+    if only_def < 0 && !selected_defs[def_idx] {
       def_idx += 1
       continue
     }
@@ -22990,6 +23004,26 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     def_idx += 1
   }
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_rewrite_unread_params_for_def_with_facts(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  call_facts : DaeCurrentCallFacts,
+  allow_stack_carried_void_effects? : Bool = false,
+  require_localization_retry? : Bool = false,
+  type_indices_override? : Array[@lib.TypeIdx]? = None,
+) -> DaePassResult {
+  dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+    mod_,
+    [],
+    call_facts,
+    allow_stack_carried_void_effects~,
+    require_localization_retry~,
+    only_def=def_idx,
+    type_indices_override~,
+  )
 }
 
 ///|
@@ -37209,6 +37243,63 @@ fn dae_restore_dead_suffix_self_operand_params(
 }
 
 ///|
+fn dae_run_computed_unread_param_dependency_worklist(
+  current_in : @lib.Module,
+  touched_in : Array[Bool],
+  changed_in : Bool,
+  require_localization_retry : Bool,
+  trace : (String) -> Unit,
+) -> DaeCoreResultApplication {
+  let mut current = current_in
+  let mut touched = touched_in
+  let mut changed = changed_in
+  let defined = dae_defined_func_count(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let worklist = dae_boundary_worklist_all(defined)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let mut iteration = 0
+  let mut applied = false
+  while true {
+    let def_idx = match dae_boundary_worklist_take(worklist) {
+      Some(value) => value
+      None => break
+    }
+    let before_dependencies = dependencies
+    let result = dae_try_rewrite_unread_params_for_def_with_facts(
+      current,
+      def_idx,
+      graph.snapshot.call_facts,
+      allow_stack_carried_void_effects=true,
+      require_localization_retry~,
+      type_indices_override=Some(graph.snapshot.type_indices),
+    )
+    let application = dae_apply_core_result(current, touched, changed, result)
+    if !application.applied {
+      continue
+    }
+    dae_current_boundary_graph_refresh(graph, application.mod_out)
+    let after_dependencies = dae_boundary_dependency_graph_new(graph)
+    let invalidated = dae_boundary_dependency_invalidations(
+      before_dependencies,
+      after_dependencies,
+      application.touched,
+      application.primary_def,
+    )
+    dependencies = after_dependencies
+    current = application.mod_out
+    touched = application.touched
+    changed = application.changed
+    applied = true
+    dae_boundary_worklist_requeue(worklist, invalidated)
+    trace(
+      "pass[dae-optimizing]:computed-unread-param iter=\{iteration} primary_def=\{application.primary_def}",
+    )
+    iteration += 1
+  }
+  { mod_out: current, touched, changed, applied, primary_def: -1 }
+}
+
+///|
 fn dae_run_core(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
@@ -37489,39 +37580,18 @@ fn dae_run_core(
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
   if optimize && original_defined < 1024 {
-    // The ordinary fixed loop intentionally uses the strict value slicer.
-    // Retry private unread-parameter boundaries only after it converges, using
-    // the existing exact caller set and localization transaction to preserve
-    // stack-carried void effects, traps, and evaluation order around computed
-    // actuals. Large modules use the batched lane above with the same proof.
-    let computed_selected = Array::make(original_defined, true)
-    let mut computed_iter = 0
-    let computed_limit = original_defined * 2 + 1
-    while computed_iter < computed_limit {
-      let computed_facts = dae_collect_current_call_facts(
-        current, original_total,
-      )
-      let computed = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-        current,
-        computed_selected,
-        computed_facts,
-        allow_stack_carried_void_effects=true,
-        require_localization_retry=unprofitable_removal_iters > 0,
-      )
-      let application = dae_apply_core_result(
-        current, touched, changed, computed,
-      )
-      if !application.applied {
-        break
-      }
-      current = application.mod_out
-      touched = application.touched
-      changed = application.changed
-      trace(
-        "pass[dae-optimizing]:computed-unread-param iter=\{computed_iter} primary_def=\{application.primary_def}",
-      )
-      computed_iter += 1
-    }
+    // Preserve the established small-module phase order while replacing its
+    // selected-all array and `defined * 2 + 1` cap with dependency exhaustion.
+    let computed_application = dae_run_computed_unread_param_dependency_worklist(
+      current,
+      touched,
+      changed,
+      unprofitable_removal_iters > 0,
+      trace,
+    )
+    current = computed_application.mod_out
+    touched = computed_application.touched
+    changed = computed_application.changed
   }
   let selected_lanes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes",

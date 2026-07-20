@@ -62,7 +62,7 @@ No new production `FuncNNN` or fixed-definition gate may be added during DAE com
 | Policy | Current value/shape | Category | Why it is not release closure | Replacement/reopening criteria |
 |---|---|---:|---|---|
 | Stable exact-callsite path threshold | total functions `<1024` | 7, temporarily | measured uncached path-resolution slowdown on the fixed artifact | cache containing scope, instruction index, and entry-stack arity; remove after artifact median is no worse than the prior caller scan |
-| Optimizing computed retry | definitions `<1024`, limit `defined * 2 + 1` | 1 | optimization availability depends on module size | dependency queue; defensive budget may remain only as fail-closed telemetry |
+| Optimizing computed retry | definitions `<1024`; former limit `defined * 2 + 1` removed | 1 | the small-module lane now uses exact-definition dependency requeue to exhaustion, but broad-module availability still depends on later lifecycle ordering | route broad candidates through the same queue after shared boundary/component phases; defensive budget may remain only as fail-closed telemetry |
 | Small-module reverse loop | `8` iterations | 1 | later candidates can starve | dependency-driven component queue |
 | Low forwarded-constant revisit | modules `<=4096`, first `4096`, `64` rewrites | 1 | selected prefix/cap affects transform coverage | all candidate components ordered deterministically |
 | Broad nullable exact-literal lane | modules `>4096`, first `4096`, min 8 nullable params, max `64` | 1/3 | mixes correctness/parity with artifact profitability | generic candidate discovery; keep any size heuristic only after correctness candidates are complete |
