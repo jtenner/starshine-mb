@@ -20,9 +20,9 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | Pass | Current Starshine status | Active work |
 | --- | --- | --- |
 | `duplicate-function-elimination` | Direct behavior closed; both slots scheduled. | None. |
-| `remove-unused-module-elements` | Closed for Binaryen-v131 direct behavior: table initializers, typed indirect-call reachability, overlap trap retention, TNH handling, reference-only body nullification, and recursive-group validity are covered. | **Open scheduler gap only:** second early slot. |
+| `remove-unused-module-elements` | Closed for previously tested Binaryen-v131 direct behavior, but reopened for decoded legacy-EH `try` reachability: the module-element scanner currently traverses `try_table` but not legacy `try` bodies or catches. | **Open correctness and scheduler work:** `[AUDIT-LEGACY-EH]001` plus the second early slot. |
 | `memory-packing` | Closed at Binaryen-v131 behavior parity: source-order trampling, imported in-bounds admission, overflow-safe memory32/memory64 bounds, focused fixtures, four-lane evidence, and O4z slot proof are current. | None. |
-| `once-reduction` | Closed. | None. |
+| `once-reduction` | Reopened because its scan, dataflow, and rewrite walkers omit decoded legacy `try` bodies and catches, allowing optimization from incomplete once-global and call facts. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
 | `ssa-nomerge` | Closed. | None; full `ssa` is separate future work. |
@@ -40,9 +40,9 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `tuple-optimization` | Closed with accepted performance exception. | None. |
 | `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
 | `vacuum` | Direct behavior closed. | **Open scheduler placement:** remove/justify extra early slot and restore final slot. |
-| `reorder-locals` | Closed; three slots scheduled. | None. |
+| `reorder-locals` | Reopened for decoded legacy-EH `try`: local-use scanning and local-index rewriting omit legacy try/catch bodies, so reordering or dropping locals can leave stale or wrong indices. Three slots remain scheduled. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
 | `heap2local` | Closed for the representable v131 surface: sequential branch-target struct/array candidates, unreachable flow, GC-supertype drop-only owners, and direct fresh packed/unpacked reads are covered; the four-lane matrix and O4z slot are current. | Shared reference `acqrel` cmpxchg remains a validator/atomic-semantics representation blocker; reopen when that surface lands. |
-| `merge-locals` | Closed at Binaryen-v131 parity; both orientations, CFG influence, rollback, profiles, timing, and slot-27 scheduling completed on 2026-07-18. | None. |
+| `merge-locals` | Previously closed at Binaryen-v131 parity for covered inputs, but reopened because the raw straight-line fallback rejects `try_table` while accepting and ignoring decoded legacy `try` control and nested local effects. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
 | `optimize-casts` | Closed. | None. |
 | `local-subtyping` | Closed. | None. |
 | `coalesce-locals` | Direct behavior closed. | **Open extended-neighborhood shape parity:** the full slot-27 suffix can renumber locals differently even when `merge-locals` is a byte no-op in both tools. |
@@ -52,11 +52,11 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `redundant-set-elimination` / `rse` | Direct behavior, 1x timing, and the canonical late O4z scheduler slot are closed. The public optimize/shrink rosters run `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing`. | None for v0.1.1. |
 | `dae-optimizing` | Closed locally for v0.1.1 DAE ownership. Numeric production identities are gone; final Binaryen-v131 four-lane matrices are current for plain DAE and DAEO; the shared nested roster and exact slot-48 placement are proven. Plain/optimizing retained artifacts validate and are byte-idempotent. Final medians are plain `85.329s` / `64.277s` and DAEO `25.440s` / `21.475s`; the latter improves the prior `47.956s` / `44.490s` without changing bytes. Retained thresholds are optional phase/profitability budgets only. | No DAE-owned work. The DAEO canonical `+4,318` local-layout/remap family belongs to shared nested local-cleanup passes, and the full large O4z wall stop is pre-DAEO in `simplify-locals-nostructure`. |
 | `inlining-optimizing` | The v131 shared-engine behavior audit is implemented locally: toolchain hints, CLI/configurable heuristics, complete trivial-instruction classes, Pattern A/B splitting, EH-aware direct/indirect/ref tail hoisting, roots, metadata repair, active `inline-main`, and exact nested order. **Release target: v0.2.0 or later; these changes are not part of the v0.1.1 release scope.** | Direct behavior has no open v131 transform-family gap. Track shipment under `[V02-INL]001`; shared DAE/SGO scheduler routing remains under `[O4Z-NESTED]001`. |
-| `duplicate-import-elimination` | Closed and scheduled. | None. |
+| `duplicate-import-elimination` | Reopened for decoded legacy-EH `try`: function-index rewriting omits legacy try/catch bodies after duplicate imports are removed. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
 | `simplify-globals-optimizing` | Closed and scheduled. | Shared nested-scheduler proof only. |
 | `string-gathering` | Accepted direct/preset status. | Non-blocking decoder/performance follow-up only. |
-| `reorder-globals` | Accepted direct/preset status. | None. |
-| `directize` | Closed for Binaryen-v131 default behavior: `ref.func`, null, unknown initializer, element override, growth, set/import/export boundaries, and known/trap/unknown classification are covered. | Optional `directize-initial-contents-immutable` pass-arg breadth remains separate. |
+| `reorder-globals` | Reopened for decoded legacy-EH `try`: global-use/dependency scans and index rewriting omit legacy try/catch bodies. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
+| `directize` | Closed for previously tested Binaryen-v131 default behavior, but reopened because table mutation/growth analysis and nested rewriting omit decoded legacy `try` bodies and catches. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`; optional `directize-initial-contents-immutable` breadth remains separate. |
 
 ## Binaryen v131 Release Refresh
 
@@ -68,6 +68,26 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Run focused v131 source/test probes before any full rerun.
   - [ ] Keep a pass closed when the probe is green and the owner contract is unchanged; open a dedicated slice only for a classified mismatch or missing released family.
 - **Exit criteria:** every target has an explicit v131 renewed/unchanged verdict or an owning follow-up slice.
+
+### [AUDIT-LEGACY-EH]001 - Repair decoded legacy `try` traversal across optimizer passes
+
+- **Status:** open correctness audit findings. Legacy `@lib.Instruction::Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)` is a real input produced by `src/binary/decode.mbt`; it is not interchangeable with `TryTable`. Each legacy `Try` has a protected body plus zero or more `LegacyCatch` / `LegacyCatchAll` bodies that must be traversed. Several raw pass walkers currently recurse through `Block`, `Loop`, `If`, and `TryTable` but silently omit the legacy `Try` variant.
+- **Goal:** make every affected pass either traverse legacy try and catch bodies correctly or explicitly fail closed before mutation. Do not treat the absence of legacy-EH coverage in existing generated profiles as proof that the instruction is unreachable.
+- **Why:** the omissions can leave stale remapped indices, hide live references or state mutations, and permit transforms based on incomplete control/effect facts. These are potential semantic miscompiles or invalid-module producers, not representation-only parity gaps.
+- **Deliverables:**
+  - [ ] **Fix the shared structured-instruction walker.** Extend `pass_rewrite_structured_instr` in `src/passes/pass_common.mbt` to recurse through the protected body and every legacy catch body while preserving the block type, catch tags/catch-all shape, and delegate target. Add focused `untee` and `avoid-reinterprets` tests proving nested rewrites occur in both the try body and catches. This item is pass-completeness work; the remaining items below are correctness repairs.
+  - [ ] **Repair `reorder-locals`.** Update `rl_scan_instruction` and `rl_rewrite_instrs_in_place` in `src/passes/reorder_locals.mbt` to visit the protected body and all legacy catch bodies. Add red-first cases where a local is used only in a try/catch and where reordering an outside-used local would otherwise leave a stale catch-body index. Assert encoded local indices and external validation, not only rendered text.
+  - [ ] **Repair `reorder-globals`.** Update global traffic counting, defined-global dependency collection, and instruction rewriting in `src/passes/reorder_globals.mbt` for legacy try/catch bodies. Test globals referenced only in the protected body and only in catches, including a case where reordering changes their absolute indices.
+  - [ ] **Repair `duplicate-import-elimination`.** Extend `die_rewrite_instruction` in `src/passes/duplicate_import_elimination.mbt` so `call`, `return_call`, and `ref.func` indices are remapped inside the protected body and all catches after a duplicate function import is removed. Cover body, typed catch, catch-all, and delegate-bearing shapes; validate the rewritten module and invoke the surviving target where practical.
+  - [ ] **Repair `remove-unused-module-elements`.** Extend `rume_scan_instruction` and every related rewrite/nullification traversal in `src/passes/remove_unused_module_elements.mbt` to scan legacy try/catch bodies and catch tag references. Add fixtures where functions, globals, tables/memories, data/element segments, and tags are reachable only through the protected body or a catch. The pass must not remove or renumber any such live element incorrectly.
+  - [ ] **Repair `directize`.** Extend table mutation, table growth, runtime-table classification, indirect-call discovery, and nested rewrite walkers in `src/passes/directize.mbt` across legacy try/catch bodies. The key regression must place `table.set`, `table.grow`, or another table-content invalidator inside a legacy try and prove an indirect call is not directized from stale initial contents. Also cover an eligible indirect call nested inside a try/catch for positive rewrite completeness.
+  - [ ] **Repair `once-reduction`.** Extend `or_scan_instrs`, `or_analyze_instrs_flow`, and `or_rewrite_instrs_flow` in `src/passes/once_reduction.mbt` across protected and catch bodies with conservative exceptional-flow merging. A noncanonical write to a candidate once-global inside either region must invalidate the candidate; calls and reads there must participate in dataflow; no guard, write, or call may be removed from incomplete facts.
+  - [ ] **Repair the raw `merge-locals` fallback.** `merge_locals_raw_is_straight_line` in `src/passes/merge_locals.mbt` currently rejects `TryTable` but not legacy `Try`, while its flat local dataflow does not inspect nested try/catch effects. Fail closed on legacy `Try` unless the raw algorithm is deliberately extended with full exceptional control flow. Add red-first protected-body and catch-body read/write cases proving no unsafe retarget occurs.
+  - [ ] **Audit the remaining `TryTable`-only raw walkers.** Search non-test `src/passes/*.mbt` for walkers matching `@lib.TryTable` without `@lib.Try`; classify each as correctness-sensitive, completeness-only, or deliberately fail-closed. Add an explicit legacy-`Try` case or a pre-mutation rejection for every correctness-sensitive owner, and record the final owner list in the relevant pass dossiers so this systemic variant omission cannot silently recur.
+- **Invariants:** traverse every protected and catch body exactly once; preserve catch ordering, tag indices, catch-all form, delegate target, block type, stack typing, and exceptional control flow; do not flatten legacy `Try` into `TryTable`; do not mutate from partial analysis.
+- **Dependencies:** none. This correctness slice supersedes any ledger claim that the affected passes are fully closed for all decoded instruction forms; scheduler work can proceed independently but release signoff cannot ignore these repairs.
+- **Suggested test setup:** construct or decode real legacy-EH wasm rather than using only synthetic `Instruction` arrays; include typed catch, catch-all, delegate, body-only reference, catch-only reference, and mixed normal/exceptional exits. For each mutating pass, confirm the test fails before implementation, then run focused tests, `moon info`, `moon fmt`, `moon test`, external wasm validation, and targeted semantic execution or compare-pass replay where supported.
+- **Exit criteria:** every checkbox above is complete; all affected passes have deterministic red-first regressions for protected and catch bodies; no pass changes indices or removes/directizes/reduces elements from facts that omit legacy EH; the remaining `TryTable`-only walker inventory is explicitly classified; focused and repository-wide validation is green.
 
 ## v0.1.1 Primary O4z Work
 
@@ -156,7 +176,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - Keep only still-useful test expansion:
   - `directize`: imported/exported/passive/declarative/multi-table/tail-call negatives and positives;
   - any newly widened scheduler owner from the primary O4z queue.
-- Closed DIE/once-reduction audit batches do not need duplicate active tasks.
+- Do not duplicate already closed DIE/once-reduction breadth tasks; decoded legacy-`Try` correctness repairs are explicitly owned by `[AUDIT-LEGACY-EH]001`.
 
 ### [AUDIT]006 - Function `TypeIdx`/`RecIdx` invariant documentation
 
