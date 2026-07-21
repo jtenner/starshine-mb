@@ -12,7 +12,6 @@
 - A pass is not closed merely because an ordinary random lane found no mismatch. Source/docs breadth, pass-specific generation, validity, performance, and the required four-lane closeout matrix still apply.
 - Use `_build/native/release/build/cmd/cmd.exe` after a current native release build. Treat `target/native/...` as stale unless explicitly proven fresh.
 - Moon commands must run serially.
-- Repository-wide `bun validate full --profile ci --target wasm-gc` passes `moon info`, formatting, checking, and the full deterministic suite, then remains blocked by a pre-existing randomized decoder round-trip abort in `src/fuzz`. The July 19, 2026 `[AUDIT]002` run passed `9435/9435` deterministic tests before reproducing an unrelated `i64.store32 align=32 offset=14882` decode as `array.store`; an earlier run reproduced the same blocker family on table-initializer instruction decoding.
 
 ## Binaryen v131 O4z Pass Ledger
 

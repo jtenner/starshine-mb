@@ -24,3 +24,14 @@ test "arbitrary ref.null instructions always use nullable ref types" {
     }
   }
 }
+
+///|
+test "arbitrary memargs avoid reserved binary flag bits" {
+  let state = @splitmix.new(seed=0x5eedUL)
+  for _ in 0..<512 {
+    let MemArg(U32(align_power), _, _) : MemArg = @quickcheck.Arbitrary::arbitrary(
+      8, state,
+    )
+    assert_true(align_power <= 8U)
+  }
+}

@@ -974,8 +974,10 @@ pub impl @quickcheck.Arbitrary for Name with fn arbitrary(_, state) {
 
 ///|
 pub impl @quickcheck.Arbitrary for MemArg with fn arbitrary(t, state) {
+  // Keep regular-memory alignments below the v131 memarg flag bits. Values
+  // through 8 still include semantically over-aligned negative-test cases.
   MemArg(
-    U32(state.next_uint() % 64),
+    U32(state.next_uint() % 9),
     @quickcheck.Arbitrary::arbitrary(t, state),
     @quickcheck.Arbitrary::arbitrary(t, state),
   )
