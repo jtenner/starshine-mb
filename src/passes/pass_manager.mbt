@@ -24163,6 +24163,99 @@ fn run_hot_pipeline_raw_ssa_nomerge_is_jsonas_func36_numeric_formatter(
 }
 
 ///|
+// Binaryen keeps an already-SSA tee that is nested in a branch-free value
+// block, then flattens the unused label into the following local.set. This
+// recognizer deliberately excludes every control/termination form that could
+// make removing the block label observable.
+fn run_hot_pipeline_raw_ssa_nomerge_branch_free_value_block_tee_local(
+  body : Array[@lib.Instruction],
+) -> Int? {
+  let mut tee_local = -1
+  for instr in body {
+    match instr {
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        if tee_local >= 0 {
+          return None
+        }
+        tee_local = raw.reinterpret_as_int()
+      }
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _)
+      | @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_)
+      | @lib.Unreachable => return None
+      _ => ()
+    }
+  }
+  if tee_local >= 0 {
+    Some(tee_local)
+  } else {
+    None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_flatten_value_block_tee_carrier(
+  func : @lib.Func,
+) -> (@lib.Func, Bool) {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 1 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1]) {
+        (@lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)), @lib.LocalSet(_)
+        ) =>
+          match
+            run_hot_pipeline_raw_ssa_nomerge_branch_free_value_block_tee_local(
+              body,
+            ) {
+            Some(tee_local) =>
+              if run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+                  instrs,
+                  idx + 2,
+                  tee_local,
+                ) {
+                for body_instr in body {
+                  out.push(body_instr)
+                }
+                out.push(instrs[idx + 1])
+                changed = true
+                idx = idx + 2
+                continue
+              }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    out.push(instrs[idx])
+    idx = idx + 1
+  }
+  if changed {
+    (@lib.Func::new(locals.copy(), @lib.Expr::new(out)), true)
+  } else {
+    (func, false)
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_impl(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -24697,6 +24790,24 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       }
     } else {
       (original, false)
+    }
+    let (flattened_default_materialized, flattened_value_block_tee) = if default_changed {
+      run_hot_pipeline_raw_ssa_nomerge_flatten_value_block_tee_carrier(
+        default_materialized,
+      )
+    } else {
+      (default_materialized, false)
+    }
+    if flattened_value_block_tee {
+      // The LocalGraph plan is complete for this carrier. Do not feed it into
+      // the older structured alias rewriter, which can reuse the tee slot and
+      // compact later fresh locals away from Binaryen's source-order allocation.
+      return Some({
+        reason: "structured-default-local-reads-value-block-tee-localgraph-plan",
+        func: flattened_default_materialized,
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
     }
     match
       run_hot_pipeline_raw_ssa_nomerge_structured(

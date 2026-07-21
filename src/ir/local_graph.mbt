@@ -191,6 +191,57 @@ fn local_graph_record_get_sources(
 }
 
 ///|
+// CFG blocks own structured roots, but a value-producing `block` may instead be
+// an operand nested under another root. Transfer only label-free nested blocks;
+// rejecting nested control and terminators avoids learning partial path facts.
+fn local_graph_nested_block_node_is_straight_line(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return true
+  }
+  if hot_is_terminator_node(func, node_id) {
+    return false
+  }
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::Block =>
+      return local_graph_nested_block_region_is_straight_line(
+        func,
+        hot_region_body_ref(func, node_id),
+      )
+    HotOp::Loop | HotOp::If | HotOp::Try | HotOp::TryTable => return false
+    _ => ()
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if !local_graph_nested_block_node_is_straight_line(
+        func,
+        hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn local_graph_nested_block_region_is_straight_line(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !local_graph_nested_block_node_is_straight_line(
+        func,
+        hot_region_get(func, region_ref, idx),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn local_graph_transfer_node(
   func : HotFunc,
   local_count : Int,
@@ -198,6 +249,7 @@ fn local_graph_transfer_node(
   state : Array[Array[Int]],
   get_sources : Array[Array[Int]]?,
   write_influences : Array[Array[NodeId]]?,
+  traverse_nested_blocks : Bool,
 ) -> Unit {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return
@@ -214,7 +266,24 @@ fn local_graph_transfer_node(
       state,
       get_sources,
       write_influences,
+      true,
     )
+  }
+  if traverse_nested_blocks && node.op == HotOp::Block {
+    let body_ref = hot_region_body_ref(func, node_id)
+    if local_graph_nested_block_region_is_straight_line(func, body_ref) {
+      for idx = 0; idx < hot_region_root_count(func, body_ref); idx = idx + 1 {
+        local_graph_transfer_node(
+          func,
+          local_count,
+          hot_region_get(func, body_ref, idx),
+          state,
+          get_sources,
+          write_influences,
+          true,
+        )
+      }
+    }
   }
   match node.op {
     HotOp::LocalGet =>
@@ -249,6 +318,7 @@ fn local_graph_transfer_block(
       state,
       get_sources,
       write_influences,
+      false,
     )
   }
   state

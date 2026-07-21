@@ -8,6 +8,8 @@ sources:
   - ../../../../../src/passes/ssa_nomerge_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/ir/local_graph.mbt
+  - ../../../../../src/ir/local_graph_test.mbt
   - ../../../../../src/ir/ssa_destroy.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
@@ -64,6 +66,8 @@ The easiest way to follow the in-tree implementation is this file map. The same 
   - `ssa_nomerge_has_local_writes(...)` is the cheap early gate
   - `ssa_nomerge_needs_rewrite(...)` decides whether either overlay phis or concrete local-write defs make rewriting worthwhile for the retained lifted fallback
   - `ssa_nomerge_run(...)` is the retained lifted fallback wrapper: it requires CFG + local SSA and calls `@ir.ssa_destroy_into_hot(...)` only when the raw dispatcher has not already handled the function
+- `src/ir/local_graph.mbt`
+  - LocalGraph transfers branch-free `block` operands that appear inside expression trees, so nested local writes participate in already-SSA and reaching-source facts; terminators and nested loop/if/try control remain conservative boundaries rather than partial transfers
 - `src/ir/ssa_destroy.mbt:33`
   - `HotSsaDestroyPolicy` currently exposes only `ReusePhiLocals`
 - `src/ir/ssa_destroy.mbt:157`
@@ -176,6 +180,9 @@ The implementation still appends fresh locals and rewrites raw instructions loca
 ## 6. The structured raw path is split between planned LocalGraph rewrites and boundary helpers
 
 `run_hot_pipeline_raw_ssa_nomerge_structured(...)` delegates to recursive raw instruction helpers, but the current ownership split matters:
+
+- a branch-free single-result value block used as a local-set operand is part of LocalGraph planning when its nested tee remains live afterward; after default materialization, Starshine flattens that label-free carrier into its consumer and returns before the legacy structured alias rewriter can reuse or compact the already-SSA slot
+- branching, exceptional, terminating, multi-tee, and overwritten-before-read variants do not enter that flatten/bypass boundary
 
 - planned LocalGraph reasons (`structured-localgraph-plan`, `structured-mixed-localgraph-plan`, `structured-one-arm-merge-localgraph-plan`, `structured-multisource-merge-localgraph-plan`, and `structured-loop-backedge-merge-localgraph-plan`) are the ordinary no-merge surfaces;
 - retained no-op reasons such as `structured-loop-backedge-boundary-noop` avoid misleading success claims while keeping boundary shapes out of lifted HOT SSA destruction;
