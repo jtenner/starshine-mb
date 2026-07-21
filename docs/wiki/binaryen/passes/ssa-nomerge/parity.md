@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ./index.md
 related:
@@ -30,6 +30,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Durable Conclusions
 
+- The 2026-07-21 command-robustness reopen is repaired: all raw LocalGraph admission lifts are non-aborting, unsupported HOT instructions preserve the original function, and deferred batch writeback validates the complete candidate module before commit. Three independent `atomic.fence` regressions cover loop-backedge, one-arm, and multisource admissions; all 15 saved valid generated inputs that formerly exited 134 now exit 0 and validate with official Binaryen v131.
 - Direct `ssa-nomerge` closeout is published as of 2026-06-18 for Binaryen `SSAify(false)` behavior: the final broad direct mixed-generator lane and dedicated `ssa-nomerge-all` GenValid aggregate lane have zero mismatches at the requested closeout scales, and remaining command failures are Binaryen/oracle tool boundaries rather than Starshine transform failures.
 - The June 2026 exceptional-edge corruption family is fixed in-tree by making HOT `ssa-nomerge` fail closed on `try_table` / throw-family flow, matching the documented SSA v1 normal-flow-only contract.
 - The June 2026 default-local branchy-control drift family is fixed in the raw no-write path: reads of never-written body locals are materialized as explicit type defaults across block/loop/if/try_table bodies without invoking HOT SSA.
@@ -56,6 +57,18 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - The 2026-06-09 audit added focused `try_table` exceptional-exit, branchy default-local-read, dropped-unreachable-debris, nested param-slot, large structured raw coverage, needed-only branch/label copies, canonical body-local writes, and `Func 4302` carrier-narrowing regressions in `[../../../../../src/passes/ssa_nomerge_test.mbt](../../../../../src/passes/ssa_nomerge_test.mbt)`; details and command evidence live in `[research note 0722](./index.md)`.
 
 ## Current Signoff State
+
+### 2026-07-21 unsupported-HOT admission repair
+
+A fresh discovery lane found 15 Starshine command failures among valid generated `ssa-nomerge` inputs. Debug-native replay localized the family to raw LocalGraph admissions calling the aborting `hot_lift_func(...)` on functions containing `atomic.fence`. The repair replaces those admission-only calls with `hot_lift_func_with_context_result(...)` and returns unchanged/no-op on lift failure. The three selected public branches were proved independently red-first: decorated loop backedge, one-arm merge, and multisource merge. The same boundary was then applied to sibling mixed/default/rematerialized/straight-line admissions.
+
+The first saved replay cleared 14 failures and exposed a separate combined batch-writeback validity problem in case 210. Deferred SSA writeback now validates the complete repaired module and returns the original module if the batch is invalid. Final saved replay is `15/15` exit-zero and `15/15` official Binaryen-v131 validation. Fresh current-native comparison with Starshine binary SHA-256 `8438dab0ff2c2f6764cffb6956a95997f70030f91138f68962bf8e6336aea014` and official `wasm-opt version 131 (version_131)` SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c` produced:
+
+- regular GenValid: `100000/100000` normalized, zero mismatches or failures;
+- `ssa-nomerge-all`: `10000/10000` normalized, zero mismatches or failures, sampling parity `3750`, smoke `2500`, coverage `2500`, and stress `1250`;
+- wasm-smith: `9956/9956` normalized, zero mismatches or Starshine failures, with 44 Binaryen-only tool failures (`39` rec-group-zero, `3` bad-section-size, `1` invalid-tag-index, `1` table-index-out-of-range).
+
+With explicit user approval, the unrelated `random-all-profiles` lane was stopped rather than spending roughly a working day on 10,000 heavyweight mixed-pass inputs. Its two-hour partial processed 1,858 cases: 1,787 normalized matches and 71 output-shape mismatches, with no command or validation failures. Those 71 residuals are not used as semantic-closeout evidence or classified as safe here; 69 have equal canonical size and two are two-byte Starshine canonical wins, but they belong to broad representation/parity analysis rather than this command-abort repair. This is a correctness/robustness repair, not an acceptance of output drift and not a claim that HOT now represents atomic instructions.
 
 ### 2026-06-18 final closeout publication (`[SSANM-012e]`)
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ./index.md
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -96,6 +96,14 @@ The easiest way to follow the in-tree implementation is this file map. The same 
   - debug-artifact CLI replay coverage
 - `src/cmd/cmd_wbtest.mbt:2434`
   - extracted `Func 523` writeback-type-mismatch retirement check
+
+## Fail-closed HOT admission boundary
+
+The raw LocalGraph routes still need a temporary HOT lift to build CFG and LocalGraph facts. That lift is now an explicit fallible boundary: loop-backedge, one-arm, multisource, mixed, default-materialization, rematerialized, and straight-line admissions call `hot_lift_func_with_context_result(...)`. An unsupported instruction returns the original raw function unchanged with a route-specific `*-hot-lift-unsupported-noop` trace reason; it must never abort the public `ssa-nomerge` command.
+
+This boundary is intentionally conservative. It does not claim atomic support in HOT, skip supported atomics globally, or reinterpret an unsupported function as a successful LocalGraph rewrite. The deferred batch writer separately validates the complete repaired module before commit, because individually valid repaired bodies can still be invalid when combined with canonicalized module type state; failed batch validation restores the original module.
+
+Focused shared-memory regressions in `src/passes/ssa_nomerge_test.mbt` lock independent loop-backedge, one-arm, and multisource admissions with `atomic.fence`. Saved generated replay additionally covers all 15 command failures that exposed this family.
 
 ## How the local pass works today
 
