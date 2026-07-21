@@ -643,6 +643,40 @@ test "dae-optimizing ignores inactive conflicting uniform actuals" {
 }
 
 ///|
+test "dae-optimizing ignores inactive conflicting uniform actuals in a broad module" {
+  let source = StringBuilder::new()
+  source.write_string(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target
+      #|    unreachable
+      #|    i32.const 8
+      #|    call $target)
+      #|
+    ),
+  )
+  let mut def_idx = 2
+  while def_idx < 1024 {
+    source.write_string("  (func)\n")
+    def_idx += 1
+  }
+  source.write_string(")\n")
+  let optimized = dae_test_run(source.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected broad active-callsite uniform output to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "dead-argument-elimination removes an overwritten incoming parameter" {
   let source =
     #|(module
@@ -14671,7 +14705,7 @@ test "dae-optimizing traces large touched set nested cleanup skip" {
   }
   assert_true(
     trace.contains(
-      "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set touched=10",
+      "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set guard=performance optional=true touched=10",
     ),
     msg=trace.to_string(),
   )

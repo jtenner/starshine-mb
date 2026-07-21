@@ -6919,17 +6919,41 @@ fn dae_removed_param_callee_rewrite_evidence(
     localized_params.length() != params.length() {
     return None
   }
+  let @lib.Func(old_locals, @lib.Expr(old_body)) = func
   let kept_params : Array[@lib.ValType] = []
   let removed_local_types : Array[@lib.ValType] = []
   let mut p = 0
   while p < params.length() {
     if remove[p] {
+      let exact_usage = dae_local_usage_evidence(
+        old_body,
+        @lib.LocalIdx::new(p.reinterpret_as_uint()),
+      )
+      if exact_usage.get_count > 0 &&
+        !local_use.gets[p] &&
+        !local_use.writes[p] &&
+        const_params[p] is None &&
+        !localized_params[p] {
+        // Exact body evidence is authoritative when a cached/local analysis
+        // claims the removed slot is unread. Without a replacement value or a
+        // typed local projection, remapping would alias the read to another
+        // local and can change its type.
+        return None
+      }
       let projection = dae_removed_param_local_projection_evidence(
         params[p],
         written=local_use.writes[p],
         localized=localized_params[p],
       )
-      if !projection.valid {
+      if !projection.valid ||
+        (
+          local_use.gets[p] &&
+          const_params[p] is None &&
+          !projection.preserve_as_body_local
+        ) {
+        // A removed slot that is still read must be replaced by a proved
+        // constant or preserved as a typed body local. Never let the local map
+        // alias such a slot onto an unrelated existing local.
         return None
       }
       match projection.body_local_type {
@@ -6941,7 +6965,6 @@ fn dae_removed_param_callee_rewrite_evidence(
     }
     p += 1
   }
-  let @lib.Func(old_locals, @lib.Expr(old_body)) = func
   if !dae_local_indices_fit_instrs(
       old_body,
       params.length() + old_locals.length(),
@@ -8236,9 +8259,7 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
   collect_params? : Array[Bool]? = None,
 ) -> Array[@lib.Instruction?]? {
   let mut has_inactive_direct_call = false
-  if function_infos.length() < 1024 &&
-    callee_abs >= 0 &&
-    callee_abs < function_infos.length() {
+  if callee_abs >= 0 && callee_abs < function_infos.length() {
     for callsite in function_infos[callee_abs].calls {
       if !callsite.active && !callsite.tail {
         has_inactive_direct_call = true
@@ -8247,8 +8268,8 @@ fn dae_collect_uniform_const_actuals_from_current_call_facts(
     }
   }
   // Stable paths keep inactive suffix calls from poisoning current-value facts.
-  // On artifact-scale modules, resolving every nested path is still slower than
-  // the caller-scope walker; retain that lane until paths carry cached scopes.
+  // Select the exact scope-aware collector whenever an inactive direct call is
+  // present; module cardinality is not part of value legality.
   if has_inactive_direct_call {
     dae_collect_uniform_const_actuals_from_function_infos(
       mod_,
@@ -14930,6 +14951,8 @@ fn dae_try_apply_unread_param_batch(mod_ : @lib.Module) -> DaePassResult {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
+  // Large-module batch acceleration only. The dependency-driven scalar core
+  // remains authoritative for every module size.
   if defined < 1024 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -15164,6 +15187,8 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
+  // Large-module batch acceleration only. Exact result-observer work remains
+  // available through the ordinary dispatcher at every module size.
   if defined < 1024 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -15342,6 +15367,8 @@ fn dae_try_apply_direct_gc_batch(
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
+  // Large-module batch acceleration only. Exact GC parameter/result work is
+  // also dispatched by the common boundary worklist.
   if defined < 1024 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
@@ -22752,6 +22779,8 @@ fn dae_run_core_once(
             }
             collect_p += 1
           }
+          // Preserve Binaryen's phase-local profitability frontier here. Broad
+          // modules use the later exact call-target/value-slice revisit instead.
           let uniform_const_params = if optimize &&
             defined < 1024 &&
             has_collect_const_param &&
@@ -22952,6 +22981,9 @@ fn dae_run_core_once(
       }
       collect_p += 1
     }
+    // This early materialization lane is optional phase-local cleanup. Broad
+    // modules use the exact later uniform-constant frontier, avoiding premature
+    // component changes while keeping correctness size-independent.
     let uniform_const_params = if (optimize || allow_written_uniform_const) &&
       defined < 1024 &&
       self_calls_anywhere == 0 &&
@@ -33520,9 +33552,6 @@ fn dae_order_selected_candidates_caller_first(
   mod_ : @lib.Module,
   selected : Array[Bool],
 ) -> Array[Int] {
-  let dependencies = dae_boundary_dependency_graph_new(
-    dae_current_boundary_graph_new(mod_),
-  )
   let pending = selected.copy()
   let ordered : Array[Int] = []
   let mut remaining = 0
@@ -33531,6 +33560,12 @@ fn dae_order_selected_candidates_caller_first(
       remaining += 1
     }
   }
+  if remaining == 0 {
+    return ordered
+  }
+  let dependencies = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
   while remaining > 0 {
     let mut selected_def = -1
     let mut def_idx = 0
@@ -39330,6 +39365,8 @@ fn dae_run_core(
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
   if optimize && original_defined < 1024 {
+    // Optional early retry: broad modules reach the same required boundary
+    // semantics through batch/common work and later exact dependency frontiers.
     // Preserve the established small-module phase order while replacing its
     // selected-all array and `defined * 2 + 1` cap with dependency exhaustion.
     let computed_application = dae_run_computed_unread_param_dependency_worklist(
@@ -39406,6 +39443,9 @@ fn dae_run_core(
       reverse_iter += 1
     }
   }
+  // Optional phase-local profitability replay. Broad modules use exact
+  // call-target/value-slice collectors below; widening this legacy full scan
+  // preempts Binaryen's one-wave frontier and materially increases wall time.
   let mut low_revisit_iter = 0
   while original_defined <= 4096 {
     let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
@@ -39527,44 +39567,8 @@ fn dae_run_core(
       "pass[dae-optimizing]:low-exact-result-worklist iter=\{iter} primary_def=\{primary_def}",
     )
   }
-  if original_defined <= 4096 {
-    let immutable_global_candidates : Array[Int] = []
-    let mut candidate_def = 0
-    while candidate_def < original_defined {
-      immutable_global_candidates.push(candidate_def)
-      candidate_def += 1
-    }
-    let mut immutable_global_wave = 0
-    while true {
-      let immutable_global_call_facts = dae_collect_current_call_facts(
-        current, original_total,
-      )
-      let global_application = dae_run_exact_literal_candidate_worklist_with_facts(
-        current,
-        touched,
-        changed,
-        immutable_global_candidates,
-        immutable_global_call_facts,
-        -1,
-        allow_immutable_global_get=true,
-      )
-      if global_application.productive_defs.length() == 0 {
-        break
-      }
-      current = global_application.mod_out
-      touched = global_application.touched
-      changed = global_application.changed
-      for primary_def in global_application.productive_defs {
-        trace(
-          "pass[dae-optimizing]:immutable-global-revisit wave=\{immutable_global_wave} primary_def=\{primary_def}",
-        )
-      }
-      immutable_global_wave += 1
-    }
-  }
-  if optimize && original_defined > 4096 {
-    // The former whole-definition revisit was intentionally disabled on broad
-    // modules. Discover only direct call targets whose final immediate actual
+  if optimize {
+    // Discover only direct call targets whose final immediate actual
     // is already a materializable literal, null/string constant, or immutable
     // global, then reuse the complete value-slice, ownership, escape, write,
     // and call-count proof in the existing rewrite.
@@ -39573,6 +39577,12 @@ fn dae_run_core(
     )
     let large_selected = Array::make(original_defined, false)
     let all_large_defs = Array::make(original_defined, true)
+    // Direct-call edges and operand facts are unchanged between rejected
+    // candidates. Reuse one current-fact snapshot and refresh it only after a
+    // committed rewrite mutates a signature or call operand slice.
+    let mut immutable_global_call_facts = dae_collect_current_call_facts(
+      current, original_total,
+    )
     for candidate_def = 0
         candidate_def < large_global_defs.length()
         candidate_def = candidate_def + 1 {
@@ -39582,9 +39592,6 @@ fn dae_run_core(
       large_selected[candidate_def] = true
       trace(
         "pass[dae-optimizing]:large-uniform-const-candidate primary_def=\{candidate_def}",
-      )
-      let immutable_global_call_facts = dae_collect_current_call_facts(
-        current, original_total,
       )
       let global_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         current,
@@ -39601,6 +39608,9 @@ fn dae_run_core(
         current = global_application.mod_out
         touched = global_application.touched
         changed = global_application.changed
+        immutable_global_call_facts = dae_collect_current_call_facts(
+          current, original_total,
+        )
         trace(
           "pass[dae-optimizing]:large-uniform-const-revisit primary_def=\{global_application.primary_def}",
         )
@@ -40082,6 +40092,42 @@ fn dae_trim_instrs_after_unreachable_tail(
     idx += 1
   }
   (out, changed)
+}
+
+///|
+fn dae_cleanup_dropped_unreachable_debris_touched(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> (@lib.Module, Bool) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, false)
+  }
+  let rewritten_funcs = funcs.copy()
+  let mut changed = false
+  for idx = 0; idx < funcs.length(); idx = idx + 1 {
+    if idx >= touched.length() || !touched[idx] {
+      continue
+    }
+    let @lib.Func(locals, @lib.Expr(instrs)) = funcs[idx]
+    let (debris_instrs, debris_changed) = pass_raw_remove_dropped_unreachable_debris(
+      instrs,
+    )
+    let (next_instrs, tail_changed) = dae_trim_instrs_after_unreachable_tail(
+      debris_instrs,
+    )
+    if debris_changed || tail_changed {
+      rewritten_funcs[idx] = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
+      changed = true
+    }
+  }
+  if !changed {
+    return (mod_, false)
+  }
+  (
+    mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs)).without_name_sec(),
+    true,
+  )
 }
 
 ///|

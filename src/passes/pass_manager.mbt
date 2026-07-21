@@ -61305,6 +61305,9 @@ fn run_hot_pipeline_apply_reorder_locals_to_touched(
 }
 
 ///|
+// These limits gate only the expensive default-function replay. Mandatory
+// signature/call repair and the validated changed-boundary precompute,
+// remove-unused-brs, and vacuum fallbacks run before this policy is consulted.
 fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -69590,7 +69593,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
         options.trace,
         "dae-optimizing",
         "nested-cleanup-skip",
-        payload="reason=large-touched-set touched=\{touched_count}",
+        payload="reason=large-touched-set guard=performance optional=true touched=\{touched_count}",
       )
       perf_stop_timer_opt(
         options.perf,
@@ -69607,7 +69610,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
         options.trace,
         "dae-optimizing",
         "nested-cleanup-skip",
-        payload="reason=\{size_skip_reason.unwrap()} touched=\{touched_count}",
+        payload="reason=\{size_skip_reason.unwrap()} guard=performance optional=true touched=\{touched_count}",
       )
       perf_stop_timer_opt(
         options.perf,
@@ -71659,7 +71662,19 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     perf=options.perf,
   )
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
-  let mut core_mod = result.mod_out
+  let (core_repaired, core_repair_changed) = dae_cleanup_dropped_unreachable_debris_touched(
+    result.mod_out,
+    result.touched,
+  )
+  if core_repair_changed {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "mandatory-boundary-repair",
+      payload="reason=unreachable-tail-after-signature-change",
+    )
+  }
+  let mut core_mod = core_repaired
   let mut core_touched = result.touched
   let call_sink_uniform = dae_run_call_sink_uniform_parameter_flow(
     core_mod,

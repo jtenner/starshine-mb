@@ -8036,6 +8036,33 @@ test "dae removed-param callee rewrite preserves mapped locals and constants" {
 }
 
 ///|
+test "dae removed-param callee rewrite rejects stale read evidence without replacement" {
+  let func = @lib.Func::new(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let evidence = dae_removed_param_callee_rewrite_evidence(
+    func,
+    [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i64()],
+    [true, true, true],
+    [None, None, None],
+    { gets: [false, false, false], writes: [false, false, false] },
+    [false, false, false],
+  )
+  match evidence {
+    None => ()
+    Some(_) => fail("expected stale removed-slot read evidence to reject")
+  }
+}
+
+///|
 test "dae removed-param callee rewrite rejects invalid out-of-range local input" {
   let invalid = @lib.Func::new(
     @lib.Locals::new([]),
