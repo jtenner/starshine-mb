@@ -255,6 +255,8 @@ Why:
 - the condition still executes
 - the body no longer matters
 
+Starshine now implements this shape directly: a removable pure condition disappears with the empty `if`, while a call, load, or potentially trapping condition is retained as `drop(condition)`. The direct opcode regressions live in `src/passes/optimize_test.mbt`.
+
 ## Shape 9: empty `then`, live `else` flips the condition and the branch hint
 
 Before, conceptually:
@@ -312,7 +314,7 @@ Why:
 - the tee's produced value is unused
 - only the write matters
 
-This is one of the clearest concrete rewrites a future Starshine parity port must preserve.
+Starshine implements this rewrite in direct and nested regions and preserves the tee value computation exactly once.
 
 ## Shape 11: empty loop body disappears
 
@@ -332,6 +334,8 @@ After:
 Why:
 
 - `visitLoop(...)` removes exactly this trivial loop family
+
+Starshine's local-only whole-body proof also removes a nonempty loop whose contents are otherwise removable and whose own label has no branch target. A `loop (br 0)` remains intact because it may diverge.
 
 ## Shape 12: nontrivial or potentially infinite loops stay
 
@@ -519,6 +523,8 @@ Why:
 - local traffic and `return` itself are not externally visible in a void function
 
 This family is locked by `vacuum-func.wast`.
+
+Starshine's exact current GC extension also allows an unread `struct.new_default` stored only into otherwise removable local traffic to participate in this whole-body wipe. Returning or otherwise observing the allocated reference keeps the allocation live.
 
 ## Shape 20: result-returning function does **not** get that whole-body wipe
 

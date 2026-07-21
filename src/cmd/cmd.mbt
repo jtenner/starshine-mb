@@ -3182,6 +3182,49 @@ test "explicit vacuum dispatches parity cleanup through the cmd pipeline" {
 }
 
 ///|
+test "explicit vacuum dispatches residual parity cleanup through cmd" {
+  let wat =
+    #|(module
+    #|  (type $s (struct (field (mut i32)) (field eqref)))
+    #|  (func
+    #|    (if (i32.eqz (i32.const 0)) (then)))
+    #|  (func (local i32 i32)
+    #|    (loop
+    #|      (local.set 0 (i32.const 44))
+    #|      (local.set 1 (local.get 0))))
+    #|  (func (local anyref)
+    #|    (local.set 0 (struct.new_default $s))))
+    #|
+  let input = match
+    @wast.wast_to_binary_module(wat, filename="vacuum-residual-cmd.wat") {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected residual cmd vacuum fixture parse success, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(input, ["vacuum"], OptimizeOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected residual explicit cmd vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr([@lib.Nop])),
+          @lib.Func(_, @lib.Expr([@lib.Nop])),
+          @lib.Func(_, @lib.Expr([@lib.Nop])),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected cmd vacuum dispatch to remove all three residual families, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 fn cmd_append_error_note(err : CmdError, note : String) -> CmdError {
   match err {
     EncodeFailed(path, inner) =>

@@ -26,7 +26,7 @@ related:
 # Starshine HOT-IR Strategy For `vacuum`
 
 Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); their direct `version_129` source/test URLs and retained research provide the upstream provenance.
-The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, and why the current direct-pass / checked-ordered-neighborhood audit is considered closed.
+The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, which checked ordered-neighborhood evidence is closed, and which current direct parity families remain open.
 
 ## Exact local code map
 
@@ -55,9 +55,10 @@ That exact code map is the main practical addition in this refresh: readers can 
 ## Current local implementation
 
 The current in-tree `vacuum` implementation is intentionally much smaller than upstream Binaryen, but it now includes the first Binaryen-parity cleanup slice beyond `nop` sweeping.
-The rewrite logic is currently centered on two HOT helpers in `src/passes/pass_manager.mbt`:
+The rewrite logic is currently centered on three HOT helpers in `src/passes/pass_manager.mbt`:
 
-- `hot_pass_vacuum_remove_local_only_void_body(ctx, func)`, which can canonicalize an otherwise side-effect-free/local-only void function body to Binaryen's single `nop` body without requiring a `local.tee`; it explicitly requires zero function-body result arity and rejects calls, external writes, memory/table mutation, throwing/trapping operations, and potentially nonterminating loops
+- `hot_pass_vacuum_remove_local_only_void_body(ctx, func)`, which can canonicalize an otherwise side-effect-free/local-only void function body to Binaryen's single `nop` body without requiring a `local.tee`; it explicitly requires zero function-body result arity and rejects calls, external writes, memory/table mutation, throwing/trapping operations, and loops whose own label is targeted
+- `hot_pass_vacuum_remove_empty_if(...)`, which removes an empty void `if` after recursively cleaning its arms, discards a removable pure condition, and otherwise preserves condition evaluation in Binaryen's `drop(condition)` shape
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`, which handles the ordinary recursive region cleanup
 
 Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) found that the former tee-admission query recursively revisited shared HOT expression children and became exponential on current-artifact Func `151`. The 2026-07-21 parity slice removed that tee-presence requirement and moved the node-state memoization to the complete local-only removability proof. Each HOT DAG node is now classified at most once as visiting, removable, or rejected while the proof traverses ordinary children and structured regions.
@@ -69,9 +70,12 @@ The recursive region helper walks a region root list and now handles these clean
 3. if the current root is `drop(local.tee value)`, it replaces the pair with `local.set value`, preserving the value computation exactly once
 4. if the current root is an empty `block` with zero result arity, it removes the block while preserving typed/result blocks
 5. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
-6. if the current root is a void `if` with a constant `i32.const` condition and the selected arm can be spliced without branches to the removed `if` label, it replaces the `if` with the selected arm
-7. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
-8. if the current root is a label-unused void block whose only HOT root is an `if`, it unwraps the block and splices the `if` into the parent region
+6. if the current root is an empty void `if`, it removes the control wrapper; a removable pure condition disappears, while calls, loads, and potentially trapping conditions become `drop(condition)` so evaluation is preserved exactly once
+7. if the current root is a void `if` with a constant `i32.const` condition and the selected arm can be spliced without branches to the removed `if` label, it replaces the `if` with the selected arm
+8. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
+9. if the current root is a label-unused void block whose only HOT root is an `if`, it unwraps the block and splices the `if` into the parent region
+
+The whole-body proof additionally admits a local-only loop only when no branch targets that loop's label, so a no-backedge loop can be erased while `loop (br 0)` remains a possible divergence boundary. Its exact GC exception is `struct.new_default`: an unread default struct allocation may participate in otherwise removable local traffic, but any observed returned/reference use remains live.
 
 The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list. The local-only void-body cleanup intentionally feeds that canonicalization shape for functions where local writes, tees, and local-control flow have no observable effect.
 
@@ -206,7 +210,7 @@ That is the concrete proof surface behind the older artifact notes that retired 
 The safest one-line contrast is:
 
 - **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
-- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, constant-condition void-`if` collapse, empty-then/live-else `if` inversion, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming, empty zero-result block removal, dropped nontrapping pure-result pruning, empty-`if` removal with effect-preserving condition drops, finite no-backedge local-only loop cleanup, exact unread default-struct allocation cleanup, block-only `unreachable` unwrapping, constant-condition void-`if` collapse, empty-then/live-else `if` inversion, Binaryen-style empty-function single-`nop` canonicalization, and pipeline-level validation/writeback hygiene around those rewrites
 
 Direct oracle evidence for the current slice:
 
@@ -242,11 +246,12 @@ Direct oracle evidence for the current slice:
 - `.tmp/vacuum-perf-case003694-classified`: five broad random all-profiles inputs all had equal raw wasm or normalized WAT after direct `--vacuum`. Pass-local Starshine/Binaryen timing pairs were `5.539/0.124`, `0.037/0.037`, `0/0.185`, `5.517/0.134`, and `6.943/0.129` ms; median Starshine pass-local time was `5.517ms` vs Binaryen `0.129ms`. This meets the repo `<1s` pass-local target but not the `>=50%` Binaryen-speed target.
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --redundant-set-elimination --vacuum --out-dir .tmp/vacuum-large-nested-rse-debris`: the combined replay still has the inherited first differing function at `defined=208 abs=225`, but the real large-function size gap is mostly closed. Starshine normalized wasm is `3,145,318` bytes vs Binaryen `3,139,705`; `defined=518` shrinks to `497,292` body bytes vs Binaryen `495,884`, and Starshine pass-local time is `174.413ms` vs Binaryen `35,265.000ms`.
 
-Audit-closeout note for the current scope:
+Current closeout and reopening note:
 
-- direct regular GenValid signoff is green at `100000/100000` in `.tmp/pass-fuzz-vacuum-genvalid-100000-after-case003694-classification`;
-- explicit wasm-smith is classified in `.tmp/pass-fuzz-vacuum-wasm-smith-10000-case003694-classified` with one inspected non-pass Binaryen materialization / Starshine-size-win residual plus `44` Binaryen/tool failures;
-- broad random-all-profiles is green at `10000/10000` in `.tmp/pass-fuzz-vacuum-random-all-profiles-10000-after-terminal-debris`;
+- the 2026-07-21 explicit-v131 selected replay is exact at `29/29`, regular GenValid is exact at `100000/100000`, and the canonical pass-owned `vacuum` aggregate is exact at `10000/10000`; see [`./fuzzing.md`](./fuzzing.md) for the binary hash, leaf counts, and cache evidence;
+- current explicit wasm-smith retains only case `3694`, a measured six-byte canonical Starshine win with fewer local operations, plus `44` Binaryen/tool failures;
+- current broad random-all-profiles is **not** fully green: `heap2local-ref`, `precompute-gc-atomic-boundary`, and `merge-locals:control-2` expose three measured size-losing direct parity families, while `merge-locals:control-1` is a measured Starshine win;
+- the older `100000`, classified wasm-smith, and broad-green lanes remain historical evidence for their recorded generator/oracle state rather than proof that the current broad corpus is closed;
 - the reconstructed checked slot23 replay `.tmp/vacuum-current-o4z-neighborhood/slot23-pre22-vacuum-compare-f7263-i32-le-s-parser` reached normalized WAT equality and canonical function compare equality on 2026-07-04;
 - remaining whole-command wall investigations belong under `[WALL]001` unless a fresh measurement proves a new vacuum-owned bottleneck.
 
@@ -256,7 +261,6 @@ Current Starshine does **not** yet model upstream behaviors such as:
 - multi-child effect preservation through dropped-child rebuilding
 - non-void and label-carried constant `if` collapse plus unreachable-condition `if` collapse
 - branch-hint metadata updates when an `if` is inverted
-- `drop(local.tee(...)) -> local.set(...)`
 - block-result popping with label-safety checks
 - non-throwing `try` / `try_table` collapse
 - TNH trap-path cleanup
@@ -296,7 +300,7 @@ For the current implementation, they are part of the honest contract.
 
 If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-1. keep the current recursive `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, constant-condition void-`if`, empty-then/live-else `if` inversion, and large lowered-function pure leaf precleaning slice green
+1. keep the current recursive `nop`, empty-void-block, empty-`if`, finite no-backedge loop, exact unread default-struct allocation, dropped-pure-result, block-only-`unreachable`, constant-condition void-`if`, empty-then/live-else `if` inversion, and large lowered-function pure leaf precleaning slice green
 2. move the pass into a dedicated owner file once the helper surface grows further
 3. broaden effect-aware dropped-wrapper elimination
 4. add the remaining easy structural cases
@@ -319,5 +323,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove dropped nontrapping pure scalar/ref/tuple results, canonicalize side-effect-free/local-only void function bodies with tee/write/control debris to one `nop`, unwrap block-only `unreachable`, collapse constant-condition void `if`s when branch-label safety is local, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop`, constant void-`if`, cleaned-empty else arms, `nop` debris, narrow singleton and recursive call-prefix/`if` wrappers, narrow single-`if`/`unreachable` wrappers including the call-result-`local.tee` condition subset, and narrow terminal-`unreachable` child-block wrappers, and keep the pipeline safe
+- **what it does today:** remove explicit HOT `nop` region entries, remove empty zero-result blocks, remove empty void `if`s while preserving effectful/trapping conditions as drops, remove finite local-only loops with no backedge, remove exact unread `struct.new_default` allocations, remove dropped nontrapping pure scalar/ref/tuple results, canonicalize side-effect-free/local-only void function bodies with tee/write/control debris to one `nop`, unwrap block-only `unreachable`, collapse constant-condition void `if`s when branch-label safety is local, flip empty-then/live-else void `if`s, preclean large lowered functions with pure leaf `const`/`drop`, constant void-`if`, cleaned-empty else arms, `nop` debris, narrow singleton and recursive call-prefix/`if` wrappers, narrow single-`if`/`unreachable` wrappers including the call-result-`local.tee` condition subset, and narrow terminal-`unreachable` child-block wrappers, and keep the pipeline safe
 - **what it does not do yet:** the broader Binaryen `vacuum` rewrite family

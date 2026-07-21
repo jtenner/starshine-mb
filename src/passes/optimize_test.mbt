@@ -651,6 +651,34 @@ test "vacuum clears set-only void function bodies without local tees" {
 }
 
 ///|
+test "vacuum raw preclean still canonicalizes local-only void body" {
+  let input =
+    #|(module
+    #|  (func (local i32)
+    #|    nop nop nop nop nop nop nop nop
+    #|    nop nop nop nop nop nop nop nop
+    #|    (local.set 0 (i32.const 7))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected raw-preclean vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected raw-preclean vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail(
+        "expected raw-precleaned local-only body to canonicalize to one nop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 test "vacuum set-only body cleanup preserves observable hazards" {
   let input =
     #|(module
@@ -685,6 +713,78 @@ test "vacuum set-only body cleanup preserves observable hazards" {
   assert_true(call_body.contains("call"), msg=call_body)
   assert_true(global_body.contains("global.set"), msg=global_body)
   assert_true(memory_body.contains("i32.store"), msg=memory_body)
+}
+
+///|
+test "vacuum removes finite local-only loops without backedges" {
+  let input =
+    #|(module
+    #|  (func (local i32 i32)
+    #|    (loop
+    #|      (local.set 0 (i32.const 44))
+    #|      (local.set 1 (local.get 0))))
+    #|  (func
+    #|    (loop $forever (br $forever))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected finite-loop vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected finite-loop vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(finite)), @lib.Func(_, @lib.Expr(back_branch))]
+      )
+    ) => {
+      @debug.assert_eq(finite, [@lib.Instruction::nop()])
+      assert_true(back_branch.any(fn(instr) { instr is @lib.Loop(_, _) }))
+    }
+    other =>
+      fail(
+        "expected finite and back-branch loop functions, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum removes unread default struct allocations" {
+  let input =
+    #|(module
+    #|  (type $s (struct (field (mut i32)) (field eqref)))
+    #|  (func (local anyref)
+    #|    (local.set 0 (struct.new_default $s)))
+    #|  (func (result anyref)
+    #|    (struct.new_default $s)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected default-struct vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected default-struct vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr(unread)), @lib.Func(_, @lib.Expr(observed))]
+      )
+    ) => {
+      @debug.assert_eq(unread, [@lib.Instruction::nop()])
+      assert_true(observed.any(fn(instr) { instr is @lib.StructNewDefault(_) }))
+    }
+    other =>
+      fail(
+        "expected unread and observed struct allocation functions, got \{@debug.to_string(other)}",
+      )
+  }
 }
 
 ///|
@@ -776,6 +876,78 @@ test "vacuum clears branchy local-only void function bodies" {
     other =>
       fail(
         "expected branchy local-only vacuum body to canonicalize to one nop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum removes empty void if with removable condition" {
+  let input =
+    #|(module
+    #|  (func (param i32)
+    #|    (if (i32.eqz (i32.const 0)) (then))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected empty-if vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected empty-if vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail(
+        "expected removable-condition empty if to canonicalize to one nop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum preserves empty-if condition hazards as dropped values" {
+  let input =
+    #|(module
+    #|  (import "env" "cond" (func $cond (result i32)))
+    #|  (memory 1)
+    #|  (func (param i32)
+    #|    (if (call $cond) (then))
+    #|    (if (i32.load (i32.const 0)) (then))
+    #|    (if (i32.div_s (local.get 0) (i32.const 0)) (then))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected empty-if hazard fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected empty-if hazard output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut saw_call = false
+      let mut saw_load = false
+      let mut saw_div = false
+      let mut drop_count = 0
+      for instr in instrs {
+        match instr {
+          @lib.Call(_) => saw_call = true
+          @lib.I32Load(_) => saw_load = true
+          @lib.I32DivS => saw_div = true
+          @lib.Drop => drop_count += 1
+          @lib.If(_, _, _) => fail("expected empty if wrappers to be removed")
+          _ => ()
+        }
+      }
+      assert_true(saw_call)
+      assert_true(saw_load)
+      assert_true(saw_div)
+      @debug.assert_eq(drop_count, 3)
+    }
+    other =>
+      fail(
+        "expected one empty-if hazard function, got \{@debug.to_string(other)}",
       )
   }
 }
@@ -1163,7 +1335,7 @@ test "vacuum raw-unwraps call-tee if wrappers that contain unreachable" {
 }
 
 ///|
-test "vacuum raw-drops empty else arms in lowered void ifs" {
+test "vacuum raw-preclean canonicalizes local-only empty-else body" {
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -1197,23 +1369,10 @@ test "vacuum raw-drops empty else arms in lowered void ifs" {
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
-      @debug.assert_eq(instrs, [
-        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-        @lib.Instruction::if_(
-          @lib.BlockType::void_(),
-          [
-            @lib.Instruction::i32_const(@lib.I32(2)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
-          ],
-          None,
-        ),
-      ])
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
     other =>
       fail(
-        "expected raw empty-else if to drop else arm, got \{@debug.to_string(other)}",
+        "expected local-only empty-else body to canonicalize to nop, got \{@debug.to_string(other)}",
       )
   }
 }
@@ -4876,7 +5035,7 @@ test "vacuum raw-unwraps terminal unreachable block wrappers with outer branches
 }
 
 ///|
-test "vacuum raw-unwraps dense nop blocks with outer branches" {
+test "vacuum raw-preclean canonicalizes finite local-only outer branches" {
   let input = pass_test_module_from_wat(
     (
       #|(module
@@ -4909,29 +5068,11 @@ test "vacuum raw-unwraps dense nop blocks with outer branches" {
       fail("expected raw block-unwrapped output to validate, got \{err}")
   }
   match optimized.code_sec {
-    Some(
-      @lib.CodeSec(
-        [
-          @lib.Func(
-            _,
-            @lib.Expr([@lib.Block(@lib.VoidBlockType, @lib.Expr(instrs))])
-          ),
-        ]
-      )
-    ) =>
-      @debug.assert_eq(instrs, [
-        @lib.Instruction::i32_const(@lib.I32(1)),
-        @lib.Instruction::if_(
-          @lib.BlockType::void_(),
-          [@lib.Instruction::br(@lib.LabelIdx::new(1U))],
-          None,
-        ),
-        @lib.Instruction::i32_const(@lib.I32(9)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-      ])
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
     other =>
       fail(
-        "expected outer block with rebased branch after raw vacuum, got \{@debug.to_string(other)}",
+        "expected finite local-only outer branches to canonicalize to nop, got \{@debug.to_string(other)}",
       )
   }
 }

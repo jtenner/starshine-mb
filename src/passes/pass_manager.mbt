@@ -568,6 +568,16 @@ fn vacuum_convert_is_nontrapping(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
+fn vacuum_heap_is_removable_default_allocation(
+  instr : @lib.Instruction?,
+) -> Bool {
+  match instr {
+    Some(@lib.Instruction::StructNewDefault(_)) => true
+    _ => false
+  }
+}
+
+///|
 fn vacuum_can_remove_dropped_node(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
@@ -592,6 +602,10 @@ fn vacuum_can_remove_dropped_node(
     @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Heap =>
+      vacuum_heap_is_removable_default_allocation(
+        @ir.hot_node_exact_instr(func, node_id),
+      )
     _ => false
   }
   if !is_removable_shape {
@@ -648,10 +662,15 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
     | @ir.HotOp::BrTable
     | @ir.HotOp::Return
     | @ir.HotOp::Block
+    | @ir.HotOp::Loop
     | @ir.HotOp::If => true
     @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Heap =>
+      vacuum_heap_is_removable_default_allocation(
+        @ir.hot_node_exact_instr(func, node_id),
+      )
     _ => false
   }
   if !self_is_removable {
@@ -661,6 +680,19 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
   match node.op {
     @ir.HotOp::Block =>
       if !hot_pass_vacuum_can_remove_local_only_region_memoized(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          states,
+        ) {
+        states[node_id] = 3
+        return false
+      }
+    @ir.HotOp::Loop =>
+      if hot_pass_vacuum_label_is_used(
+          func,
+          @ir.hot_control_node_label(func, node_id),
+        ) ||
+        !hot_pass_vacuum_can_remove_local_only_region_memoized(
           func,
           @ir.hot_region_body_ref(func, node_id),
           states,
@@ -1265,6 +1297,46 @@ fn hot_pass_vacuum_flip_empty_then_if(
 }
 
 ///|
+fn hot_pass_vacuum_remove_empty_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  if !(node.op is @ir.HotOp::If) ||
+    @ir.hot_type_result_arity(func, node.ty) != 0 ||
+    @ir.hot_child_count(func, node_id) < 2 ||
+    @ir.hot_region_root_count(func, @ir.hot_region_then_ref(func, node_id)) != 0 ||
+    hot_pass_vacuum_label_is_used(
+      func,
+      @ir.hot_control_node_label(func, node_id),
+    ) {
+    return false
+  }
+  match @ir.hot_region_else_ref(func, node_id) {
+    Some(else_ref) =>
+      if @ir.hot_region_root_count(func, else_ref) != 0 {
+        return false
+      }
+    None => ()
+  }
+  let condition = @ir.hot_child_get(func, node_id, 0)
+  let replacement = if vacuum_can_remove_dropped_node(func, condition) {
+    []
+  } else {
+    [@ir.hot_build_drop(func, condition)]
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
+  vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+  true
+}
+
+///|
 fn hot_pass_vacuum_collapse_constant_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1597,6 +1669,13 @@ fn hot_pass_remove_region_nops(
             changed = hot_pass_remove_region_nops(ctx, func, else_region, seen) ||
               changed
           None => ()
+        }
+        let removed_empty = hot_pass_vacuum_remove_empty_if(
+          ctx, func, region_ref, idx, node_id,
+        )
+        changed = removed_empty || changed
+        if removed_empty {
+          continue
         }
         let collapsed = hot_pass_vacuum_collapse_constant_if(
           ctx, func, region_ref, idx, node_id,
@@ -50230,8 +50309,12 @@ fn run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(
       | @lib.Br(_)
       | @lib.BrIf(_)
       | @lib.BrTable(_, _)
-      | @lib.Return => true
+      | @lib.Return
+      | @lib.StructNewDefault(_) => true
       @lib.Block(_, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(body)
+      @lib.Loop(_, @lib.Expr(body)) =>
+        !run_hot_pipeline_raw_vacuum_body_targets_owner(body, 0) &&
         run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(body)
       @lib.If(_, then_body, else_body) =>
         if !run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(
@@ -52943,6 +53026,28 @@ fn run_hot_pipeline_raw_vacuum_has_dense_nop_debris(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> @lib.Func {
+  if !run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(instrs) {
+    return @lib.Func::new(locals, @lib.Expr::new(instrs))
+  }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(_, results)) if results.length() == 0 =>
+      @lib.Func::new(locals, @lib.Expr::new([@lib.Instruction::nop()]))
+    _ => @lib.Func::new(locals, @lib.Expr::new(instrs))
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_preclean(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -53000,7 +53105,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
       }
       return Some({
         reason: "raw-vacuum-preclean",
-        func: @lib.Func::new(locals, @lib.Expr::new(final_rewritten)),
+        func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+          mod_, func_idx, module_state, options, locals, final_rewritten,
+        ),
         unchanged_original: false,
         trace_skip_raw: true,
       })
@@ -53061,7 +53168,9 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   Some({
     reason: "raw-vacuum-preclean",
-    func: @lib.Func::new(locals, @lib.Expr::new(final_rewritten)),
+    func: run_hot_pipeline_raw_vacuum_finalize_precleaned_func(
+      mod_, func_idx, module_state, options, locals, final_rewritten,
+    ),
     unchanged_original: false,
     trace_skip_raw: true,
   })
@@ -53139,6 +53248,7 @@ fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
           _ => ()
         }
         match (block_type, then_body.length(), else_body) {
+          (@lib.VoidBlockType, 0, None) => return true
           (@lib.VoidBlockType, 0, Some(body)) if body.length() > 0 =>
             return true
           _ => ()

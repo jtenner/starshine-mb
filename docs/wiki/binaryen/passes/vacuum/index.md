@@ -50,7 +50,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - slot `37`
   - slot `47`
 - The saved Binaryen debug log contains `72` `running pass: vacuum` lines in total, so nested reruns make it far more common than the four visible top-level slots suggest.
-- The local backlog carried dedicated `VQ` work items during the release audit; that audit is now closed for the current direct-pass and checked ordered-neighborhood scope, so future work should reopen only for a new semantic/validation mismatch or a newly proven vacuum-owned wall-time bottleneck.
+- The provenance and checked ordered-neighborhood audit is recorded, and the 2026-07-21 three-family direct slice is closed. Current broad cross-profile evidence still has three measured size-losing direct parity families, so future work should use the fuzzing dossier rather than treating all direct behavior as closed.
 
 ## Most important durable takeaways
 
@@ -75,7 +75,10 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - raw large-function precleaning for cheap pure `const`/`drop` and `nop` debris inside lowered structured bodies
   - dropped constant `i32`/`i64` div/rem pruning when constant operands prove the operation cannot trap, while preserving zero-divisor and signed-minimum/`-1` traps
   - `drop(local.tee value)` rewriting to `local.set value` in direct and nested lowered regions, preserving the value computation exactly once
-  - Binaryen-style single-`nop` canonicalization for proven local-only void bodies even when they contain no `local.tee`; result-producing bodies, calls, external writes, traps, and potentially nonterminating loops remain ineligible
+  - Binaryen-style single-`nop` canonicalization for proven local-only void bodies even when they contain no `local.tee`; result-producing bodies, calls, external writes, traps, and loops with a branch to their own label remain ineligible
+  - empty void `if` removal: removable pure conditions disappear, while call/load/trapping conditions are preserved as `drop(condition)`
+  - finite local-only loop cleanup when no branch targets the loop label, while self/back-branching loops remain intact
+  - exact unread `struct.new_default` allocation cleanup when the reference is stored only to otherwise removable local traffic; observed allocations remain intact
   - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
 - Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) closed a newly proven current-artifact wall-time owner. The 2026-07-21 parity slice moved that memoization to the complete local-only-body proof, so removing the old tee-presence gate does not reintroduce exponential traversal on shared HOT DAGs.
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
@@ -114,12 +117,12 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
-- Treat the recorded count-100000 regular GenValid, classified wasm-smith, broad random-all-profiles, and 2026-07-04 slot23 equality results as historical closeout evidence for their recorded generator/oracle state. The 2026-07-18 current harness exposed pre-existing regular constant-div/rem-drop and dedicated wrapper parity gaps; note `1649` proved the DAG-admission performance fix did not change any of the `115` observed Starshine outputs, but a future behavior slice must reconcile the current corpus before claiming a fresh full green direct closeout.
+- Treat the 2026-07-21 explicit-v131 results in [`./fuzzing.md`](./fuzzing.md) as current: the selected 29-case replay, regular `100000`, and pass-owned aggregate `10000` are exact; wasm-smith has only the measured case-3694 win plus Binaryen tool failures; broad random-all leaves three measured size-losing families. Older count-100000, classified wasm-smith, broad random-all, and 2026-07-04 slot23 results remain historical evidence for their recorded generator/oracle state, not a substitute for the current open broad residuals.
 - Treat the raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, proven-nontrapping constant div/rem, dropped-tee-to-set, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function single-`nop` canonicalization slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, proven-nontrapping constant div/rem, dropped-tee-to-set, empty-`if`, finite no-backedge loop, exact unread default-struct allocation, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function single-`nop` canonicalization slice.
 
 ## Sources
 
