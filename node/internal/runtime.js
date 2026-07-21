@@ -12,7 +12,12 @@ function toCodePoints(value) {
   return out;
 }
 
-function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
+function createMoonbitFsHost({
+  cwd = process.cwd(),
+  args = [],
+  stdoutFd = 1,
+  stderrFd = 2,
+} = {}) {
   let nextHandle = 1;
   const handles = new Map();
   let lastError = "";
@@ -192,7 +197,15 @@ function createMoonbitFsHost({ cwd = process.cwd(), args = [] } = {}) {
     },
     write_bytes_to_file_new(pathValue, bytesValue) {
       try {
-        fs.writeFileSync(readString(pathValue), readBytes(bytesValue));
+        const outputPath = readString(pathValue);
+        const bytes = readBytes(bytesValue);
+        if (outputPath === "/dev/stdout") {
+          fs.writeSync(stdoutFd, bytes);
+        } else if (outputPath === "/dev/stderr") {
+          fs.writeSync(stderrFd, bytes);
+        } else {
+          fs.writeFileSync(outputPath, bytes);
+        }
         return 0;
       } catch (error) {
         return setError(error);

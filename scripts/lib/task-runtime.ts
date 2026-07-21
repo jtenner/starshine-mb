@@ -9,12 +9,16 @@ export function fail(message: string): never {
   throw new Error(message);
 }
 
-// Walk up from a start path until we find the repo root (`moon.mod.json`), so
-// scripts can run from nested directories and still operate repo-wide.
+// Walk up from a start path until we find the repo root (`moon.mod` or the
+// legacy `moon.mod.json`), so scripts can run from nested directories and
+// still operate repo-wide.
 export function resolveWorkspaceRoot(start = process.cwd()): string {
   let current = path.resolve(start);
   while (true) {
-    if (fs.existsSync(path.join(current, "moon.mod.json"))) {
+    if (
+      fs.existsSync(path.join(current, "moon.mod")) ||
+      fs.existsSync(path.join(current, "moon.mod.json"))
+    ) {
       return current;
     }
     const parent = path.dirname(current);

@@ -4994,7 +4994,6 @@ pub fn run_cmd_exit_code(args : Array[String]) -> Int {
 }
 
 ///|
-#cfg(target="native")
 fn trim_program_name(argv : Array[String]) -> Array[String] {
   if argv.length() == 0 {
     return []
@@ -5015,7 +5014,7 @@ fn cmd_wasm_proc_exit(code : UInt) -> Unit = "wasi_snapshot_preview1" "proc_exit
 ///|
 #cfg(target="wasm")
 fn main {
-  let exit_code = run_cmd_exit_code(@env.args())
+  let exit_code = run_cmd_exit_code(trim_program_name(@env.args()))
   if exit_code != 0 {
     cmd_wasm_proc_exit(exit_code.reinterpret_as_uint())
   }
