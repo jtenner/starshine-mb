@@ -1689,6 +1689,86 @@ fn remove_unused_brs_reorder_cache_resize(
 }
 
 ///|
+fn remove_unused_brs_i32_const_node(func : @ir.HotFunc, node_id : Int) -> Int? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(value) => Some(value.0)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn remove_unused_brs_exact_numeric_may_trap(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::I32RemS)
+    | Some(@lib.Instruction::I32RemU)
+    | Some(@lib.Instruction::I32DivU) => {
+      if @ir.hot_child_count(func, node_id) != 2 {
+        return true
+      }
+      match
+        remove_unused_brs_i32_const_node(
+          func,
+          @ir.hot_child_get(func, node_id, 1),
+        ) {
+        Some(rhs) => rhs == 0
+        None => true
+      }
+    }
+    Some(@lib.Instruction::I32DivS) => {
+      if @ir.hot_child_count(func, node_id) != 2 {
+        return true
+      }
+      let rhs = match
+        remove_unused_brs_i32_const_node(
+          func,
+          @ir.hot_child_get(func, node_id, 1),
+        ) {
+        Some(rhs) => rhs
+        None => return true
+      }
+      if rhs == 0 {
+        return true
+      }
+      if rhs != -1 {
+        return false
+      }
+      match
+        remove_unused_brs_i32_const_node(
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+        ) {
+        Some(lhs) => lhs == -2147483648
+        None => true
+      }
+    }
+    Some(@lib.Instruction::I64DivS)
+    | Some(@lib.Instruction::I64DivU)
+    | Some(@lib.Instruction::I64RemS)
+    | Some(@lib.Instruction::I64RemU)
+    | Some(@lib.Instruction::I32TruncF32S)
+    | Some(@lib.Instruction::I32TruncF32U)
+    | Some(@lib.Instruction::I32TruncF64S)
+    | Some(@lib.Instruction::I32TruncF64U)
+    | Some(@lib.Instruction::I64TruncF32S)
+    | Some(@lib.Instruction::I64TruncF32U)
+    | Some(@lib.Instruction::I64TruncF64S)
+    | Some(@lib.Instruction::I64TruncF64U) => true
+    _ => false
+  }
+}
+
+///|
 fn remove_unused_brs_node_is_reorder_safe(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1706,6 +1786,11 @@ fn remove_unused_brs_node_is_reorder_safe(
     _ => ()
   }
   let node = @ir.hot_node_get(func, node_id)
+  if @ir.hot_may_trap(func, node_id) ||
+    remove_unused_brs_exact_numeric_may_trap(func, node_id) {
+    cache[node_id] = 0
+    return false
+  }
   match node.op {
     @ir.HotOp::Const
     | @ir.HotOp::LocalGet
@@ -2017,6 +2102,83 @@ fn remove_unused_brs_mark_local_reads_in_value_expr(
         )
       }
   }
+}
+
+///|
+fn remove_unused_brs_value_expr_reads_global(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::GlobalGet => return true
+    @ir.HotOp::If => {
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        if remove_unused_brs_value_expr_reads_global(
+            func,
+            @ir.hot_region_get(func, then_ref, idx),
+          ) {
+          return true
+        }
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            if remove_unused_brs_value_expr_reads_global(
+                func,
+                @ir.hot_region_get(func, else_ref, idx),
+              ) {
+              return true
+            }
+          }
+        None => ()
+      }
+    }
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if remove_unused_brs_value_expr_reads_global(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn remove_unused_brs_call_condition_preserves_arm_locals(
+  func : @ir.HotFunc,
+  node_id : Int,
+  arm_reads : @bitset.BitSet,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call | @ir.HotOp::CallIndirect | @ir.HotOp::CallRef => ()
+    _ => return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if !remove_unused_brs_condition_is_select_safe_over_value_arms(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        arm_reads,
+      ) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -5310,16 +5472,17 @@ fn remove_unused_brs_match_value_if_to_select(
   if !remove_unused_brs_node_is_reorder_safe(
       ctx, func, condition, reorder_cache,
     ) {
-    let mut safe_nonreorder_condition = allow_nonreorder_condition_with_reorder_safe_arms
-    if !safe_nonreorder_condition {
-      let arm_reads = @bitset.BitSet::new(0)
-      remove_unused_brs_mark_local_reads_in_value_expr(
-        func, then_root, arm_reads,
-      )
-      remove_unused_brs_mark_local_reads_in_value_expr(
-        func, else_root, arm_reads,
-      )
-      safe_nonreorder_condition = remove_unused_brs_condition_is_select_safe_over_value_arms(
+    let arm_reads = @bitset.BitSet::new(0)
+    remove_unused_brs_mark_local_reads_in_value_expr(func, then_root, arm_reads)
+    remove_unused_brs_mark_local_reads_in_value_expr(func, else_root, arm_reads)
+    let mut safe_nonreorder_condition = remove_unused_brs_condition_is_select_safe_over_value_arms(
+      func, condition, arm_reads,
+    )
+    if !safe_nonreorder_condition &&
+      allow_nonreorder_condition_with_reorder_safe_arms &&
+      !remove_unused_brs_value_expr_reads_global(func, then_root) &&
+      !remove_unused_brs_value_expr_reads_global(func, else_root) {
+      safe_nonreorder_condition = remove_unused_brs_call_condition_preserves_arm_locals(
         func, condition, arm_reads,
       )
     }

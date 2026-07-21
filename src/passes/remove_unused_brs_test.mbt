@@ -1636,6 +1636,44 @@ test "remove-unused-brs rewrites pure value if into select" {
 }
 
 ///|
+test "remove-unused-brs does not speculate a trapping value arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then (i32.const 7)) (else (i32.div_s (i32.const 1) (i32.const 0))))))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected shrinking trapping-arm preservation success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs does not speculate a checked truncation arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (if (result i32) (local.get 0) (then (i32.const 7)) (else (i32.trunc_f64_s (f64.const nan))))))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected checked-truncation arm preservation success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("i32.trunc_f64s"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites pure const ifs into select" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1718,6 +1756,41 @@ test "remove-unused-brs keeps high-local nonreorder conditions as ifs when arms 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("(if I32"), msg=pretty)
   assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps condition value ifs whose tee invalidates an arm" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) (if (if (result i32) (local.tee 1 (local.get 0)) (then (local.get 1)) (else (i32.const 0))) (then (return (i32.const 1)))) (i32.const 2)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected condition tee invalidation preservation, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if I32"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps call-conditioned arms that read mutable globals" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (global (mut i32) (i32.const 0)) (func $set (result i32) (global.set 0 (i32.const 1)) (i32.const 1)) (func (result i32) (if (if (result i32) (call $set) (then (global.get 0)) (else (i32.const 0))) (then (return (i32.const 1)))) (i32.const 2)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call/global arm ordering preservation, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(if I32"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
 }
 
 ///|
