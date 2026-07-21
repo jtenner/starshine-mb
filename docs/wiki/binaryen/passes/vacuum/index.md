@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
@@ -73,8 +73,11 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - unwrapping blocks whose only payload is `unreachable`
   - flipping empty-then/live-else void `if`s to Binaryen's one-armed double-`eqz` form
   - raw large-function precleaning for cheap pure `const`/`drop` and `nop` debris inside lowered structured bodies
+  - dropped constant `i32`/`i64` div/rem pruning when constant operands prove the operation cannot trap, while preserving zero-divisor and signed-minimum/`-1` traps
+  - `drop(local.tee value)` rewriting to `local.set value` in direct and nested lowered regions, preserving the value computation exactly once
+  - Binaryen-style single-`nop` canonicalization for proven local-only void bodies even when they contain no `local.tee`; result-producing bodies, calls, external writes, traps, and potentially nonterminating loops remain ineligible
   - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
-- Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) closed a newly proven current-artifact wall-time owner without changing those transforms. The local-only-body `local.tee` admission query now visits each HOT DAG node at most once. Extracted Func `151` fell from `38.845s` to `0.674s` with byte-identical valid output; whole-artifact direct vacuum fell from a `600s` timeout to `4.092s`, and public optimize/shrink then advanced into HSO.
+- Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) closed a newly proven current-artifact wall-time owner. The 2026-07-21 parity slice moved that memoization to the complete local-only-body proof, so removing the old tee-presence gate does not reintroduce exponential traversal on shared HOT DAGs.
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
   - that change is already present in Binaryen `version_129`
@@ -116,7 +119,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function pure `const`/`drop` precleaning, and empty-function single-`nop` canonicalization slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, proven-nontrapping constant div/rem, dropped-tee-to-set, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function single-`nop` canonicalization slice.
 
 ## Sources
 

@@ -141,6 +141,21 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ## v0.1.1 O4z Supporting Work
 
+### [VACUUM-PARITY]001 - Close three direct `vacuum` cleanup gaps
+
+- **Status:** **Complete** (2026-07-21; focused TDD, cmd dispatch, full tests, official Binaryen-v131 targeted replay, and the documented 10000-case aggregate lane are green).
+- **Owner:** `src/passes/pass_manager.mbt` vacuum HOT cleanup, `src/passes/optimize_test.mbt`, dispatcher/CLI pass coverage, and the `docs/wiki/binaryen/passes/vacuum/` dossier.
+- **Goal:** implement exactly three independently testable Binaryen-v131 cleanup families that the current direct Starshine `vacuum` pass leaves behind.
+- **Why:** `bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x71ac --pass vacuum --gen-valid-profile random-all-profiles ...` hit the mismatch budget after `63` comparisons with `29` raw mismatches and no validation, generator, property, or command failures. The selected families are explicitly part of Binaryen's effect-aware unused-result/whole-body cleanup contract and are not proven Starshine wins.
+- **Selected issues:**
+  - [x] **Complete — Remove dropped proven-nontrapping constant integer division/remainder.** Constant-sensitive HOT/raw proofs remove all eight safe i32/i64 div/rem forms while preserving zero-divisor and signed-minimum divided by `-1` traps.
+  - [x] **Complete — Rewrite `drop(local.tee value)` to `local.set value`.** Recursive HOT and lowered raw cleanup preserve the RHS exactly once in direct and nested regions; the cmd dispatcher fixture covers the public stacked path.
+  - [x] **Complete — Nop local-write-only void bodies without requiring a `local.tee`.** The memoized whole-body proof now requires void result arity but no tee sentinel; stacked candidate discovery admits proven local-only writes, while calls, external state, traps, explicit `unreachable`, and self-branching loops remain preserved.
+- **Dependencies:** no scheduler widening; direct `vacuum` behavior only. Use official `.tmp/binaryen-version-131-bin/bin/wasm-opt` and rebuild `_build/native/release/build/cmd/cmd.exe` before compare signoff.
+- **Suggested tests:** direct IR/opcode assertions in `src/passes/optimize_test.mbt`; focused CLI/dispatcher fixture if existing vacuum public coverage does not exercise each family; negative constant trap cases; nested tee RHS with a side-effecting call; set-only body plus call/memory/global/unreachable/loop boundaries.
+- **Evidence:** `moon fmt`, `moon info` (warnings only), and `moon test` (`9734/9734`) passed serially; no `.mbti` diff. Fresh native SHA-256 `33d19dc17412369d7466b86d8fba7b373a98622f15022c528bf5d3198e1c90c3`. Targeted v131 outputs are byte-identical after debug/producer stripping, and `.tmp/pass-fuzz-vacuum-parity-20260721` is green at `10000/10000`. Discovery replay resolved `15/29` prior mismatches; the `14` residual loop/allocation families remain explicit parity gaps outside this three-issue unit.
+- **Exit criteria:** satisfied after policy-compliant commits and final journal/worktree cleanup.
+
 ### [O4Z-STARTUP]001 - Preserve the startup-map regression guard
 
 - Keep `tests/repros/o4z-debug-startup-map-init-repro.wasm` until a smaller generated-artifact fixture replaces it.

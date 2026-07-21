@@ -99,7 +99,7 @@ test "vacuum skips O4z raw pass until self-opt CLI flag parsing is safe" {
 ///|
 test "vacuum removes dropped pure scalar expressions" {
   let input = pass_test_module_from_wat(
-    "(module (func (local i32) (drop (i32.add (i32.const 1) (i32.const 2))) (local.set 0 (i32.const 4))))",
+    "(module (global (mut i32) (i32.const 0)) (func (local i32) (drop (i32.add (i32.const 1) (i32.const 2))) (local.set 0 (i32.const 4)) (global.set 0 (local.get 0))))",
   )
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
@@ -115,6 +115,8 @@ test "vacuum removes dropped pure scalar expressions" {
       @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(4)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
       ])
     other =>
       fail(
@@ -133,6 +135,68 @@ test "vacuum preserves dropped zero-divisor traps after unsigned canonicalizatio
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("i32.div_u"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "vacuum removes dropped safe constant integer div and rem" {
+  let wat =
+    #|(module
+    #|  (global $sink (mut i32) (i32.const 0))
+    #|  (func
+    #|    (drop (i32.div_s (i32.const 84) (i32.const 3)))
+    #|    (drop (i32.div_u (i32.const 84) (i32.const 3)))
+    #|    (drop (i32.rem_s (i32.const 84) (i32.const 3)))
+    #|    (drop (i32.rem_u (i32.const 84) (i32.const 3)))
+    #|    (drop (i64.div_s (i64.const 99) (i64.const 5)))
+    #|    (drop (i64.div_u (i64.const 99) (i64.const 5)))
+    #|    (drop (i64.rem_s (i64.const 99) (i64.const 5)))
+    #|    (drop (i64.rem_u (i64.const 99) (i64.const 5)))
+    #|    (global.set $sink (i32.const 9))))
+    #|
+  let input = pass_test_module_from_wat(wat)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant div/rem vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [@lib.I32Const(@lib.I32(9)), @lib.GlobalSet(@lib.GlobalIdx(0U))]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected only the observable global write after vacuum, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum preserves dropped signed minimum divided by negative one" {
+  let input =
+    #|(module
+    #|  (global $sink (mut i32) (i32.const 0))
+    #|  (func
+    #|    (drop (i32.div_s (i32.const -2147483648) (i32.const -1)))
+    #|    (drop (i64.div_s (i64.const -9223372036854775808) (i64.const -1)))
+    #|    (global.set $sink (i32.const 9))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected signed-overflow vacuum success, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i32.div_s"), msg=pretty)
+  assert_true(pretty.contains("i64.div_s"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
 }
 
@@ -209,6 +273,102 @@ test "vacuum removes pure drops in root local set call hazards" {
   assert_false(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "vacuum rewrites dropped local tee to local set" {
+  let wat =
+    #|(module
+    #|  (import "env" "value" (func $value (result i32)))
+    #|  (global $sink (mut i32) (i32.const 0))
+    #|  (func (local $tmp i32)
+    #|    (drop (local.tee $tmp (call $value)))
+    #|    (global.set $sink (local.get $tmp))))
+    #|
+  let input = pass_test_module_from_wat(wat)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped-tee vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Call(@lib.FuncIdx(0U)),
+                @lib.LocalSet(@lib.LocalIdx(0U)),
+                @lib.LocalGet(@lib.LocalIdx(0U)),
+                @lib.GlobalSet(@lib.GlobalIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected one call feeding local.set before the global write, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum rewrites dropped local tees in nested regions" {
+  let wat =
+    #|(module
+    #|  (import "env" "value" (func $value (result i32)))
+    #|  (global $sink (mut i32) (i32.const 0))
+    #|  (func (param $choose i32) (local $tmp i32)
+    #|    (if (local.get $choose)
+    #|      (then (drop (local.tee $tmp (call $value))))
+    #|      (else (drop (local.tee $tmp (call $value)))))
+    #|    (global.set $sink (local.get $tmp))))
+    #|
+  let input = pass_test_module_from_wat(wat)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested dropped-tee vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.LocalGet(@lib.LocalIdx(0U)),
+                @lib.If(
+                  @lib.VoidBlockType,
+                  [
+                    @lib.Call(@lib.FuncIdx(0U)),
+                    @lib.LocalSet(@lib.LocalIdx(1U)),
+                  ],
+                  Some(
+                    [
+                      @lib.Call(@lib.FuncIdx(0U)),
+                      @lib.LocalSet(@lib.LocalIdx(1U)),
+                    ]
+                  )
+                ),
+                @lib.LocalGet(@lib.LocalIdx(1U)),
+                @lib.GlobalSet(@lib.GlobalIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected each nested call to feed a local.set without tee/drop shells, got \{@debug.to_string(other)}",
+      )
+  }
 }
 
 ///|
@@ -391,6 +551,7 @@ test "vacuum removes nested value-expression debris in large functions" {
 test "vacuum skips branchy structured writes" {
   let input =
     #|(module
+    #|  (global $sink (mut i32) (i32.const 0))
     #|  (func (param i32) (local i32)
     #|    local.get 0
     #|    if
@@ -400,7 +561,9 @@ test "vacuum skips branchy structured writes" {
     #|      local.set 1
     #|      local.get 0
     #|      br_if 0
-    #|    end))
+    #|    end
+    #|    local.get 1
+    #|    global.set $sink))
   let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -458,6 +621,70 @@ test "vacuum raw-cleans root stack/local-set call hazards" {
   assert_true(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_false(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
+test "vacuum clears set-only void function bodies without local tees" {
+  let input =
+    #|(module
+    #|  (func (local i32)
+    #|    (local.set 0 (i32.const 101))
+    #|    (drop (local.get 0))
+    #|    (local.set 0 (i32.const 7))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected set-only vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected set-only vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      @debug.assert_eq(instrs, [@lib.Instruction::nop()])
+    other =>
+      fail(
+        "expected set-only vacuum body to canonicalize to one nop, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum set-only body cleanup preserves observable hazards" {
+  let input =
+    #|(module
+    #|  (import "env" "side" (func $side))
+    #|  (memory 1)
+    #|  (global $sink (mut i32) (i32.const 0))
+    #|  (func (local i32)
+    #|    (local.set 0 (i32.const 7))
+    #|    unreachable)
+    #|  (func
+    #|    (loop $forever (br $forever)))
+    #|  (func (call $side))
+    #|  (func (global.set $sink (i32.const 9)))
+    #|  (func (i32.store (i32.const 0) (i32.const 11))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected set-only hazard fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected set-only hazard output to validate, got \{err}")
+  }
+  let unreachable_body = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let loop_body = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let call_body = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  let global_body = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  let memory_body = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(unreachable_body.contains("unreachable"), msg=unreachable_body)
+  assert_true(loop_body.contains("loop"), msg=loop_body)
+  assert_true(loop_body.contains("br"), msg=loop_body)
+  assert_true(call_body.contains("call"), msg=call_body)
+  assert_true(global_body.contains("global.set"), msg=global_body)
+  assert_true(memory_body.contains("i32.store"), msg=memory_body)
 }
 
 ///|
@@ -557,6 +784,7 @@ test "vacuum clears branchy local-only void function bodies" {
 test "vacuum flips empty then with live else" {
   let input =
     #|(module
+    #|  (global $sink (mut i32) (i32.const 0))
     #|  (func (param i32) (local i32)
     #|    (if
     #|      (i32.eqz (local.get 0))
@@ -565,6 +793,7 @@ test "vacuum flips empty then with live else" {
     #|        (local.set 1 (i32.const 1))
     #|      )
     #|    )
+    #|    (global.set $sink (local.get 1))
     #|  )
     #|)
   let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
@@ -590,6 +819,8 @@ test "vacuum flips empty then with live else" {
           ],
           None,
         ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
       ])
     other =>
       fail(
@@ -991,6 +1222,7 @@ test "vacuum raw-drops empty else arms in lowered void ifs" {
 test "vacuum collapses constant void if to taken arm" {
   let input =
     #|(module
+    #|  (global $sink (mut i32) (i32.const 0))
     #|  (func (local i32)
     #|    (if
     #|      (i32.const 1)
@@ -1003,6 +1235,7 @@ test "vacuum collapses constant void if to taken arm" {
     #|        (local.set 0)
     #|      )
     #|    )
+    #|    (global.set $sink (local.get 0))
     #|  )
     #|)
   let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
@@ -1019,6 +1252,8 @@ test "vacuum collapses constant void if to taken arm" {
       @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(7)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
       ])
     other =>
       fail(
@@ -1031,11 +1266,13 @@ test "vacuum collapses constant void if to taken arm" {
 test "vacuum collapses constant void if with nested block-local branch" {
   let input =
     #|(module
+    #|  (global $sink (mut i32) (i32.const 0))
     #|  (func
     #|    (if
     #|      (i32.const 1)
     #|      (then
     #|        (block
+    #|          (global.set $sink (i32.const 7))
     #|          (br 0)
     #|        )
     #|      )
@@ -1062,7 +1299,11 @@ test "vacuum collapses constant void if with nested block-local branch" {
       @debug.assert_eq(instrs, [
         @lib.Instruction::block(
           @lib.BlockType::void_(),
-          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+          ]),
         ),
       ])
     other =>
@@ -1198,7 +1439,7 @@ test "vacuum collapses large generated branch scaffold constant if" {
 ///|
 test "vacuum removes empty void blocks" {
   let input = pass_test_module_from_wat(
-    "(module (func (local i32) block end i32.const 5 local.set 0))",
+    "(module (global (mut i32) (i32.const 0)) (func (local i32) block end i32.const 5 local.set 0 local.get 0 global.set 0))",
   )
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
@@ -1215,6 +1456,8 @@ test "vacuum removes empty void blocks" {
       @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
       ])
     other =>
       fail("expected empty block to be removed, got \{@debug.to_string(other)}")
@@ -1224,7 +1467,7 @@ test "vacuum removes empty void blocks" {
 ///|
 test "vacuum unwraps untargeted if-wrapper void blocks" {
   let input = pass_test_module_from_wat(
-    "(module (func (param i32) (local i32) block (if (local.get 0) (then i32.const 7 local.set 1)) end))",
+    "(module (global (mut i32) (i32.const 0)) (func (param i32) (local i32) block (if (local.get 0) (then i32.const 7 local.set 1)) end local.get 1 global.set 0))",
   )
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
@@ -1248,6 +1491,8 @@ test "vacuum unwraps untargeted if-wrapper void blocks" {
           ],
           None,
         ),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
       ])
     other =>
       fail(
@@ -4768,7 +5013,7 @@ test "repeated vacuum slots keep empty cleanup byte-stable" {
 ///|
 test "vacuum repeated-slot matrix drops detached pure residues" {
   let input = pass_test_module_from_wat(
-    "(module (func (local i32) (drop (i32.add (i32.const 1) (i32.const 2))) nop (local.set 0 (i32.const 4)) nop))",
+    "(module (global (mut i32) (i32.const 0)) (func (local i32) (drop (i32.add (i32.const 1) (i32.const 2))) nop (local.set 0 (i32.const 4)) nop local.get 0 global.set 0))",
   )
   let optimized = match
     run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum", "vacuum"]) {
@@ -4785,6 +5030,8 @@ test "vacuum repeated-slot matrix drops detached pure residues" {
       @debug.assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(4)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
       ])
     other =>
       fail(

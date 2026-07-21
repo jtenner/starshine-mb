@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -21,6 +21,13 @@ Reference command:
 ```sh
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass vacuum --out-dir .tmp/pass-fuzz-vacuum --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
 ```
+
+Latest direct parity evidence:
+
+- 2026-07-21: after `moon build --target native --release src/cmd`, native SHA-256 `33d19dc17412369d7466b86d8fba7b373a98622f15022c528bf5d3198e1c90c3` ran the documented aggregate lane against official Binaryen `version_131`: `.tmp/pass-fuzz-vacuum-parity-20260721` compared `10000/10000`, normalized `10000`, with `0` mismatches and `0` validation, property, generator, or command failures.
+- The targeted direct fixture `.tmp/vacuum-parity-targets.wat` covers all eight constant div/rem operators, zero-divisor and signed-overflow boundaries, direct and nested dropped tees with effectful calls, set-only whole-body cleanup, explicit `unreachable`, and a self-branching loop. After stripping debug/producers without another cleanup pass, Binaryen-v131 and Starshine outputs are byte-identical at SHA-256 `d1c4de8cc97f22b6bda2b535b7f8f38df1f5c6e062948062f15eb98ca8daba01`.
+- Replaying the `29` mismatches from the 2026-07-21 discovery directory under `.tmp/pass-fuzz-vacuum-discovery-replay-20260721` resolved `15` to normalized matches and left `14` parity gaps, with no failures. Inspected residuals are outside this three-issue slice: examples include local-only loops that are terminating but currently rejected by Starshine's conservative loop boundary, and allocation-only local writes such as `local.set(struct.new_default)` that Binaryen removes. They remain parity gaps, not accepted Starshine divergences.
+- A broader same-seed `random-all-profiles` probe at `.tmp/pass-fuzz-vacuum-random-all-replay-20260721` compared `551/1000` before the `100`-failure budget, with `448` normalized matches, `103` mismatches, and no validation, property, generator, or command failures. This lane is discovery evidence only; the pass-owned `vacuum` aggregate above is the required 10000-case signoff lane.
 
 Latest current-artifact performance evidence:
 

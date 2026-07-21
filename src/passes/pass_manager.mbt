@@ -485,20 +485,51 @@ pub fn pipeline_verify_checkpoint(
 }
 
 ///|
-fn vacuum_binary_is_nontrapping(instr : @lib.Instruction?) -> Bool {
+fn vacuum_binary_is_nontrapping(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  let instr = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(instr) => instr
+    None => return false
+  }
   match instr {
-    Some(
-      @lib.Instruction::I32DivS
-      | @lib.Instruction::I32DivU
-      | @lib.Instruction::I32RemS
-      | @lib.Instruction::I32RemU
-      | @lib.Instruction::I64DivS
-      | @lib.Instruction::I64DivU
-      | @lib.Instruction::I64RemS
-      | @lib.Instruction::I64RemU
-    ) => false
-    Some(_) => true
-    None => false
+    @lib.Instruction::I32DivS
+    | @lib.Instruction::I32DivU
+    | @lib.Instruction::I32RemS
+    | @lib.Instruction::I32RemU
+    | @lib.Instruction::I64DivS
+    | @lib.Instruction::I64DivU
+    | @lib.Instruction::I64RemS
+    | @lib.Instruction::I64RemU => {
+      if @ir.hot_child_count(func, node_id) != 2 {
+        return false
+      }
+      let lhs = @ir.hot_node_exact_instr(
+        func,
+        @ir.hot_child_get(func, node_id, 0),
+      )
+      let rhs = @ir.hot_node_exact_instr(
+        func,
+        @ir.hot_child_get(func, node_id, 1),
+      )
+      match (lhs, rhs, instr) {
+        (
+          Some(@lib.I32Const(@lib.I32(a))),
+          Some(@lib.I32Const(@lib.I32(b))),
+          @lib.I32DivS,
+        ) => b != 0 && !(a == -2147483648 && b == -1)
+        (Some(@lib.I32Const(_)), Some(@lib.I32Const(@lib.I32(b))), _) => b != 0
+        (
+          Some(@lib.I64Const(@lib.I64(a))),
+          Some(@lib.I64Const(@lib.I64(b))),
+          @lib.I64DivS,
+        ) => b != 0L && !(a == -9223372036854775808L && b == -1L)
+        (Some(@lib.I64Const(_)), Some(@lib.I64Const(@lib.I64(b))), _) => b != 0L
+        _ => false
+      }
+    }
+    _ => true
   }
 }
 
@@ -558,8 +589,7 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::Select
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract => true
-    @ir.HotOp::Binary =>
-      vacuum_binary_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     _ => false
@@ -579,13 +609,22 @@ fn vacuum_can_remove_dropped_node(
 }
 
 ///|
-fn hot_pass_vacuum_can_remove_local_only_node(
+fn hot_pass_vacuum_can_remove_local_only_node_memoized(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
+  states : Array[Int],
 ) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+  if node_id < 0 ||
+    node_id >= states.length() ||
+    !@ir.hot_node_is_live(func, node_id) {
     return false
   }
+  match states[node_id] {
+    2 => return true
+    1 | 3 => return false
+    _ => ()
+  }
+  states[node_id] = 1
   let node = @ir.hot_node_get(func, node_id)
   let self_is_removable = match node.op {
     @ir.HotOp::Nop
@@ -610,33 +649,40 @@ fn hot_pass_vacuum_can_remove_local_only_node(
     | @ir.HotOp::Return
     | @ir.HotOp::Block
     | @ir.HotOp::If => true
-    @ir.HotOp::Binary =>
-      vacuum_binary_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     _ => false
   }
   if !self_is_removable {
+    states[node_id] = 3
     return false
   }
   match node.op {
     @ir.HotOp::Block =>
-      if !hot_pass_vacuum_can_remove_local_only_region(
+      if !hot_pass_vacuum_can_remove_local_only_region_memoized(
           func,
           @ir.hot_region_body_ref(func, node_id),
+          states,
         ) {
+        states[node_id] = 3
         return false
       }
     @ir.HotOp::If => {
-      if !hot_pass_vacuum_can_remove_local_only_region(
+      if !hot_pass_vacuum_can_remove_local_only_region_memoized(
           func,
           @ir.hot_region_then_ref(func, node_id),
+          states,
         ) {
+        states[node_id] = 3
         return false
       }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) =>
-          if !hot_pass_vacuum_can_remove_local_only_region(func, else_ref) {
+          if !hot_pass_vacuum_can_remove_local_only_region_memoized(
+              func, else_ref, states,
+            ) {
+            states[node_id] = 3
             return false
           }
         None => ()
@@ -648,9 +694,30 @@ fn hot_pass_vacuum_can_remove_local_only_node(
     if hot_pass_vacuum_is_region_child_slot(node.op, slot) {
       continue
     }
-    if !hot_pass_vacuum_can_remove_local_only_node(
+    if !hot_pass_vacuum_can_remove_local_only_node_memoized(
         func,
         @ir.hot_child_get(func, node_id, slot),
+        states,
+      ) {
+      states[node_id] = 3
+      return false
+    }
+  }
+  states[node_id] = 2
+  true
+}
+
+///|
+fn hot_pass_vacuum_can_remove_local_only_region_memoized(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  states : Array[Int],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if !hot_pass_vacuum_can_remove_local_only_node_memoized(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+        states,
       ) {
       return false
     }
@@ -663,103 +730,10 @@ fn hot_pass_vacuum_can_remove_local_only_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  if @ir.hot_region_root_count(func, region_ref) == 0 {
-    return true
-  }
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if !hot_pass_vacuum_can_remove_local_only_node(
-        func,
-        @ir.hot_region_get(func, region_ref, idx),
-      ) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn hot_pass_vacuum_node_contains_local_tee_memoized(
-  func : @ir.HotFunc,
-  node_id : @ir.NodeId,
-  seen : Array[Bool],
-) -> Bool {
-  if node_id < 0 ||
-    node_id >= seen.length() ||
-    seen[node_id] ||
-    !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  seen[node_id] = true
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalTee => return true
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
-      if hot_pass_vacuum_region_contains_local_tee_memoized(
-          func,
-          @ir.hot_region_body_ref(func, node_id),
-          seen,
-        ) {
-        return true
-      }
-    @ir.HotOp::If => {
-      if hot_pass_vacuum_region_contains_local_tee_memoized(
-          func,
-          @ir.hot_region_then_ref(func, node_id),
-          seen,
-        ) {
-        return true
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_ref) =>
-          if hot_pass_vacuum_region_contains_local_tee_memoized(
-              func, else_ref, seen,
-            ) {
-            return true
-          }
-        None => ()
-      }
-    }
-    _ => ()
-  }
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    if hot_pass_vacuum_node_contains_local_tee_memoized(
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-        seen,
-      ) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn hot_pass_vacuum_region_contains_local_tee_memoized(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  seen : Array[Bool],
-) -> Bool {
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if hot_pass_vacuum_node_contains_local_tee_memoized(
-        func,
-        @ir.hot_region_get(func, region_ref, idx),
-        seen,
-      ) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn hot_pass_vacuum_region_contains_local_tee(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  hot_pass_vacuum_region_contains_local_tee_memoized(
+  hot_pass_vacuum_can_remove_local_only_region_memoized(
     func,
     region_ref,
-    Array::make(@ir.hot_node_count(func), false),
+    Array::make(@ir.hot_node_count(func), 0),
   )
 }
 
@@ -771,7 +745,7 @@ fn hot_pass_vacuum_remove_local_only_void_body(
   let root_ref = @ir.HotRegionRef::root()
   let root_count = @ir.hot_region_root_count(func, root_ref)
   if root_count == 0 ||
-    !hot_pass_vacuum_region_contains_local_tee(func, root_ref) ||
+    @ir.hot_type_result_arity(func, @ir.hot_body_result_type(func)) != 0 ||
     !hot_pass_vacuum_can_remove_local_only_region(func, root_ref) {
     return false
   }
@@ -1515,6 +1489,23 @@ fn hot_pass_remove_region_nops(
       }
       @ir.HotOp::Drop if @ir.hot_child_count(func, node_id) == 1 => {
         let child_id = @ir.hot_child_get(func, node_id, 0)
+        let child = @ir.hot_node_get(func, child_id)
+        if child.op is @ir.HotOp::LocalTee &&
+          @ir.hot_child_count(func, child_id) == 1 {
+          let replacement = @ir.hot_build_local_set(
+            func,
+            child.imm0,
+            @ir.hot_child_get(func, child_id, 0),
+          )
+          let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
+            replacement,
+          ])
+          removed.push(child_id)
+          vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+          changed = true
+          idx += 1
+          continue
+        }
         if vacuum_can_remove_dropped_node(func, child_id) {
           let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
           vacuum_delete_detached_non_control_nodes(ctx, func, removed)
@@ -50224,6 +50215,124 @@ fn run_hot_pipeline_raw_vacuum_try_pop_const_nontrapping_int_divrem(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    let removable = match instr {
+      @lib.Nop
+      | @lib.LocalGet(_)
+      | @lib.LocalSet(_)
+      | @lib.LocalTee(_)
+      | @lib.GlobalGet(_)
+      | @lib.TableSize(_)
+      | @lib.Drop
+      | @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return => true
+      @lib.Block(_, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(body)
+      @lib.If(_, then_body, else_body) =>
+        if !run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(
+            then_body,
+          ) {
+          false
+        } else {
+          match else_body {
+            Some(body) =>
+              run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(body)
+            None => true
+          }
+        }
+      _ =>
+        run_hot_pipeline_raw_vacuum_pure_instr_operand_count(instr) is Some(_)
+    }
+    if !removable {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 1 < instrs.length() &&
+      instrs[idx] is @lib.LocalTee(_) &&
+      instrs[idx + 1] is @lib.Drop {
+      return true
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_const_nontrapping_int_divrem_drop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    if idx + 3 < instrs.length() && instrs[idx + 3] == @lib.Instruction::drop() {
+      let probe = [instrs[idx], instrs[idx + 1], instrs[idx + 2]]
+      if run_hot_pipeline_raw_vacuum_try_pop_const_nontrapping_int_divrem(probe) {
+        return true
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_const_nontrapping_int_divrem_drop(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_const_nontrapping_int_divrem_drop(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_const_nontrapping_int_divrem_drop(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_try_pop_pure_stack_expr(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -52686,6 +52795,17 @@ fn run_hot_pipeline_raw_vacuum_preclean_instrs(
         rewritten.push(instr)
       }
       _ => {
+        if idx + 1 < instrs.length() {
+          match (instr, instrs[idx + 1]) {
+            (@lib.LocalTee(local_idx), @lib.Drop) => {
+              rewritten.push(@lib.Instruction::local_set(local_idx))
+              changed = true
+              idx = idx + 2
+              continue
+            }
+            _ => ()
+          }
+        }
         match instr {
           @lib.Drop if rewritten.length() > 0 &&
             (
@@ -52853,7 +52973,17 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   } else {
     None
   }
-  if run_hot_pipeline_raw_vacuum_has_dense_nop_debris(instrs) {
+  let has_dropped_local_tee = run_hot_pipeline_raw_vacuum_instrs_have_dropped_local_tee(
+    instrs,
+  )
+  if run_hot_pipeline_raw_vacuum_has_dense_nop_debris(instrs) ||
+    (
+      has_dropped_local_tee &&
+      !run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(instrs)
+    ) ||
+    run_hot_pipeline_raw_vacuum_instrs_have_const_nontrapping_int_divrem_drop(
+      instrs,
+    ) {
     let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(
       instrs, module_ctx,
     )
@@ -52938,9 +53068,44 @@ fn run_hot_pipeline_raw_vacuum_preclean(
 }
 
 ///|
+fn run_hot_pipeline_raw_vacuum_instrs_have_local_write(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(_) | @lib.LocalTee(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_vacuum_instrs_have_local_write(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_vacuum_instrs_have_local_write(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_vacuum_instrs_have_local_write(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_vacuum_has_candidate_instrs(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
+  if run_hot_pipeline_raw_vacuum_instrs_have_local_write(instrs) &&
+    run_hot_pipeline_raw_vacuum_instrs_are_local_only_removable(instrs) {
+    return true
+  }
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
     match instr {

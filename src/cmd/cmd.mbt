@@ -3125,6 +3125,63 @@ test "cmd_post_encode_repro_note reflects active hot pipeline flags" {
 }
 
 ///|
+test "explicit vacuum dispatches parity cleanup through the cmd pipeline" {
+  let wat =
+    #|(module
+    #|  (import "env" "value" (func $value (result i32)))
+    #|  (global $sink (mut i32) (i32.const 0))
+    #|  (func
+    #|    (drop (i32.div_s (i32.const 84) (i32.const 3)))
+    #|    (global.set $sink (i32.const 1)))
+    #|  (func (local i32)
+    #|    (drop (local.tee 0 (call $value)))
+    #|    (global.set $sink (local.get 0)))
+    #|  (func (local i32)
+    #|    (local.set 0 (i32.const 7))))
+    #|
+  let input = match
+    @wast.wast_to_binary_module(wat, filename="vacuum-cmd-dispatch.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected cmd vacuum fixture parse success, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(input, ["vacuum"], OptimizeOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected explicit cmd vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [@lib.I32Const(@lib.I32(1)), @lib.GlobalSet(@lib.GlobalIdx(0U))]
+            )
+          ),
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Call(@lib.FuncIdx(0U)),
+                @lib.LocalSet(@lib.LocalIdx(0U)),
+                @lib.LocalGet(@lib.LocalIdx(0U)),
+                @lib.GlobalSet(@lib.GlobalIdx(0U)),
+              ]
+            )
+          ),
+          @lib.Func(_, @lib.Expr([@lib.Nop])),
+        ]
+      )
+    ) => ()
+    other =>
+      fail(
+        "expected cmd vacuum dispatch to expose all three cleanup families, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
 fn cmd_append_error_note(err : CmdError, note : String) -> CmdError {
   match err {
     EncodeFailed(path, inner) =>

@@ -14931,10 +14931,17 @@ test "dae-optimizing replays cleanup on material touched callers" {
   }
   out.write_string(")\n")
   let (optimized, trace) = dae_test_run_with_perf_trace(out.to_string())
-  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
   let touched = optimized.pretty_print_defined_func(0U)
   assert_false(touched.contains("(if"), msg="\{touched}\n\{trace}")
-  assert_true(touched.contains("br_if"), msg="\{touched}\n\{trace}")
+  assert_false(touched.contains("br_if"), msg="\{touched}\n\{trace}")
+  assert_true(touched.contains("nop"), msg="\{touched}\n\{trace}")
+  assert_true(
+    trace.contains(
+      "pass[dae-optimizing]:broad-changed-boundary-nested-batch pass=all-changed-vacuum accepted_defs=[0]",
+    ),
+    msg="\{trace}",
+  )
   let caller = optimized.pretty_print_defined_func(1U)
   let caller_local_count = match optimized.code_sec {
     Some(@lib.CodeSec(funcs)) => {
