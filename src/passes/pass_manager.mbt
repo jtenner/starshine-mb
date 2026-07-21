@@ -24422,7 +24422,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     if run_hot_pipeline_raw_ssa_nomerge_loop_backedge_merge_supported_control(
         instrs,
       ) {
-      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let hot_func = match
+        @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+        Ok(hot_func) => hot_func
+        Err(_) =>
+          return Some({
+            reason: "structured-loop-backedge-hot-lift-unsupported-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_multisource_merge(
@@ -24525,7 +24535,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
       }
     }
     if run_hot_pipeline_raw_ssa_nomerge_one_arm_merge_supported_control(instrs) {
-      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let hot_func = match
+        @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+        Ok(hot_func) => hot_func
+        Err(_) =>
+          return Some({
+            reason: "structured-one-arm-hot-lift-unsupported-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_one_arm_entry_merge(
@@ -24542,7 +24562,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     if run_hot_pipeline_raw_ssa_nomerge_multisource_merge_supported_control(
         instrs,
       ) {
-      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let hot_func = match
+        @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+        Ok(hot_func) => hot_func
+        Err(_) =>
+          return Some({
+            reason: "structured-multisource-hot-lift-unsupported-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_preserves_multisource_merge(
@@ -24559,7 +24589,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
     if run_hot_pipeline_raw_ssa_nomerge_mixed_structured_supported_control(
         instrs,
       ) {
-      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let hot_func = match
+        @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+        Ok(hot_func) => hot_func
+        Err(_) =>
+          return Some({
+            reason: "structured-mixed-hot-lift-unsupported-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
       if run_hot_pipeline_raw_ssa_nomerge_plan_has_mixed_fresh_canonical_merge(
@@ -24608,7 +24648,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         instrs,
         params.length(),
       ) {
-      let hot_func = @ir.hot_lift_func(mod_, func_idx)
+      let hot_func = match
+        @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+        Ok(hot_func) => hot_func
+        Err(_) =>
+          return Some({
+            reason: "structured-default-hot-lift-unsupported-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
       let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
       let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
       let (materialized, materialized_changed) = run_hot_pipeline_raw_ssa_nomerge_materialize_default_func(
@@ -24618,9 +24668,19 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         let materialized_mod = run_hot_pipeline_module_with_rewritten_func(
           mod_, func_idx, materialized,
         )
-        let materialized_hot_func = @ir.hot_lift_func(
-          materialized_mod, func_idx,
-        )
+        let materialized_hot_func = match
+          @ir.hot_lift_func_with_context_result(
+            materialized_mod, func_idx, module_ctx,
+          ) {
+          Ok(hot_func) => hot_func
+          Err(_) =>
+            return Some({
+              reason: "structured-materialized-hot-lift-unsupported-noop",
+              func: original,
+              unchanged_original: true,
+              trace_skip_raw: true,
+            })
+        }
         let materialized_local_graph = @ir.local_graph_build(
           materialized_hot_func,
           @ir.cfg_build(materialized_hot_func),
@@ -24683,7 +24743,17 @@ fn run_hot_pipeline_raw_ssa_nomerge_impl(
         }
     }
   } else {
-    let hot_func = @ir.hot_lift_func(mod_, func_idx)
+    let hot_func = match
+      @ir.hot_lift_func_with_context_result(mod_, func_idx, module_ctx) {
+      Ok(hot_func) => hot_func
+      Err(_) =>
+        return Some({
+          reason: "straight-line-hot-lift-unsupported-noop",
+          func: original,
+          unchanged_original: true,
+          trace_skip_raw: true,
+        })
+    }
     let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
     let plan = ssa_nomerge_build_rewrite_plan(hot_func, local_graph)
     Some({
@@ -60825,7 +60895,18 @@ fn run_hot_pipeline_apply_hot_pass(
           "guard:ssa-nomerge-writeback-batch",
           batch_guard_start_us,
         )
-        return Ok(repaired_mod)
+        match @validate.validate_module(repaired_mod) {
+          Ok(_) => return Ok(repaired_mod)
+          Err(err) => {
+            pipeline_trace_hook(
+              options.trace,
+              "ssa-nomerge",
+              "writeback-batch-module-invalid",
+              payload="reason=\{err}",
+            )
+            return Ok(mod_)
+          }
+        }
       }
       None => {
         perf_stop_timer_opt(

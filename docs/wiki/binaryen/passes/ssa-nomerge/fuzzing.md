@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-21
 sources:
   - ../../../raw/research/1646-2026-07-17-ssa-nomerge-batch-writeback.md
   - ../../../raw/moonbit/2026-07-10-native-build-output-path-policy.md
@@ -41,6 +41,20 @@ bun scripts/pass-fuzz-compare.ts --count 1000000 --seed 0x5eed --pass ssa-nomerg
 ## Native binary path note
 
 The `target/native/...` paths in the historical 2026-06-16 result records below document the executable actually used at that time; do not reuse them as current commands. Under the current policy, build with `moon build --target native --release src/cmd` and pass `_build/native/release/build/cmd/cmd.exe`. A legacy `target/native/...` binary is acceptable only when its hash or timestamp proves it is the freshly built executable. See [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md) and [`../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight`](../../../tooling/pass-fuzz-compare.md#pass-eligibility-preflight).
+
+## 2026-07-21 unsupported-HOT command-failure replay
+
+A bounded `coverage-forced-portable` discovery lane produced 15 valid inputs where Starshine exited 134 under `--ssa-nomerge`; sampled other passes completed, and debug-native replay identified `UnsupportedInstruction(atomic.fence)` at raw LocalGraph HOT-lift admissions. After the non-aborting lift repair and complete-module batch validation guard, all 15 saved inputs exit 0 and all 15 outputs validate with official `wasm-opt version 131 (version_131)`. The current-release replay ledger is `.tmp/ssa-command-failure-replay-current-release.tsv`; the durable regressions are the three encoded shared-memory loop-backedge, one-arm, and multisource fixtures in `src/passes/ssa_nomerge_test.mbt`.
+
+Treat this as a Starshine command-failure class, not a semantic-output mismatch family: unsupported HOT lifting must preserve the original function. Any future `starshine-command-failed` result on a Binaryen-v131-valid `ssa-nomerge` input reopens this boundary even when ordinary normalized comparisons remain green.
+
+Current-native explicit-v131 repair signoff used SHA-256 `8438dab0ff2c2f6764cffb6956a95997f70030f91138f68962bf8e6336aea014`:
+
+- regular GenValid `.tmp/pass-fuzz-ssa-hot-admission-genvalid-100000`: `100000/100000` normalized, zero mismatches/failures; Binaryen cache `314/99686` hits/misses;
+- aggregate `.tmp/pass-fuzz-ssa-hot-admission-aggregate-10000`: `10000/10000` normalized, zero mismatches/failures; selected profiles parity `3750`, smoke `2500`, coverage `2500`, stress `1250`; Binaryen cache `1480/8520`;
+- wasm-smith `.tmp/pass-fuzz-ssa-hot-admission-wasm-smith-10000`: `9956/10000` compared and normalized, zero mismatches or Starshine failures, with 44 Binaryen-only failures (`39` rec-group-zero, `3` bad-section-size, `1` invalid-tag-index, `1` table-index-out-of-range); wasm-smith cache `10000/0`, Binaryen cache `106/9850`, Binaryen-failure cache `0/44`.
+
+The required random-all lane was explicitly shortened with user approval after pathological throughput: two hours completed only 1,858/10,000 cases. The partial contains 1,787 normalized matches and 71 output-shape mismatches, no command or validation failures. It is retained only as partial broad evidence; the mismatches remain unclassified for semantic acceptance and are not used to close this narrow abort repair.
 
 ## 2026-07-17 Batch-writeback refresh
 

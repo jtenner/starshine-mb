@@ -27238,6 +27238,100 @@ test "ssa-nomerge fails closed instead of aborting on unsupported atomic debris"
 }
 
 ///|
+test "ssa-nomerge loop-backedge admission fails closed on unsupported atomic fence" {
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 5, 4, 1, 3,
+    1, 1, 10, 32, 1, 30, 1, 1, 127, 254, 3, 0, 65, 1, 33, 0, 3, 64, 32, 0, 26, 65,
+    2, 33, 0, 32, 0, 26, 65, 1, 13, 0, 11, 32, 0, 11,
+  ])
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unsupported loop-backedge admission to fail closed, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-loop-backedge-hot-lift-unsupported-noop",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge one-arm admission fails closed on unsupported atomic fence" {
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 127, 1, 127, 3, 2, 1, 0, 5, 4, 1,
+    3, 1, 1, 10, 20, 1, 18, 1, 1, 127, 254, 3, 0, 32, 0, 4, 64, 65, 7, 33, 1, 11,
+    32, 1, 11,
+  ])
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unsupported one-arm admission to fail closed, got \{err}")
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-one-arm-hot-lift-unsupported-noop",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge multisource admission fails closed on unsupported atomic fence" {
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 127, 1, 127, 3, 2, 1, 0, 5, 4, 1,
+    3, 1, 1, 10, 25, 1, 23, 1, 1, 127, 254, 3, 0, 32, 0, 4, 64, 65, 7, 33, 1, 5,
+    65, 8, 33, 1, 11, 32, 1, 11,
+  ])
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected unsupported multisource admission to fail closed, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(optimized, input)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=structured-multisource-hot-lift-unsupported-noop",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge keeps no-write unreachable debris cleanup separate from default plan" {
   let trace : Array[String] = []
   let source =
