@@ -97,6 +97,34 @@ Shared fact structures now in `src/passes/dead_argument_elimination.mbt`:
 
 **Gap.** The ordinary private scalar path and forwarding components use validated plans, but constant materialization, localization, GC, results, control reconstruction, and older specialized paths still use separate application tails. Effect, trap, branch, ambient-stack, and localization facts are not yet universally carried by one operand representation.
 
+**Landed under [O4Z-DAE-PLAN]001 (2026-07-21 analysis consolidation).** Ordinary unused-parameter analysis now derives call-operand decisions from one enriched `DaeValueSlice` per direct-call argument and one `DaeParameterAction` per callee parameter slot. Mutation application for the ordinary scalar path remains the existing rewrite-plan path; the full immutable transaction migration is still open.
+
+Structures / APIs introduced or extended:
+
+- `DaeValueSlice` — sole direct-call operand carrier; now carries `input_arity` / `output_arity`, optional static `value_type`, `DaeValueProducerKind`, observable-effect / trap / escaping-branch / unreachable facts, optional `DaeDirectCallKind`, call identity (`call_idx`, `callee_abs`), and module/call/signature/body epochs.
+- `DaeValueProducerKind` — enum (not string compares): constant/pure leaf, local read, global read, ordinary expression, direct call, indirect call, `call_ref`, structured control, unreachable, unknown.
+- `DaeDirectCallKind` — `DaeDirectCall` | `DaeDirectReturnCall`; part of slice / plan identity so a stale `call` plan cannot apply after the site becomes `return_call` (and vice versa).
+- `DaeDirectCallOperandSlices` — ordered parameter slices for one owned direct callsite.
+- `dae_direct_call_operand_slices` — authoritative recovery API; fails closed on stack underflow, ambiguous boundaries, call-kind / callee mismatch, ordering violations, and related unavailable evidence.
+- `dae_direct_call_operand_slices_are_ordered` — non-overlap, source order, end-before-call, parameter-order (not reverse stack-pop) invariant helper.
+- `DaeParameterAction` — `DaeKeepParameter`, `DaeRemovePureParameter`, `DaeRemoveParameterReplayEffects`, `DaeLocalizeParameterAndRetry`, `DaeMaterializeConstantParameter`, `DaeRefineParameterType` (materialize/refine reserved; ordinary analysis does not emit them yet).
+- `dae_classify_parameter_slot` / `dae_classify_unused_parameter_actions` — consume `DaeBoundaryFacts`, shared incoming liveness, and owned callsite slices.
+
+Fail-closed cases for slicing: stack underflow; ambiguous producer boundaries; structured-control / escaping-branch ambiguity when evidence is unavailable; unsupported multivalue composition; stale call identity / call kind; signature mismatch; call vs `return_call` mismatch. Classifier returns `Keep` for live params, unprotected missing slices, protected boundaries, unknown producers, and stale epochs.
+
+Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact slice recovery (pure/mixed/multicallsite/imports/`return_call`/ambient/multi-instr/multivalue/underflow/stale kind), producer kinds, slot actions, ordering invariants, and public ordinary unused-parameter preservation (pure, effectful replay, `return_call`, live keep, legacy `try`, `ref.func` exposure, type-only tag).
+
+**Remaining transaction work (still open):**
+
+- Full immutable validated plan commit/rollback for every signature-changing family.
+- Constant materialization migration onto the action model.
+- Localization transaction (classify only today; ordinary scalar still fail-closes on localize).
+- GC parameter/result refinement migration.
+- Dropped-result migration.
+- Control/type reconstruction migration.
+- Metadata finalization and complete touched/invalidation transaction.
+- Migrate remaining parallel consumers (`dae_try_rewrite_candidate`, selected unread, select/GC helpers) marked with owning `[O4Z-DAE-*]` TODOs.
+
 **Implementation strategy.**
 
 - Generalize `DaeValueSlice` into the sole direct-call operand carrier. It must record exact instruction span or HOT expression identity, input/output arity, static value type, producer kind, observable effects, potential traps, escaping branch/control, unreachable production, and epoch dependencies.

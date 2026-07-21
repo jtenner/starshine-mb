@@ -17024,3 +17024,757 @@ test "dae shared boundary guard blocks signature change on protected targets" {
   let optimized = dae_run_module_pass(mod_)
   assert_eq(dae_wb_param_count(optimized, 1), before)
 }
+
+///|
+fn dae_wb_defined_body(
+  mod_ : @lib.Module,
+  def_idx : Int,
+) -> Array[@lib.Instruction] {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+      body
+    }
+    None => abort("missing code section")
+  }
+}
+
+///|
+fn dae_wb_find_direct_call(
+  body : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> Int {
+  let mut idx = 0
+  while idx < body.length() {
+    match body[idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        return idx
+      @lib.ReturnCall(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        return idx
+      _ => ()
+    }
+    idx += 1
+  }
+  -1
+}
+
+///|
+fn dae_wb_call_slices(
+  mod_ : @lib.Module,
+  caller_def : Int,
+  callee_abs : Int,
+  param_types : Array[@lib.ValType],
+  call_kind : DaeDirectCallKind,
+) -> DaeDirectCallOperandSlices {
+  let facts = dae_boundary_facts_new(mod_)
+  let body = dae_wb_defined_body(mod_, caller_def)
+  let call_idx = dae_wb_find_direct_call(body, callee_abs)
+  if call_idx < 0 {
+    abort("expected direct call in caller body")
+  }
+  let epoch = dae_boundary_candidate_epoch(facts.graph, caller_def)
+  match
+    dae_direct_call_operand_slices(
+      mod_,
+      body,
+      call_idx,
+      callee_abs,
+      param_types,
+      call_kind,
+      facts.graph.snapshot.type_indices,
+      epoch,
+    ) {
+    Some(slices) => slices
+    None => abort("expected direct-call operand slices")
+  }
+}
+
+///|
+test "dae direct-call operand slices recover exact pure and mixed actuals" {
+  // Cases 1-2, 33: pure i32.const; mixed types; parameter order not reverse.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32 i64 f32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 1
+      #|    i64.const 2
+      #|    f32.const 3
+      #|    call $target))
+    ),
+  )
+  let slices = dae_wb_call_slices(
+    mod_,
+    2,
+    1,
+    [@lib.ValType::i32(), @lib.ValType::i64(), @lib.ValType::f32()],
+    DaeDirectCall,
+  )
+  assert_eq(slices.slices.length(), 3)
+  assert_eq(slices.slices[0].start, 0)
+  assert_eq(slices.slices[0].end, 1)
+  assert_eq(slices.slices[0].producer_kind, DaeProducerConstantOrPureLeaf)
+  assert_eq(slices.slices[0].value_type, Some(@lib.ValType::i32()))
+  assert_eq(slices.slices[1].start, 1)
+  assert_eq(slices.slices[1].end, 2)
+  assert_eq(slices.slices[1].value_type, Some(@lib.ValType::i64()))
+  assert_eq(slices.slices[2].start, 2)
+  assert_eq(slices.slices[2].end, 3)
+  assert_eq(slices.slices[2].value_type, Some(@lib.ValType::f32()))
+  assert_true(
+    dae_direct_call_operand_slices_are_ordered(
+      slices.slices,
+      slices.call_idx,
+      slices.cursor,
+    ),
+  )
+  assert_true(slices.slices[0].end <= slices.slices[1].start)
+  assert_true(slices.slices[1].end <= slices.slices[2].start)
+}
+
+///|
+test "dae direct-call operand slices cover multiple callsites and imported offsets" {
+  // Cases 3-4: multiple callsites; two imports shift absolute indices.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "a" (func))
+      #|  (import "e" "b" (func))
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func $c0
+      #|    i32.const 1
+      #|    call $target)
+      #|  (func $c1
+      #|    i32.const 2
+      #|    call $target))
+    ),
+  )
+  let facts = dae_boundary_facts_new(mod_)
+  let callee_abs = 2
+  let collected = match
+    dae_collect_owned_callsite_param_slices(
+      facts,
+      mod_,
+      callee_abs,
+      [@lib.ValType::i32()],
+      [1, 2],
+      0,
+    ) {
+    Some(slices) => slices
+    None => fail("expected owned callsite slices")
+  }
+  assert_eq(collected.length(), 2)
+  assert_eq(collected[0].producer_kind, DaeProducerConstantOrPureLeaf)
+  assert_eq(collected[1].producer_kind, DaeProducerConstantOrPureLeaf)
+  assert_eq(collected[0].callee_abs, callee_abs)
+  assert_eq(collected[1].callee_abs, callee_abs)
+}
+
+///|
+test "dae direct-call operand slices support return_call and reject stale call kind" {
+  // Cases 5, 10: return_call recovery; stale call-kind fails closed.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32) (result i32)
+      #|    i32.const 0)
+      #|  (func $wrap (param i32) (result i32)
+      #|    local.get 0
+      #|    return_call $target))
+    ),
+  )
+  let body = dae_wb_defined_body(mod_, 2)
+  let call_idx = dae_wb_find_direct_call(body, 1)
+  let facts = dae_boundary_facts_new(mod_)
+  let epoch = dae_boundary_candidate_epoch(facts.graph, 2)
+  match
+    dae_direct_call_operand_slices(
+      mod_,
+      body,
+      call_idx,
+      1,
+      [@lib.ValType::i32()],
+      DaeDirectReturnCall,
+      facts.graph.snapshot.type_indices,
+      epoch,
+    ) {
+    Some(slices) => {
+      assert_eq(slices.call_kind, DaeDirectReturnCall)
+      assert_eq(slices.slices.length(), 1)
+      assert_eq(slices.slices[0].call_kind, Some(DaeDirectReturnCall))
+      assert_eq(slices.slices[0].producer_kind, DaeProducerLocalRead)
+    }
+    None => fail("expected return_call operand slices")
+  }
+  match
+    dae_direct_call_operand_slices(
+      mod_,
+      body,
+      call_idx,
+      1,
+      [@lib.ValType::i32()],
+      DaeDirectCall,
+      facts.graph.snapshot.type_indices,
+      epoch,
+    ) {
+    Some(_) => fail("stale call kind must fail closed")
+    None => ()
+  }
+}
+
+///|
+test "dae direct-call operand slices exclude ambient stack and multi-instr producers" {
+  // Cases 6-8, 31-32: ambient stack; multi-instr producer; non-overlap.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 99
+      #|    i32.const 0
+      #|    i32.load
+      #|    call $target
+      #|    drop))
+    ),
+  )
+  let slices = dae_wb_call_slices(
+    mod_,
+    2,
+    1,
+    [@lib.ValType::i32()],
+    DaeDirectCall,
+  )
+  assert_eq(slices.cursor, 1)
+  assert_eq(slices.slices.length(), 1)
+  assert_eq(slices.slices[0].start, 1)
+  assert_eq(slices.slices[0].end, 3)
+  assert_true(slices.slices[0].start > 0)
+  assert_true(slices.slices[0].end <= slices.call_idx)
+  assert_eq(slices.slices[0].producer_kind, DaeProducerOrdinaryExpression)
+  assert_true(slices.slices[0].may_trap)
+}
+
+///|
+test "dae direct-call operand slices recover scalar operand from multivalue block" {
+  // Case 8: supported multivalue context with exact scalar recovery.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    block (result i32)
+      #|      i32.const 4
+      #|    end
+      #|    call $target))
+    ),
+  )
+  let slices = dae_wb_call_slices(
+    mod_,
+    2,
+    1,
+    [@lib.ValType::i32()],
+    DaeDirectCall,
+  )
+  assert_eq(slices.slices.length(), 1)
+  assert_eq(slices.slices[0].producer_kind, DaeProducerStructuredControl)
+  assert_eq(slices.slices[0].output_arity, 1)
+}
+
+///|
+test "dae direct-call operand slices fail closed on underflow and signature mismatch" {
+  // Case 9: stack underflow / malformed range fails closed.
+  let body = [@lib.Instruction::call(@lib.FuncIdx::new(0U))]
+  let epoch = {
+    def_idx: 0,
+    module_epoch: 0,
+    call_epoch: 0,
+    signature_epoch: 0,
+    body_epoch: 0,
+  }
+  match
+    dae_direct_call_operand_slices(
+      @lib.Module::new(),
+      body,
+      0,
+      0,
+      [@lib.ValType::i32()],
+      DaeDirectCall,
+      [],
+      epoch,
+    ) {
+    Some(_) => fail("underflow must fail closed")
+    None => ()
+  }
+}
+
+///|
+test "dae value producer kinds classify leaf and call producers" {
+  // Cases 11-16, 21: producer-kind enum coverage and unknown fail-closed.
+  assert_eq(
+    dae_instr_producer_kind(@lib.Instruction::i32_const(@lib.I32(1))),
+    DaeProducerConstantOrPureLeaf,
+  )
+  assert_eq(
+    dae_instr_producer_kind(@lib.Instruction::local_get(@lib.LocalIdx::new(0U))),
+    DaeProducerLocalRead,
+  )
+  assert_eq(
+    dae_instr_producer_kind(
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    ),
+    DaeProducerGlobalRead,
+  )
+  assert_eq(
+    dae_instr_producer_kind(@lib.Instruction::call(@lib.FuncIdx::new(0U))),
+    DaeProducerDirectCall,
+  )
+  assert_eq(
+    dae_instr_producer_kind(
+      @lib.Instruction::call_indirect(
+        @lib.TypeIdx::new(0U),
+        @lib.TableIdx::new(0U),
+      ),
+    ),
+    DaeProducerIndirectCall,
+  )
+  assert_eq(
+    dae_instr_producer_kind(@lib.Instruction::call_ref(@lib.TypeIdx::new(0U))),
+    DaeProducerCallRef,
+  )
+  assert_eq(dae_value_producer_kind_from_range([], 0, 0), DaeProducerUnknown)
+}
+
+///|
+test "dae value producer kinds classify trap control and unreachable producers" {
+  // Cases 17-20: trapping load; structured; branchful; unreachable.
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0UL))
+  let load_body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::i32_load(memarg),
+  ]
+  let load_slice = dae_value_slice_from_range(load_body, 0, 2)
+  assert_eq(load_slice.producer_kind, DaeProducerOrdinaryExpression)
+  assert_true(load_slice.may_trap)
+
+  let structured = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+    ),
+  ]
+  assert_eq(
+    dae_value_producer_kind_from_range(structured, 0, 1),
+    DaeProducerStructuredControl,
+  )
+
+  let branchful = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ]),
+    ),
+  ]
+  let branch_slice = dae_value_slice_from_range(branchful, 0, 1)
+  assert_eq(branch_slice.producer_kind, DaeProducerStructuredControl)
+  assert_true(branch_slice.has_branch || branch_slice.has_escaping_branch)
+
+  assert_eq(
+    dae_instr_producer_kind(@lib.Instruction::unreachable_()),
+    DaeProducerUnreachable,
+  )
+}
+
+///|
+test "dae classify parameter slot keep remove-pure replay and localize" {
+  // Cases 22-28: slot actions from shared liveness + canonical slices.
+  let pure_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    i32.const 1
+      #|    local.set 0)
+      #|  (func (export "run")
+      #|    i32.const 9
+      #|    call $target))
+    ),
+  )
+  let pure_facts = dae_boundary_facts_new(pure_mod)
+  let pure_slices = match
+    dae_collect_owned_callsite_param_slices(
+      pure_facts,
+      pure_mod,
+      1,
+      [@lib.ValType::i32()],
+      [2],
+      0,
+    ) {
+    Some(slices) => slices
+    None => fail("expected pure callsite slices")
+  }
+  assert_eq(
+    dae_classify_parameter_slot(pure_facts, 1, 0, true, pure_slices),
+    DaeKeepParameter,
+  )
+  assert_eq(
+    dae_classify_parameter_slot(pure_facts, 1, 0, false, pure_slices),
+    DaeRemovePureParameter,
+  )
+  assert_eq(
+    dae_classify_parameter_slot(pure_facts, 1, 0, false, []),
+    DaeKeepParameter,
+  )
+
+  let effect_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    i32.load
+      #|    call $target))
+    ),
+  )
+  let effect_facts = dae_boundary_facts_new(effect_mod)
+  let effect_slices = match
+    dae_collect_owned_callsite_param_slices(
+      effect_facts,
+      effect_mod,
+      1,
+      [@lib.ValType::i32()],
+      [2],
+      0,
+    ) {
+    Some(slices) => slices
+    None => fail("expected effectful callsite slices")
+  }
+  assert_eq(
+    dae_classify_parameter_slot(effect_facts, 1, 0, false, effect_slices),
+    DaeRemoveParameterReplayEffects,
+  )
+
+  let nested_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $side (result i32)
+      #|    i32.const 7)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    call $side
+      #|    call $target))
+    ),
+  )
+  let nested_facts = dae_boundary_facts_new(nested_mod)
+  let nested_slices = match
+    dae_collect_owned_callsite_param_slices(
+      nested_facts,
+      nested_mod,
+      2,
+      [@lib.ValType::i32()],
+      [3],
+      0,
+    ) {
+    Some(slices) => slices
+    None => fail("expected nested-call slices")
+  }
+  assert_eq(
+    dae_classify_parameter_slot(nested_facts, 2, 0, false, nested_slices),
+    DaeLocalizeParameterAndRetry,
+  )
+
+  let protected = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (export "t") (param i32)
+      #|    nop)
+      #|  (func $caller
+      #|    i32.const 0
+      #|    call $target))
+    ),
+  )
+  let protected_facts = dae_boundary_facts_new(protected)
+  let protected_slices = match
+    dae_collect_owned_callsite_param_slices(
+      protected_facts,
+      protected,
+      1,
+      [@lib.ValType::i32()],
+      [2],
+      0,
+    ) {
+    Some(slices) => slices
+    None => fail("expected protected callsite slices")
+  }
+  assert_eq(
+    dae_classify_parameter_slot(protected_facts, 1, 0, false, protected_slices),
+    DaeKeepParameter,
+  )
+
+  // Case 28: stale epoch on an enriched slice produces Keep.
+  let stale = {
+    ..pure_slices[0],
+    module_epoch: 0,
+    call_epoch: 0,
+    signature_epoch: 0,
+    body_epoch: 0,
+  }
+  let bumped = {
+    ..pure_facts,
+    graph: {
+      ..pure_facts.graph,
+      module_epoch: pure_facts.graph.module_epoch + 1,
+    },
+  }
+  assert_eq(
+    dae_classify_parameter_slot(bumped, 1, 0, false, [stale]),
+    DaeKeepParameter,
+  )
+}
+
+///|
+test "dae classify unused parameter actions retain mixed slot source order" {
+  // Cases 29-30: mixed keep / pure-remove / replay retain parameter order.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func $pad)
+      #|  (func $target (param i32 i32 i32 i32)
+      #|    local.get 1
+      #|    drop)
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    i32.load
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    i32.const 0
+      #|    i32.load
+      #|    call $target))
+    ),
+  )
+  let facts = dae_boundary_facts_new(mod_)
+  let entry_live = dae_incoming_parameter_liveness(mod_, 1, 4)
+  assert_eq(entry_live, [false, true, false, false])
+  let actions = match
+    dae_classify_unused_parameter_actions(
+      facts,
+      mod_,
+      1,
+      1,
+      [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ],
+      entry_live,
+      [2],
+    ) {
+    Some(actions) => actions
+    None => fail("expected classified unused-parameter actions")
+  }
+  assert_eq(actions.length(), 4)
+  assert_eq(actions[0], DaeRemoveParameterReplayEffects)
+  assert_eq(actions[1], DaeKeepParameter)
+  assert_eq(actions[2], DaeRemovePureParameter)
+  assert_eq(actions[3], DaeRemoveParameterReplayEffects)
+  let all_slices = dae_wb_call_slices(
+    mod_,
+    2,
+    1,
+    [
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ],
+    DaeDirectCall,
+  )
+  assert_true(all_slices.slices[0].end <= all_slices.slices[1].start)
+  assert_true(all_slices.slices[1].end <= all_slices.slices[2].start)
+  assert_true(all_slices.slices[2].end <= all_slices.slices[3].start)
+  assert_true(all_slices.slices[0].start < all_slices.slices[3].start)
+}
+
+///|
+test "dae ordinary unused-parameter path uses classified actions publicly" {
+  // Cases 34-37: pure removal, effectful replay, return_call, live keep.
+  let pure = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "x" (func))
+      #|  (import "e" "y" (func))
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 3
+      #|    call $target))
+    ),
+  )
+  let pure_out = dae_run_module_pass(pure)
+  assert_eq(dae_wb_param_count(pure_out, 2), 0)
+  match @validate.validate_module(pure_out) {
+    Ok(_) => ()
+    Err(err) => fail("pure unused-parameter output must validate, got \{err}")
+  }
+
+  let effectful = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "pad0" (func))
+      #|  (memory 1)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    i32.load
+      #|    call $target))
+    ),
+  )
+  let effect_out = dae_run_module_pass(effectful)
+  assert_eq(dae_wb_param_count(effect_out, 1), 0)
+  let effect_caller = effect_out.pretty_print_defined_func(1U)
+  assert_true(effect_caller.contains("i32.load"), msg=effect_caller)
+  match @validate.validate_module(effect_out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("effectful unused-parameter output must validate, got \{err}")
+  }
+
+  let ret = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "pad0" (func))
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 1)
+      #|  (func $wrap (result i32)
+      #|    i32.const 31
+      #|    i32.const 41
+      #|    return_call $target)
+      #|  (func (export "run") (result i32)
+      #|    call $wrap))
+    ),
+  )
+  let ret_out = dae_run_module_pass(ret)
+  assert_eq(dae_wb_param_count(ret_out, 1), 1)
+  match @validate.validate_module(ret_out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("return_call unused-parameter output must validate, got \{err}")
+  }
+
+  let live = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "pad0" (func))
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 1
+      #|    if (result i32)
+      #|      local.get 0
+      #|    else
+      #|      i32.const 2
+      #|    end)
+      #|  (func (export "run") (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $target))
+    ),
+  )
+  let live_out = dae_run_module_pass(live)
+  assert_eq(dae_wb_param_count(live_out, 1), 2)
+  match @validate.validate_module(live_out) {
+    Ok(_) => ()
+    Err(err) => fail("live parameter output must validate, got \{err}")
+  }
+}
+
+///|
+test "dae ordinary unused-parameter path preserves exposure and type-only non-blockers" {
+  // Cases 38-40: legacy try fail-closed; ref.func exposure; type-only tag.
+  let legacy = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "pad0" (func))
+      #|  (tag $e)
+      #|  (func $target (param i32) (result i32)
+      #|    (try (result i32)
+      #|      (do
+      #|        local.get 0)
+      #|      (catch $e
+      #|        i32.const 0)))
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    call $target))
+    ),
+  )
+  let legacy_before = dae_wb_param_count(legacy, 1)
+  let legacy_out = dae_run_module_pass(legacy)
+  assert_eq(dae_wb_param_count(legacy_out, 1), legacy_before)
+  assert_eq(legacy_before, 1)
+  match @validate.validate_module(legacy_out) {
+    Ok(_) => ()
+    Err(err) => fail("legacy try DAE output must validate, got \{err}")
+  }
+
+  let exposed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "pad0" (func))
+      #|  (type $ty (func (param i32)))
+      #|  (elem declare func $target)
+      #|  (func $target (type $ty)
+      #|    nop)
+      #|  (func $holder (result (ref null $ty))
+      #|    ref.func $target)
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    call $target
+      #|    call $holder
+      #|    drop))
+    ),
+  )
+  let exposed_out = dae_run_module_pass(exposed)
+  assert_eq(dae_wb_param_count(exposed_out, 1), 1)
+  match @validate.validate_module(exposed_out) {
+    Ok(_) => ()
+    Err(err) => fail("ref.func exposure DAE output must validate, got \{err}")
+  }
+
+  let tag_only = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "e" "pad0" (func))
+      #|  (type $shared (func (param i32)))
+      #|  (tag $e (type $shared))
+      #|  (func $target (type $shared)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    call $target))
+    ),
+  )
+  let tag_out = dae_run_module_pass(tag_only)
+  assert_eq(dae_wb_param_count(tag_out, 1), 0)
+  match @validate.validate_module(tag_out) {
+    Ok(_) => ()
+    Err(err) => fail("type-only tag DAE output must validate, got \{err}")
+  }
+}

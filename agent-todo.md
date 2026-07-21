@@ -133,9 +133,10 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-PLAN]001 - Finish the common value-slice and transaction lifecycle
 
 - **Owner:** value-slice, operand disposition, caller/callee projection, localization, and rewrite-plan helpers.
+- **Status (2026-07-21 partial):** canonical direct-call operand slices, canonical parameter-slot actions, and ordinary unused-parameter analysis migration landed. Full immutable transaction migration, constant materialization, localization transaction, GC/results/control/type reconstruction, metadata finalization, and complete touched/invalidation transaction remain open.
 - **Deliverables:**
-  - [ ] Make one `DaeValueSlice` carry arity, type, effects, traps, branches, unreachable state, producer identity, and epochs for every direct-call operand.
-  - [ ] Express each slot as keep, pure removal, effect replay, localization/retry, constant materialization, or type refinement while preserving left-to-right evaluation.
+  - [x] Make one `DaeValueSlice` carry arity, type, effects, traps, branches, unreachable state, producer identity, and epochs for every direct-call operand.
+  - [x] Express each slot as keep, pure removal, effect replay, localization/retry, constant materialization, or type refinement while preserving left-to-right evaluation. *(ordinary unused-parameter analysis emits keep / remove-pure / remove-replay / localize-and-retry only; materialize/refine production deferred)*
   - [ ] Move constant materialization, localization, GC refinement, result removal, control reconstruction, and remaining older paths through immutable validated plans.
   - [ ] Repair removed-slot locals, non-defaultable refs, typed tees, local indices, direct `return_call`, type edits, metadata, touched sets, and invalidations atomically.
 - **Exit criteria:** no boundary-changing family mutates callsites or types outside the common candidate validation/commit/rollback boundary.

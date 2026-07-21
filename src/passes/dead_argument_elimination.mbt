@@ -410,6 +410,29 @@ priv struct DaeCallShape {
 }
 
 ///|
+/// Producer category for a recovered value slice. Used by the ordinary
+/// unused-parameter classifier; do not re-derive purity from opcode names
+/// in multiple places.
+priv enum DaeValueProducerKind {
+  DaeProducerConstantOrPureLeaf
+  DaeProducerLocalRead
+  DaeProducerGlobalRead
+  DaeProducerOrdinaryExpression
+  DaeProducerDirectCall
+  DaeProducerIndirectCall
+  DaeProducerCallRef
+  DaeProducerStructuredControl
+  DaeProducerUnreachable
+  DaeProducerUnknown
+} derive(Eq, Debug)
+
+///|
+priv enum DaeDirectCallKind {
+  DaeDirectCall
+  DaeDirectReturnCall
+} derive(Eq, Debug)
+
+///|
 priv enum DaeOperandRewriteAction {
   DaeDropOperandDirectly
   DaePreserveOperandEffectsAndDropValue
@@ -456,6 +479,10 @@ priv struct DaeOperandRemovalPlan {
 }
 
 ///|
+/// Canonical direct-call operand / value carrier for ordinary unused-parameter
+/// analysis ([O4Z-DAE-PLAN]001). Specialized GC/select/control paths still
+/// construct slices through the shared helpers; migrate them in later
+/// workstreams rather than inventing a parallel carrier.
 priv struct DaeValueSlice {
   start : Int
   end : Int
@@ -463,6 +490,34 @@ priv struct DaeValueSlice {
   has_branch : Bool
   has_effect_or_branch : Bool
   disposition : DaeOperandDisposition
+  input_arity : Int
+  output_arity : Int
+  value_type : @lib.ValType?
+  producer_kind : DaeValueProducerKind
+  has_observable_effect : Bool
+  may_trap : Bool
+  has_escaping_branch : Bool
+  produces_unreachable : Bool
+  call_kind : DaeDirectCallKind?
+  call_idx : Int
+  callee_abs : Int
+  module_epoch : Int
+  call_epoch : Int
+  signature_epoch : Int
+  body_epoch : Int
+}
+
+///|
+priv struct DaeDirectCallOperandSlices {
+  call_idx : Int
+  call_kind : DaeDirectCallKind
+  callee_abs : Int
+  slices : Array[DaeValueSlice]
+  cursor : Int
+  module_epoch : Int
+  call_epoch : Int
+  signature_epoch : Int
+  body_epoch : Int
 }
 
 ///|
@@ -1534,10 +1589,12 @@ priv struct DaeBoundaryWorklist {
 ///|
 priv enum DaeParameterAction {
   DaeKeepParameter
-  DaeRemoveParameter
-  DaeMaterializeParameter(@lib.Instruction)
-  DaeLocalizeParameter
-}
+  DaeRemovePureParameter
+  DaeRemoveParameterReplayEffects
+  DaeLocalizeParameterAndRetry
+  DaeMaterializeConstantParameter(@lib.Instruction)
+  DaeRefineParameterType(@lib.ValType)
+} derive(Eq, Debug)
 
 ///|
 priv enum DaeResultAction {
@@ -5855,6 +5912,12 @@ fn dae_operand_removal_plan_drops_without_repair(
 }
 
 ///|
+// Shared operand-range disposition helper. Ordinary unused-parameter analysis
+// must consume canonical `DaeValueSlice` facts via `dae_direct_call_operand_slices`
+// / `dae_classify_parameter_slot` instead of calling this directly.
+// Remaining specialized consumers (constants/GC/select/control) are migrated
+// under later [O4Z-DAE-PLAN]001 / [O4Z-DAE-FLOW]001 / [O4Z-DAE-TYPES]001 /
+// [O4Z-DAE-RESULTS]001 workstreams.
 fn dae_operand_disposition_from_range(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -6028,6 +6091,110 @@ fn dae_find_value_slice(
 }
 
 ///|
+fn dae_instr_producer_kind(instr : @lib.Instruction) -> DaeValueProducerKind {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_) => DaeProducerConstantOrPureLeaf
+    @lib.LocalGet(_) => DaeProducerLocalRead
+    @lib.GlobalGet(_) => DaeProducerGlobalRead
+    @lib.Call(_) | @lib.ReturnCall(_) => DaeProducerDirectCall
+    @lib.CallIndirect(_, _) | @lib.ReturnCallIndirect(_, _) =>
+      DaeProducerIndirectCall
+    @lib.CallRef(_) | @lib.ReturnCallRef(_) => DaeProducerCallRef
+    @lib.Block(_, _)
+    | @lib.Loop(_, _)
+    | @lib.If(_, _, _)
+    | @lib.Try(_, _, _, _)
+    | @lib.TryTable(_, _, _) => DaeProducerStructuredControl
+    @lib.Unreachable => DaeProducerUnreachable
+    _ => DaeProducerOrdinaryExpression
+  }
+}
+
+///|
+fn dae_value_producer_kind_from_range(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+) -> DaeValueProducerKind {
+  if start < 0 || end <= start || end > instrs.length() {
+    return DaeProducerUnknown
+  }
+  if end == start + 1 {
+    return dae_instr_producer_kind(instrs[start])
+  }
+  let mut kind = dae_instr_producer_kind(instrs[start])
+  let mut idx = start + 1
+  while idx < end {
+    let next = dae_instr_producer_kind(instrs[idx])
+    match (kind, next) {
+      (DaeProducerUnknown, _) | (_, DaeProducerUnknown) =>
+        return DaeProducerUnknown
+      (_, DaeProducerUnreachable) | (DaeProducerUnreachable, _) =>
+        kind = DaeProducerUnreachable
+      (_, DaeProducerStructuredControl) | (DaeProducerStructuredControl, _) =>
+        kind = DaeProducerStructuredControl
+      (_, DaeProducerIndirectCall) | (DaeProducerIndirectCall, _) =>
+        kind = DaeProducerIndirectCall
+      (_, DaeProducerCallRef) | (DaeProducerCallRef, _) =>
+        kind = DaeProducerCallRef
+      (_, DaeProducerDirectCall) | (DaeProducerDirectCall, _) =>
+        kind = DaeProducerDirectCall
+      (_, DaeProducerOrdinaryExpression)
+      | (DaeProducerOrdinaryExpression, _)
+      | (_, DaeProducerLocalRead)
+      | (DaeProducerLocalRead, _)
+      | (_, DaeProducerGlobalRead)
+      | (DaeProducerGlobalRead, _)
+      | (_, DaeProducerConstantOrPureLeaf)
+      | (DaeProducerConstantOrPureLeaf, _) =>
+        kind = DaeProducerOrdinaryExpression
+    }
+    idx += 1
+  }
+  kind
+}
+
+///|
+fn dae_range_observability_facts(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+) -> (Bool, Bool, Bool, Bool) {
+  let mut has_observable_effect = false
+  let mut may_trap = false
+  let mut has_escaping_branch = false
+  let mut produces_unreachable = false
+  if start < 0 || end < start || end > instrs.length() {
+    return (true, true, true, false)
+  }
+  let mut idx = start
+  while idx < end {
+    let evidence = dae_instruction_observability_evidence(instrs[idx])
+    if evidence.has_observable_effect {
+      has_observable_effect = true
+    }
+    if evidence.may_trap_or_unknown {
+      may_trap = true
+    }
+    if evidence.has_branch_control || dae_instr_has_branch(instrs[idx]) {
+      has_escaping_branch = true
+    }
+    match instrs[idx] {
+      @lib.Unreachable => produces_unreachable = true
+      _ => ()
+    }
+    idx += 1
+  }
+  (has_observable_effect, may_trap, has_escaping_branch, produces_unreachable)
+}
+
+///|
 fn dae_value_slice_from_operand_disposition_with_purity(
   disposition : DaeOperandDisposition,
   pure : Bool,
@@ -6039,6 +6206,67 @@ fn dae_value_slice_from_operand_disposition_with_purity(
     has_branch: disposition.has_branch,
     has_effect_or_branch: disposition.has_effect_or_branch,
     disposition,
+    input_arity: 0,
+    output_arity: 1,
+    value_type: None,
+    producer_kind: DaeProducerUnknown,
+    has_observable_effect: disposition.has_effect_or_branch &&
+    !disposition.has_branch,
+    may_trap: false,
+    has_escaping_branch: disposition.has_branch,
+    produces_unreachable: false,
+    call_kind: None,
+    call_idx: -1,
+    callee_abs: -1,
+    module_epoch: -1,
+    call_epoch: -1,
+    signature_epoch: -1,
+    body_epoch: -1,
+  }
+}
+
+///|
+fn dae_value_slice_enrich_from_instrs(
+  slice : DaeValueSlice,
+  instrs : Array[@lib.Instruction],
+  value_type : @lib.ValType?,
+  call_kind : DaeDirectCallKind?,
+  call_idx : Int,
+  callee_abs : Int,
+  module_epoch : Int,
+  call_epoch : Int,
+  signature_epoch : Int,
+  body_epoch : Int,
+) -> DaeValueSlice {
+  let producer_kind = dae_value_producer_kind_from_range(
+    instrs,
+    slice.start,
+    slice.end,
+  )
+  let (
+    has_observable_effect,
+    may_trap,
+    has_escaping_branch,
+    produces_unreachable,
+  ) = dae_range_observability_facts(instrs, slice.start, slice.end)
+  {
+    ..slice,
+    value_type,
+    producer_kind,
+    has_observable_effect: has_observable_effect ||
+    slice.disposition.preserve_effects_on_removal,
+    may_trap,
+    has_escaping_branch: has_escaping_branch || slice.has_branch,
+    produces_unreachable,
+    call_kind,
+    call_idx,
+    callee_abs,
+    module_epoch,
+    call_epoch,
+    signature_epoch,
+    body_epoch,
+    input_arity: 0,
+    output_arity: 1,
   }
 }
 
@@ -6057,8 +6285,19 @@ fn dae_value_slice_from_call_shape(
   instrs : Array[@lib.Instruction],
   shape : DaeCallShape,
 ) -> DaeValueSlice {
-  dae_value_slice_from_operand_disposition(
-    dae_operand_disposition_from_call_shape(instrs, shape),
+  dae_value_slice_enrich_from_instrs(
+    dae_value_slice_from_operand_disposition(
+      dae_operand_disposition_from_call_shape(instrs, shape),
+    ),
+    instrs,
+    None,
+    None,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
   )
 }
 
@@ -6081,9 +6320,20 @@ fn dae_value_slice_from_range(
         has_effect_or_branch: false,
       }
   }
-  dae_value_slice_from_operand_disposition_with_purity(
-    disposition,
-    !disposition.has_effect_or_branch,
+  dae_value_slice_enrich_from_instrs(
+    dae_value_slice_from_operand_disposition_with_purity(
+      disposition,
+      !disposition.has_effect_or_branch,
+    ),
+    instrs,
+    None,
+    None,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
   )
 }
 
@@ -6102,6 +6352,8 @@ fn dae_value_slice_single_instruction_index(slice : DaeValueSlice) -> Int? {
 }
 
 ///|
+// TODO([O4Z-DAE-TYPES]001): migrate select operand recovery onto the enriched
+// canonical `DaeValueSlice` call-operand API once GC refinement shares it.
 fn dae_find_select_value_slices(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -7537,6 +7789,423 @@ fn dae_callsite_value_slice_evidence(
     }
     None => None
   }
+}
+
+///|
+fn dae_direct_call_kind_at(
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  callee_abs : Int,
+  expected_kind : DaeDirectCallKind,
+) -> Bool {
+  if call_idx < 0 || call_idx >= instrs.length() {
+    return false
+  }
+  match (instrs[call_idx], expected_kind) {
+    (@lib.Call(func_idx), DaeDirectCall) =>
+      dae_func_idx_slot(func_idx) == callee_abs
+    (@lib.ReturnCall(func_idx), DaeDirectReturnCall) =>
+      dae_func_idx_slot(func_idx) == callee_abs
+    _ => false
+  }
+}
+
+///|
+/// Prove recovered parameter slices are non-overlapping, source-ordered,
+/// end before the call, stay in parameter order, and exclude ambient stack.
+fn dae_direct_call_operand_slices_are_ordered(
+  slices : Array[DaeValueSlice],
+  call_idx : Int,
+  cursor : Int,
+) -> Bool {
+  if call_idx < 0 || cursor < 0 || cursor > call_idx {
+    return false
+  }
+  if slices.length() == 0 {
+    return cursor <= call_idx
+  }
+  if slices[0].start < cursor {
+    return false
+  }
+  let mut idx = 0
+  while idx < slices.length() {
+    let slice = slices[idx]
+    if slice.start < 0 || slice.end < slice.start || slice.end > call_idx {
+      return false
+    }
+    if idx > 0 {
+      let prev = slices[idx - 1]
+      // Non-overlapping and source-ordered; void-effect gaps are allowed.
+      if slice.start < prev.end {
+        return false
+      }
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
+/// Authoritative recovery of one ordered operand slice per callee parameter
+/// for an owned direct `call` / `return_call`. Fails closed on ambiguous
+/// boundaries, call-kind mismatch, or stale epoch tokens.
+fn dae_direct_call_operand_slices(
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+  call_idx : Int,
+  callee_abs : Int,
+  param_types : Array[@lib.ValType],
+  call_kind : DaeDirectCallKind,
+  type_indices : Array[@lib.TypeIdx],
+  epoch : DaeCandidateEpoch,
+  entry_stack_values? : Int = 0,
+  allow_stack_carried_void_effects? : Bool = false,
+) -> DaeDirectCallOperandSlices? {
+  if !dae_direct_call_kind_at(instrs, call_idx, callee_abs, call_kind) {
+    return None
+  }
+  let arg_count = param_types.length()
+  let evidence = match
+    dae_callsite_value_slice_evidence(
+      instrs,
+      call_idx,
+      arg_count,
+      entry_stack_values,
+      mod_,
+      type_indices,
+      allow_stack_carried_void_effects~,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  if !dae_direct_call_operand_slices_are_ordered(
+      evidence.slices,
+      call_idx,
+      evidence.cursor,
+    ) {
+    return None
+  }
+  let slices : Array[DaeValueSlice] = []
+  let mut param_idx = 0
+  while param_idx < evidence.slices.length() {
+    let value_type = if param_idx < param_types.length() {
+      Some(param_types[param_idx])
+    } else {
+      None
+    }
+    slices.push(
+      dae_value_slice_enrich_from_instrs(
+        evidence.slices[param_idx],
+        instrs,
+        value_type,
+        Some(call_kind),
+        call_idx,
+        callee_abs,
+        epoch.module_epoch,
+        epoch.call_epoch,
+        epoch.signature_epoch,
+        epoch.body_epoch,
+      ),
+    )
+    param_idx += 1
+  }
+  if !dae_direct_call_operand_slices_are_ordered(
+      slices,
+      call_idx,
+      evidence.cursor,
+    ) {
+    return None
+  }
+  Some({
+    call_idx,
+    call_kind,
+    callee_abs,
+    slices,
+    cursor: evidence.cursor,
+    module_epoch: epoch.module_epoch,
+    call_epoch: epoch.call_epoch,
+    signature_epoch: epoch.signature_epoch,
+    body_epoch: epoch.body_epoch,
+  })
+}
+
+///|
+fn dae_direct_call_operand_slices_epoch_is_current(
+  graph : DaeCurrentBoundaryGraph,
+  slices : DaeDirectCallOperandSlices,
+  def_idx : Int,
+) -> Bool {
+  dae_candidate_epoch_is_current(graph, {
+    def_idx,
+    module_epoch: slices.module_epoch,
+    call_epoch: slices.call_epoch,
+    signature_epoch: slices.signature_epoch,
+    body_epoch: slices.body_epoch,
+  })
+}
+
+///|
+fn dae_parameter_action_removes(action : DaeParameterAction) -> Bool {
+  match action {
+    DaeRemovePureParameter | DaeRemoveParameterReplayEffects => true
+    DaeKeepParameter
+    | DaeLocalizeParameterAndRetry
+    | DaeMaterializeConstantParameter(_)
+    | DaeRefineParameterType(_) => false
+  }
+}
+
+///|
+/// Classify one callee parameter slot from shared boundary/liveness facts and
+/// the operand slice at every owned direct callsite. Ordinary unused-parameter
+/// analysis emits keep / remove-pure / remove-replay / localize-and-retry.
+/// Constant materialization and GC refinement variants are reserved for later
+/// workstreams and are not produced here.
+fn dae_classify_parameter_slot(
+  facts : DaeBoundaryFacts,
+  def_idx : Int,
+  param_idx : Int,
+  incoming_live : Bool,
+  callsite_param_slices : Array[DaeValueSlice],
+) -> DaeParameterAction {
+  let imported = facts.graph.snapshot.imported
+  let func_abs = dae_abs_func_idx(imported, def_idx)
+  if def_idx < 0 || param_idx < 0 || !dae_can_change_parameters(facts, func_abs) {
+    return DaeKeepParameter
+  }
+  match dae_def_idx_of_abs(imported, func_abs) {
+    Some(resolved) if resolved == def_idx => ()
+    _ => return DaeKeepParameter
+  }
+  if incoming_live {
+    return DaeKeepParameter
+  }
+  if callsite_param_slices.length() == 0 {
+    return DaeKeepParameter
+  }
+  let mut all_pure = true
+  let mut any_localize = false
+  let mut any_replay = false
+  for slice in callsite_param_slices {
+    if slice.call_idx < 0 ||
+      slice.callee_abs != func_abs ||
+      slice.producer_kind == DaeProducerUnknown {
+      return DaeKeepParameter
+    }
+    if slice.module_epoch >= 0 &&
+      !dae_candidate_epoch_is_current(facts.graph, {
+        def_idx,
+        module_epoch: slice.module_epoch,
+        call_epoch: slice.call_epoch,
+        signature_epoch: slice.signature_epoch,
+        body_epoch: slice.body_epoch,
+      }) {
+      return DaeKeepParameter
+    }
+    if slice.has_escaping_branch ||
+      slice.produces_unreachable ||
+      slice.producer_kind == DaeProducerStructuredControl ||
+      slice.producer_kind == DaeProducerIndirectCall ||
+      slice.producer_kind == DaeProducerCallRef ||
+      slice.producer_kind == DaeProducerDirectCall {
+      any_localize = true
+      continue
+    }
+    if slice.disposition.droppable_without_repair &&
+      !slice.may_trap &&
+      !slice.has_observable_effect {
+      ()
+    } else if slice.disposition.has_branch || slice.has_escaping_branch {
+      any_localize = true
+    } else {
+      all_pure = false
+      any_replay = true
+    }
+  }
+  if any_localize {
+    return DaeLocalizeParameterAndRetry
+  }
+  if all_pure {
+    return DaeRemovePureParameter
+  }
+  if any_replay {
+    return DaeRemoveParameterReplayEffects
+  }
+  DaeKeepParameter
+}
+
+///|
+fn dae_collect_owned_callsite_param_slices_instrs(
+  facts : DaeBoundaryFacts,
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+  param_types : Array[@lib.ValType],
+  param_idx : Int,
+  epoch : DaeCandidateEpoch,
+  entry_stack_values : Int,
+  out : Array[DaeValueSlice],
+) -> Bool {
+  let mut call_idx = 0
+  while call_idx < instrs.length() {
+    let call_kind = match instrs[call_idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        Some(DaeDirectCall)
+      @lib.ReturnCall(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        Some(DaeDirectReturnCall)
+      _ => None
+    }
+    match call_kind {
+      Some(kind) =>
+        match
+          dae_direct_call_operand_slices(
+            mod_,
+            instrs,
+            call_idx,
+            callee_abs,
+            param_types,
+            kind,
+            facts.graph.snapshot.type_indices,
+            epoch,
+            entry_stack_values~,
+          ) {
+          Some(slices) => {
+            if param_idx >= slices.slices.length() {
+              return false
+            }
+            out.push(slices.slices[param_idx])
+          }
+          None => return false
+        }
+      None => ()
+    }
+    match dae_nested_control_children_evidence(instrs[call_idx], mod_) {
+      Some(children) => {
+        if !dae_collect_owned_callsite_param_slices_instrs(
+            facts,
+            mod_,
+            children.primary_body,
+            callee_abs,
+            param_types,
+            param_idx,
+            epoch,
+            children.entry_stack_values,
+            out,
+          ) {
+          return false
+        }
+        match children.secondary_body {
+          Some(body) =>
+            if !dae_collect_owned_callsite_param_slices_instrs(
+                facts,
+                mod_,
+                body,
+                callee_abs,
+                param_types,
+                param_idx,
+                epoch,
+                children.entry_stack_values,
+                out,
+              ) {
+              return false
+            }
+          None => ()
+        }
+        // Legacy try catches are not exposed by nested-control children evidence.
+        match instrs[call_idx] {
+          @lib.Try(_, _, catches, _) =>
+            for catch_ in catches {
+              match catch_ {
+                @lib.LegacyCatch(_, @lib.Expr(catch_body))
+                | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+                  if !dae_collect_owned_callsite_param_slices_instrs(
+                      facts,
+                      mod_,
+                      catch_body,
+                      callee_abs,
+                      param_types,
+                      param_idx,
+                      epoch,
+                      children.entry_stack_values,
+                      out,
+                    ) {
+                    return false
+                  }
+              }
+            }
+          _ => ()
+        }
+      }
+      None => ()
+    }
+    call_idx += 1
+  }
+  true
+}
+
+///|
+fn dae_collect_owned_callsite_param_slices(
+  facts : DaeBoundaryFacts,
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_types : Array[@lib.ValType],
+  direct_caller_defs : Array[Int],
+  param_idx : Int,
+) -> Array[DaeValueSlice]? {
+  if param_idx < 0 || param_idx >= param_types.length() {
+    return None
+  }
+  let out : Array[DaeValueSlice] = []
+  for caller_def in direct_caller_defs {
+    if caller_def < 0 || caller_def >= facts.graph.snapshot.funcs.length() {
+      return None
+    }
+    let epoch = dae_boundary_candidate_epoch(facts.graph, caller_def)
+    let @lib.Func(_, @lib.Expr(body)) = facts.graph.snapshot.funcs[caller_def]
+    if !dae_collect_owned_callsite_param_slices_instrs(
+        facts, mod_, body, callee_abs, param_types, param_idx, epoch, 0, out,
+      ) {
+      return None
+    }
+  }
+  Some(out)
+}
+
+///|
+fn dae_classify_unused_parameter_actions(
+  facts : DaeBoundaryFacts,
+  mod_ : @lib.Module,
+  def_idx : Int,
+  callee_abs : Int,
+  param_types : Array[@lib.ValType],
+  entry_live : Array[Bool],
+  direct_caller_defs : Array[Int],
+) -> Array[DaeParameterAction]? {
+  if entry_live.length() != param_types.length() {
+    return None
+  }
+  let actions : Array[DaeParameterAction] = []
+  let mut param_idx = 0
+  while param_idx < param_types.length() {
+    let slices = match
+      dae_collect_owned_callsite_param_slices(
+        facts, mod_, callee_abs, param_types, direct_caller_defs, param_idx,
+      ) {
+      Some(slices) => slices
+      None => return None
+    }
+    actions.push(
+      dae_classify_parameter_slot(
+        facts,
+        def_idx,
+        param_idx,
+        entry_live[param_idx],
+        slices,
+      ),
+    )
+    param_idx += 1
+  }
+  Some(actions)
 }
 
 ///|
@@ -16558,11 +17227,43 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     incoming_param_live_by_def: [],
     incoming_param_live_body_epochs: [],
   }
-  if !dae_can_change_function_boundary(shared_facts, callee_abs) {
+  if !dae_can_change_parameters(shared_facts, callee_abs) {
     return None
   }
   if boundary_candidate.direct_call_count != direct_call_count ||
     boundary_candidate.direct_callers != direct_caller_defs {
+    return None
+  }
+  // Ordinary unused-parameter analysis: derive remove[] and parameter actions
+  // from canonical call-operand slices + slot classifier ([O4Z-DAE-PLAN]001).
+  let entry_live = dae_incoming_parameter_liveness(
+    mod_,
+    callee_abs,
+    params.length(),
+  )
+  let classified = match
+    dae_classify_unused_parameter_actions(
+      shared_facts, mod_, def_idx, callee_abs, params, entry_live, direct_caller_defs,
+    ) {
+    Some(actions) => actions
+    None => return None
+  }
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    match classified[param_idx] {
+      DaeRemovePureParameter | DaeRemoveParameterReplayEffects =>
+        remove[param_idx] = true
+      DaeLocalizeParameterAndRetry =>
+        // Localization transaction is owned by later [O4Z-DAE-PLAN]/[O4Z-DAE-FLOW]
+        // work; ordinary scalar path still fail-closes like the legacy plan.
+        return None
+      DaeKeepParameter
+      | DaeMaterializeConstantParameter(_)
+      | DaeRefineParameterType(_) => remove[param_idx] = false
+    }
+    param_idx += 1
+  }
+  if !remove.any(fn(value) { value }) {
     return None
   }
   let localized_params = Array::make(params.length(), false)
@@ -16688,11 +17389,10 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   let preserved_removed_params = Array::make(params.length(), false)
   let mut param_idx = 0
   while param_idx < params.length() {
-    if remove[param_idx] {
-      parameter_actions.push(DaeRemoveParameter)
+    let action = classified[param_idx]
+    parameter_actions.push(action)
+    if dae_parameter_action_removes(action) {
       preserved_removed_params[param_idx] = local_use.writes[param_idx]
-    } else {
-      parameter_actions.push(DaeKeepParameter)
     }
     param_idx += 1
   }
@@ -16824,8 +17524,10 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
   for action in plan.parameter_actions {
     match action {
       DaeKeepParameter => expected_next_params += 1
-      DaeRemoveParameter => ()
-      DaeMaterializeParameter(_) | DaeLocalizeParameter => return false
+      DaeRemovePureParameter | DaeRemoveParameterReplayEffects => ()
+      DaeMaterializeConstantParameter(_)
+      | DaeLocalizeParameterAndRetry
+      | DaeRefineParameterType(_) => return false
     }
   }
   if expected_next_params != next_params.length() {
@@ -17014,6 +17716,10 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
 }
 
 ///|
+// TODO([O4Z-DAE-PLAN]001): migrate this general remove/const path through
+// `dae_classify_parameter_slot` once constant materialization and localization
+// transactions share the same action model. Ordinary unused-only scalar plans
+// already classify via the canonical slice/action APIs.
 fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -24769,6 +25475,9 @@ fn dae_find_shifted_forward_wrapper_callee_def(
 }
 
 ///|
+// TODO([O4Z-DAE-PLAN]001): route selected unread / localization-retry work
+// through `dae_classify_parameter_slot` after the localization transaction lands
+// under [O4Z-DAE-FLOW]001. Scalar unused-only plans already use the classifier.
 fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
