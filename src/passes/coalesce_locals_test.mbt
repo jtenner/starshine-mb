@@ -2038,3 +2038,112 @@ test "coalesce-locals drops a never-read structured write before unreachable" {
     msg=instrs.to_string(),
   )
 }
+
+///|
+test "coalesce-locals prefers Binaryen's destination-first orientation for a retained copy" {
+  // Reduced from Binaryen-v131 GenValid case 000054. The copy must remain
+  // because the source is overwritten while the destination is still live.
+  // Binaryen deterministically assigns the destination to the earlier slot.
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32) (local i32 i32 i32 i32 i32)
+    #|     i32.const 122
+    #|     local.set 1
+    #|     local.get 1
+    #|     local.set 2
+    #|     local.get 0
+    #|     if
+    #|       i32.const 109
+    #|       local.set 1
+    #|     end
+    #|     local.get 1
+    #|     drop
+    #|     local.get 2))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    instrs[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  match instrs[5] {
+    @lib.If(_, then_body, _) =>
+      @debug.assert_eq(
+        then_body[1],
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      )
+    other => fail("expected if, got \{@debug.to_string(other)}")
+  }
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    instrs[8],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
+test "coalesce-locals orders a noncoalescible subtype copy destination first" {
+  // Reduced from Binaryen-v131 GenValid cases 000027, 000034, 000049, and
+  // 000075. Exact-type coalescing must reject this subtype boundary, while the
+  // destination still receives Binaryen's deterministic earlier slot.
+  let input =
+    #| (module
+    #|   (type $base (sub (struct)))
+    #|   (type $sub (sub $base (struct)))
+    #|   (func (result (ref null $base))
+    #|     (local (ref null $sub) (ref null $base))
+    #|     ref.null none
+    #|     local.set 0
+    #|     local.get 0
+    #|     local.set 1
+    #|     local.get 0
+    #|     drop
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals.length(), 2)
+  @debug.assert_eq(locals[0], cl_test_ref_base_nullable())
+  @debug.assert_eq(locals[1], cl_test_ref_child_nullable())
+  @debug.assert_eq(
+    instrs[1],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[2],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    instrs[3],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  )
+  @debug.assert_eq(
+    instrs[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  )
+}

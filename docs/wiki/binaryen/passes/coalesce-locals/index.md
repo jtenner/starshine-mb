@@ -2,7 +2,7 @@
 kind: entity
 status: strong
 starshine_status: active
-last_reviewed: 2026-07-19
+last_reviewed: 2026-07-21
 sources:
   - ../../../raw/research/1651-2026-07-19-daeo-block-fallthrough-validation-and-local-cleanup.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
@@ -59,6 +59,9 @@ A safe beginner mental model is:
 That is narrower than “merge any locals that look unused.”
 
 ## Current durable takeaways
+
+- A 2026-07-21 Binaryen-v131 random-all audit repaired deterministic copy orientation. When an exact-type copy destination remains live across a later source overwrite, or a concrete-reference copy crosses an exact-type boundary and therefore cannot coalesce, the destination now wins the earlier body slot on otherwise equal colorings. `cl_color_with_order` still requires exact `ValType` equality, so this tie-break never merges a base reference local with its subtype. Reduced tests cover both the retained scalar copy and the concrete subtype-boundary near miss; all five discovery cases (`000027`, `000034`, `000049`, `000054`, `000075`) replay exactly with rebuilt native SHA-256 `f5d84bb880d03780d21efdc939915bff94f6ae8e5e67d2002f9c1e0ebf2807e9` against official Binaryen `version_131`.
+- The same seed-`0x71c0` 300-case random-all-profile signoff now has `296/300` normalized matches, zero validation/command failures, and four inspected pre-existing parity gaps outside the selected orientation family: three conservative loop-copy/param-reuse misses and one nonlocal structured-block flattening miss. These remain under the existing extended-neighborhood/local-shape parity backlog rather than being classified as safe wins.
 
 - The 2026-07-19 DAEO follow-up rejected generic loop-aware dense coloring. Early candidates passed Starshine validation but failed external definite initialization (`uninitialized local: 2`); a nondefaultable-local barrier made the standalone pass valid and `42,505` bytes smaller, but integrated DAEO became `+432` raw / `+806` canonical larger than the accepted artifact, increased canonical gross-positive bodies by `916` bytes, and added about `794.501s` pass-local time. The widening was reverted. Future loop coloring needs exact initialization state, per-family profitability, and bounded scheduling rather than a module-wide generic replay.
 - The 2026-07-18 DAEO Func-`41` audit exposed and reduced an exact structured terminal-dead-write family. For a void block ending in `unreachable`, `coalesce-locals` may flatten the block only when no `br`, `br_if`, `br_table`, or GC branch targets its label; the never-read local write becomes `drop`, and only the newly exposed terminal suffix is truncated. The focused 625-byte reducer now matches Binaryen v130 byte-for-byte. Non-`unreachable` terminal blocks and branch-targeted blocks remain unchanged. Fresh dedicated `coalesce-locals-all` and regular GenValid count-1000 smokes each normalize `1000/1000` with zero failures. See research note [`1650`](../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md).

@@ -804,6 +804,11 @@ fn cl_rewrite_func_structured_conservative(
   let preferred = cl_preferred_compaction_flags(
     original_instrs, actions, total_locals,
   )
+  let retained_copy_destinations = cl_retained_copy_destination_flags(
+    actions,
+    types,
+    params.length(),
+  )
   let structured_scalar_preferred = cl_structured_scalar_compaction_flags(
     original_instrs,
     actions,
@@ -816,6 +821,7 @@ fn cl_rewrite_func_structured_conservative(
     interferences,
     weights,
     preferred,
+    retained_copy_destinations,
     structured_scalar_preferred,
   )
   let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
@@ -2379,6 +2385,7 @@ fn cl_coloring_is_better(
   candidate : CLColoring,
   best : CLColoring,
   preferred : Array[Bool],
+  retained_copy_destinations : Array[Bool],
   structured_scalar_preferred : Array[Bool],
   types : Array[@lib.ValType],
   param_count : Int,
@@ -2398,12 +2405,19 @@ fn cl_coloring_is_better(
   if candidate_accessed != best_accessed {
     return candidate_accessed < best_accessed
   }
-  cl_coloring_structured_scalar_slot_score(
+  let candidate_copy_destination = cl_coloring_flagged_slot_score(
+    candidate, retained_copy_destinations, param_count,
+  )
+  let best_copy_destination = cl_coloring_flagged_slot_score(
+    best, retained_copy_destinations, param_count,
+  )
+  if candidate_copy_destination != best_copy_destination {
+    return candidate_copy_destination < best_copy_destination
+  }
+  cl_coloring_flagged_slot_score(
     candidate, structured_scalar_preferred, param_count,
   ) <
-  cl_coloring_structured_scalar_slot_score(
-    best, structured_scalar_preferred, param_count,
-  )
+  cl_coloring_flagged_slot_score(best, structured_scalar_preferred, param_count)
 }
 
 ///|
@@ -2487,7 +2501,7 @@ fn cl_preferred_compaction_order(
 }
 
 ///|
-fn cl_structured_scalar_compaction_order(
+fn cl_flagged_compaction_order(
   preferred : Array[Bool],
   types : Array[@lib.ValType],
   param_count : Int,
@@ -2566,6 +2580,59 @@ fn cl_local_write_counts(
 }
 
 ///|
+// A copy destination that remains live across a later source overwrite cannot
+// share the source's slot. A subtype-to-base copy also cannot share because this
+// pass requires exact local types. Prefer either destination's lower index on
+// otherwise equal colorings, matching Binaryen's deterministic orientation;
+// cl_color_with_order still owns the exact-type coalescing check.
+fn cl_retained_copy_destination_flags(
+  actions : Array[CLAction],
+  types : Array[@lib.ValType],
+  param_count : Int,
+) -> Array[Bool] {
+  let preferred = Array::make(types.length(), false)
+  for idx = 0; idx < actions.length(); idx = idx + 1 {
+    let action = actions[idx]
+    match (action.kind, action.source) {
+      (CLActionKind::Set | CLActionKind::Tee, CLValueSource::Local(source)) => {
+        let destination = action.local_idx
+        if source < param_count ||
+          destination < param_count ||
+          source >= types.length() ||
+          destination >= types.length() {
+          continue
+        }
+        if types[source] != types[destination] {
+          preferred[destination] = true
+          continue
+        }
+        let mut source_overwritten = false
+        for later = idx + 1; later < actions.length(); later = later + 1 {
+          let later_action = actions[later]
+          if later_action.local_idx == source {
+            match later_action.kind {
+              CLActionKind::Set | CLActionKind::Tee => source_overwritten = true
+              _ => ()
+            }
+          }
+          if source_overwritten && later_action.local_idx == destination {
+            match later_action.kind {
+              CLActionKind::Get => {
+                preferred[destination] = true
+                break
+              }
+              _ => ()
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  preferred
+}
+
+///|
 fn cl_structured_scalar_compaction_flags(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
@@ -2635,7 +2702,7 @@ fn cl_mark_structured_scalar_conditions(
 }
 
 ///|
-fn cl_coloring_structured_scalar_slot_score(
+fn cl_coloring_flagged_slot_score(
   coloring : CLColoring,
   preferred : Array[Bool],
   param_count : Int,
@@ -2656,6 +2723,7 @@ fn cl_pick_coloring(
   interferences : Array[Array[Bool]],
   weights : Array[Array[Int]],
   preferred : Array[Bool],
+  retained_copy_destinations : Array[Bool],
   structured_scalar_preferred : Array[Bool],
 ) -> CLColoring {
   let natural : Array[Int] = []
@@ -2675,7 +2743,8 @@ fn cl_pick_coloring(
     reverse, types, param_count, interferences, weights,
   )
   if cl_coloring_is_better(
-      other, best, preferred, structured_scalar_preferred, types, param_count,
+      other, best, preferred, retained_copy_destinations, structured_scalar_preferred,
+      types, param_count,
     ) {
     best = other
   }
@@ -2687,7 +2756,8 @@ fn cl_pick_coloring(
     weights,
   )
   if cl_coloring_is_better(
-      copy_first, best, preferred, structured_scalar_preferred, types, param_count,
+      copy_first, best, preferred, retained_copy_destinations, structured_scalar_preferred,
+      types, param_count,
     ) {
     best = copy_first
   }
@@ -2699,7 +2769,8 @@ fn cl_pick_coloring(
     weights,
   )
   if cl_coloring_is_better(
-      copy_reverse, best, preferred, structured_scalar_preferred, types, param_count,
+      copy_reverse, best, preferred, retained_copy_destinations, structured_scalar_preferred,
+      types, param_count,
     ) {
     best = copy_reverse
   }
@@ -2711,22 +2782,34 @@ fn cl_pick_coloring(
     weights,
   )
   if cl_coloring_is_better(
-      preferred_first, best, preferred, structured_scalar_preferred, types, param_count,
+      preferred_first, best, preferred, retained_copy_destinations, structured_scalar_preferred,
+      types, param_count,
     ) {
     best = preferred_first
   }
-  let structured_scalar_first = cl_color_with_order(
-    cl_structured_scalar_compaction_order(
-      structured_scalar_preferred, types, param_count,
-    ),
+  let retained_copy_destination_first = cl_color_with_order(
+    cl_flagged_compaction_order(retained_copy_destinations, types, param_count),
     types,
     param_count,
     interferences,
     weights,
   )
   if cl_coloring_is_better(
-      structured_scalar_first, best, preferred, structured_scalar_preferred, types,
-      param_count,
+      retained_copy_destination_first, best, preferred, retained_copy_destinations,
+      structured_scalar_preferred, types, param_count,
+    ) {
+    best = retained_copy_destination_first
+  }
+  let structured_scalar_first = cl_color_with_order(
+    cl_flagged_compaction_order(structured_scalar_preferred, types, param_count),
+    types,
+    param_count,
+    interferences,
+    weights,
+  )
+  if cl_coloring_is_better(
+      structured_scalar_first, best, preferred, retained_copy_destinations, structured_scalar_preferred,
+      types, param_count,
     ) {
     best = structured_scalar_first
   }
@@ -3147,6 +3230,11 @@ fn cl_rewrite_func(
   let preferred = cl_preferred_compaction_flags(
     original_instrs, actions, total_locals,
   )
+  let retained_copy_destinations = cl_retained_copy_destination_flags(
+    actions,
+    types,
+    params.length(),
+  )
   let structured_scalar_preferred = cl_structured_scalar_compaction_flags(
     original_instrs,
     actions,
@@ -3159,6 +3247,7 @@ fn cl_rewrite_func(
     interferences,
     weights,
     preferred,
+    retained_copy_destinations,
     structured_scalar_preferred,
   )
   let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
