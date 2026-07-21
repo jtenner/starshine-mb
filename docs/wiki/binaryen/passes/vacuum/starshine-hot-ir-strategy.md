@@ -26,7 +26,7 @@ related:
 # Starshine HOT-IR Strategy For `vacuum`
 
 Use this page together with [`./binaryen-strategy.md`](./binaryen-strategy.md) and [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); their direct `version_129` source/test URLs and retained research provide the upstream provenance.
-The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, which checked ordered-neighborhood evidence is closed, and which current direct parity families remain open.
+The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives, how the local HOT-plus-pipeline split is wired today, which checked ordered-neighborhood evidence is closed, and which narrower upstream families remain outside the represented direct surface.
 
 ## Exact local code map
 
@@ -74,8 +74,11 @@ The recursive region helper walks a region root list and now handles these clean
 7. if the current root is a void `if` with a constant `i32.const` condition and the selected arm can be spliced without branches to the removed `if` label, it replaces the `if` with the selected arm
 8. if the current root is a void `if` with an empty then arm and a live else arm, it moves the else payload into a one-armed then arm and wraps the condition in `i32.eqz`
 9. if the current root is a label-unused void block whose only HOT root is an `if`, it unwraps the block and splices the `if` into the parent region
+10. if a dropped `struct.get*` reads from a statically nonnull reference, it removes the unused read wrapper; a nonremovable `ref.as_non_null` operand is retained as `drop(ref.as_non_null(...))`, preserving the null trap exactly once
+11. it treats `ref.eq` and `ref.test` as removable pure observations when all operands are removable, including fresh default allocations
+12. it removes dropped `struct.atomic.get*` only when module type facts prove a concrete nonnull receiver and either an unshared struct or a shared immutable field; nullable receivers and shared mutable fields stay
 
-The whole-body proof additionally admits a local-only loop only when no branch targets that loop's label, so a no-backedge loop can be erased while `loop (br 0)` remains a possible divergence boundary. Its exact GC exception is `struct.new_default`: an unread default struct allocation may participate in otherwise removable local traffic, but any observed returned/reference use remains live.
+The whole-body proof additionally admits a local-only loop only when no branch targets that loop's label, so a no-backedge loop can be erased while `loop (br 0)` remains a possible divergence boundary. Its exact GC exception is `struct.new_default`: an unread default struct allocation may participate in otherwise removable local traffic, but any observed returned/reference use remains live. The branchy-structured-write safety guard remains broad, but its skipped path now performs one deliberately narrow recursive cleanup: root `drop(local.get)` nodes can be removed from nested blocks, loops, if arms, and try regions without touching writes, conditions, labels, or backedges.
 
 The hot-pipeline writeback path also has a `vacuum`-specific empty-function canonicalization shim: if an otherwise unchanged or lowered `vacuum` body is empty, Starshine emits Binaryen's single `nop` function body rather than serializing an empty expression list. The local-only void-body cleanup intentionally feeds that canonicalization shape for functions where local writes, tees, and local-control flow have no observable effect.
 
@@ -98,10 +101,7 @@ The HOT recursion surface is explicit and limited:
 - `Try` body and optional catch regions
 - `TryTable` body and catch-list regions
 
-The dispatch arm then reports:
-
-- `HotPassResult::changed()` if any explicit `nop` entry was removed
-- `HotPassResult::unchanged()` otherwise
+The dispatch arm reports `HotPassResult::changed()` for any supported mutation above, including the narrow branchy-region dropped-local cleanup, and `HotPassResult::unchanged()` only when no mutation is applied.
 
 Perf tracing now also makes the slot-level cost boundary explicit: the hot pipeline emits an aggregate `pipeline` timer, `vacuum` raw preclean/no-candidate probes emit `raw:vacuum-*` timers, and `vacuum` writeback validation emits either `guard:vacuum-writeback-batch` or per-function `guard:vacuum-writeback:*` fallback timers. The current default collects changed candidate bodies, validates them under one module environment with `validate_defined_funcs_against_module`, and repairs invalid functions by restoring their originals in one batch; the older per-function guard remains as a fallback if changed-function validation cannot classify the repair locally. Repeated `vacuum` raw-skip trace lines for `no-vacuum-candidates` and `raw-vacuum-preclean` are batched into reason/count summaries so traced artifact replays do not print thousands of identical skip records. The raw preclean/no-candidate perf probes also batch per-function elapsed time into one `raw:vacuum-preclean` timing event and one `raw:vacuum-no-candidates` timing event per pass, so traced artifact replays keep raw attribution without formatting or emitting thousands of per-function raw timer lines. HOT mutation tracing for `vacuum` is similarly batched in two layers: helpers still invalidate analyses on each mutation, direct hot-pass application first suppresses per-region revision lines to a function-local count and then emits one pass-level `pass[vacuum]:mutated funcs=<n>` line instead of one mutation summary per changed function. The ordinary HOT lifecycle trace is now also batched for `vacuum`: traced runs emit one `pass[vacuum]:funcs count=<n> changed=<m>` summary instead of per-function `pass[vacuum]:func`, `pass[vacuum]:start`, and `pass[vacuum]:done` lines. The remaining HOT per-function perf events are batched too: direct `vacuum` runs emit one aggregate `lift`, one aggregate `pass:vacuum`, and one aggregate `lower` timer line per pass instead of one line per HOT function, while preserving the same timer names for existing compare parsers. Under the default final-module-only policy, HOT-function verification checkpoints now skip timer/checkpoint emission entirely instead of reporting `verify:before:<pass>` / `verify:after:<pass>` no-op timing lines for every changed function; after the 2026-06-30 `mutation-func-batch` replay, the slot23 `vacuum` trace contains zero `verify:before:vacuum` / `verify:after:vacuum` timer lines, zero per-function `pass[vacuum]:mutated count=` lines, and one `pass[vacuum]:mutated funcs=713` summary. These timers, repairs, and trace summaries protect writeback validity and attribution; they do not add a hidden cleanup phase.
 
@@ -248,12 +248,14 @@ Direct oracle evidence for the current slice:
 
 Current closeout and reopening note:
 
-- the 2026-07-21 explicit-v131 selected replay is exact at `29/29`, regular GenValid is exact at `100000/100000`, and the canonical pass-owned `vacuum` aggregate is exact at `10000/10000`; see [`./fuzzing.md`](./fuzzing.md) for the binary hash, leaf counts, and cache evidence;
-- current explicit wasm-smith retains only case `3694`, a measured six-byte canonical Starshine win with fewer local operations, plus `44` Binaryen/tool failures;
-- current broad random-all-profiles is **not** fully green: `heap2local-ref`, `precompute-gc-atomic-boundary`, and `merge-locals:control-2` expose three measured size-losing direct parity families, while `merge-locals:control-1` is a measured Starshine win;
-- the older `100000`, classified wasm-smith, and broad-green lanes remain historical evidence for their recorded generator/oracle state rather than proof that the current broad corpus is closed;
+- the 2026-07-21 `[VACUUM-PARITY]003` native release has SHA-256 `b50992c06f385befe65ea0c9cc19e60324e5ff2ad9978edee8974247c572b86a`; the official Binaryen-v131 oracle has SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`;
+- saved cases `4616`, `7968`, and `5369` are exact, and replaying all `289` prior random-all mismatches converts the `264` former size-losing cases to normalized matches while retaining only `25` measured six-byte Starshine wins;
+- regular GenValid is exact at `100000/100000`, and the canonical pass-owned `vacuum` aggregate is exact at `10000/10000`;
+- current explicit wasm-smith retains only case `3694`, a measured six-byte canonical Starshine win, plus `44` Binaryen/tool failures and no Starshine failure;
+- current broad random-all-profiles normalizes `9954/10000`; all `46` residuals are measured six-byte `merge-locals:control-1` Starshine wins, while sampled `heap2local-ref`, `precompute-gc-atomic-boundary`, and `merge-locals:control-2` cases are exact;
+- there is no remaining size-losing, unknown/risky, validation, or true-semantic residual in the represented direct surface; detailed counts and classifications live in [`./fuzzing.md`](./fuzzing.md);
 - the reconstructed checked slot23 replay `.tmp/vacuum-current-o4z-neighborhood/slot23-pre22-vacuum-compare-f7263-i32-le-s-parser` reached normalized WAT equality and canonical function compare equality on 2026-07-04;
-- remaining whole-command wall investigations belong under `[WALL]001` unless a fresh measurement proves a new vacuum-owned bottleneck.
+- remaining scheduler work belongs under `[O4Z-PRESET]001`, and remaining whole-command wall investigations belong under `[WALL]001` unless a fresh measurement proves a new vacuum-owned bottleneck.
 
 Current Starshine does **not** yet model upstream behaviors such as:
 

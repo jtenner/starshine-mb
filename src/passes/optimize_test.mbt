@@ -788,6 +788,272 @@ test "vacuum removes unread default struct allocations" {
 }
 
 ///|
+test "vacuum removes dropped observations of fresh exact GC values" {
+  // Saved random-all `heap2local-ref` case 4616. Keep the binary fixture because
+  // the in-repo WAT parser does not yet accept this exact ref.test surface.
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x2f, 0x08, 0x60, 0x00,
+        0x00, 0x60, 0x00, 0x00, 0x4e, 0x03, 0x4f, 0x00, 0x5f, 0x00, 0x50, 0x00, 0x5f,
+        0x00, 0x50, 0x01, 0x03, 0x5f, 0x00, 0x50, 0x01, 0x04, 0x5f, 0x00, 0x5f, 0x01,
+        0x63, 0x05, 0x00, 0x5f, 0x02, 0x7f, 0x01, 0x6d, 0x00, 0x5f, 0x02, 0x78, 0x00,
+        0x77, 0x00, 0x5e, 0x7f, 0x01, 0x03, 0x02, 0x01, 0x00, 0x07, 0x08, 0x01, 0x04,
+        0x6d, 0x61, 0x69, 0x6e, 0x00, 0x00, 0x08, 0x01, 0x00, 0x0a, 0x2a, 0x01, 0x28,
+        0x04, 0x01, 0x7f, 0x01, 0x63, 0x00, 0x01, 0x63, 0x07, 0x01, 0x63, 0x09, 0xfb,
+        0x01, 0x07, 0x21, 0x02, 0x20, 0x02, 0xd4, 0xfb, 0x02, 0x07, 0x00, 0x1a, 0xfb,
+        0x01, 0x07, 0xd0, 0x6d, 0xd3, 0x1a, 0xfb, 0x01, 0x07, 0xfb, 0x14, 0x07, 0x1a,
+        0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected fresh-GC fixture to decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected fresh-GC vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected fresh-GC vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut saw_allocation = false
+      let mut saw_null_check = false
+      for instr in instrs {
+        match instr {
+          @lib.StructGet(_, _) =>
+            fail("expected dropped fresh struct.get removal")
+          @lib.RefEq => fail("expected dropped fresh ref.eq removal")
+          @lib.RefTest(_, _, _) =>
+            fail("expected dropped fresh ref.test removal")
+          @lib.StructNewDefault(_) => saw_allocation = true
+          @lib.RefAsNonNull => saw_null_check = true
+          _ => ()
+        }
+      }
+      assert_true(
+        saw_allocation,
+        msg="expected live local allocation to remain",
+      )
+      assert_true(
+        saw_null_check,
+        msg="expected nullable proof boundary to remain",
+      )
+    }
+    other =>
+      fail("expected one fresh-GC function, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
+test "vacuum preserves dropped struct reads from nullable references" {
+  let input =
+    #|(module
+    #|  (type $s (struct (field i32)))
+    #|  (func (param (ref null $s))
+    #|    (drop (struct.get $s 0 (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nullable struct.get vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_true(
+        instrs.any(fn(instr) { instr is @lib.StructGet(_, _) }),
+        msg="expected nullable struct.get trap to remain",
+      )
+    other => fail("expected one nullable struct.get function, got \{other}")
+  }
+}
+
+///|
+test "vacuum removes dropped unshared atomic gets from exact nonnull refs" {
+  // Saved random-all `precompute-gc-atomic-boundary` case 7968.
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0d, 0x03, 0x5f, 0x01,
+        0x78, 0x01, 0x5e, 0x7f, 0x01, 0x60, 0x01, 0x64, 0x00, 0x00, 0x03, 0x02, 0x01,
+        0x02, 0x0a, 0x19, 0x01, 0x17, 0x00, 0x20, 0x00, 0xfe, 0x5d, 0x00, 0x00, 0x00,
+        0x1a, 0x41, 0x07, 0x41, 0x01, 0xfb, 0x06, 0x01, 0x41, 0x00, 0xfb, 0x0b, 0x01,
+        0x1a, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected atomic-get fixture to decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected atomic-get vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected atomic-get vacuum output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut saw_array_get = false
+      for instr in instrs {
+        match instr {
+          @lib.StructAtomicGet(_, _, _)
+          | @lib.StructAtomicGetS(_, _, _)
+          | @lib.StructAtomicGetU(_, _, _) =>
+            fail("expected dropped unshared atomic get removal")
+          @lib.ArrayGet(_) => saw_array_get = true
+          _ => ()
+        }
+      }
+      assert_true(saw_array_get, msg="expected unrelated trapping array read")
+    }
+    other => fail("expected one atomic-get function, got \{other}")
+  }
+}
+
+///|
+test "vacuum preserves nullable and shared mutable atomic gets" {
+  let cases = [
+    Bytes::from_array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0d, 0x03, 0x5f, 0x01,
+      0x78, 0x01, 0x5e, 0x7f, 0x01, 0x60, 0x01, 0x63, 0x00, 0x00, 0x03, 0x02, 0x01,
+      0x02, 0x0a, 0x19, 0x01, 0x17, 0x00, 0x20, 0x00, 0xfe, 0x5d, 0x00, 0x00, 0x00,
+      0x1a, 0x41, 0x07, 0x41, 0x01, 0xfb, 0x06, 0x01, 0x41, 0x00, 0xfb, 0x0b, 0x01,
+      0x1a, 0x0b,
+    ]),
+    Bytes::from_array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0e, 0x03, 0x65, 0x5f,
+      0x01, 0x78, 0x01, 0x5e, 0x7f, 0x01, 0x60, 0x01, 0x64, 0x00, 0x00, 0x03, 0x02,
+      0x01, 0x02, 0x0a, 0x19, 0x01, 0x17, 0x00, 0x20, 0x00, 0xfe, 0x5d, 0x00, 0x00,
+      0x00, 0x1a, 0x41, 0x07, 0x41, 0x01, 0xfb, 0x06, 0x01, 0x41, 0x00, 0xfb, 0x0b,
+      0x01, 0x1a, 0x0b,
+    ]),
+  ]
+  for bytes in cases {
+    let input = match @binary.decode_module(bytes) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected atomic boundary fixture to decode, got \{err}")
+    }
+    let optimized = match
+      run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected atomic boundary vacuum success, got \{err}")
+    }
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected atomic boundary output to validate, got \{err}")
+    }
+    match optimized.code_sec {
+      Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+        assert_true(
+          instrs.any(fn(instr) {
+            match instr {
+              @lib.StructAtomicGet(_, _, _)
+              | @lib.StructAtomicGetS(_, _, _)
+              | @lib.StructAtomicGetU(_, _, _) => true
+              _ => false
+            }
+          }),
+          msg="expected nullable/shared atomic get to remain",
+        )
+      other => fail("expected one atomic boundary function, got \{other}")
+    }
+  }
+}
+
+///|
+test "vacuum removes dropped local reads inside self-branching loops" {
+  let input =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32 i32)
+    #|    (local.set 1 (i32.const 37))
+    #|    (local.set 2 (local.get 1))
+    #|    (loop $again
+    #|      (drop (local.get 1))
+    #|      (br_if $again (local.get 0)))
+    #|    (local.get 2)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected loop-local-read vacuum success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected loop-local-read output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut saw_loop = false
+      let mut saw_backedge = false
+      for instr in instrs {
+        match instr {
+          @lib.Loop(_, @lib.Expr(body)) => {
+            saw_loop = true
+            for nested in body {
+              match nested {
+                @lib.Drop => fail("expected loop-local dropped read removal")
+                @lib.BrIf(@lib.LabelIdx(0U)) => saw_backedge = true
+                _ => ()
+              }
+            }
+          }
+          _ => ()
+        }
+      }
+      assert_true(saw_loop, msg="expected self-branching loop to remain")
+      assert_true(saw_backedge, msg="expected loop backedge to remain")
+    }
+    other => fail("expected one loop-local-read function, got \{other}")
+  }
+}
+
+///|
+test "vacuum narrow branchy cleanup preserves trapping loop drops" {
+  let input =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    (local.set 2 (i32.const 37))
+    #|    (loop $again
+    #|      (drop (i32.div_s (local.get 0) (local.get 1)))
+    #|      (br_if $again (local.get 0)))
+    #|    (local.get 2)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected trapping-loop vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut saw_div = false
+      let mut saw_drop = false
+      for instr in instrs {
+        match instr {
+          @lib.Loop(_, @lib.Expr(body)) =>
+            for nested in body {
+              match nested {
+                @lib.I32DivS => saw_div = true
+                @lib.Drop => saw_drop = true
+                _ => ()
+              }
+            }
+          _ => ()
+        }
+      }
+      assert_true(saw_div, msg="expected possible division trap to remain")
+      assert_true(saw_drop, msg="expected trapping result drop to remain")
+    }
+    other => fail("expected one trapping-loop function, got \{other}")
+  }
+}
+
+///|
 test "vacuum clears local-only void function bodies" {
   let input =
     #|(module

@@ -568,12 +568,96 @@ fn vacuum_convert_is_nontrapping(instr : @lib.Instruction?) -> Bool {
 }
 
 ///|
-fn vacuum_heap_is_removable_default_allocation(
-  instr : @lib.Instruction?,
-) -> Bool {
+fn vacuum_heap_is_removable_if_unused(instr : @lib.Instruction?) -> Bool {
   match instr {
-    Some(@lib.Instruction::StructNewDefault(_)) => true
+    Some(@lib.Instruction::StructNewDefault(_) | @lib.Instruction::RefEq) =>
+      true
     _ => false
+  }
+}
+
+///|
+fn vacuum_dropped_struct_get_operand(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> @ir.NodeId? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(
+      @lib.Instruction::StructGet(_, _)
+      | @lib.Instruction::StructGetS(_, _)
+      | @lib.Instruction::StructGetU(_, _)
+    ) => ()
+    _ => return None
+  }
+  let operand = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand)) {
+    [@lib.RefTypeValType(ref_type)] if ref_type.is_non_nullable() =>
+      Some(operand)
+    _ => None
+  }
+}
+
+///|
+fn vacuum_subtype_is_final(subtype : @lib.SubType) -> Bool {
+  match subtype {
+    @lib.SubType(final_, _, _, _) => final_
+    @lib.CompTypeSubType(_, _) => true
+  }
+}
+
+///|
+fn vacuum_dropped_struct_atomic_get_operand(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> @ir.NodeId? {
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return None
+  }
+  let (type_idx, field_idx) = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(
+      @lib.Instruction::StructAtomicGet(_, type_idx, field_idx)
+      | @lib.Instruction::StructAtomicGetS(_, type_idx, field_idx)
+      | @lib.Instruction::StructAtomicGetU(_, type_idx, field_idx)
+    ) => (type_idx, field_idx)
+    _ => return None
+  }
+  let module_ctx = match ctx.module_ctx {
+    Some(module_ctx) => module_ctx
+    None => return None
+  }
+  let subtype = match @ir.hot_module_resolve_subtype(module_ctx, type_idx) {
+    Some(subtype) => subtype
+    None => return None
+  }
+  let operand = @ir.hot_child_get(func, node_id, 0)
+  match @ir.hot_type_results(func, @ir.hot_node_type(func, operand)) {
+    [@lib.RefTypeValType(ref_type)] => {
+      if ref_type.is_nullable() ||
+        (!ref_type.is_exact() && !vacuum_subtype_is_final(subtype)) {
+        return None
+      }
+      match ref_type.get_heap_type() {
+        @lib.HeapType(receiver_type) if receiver_type == type_idx => ()
+        _ => return None
+      }
+    }
+    _ => return None
+  }
+  if !subtype.metadata().is_shared() {
+    return Some(operand)
+  }
+  let @lib.U32(raw_field) = field_idx
+  match subtype.get_comptype() {
+    @lib.StructCompType(fields) =>
+      match fields.get(raw_field.reinterpret_as_int()) {
+        Some(field) if !field.is_mutable() => Some(operand)
+        _ => None
+      }
+    _ => None
   }
 }
 
@@ -598,12 +682,13 @@ fn vacuum_can_remove_dropped_node(
     | @ir.HotOp::RefFunc
     | @ir.HotOp::Select
     | @ir.HotOp::TupleMake
-    | @ir.HotOp::TupleExtract => true
+    | @ir.HotOp::TupleExtract
+    | @ir.HotOp::RefTest => true
     @ir.HotOp::Binary => vacuum_binary_is_nontrapping(func, node_id)
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     @ir.HotOp::Heap =>
-      vacuum_heap_is_removable_default_allocation(
+      vacuum_heap_is_removable_if_unused(
         @ir.hot_node_exact_instr(func, node_id),
       )
     _ => false
@@ -657,6 +742,7 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
     | @ir.HotOp::Select
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract
+    | @ir.HotOp::RefTest
     | @ir.HotOp::Br
     | @ir.HotOp::BrIf
     | @ir.HotOp::BrTable
@@ -668,7 +754,7 @@ fn hot_pass_vacuum_can_remove_local_only_node_memoized(
     @ir.HotOp::Convert =>
       vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
     @ir.HotOp::Heap =>
-      vacuum_heap_is_removable_default_allocation(
+      vacuum_heap_is_removable_if_unused(
         @ir.hot_node_exact_instr(func, node_id),
       )
     _ => false
@@ -1537,6 +1623,87 @@ fn hot_pass_remove_node_child_nested_region_nops(
 }
 
 ///|
+fn hot_pass_vacuum_remove_dropped_local_gets_in_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let mut changed = false
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    let node = @ir.hot_node_get(func, node_id)
+    if node.op is @ir.HotOp::Drop &&
+      @ir.hot_child_count(func, node_id) == 1 &&
+      @ir.hot_node_get(func, @ir.hot_child_get(func, node_id, 0)).op
+      is @ir.HotOp::LocalGet {
+      let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
+      vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+      changed = true
+      continue
+    }
+    match node.op {
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+          ) ||
+          changed
+      @ir.HotOp::If => {
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+            ctx,
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+          ) ||
+          changed
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+                ctx, func, else_ref,
+              ) ||
+              changed
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+          ) ||
+          changed
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+                ctx, func, catch_ref,
+              ) ||
+              changed
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+            ctx,
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+          ) ||
+          changed
+        changed = hot_pass_vacuum_remove_dropped_local_gets_in_region(
+            ctx,
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+          ) ||
+          changed
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  changed
+}
+
+///|
 fn hot_pass_remove_region_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1577,6 +1744,31 @@ fn hot_pass_remove_region_nops(
           changed = true
           idx += 1
           continue
+        }
+        let preserved_operand = match
+          vacuum_dropped_struct_get_operand(func, child_id) {
+          Some(operand) => Some(operand)
+          None => vacuum_dropped_struct_atomic_get_operand(ctx, func, child_id)
+        }
+        match preserved_operand {
+          Some(operand) => {
+            let replacement = if vacuum_can_remove_dropped_node(func, operand) {
+              []
+            } else {
+              [@ir.hot_build_drop(func, operand)]
+            }
+            let removed = pass_splice_region(
+              ctx, func, region_ref, idx, 1, replacement,
+            )
+            removed.push(child_id)
+            vacuum_delete_detached_non_control_nodes(ctx, func, removed)
+            changed = true
+            if replacement.length() > 0 {
+              idx += 1
+            }
+            continue
+          }
+          None => ()
         }
         if vacuum_can_remove_dropped_node(func, child_id) {
           let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
@@ -72660,7 +72852,15 @@ fn hot_pass_run_with_aggregate_perf_timer(
       } else if hot_pass_vacuum_remove_local_only_void_body(ctx, func) {
         HotPassResult::changed()
       } else if hot_pass_vacuum_should_skip_branchy_structured_writes(func) {
-        HotPassResult::unchanged()
+        if hot_pass_vacuum_remove_dropped_local_gets_in_region(
+            ctx,
+            func,
+            @ir.HotRegionRef::root(),
+          ) {
+          HotPassResult::changed()
+        } else {
+          HotPassResult::unchanged()
+        }
       } else if hot_pass_remove_region_nops(
           ctx,
           func,

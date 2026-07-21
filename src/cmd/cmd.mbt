@@ -3193,7 +3193,9 @@ test "explicit vacuum dispatches residual parity cleanup through cmd" {
     #|      (local.set 0 (i32.const 44))
     #|      (local.set 1 (local.get 0))))
     #|  (func (local anyref)
-    #|    (local.set 0 (struct.new_default $s))))
+    #|    (local.set 0 (struct.new_default $s)))
+    #|  (func
+    #|    (drop (struct.get $s 0 (struct.new_default $s)))))
     #|
   let input = match
     @wast.wast_to_binary_module(wat, filename="vacuum-residual-cmd.wat") {
@@ -3214,13 +3216,104 @@ test "explicit vacuum dispatches residual parity cleanup through cmd" {
           @lib.Func(_, @lib.Expr([@lib.Nop])),
           @lib.Func(_, @lib.Expr([@lib.Nop])),
           @lib.Func(_, @lib.Expr([@lib.Nop])),
+          @lib.Func(_, @lib.Expr([@lib.Nop])),
         ]
       )
     ) => ()
     other =>
       fail(
-        "expected cmd vacuum dispatch to remove all three residual families, got \{@debug.to_string(other)}",
+        "expected cmd vacuum dispatch to remove the residual cleanup families, got \{@debug.to_string(other)}",
       )
+  }
+}
+
+///|
+test "explicit vacuum removes unshared atomic gets through cmd" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0d, 0x03, 0x5f, 0x01,
+        0x78, 0x01, 0x5e, 0x7f, 0x01, 0x60, 0x01, 0x64, 0x00, 0x00, 0x03, 0x02, 0x01,
+        0x02, 0x0a, 0x19, 0x01, 0x17, 0x00, 0x20, 0x00, 0xfe, 0x5d, 0x00, 0x00, 0x00,
+        0x1a, 0x41, 0x07, 0x41, 0x01, 0xfb, 0x06, 0x01, 0x41, 0x00, 0xfb, 0x0b, 0x01,
+        0x1a, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected cmd atomic-get fixture to decode, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(input, ["vacuum"], OptimizeOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected explicit cmd atomic-get vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      assert_false(
+        instrs.any(fn(instr) {
+          match instr {
+            @lib.StructAtomicGet(_, _, _)
+            | @lib.StructAtomicGetS(_, _, _)
+            | @lib.StructAtomicGetU(_, _, _) => true
+            _ => false
+          }
+        }),
+      )
+      assert_true(instrs.any(fn(instr) { instr is @lib.ArrayGet(_) }))
+    }
+    other => fail("expected one cmd atomic-get function, got \{other}")
+  }
+}
+
+///|
+test "explicit vacuum removes loop-local dropped reads through cmd" {
+  let wat =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32 i32)
+    #|    (local.set 1 (i32.const 37))
+    #|    (local.set 2 (local.get 1))
+    #|    (loop $again
+    #|      (drop (local.get 1))
+    #|      (br_if $again (local.get 0)))
+    #|    (local.get 2)))
+    #|
+  let input = match
+    @wast.wast_to_binary_module(wat, filename="vacuum-loop-read-cmd.wat") {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected cmd loop-read fixture parse success, got \{err}")
+  }
+  let optimized = match
+    optimize_module_with_pass_flags(input, ["vacuum"], OptimizeOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected explicit cmd loop-read vacuum success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) => {
+      let mut saw_loop = false
+      let mut saw_backedge = false
+      for instr in instrs {
+        match instr {
+          @lib.Loop(_, @lib.Expr(body)) => {
+            saw_loop = true
+            for nested in body {
+              match nested {
+                @lib.Drop =>
+                  fail("expected cmd loop-local dropped read removal")
+                @lib.BrIf(@lib.LabelIdx(0U)) => saw_backedge = true
+                _ => ()
+              }
+            }
+          }
+          _ => ()
+        }
+      }
+      assert_true(saw_loop)
+      assert_true(saw_backedge)
+    }
+    other => fail("expected one cmd loop-read function, got \{other}")
   }
 }
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ./index.md
 related:
@@ -629,6 +629,18 @@ From `vacuum-gc-atomics.wast`:
 So the pass is not just checking “was this result dropped?”
 
 It is also checking whether the operation is still observably synchronizing.
+
+Current Starshine uses the same boundary for struct atomics: a dropped get from a concrete nonnull receiver can disappear for an unshared struct, or for a shared immutable field, while nullable receivers and shared mutable fields stay.
+
+## Shape 25b: fresh GC observations and loop-local reads can disappear without erasing hazards
+
+Three compact cleanup examples are now covered directly:
+
+- `drop(struct.get (struct.new_default ...))`, `drop(ref.eq fresh null)`, and `drop(ref.test fresh)` can lose the unused observation; a trapping `ref.as_non_null` operand remains as a drop
+- `drop(local.get)` inside a self-branching loop can disappear while the loop and `br_if` remain
+- a possibly trapping arithmetic drop in that same branchy-loop shape remains
+
+These examples guard the distinction between deleting an unused observation and deleting the control, trap, allocation, or synchronization behavior that feeds it.
 
 ## Shape 26: descriptor and cast cases are option-sensitive
 

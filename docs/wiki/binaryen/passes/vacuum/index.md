@@ -50,7 +50,7 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - slot `37`
   - slot `47`
 - The saved Binaryen debug log contains `72` `running pass: vacuum` lines in total, so nested reruns make it far more common than the four visible top-level slots suggest.
-- The provenance and checked ordered-neighborhood audit is recorded, and the 2026-07-21 three-family direct slice is closed. Current broad cross-profile evidence still has three measured size-losing direct parity families, so future work should use the fuzzing dossier rather than treating all direct behavior as closed.
+- The provenance and checked ordered-neighborhood audit is recorded, and both 2026-07-21 three-family direct slices are closed. Fresh native Binaryen-v131 signoff is exact at regular GenValid `100000/100000` and pass-owned aggregate `10000/10000`; wasm-smith and broad random-all leave only measured six-byte Starshine wins, with no size-losing, unknown/risky, validation, or true-semantic residual.
 
 ## Most important durable takeaways
 
@@ -79,6 +79,9 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - empty void `if` removal: removable pure conditions disappear, while call/load/trapping conditions are preserved as `drop(condition)`
   - finite local-only loop cleanup when no branch targets the loop label, while self/back-branching loops remain intact
   - exact unread `struct.new_default` allocation cleanup when the reference is stored only to otherwise removable local traffic; observed allocations remain intact
+  - dropped fresh-GC observations: pure `ref.eq` / `ref.test` disappear, and unused nonnull `struct.get*` wrappers disappear while a trapping `ref.as_non_null` operand is retained as a drop
+  - dropped `struct.atomic.get*` from concrete nonnull receivers when the declared struct is unshared, or shared with an immutable field; nullable receivers and shared mutable fields remain
+  - loop-local `drop(local.get)` cleanup inside branchy structured functions without removing the loop or its self/back branch
   - Binaryen-style single-`nop` function-body canonicalization when `vacuum` rewrites or re-lowers an otherwise empty function body
 - Research note [`1649`](../../../raw/research/1649-2026-07-18-vacuum-shared-dag-admission-and-public-hso-attribution.md) closed a newly proven current-artifact wall-time owner. The 2026-07-21 parity slice moved that memoization to the complete local-only-body proof, so removing the old tee-presence gate does not reintroduce exponential traversal on shared HOT DAGs.
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
@@ -117,12 +120,12 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
-- Treat the 2026-07-21 explicit-v131 results in [`./fuzzing.md`](./fuzzing.md) as current: the selected 29-case replay, regular `100000`, and pass-owned aggregate `10000` are exact; wasm-smith has only the measured case-3694 win plus Binaryen tool failures; broad random-all leaves three measured size-losing families. Older count-100000, classified wasm-smith, broad random-all, and 2026-07-04 slot23 results remain historical evidence for their recorded generator/oracle state, not a substitute for the current open broad residuals.
+- Treat the `[VACUUM-PARITY]003` explicit-v131 results in [`./fuzzing.md`](./fuzzing.md) as current direct evidence: all `289` prior residuals were replayed, the three former size-losing families are exact, regular `100000` and aggregate `10000` are exact, and the wasm-smith/random-all residuals are only measured six-byte Starshine wins. `[VACUUM-PARITY]002` remains the discovery baseline.
 - Treat the raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, proven-nontrapping constant div/rem, dropped-tee-to-set, empty-`if`, finite no-backedge loop, exact unread default-struct allocation, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function single-`nop` canonicalization slice.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, empty-void-block, dropped-pure-result, proven-nontrapping constant div/rem, dropped-tee-to-set, empty-`if`, finite no-backedge loop, exact unread default-struct allocation, fresh-GC observation pruning, guarded GC atomic-get pruning, branchy-loop dropped-local cleanup, local-only void-body, block-only-`unreachable`, empty-then/live-else `if` inversion, large lowered-function precleaning, and empty-function single-`nop` canonicalization slice.
 
 ## Sources
 
