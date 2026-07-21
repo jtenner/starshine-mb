@@ -147,6 +147,7 @@ Passes that remove or reorder index spaces must rewrite or clear affected name m
 
 - [`reorder-locals`](../binaryen/passes/reorder-locals/index.md) rewrites local-name maps for changed functions and clears `raw_name_sec_payload`; its tests assert the raw payload is gone after structured local renumbering.
 - [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md) rewrites retained table, memory, global, tag, function, element, and data name maps as module entities are pruned or remapped.
+- [`duplicate-import-elimination`](../binaryen/passes/duplicate-import-elimination/index.md) remaps structured function names and clears `raw_name_sec_payload` when duplicate function-import removal shifts absolute `FuncIdx` values; its focused regression supplies both structured names and raw bytes so encode cannot silently reuse stale indices.
 - `duplicate-function-elimination`, `reorder-globals`, and `string-gathering` tests also exercise the rule that stale function/global names must not survive an index-changing module pass unchanged.
 
 ### CLI print utility consumers

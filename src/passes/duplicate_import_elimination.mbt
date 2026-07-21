@@ -606,6 +606,6 @@ pub fn die_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     code_sec=next_code_sec,
     data_sec=next_data_sec,
     name_sec=die_rewrite_name_sec(mod_.name_sec, func_remap, removed_funcs),
-    raw_name_sec_payload=mod_.raw_name_sec_payload,
+    raw_name_sec_payload=None,
   )
 }

@@ -195,3 +195,26 @@ test "duplicate-import-elimination remaps function references in legacy try regi
       fail("expected valid duplicate-import legacy output, got \{err}")
   }
 }
+
+///|
+test "duplicate-import-elimination clears stale raw names after function remap" {
+  let source =
+    #|(module
+    #|  (type $v (func))
+    #|  (import "env" "f" (func $first (type $v)))
+    #|  (import "env" "f" (func $duplicate (type $v)))
+    #|  (func $caller
+    #|    call $duplicate))
+    #|
+  let input = pass_test_module_from_wat(source).with_raw_name_sec_payload(
+    b"stale-function-index-name-payload",
+  )
+  assert_true(input.name_sec is Some(_))
+  assert_true(input.raw_name_sec_payload is Some(_))
+
+  let optimized = die_run_module_pass(input)
+
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  @debug.assert_eq(optimized.raw_name_sec_payload, None)
+  assert_true(optimized.name_sec is Some(_))
+}

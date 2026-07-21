@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ../../../raw/binaryen/2026-07-06-duplicate-import-elimination-v130-current-refresh.md
   - ./index.md
@@ -165,6 +165,12 @@ It does not:
 - delay removal to `remove-unused-module-elements`,
 - keep aliases around as dead declarations,
 - or perform a second cleanup pass.
+
+## Starshine raw-name invalidation contract
+
+Starshine's changed path also owns the binary name-section cache boundary. Removing a duplicate imported function changes the absolute function-index space, so the pass remaps structured function names and clears `Module.raw_name_sec_payload`. Keeping the raw bytes would let encode prefer the stale payload over the rewritten `NameSec`. The focused regression in `src/passes/duplicate_import_elimination_test.mbt` supplies both representations and proves the changed path clears the cache; the unchanged path remains byte-preserving.
+
+A rebuilt native binary (`f5d84bb880d03780d21efdc939915bff94f6ae8e5e67d2002f9c1e0ebf2807e9`) compared `300/300` random-all-profile cases exactly against official Binaryen `version_131` on 2026-07-21, with zero validation, command, or semantic failures.
 
 ## Important negative facts
 
