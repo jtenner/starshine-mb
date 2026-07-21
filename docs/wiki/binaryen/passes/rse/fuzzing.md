@@ -22,6 +22,7 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass rse --out-di
 
 Latest refreshed direct smoke evidence:
 
+- 2026-07-21 unread-set parity repair: rebuilt native SHA-256 `f5d84bb880d03780d21efdc939915bff94f6ae8e5e67d2002f9c1e0ebf2807e9`; explicit official `wasm-opt version 131 (version_131)` replay normalized discovery cases `000112` and `000246` exactly, and `.tmp/audit-correctness-002-rse-random-300` compared/normalized `300/300` random-all-profile cases at seed `0x91c0` with zero mismatches or failures.
 - 2026-07-04 `.tmp/pass-fuzz-rse-mixed`: `10000/10000` compared, `10000` normalized matches, `0` mismatches, `0` validation/property/generator/command failures.
 
 ## Dedicated GenValid profile

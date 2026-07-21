@@ -1422,3 +1422,84 @@ test "rse raw path keeps block-exit disagreement final const set" {
       )
   }
 }
+
+///|
+test "rse removes copy set made unread by concrete subtype retargeting" {
+  let input =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $sub (sub $base (struct)))
+    #|  (func (result (ref null $base))
+    #|    (local (ref null $sub) (ref null $base))
+    #|    ref.null $sub
+    #|    local.set 0
+    #|    local.get 0
+    #|    local.set 1
+    #|    local.get 0
+    #|    drop
+    #|    local.get 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse concrete subtype fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::RefNull(_),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(copy_source)),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(observed_source)),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(result_source)),
+    ] => {
+      @debug.assert_eq(copy_source, 0U)
+      @debug.assert_eq(observed_source, 0U)
+      @debug.assert_eq(result_source, 0U)
+    }
+    other =>
+      fail(
+        "expected subtype retargeting to leave only drop(get 0) and get 0, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "rse removes unread structured-result local.set while preserving rhs" {
+  let input =
+    #|(module
+    #|  (func
+    #|    (local i32 i32)
+    #|    block (result i32)
+    #|      i32.const 7
+    #|      local.tee 0
+    #|      drop
+    #|      i32.const 0
+    #|    end
+    #|    local.set 1
+    #|    local.get 0
+    #|    drop))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected rse unread structured set fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::Block(_, _),
+      @lib.Instruction::Drop,
+      @lib.Instruction::LocalGet(@lib.LocalIdx(0U)),
+      @lib.Instruction::Drop,
+    ] => ()
+    other =>
+      fail(
+        "expected unread structured result set shell to become drop, got \{@debug.to_string(other)}",
+      )
+  }
+}

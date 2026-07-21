@@ -2755,6 +2755,128 @@ fn rse_raw_local_types(
 }
 
 ///|
+fn rse_raw_count_local_reads(
+  instrs : Array[@lib.Instruction],
+  reads : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::LocalGet(local_idx) => {
+        let local_id = rse_raw_local_id(local_idx)
+        if local_id >= 0 && local_id < reads.length() {
+          reads[local_id] += 1
+        }
+      }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body))
+      | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        rse_raw_count_local_reads(body, reads)
+      @lib.Instruction::If(_, then_body, else_body) => {
+        rse_raw_count_local_reads(then_body, reads)
+        match else_body {
+          Some(body) => rse_raw_count_local_reads(body, reads)
+          None => ()
+        }
+      }
+      @lib.Instruction::Try(_, @lib.Expr(body), catches, _) => {
+        rse_raw_count_local_reads(body, reads)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              rse_raw_count_local_reads(catch_body, reads)
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn rse_raw_unread_set_rhs_is_admitted(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+  target_local : Int,
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+  env : @validate.Env,
+) -> Bool {
+  if idx <= 0 || target_local < 0 || target_local >= local_types.length() {
+    return false
+  }
+  match instrs[idx - 1] {
+    @lib.Instruction::Block(_, _) => true
+    @lib.Instruction::LocalGet(source_idx) => {
+      let source_local = rse_raw_local_id(source_idx)
+      if source_local < param_count || source_local >= local_types.length() {
+        return false
+      }
+      match
+        (
+          rse_raw_concrete_ref_type_idx(local_types[source_local]),
+          rse_raw_concrete_ref_type_idx(local_types[target_local]),
+        ) {
+        (Some(_), Some(_)) =>
+          local_types[source_local] != local_types[target_local] &&
+          @validate.Match::matches(
+            local_types[source_local],
+            local_types[target_local],
+            env,
+          )
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn rse_raw_remove_unread_local_sets(
+  instrs : Array[@lib.Instruction],
+  reads : Array[Int],
+  local_types : Array[@lib.ValType],
+  param_count : Int,
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    match instr {
+      @lib.Instruction::LocalSet(local_idx) => {
+        let local_id = rse_raw_local_id(local_idx)
+        if local_id >= 0 &&
+          local_id < reads.length() &&
+          reads[local_id] == 0 &&
+          rse_raw_unread_set_rhs_is_admitted(
+            instrs, idx, local_id, local_types, param_count, env,
+          ) {
+          out.push(@lib.Instruction::drop())
+          changed = true
+        } else {
+          out.push(instr)
+        }
+      }
+      _ => {
+        let (rewritten, nested_changed) = pass_rewrite_structured_instr(instr, fn(
+          body,
+        ) {
+          rse_raw_remove_unread_local_sets(
+            body, reads, local_types, param_count, env,
+          )
+        })
+        out.push(rewritten)
+        if nested_changed {
+          changed = true
+        }
+      }
+    }
+  }
+  (out, changed)
+}
+
+///|
 fn rse_run_raw_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
@@ -2790,8 +2912,17 @@ fn rse_run_raw_func(
     let state = RseRawState::new(local_types, params.length(), env)
     (rse_raw_rewrite_expr(instrs, state), state.changed)
   }
-  if changed {
-    (@lib.Func::new(locals, @lib.Expr::new(rewritten)), true)
+  let reads = Array::make(local_types.length(), 0)
+  rse_raw_count_local_reads(rewritten, reads)
+  let (cleaned, cleanup_changed) = rse_raw_remove_unread_local_sets(
+    rewritten,
+    reads,
+    local_types,
+    params.length(),
+    env,
+  )
+  if changed || cleanup_changed {
+    (@lib.Func::new(locals, @lib.Expr::new(cleaned)), true)
   } else {
     (func, false)
   }
