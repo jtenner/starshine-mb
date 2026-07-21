@@ -53,25 +53,35 @@ A faithful local design should preserve these source-level properties even when 
 
 **Gap.** Starshine has rich boundary reasons and an original/current graph, but visibility, tail, tag/table/type exposure, and parameter-use legality are still consumed by multiple family-specific collectors. The pass also needs one CFG-quality definition of whether the incoming parameter value is live at function entry; syntactic `local.get` scanning is insufficient when a parameter is overwritten before its first read or when reads/writes occur through branches and exceptional control.
 
-**Implementation status (2026-07-21, `[O4Z-DAE-BOUNDARY]001`).**
+**Implementation status (2026-07-21 repair, `[O4Z-DAE-BOUNDARY]001`).**
 
 Shared fact structures now in `src/passes/dead_argument_elimination.mbt`:
 
-- `DaeFunctionExposure` — reason-coded original exposure flags (import/export/start/`ref.func` body vs module code/active/passive/declarative element/table carrier/tag type carrier/unknown indirect/`call_ref`).
-- `DaeOriginalBoundarySnapshot.exposure` — immutable per-function exposure snapshot built once by `dae_collect_original_exposure` before mutation; `escaped` remains the derived boolean OR.
-- `DaeCurrentTopologyExtras` on `DaeCurrentBoundaryGraph` — exact direct `return_call` callers/callees plus conservative `call_indirect` / `call_ref` / indirect-tail / reference-tail barriers, refreshed with the current graph.
-- `DaeBoundaryFacts` — combines original exposure, current graph/topology, and per-definition incoming-parameter live-in vectors.
-- Queries: `dae_can_change_function_boundary` (requires no original exposure reason and no current unsupported caller/tail barrier) and `dae_is_incoming_parameter_live` / `dae_incoming_parameter_liveness`.
+- `DaeFunctionExposure` — exact incoming exposure only: import/export/start/`ref.func` body vs module code/active/passive/declarative element. Type equality with tags, tables, `call_indirect`, or `call_ref` does **not** create exposure.
+- `DaeOriginalBoundarySnapshot.exposure` — immutable per-function exposure snapshot; `escaped` remains the derived boolean OR of exact exposure.
+- `DaeCurrentTopologyExtras` on `DaeCurrentBoundaryGraph` — absolute-index direct `return_call` callers/callees plus outgoing body facts (`has_outgoing_call_indirect` / `has_outgoing_call_ref` / `has_outgoing_return_call*`). Topology arrays and edge values use absolute function indices; definition-relative consumers convert through `dae_abs_func_idx` / `dae_def_idx_of_abs`.
+- `DaeBoundaryFacts` — `{ original, graph, incoming_param_live_by_def, incoming_param_live_body_epochs }` with accessors for `original.exposure` and `graph.topology` (no duplicate mutable copies).
+- Queries:
+  - `dae_can_change_parameters` — incoming ownership only; outgoing tails/`call_indirect`/`call_ref` do not block parameter removal.
+  - `dae_can_remove_function_result` — requires owned incoming boundaries, then rejects outgoing tails, direct-tail callees, and incomplete dropped observers.
+  - `dae_is_incoming_parameter_live` / `dae_incoming_parameter_liveness`.
+
+**Binaryen-aligned rules recorded here:**
+
+- Actual function references (`ref.func`, element entries, exports, start) create exposure.
+- Type equality does not create exposure.
+- Outgoing tail calls are result-removal constraints, not general parameter barriers.
+- Topology indices use one absolute function-index coordinate system.
 
 **Liveness algorithm.** Prefer HOT CFG liveness via `dae_hot_param_entry_liveness` (`@ir.cfg_build` + `@ir.liveness_build` + `@ir.local_live_in` at the entry block), which models structured control including `block`/`if`/`loop`/`br*`/`try_table` exceptional edges. Writes kill incoming values; merges are conservative. Legacy `Try` is not HOT-lifted today, so analysis fail-closes by marking affected parameters live (safe). Stack-switching and other unsupported forms likewise fail closed.
 
-**Consumers migrated.** Ordinary generic unused-parameter eligibility in `dae_run_core_once`, the scalar unused-param rewrite plan guard, and the selected unread dispatcher path now consume the shared live-in oracle and final `dae_can_change_function_boundary` guard. Specialized family scanners remain temporarily with TODOs pointing at later workstreams; the shared final guard is authoritative for protected/uncertain boundaries.
+**Consumers migrated.** Ordinary generic unused-parameter eligibility in `dae_run_core_once`, the scalar unused-param rewrite plan guard, and the selected unread dispatcher path now consume the shared live-in oracle and final `dae_can_change_parameters` guard. Specialized family scanners remain temporarily with TODOs pointing at later workstreams; the shared final guard is authoritative for protected/uncertain boundaries.
 
-**Unsupported / fail-closed.** Legacy `Try` (no HOT lift), stack-switch/resume forms, uncertain exceptional/delegate paths, and any exposure or topology barrier reason above. Never classify an uncertain parameter as dead.
+**Unsupported / fail-closed.** Legacy `Try` (no HOT lift), stack-switch/resume forms, uncertain exceptional/delegate paths, and exact exposure reasons above. Never classify an uncertain parameter as dead.
 
-**Deterministic tests added** in `dead_argument_elimination_wbtest.mbt`: overwritten/live control cases, `try_table`/legacy-`try` live-or-fail-closed cases, export/start/`ref.func`/element/tag/indirect/`call_ref`/tail barriers, return_call vs call topology, dropped observers, stale epoch refresh, and shared-guard signature protection.
+**Deterministic tests** in `dead_argument_elimination_wbtest.mbt` and `dae_optimizing_test.mbt`: exact export/start/`ref.func`/element exposure; type-only tag/table/indirect/`call_ref` non-exposure; outgoing-tail parameter eligibility vs result rejection; absolute imported-offset topology; real dispatcher stale rejection; public if/loop/try/tail/exposure integration.
 
-**Exit criterion.** No signature-changing family has a private visibility or parameter-use scanner, and every unsupported exposure produces one reason-coded fail-closed outcome.
+**Exit criterion.** No signature-changing family has a private visibility or parameter-use scanner, and every unsupported exact exposure produces one reason-coded fail-closed outcome.
 
 **Implementation strategy (historical plan; see status above for landed slice).**
 

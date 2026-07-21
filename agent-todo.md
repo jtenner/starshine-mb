@@ -120,12 +120,15 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-BOUNDARY]001 - Unify exposure facts and parameter live-in analysis
 
 - **Owner:** `src/passes/dead_argument_elimination.mbt` boundary scanning, liveness, and current graph.
+- **Status:** repaired on 2026-07-21 to Binaryen-v131 incoming-ownership semantics (reopened briefly after the initial landing, then closed again by this repair).
 - **Deliverables:**
-  - [x] One immutable original exposure snapshot for imports, exports, start, `ref.func`, elements/tables, tags, module code, and type carriers.
-  - [x] One current graph for direct calls, direct `return_call`, dropped calls, parameter-flow edges, result observers, and tail dependencies.
+  - [x] One immutable original exposure snapshot for imports, exports, start, actual `ref.func`, and actual element references only.
+  - [x] One current graph for direct calls, direct `return_call`, dropped calls, parameter-flow edges, result observers, and outgoing-tail facts.
+  - [x] Separate queries: `dae_can_change_parameters` (incoming ownership) vs `dae_can_remove_function_result` (result-tail legality).
   - [x] One CFG-quality parameter live-in analysis that treats writes as kills and covers branches, loops, `try_table`, decoded legacy `try`, catches, and delegates.
-  - [x] Exact fail-closed reasons and focused tests for indirect/reference callers and tail barriers.
-- **Exit criteria:** no signature-changing family uses a private visibility or parameter-use scanner.
+  - [x] Absolute-index topology with explicit abs/def helpers; no duplicate exposure/topology storage on `DaeBoundaryFacts`.
+  - [x] Exact fail-closed reasons and focused/public tests for actual exposure, type-only non-exposure, imported offsets, stale dispatcher rejection, and outgoing-tail result restrictions.
+- **Exit criteria:** no signature-changing family uses a private visibility or parameter-use scanner; type equality alone never blocks parameter removal.
 
 ### [O4Z-DAE-PLAN]001 - Finish the common value-slice and transaction lifecycle
 

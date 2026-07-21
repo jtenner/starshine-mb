@@ -706,6 +706,369 @@ test "dead-argument-elimination removes an overwritten incoming parameter" {
 }
 
 ///|
+test "dead-argument-elimination removes params overwritten on both if arms" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 1
+    #|    if
+    #|      i32.const 1
+    #|      local.set 0
+    #|    else
+    #|      i32.const 2
+    #|      local.set 0
+    #|    end
+    #|    local.get 0)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    i32.const 9
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected both-if-arms DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination keeps params read on one if arm" {
+  let source =
+    #|(module
+    #|  (func $f (param i32 i32) (result i32)
+    #|    local.get 1
+    #|    if (result i32)
+    #|      local.get 0
+    #|    else
+    #|      i32.const 2
+    #|    end)
+    #|  (func (export "run") (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 2)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected one-if-arm-live DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination keeps first-iteration loop param reads" {
+  let source =
+    #|(module
+    #|  (func $f (param i32) (result i32)
+    #|    (local i32)
+    #|    loop
+    #|      local.get 0
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.eqz
+    #|      br_if 0
+    #|    end
+    #|    local.get 1)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected loop-first-read DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination fail-closes unsupported legacy try param bodies" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func $f (param i32) (result i32)
+    #|    (try (result i32)
+    #|      (do
+    #|        local.get 0)
+    #|      (catch $e
+    #|        i32.const 0)))
+    #|  (func (export "run") (param i32) (result i32)
+    #|    local.get 0
+    #|    call $f))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected legacy-try DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination removes dead params despite outgoing return_call_indirect" {
+  let source =
+    #|(module
+    #|  (type $ty (func (result i32)))
+    #|  (table 1 funcref)
+    #|  (func $leaf (result i32)
+    #|    i32.const 7)
+    #|  (elem (i32.const 0) $leaf)
+    #|  (func $wrapper (param i32) (result i32)
+    #|    i32.const 0
+    #|    return_call_indirect (type $ty))
+    #|  (func (export "run") (result i32)
+    #|    i32.const 9
+    #|    call $wrapper))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected return_call_indirect wrapper DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination removes dead params despite outgoing return_call_ref" {
+  // Inject return_call_ref because ordinary WAST may not round-trip it.
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $ty (func (result i32)))
+      #|  (elem declare func $leaf)
+      #|  (func $leaf (result i32)
+      #|    i32.const 7)
+      #|  (func $wrapper (param i32) (result i32)
+      #|    i32.const 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 9
+      #|    call $wrapper))
+    ),
+  )
+  let mod_ = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next = funcs.copy()
+      next[1] = @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::return_call_ref(@lib.TypeIdx::new(0U)),
+        ]),
+      )
+      mod_.with_code_sec(@lib.CodeSec::new(next))
+    }
+    None => abort("expected code section")
+  }
+  let optimized = dae_run_module_pass(mod_)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected return_call_ref wrapper DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination removes dead params on direct return_call wrappers" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $wrapper (param i32 i32) (result i32)
+    #|    local.get 1
+    #|    return_call $target)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    i32.const 1
+    #|    local.get 0
+    #|    call $wrapper))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected direct return_call wrapper DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination keeps results when wrappers contain outgoing tails" {
+  let source =
+    #|(module
+    #|  (type $ty (func (result i32)))
+    #|  (table 1 funcref)
+    #|  (func $leaf (result i32)
+    #|    i32.const 7)
+    #|  (elem (i32.const 0) $leaf)
+    #|  (func $wrapper (param i32) (result i32)
+    #|    i32.const 0
+    #|    return_call_indirect (type $ty))
+    #|  (func (export "run")
+    #|    i32.const 9
+    #|    call $wrapper
+    #|    drop))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 1).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected dropped-result-tail negative DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination removes private params beside type-only tags" {
+  let source =
+    #|(module
+    #|  (type $shared (func (param i32)))
+    #|  (tag $e (type $shared))
+    #|  (func $target (type $shared)
+    #|    nop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $target))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let @lib.FuncType(tag_params, _) = dae_test_type_sec_func_type(optimized, 0)
+  @debug.assert_eq(tag_params.length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected tag type-only DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination removes private params beside unused typed tables" {
+  let source =
+    #|(module
+    #|  (type $ty (func (param i32)))
+    #|  (table 1 funcref)
+    #|  (func $target (type $ty)
+    #|    nop)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $target))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected unused-table DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination removes private params beside unrelated call_indirect leaves" {
+  let source =
+    #|(module
+    #|  (type $ty (func (param i32)))
+    #|  (table 1 funcref)
+    #|  (func $target (type $ty)
+    #|    nop)
+    #|  (func $indirectLeaf (type $ty)
+    #|    local.get 0
+    #|    drop)
+    #|  (elem (i32.const 0) $indirectLeaf)
+    #|  (func $indirectCaller
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    call_indirect (type $ty))
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $target))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected unrelated call_indirect DAE output to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "dead-argument-elimination removes private params beside unrelated call_ref leaves" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $ty (func (param i32)))
+      #|  (elem declare func $refLeaf)
+      #|  (func $target (type $ty)
+      #|    nop)
+      #|  (func $refLeaf (type $ty)
+      #|    local.get 0
+      #|    drop)
+      #|  (func $caller
+      #|    i32.const 0
+      #|    call $target)
+      #|  (func (export "run")
+      #|    call $caller))
+    ),
+  )
+  let mod_ = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next = funcs.copy()
+      next[2] = @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      )
+      mod_.with_code_sec(@lib.CodeSec::new(next))
+    }
+    None => abort("expected code section")
+  }
+  let optimized = dae_run_module_pass(mod_)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected unrelated call_ref DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination keeps params for actual ref.func exposure" {
+  let source =
+    #|(module
+    #|  (type $ty (func (param i32)))
+    #|  (elem declare func $target)
+    #|  (func $target (type $ty)
+    #|    local.get 0
+    #|    drop)
+    #|  (func $holder (result (ref null $ty))
+    #|    ref.func $target)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    call $target
+    #|    call $holder
+    #|    drop))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected ref.func exposure DAE output to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination uses CFG liveness across a branch target" {
   let source =
     #|(module

@@ -16402,8 +16402,7 @@ test "dae boundary facts keep try_table and legacy-try reads live or fail closed
 }
 
 ///|
-test "dae boundary facts protect exported start ref.func element and tag surfaces" {
-  // Cases 15-22.
+test "dae boundary facts protect exact export start ref.func and element surfaces" {
   let exported = pass_test_module_from_wat(
     (
       #|(module
@@ -16417,8 +16416,8 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ),
   )
   let exported_facts = dae_boundary_facts_new(exported)
-  assert_true(exported_facts.exposure[1].exported)
-  assert_false(dae_can_change_function_boundary(exported_facts, 1))
+  assert_true(dae_boundary_facts_exposure(exported_facts)[1].exported)
+  assert_false(dae_can_change_parameters(exported_facts, 1))
 
   let started = pass_test_module_from_wat(
     (
@@ -16432,8 +16431,8 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ),
   )
   let started_facts = dae_boundary_facts_new(started)
-  assert_true(started_facts.exposure[1].start)
-  assert_false(dae_can_change_function_boundary(started_facts, 1))
+  assert_true(dae_boundary_facts_exposure(started_facts)[1].start)
+  assert_false(dae_can_change_parameters(started_facts, 1))
 
   let ref_func_body = pass_test_module_from_wat(
     (
@@ -16452,8 +16451,8 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ),
   )
   let ref_body_facts = dae_boundary_facts_new(ref_func_body)
-  assert_true(ref_body_facts.exposure[1].ref_func_body)
-  assert_false(dae_can_change_function_boundary(ref_body_facts, 1))
+  assert_true(dae_boundary_facts_exposure(ref_body_facts)[1].ref_func_body)
+  assert_false(dae_can_change_parameters(ref_body_facts, 1))
 
   let ref_func_module = pass_test_module_from_wat(
     (
@@ -16471,8 +16470,8 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ),
   )
   let ref_mod_facts = dae_boundary_facts_new(ref_func_module)
-  assert_true(ref_mod_facts.exposure[1].ref_func_module)
-  assert_false(dae_can_change_function_boundary(ref_mod_facts, 1))
+  assert_true(dae_boundary_facts_exposure(ref_mod_facts)[1].ref_func_module)
+  assert_false(dae_can_change_parameters(ref_mod_facts, 1))
 
   let active_elem = pass_test_module_from_wat(
     (
@@ -16489,8 +16488,8 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ),
   )
   let active_facts = dae_boundary_facts_new(active_elem)
-  assert_true(active_facts.exposure[1].active_element)
-  assert_false(dae_can_change_function_boundary(active_facts, 1))
+  assert_true(dae_boundary_facts_exposure(active_facts)[1].active_element)
+  assert_false(dae_can_change_parameters(active_facts, 1))
 
   let passive_elem = pass_test_module_from_wat(
     (
@@ -16506,8 +16505,8 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ),
   )
   let passive_facts = dae_boundary_facts_new(passive_elem)
-  assert_true(passive_facts.exposure[1].passive_element)
-  assert_false(dae_can_change_function_boundary(passive_facts, 1))
+  assert_true(dae_boundary_facts_exposure(passive_facts)[1].passive_element)
+  assert_false(dae_can_change_parameters(passive_facts, 1))
 
   // WAST lowers `elem declare` as passive; build declarative mode directly.
   let declarative_only = pass_test_module_from_wat(
@@ -16531,9 +16530,12 @@ test "dae boundary facts protect exported start ref.func element and tag surface
     ]),
   )
   let decl_facts = dae_boundary_facts_new(declarative_only)
-  assert_true(decl_facts.exposure[2].declarative_element)
-  assert_false(dae_can_change_function_boundary(decl_facts, 2))
+  assert_true(dae_boundary_facts_exposure(decl_facts)[2].declarative_element)
+  assert_false(dae_can_change_parameters(decl_facts, 2))
+}
 
+///|
+test "dae type-only tag table indirect and call_ref surfaces stay parameter-eligible" {
   let tag_carrier = pass_test_module_from_wat(
     (
       #|(module
@@ -16541,53 +16543,69 @@ test "dae boundary facts protect exported start ref.func element and tag surface
       #|  (tag $e (type $shared))
       #|  (func $pad)
       #|  (func $target (type $shared)
-      #|    local.get 0
-      #|    drop)
+      #|    nop)
       #|  (func $caller
       #|    i32.const 0
       #|    call $target))
     ),
   )
   let tag_facts = dae_boundary_facts_new(tag_carrier)
-  assert_true(tag_facts.exposure[1].tag_type_carrier)
-  assert_false(dae_can_change_function_boundary(tag_facts, 1))
-}
+  assert_true(dae_can_change_parameters(tag_facts, 1))
+  assert_false(dae_is_incoming_parameter_live(tag_facts, 1, 0))
 
-///|
-test "dae boundary facts record indirect call_ref and tail barriers" {
-  // Cases 23-24.
-  let indirect = pass_test_module_from_wat(
+  let table_only = pass_test_module_from_wat(
     (
       #|(module
       #|  (type $ty (func (param i32)))
       #|  (table 1 funcref)
       #|  (func $pad)
       #|  (func $target (type $ty)
-      #|    local.get 0
-      #|    drop)
-      #|  (elem (i32.const 0) $target)
+      #|    nop)
       #|  (func $caller
-      #|    i32.const 0
-      #|    i32.const 0
-      #|    call_indirect (type $ty)
       #|    i32.const 0
       #|    call $target))
     ),
   )
-  let indirect_facts = dae_boundary_facts_new(indirect)
-  assert_true(
-    indirect_facts.exposure[1].unknown_indirect ||
-    indirect_facts.topology.indirect_call_barrier[1],
-  )
-  assert_false(dae_can_change_function_boundary(indirect_facts, 1))
+  let table_facts = dae_boundary_facts_new(table_only)
+  assert_true(dae_can_change_parameters(table_facts, 1))
 
-  let call_ref = pass_test_module_from_wat(
+  let unrelated_indirect = pass_test_module_from_wat(
     (
       #|(module
       #|  (type $ty (func (param i32)))
-      #|  (elem declare func $target)
+      #|  (table 1 funcref)
       #|  (func $pad)
       #|  (func $target (type $ty)
+      #|    nop)
+      #|  (func $indirectLeaf (type $ty)
+      #|    local.get 0
+      #|    drop)
+      #|  (elem (i32.const 0) $indirectLeaf)
+      #|  (func $indirectCaller
+      #|    i32.const 0
+      #|    i32.const 0
+      #|    call_indirect (type $ty))
+      #|  (func $caller
+      #|    i32.const 0
+      #|    call $target))
+    ),
+  )
+  let indirect_facts = dae_boundary_facts_new(unrelated_indirect)
+  assert_true(dae_can_change_parameters(indirect_facts, 1))
+  assert_false(dae_can_change_parameters(indirect_facts, 2))
+  assert_true(
+    dae_boundary_facts_topology(indirect_facts).has_outgoing_call_indirect[3],
+  )
+
+  let unrelated_call_ref = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $ty (func (param i32)))
+      #|  (elem declare func $refLeaf)
+      #|  (func $pad)
+      #|  (func $target (type $ty)
+      #|    nop)
+      #|  (func $refLeaf (type $ty)
       #|    local.get 0
       #|    drop)
       #|  (func $caller
@@ -16595,32 +16613,33 @@ test "dae boundary facts record indirect call_ref and tail barriers" {
       #|    call $target))
     ),
   )
-  // Inject call_ref through a direct module rewrite so the WAT surface does not
-  // need to round-trip call_ref text forms for this boundary-guard fixture.
-  let call_ref = match call_ref.code_sec {
+  let unrelated_call_ref = match unrelated_call_ref.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let next = funcs.copy()
-      next[2] = @lib.Func::new(
+      next[3] = @lib.Func::new(
         @lib.Locals::empty(),
         @lib.Expr::new([
           @lib.Instruction::i32_const(@lib.I32(0)),
-          @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
+          @lib.Instruction::ref_func(@lib.FuncIdx::new(2U)),
           @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
           @lib.Instruction::i32_const(@lib.I32(0)),
           @lib.Instruction::call(@lib.FuncIdx::new(1U)),
         ]),
       )
-      call_ref.with_code_sec(@lib.CodeSec::new(next))
+      unrelated_call_ref.with_code_sec(@lib.CodeSec::new(next))
     }
     None => fail("expected code section")
   }
-  let call_ref_facts = dae_boundary_facts_new(call_ref)
+  let call_ref_facts = dae_boundary_facts_new(unrelated_call_ref)
+  assert_true(dae_can_change_parameters(call_ref_facts, 1))
+  assert_false(dae_can_change_parameters(call_ref_facts, 2))
   assert_true(
-    call_ref_facts.exposure[1].unknown_call_ref ||
-    call_ref_facts.topology.call_ref_barrier[1],
+    dae_boundary_facts_topology(call_ref_facts).has_outgoing_call_ref[3],
   )
-  assert_false(dae_can_change_function_boundary(call_ref_facts, 1))
+}
 
+///|
+test "dae outgoing tails block result removal not parameter removal" {
   let indirect_tail = pass_test_module_from_wat(
     (
       #|(module
@@ -16628,8 +16647,6 @@ test "dae boundary facts record indirect call_ref and tail barriers" {
       #|  (table 1 funcref)
       #|  (func $pad)
       #|  (func $target (param i32)
-      #|    local.get 0
-      #|    drop
       #|    i32.const 0
       #|    return_call_indirect (type $ty))
       #|  (func $caller
@@ -16638,8 +16655,11 @@ test "dae boundary facts record indirect call_ref and tail barriers" {
     ),
   )
   let tail_facts = dae_boundary_facts_new(indirect_tail)
-  assert_true(tail_facts.topology.indirect_tail_barrier[1])
-  assert_false(dae_can_change_function_boundary(tail_facts, 1))
+  assert_true(
+    dae_boundary_facts_topology(tail_facts).has_outgoing_return_call_indirect[1],
+  )
+  assert_true(dae_can_change_parameters(tail_facts, 1))
+  assert_false(dae_can_remove_function_result(tail_facts, 1))
 
   let ref_tail = pass_test_module_from_wat(
     (
@@ -16662,8 +16682,6 @@ test "dae boundary facts record indirect call_ref and tail barriers" {
       next[2] = @lib.Func::new(
         @lib.Locals::empty(),
         @lib.Expr::new([
-          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-          @lib.Instruction::drop(),
           @lib.Instruction::ref_func(@lib.FuncIdx::new(1U)),
           @lib.Instruction::return_call_ref(@lib.TypeIdx::new(0U)),
         ]),
@@ -16673,13 +16691,36 @@ test "dae boundary facts record indirect call_ref and tail barriers" {
     None => fail("expected code section")
   }
   let ref_tail_facts = dae_boundary_facts_new(ref_tail)
-  assert_true(ref_tail_facts.topology.reference_tail_barrier[2])
-  assert_false(dae_can_change_function_boundary(ref_tail_facts, 2))
+  assert_true(
+    dae_boundary_facts_topology(ref_tail_facts).has_outgoing_return_call_ref[2],
+  )
+  assert_true(dae_can_change_parameters(ref_tail_facts, 2))
+  assert_false(dae_can_remove_function_result(ref_tail_facts, 2))
+
+  let dropped_result_tail = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $ty (func (result i32)))
+      #|  (table 1 funcref)
+      #|  (func $pad)
+      #|  (func $leaf (result i32)
+      #|    i32.const 1)
+      #|  (func $wrapper (param i32) (result i32)
+      #|    i32.const 0
+      #|    return_call_indirect (type $ty))
+      #|  (func $caller
+      #|    i32.const 0
+      #|    call $wrapper
+      #|    drop))
+    ),
+  )
+  let dropped_facts = dae_boundary_facts_new(dropped_result_tail)
+  assert_true(dae_can_change_parameters(dropped_facts, 2))
+  assert_false(dae_can_remove_function_result(dropped_facts, 2))
 }
 
 ///|
 test "dae current topology separates return_call dropped observers and stale epochs" {
-  // Cases 25-28.
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -16702,8 +16743,15 @@ test "dae current topology separates return_call dropped observers and stale epo
   assert_eq(facts.graph.snapshot.call_facts.direct_calls[1], 2)
   assert_eq(facts.graph.snapshot.call_facts.dropped_calls[1], 1)
   assert_true(facts.graph.snapshot.call_facts.tail_calls[1])
-  assert_eq(facts.topology.direct_return_callers[1], [3])
-  assert_true(facts.topology.direct_return_callees_by_caller[3].contains(1))
+  // Absolute caller indices in both directions.
+  assert_eq(dae_boundary_facts_topology(facts).direct_return_callers[1], [3])
+  assert_true(
+    dae_boundary_facts_topology(facts).direct_return_callees_by_caller[3].contains(
+      1,
+    ),
+  )
+  assert_true(dae_boundary_facts_topology(facts).has_outgoing_return_call[3])
+  assert_false(dae_can_remove_function_result(facts, 1))
 
   let before_epoch = dae_boundary_candidate_epoch(facts.graph, 1)
   let before_calls = facts.graph.snapshot.call_facts.direct_calls[1]
@@ -16727,11 +16775,211 @@ test "dae current topology separates return_call dropped observers and stale epo
   )
   assert_true(facts.graph.snapshot.call_facts.direct_calls[1] > before_calls)
   assert_false(dae_candidate_epoch_is_current(facts.graph, before_epoch))
-
-  // Stale epoch must not authorize mutation: rebuild a candidate against the
-  // old token and confirm the shared guard still rejects stale facts.
-  assert_false(dae_candidate_epoch_is_current(facts.graph, before_epoch))
   assert_eq(dae_wb_param_count(with_extra_call, 1), 1)
+}
+
+///|
+test "dae imported-function offsets keep absolute topology and definition liveness" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (import "env" "imp0" (func $imp0 (param i32)))
+      #|  (import "env" "imp1" (func $imp1 (param i32) (result i32)))
+      #|  (func $pad)
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func $ordinary
+      #|    i32.const 1
+      #|    call $target
+      #|    drop)
+      #|  (func $tail (param i32) (result i32)
+      #|    local.get 0
+      #|    return_call $target)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 2
+      #|    call $tail))
+    ),
+  )
+  let facts = dae_boundary_facts_new(mod_)
+  let imported = facts.graph.snapshot.imported
+  assert_eq(imported, 2)
+  let target_def = 1
+  let target_abs = dae_abs_func_idx(imported, target_def)
+  assert_eq(target_abs, 3)
+  assert_eq(dae_def_idx_of_abs(imported, target_abs), Some(target_def))
+  assert_true(dae_boundary_facts_exposure(facts)[0].imported)
+  assert_true(dae_boundary_facts_exposure(facts)[1].imported)
+  assert_false(dae_boundary_facts_exposure(facts)[target_abs].imported)
+  assert_eq(facts.graph.snapshot.call_facts.direct_calls[target_abs], 2)
+  assert_eq(facts.graph.snapshot.call_facts.dropped_calls[target_abs], 1)
+  assert_true(facts.graph.snapshot.call_facts.tail_calls[target_abs])
+  let tail_caller_abs = dae_abs_func_idx(imported, 3)
+  assert_eq(
+    dae_boundary_facts_topology(facts).direct_return_callers[target_abs],
+    [tail_caller_abs],
+  )
+  assert_true(
+    dae_boundary_facts_topology(facts).direct_return_callees_by_caller[tail_caller_abs].contains(
+      target_abs,
+    ),
+  )
+  // Fail closed if a caller definition index is stored where abs is required.
+  assert_false(
+    dae_boundary_facts_topology(facts).direct_return_callers[target_abs].contains(
+      3,
+    ),
+  )
+  assert_true(dae_is_incoming_parameter_live(facts, target_abs, 0))
+  assert_eq(facts.incoming_param_live_by_def[target_def], [true])
+}
+
+///|
+test "dae dispatcher rejects stale call body signature and module epochs without mutation" {
+  let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let before_params = dae_wb_param_count(mod_, 0)
+
+  // Call-epoch stale item: bump call_epoch only and submit through dispatcher.
+  let call_item = dae_work_item_new(
+    graph,
+    dependencies,
+    0,
+    DaeUnusedParameterWork,
+  )
+  graph.call_epoch += 1
+  let call_diagnostics = dae_diagnostics_new()
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      call_item,
+      call_diagnostics,
+    ) {
+    DaeWorkRequeue(_) | DaeWorkNoChange(DaeStaleCandidateFacts) => ()
+    _ => fail("expected stale call-epoch outcome")
+  }
+  assert_eq(dae_wb_param_count(mod_, 0), before_params)
+  assert_false(dae_work_item_epoch_is_current(graph, call_item))
+
+  // Body-epoch stale item after a real body rewrite refresh.
+  let graph2 = dae_current_boundary_graph_new(mod_)
+  let dependencies2 = dae_boundary_dependency_graph_new(graph2)
+  let body_item = dae_work_item_new(
+    graph2,
+    dependencies2,
+    0,
+    DaeUnusedParameterWork,
+  )
+  let changed_body = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
+      let next_body = body.copy()
+      next_body.push(@lib.Instruction::nop())
+      let next_funcs = funcs.copy()
+      next_funcs[0] = @lib.Func::new(locals, @lib.Expr::new(next_body))
+      mod_.with_code_sec(@lib.CodeSec::new(next_funcs))
+    }
+    None => fail("expected code section")
+  }
+  dae_current_boundary_graph_refresh(graph2, changed_body)
+  let body_diagnostics = dae_diagnostics_new()
+  match
+    dae_process_work_item(
+      original,
+      changed_body,
+      [],
+      false,
+      graph2,
+      dependencies2,
+      body_item,
+      body_diagnostics,
+    ) {
+    DaeWorkRequeue(_) | DaeWorkNoChange(DaeStaleCandidateFacts) => ()
+    _ => fail("expected stale body-epoch outcome")
+  }
+  assert_eq(dae_wb_param_count(changed_body, 0), before_params)
+  assert_false(dae_work_item_epoch_is_current(graph2, body_item))
+
+  // Signature-epoch stale item after a signature change refresh.
+  let graph3 = dae_current_boundary_graph_new(mod_)
+  let dependencies3 = dae_boundary_dependency_graph_new(graph3)
+  let sig_item = dae_work_item_new(
+    graph3,
+    dependencies3,
+    0,
+    DaeUnusedParameterWork,
+  )
+  let changed_sig = match (mod_.func_sec, mod_.type_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.TypeSec(rec_types))) => {
+      let next_types = rec_types.copy()
+      let new_type_idx = next_types.length()
+      next_types.push(
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+          ),
+        ),
+      )
+      let next_idxs = type_idxs.copy()
+      next_idxs[0] = @lib.TypeIdx::new(new_type_idx.reinterpret_as_uint())
+      mod_
+      .with_type_sec(@lib.TypeSec::new(next_types))
+      .with_func_sec(@lib.FuncSec::new(next_idxs))
+    }
+    _ => fail("expected type and func sections")
+  }
+  dae_current_boundary_graph_refresh(graph3, changed_sig)
+  let sig_diagnostics = dae_diagnostics_new()
+  match
+    dae_process_work_item(
+      original,
+      changed_sig,
+      [],
+      false,
+      graph3,
+      dependencies3,
+      sig_item,
+      sig_diagnostics,
+    ) {
+    DaeWorkRequeue(_) | DaeWorkNoChange(DaeStaleCandidateFacts) => ()
+    _ => fail("expected stale signature-epoch outcome")
+  }
+  assert_false(dae_work_item_epoch_is_current(graph3, sig_item))
+
+  // Module-epoch / type-domain stale via module_epoch bump (type edits advance
+  // module epoch together with signature facts in the shared graph).
+  let graph4 = dae_current_boundary_graph_new(mod_)
+  let dependencies4 = dae_boundary_dependency_graph_new(graph4)
+  let type_item = dae_work_item_new(
+    graph4,
+    dependencies4,
+    0,
+    DaeUnusedParameterWork,
+  )
+  graph4.module_epoch += 1
+  let type_diagnostics = dae_diagnostics_new()
+  match
+    dae_process_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph4,
+      dependencies4,
+      type_item,
+      type_diagnostics,
+    ) {
+    DaeWorkRequeue(_) | DaeWorkNoChange(DaeStaleCandidateFacts) => ()
+    _ => fail("expected stale module/type-epoch outcome")
+  }
+  assert_eq(dae_wb_param_count(mod_, 0), before_params)
+  assert_false(dae_work_item_epoch_is_current(graph4, type_item))
 }
 
 ///|
@@ -16751,7 +16999,7 @@ test "dae shared live-in drives unread removal without local.get equivalence" {
   )
   let facts = dae_boundary_facts_new(mod_)
   assert_false(dae_is_incoming_parameter_live(facts, 1, 0))
-  assert_true(dae_can_change_function_boundary(facts, 1))
+  assert_true(dae_can_change_parameters(facts, 1))
   let optimized = dae_run_module_pass(mod_)
   assert_eq(dae_wb_param_count(optimized, 1), 0)
 }
