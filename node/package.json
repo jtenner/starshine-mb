@@ -1,6 +1,6 @@
 {
   "name": "@jtenner/starshine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Node.js package for the Starshine WebAssembly toolkit",
   "type": "module",
   "main": "./index.js",

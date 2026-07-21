@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-21
 sources:
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
   - https://docs.npmjs.com/cli/v11/configuring-npm/package-json
@@ -44,8 +44,8 @@ Use this page when preparing a Starshine release, reviewing a release-prep branc
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
 
-1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at version `0.1.0`.
-2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), currently `@jtenner/starshine` at version `0.1.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at version `0.1.1`.
+2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), currently `@jtenner/starshine` at version `0.1.1`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the required wasm-gc adapter package artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
