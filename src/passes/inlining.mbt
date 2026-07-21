@@ -7490,6 +7490,9 @@ fn inl_inline_exact_target_instrs(
 
 ///|
 pub fn inline_main_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let imports = inl_imported_func_count(mod_)
   let main_abs = inl_find_named_func_abs(mod_, "main")
   let original_abs = inl_find_named_func_abs(mod_, "__original_main")
@@ -7754,6 +7757,9 @@ fn inlining_run_module_pass_with_perf(
   partial_inlining_ifs? : Int = 0,
   perf? : HotPerfSession? = None,
 ) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let initial_graph_start_us = perf_start_timer_opt(
     perf, "detail:inlining:initial-original-reachable-private-cycle-funcs",
   )

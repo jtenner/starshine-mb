@@ -719,6 +719,9 @@ fn sg_rewrite_code_sec(
 
 ///|
 pub fn string_gathering_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let set = sg_collect_strings(mod_)
   if set.strings.is_empty() {
     return mod_

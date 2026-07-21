@@ -69,6 +69,45 @@ test "avoid-reinterprets rewrites all full-width load reinterpret pairs" {
 }
 
 ///|
+test "avoid-reinterprets rewrites legacy try protected and catch bodies" {
+  let memarg = @lib.MemArg::new(2U, None, 0UL)
+  let pair = fn() {
+    [
+      @lib.Instruction::f32_load(memarg),
+      @lib.Instruction::i32_reinterpret_f32(),
+    ]
+  }
+  let try_ = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new(pair()),
+    [
+      @lib.LegacyCatch::tagged(@lib.TagIdx::new(0U), @lib.Expr::new(pair())),
+      @lib.LegacyCatch::all(@lib.Expr::new(pair())),
+    ],
+  )
+  let input = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([try_])),
+    ]),
+  )
+  match ar_test_first_body(avoid_reinterprets_run_module_pass(input)) {
+    [
+      @lib.Try(
+        _,
+        @lib.Expr([@lib.I32Load(_)]),
+        [
+          @lib.LegacyCatch(_, @lib.Expr([@lib.I32Load(_)])),
+          @lib.LegacyCatchAll(@lib.Expr([@lib.I32Load(_)])),
+        ],
+        None
+      ),
+    ] => ()
+    other =>
+      fail("expected legacy reinterpret folding in every region, got \{other}")
+  }
+}
+
+///|
 test "avoid-reinterprets preserves partial-load reinterpret operations" {
   let input =
     #| (module

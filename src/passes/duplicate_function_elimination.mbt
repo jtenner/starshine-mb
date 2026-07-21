@@ -3712,6 +3712,9 @@ fn dfe_run_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
   let mut current = mod_
   let mut changed = false

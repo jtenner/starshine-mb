@@ -2467,3 +2467,38 @@ test "remove-unused-module-elements drops trap-only overwrite under traps-never-
       )
   }
 }
+
+///|
+test "remove-unused-module-elements keeps references reachable only through legacy try regions" {
+  let input =
+    #| (module
+    #|   (type $void (func))
+    #|   (tag $e)
+    #|   (func $kept)
+    #|   (func (export "root")
+    #|     (try
+    #|       (do
+    #|         call $kept)
+    #|       (catch $e
+    #|         call $kept)
+    #|       (catch_all
+    #|         call $kept))))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy EH reachability rewrite, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid legacy EH RUME output, got \{err}")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
+    None => fail("expected both root and legacy-EH-only callee")
+  }
+  match optimized.tag_sec {
+    Some(@lib.TagSec(tags)) => @debug.assert_eq(tags.length(), 1)
+    None => fail("expected catch-only tag to remain live")
+  }
+}

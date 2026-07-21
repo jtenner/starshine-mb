@@ -91,6 +91,30 @@ fn die_rewrite_instruction(
       }
       @lib.Instruction::if_(block_type, rewritten_then, rewritten_else)
     }
+    @lib.Try(block_type, body, catches, delegate) => {
+      let rewritten_catches : Array[@lib.LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag_idx, catch_body) =>
+            rewritten_catches.push(
+              @lib.LegacyCatch::tagged(
+                tag_idx,
+                die_rewrite_expr(catch_body, remap),
+              ),
+            )
+          @lib.LegacyCatchAll(catch_body) =>
+            rewritten_catches.push(
+              @lib.LegacyCatch::all(die_rewrite_expr(catch_body, remap)),
+            )
+        }
+      }
+      @lib.Instruction::try_(
+        block_type,
+        die_rewrite_expr(body, remap),
+        rewritten_catches,
+        delegate~,
+      )
+    }
     @lib.TryTable(block_type, catches, body) =>
       @lib.Instruction::try_table(
         block_type,

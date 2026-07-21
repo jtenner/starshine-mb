@@ -425,6 +425,15 @@ fn rume_record_declaring_elem_instr(
         None => ()
       }
     }
+    @lib.Try(_, body, catches, _) => {
+      rume_record_declaring_elem_expr(body, elem_idx, func_to_elems)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            rume_record_declaring_elem_expr(catch_body, elem_idx, func_to_elems)
+        }
+      }
+    }
     @lib.TryTable(_, _, body) =>
       rume_record_declaring_elem_expr(body, elem_idx, func_to_elems)
     @lib.RefFunc(func_idx) =>
@@ -1064,6 +1073,26 @@ fn rume_scan_instruction(
         used_elems, call_type, table_idx,
       )
     @lib.Throw(tag_idx) => rume_mark_tag(queue, used_tags, tag_idx)
+    @lib.Try(_, body, catches, _) => {
+      rume_scan_expr(
+        body, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
+        used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+      )
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(tag_idx, catch_body) => {
+            rume_mark_tag(queue, used_tags, tag_idx)
+            catch_body
+          }
+          @lib.LegacyCatchAll(catch_body) => catch_body
+        }
+        rume_scan_expr(
+          catch_body, mod_, analysis, table_imports, queue, used_funcs, used_globals,
+          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+          func_to_declaring_elems,
+        )
+      }
+    }
     @lib.TryTable(_, catches, body) => {
       rume_scan_catches(catches, queue, used_tags)
       rume_scan_expr(
@@ -2100,6 +2129,41 @@ fn rume_rewrite_instruction(
       )
     @lib.Throw(tag_idx) =>
       @lib.Instruction::throw_(rume_rewrite_tag_idx(tag_idx, tag_remap))
+    @lib.Try(block_type, body, catches, delegate) => {
+      let rewritten_catches : Array[@lib.LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag_idx, catch_body) =>
+            rewritten_catches.push(
+              @lib.LegacyCatch::tagged(
+                rume_rewrite_tag_idx(tag_idx, tag_remap),
+                rume_rewrite_expr(
+                  catch_body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                  elem_remap, data_remap,
+                ),
+              ),
+            )
+          @lib.LegacyCatchAll(catch_body) =>
+            rewritten_catches.push(
+              @lib.LegacyCatch::all(
+                rume_rewrite_expr(
+                  catch_body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                  elem_remap, data_remap,
+                ),
+              ),
+            )
+        }
+      }
+      @lib.Instruction::try_(
+        block_type,
+        rume_rewrite_expr(
+          body, func_remap, global_remap, table_remap, mem_remap, tag_remap, elem_remap,
+          data_remap,
+        ),
+        rewritten_catches,
+        delegate~,
+      )
+    }
     @lib.TryTable(block_type, catches, body) => {
       let rewritten_catches : Array[@lib.Catch] = []
       for catch_ in catches {
@@ -2986,6 +3050,16 @@ fn rume_mark_instruction_types(
       for val_type in types {
         rume_mark_val_type(used_types, val_type)
       }
+    @lib.Try(block_type, body, catches, _) => {
+      rume_mark_block_type(used_types, block_type)
+      rume_mark_expr_types(used_types, body)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            rume_mark_expr_types(used_types, catch_body)
+        }
+      }
+    }
     @lib.TryTable(block_type, _, body) => {
       rume_mark_block_type(used_types, block_type)
       rume_mark_expr_types(used_types, body)

@@ -1986,6 +1986,9 @@ pub fn memory_packing_run_module_pass(
   traps_never_happen? : Bool = false,
   zero_filled_memory? : Bool = false,
 ) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let datas = match mod_.data_sec {
     Some(@lib.DataSec(datas)) => datas
     None => return mod_

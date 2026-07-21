@@ -786,6 +786,9 @@ pub fn global_refining_run_module_pass(
   mod_ : @lib.Module,
   closed_world? : Bool = false,
 ) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let env = @validate.Env::new().with_module(mod_)
   let imported_global_count = gr_imported_global_count(mod_)
   let total_globals = env.globals.length()

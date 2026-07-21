@@ -348,6 +348,20 @@ fn or_scan_instrs(
           None => ()
         }
       }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
+          needs_dataflow
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          needs_dataflow = or_scan_instrs(
+              catch_body, read_counts, once_global_slots,
+            ) ||
+            needs_dataflow
+        }
+      }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
         needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
           needs_dataflow
@@ -433,6 +447,29 @@ fn or_analyze_instrs_flow(
         )
         ignore(branch_states.pop())
         match fallthrough {
+          Some(next) => current = next
+          None => return None
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        branch_states.push(None)
+        let mut merged = or_analyze_instrs_flow(
+          body, current, env, branch_states, normal_exits,
+        )
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          merged = or_merge_must_states(
+            merged,
+            or_analyze_instrs_flow(
+              catch_body, current, env, branch_states, normal_exits,
+            ),
+          )
+        }
+        let local_exits = branch_states.pop().unwrap()
+        match or_merge_must_states(merged, local_exits) {
           Some(next) => current = next
           None => return None
         }
@@ -583,6 +620,50 @@ fn or_rewrite_instrs_flow(
         ignore(branch_states.pop())
         instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
         match fallthrough {
+          Some(next) => current = next
+          None => return None
+        }
+      }
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+        branch_states.push(None)
+        let mut merged = or_rewrite_instrs_flow(
+          body, current, env, branch_states, normal_exits,
+        )
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+              merged = or_merge_must_states(
+                merged,
+                or_rewrite_instrs_flow(
+                  catch_body, current, env, branch_states, normal_exits,
+                ),
+              )
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(catch_body)),
+              )
+            }
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+              merged = or_merge_must_states(
+                merged,
+                or_rewrite_instrs_flow(
+                  catch_body, current, env, branch_states, normal_exits,
+                ),
+              )
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(@lib.Expr::new(catch_body)),
+              )
+            }
+          }
+        }
+        let local_exits = branch_states.pop().unwrap()
+        instrs[idx] = @lib.Instruction::try_(
+          block_type,
+          @lib.Expr::new(body),
+          rewritten_catches,
+          delegate~,
+        )
+        match or_merge_must_states(merged, local_exits) {
           Some(next) => current = next
           None => return None
         }

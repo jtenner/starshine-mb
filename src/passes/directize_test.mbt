@@ -263,3 +263,65 @@ test "directize rewrites known holes to unreachable" {
   assert_false(pretty.contains("drop"), msg=pretty)
   assert_false(pretty.contains("call_indirect"), msg=pretty)
 }
+
+///|
+test "directize sees table mutations inside legacy try regions" {
+  let source =
+    #|(module
+    #|  (type (func (param i32) (result i32)))
+    #|  (tag $e)
+    #|  (table 1 funcref)
+    #|  (func $target (type 0) (param i32) (result i32) local.get 0)
+    #|  (elem (i32.const 0) $target)
+    #|  (func (export "run") (param funcref i32) (result i32)
+    #|    (try
+    #|      (do
+    #|        i32.const 0
+    #|        local.get 0
+    #|        table.set 0)
+    #|      (catch $e))
+    #|    local.get 1
+    #|    i32.const 0
+    #|    call_indirect (type 0)))
+  let optimized = match pass_test_run_pipeline(source, ["directize"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy mutation directize success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid legacy mutation output, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+}
+
+///|
+test "directize rewrites eligible indirect calls inside legacy try catches" {
+  let source =
+    #|(module
+    #|  (type (func (param i32) (result i32)))
+    #|  (tag $e)
+    #|  (table 1 funcref)
+    #|  (func $target (type 0) (param i32) (result i32) local.get 0)
+    #|  (elem (i32.const 0) $target)
+    #|  (func (export "run") (param i32) (result i32)
+    #|    (try (result i32)
+    #|      (do
+    #|        unreachable)
+    #|      (catch $e
+    #|        local.get 0
+    #|        i32.const 0
+    #|        call_indirect (type 0)))))
+  let optimized = match pass_test_run_pipeline(source, ["directize"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy catch directize success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid legacy catch output, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(call (Func 0))"), msg=pretty)
+  assert_false(pretty.contains("call_indirect"), msg=pretty)
+}

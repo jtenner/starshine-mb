@@ -85,6 +85,44 @@ pub fn pass_rewrite_structured_instr(
         (instr, false)
       }
     }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let (next_body, body_changed) = rewrite_instrs(body)
+      let next_catches : Array[@lib.LegacyCatch] = []
+      let mut catches_changed = false
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+            let (next_catch, changed) = rewrite_instrs(catch_body)
+            if changed {
+              catches_changed = true
+            }
+            next_catches.push(
+              @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(next_catch)),
+            )
+          }
+          @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+            let (next_catch, changed) = rewrite_instrs(catch_body)
+            if changed {
+              catches_changed = true
+            }
+            next_catches.push(@lib.LegacyCatch::all(@lib.Expr::new(next_catch)))
+          }
+        }
+      }
+      if body_changed || catches_changed {
+        (
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(next_body),
+            next_catches,
+            delegate~,
+          ),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (next_body, changed) = rewrite_instrs(body)
       if changed {
@@ -145,12 +183,70 @@ pub fn pass_raw_instrs_have_branch_control(
         if pass_raw_instrs_have_branch_control(then_body) {
           return true
         }
+      @lib.Instruction::Try(_, @lib.Expr(body), catches, _) => {
+        if pass_raw_instrs_have_branch_control(body) {
+          return true
+        }
+        for catch_ in catches {
+          let catch_body = match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+          }
+          if pass_raw_instrs_have_branch_control(catch_body) {
+            return true
+          }
+        }
+      }
       @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
         if pass_raw_instrs_have_branch_control(body) {
           return true
         }
       _ => ()
     }
+  }
+  false
+}
+
+///|
+fn pass_raw_instrs_have_legacy_try(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Try(_, _, _, _) => return true
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if pass_raw_instrs_have_legacy_try(body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, else_body) => {
+        if pass_raw_instrs_have_legacy_try(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if pass_raw_instrs_have_legacy_try(body) { return true }
+          None => ()
+        }
+      }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        if pass_raw_instrs_have_legacy_try(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn pass_module_has_legacy_try(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        if pass_raw_instrs_have_legacy_try(body) {
+          return true
+        }
+      }
+    None => ()
   }
   false
 }
@@ -313,6 +409,48 @@ pub fn pass_raw_remove_dropped_unreachable_debris(
           changed = true
         }
         @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      @lib.Instruction::Try(block_type, @lib.Expr(body), catches, delegate) => {
+        let (next_body, body_changed) = pass_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        let next_catches : Array[@lib.LegacyCatch] = []
+        let mut catches_changed = false
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+              let (next_catch, changed2) = pass_raw_remove_dropped_unreachable_debris(
+                catch_body,
+              )
+              if changed2 {
+                catches_changed = true
+              }
+              next_catches.push(
+                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(next_catch)),
+              )
+            }
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+              let (next_catch, changed2) = pass_raw_remove_dropped_unreachable_debris(
+                catch_body,
+              )
+              if changed2 {
+                catches_changed = true
+              }
+              next_catches.push(
+                @lib.LegacyCatch::all(@lib.Expr::new(next_catch)),
+              )
+            }
+          }
+        }
+        if body_changed || catches_changed {
+          changed = true
+        }
+        @lib.Instruction::try_(
+          block_type,
+          @lib.Expr::new(next_body),
+          next_catches,
+          delegate~,
+        )
       }
       @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
         let (next_body, body_changed) = pass_raw_remove_dropped_unreachable_debris(

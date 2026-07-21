@@ -145,3 +145,53 @@ test "duplicate-import-elimination resets the bucket representative after a type
 
   @debug.assert_eq(die_test_imported_func_count(optimized), 2)
 }
+
+///|
+test "duplicate-import-elimination remaps function references in legacy try regions" {
+  let source =
+    #|(module
+    #|  (type $v (func))
+    #|  (import "env" "f" (func $first (type $v)))
+    #|  (import "env" "f" (func $duplicate (type $v)))
+    #|  (tag $e)
+    #|  (func (export "root")
+    #|    (try
+    #|      (do
+    #|        call $duplicate)
+    #|      (catch $e
+    #|        call $duplicate))))
+  let optimized = try! die_test_run(source)
+  @debug.assert_eq(die_test_imported_func_count(optimized), 1)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Try(
+                  _,
+                  @lib.Expr([@lib.Call(@lib.FuncIdx(0U))]),
+                  [
+                    @lib.LegacyCatch(
+                      _,
+                      @lib.Expr([@lib.Call(@lib.FuncIdx(0U))])
+                    ),
+                  ],
+                  None
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other => fail("expected remapped legacy try references, got \{other}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected valid duplicate-import legacy output, got \{err}")
+  }
+}

@@ -129,6 +129,15 @@ fn rl_scan_instruction(instr : @lib.Instruction, state : RLScanState) -> Unit {
         None => ()
       }
     }
+    @lib.Try(_, body, catches, _) => {
+      rl_scan_expr(body, state)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            rl_scan_expr(catch_body, state)
+        }
+      }
+    }
     @lib.TryTable(_, _, body) => rl_scan_expr(body, state)
     @lib.LocalGet(idx) => rl_note_access(state, idx)
     @lib.LocalSet(idx) => rl_note_access(state, idx)
@@ -205,6 +214,32 @@ fn rl_rewrite_instrs_in_place(
           None => ()
         }
         instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
+      }
+      @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+        rl_rewrite_instrs_in_place(body, old_to_new)
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+              rl_rewrite_instrs_in_place(catch_body, old_to_new)
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(catch_body)),
+              )
+            }
+            @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+              rl_rewrite_instrs_in_place(catch_body, old_to_new)
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(@lib.Expr::new(catch_body)),
+              )
+            }
+          }
+        }
+        instrs[idx] = @lib.Instruction::try_(
+          block_type,
+          @lib.Expr::new(body),
+          rewritten_catches,
+          delegate~,
+        )
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         rl_rewrite_instrs_in_place(body, old_to_new)

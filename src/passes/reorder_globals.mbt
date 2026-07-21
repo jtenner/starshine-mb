@@ -66,6 +66,15 @@ fn rg_count_instruction(instr : @lib.Instruction, counts : Array[Int]) -> Unit {
         None => ()
       }
     }
+    @lib.Try(_, body, catches, _) => {
+      rg_count_expr(body, counts)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            rg_count_expr(catch_body, counts)
+        }
+      }
+    }
     @lib.TryTable(_, _, body) => rg_count_expr(body, counts)
     @lib.GlobalGet(idx) | @lib.GlobalSet(idx) => rg_note_global_use(counts, idx)
     _ => ()
@@ -198,6 +207,17 @@ fn rg_collect_instruction_defined_deps(
             body, imported_globals, defined_count, deps,
           )
         None => ()
+      }
+    }
+    @lib.Try(_, body, catches, _) => {
+      rg_collect_expr_defined_deps(body, imported_globals, defined_count, deps)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            rg_collect_expr_defined_deps(
+              catch_body, imported_globals, defined_count, deps,
+            )
+        }
       }
     }
     @lib.TryTable(_, _, body) =>
@@ -470,6 +490,30 @@ fn rg_rewrite_instrs_in_place(
         }
         instrs[idx] = @lib.Instruction::if_(
           block_type, then_body, rewritten_else,
+        )
+      }
+      @lib.Try(block_type, body, catches, delegate) => {
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, catch_body) =>
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(
+                  tag_idx,
+                  rg_rewrite_expr(catch_body, remap),
+                ),
+              )
+            @lib.LegacyCatchAll(catch_body) =>
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(rg_rewrite_expr(catch_body, remap)),
+              )
+          }
+        }
+        instrs[idx] = @lib.Instruction::try_(
+          block_type,
+          rg_rewrite_expr(body, remap),
+          rewritten_catches,
+          delegate~,
         )
       }
       @lib.TryTable(block_type, catches, body) =>

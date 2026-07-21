@@ -71,6 +71,68 @@ test "untee deletes tee whose direct input is unreachable" {
 }
 
 ///|
+test "untee rewrites legacy try protected and catch bodies" {
+  let try_ = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    [
+      @lib.LegacyCatch::tagged(
+        @lib.TagIdx::new(0U),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(2)),
+          @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+      @lib.LegacyCatch::all(
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(3)),
+          @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ],
+  )
+  let input = @lib.Module::new().with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([@lib.ValType::i32()]),
+        @lib.Expr::new([try_]),
+      ),
+    ]),
+  )
+  match untee_test_first_body(untee_run_module_pass(input)) {
+    [
+      @lib.Try(
+        _,
+        @lib.Expr(
+          [@lib.I32Const(_), @lib.LocalSet(_), @lib.LocalGet(_), @lib.Drop]
+        ),
+        [
+          @lib.LegacyCatch(
+            _,
+            @lib.Expr(
+              [@lib.I32Const(_), @lib.LocalSet(_), @lib.LocalGet(_), @lib.Drop]
+            )
+          ),
+          @lib.LegacyCatchAll(
+            @lib.Expr(
+              [@lib.I32Const(_), @lib.LocalSet(_), @lib.LocalGet(_), @lib.Drop]
+            )
+          ),
+        ],
+        None
+      ),
+    ] => ()
+    other => fail("expected legacy tee expansion in every region, got \{other}")
+  }
+}
+
+///|
 test "untee recurses into structured bodies" {
   let input =
     #| (module

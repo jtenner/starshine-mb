@@ -1495,6 +1495,9 @@ fn ls_ref_body_local_iteration_limit(funcs : Array[@lib.Func]) -> Int {
 
 ///|
 pub fn local_subtyping_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let mut current_mod = mod_
   let mut did_change = false
   let mut iteration = 0

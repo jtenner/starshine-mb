@@ -198,6 +198,16 @@ fn directize_mark_mutated_instr(
         None => ()
       }
     }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      directize_mark_mutated_instrs(mutated, body)
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            directize_mark_mutated_instrs(mutated, catch_body)
+        }
+      }
+    }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       directize_mark_mutated_instrs(mutated, body)
     @lib.TableSet(table_idx) | @lib.TableFill(table_idx) =>
@@ -258,6 +268,20 @@ fn directize_mark_grow_instr(
         None => ()
       }
     }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      for nested in body {
+        directize_mark_grow_instr(grown, nested)
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            for nested in catch_body {
+              directize_mark_grow_instr(grown, nested)
+            }
+        }
+      }
+    }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       for nested in body {
         directize_mark_grow_instr(grown, nested)
@@ -304,6 +328,20 @@ fn directize_mark_runtime_table_instr(
             directize_mark_runtime_table_instr(mutated, grown, nested)
           }
         None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      for nested in body {
+        directize_mark_runtime_table_instr(mutated, grown, nested)
+      }
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            for nested in catch_body {
+              directize_mark_runtime_table_instr(mutated, grown, nested)
+            }
+        }
       }
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -777,6 +815,48 @@ fn directize_rewrite_nested_instr(
         (instr, false)
       }
     }
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let (next_body, body_changed) = directize_rewrite_instrs(body, ctx)
+      let next_catches : Array[@lib.LegacyCatch] = []
+      let mut catches_changed = false
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) => {
+            let (next_catch, changed) = directize_rewrite_instrs(
+              catch_body, ctx,
+            )
+            if changed {
+              catches_changed = true
+            }
+            next_catches.push(
+              @lib.LegacyCatch::tagged(tag_idx, @lib.Expr::new(next_catch)),
+            )
+          }
+          @lib.LegacyCatchAll(@lib.Expr(catch_body)) => {
+            let (next_catch, changed) = directize_rewrite_instrs(
+              catch_body, ctx,
+            )
+            if changed {
+              catches_changed = true
+            }
+            next_catches.push(@lib.LegacyCatch::all(@lib.Expr::new(next_catch)))
+          }
+        }
+      }
+      if body_changed || catches_changed {
+        (
+          @lib.Instruction::try_(
+            block_type,
+            @lib.Expr::new(next_body),
+            next_catches,
+            delegate~,
+          ),
+          true,
+        )
+      } else {
+        (instr, false)
+      }
+    }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
       let (next_body, changed) = directize_rewrite_instrs(body, ctx)
       if changed {
@@ -1048,6 +1128,21 @@ fn directize_instr_has_indirect_call(instr : @lib.Instruction) -> Bool {
         Some(body) => directize_instrs_have_indirect_call(body)
         None => false
       }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if directize_instrs_have_indirect_call(body) {
+        return true
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) => catch_body
+        }
+        if directize_instrs_have_indirect_call(catch_body) {
+          return true
+        }
+      }
+      false
     }
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       directize_instrs_have_indirect_call(body)

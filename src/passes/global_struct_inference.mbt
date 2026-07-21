@@ -3114,6 +3114,9 @@ fn gsi_run_module_pass(
   closed_world : Bool,
   optimize_desc_casts : Bool,
 ) -> @lib.Module {
+  if pass_module_has_legacy_try(mod_) {
+    return mod_
+  }
   let (unnested_mod, did_unnest) = gsi_unnest_global_operands(
     mod_, closed_world,
   )

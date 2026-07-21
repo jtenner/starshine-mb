@@ -9501,6 +9501,13 @@ fn sgo_run_core(
   trace : (String) -> Unit,
   perf? : HotPerfSession? = None,
 ) -> SgoPassResult {
+  if pass_module_has_legacy_try(mod_) {
+    let touched = match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) => Array::make(funcs.length(), false)
+      None => []
+    }
+    return { mod_out: mod_, touched }
+  }
   let collect_start_us = perf_start_timer_opt(
     perf, "detail:sgo:collect-global-infos",
   )

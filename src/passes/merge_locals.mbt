@@ -326,6 +326,7 @@ fn merge_locals_raw_is_straight_line(instrs : Array[@lib.Instruction]) -> Bool {
       @lib.Block(_, _)
       | @lib.Loop(_, _)
       | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
       | @lib.TryTable(_, _, _)
       | @lib.Br(_)
       | @lib.BrIf(_)
