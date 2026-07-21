@@ -50,7 +50,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `code-folding` | Closed: Binaryen-v131 semantics, external validity, canonical late scheduling, and pass-local performance completed on 2026-07-19. | None; final representative medians are `1.70x` on the candidate-heavy fixture and `1.98x` on the large debug artifact. |
 | `merge-blocks` | Correctness-repaired on 2026-07-21 so effectful ambiguous roots cannot move before `unreachable`; prior v131 parity evidence predates the repair. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
 | `redundant-set-elimination` / `rse` | Direct behavior, 1x timing, and the canonical late O4z scheduler slot are closed. The 2026-07-21 repair also removes newly unread admitted body-local set shells while preserving RHS evaluation; the fresh 300-case explicit-v131 lane is exact. The public optimize/shrink rosters run `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing`. | None for v0.1.1. |
-| `dae-optimizing` | Closed locally for v0.1.1 DAE ownership. Numeric production identities are gone; final Binaryen-v131 four-lane matrices are current for plain DAE and DAEO; the shared nested roster and exact slot-48 placement are proven. Plain/optimizing retained artifacts validate and are byte-idempotent. Final medians are plain `85.329s` / `64.277s` and DAEO `25.440s` / `21.475s`; the latter improves the prior `47.956s` / `44.490s` without changing bytes. Retained thresholds are optional phase/profitability budgets only. | No DAE-owned work. The DAEO canonical `+4,318` local-layout/remap family belongs to shared nested local-cleanup passes, and the full large O4z wall stop is pre-DAEO in `simplify-locals-nostructure`. |
+| `dae-optimizing` | **Reopened, active-partial.** The July 21 matrices, artifact validity/idempotence, de-artifacting, shared roster, slot-48 proof, and medians remain valid evidence, but they do not close source-family ownership. The current completion matrix still records most boundary, value, GC, result, control, type, transaction, worklist, and nested-lifecycle families as `generic-partial` or `mixed`. | **Open initial-release parity work:** `[O4Z-DAE]001` and its owned slices. The canonical `+4,318` local-layout/remap family remains under shared local-cleanup ownership; the pre-DAEO full-O4z wall stop remains under `simplify-locals-nostructure`. |
 | `inlining-optimizing` | The v131 shared-engine behavior audit is implemented locally: toolchain hints, CLI/configurable heuristics, complete trivial-instruction classes, Pattern A/B splitting, EH-aware direct/indirect/ref tail hoisting, roots, metadata repair, active `inline-main`, and exact nested order. **Release target: v0.2.0 or later; these changes are not part of the v0.1.1 release scope.** | Direct behavior has no open v131 transform-family gap. Track shipment under `[V02-INL]001`; shared DAE/SGO scheduler routing remains under `[O4Z-NESTED]001`. |
 | `duplicate-import-elimination` | Correctness-repaired on 2026-07-21 so call, return-call, and ref.func remapping traverses decoded legacy `try` regions and duplicate function-import removal clears stale raw name payloads after function-index remapping. The new raw-name repair has an exact 300-case explicit-v131 lane. | **Open legacy-EH evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
 | `simplify-globals-optimizing` | Closed and scheduled. | Shared nested-scheduler proof only. |
@@ -106,6 +106,101 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Exit criteria:** implementation criteria complete: every checkbox above is complete; affected passes have deterministic protected/catch regressions; no repaired or guarded pass mutates from facts that omit legacy EH; the remaining `TryTable`-only walker inventory is classified; focused and repository-wide validation is green. Fresh explicit-v131 direct evidence remains under `[AUDIT-CORRECTNESS]001` and is not implied by this deterministic closeout.
 
 ## v0.1.1 Primary O4z Work
+
+### [O4Z-DAE]001 - Reopen plain DAE and DAEO parity for the initial release
+
+- **Status:** active-partial. The July 21 direct matrices and artifact/performance evidence remain regression baselines, not implementation closeout. The detailed source-backed plan is `docs/wiki/binaryen/passes/dead-argument-elimination/reopened-parity-plan.md`.
+- **Release target:** the repository currently says `v0.1.1`; the requested product target is the initial `0.1.0` release. Resolve version numbering separately, but do not publish the next initial `0.1.x` release while the DAE-owned slices below remain open.
+- **Goal:** implement every represented Binaryen-v131 DAE family through generic boundary facts, value evidence, atomic plans, exact invalidation, and a truthful optimizing lifecycle.
+- **Why:** the completion matrix still marks most A-J families `generic-partial` or `mixed`; the former closeout deleted active work whose own status still named open constant/localization/GC/result/control/type/worklist migrations.
+- **Non-goals:** byte-identical output; optimizing indirect/call_ref callers that upstream DAE treats as unseen; duplicating shared local-layout algorithms inside DAE; assigning the pre-DAEO full-O4z wall stop to DAE.
+- **Dependencies:** `[O4Z-NESTED]001` for the shared function-pipeline API and neighboring local-cleanup owners for canonical local layout.
+- **Exit criteria:** all owned slices below are closed, every represented upstream source family is implemented or narrowly excepted, matrices and artifacts are renewed, and no DAE-owned release blocker remains.
+
+### [O4Z-DAE-BOUNDARY]001 - Unify exposure facts and parameter live-in analysis
+
+- **Owner:** `src/passes/dead_argument_elimination.mbt` boundary scanning, liveness, and current graph.
+- **Deliverables:**
+  - [ ] One immutable original exposure snapshot for imports, exports, start, `ref.func`, elements/tables, tags, module code, and type carriers.
+  - [ ] One current graph for direct calls, direct `return_call`, dropped calls, parameter-flow edges, result observers, and tail dependencies.
+  - [ ] One CFG-quality parameter live-in analysis that treats writes as kills and covers branches, loops, `try_table`, decoded legacy `try`, catches, and delegates.
+  - [ ] Exact fail-closed reasons and focused tests for indirect/reference callers and tail barriers.
+- **Exit criteria:** no signature-changing family uses a private visibility or parameter-use scanner.
+
+### [O4Z-DAE-PLAN]001 - Finish the common value-slice and transaction lifecycle
+
+- **Owner:** value-slice, operand disposition, caller/callee projection, localization, and rewrite-plan helpers.
+- **Deliverables:**
+  - [ ] Make one `DaeValueSlice` carry arity, type, effects, traps, branches, unreachable state, producer identity, and epochs for every direct-call operand.
+  - [ ] Express each slot as keep, pure removal, effect replay, localization/retry, constant materialization, or type refinement while preserving left-to-right evaluation.
+  - [ ] Move constant materialization, localization, GC refinement, result removal, control reconstruction, and remaining older paths through immutable validated plans.
+  - [ ] Repair removed-slot locals, non-defaultable refs, typed tees, local indices, direct `return_call`, type edits, metadata, touched sets, and invalidations atomically.
+- **Exit criteria:** no boundary-changing family mutates callsites or types outside the common candidate validation/commit/rollback boundary.
+
+### [O4Z-DAE-FLOW]001 - Complete constants, localization, and recursive forwarding
+
+- **Owner:** uniform-value solver, immutable-global handling, SCC/component discovery, and localization retry.
+- **Deliverables:**
+  - [ ] Match represented Binaryen constants: numeric/SIMD, `ref.null`, `ref.func`, `string.const`, supported ref conversions, tuple constants, and immutable `global.get`.
+  - [ ] Use one monotone per-slot lattice across normalized forwarding SCCs and commit whole components atomically.
+  - [ ] Remove parity-affecting `1024`/`4096`, prefix, nullable-count, and phase-only admissions; retain only explicitly optional cleanup budgets.
+  - [ ] Localize all owned calls on effect blockage, repair EH/control structure, mark callers stale, and requeue through the common worklist.
+  - [ ] Preserve Binaryen's one-wave single-caller profitability throttle.
+- **Exit criteria:** supported uniform values and forwarding are definition- and module-size-independent, and localization is a normal epoch transition.
+
+### [O4Z-DAE-TYPES]001 - Generalize GC refinement, returned-value evidence, and type finalization
+
+- **Owner:** GC argument/result LUBs, return evidence, control reconstruction, type-section edits, rec groups, and type liveness.
+- **Deliverables:**
+  - [ ] Strict-improvement reference-parameter LUB across every owned direct operand, including old-type local repair for incompatible writes.
+  - [ ] One returned-value API for fallthrough, explicit returns, block/if/loop/select, typed/typeidx controls, static locals, tuples, flat multivalue lanes, and represented exceptional exits.
+  - [ ] Lane-wise result LUB plus call, tee, parent-control, and caller refinalization.
+  - [ ] One deterministic type edit plan covering reuse/append, typeidx controls, rec groups, exactness/nullability, abstract heaps, tags, call_ref/call_indirect, tables/elements, globals, and metadata policy.
+- **Exit criteria:** no broad GC batch, control carrier, or type-pruning family owns a private mutation tail.
+
+### [O4Z-DAE-RESULTS]001 - Complete dropped-result, tail, multivalue, and bottom repair
+
+- **Owner:** result-observer graph, dropped-call locations, return rewriting, and bottom handling.
+- **Deliverables:**
+  - [ ] Remove a result only when every owned direct call drops it and unseen/tail dependencies permit it.
+  - [ ] Keep indirect/reference tails conservative; encode direct-tail compatibility in dependency epochs.
+  - [ ] Rewrite drops, call types, explicit returns, fallthrough values, controls, and multivalue lanes through one atomic result plan while preserving effects.
+  - [ ] Preserve uninhabitable-result information with `call; unreachable`; broaden inhabitation only with proved type analysis.
+  - [ ] Prevent stale double rewriting of one call for parameters and results in the same iteration.
+- **Exit criteria:** every dropped-result decision and repair is graph-backed, transactional, and lane-aware.
+
+### [O4Z-DAE-WORKLIST]001 - Finish common family dispatch, invalidation, diagnostics, and budgets
+
+- **Owner:** `DaeBoundaryWorklist`, `DaeWorkItem`, `dae_process_work_item`, and family collectors.
+- **Deliverables:**
+  - [ ] Route every family through epoch-bearing no-change/deferred/commit/stale/rollback outcomes.
+  - [ ] Replace parallel full scans and specialized phase loops with exact caller/callee/result/type/body/cleanup invalidations.
+  - [ ] Remove correctness and required-parity attempt/cardinality caps; a defensive budget may stop optional work only with valid output and explicit telemetry.
+  - [ ] Plumb production counters for selected-only admission, guards, stale retries, rollbacks, localization, type/result edits, and nested replay.
+- **Exit criteria:** no required transform depends on a `FuncNNN`, numeric band, module-size bucket, or arbitrary productive-attempt cap; selected-only correctness counters are zero.
+
+### [O4Z-DAEO-LIFECYCLE]001 - Match Binaryen's worth-optimizing set and nested convergence
+
+- **Owner:** `src/passes/pass_manager.mbt` DAEO touched scheduler and the shared boundary/nested loop.
+- **Deliverables:**
+  - [ ] Define `worthOptimizing` from productive param/refinement/localization/result changes and affected callers, not artifact size or definition identity.
+  - [ ] Run touched-only `precompute-propagate` plus the shared default function roster, nested and validated; keep plain DAE free of this suffix.
+  - [ ] Replace `touched_count > 8`, module `>100`, local `>128`, instruction `>1000`, and material-caller thresholds with source-matched per-function profitability or explicitly non-parity budgets.
+  - [ ] Feed nested body changes back into DAE until boundary and nested cleanup both converge.
+  - [ ] Keep the canonical `+4,318` local-layout/remap family under shared local-cleanup ownership.
+- **Exit criteria:** DAEO visible cleanup is selected by the same semantic touched set at every module size, or every omission is an explicit measured performance exception rather than parity closeout.
+
+### [O4Z-DAE-RELEASE]001 - Renew source tests, generated evidence, artifacts, and release integration
+
+- **Owner:** DAE/DAEO tests, compare profiles, dossiers, artifacts, presets, and release metadata.
+- **Deliverables:**
+  - [ ] Port or map all represented v131 cases from `dae_tnh`, `dae-gc`, `dae-gc-refine-params`, `dae-gc-refine-return`, `dae-optimizing`, and `dae-refine-params-and-optimize`; exclude experimental `dae2`.
+  - [ ] Add arbitrary-definition red-first tests for every generic recognizer and keep artifact functions only as regressions.
+  - [ ] Keep plain and optimizing traces, normalizers, matrices, artifacts, and medians separate.
+  - [ ] After each widening, run focused/white-box/public tests, serial full tests, wasm-gc check/test, external validation, idempotence, runtime execution, and explicit-v131 regular/dedicated/wasm-smith/random-all lanes.
+  - [ ] Classify every residual per source family/function; do not offset a missing or larger family with unrelated aggregate wins.
+  - [ ] Reopen and close completion-matrix rows as their common owner path lands; complete ordered slot-48 artifact replay and resolve the `0.1.0` versus `0.1.1` release label.
+- **Exit criteria:** zero semantic/validation failures, zero unclassified size-losing families, accepted performance, exact-once public placement, and no active DAE-owned release blocker.
 
 ### [O4Z-PRESET]001 - Reconcile the exact 56-slot public preset
 
@@ -180,12 +275,6 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - Not an O4z blocker: O4z uses `ssa-nomerge`.
 - Active work: simple explicit-write merge locals; parameter/default entry inputs and prepend ordering; loop/branch/EH/typed-control classification; harness admission; dedicated profile; direct closeout.
-
-### [AUDIT]003 - DAE de-artifacting
-
-- Inventory selected-function helpers by transform family and safety proof.
-- Convert the smallest safe families to generic recognizers with red-first non-artifact fixtures.
-- Keep selected fixtures as regressions; retain selected-only gates only with explicit reasons and reopening criteria.
 
 ### [AUDIT]004 - Thin module-pass coverage
 
