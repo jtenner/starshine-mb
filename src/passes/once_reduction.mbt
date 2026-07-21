@@ -366,8 +366,13 @@ fn or_scan_instrs(
         needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
           needs_dataflow
       @lib.Call(_) => needs_dataflow = true
-      @lib.ReturnCall(_) | @lib.Return | @lib.Br(_) | @lib.Unreachable =>
+      @lib.ReturnCall(_) => {
+        needs_dataflow = true
         return needs_dataflow
+      }
+      @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) =>
+        return needs_dataflow
+      @lib.Return | @lib.Br(_) | @lib.Unreachable => return needs_dataflow
       _ => ()
     }
   }
@@ -398,6 +403,32 @@ fn OrFlowEnv::new(
     func_once_set_singletons,
     allow_transitive_call_summaries,
   }
+}
+
+///|
+fn or_apply_direct_call_facts(
+  current : @bitset.BitSet,
+  func_slot : Int,
+  env : OrFlowEnv,
+) -> Bool {
+  let mut already_once = false
+  let mut direct_singleton = false
+  if func_slot >= 0 && func_slot < env.once_func_slots.length() {
+    let once_global = env.once_func_slots[func_slot]
+    if once_global >= 0 {
+      already_once = current[once_global]
+      current[once_global] = true
+      direct_singleton = func_slot < env.func_once_set_singletons.length() &&
+        env.func_once_set_singletons[func_slot]
+    }
+  }
+  if env.allow_transitive_call_summaries &&
+    func_slot >= 0 &&
+    func_slot < env.func_once_sets.length() &&
+    !direct_singleton {
+    or_bool_array_union_into(current, env.func_once_sets[func_slot])
+  }
+  already_once
 }
 
 ///|
@@ -491,22 +522,24 @@ fn or_analyze_instrs_flow(
           current[slot] = true
         }
       }
-      @lib.Call(@lib.FuncIdx(func_idx)) => {
-        let func_slot = func_idx.reinterpret_as_int()
-        let mut direct_singleton = false
-        if func_slot < env.once_func_slots.length() {
-          let once_global = env.once_func_slots[func_slot]
-          if once_global >= 0 {
-            current[once_global] = true
-            direct_singleton = func_slot < env.func_once_set_singletons.length() &&
-              env.func_once_set_singletons[func_slot]
-          }
-        }
-        if env.allow_transitive_call_summaries &&
-          func_slot < env.func_once_sets.length() &&
-          !direct_singleton {
-          or_bool_array_union_into(current, env.func_once_sets[func_slot])
-        }
+      @lib.Call(@lib.FuncIdx(func_idx)) =>
+        ignore(
+          or_apply_direct_call_facts(
+            current,
+            func_idx.reinterpret_as_int(),
+            env,
+          ),
+        )
+      @lib.ReturnCall(@lib.FuncIdx(func_idx)) => {
+        ignore(
+          or_apply_direct_call_facts(
+            current,
+            func_idx.reinterpret_as_int(),
+            env,
+          ),
+        )
+        or_record_must_state(normal_exits, 0, current)
+        return None
       }
       @lib.Br(label) => {
         or_record_branch_state(branch_states, label, current)
@@ -529,9 +562,7 @@ fn or_analyze_instrs_flow(
         or_record_must_state(normal_exits, 0, current)
         return None
       }
-      @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => {
+      @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) => {
         or_record_must_state(normal_exits, 0, current)
         return None
       }
@@ -694,26 +725,24 @@ fn or_rewrite_instrs_flow(
           current[slot] = true
         }
       }
-      @lib.Call(@lib.FuncIdx(func_idx)) => {
-        let func_slot = func_idx.reinterpret_as_int()
-        let mut direct_singleton = false
-        if func_slot < env.once_func_slots.length() {
-          let once_global = env.once_func_slots[func_slot]
-          if once_global >= 0 {
-            if current[once_global] {
-              instrs[idx] = @lib.Instruction::nop()
-            } else {
-              current[once_global] = true
-            }
-            direct_singleton = func_slot < env.func_once_set_singletons.length() &&
-              env.func_once_set_singletons[func_slot]
-          }
+      @lib.Call(@lib.FuncIdx(func_idx)) =>
+        if or_apply_direct_call_facts(
+            current,
+            func_idx.reinterpret_as_int(),
+            env,
+          ) {
+          instrs[idx] = @lib.Instruction::nop()
         }
-        if env.allow_transitive_call_summaries &&
-          func_slot < env.func_once_sets.length() &&
-          !direct_singleton {
-          or_bool_array_union_into(current, env.func_once_sets[func_slot])
+      @lib.ReturnCall(@lib.FuncIdx(func_idx)) => {
+        if or_apply_direct_call_facts(
+            current,
+            func_idx.reinterpret_as_int(),
+            env,
+          ) {
+          instrs[idx] = @lib.Instruction::nop()
         }
+        or_record_must_state(normal_exits, 0, current)
+        return None
       }
       @lib.Br(label) => {
         or_record_branch_state(branch_states, label, current)
@@ -736,9 +765,7 @@ fn or_rewrite_instrs_flow(
         or_record_must_state(normal_exits, 0, current)
         return None
       }
-      @lib.ReturnCall(_)
-      | @lib.ReturnCallIndirect(_, _)
-      | @lib.ReturnCallRef(_) => {
+      @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) => {
         or_record_must_state(normal_exits, 0, current)
         return None
       }
@@ -779,6 +806,35 @@ fn or_rewrite_instrs(
 }
 
 ///|
+fn or_remove_tail_call_debris(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut reached_tail = false
+  for instr in instrs {
+    if reached_tail {
+      changed = true
+      continue
+    }
+    let (rewritten, nested_changed) = pass_rewrite_structured_instr(
+      instr, or_remove_tail_call_debris,
+    )
+    if nested_changed {
+      changed = true
+    }
+    out.push(rewritten)
+    match rewritten {
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => reached_tail = true
+      _ => ()
+    }
+  }
+  (out, changed)
+}
+
+///|
 fn or_cleanup_unreachable_debris(
   funcs : Array[@lib.Func],
 ) -> (Array[@lib.Func], Bool) {
@@ -787,10 +843,11 @@ fn or_cleanup_unreachable_debris(
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     let func = funcs[idx]
     let @lib.Func(locals, @lib.Expr(instrs)) = func
-    let (next_instrs, func_changed) = pass_raw_remove_dropped_unreachable_debris(
-      instrs,
+    let (without_tail_debris, tail_changed) = or_remove_tail_call_debris(instrs)
+    let (next_instrs, unreachable_changed) = pass_raw_remove_dropped_unreachable_debris(
+      without_tail_debris,
     )
-    if func_changed {
+    if tail_changed || unreachable_changed {
       out.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
       changed = true
     } else {
@@ -838,7 +895,8 @@ fn or_optimize_once_bodies(
           }
           if body.length() == 5 {
             match body[4] {
-              @lib.Call(@lib.FuncIdx(target)) => {
+              @lib.Call(@lib.FuncIdx(target))
+              | @lib.ReturnCall(@lib.FuncIdx(target)) => {
                 let target_idx = target.reinterpret_as_int()
                 if target_idx < removed_exit_logic.length() &&
                   target_idx < once_func_slots.length() &&
@@ -847,8 +905,6 @@ fn or_optimize_once_bodies(
                   funcs[defined_idx] = @lib.Func::new(
                     locals,
                     @lib.Expr::new([
-                      @lib.Instruction::nop(),
-                      @lib.Instruction::nop(),
                       @lib.Instruction::nop(),
                       @lib.Instruction::nop(),
                       body[4],
@@ -870,7 +926,7 @@ fn or_optimize_once_bodies(
       continue
     }
     match instrs[4] {
-      @lib.Call(@lib.FuncIdx(target)) => {
+      @lib.Call(@lib.FuncIdx(target)) | @lib.ReturnCall(@lib.FuncIdx(target)) => {
         let target_idx = target.reinterpret_as_int()
         if target_idx >= removed_exit_logic.length() ||
           target_idx >= once_func_slots.length() ||
@@ -881,8 +937,6 @@ fn or_optimize_once_bodies(
         funcs[defined_idx] = @lib.Func::new(
           locals,
           @lib.Expr::new([
-            @lib.Instruction::nop(),
-            @lib.Instruction::nop(),
             @lib.Instruction::nop(),
             @lib.Instruction::nop(),
             instrs[4],
@@ -1067,8 +1121,12 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       continue
     }
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[defined_idx]
+    let (without_tail_debris, tail_changed) = or_remove_tail_call_debris(instrs)
+    if tail_changed {
+      changed = true
+    }
     let next_instrs : Array[@lib.Instruction] = []
-    for instr in instrs {
+    for instr in without_tail_debris {
       next_instrs.push(instr)
     }
     ignore(

@@ -1,13 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../agent-todo.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OnceReduction.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/intrinsics.h
@@ -21,6 +22,7 @@ related:
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
+  - ./fuzzing.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../memory-packing/index.md
@@ -85,7 +87,10 @@ It is a narrow whole-module once-bit plus direct-call optimization pass.
 - Upstream also supports a narrow `@binaryen.idempotent` path by giving such functions fake once-global names.
   - Starshine now models that path for defined and imported no-param/no-result functions, while typed and unannotated cases remain negative guards.
 - Final body cleanup is tiny on purpose.
-  - Binaryen only strips empty once bodies and single-call once wrappers with cycle protection
+  - Binaryen only strips empty once bodies and single direct-call wrappers with cycle protection; its unified `Call::isReturn` node means direct tail-call payloads belong to that same family.
+- Tail calls are still terminal.
+  - direct `return_call` contributes its known target's once summary before exit; indirect/reference tails contribute no guessed target, and dead trailing code cannot affect candidate discovery.
+  - On raw binaries that preserve unreachable post-tail instructions, this is stronger than Binaryen v131: the dedicated profile measures a 19-byte canonical Starshine win because Binaryen lets that debris poison discovery.
 
 ## Biggest beginner correction
 
@@ -129,22 +134,25 @@ What it actually is in `version_129`:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine module-pass strategy: recursive once-bit analysis/rewrite flow, single-top-level-block wrapper support, idempotent fake roots, singleton-summary performance shortcut, and the source/lit behavior families covered despite the local implementation not literally using Binaryen's CFG/dominator engine.
 - [`./parity.md`](./parity.md)
-  - Current signed-off parity state, focused behavior-checklist evidence, saved generated-artifact evidence, and final 100000-case direct-compare closeout.
+  - Current parity state, focused behavior-checklist evidence, saved generated-artifact evidence, and direct-compare closeout.
+- [`./fuzzing.md`](./fuzzing.md)
+  - Required v131 comparison matrix and the pass-owned `once-reduction-tail-calls` profile that samples the direct-tail and terminal-tail families ordinary GenValid missed.
 
 ## Freshness note
 
 The 2026-04-22 source review recorded that the official Binaryen `version_129` release page showed publish date **2026-04-01** and found no teaching-relevant drift in the reviewed `version_129` and current-`main` pass/test surfaces at that time.
 
-The retained 2026-06-08 behavior inventory then rechecked local Binaryen `version_130`: its `OnceReduction.cpp` and dedicated lit file were unchanged from `version_129` for this pass. The 2026-06-03 O4z audit updated Starshine-local status and evidence without reopening a later upstream source difference.
+The retained 2026-06-08 behavior inventory then rechecked local Binaryen `version_130`: its `OnceReduction.cpp` and dedicated lit file were unchanged from `version_129` for this pass. The 2026-07-21 review of official `version_131` corrected one stale local interpretation rather than finding an upstream change: Binaryen's `visitCall` also sees direct tail calls through `Call::isReturn`.
 
 So the durable rule is:
 
-- treat Binaryen `version_129` / `version_130` as the released oracle for this dossier; and
-- treat the retained source/lit inventory and direct tagged URLs as the provenance path for the reviewed no-drift conclusion.
+- use official Binaryen `version_131` as the current released oracle for this dossier;
+- treat direct `call` and direct `return_call` as the same once-summary family, while indirect/reference tails remain terminal and target-unknown; and
+- retain older tagged source/lit links as provenance for the no-drift history.
 
 ## Current behavior-gap inventory
 
-The 2026-06-08 audit research note 0717 rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file are unchanged from `version_129` for this pass. The follow-ups added focused tests and implemented or confirmed the covered behavior families: imported idempotent functions, idempotent-adjacent wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision for the covered shapes, dangerous recursive-cycle order preservation, `return_call` divergence, nonzero initial globals, near-once negative bodies, nonconstant/zero write negatives, direct call-chain summaries, mixed once/non-once globals, and non-once callee summary directionality. `[O4Z-AUDIT-OR]` is signed off and removed from `agent-todo.md` after focused tests passed `37/37`, `moon test src/passes` passed `2015/2015`, and the current final 100000-case direct compare normalized `99751/99751` compared cases with `0` mismatches.
+The 2026-06-08 audit research note 0717 rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file were unchanged from `version_129`. Its follow-ups covered imported idempotent functions, wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision, dangerous cycles, nonzero initial globals, negative body/write shapes, direct call chains, mixed once/non-once globals, and non-once callee summary directionality. The 2026-07-21 v131 review supersedes the old intentional-`return_call` divergence claim: direct tails now propagate summaries and participate in wrapper cleanup, while all tail forms terminate scanning/cleanup and indirect/reference tails remain target-unknown. Final evidence is regular `100000/100000` exact, random-all `10000/10000` exact, wasm-smith `9956/9956` exact comparable with 44 Binaryen/tool failures, and one dedicated raw terminal-tail Starshine-win family repeated across `10000/10000` valid cases. Current focused tests are the executable contract; details live in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 ## Current maintenance rule
 
@@ -166,6 +174,8 @@ The 2026-06-08 audit research note 0717 rechecked the pass against local Binarye
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - Saved generated-artifact and O4z replay evidence is preserved through the committed audit note research note 0701; older local `.artifacts` paths are replay identifiers, not durable wiki sources.
+- Binaryen `version_131` source:
+  - <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OnceReduction.cpp>
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

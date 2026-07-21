@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ./index.md
   - ../../../../../src/passes/once_reduction.mbt
@@ -17,6 +17,7 @@ related:
   - ./dominance-propagation-and-cycle-safety.md
   - ./wat-shapes.md
   - ./parity.md
+  - ./fuzzing.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -46,18 +47,20 @@ The easiest way to follow the in-tree implementation is this file map:
 
 - `src/passes/once_reduction.mbt:2`
   - summary string used by the registry and docs
-- `src/passes/once_reduction.mbt:208`
+- `src/passes/once_reduction.mbt:249`
   - `or_find_once_global(...)`: current exact once-wrapper matcher, including the single-top-level-block form
-- `src/passes/once_reduction.mbt:265`
+- `src/passes/once_reduction.mbt:306`
   - `or_scan_instrs(...)`: candidate-global read/write scan and dataflow-interest prefilter
-- `src/passes/once_reduction.mbt:321`
-  - `or_analyze_instrs(...)`: recursive summary propagation with `if`-intersection, singleton-summary elision, and loop / try-table conservatism
-- `src/passes/once_reduction.mbt:397`
-  - `or_rewrite_instrs(...)`: recursive rewrite pass for redundant direct calls and redundant nonzero `global.set`s
-- `src/passes/once_reduction.mbt:525`
-  - `or_optimize_once_bodies(...)`: local empty-body and single-call-wrapper cleanup
-- `src/passes/once_reduction.mbt:619`
-  - `once_reduction_run_module_pass(...)`: end-to-end candidate discovery, defined-idempotent fake roots, fixed point, and module rewrite
+- `src/passes/once_reduction.mbt:435`
+  - `or_analyze_instrs_flow(...)`: recursive summary propagation with `if`-intersection, singleton-summary elision, and loop / try-table conservatism
+- `src/passes/once_reduction.mbt:606`
+  - `or_rewrite_instrs_flow(...)`: recursive rewrite pass for redundant direct calls and redundant nonzero `global.set`s
+- `src/passes/once_reduction.mbt:809`
+  - `or_remove_tail_call_debris(...)`: recursive terminal-tail truncation before generic unreachable cleanup
+- `src/passes/once_reduction.mbt:861`
+  - `or_optimize_once_bodies(...)`: local empty-body and single-call/single-tail-wrapper cleanup
+- `src/passes/once_reduction.mbt:955`
+  - `once_reduction_run_module_pass(...)`: end-to-end candidate discovery, defined-idempotent fake roots, fixed point, cleanup, and module rewrite
 - `src/passes/once_reduction_test.mbt:17`
   - repeated once-call elimination coverage
 - `src/passes/once_reduction_test.mbt:44`
@@ -132,7 +135,9 @@ It also marks functions as needing the later fixed-point pass when it sees:
 
 - candidate `global.set`
 - `call`
-- `return_call`
+- direct `return_call`
+
+All tail-call forms terminate the scan. A direct `return_call` is dataflow-relevant because its known target can contribute once facts; `return_call_indirect` and `return_call_ref` stop the scan without guessing a target. This distinction prevents unreachable trailing reads or writes from disqualifying an otherwise valid once-global.
 
 The 2026-06-03 audit added a small fast path: empty once wrappers are still scanned for legality, but they skip the later dataflow/rewrite loop and are handled by final body cleanup.
 
@@ -155,7 +160,7 @@ This means Starshine really does have a fixed point over function summaries, but
 - no immediate-dominator entry-state propagation
 - no internal block-local relevant-expression lists
 
-So the local pass should be taught as “fixed-point once-summary propagation with recursive structural control handling,” not as “the Binaryen algorithm in MoonBit syntax.” Defined and imported no-param/no-result `@binaryen.idempotent` functions now enter this same summary framework as fake once roots.
+So the local pass should be taught as “fixed-point once-summary propagation with recursive structural control handling,” not as “the Binaryen algorithm in MoonBit syntax.” Defined and imported no-param/no-result `@binaryen.idempotent` functions enter this same summary framework as fake once roots. Direct `return_call` applies the known target's direct and transitive once facts before recording the caller's normal tail exit, matching Binaryen's unified `Call::isReturn` source model.
 
 ## 5. Rewrite is direct and local: redundant calls and redundant writes become `nop`
 
@@ -166,17 +171,17 @@ So the local pass should be taught as “fixed-point once-summary propagation wi
 
 Like the analyzer, the rewrite is explicit about `if` intersection and recursive region rebuilding.
 
-The rewrite also keeps the Binaryen source-surface distinction between ordinary direct calls and `return_call`: `return_call` cuts off local fact propagation and is not rewritten as a once call.
+Direct `call` and direct `return_call` share one fact-application helper. A redundant known once target becomes `nop`; otherwise its direct/transitive summary is applied. `return_call` then records the resulting normal exit and stops local propagation. Indirect/reference tails remain conservative because their target is unknown.
 
 ## 6. Final once-body cleanup is intentionally tiny locally too
 
 `or_optimize_once_bodies(...)` is the local analogue of Binaryen's final wrapper cleanup step.
-It recognizes only two current families, in either flat or single-top-level-block form:
+It recognizes two narrow families, in either flat or single-top-level-block form:
 
 - a four-instruction once body, which collapses fully to `nop`
-- a five-instruction once body whose payload is exactly one direct `call`, which loses the first four instructions and keeps only that call
+- a five-instruction once body whose payload is exactly one direct `call` or direct `return_call`, which replaces the flattened four-instruction guard/set prefix with Binaryen's two expression-level `nop`s and keeps the payload
 
-That is close in spirit to the official wrapper-cleanup tail, but it is still expressed through exact boundary instruction counts and explicit array replacement rather than the upstream file's more semantic helper structure.
+The existing target-order cycle guard applies to both payload forms. A separate recursive cleanup truncates dead instructions after every tail-call form in function and nested structured regions before unreachable-debris cleanup. Raw GenValid bytes prove this terminal cleanup can outperform Binaryen v131 when unreachable post-tail global traffic survives decoding: the representative dedicated output is 19 canonical bytes smaller. The implementation remains expressed through exact boundary instruction counts and explicit array replacement rather than upstream's semantic IR helpers.
 
 ## 7. Scheduling is honest and stable
 
@@ -201,9 +206,11 @@ Compared with the full upstream Binaryen `version_130` contract, the 2026-06-08 
 - wrapper cleanup strips explicit once wrappers whose only payload calls an idempotent or once fake-root function, while preserving wrapper-cycle safety
 - positive integer once writes are eligible, while negative, zero, and nonconstant writes are rejected to match Binaryen's scanner rule
 - structural `if` no longer leaks two-arm merge facts that Binaryen's dominance-only pass intentionally ignores
-- block branch exits, `return_call`, and `unreachable` stop local fact propagation
+- block branch exits and `unreachable` stop local fact propagation; direct `return_call` first contributes its known target summary, while indirect/reference tails stop without target inference
 - loop and `try_table` bodies optimize and propagate facts in the covered Binaryen-positive shapes
 - once-function-local transitive summaries are limited so dangerous recursive-cycle order-preservation cases keep their calls
+- flat and block-wrapped once bodies accept direct tail-call payloads under the same cycle guard as ordinary calls
+- dead global reads or writes after direct, indirect, or reference tail calls are removed and cannot poison module-wide candidate discovery
 - nonzero initial globals, params/results, non-integer globals, extra reads, near-once debris, mismatched globals, loop-root/too-short bodies, direct call-chain summaries, mixed once/non-once globals, self-recursion, and non-once callee summary directionality all have focused tests
 
 The local implementation is still not literally Binaryen's CFG / `DomTree` engine. The signoff claim is behavior parity for the reviewed source/lit families and direct oracle lane, not implementation-shape parity. The detailed inventory, behavior checklist, and current green evidence live in [research note 0717](./index.md).
@@ -227,4 +234,4 @@ Future work on this pass should keep behavior parity and implementation-shape pa
 
 ## Freshness note
 
-The 2026-04-22 source review re-anchored this page to the reviewed official `version_129` release/source/test surfaces. The retained 2026-06-08 behavior inventory confirmed that the `version_130` owner and dedicated lit file were unchanged for this pass, while the 2026-06-03 O4z audit refreshed the local implementation map and direct parity evidence after adding block-root, defined-idempotent, boundary, and escape-shape coverage.
+The 2026-04-22 source review re-anchored this page to the reviewed official `version_129` release/source/test surfaces. The retained 2026-06-08 behavior inventory confirmed that the `version_130` owner and dedicated lit file were unchanged for this pass, while the 2026-06-03 O4z audit refreshed the local implementation map and direct parity evidence after adding block-root, defined-idempotent, boundary, and escape-shape coverage. The 2026-07-21 v131 source review corrected a stale local divergence claim: Binaryen's `Call` visitor includes `isReturn` direct tails, so Starshine now propagates direct-tail summaries, simplifies direct-tail wrapper payloads, and treats indirect/reference tails as terminal without inferring targets.

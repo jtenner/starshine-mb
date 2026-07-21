@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: signed-off
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ./index.md
   - ../../../../../src/passes/once_reduction.mbt
@@ -11,12 +11,14 @@ sources:
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/wast/module_wast_tests.mbt
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OnceReduction.cpp
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./dominance-propagation-and-cycle-safety.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ./fuzzing.md
 ---
 
 # `once-reduction` Binaryen parity
@@ -26,7 +28,7 @@ related:
 - Binaryen `version_130` `once-reduction` is a module-level once-bit plus direct-call optimization pass, not a generic repeated-call eliminator.
 - Starshine now matches the saved generated-artifact `-O4z` slot `4` on exact wasm and normalized WAT.
 - `[O4Z-AUDIT-OR]` is signed off for v0.1.0 behavior parity and removed from `agent-todo.md` after the 2026-06-08 source/lit behavior checklist, focused test expansion, and final 100000-case direct compare.
-- The previously documented broad gaps are now covered by focused tests: imported idempotent roots, idempotent-adjacent wrapper cleanup, positive/negative write selection, merge conservatism, branch/loop/EH precision, dangerous cycles, `return_call` divergence, direct call-chain summaries, and lit-surface negative body shapes.
+- The reviewed broad families are covered by focused tests: imported idempotent roots, idempotent-adjacent wrapper cleanup, positive/negative write selection, merge conservatism, branch/loop/EH precision, dangerous cycles, direct and tail-call summaries, tail-call wrapper cleanup, terminal-tail debris handling, direct call-chain summaries, and lit-surface negative body shapes.
 
 ## Current in-tree status
 
@@ -40,9 +42,26 @@ The current Starshine subset clearly covers:
 - no-param/no-result once-function recognition in flat and single-top-level-block forms
 - read and write disqualification for once-globals
 - defined no-param/no-result `@binaryen.idempotent` functions as fake once roots
-- fixed-point propagation of definitely-set once-bits across direct-call summaries
-- redundant direct-call and redundant `global.set` elimination
-- trivial once-body cleanup for empty bodies and single-call wrappers, including the single-top-level-block form
+- fixed-point propagation of definitely-set once-bits across direct `call` and direct `return_call` summaries
+- redundant direct-call/direct-tail and redundant `global.set` elimination
+- trivial once-body cleanup for empty bodies and single-call/single-tail-call wrappers, including the single-top-level-block form
+- terminal handling for indirect/reference tail calls without target inference, including recursive dead-tail cleanup
+
+## 2026-07-21 direct-tail correction
+
+The v131 source review found that the old local test/documentation treated direct `return_call` as intentionally outside Binaryen's call semantics. That was incorrect: Binaryen represents ordinary and tail direct calls with the same `Call` node and its `OnceReduction::Optimizer::visitCall(...)` sees both. Starshine's split raw opcodes therefore created two direct-tail parity gaps plus one raw terminal-control correctness gap for indirect/reference tails.
+
+Red-first public tests now prove:
+
+- a function ending in direct `return_call` contributes its target's guaranteed once facts to callers;
+- flat and block-wrapped once bodies strip their redundant guard/set prefix when the sole payload is direct `return_call`, under the existing cycle guard; and
+- direct, indirect, and reference tail calls terminate cleanup regions, while indirect/reference tails do not infer any target, so unreachable trailing global accesses cannot poison candidate discovery.
+
+The implementation is in `src/passes/once_reduction.mbt`; focused behavior is in `src/passes/once_reduction_test.mbt`.
+
+Final deterministic validation passed `moon info`, `moon fmt`, focused once-reduction `44/44`, pass-package `6300/6300`, and full Moon `9786/9786`. The three source repros produced exact normalized v131 WAT after the issue-2 nop-shape correction: direct-tail summary propagation (`65 -> 55` bytes), trivial direct-tail body cleanup (`72 -> 55`), and indirect terminal-tail cleanup (`83 -> 73`).
+
+The four-lane native matrix used SHA-256 `176fa6aea033ab955838a5c6263201c545332ab73ee2e01f481355dbc9d67938`: regular GenValid and random-all were exact at `100000/100000` and `10000/10000`; wasm-smith had `9956/9956` exact comparable cases plus 44 Binaryen/tool failures; and the dedicated raw-byte profile produced `10000/10000` instances of one inspected terminal-tail Starshine win. In that family, Binaryen v131 allows unreachable post-tail global traffic to poison once discovery, while Starshine removes the terminal debris and the resulting redundant once logic; representative canonical size is `125` versus `144` bytes. There are zero Starshine validation, generation, property, command, size-losing, unknown/risky, or true-semantic failures. See [`./fuzzing.md`](./fuzzing.md) for cache counters and the raw-input explanation.
 
 ## 2026-06-08 behavior-gap inventory
 
@@ -72,8 +91,8 @@ Covered families include:
 - redundant direct-call and redundant positive `global.set` elimination
 - after-merge conservatism, branch/return/unreachable cutoffs, loop-local dominance, and `try_table` traversal
 - self-recursive once-call cleanup plus dangerous mutually recursive cycle preservation
-- direct-call versus `return_call` behavior selection
-- unreachable/dead-trap debris cleanup needed for final normalized direct-compare parity
+- direct `call` and direct `return_call` summary/rewrite parity, with terminal indirect/reference tails kept conservative
+- unreachable/dead-trap and post-tail debris cleanup needed for final normalized direct-compare parity
 
 ## Refreshed direct-pass signoff
 
@@ -134,6 +153,7 @@ Treat `once-reduction` as signed off for v0.1.0 behavior parity:
 - [research note 0536](./index.md)
 - [research note 0701](./index.md)
 - Saved generated-artifact slot and Binaryen debug-log facts are copied into that committed O4z audit note; any older `.artifacts` path is a local replay identifier, not a durable source link.
+- Binaryen `version_131` pass source: <https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/OnceReduction.cpp>
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
 - Binaryen `version_129` annotation helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/intrinsics.h>
 - Binaryen `version_129` dedicated lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/once-reduction.wast>

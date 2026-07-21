@@ -1131,6 +1131,7 @@ pub enum GenValidProfile {
   PassFuzzStressProfile
   ValidatorStressProfile
   PassCleanupProfile
+  OnceReductionTailCallsProfile
   VacuumProfile
   VacuumCoreProfile
   VacuumTerminalUnreachableProfile

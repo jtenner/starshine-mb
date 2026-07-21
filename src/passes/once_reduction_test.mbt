@@ -447,9 +447,63 @@ test "once-reduction strips explicit wrapper guard before idempotent payload" {
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
     @lib.Instruction::nop(),
     @lib.Instruction::nop(),
-    @lib.Instruction::nop(),
-    @lib.Instruction::nop(),
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+}
+
+///|
+test "once-reduction strips explicit wrapper guard before tail-call payload" {
+  let input =
+    #| (module
+    #|   (type $v (func))
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (type $v))
+    #|   (func $once (type $v)
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g
+    #|     return_call $idempotent)
+    #|   (export "run" (func $once)))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+    @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+  ])
+}
+
+///|
+test "once-reduction strips block wrapper guard before tail-call payload" {
+  let input =
+    #| (module
+    #|   (type $v (func))
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (type $v))
+    #|   (func $once (type $v)
+    #|     block
+    #|       global.get $g
+    #|       if
+    #|         return
+    #|       end
+    #|       i32.const 1
+    #|       global.set $g
+    #|       return_call $idempotent
+    #|     end)
+    #|   (export "run" (func $once)))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+    @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
   ])
 }
 
@@ -644,26 +698,132 @@ test "once-reduction optimizes repeated once calls inside try_table and after no
 }
 
 ///|
-test "once-reduction does not treat return_call as a Binaryen once call" {
+test "once-reduction propagates direct return-call summaries" {
   let input =
     #| (module
+    #|   (type $v (func))
     #|   (global $g (mut i32) (i32.const 0))
-    #|   (func $once
+    #|   (func $once (type $v)
     #|     global.get $g
     #|     if
     #|       return
     #|     end
     #|     i32.const 1
     #|     global.set $g)
-    #|   (func (export "run")
+    #|   (func $tailer (type $v)
+    #|     return_call $once)
+    #|   (func (export "run") (type $v)
+    #|     call $tailer
+    #|     call $once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction removes dead writes after redundant direct tail calls" {
+  let input =
+    #| (module
+    #|   (type $v (func))
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (global $side (mut i32) (i32.const 0))
+    #|   (export "side" (global $side))
+    #|   (func $once (type $v)
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func (export "run") (type $v)
+    #|     call $once
     #|     return_call $once
+    #|     i32.const 7
+    #|     global.set $side))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction stops at indirect tail calls before dead global reads" {
+  let input =
+    #| (module
+    #|   (type $v (func))
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (table 1 funcref)
+    #|   (func $once (type $v)
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (elem (i32.const 0) $once)
+    #|   (func $dead_tail (type $v)
+    #|     i32.const 0
+    #|     return_call_indirect (type $v)
+    #|     global.get $g
+    #|     drop)
+    #|   (func (export "run") (type $v)
+    #|     call $once
     #|     call $once))
     #|
   let optimized = try! or_test_run_once_reduction(input)
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
-    @lib.Instruction::return_call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(0)),
+    @lib.Instruction::return_call_indirect(
+      @lib.TypeIdx::new(0U),
+      @lib.TableIdx::new(0U),
+    ),
+  ])
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction stops at reference tail calls before dead global writes" {
+  let input =
+    #| (module
+    #|   (type $v (func))
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once (type $v)
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (elem declare func $once)
+    #|   (func $dead_tail (type $v)
+    #|     ref.func $once
+    #|     return_call_ref (type $v)
+    #|     i32.const 0
+    #|     global.set $g)
+    #|   (func (export "run") (type $v)
+    #|     call $once
+    #|     call $once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::return_call_ref(@lib.TypeIdx::new(0U)),
+  ])
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
   ])
 }
 

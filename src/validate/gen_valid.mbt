@@ -646,6 +646,7 @@ pub enum GenValidProfile {
   PassFuzzStressProfile
   ValidatorStressProfile
   PassCleanupProfile
+  OnceReductionTailCallsProfile
   VacuumProfile
   VacuumCoreProfile
   VacuumTerminalUnreachableProfile
@@ -893,6 +894,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     PassFuzzStressProfile => "pass-fuzz-stress"
     ValidatorStressProfile => "validator-stress"
     PassCleanupProfile => "pass-cleanup"
+    OnceReductionTailCallsProfile => "once-reduction-tail-calls"
     VacuumProfile => "vacuum"
     VacuumCoreProfile => "vacuum-core"
     VacuumTerminalUnreachableProfile => "vacuum-terminal-unreachable"
@@ -1568,6 +1570,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     PassFuzzStressProfile,
     ValidatorStressProfile,
     PassCleanupProfile,
+    OnceReductionTailCallsProfile,
     VacuumProfile,
     VacuumCoreProfile,
     VacuumTerminalUnreachableProfile,
@@ -1844,6 +1847,9 @@ pub fn gen_valid_profile_by_name(
     "precompute-effectful-values" => Ok(PrecomputeEffectfulValueProfile)
     "precompute-propagate" => Ok(PrecomputeAllProfile)
     "precompute-propagate-closeout" => Ok(PrecomputeAllProfile)
+    "once-reduction" => Ok(OnceReductionTailCallsProfile)
+    "once-reduction-closeout" => Ok(OnceReductionTailCallsProfile)
+    "once-reduction-all" => Ok(OnceReductionTailCallsProfile)
     "vacuum-closeout" => Ok(VacuumProfile)
     "vacuum-all" => Ok(VacuumProfile)
     "vacuum-all-profiles" => Ok(VacuumProfile)
@@ -4027,6 +4033,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         },
       }
     }
+    OnceReductionTailCallsProfile => gen_valid_once_reduction_profile_config()
     VacuumProfile
     | VacuumCoreProfile
     | VacuumTerminalUnreachableProfile
@@ -19749,6 +19756,175 @@ fn gen_valid_sgo_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_once_reduction_profile_config() -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 1,
+    max_imports: 0,
+    max_defined_funcs: 8,
+    max_tables: 1,
+    max_mems: 0,
+    max_globals: 2,
+    max_tags: 0,
+    max_elems: 1,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: 8,
+    max_body_depth: 2,
+    max_module_byte_size_budget: Some(200000),
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: true,
+      allow_mems: false,
+      allow_globals: true,
+      allow_tags: false,
+      allow_elems: true,
+      allow_datas: false,
+      allow_calls: true,
+      allow_call_indirect: true,
+      allow_tail_calls: true,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_typed_body_generator: true,
+      allow_name_custom_sections: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_once_reduction_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(OnceReductionTailCallsProfile)
+}
+
+///|
+fn gen_valid_once_reduction_guard_body(
+  global_idx : GlobalIdx,
+  payload : Instruction?,
+) -> Array[Instruction] {
+  let body : Array[Instruction] = [
+    Instruction::global_get(global_idx),
+    Instruction::if_(BlockType::void_(), [Instruction::return_()], None),
+    Instruction::i32_const(I32(1)),
+    Instruction::global_set(global_idx),
+  ]
+  match payload {
+    Some(instr) => body.push(instr)
+    None => ()
+  }
+  body
+}
+
+///|
+fn gen_valid_once_reduction_profile_module() -> Module {
+  let void_type = TypeIdx::new(0U)
+  let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
+  )
+  .with_func_sec(
+    FuncSec::new([
+      void_type, void_type, void_type, void_type, void_type, void_type, void_type,
+      void_type,
+    ]),
+  )
+  .with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(funcref, Limits::i32(1U, Some(1U))), None),
+    ]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(
+        Name::from_string("summary"),
+        ExternIdx::func(FuncIdx::new(3U)),
+      ),
+      Export::new(
+        Name::from_string("terminal"),
+        ExternIdx::func(FuncIdx::new(7U)),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(0U)])),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([])),
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_once_reduction_guard_body(GlobalIdx::new(0U), None)),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::return_call(FuncIdx::new(1U))]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(2U)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new(
+          gen_valid_once_reduction_guard_body(
+            GlobalIdx::new(1U),
+            Some(Instruction::return_call(FuncIdx::new(1U))),
+          ),
+        ),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(0)),
+          Instruction::return_call_indirect(void_type, TableIdx::new(0U)),
+          Instruction::global_get(GlobalIdx::new(0U)),
+          Instruction::drop(),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::ref_func(FuncIdx::new(0U)),
+          Instruction::return_call_ref(void_type),
+          Instruction::i32_const(I32(0)),
+          Instruction::global_set(GlobalIdx::new(0U)),
+        ]),
+      ),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::call(FuncIdx::new(1U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_vacuum_profile_config(profile : GenValidProfile) -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let family_id = match profile {
@@ -27831,6 +28007,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_sgo_profile_config(config) {
     return gen_valid_sgo_profile_module(config)
+  }
+  if gen_valid_is_once_reduction_profile_config(config) {
+    return gen_valid_once_reduction_profile_module()
   }
   if gen_valid_is_vacuum_profile_config(config) {
     return gen_valid_vacuum_profile_module(config)

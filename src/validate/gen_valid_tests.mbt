@@ -18342,6 +18342,70 @@ test "vacuum gen-valid family profiles emit focused trigger scaffolds" {
 }
 
 ///|
+test "once-reduction tail-call profile resolves and emits every repaired family" {
+  @debug.assert_eq(
+    gen_valid_profile_name(OnceReductionTailCallsProfile),
+    "once-reduction-tail-calls",
+  )
+  assert_true(gen_valid_profile_names().contains("once-reduction-tail-calls"))
+  match gen_valid_profile_by_name("once-reduction") {
+    Ok(profile) => @debug.assert_eq(profile, OnceReductionTailCallsProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("once-reduction-closeout") {
+    Ok(profile) => @debug.assert_eq(profile, OnceReductionTailCallsProfile)
+    Err(msg) => fail(msg)
+  }
+  let config = GenValidConfig::for_profile(OnceReductionTailCallsProfile)
+  @debug.assert_eq(gen_valid_config_label(config), "once-reduction-tail-calls")
+  @debug.assert_eq(config.max_defined_funcs, 8)
+  assert_true(config.features.allow_tail_calls)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match generated.wasm_module.elem_sec {
+    Some(ElemSec([Elem(Declarative, FuncsElemKind(funcs))])) =>
+      @debug.assert_eq(funcs, [FuncIdx::new(0U)])
+    _ => fail("expected oracle-compatible declarative helper element")
+  }
+  match generated.wasm_module.code_sec {
+    Some(
+      CodeSec(
+        [
+          Func(_, Expr([])),
+          Func(_, Expr([GlobalGet(_), If(_, _, _), I32Const(_), GlobalSet(_)])),
+          Func(_, Expr([ReturnCall(_)])),
+          Func(_, Expr([Call(_), Call(_)])),
+          Func(
+            _,
+            Expr(
+              [
+                GlobalGet(_),
+                If(_, _, _),
+                I32Const(_),
+                GlobalSet(_),
+                ReturnCall(_),
+              ]
+            )
+          ),
+          Func(
+            _,
+            Expr([I32Const(_), ReturnCallIndirect(_, _), GlobalGet(_), Drop])
+          ),
+          Func(
+            _,
+            Expr([RefFunc(_), ReturnCallRef(_), I32Const(_), GlobalSet(_)])
+          ),
+          Func(_, Expr([Call(_), Call(_)])),
+        ]
+      )
+    ) => ()
+    _ => fail("expected once-reduction direct-tail and terminal-tail fixtures")
+  }
+}
+
+///|
 test "precompute gen-valid profiles resolve and expose replayable aggregate" {
   @debug.assert_eq(
     gen_valid_profile_name(PrecomputeScalarProfile),

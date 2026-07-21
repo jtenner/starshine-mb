@@ -22,7 +22,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `duplicate-function-elimination` | Direct behavior closed; both slots scheduled. | None. |
 | `remove-unused-module-elements` | Correctness-repaired on 2026-07-21 so decoded legacy `try` bodies, typed/catch-all handlers, catch tags, nested references, type carriers, and remapped indices participate in reachability and rewriting. Prior v131 evidence predates the repair. | **Open evidence renewal and scheduler work:** `[AUDIT-CORRECTNESS]001` plus the second early slot. |
 | `memory-packing` | Correctness-repaired on 2026-07-21 after fixing five operand stack deltas; prior v131 parity evidence predates the repair. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
-| `once-reduction` | Correctness-repaired on 2026-07-21 with branch-exit must-fact intersection and conservative decoded legacy-`try` protected/catch flow merging. Prior v131 parity evidence predates both repairs. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
+| `once-reduction` | Direct behavior closed after the 2026-07-21 branch-exit, legacy-`try`, and tail-call repairs. Fresh v131 evidence is regular `100000/100000` exact, random-all `10000/10000` exact, wasm-smith exact for all `9956` comparable cases, and one dedicated raw terminal-tail Starshine-win family with zero true-semantic or Starshine failures. | None. |
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
 | `ssa-nomerge` | Direct behavior is closed, including the 2026-07-21 unsupported-HOT admission repair and the repeated precompute value-block allocation repair. Branch-free value-block operand writes now participate in LocalGraph facts; the post-default path preserves Binaryen's already-SSA tee/get and source-order fresh-local allocation. All 17 saved cases are raw-byte identical to Binaryen v131, and the targeted profile is `10000/10000` normalized. The stopped random-all partial still contains 54 separate declaration-only residuals with identical executable bodies. | None; full `ssa` remains separate future work. |
@@ -75,7 +75,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Goal:** renew explicit Binaryen-v131 direct evidence for the six behavior-changing public pass families after the repair.
 - **Deliverables:**
   - [ ] Run the required four-lane v131 matrix for `merge-blocks`.
-  - [ ] Run the required four-lane v131 matrix for `once-reduction`.
+  - [x] Run the required four-lane v131 matrix for `once-reduction` (2026-07-21: regular and random-all exact, wasm-smith exact for all comparable cases with 44 Binaryen/tool failures, dedicated raw terminal-tail residual classified as a measured Starshine win).
   - [ ] Run the required four-lane v131 matrix for `memory-packing`.
   - [ ] Run the required four-lane v131 matrix for `local-subtyping`.
   - [ ] Run the required four-lane v131 matrix for `remove-unused-brs`.
