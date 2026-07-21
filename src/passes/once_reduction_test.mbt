@@ -1274,3 +1274,83 @@ test "once-reduction uses non-once callee summaries in only the Binaryen directi
     @lib.Instruction::call(@lib.FuncIdx::new(1U)),
   ])
 }
+
+///|
+test "once-reduction does not learn once facts past a conditional block exit" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func (export "run") (param i32)
+    #|     block $exit
+    #|       local.get 0
+    #|       br_if $exit
+    #|       call $once
+    #|     end
+    #|     call $once
+    #|     call $once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction keeps the first positive set after a conditional exit" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func (export "run") (param i32)
+    #|     block $exit
+    #|       local.get 0
+    #|       br_if $exit
+    #|       i32.const 1
+    #|       global.set $g
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g
+    #|     i32.const 1
+    #|     global.set $g))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::i32_const(@lib.I32::new(1)),
+        @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+  ])
+}

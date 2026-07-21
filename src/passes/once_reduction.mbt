@@ -76,6 +76,69 @@ fn or_bool_array_union_into(
 }
 
 ///|
+fn or_bool_array_intersect_into(
+  target : @bitset.BitSet,
+  source : @bitset.BitSet,
+) -> Unit {
+  let limit = or_min_int(target.length(), source.length())
+  for i = 0; i < limit; i = i + 1 {
+    if !source[i] {
+      target[i] = false
+    }
+  }
+  for i = limit; i < target.length(); i = i + 1 {
+    target[i] = false
+  }
+}
+
+///|
+fn or_merge_must_states(
+  left : @bitset.BitSet?,
+  right : @bitset.BitSet?,
+) -> @bitset.BitSet? {
+  match (left, right) {
+    (Some(left), Some(right)) => {
+      let merged = or_bool_array_copy(left)
+      or_bool_array_intersect_into(merged, right)
+      Some(merged)
+    }
+    (Some(state), None) | (None, Some(state)) => Some(or_bool_array_copy(state))
+    (None, None) => None
+  }
+}
+
+///|
+fn or_record_must_state(
+  states : Array[@bitset.BitSet?],
+  slot : Int,
+  current : @bitset.BitSet,
+) -> Unit {
+  if slot < 0 || slot >= states.length() {
+    return
+  }
+  states[slot] = or_merge_must_states(
+    states[slot],
+    Some(or_bool_array_copy(current)),
+  )
+}
+
+///|
+fn or_label_depth(label : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw) = label
+  raw.reinterpret_as_int()
+}
+
+///|
+fn or_record_branch_state(
+  branch_states : Array[@bitset.BitSet?],
+  label : @lib.LabelIdx,
+  current : @bitset.BitSet,
+) -> Unit {
+  let slot = branch_states.length() - 1 - or_label_depth(label)
+  or_record_must_state(branch_states, slot, current)
+}
+
+///|
 fn or_bool_array_is_singleton(values : @bitset.BitSet, slot : Int) -> Bool {
   if slot < 0 || slot >= values.length() || !values[slot] {
     return false
@@ -298,6 +361,152 @@ fn or_scan_instrs(
 }
 
 ///|
+priv struct OrFlowEnv {
+  once_global_slots : Array[Int]
+  once_func_slots : Array[Int]
+  func_once_sets : Array[@bitset.BitSet]
+  func_once_set_singletons : @bitset.BitSet
+  allow_transitive_call_summaries : Bool
+}
+
+///|
+fn OrFlowEnv::new(
+  once_global_slots : Array[Int],
+  once_func_slots : Array[Int],
+  func_once_sets : Array[@bitset.BitSet],
+  func_once_set_singletons : @bitset.BitSet,
+  allow_transitive_call_summaries : Bool,
+) -> OrFlowEnv {
+  {
+    once_global_slots,
+    once_func_slots,
+    func_once_sets,
+    func_once_set_singletons,
+    allow_transitive_call_summaries,
+  }
+}
+
+///|
+fn or_analyze_instrs_flow(
+  instrs : Array[@lib.Instruction],
+  incoming : @bitset.BitSet,
+  env : OrFlowEnv,
+  branch_states : Array[@bitset.BitSet?],
+  normal_exits : Array[@bitset.BitSet?],
+) -> @bitset.BitSet? {
+  let mut current = or_bool_array_copy(incoming)
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body)) => {
+        branch_states.push(None)
+        let fallthrough = or_analyze_instrs_flow(
+          body, current, env, branch_states, normal_exits,
+        )
+        let local_exits = branch_states.pop().unwrap()
+        match or_merge_must_states(fallthrough, local_exits) {
+          Some(next) => current = next
+          None => return None
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        let then_fallthrough = or_analyze_instrs_flow(
+          then_body, current, env, branch_states, normal_exits,
+        )
+        let else_fallthrough = match else_body {
+          Some(body) =>
+            or_analyze_instrs_flow(
+              body, current, env, branch_states, normal_exits,
+            )
+          None => Some(or_bool_array_copy(current))
+        }
+        // Preserve Binaryen's conservative post-if policy: optimize inside
+        // each arm and record branches to surrounding labels, but do not learn
+        // new once facts from the arm merge.
+        if then_fallthrough is None && else_fallthrough is None {
+          return None
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) => {
+        branch_states.push(None)
+        let fallthrough = or_analyze_instrs_flow(
+          body, current, env, branch_states, normal_exits,
+        )
+        ignore(branch_states.pop())
+        match fallthrough {
+          Some(next) => current = next
+          None => return None
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) => {
+        branch_states.push(None)
+        let fallthrough = or_analyze_instrs_flow(
+          body, current, env, branch_states, normal_exits,
+        )
+        let local_exits = branch_states.pop().unwrap()
+        match or_merge_must_states(fallthrough, local_exits) {
+          Some(next) => current = next
+          None => return None
+        }
+      }
+      @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
+        let slot = or_slot_for_abs_idx(env.once_global_slots, global_idx)
+        if slot >= 0 && or_prev_positive_integer_const(instrs, idx) {
+          current[slot] = true
+        }
+      }
+      @lib.Call(@lib.FuncIdx(func_idx)) => {
+        let func_slot = func_idx.reinterpret_as_int()
+        let mut direct_singleton = false
+        if func_slot < env.once_func_slots.length() {
+          let once_global = env.once_func_slots[func_slot]
+          if once_global >= 0 {
+            current[once_global] = true
+            direct_singleton = func_slot < env.func_once_set_singletons.length() &&
+              env.func_once_set_singletons[func_slot]
+          }
+        }
+        if env.allow_transitive_call_summaries &&
+          func_slot < env.func_once_sets.length() &&
+          !direct_singleton {
+          or_bool_array_union_into(current, env.func_once_sets[func_slot])
+        }
+      }
+      @lib.Br(label) => {
+        or_record_branch_state(branch_states, label, current)
+        return None
+      }
+      @lib.BrIf(label)
+      | @lib.BrOnNull(label)
+      | @lib.BrOnNonNull(label)
+      | @lib.BrOnCast(label, _, _, _)
+      | @lib.BrOnCastFail(label, _, _, _) =>
+        or_record_branch_state(branch_states, label, current)
+      @lib.BrTable(labels, default_label) => {
+        for label in labels {
+          or_record_branch_state(branch_states, label, current)
+        }
+        or_record_branch_state(branch_states, default_label, current)
+        return None
+      }
+      @lib.Return => {
+        or_record_must_state(normal_exits, 0, current)
+        return None
+      }
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => {
+        or_record_must_state(normal_exits, 0, current)
+        return None
+      }
+      @lib.Unreachable | @lib.Throw(_) | @lib.ThrowRef | @lib.Rethrow(_) =>
+        return None
+      _ => ()
+    }
+  }
+  Some(current)
+}
+
+///|
 fn or_analyze_instrs(
   instrs : Array[@lib.Instruction],
   incoming : @bitset.BitSet,
@@ -307,77 +516,157 @@ fn or_analyze_instrs(
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
 ) -> @bitset.BitSet {
-  let current = or_bool_array_copy(incoming)
+  let env = OrFlowEnv::new(
+    once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+    allow_transitive_call_summaries,
+  )
+  let normal_exits : Array[@bitset.BitSet?] = [None]
+  let fallthrough = or_analyze_instrs_flow(
+    instrs,
+    incoming,
+    env,
+    [],
+    normal_exits,
+  )
+  match or_merge_must_states(fallthrough, normal_exits[0]) {
+    Some(summary) => summary
+    None => or_bool_array_copy(incoming)
+  }
+}
+
+///|
+fn or_rewrite_instrs_flow(
+  instrs : Array[@lib.Instruction],
+  incoming : @bitset.BitSet,
+  env : OrFlowEnv,
+  branch_states : Array[@bitset.BitSet?],
+  normal_exits : Array[@bitset.BitSet?],
+) -> @bitset.BitSet? {
+  let mut current = or_bool_array_copy(incoming)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
-      @lib.Block(_, @lib.Expr(body)) => {
-        let next = or_analyze_instrs(
-          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          allow_transitive_call_summaries,
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        branch_states.push(None)
+        let fallthrough = or_rewrite_instrs_flow(
+          body, current, env, branch_states, normal_exits,
         )
-        or_bool_array_union_into(current, next)
-      }
-      @lib.If(_, then_body, else_body) => {
-        ignore(
-          or_analyze_instrs(
-            then_body, current, once_global_slots, once_func_slots, func_once_sets,
-            func_once_set_singletons, allow_transitive_call_summaries,
-          ),
-        )
-        match else_body {
-          Some(else_body) =>
-            ignore(
-              or_analyze_instrs(
-                else_body, current, once_global_slots, once_func_slots, func_once_sets,
-                func_once_set_singletons, allow_transitive_call_summaries,
-              ),
-            )
-          None => ()
+        let local_exits = branch_states.pop().unwrap()
+        instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
+        match or_merge_must_states(fallthrough, local_exits) {
+          Some(next) => current = next
+          None => return None
         }
       }
-      @lib.Loop(_, @lib.Expr(body)) => {
-        let next = or_analyze_instrs(
-          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          allow_transitive_call_summaries,
+      @lib.If(block_type, then_body, else_body) => {
+        let then_fallthrough = or_rewrite_instrs_flow(
+          then_body, current, env, branch_states, normal_exits,
         )
-        or_bool_array_union_into(current, next)
+        let else_fallthrough = match else_body {
+          Some(body) =>
+            or_rewrite_instrs_flow(
+              body, current, env, branch_states, normal_exits,
+            )
+          None => Some(or_bool_array_copy(current))
+        }
+        instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
+        // Keep post-if facts at the incoming state, matching the analysis path
+        // and Binaryen's intentionally conservative arm merge.
+        if then_fallthrough is None && else_fallthrough is None {
+          return None
+        }
       }
-      @lib.TryTable(_, _, @lib.Expr(body)) => {
-        let next = or_analyze_instrs(
-          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          allow_transitive_call_summaries,
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        branch_states.push(None)
+        let fallthrough = or_rewrite_instrs_flow(
+          body, current, env, branch_states, normal_exits,
         )
-        or_bool_array_union_into(current, next)
+        ignore(branch_states.pop())
+        instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+        match fallthrough {
+          Some(next) => current = next
+          None => return None
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        branch_states.push(None)
+        let fallthrough = or_rewrite_instrs_flow(
+          body, current, env, branch_states, normal_exits,
+        )
+        let local_exits = branch_states.pop().unwrap()
+        instrs[idx] = @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(body),
+        )
+        match or_merge_must_states(fallthrough, local_exits) {
+          Some(next) => current = next
+          None => return None
+        }
       }
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
-        let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
+        let slot = or_slot_for_abs_idx(env.once_global_slots, global_idx)
         if slot >= 0 && or_prev_positive_integer_const(instrs, idx) {
+          if current[slot] {
+            instrs[idx - 1] = @lib.Instruction::nop()
+            instrs[idx] = @lib.Instruction::nop()
+          }
           current[slot] = true
         }
       }
       @lib.Call(@lib.FuncIdx(func_idx)) => {
         let func_slot = func_idx.reinterpret_as_int()
         let mut direct_singleton = false
-        if func_slot < once_func_slots.length() {
-          let once_global = once_func_slots[func_slot]
+        if func_slot < env.once_func_slots.length() {
+          let once_global = env.once_func_slots[func_slot]
           if once_global >= 0 {
-            current[once_global] = true
-            direct_singleton = func_slot < func_once_set_singletons.length() &&
-              func_once_set_singletons[func_slot]
+            if current[once_global] {
+              instrs[idx] = @lib.Instruction::nop()
+            } else {
+              current[once_global] = true
+            }
+            direct_singleton = func_slot < env.func_once_set_singletons.length() &&
+              env.func_once_set_singletons[func_slot]
           }
         }
-        if allow_transitive_call_summaries &&
-          func_slot < func_once_sets.length() &&
+        if env.allow_transitive_call_summaries &&
+          func_slot < env.func_once_sets.length() &&
           !direct_singleton {
-          or_bool_array_union_into(current, func_once_sets[func_slot])
+          or_bool_array_union_into(current, env.func_once_sets[func_slot])
         }
       }
-      @lib.ReturnCall(_) | @lib.Return | @lib.Br(_) | @lib.Unreachable =>
-        return current
+      @lib.Br(label) => {
+        or_record_branch_state(branch_states, label, current)
+        return None
+      }
+      @lib.BrIf(label)
+      | @lib.BrOnNull(label)
+      | @lib.BrOnNonNull(label)
+      | @lib.BrOnCast(label, _, _, _)
+      | @lib.BrOnCastFail(label, _, _, _) =>
+        or_record_branch_state(branch_states, label, current)
+      @lib.BrTable(labels, default_label) => {
+        for label in labels {
+          or_record_branch_state(branch_states, label, current)
+        }
+        or_record_branch_state(branch_states, default_label, current)
+        return None
+      }
+      @lib.Return => {
+        or_record_must_state(normal_exits, 0, current)
+        return None
+      }
+      @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => {
+        or_record_must_state(normal_exits, 0, current)
+        return None
+      }
+      @lib.Unreachable | @lib.Throw(_) | @lib.ThrowRef | @lib.Rethrow(_) =>
+        return None
       _ => ()
     }
   }
-  current
+  Some(current)
 }
 
 ///|
@@ -390,93 +679,22 @@ fn or_rewrite_instrs(
   func_once_set_singletons : @bitset.BitSet,
   allow_transitive_call_summaries : Bool,
 ) -> @bitset.BitSet {
-  let current = or_bool_array_copy(incoming)
-  for idx = 0; idx < instrs.length(); idx = idx + 1 {
-    match instrs[idx] {
-      @lib.Block(block_type, @lib.Expr(body)) => {
-        let next = or_rewrite_instrs(
-          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          allow_transitive_call_summaries,
-        )
-        instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
-        or_bool_array_union_into(current, next)
-      }
-      @lib.If(block_type, then_body, else_body) => {
-        ignore(
-          or_rewrite_instrs(
-            then_body, current, once_global_slots, once_func_slots, func_once_sets,
-            func_once_set_singletons, allow_transitive_call_summaries,
-          ),
-        )
-        match else_body {
-          Some(else_body) =>
-            ignore(
-              or_rewrite_instrs(
-                else_body, current, once_global_slots, once_func_slots, func_once_sets,
-                func_once_set_singletons, allow_transitive_call_summaries,
-              ),
-            )
-          None => ()
-        }
-        instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
-      }
-      @lib.Loop(block_type, @lib.Expr(body)) => {
-        let next = or_rewrite_instrs(
-          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          allow_transitive_call_summaries,
-        )
-        instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
-        or_bool_array_union_into(current, next)
-      }
-      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let next = or_rewrite_instrs(
-          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          allow_transitive_call_summaries,
-        )
-        instrs[idx] = @lib.Instruction::try_table(
-          block_type,
-          catches,
-          @lib.Expr::new(body),
-        )
-        or_bool_array_union_into(current, next)
-      }
-      @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
-        let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
-        if slot >= 0 && or_prev_positive_integer_const(instrs, idx) {
-          if current[slot] {
-            instrs[idx - 1] = @lib.Instruction::nop()
-            instrs[idx] = @lib.Instruction::nop()
-          }
-          current[slot] = true
-        }
-      }
-      @lib.Call(@lib.FuncIdx(func_idx)) => {
-        let func_slot = func_idx.reinterpret_as_int()
-        let mut direct_singleton = false
-        if func_slot < once_func_slots.length() {
-          let once_global = once_func_slots[func_slot]
-          if once_global >= 0 {
-            if current[once_global] {
-              instrs[idx] = @lib.Instruction::nop()
-            } else {
-              current[once_global] = true
-            }
-            direct_singleton = func_slot < func_once_set_singletons.length() &&
-              func_once_set_singletons[func_slot]
-          }
-        }
-        if allow_transitive_call_summaries &&
-          func_slot < func_once_sets.length() &&
-          !direct_singleton {
-          or_bool_array_union_into(current, func_once_sets[func_slot])
-        }
-      }
-      @lib.ReturnCall(_) | @lib.Return | @lib.Br(_) | @lib.Unreachable =>
-        return current
-      _ => ()
-    }
+  let env = OrFlowEnv::new(
+    once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+    allow_transitive_call_summaries,
+  )
+  let normal_exits : Array[@bitset.BitSet?] = [None]
+  let fallthrough = or_rewrite_instrs_flow(
+    instrs,
+    incoming,
+    env,
+    [],
+    normal_exits,
+  )
+  match or_merge_must_states(fallthrough, normal_exits[0]) {
+    Some(summary) => summary
+    None => or_bool_array_copy(incoming)
   }
-  current
 }
 
 ///|
@@ -742,6 +960,10 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
         func_once_set_singletons,
         once_func_slots[abs_idx] < 0,
       )
+      // Direct once functions and annotated idempotent functions guarantee
+      // their own synthetic fact on every normal return, including an early
+      // guard return whose condition already proves the fact at runtime.
+      or_bool_array_union_into(next, func_initial_once_sets[abs_idx])
       if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
         func_once_sets[abs_idx] = next
         func_once_set_singletons[abs_idx] = or_bool_array_is_singleton(

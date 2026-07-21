@@ -169,7 +169,13 @@ fn merge_blocks_rewrite_dead_unreachable_suffix_roots(
     }
     for idx = unreachable_idx + 1; idx < roots.length(); idx = idx + 1 {
       let root_id = roots[idx]
-      if @ir.hot_node_result_arity(func, root_id) != 1 {
+      if @ir.hot_node_result_arity(func, root_id) != 1 ||
+        !@ir.effects_is_pure(@ir.effects_for_node(func, root_id)) {
+        // HOT can place pending pre-unreachable values after the terminator in
+        // region-root order. Moving a pure value before the unreachable is
+        // harmless, but an effectful root may instead be source-level dead code
+        // that originally followed the trap. Keep the block intact when the
+        // distinction is not semantically free.
         return false
       }
       rewritten.push(@ir.hot_build_drop(func, root_id))

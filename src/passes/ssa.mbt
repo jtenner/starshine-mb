@@ -168,40 +168,52 @@ fn ssa_full_apply_simple_explicit_merge_rewrite(
     Some(ty) => ty
     None => return false
   }
-  if @ir.hot_append_body_local(func, merge_ty) != rewrite.merge_local {
+  if rewrite.merge_local != @ir.hot_local_count(func) ||
+    rewrite.get_id < 0 ||
+    !@ir.hot_node_is_live(func, rewrite.get_id) {
     return false
   }
-  let get_node = @ir.hot_node_get(func, rewrite.get_id)
-  match get_node.op {
-    @ir.HotOp::LocalGet => {
-      let replacement_id = @ir.hot_build_local_get(func, rewrite.merge_local)
-      @ir.hot_replace_node(
-        func,
-        rewrite.get_id,
-        @ir.hot_node_get(func, replacement_id),
-      )
-      @ir.hot_delete_node(func, replacement_id)
-    }
+  match @ir.hot_node_get(func, rewrite.get_id).op {
+    @ir.HotOp::LocalGet => ()
     _ => return false
   }
+  let write_ids : Array[@ir.NodeId] = []
   for input in rewrite.inputs {
     let write_id = match input {
       SsaFullMergeInput::ExplicitWrite(write_id) => write_id
       _ => return false
     }
+    if write_id < 0 ||
+      !@ir.hot_node_is_live(func, write_id) ||
+      @ir.hot_child_count(func, write_id) != 1 {
+      return false
+    }
     let write_node = @ir.hot_node_get(func, write_id)
     match write_node.op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
-        let value_id = @ir.hot_child_get(func, write_id, 0)
-        let tee_id = @ir.hot_build_local_tee(
-          func,
-          rewrite.merge_local,
-          value_id,
-        )
-        @ir.hot_child_set(func, write_id, 0, tee_id)
-      }
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if write_node.imm0 != rewrite.original_local {
+          return false
+        }
       _ => return false
     }
+    write_ids.push(write_id)
+  }
+
+  let appended = @ir.hot_append_body_local(func, merge_ty)
+  if appended != rewrite.merge_local {
+    abort("full ssa merge-local append violated the prevalidated local id")
+  }
+  let replacement_id = @ir.hot_build_local_get(func, rewrite.merge_local)
+  @ir.hot_replace_node(
+    func,
+    rewrite.get_id,
+    @ir.hot_node_get(func, replacement_id),
+  )
+  @ir.hot_delete_node(func, replacement_id)
+  for write_id in write_ids {
+    let value_id = @ir.hot_child_get(func, write_id, 0)
+    let tee_id = @ir.hot_build_local_tee(func, rewrite.merge_local, value_id)
+    @ir.hot_child_set(func, write_id, 0, tee_id)
   }
   true
 }

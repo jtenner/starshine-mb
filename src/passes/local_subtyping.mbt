@@ -28,12 +28,15 @@ fn ls_abs_heap_is_subtype(
     return true
   }
   match (source, target) {
-    (@lib.NoneAbsHeapType, @lib.StructAbsHeapType)
-    | (@lib.NoneAbsHeapType, @lib.ArrayAbsHeapType)
+    (@lib.NoneAbsHeapType, @lib.AnyAbsHeapType)
     | (@lib.NoneAbsHeapType, @lib.EqAbsHeapType)
-    | (@lib.NoneAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.I31AbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.StructAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.ArrayAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.StringAbsHeapType)
     | (@lib.NoFuncAbsHeapType, @lib.FuncAbsHeapType)
-    | (@lib.NoFuncAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.NoContAbsHeapType, @lib.ContAbsHeapType)
+    | (@lib.StringAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExternAbsHeapType, @lib.ExternAbsHeapType)
     | (@lib.NoExnAbsHeapType, @lib.ExnAbsHeapType)
     | (@lib.I31AbsHeapType, @lib.EqAbsHeapType)
@@ -42,9 +45,7 @@ fn ls_abs_heap_is_subtype(
     | (@lib.StructAbsHeapType, @lib.AnyAbsHeapType)
     | (@lib.ArrayAbsHeapType, @lib.EqAbsHeapType)
     | (@lib.ArrayAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.EqAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.FuncAbsHeapType, @lib.AnyAbsHeapType)
-    | (@lib.ExternAbsHeapType, @lib.AnyAbsHeapType) => true
+    | (@lib.EqAbsHeapType, @lib.AnyAbsHeapType) => true
     _ => false
   }
 }
@@ -60,8 +61,7 @@ fn ls_comptype_matches_abs(ct : @lib.CompType, abs : @lib.AbsHeapType) -> Bool {
       abs == @lib.AbsHeapType::array() ||
       abs == @lib.AbsHeapType::eq() ||
       abs == @lib.AbsHeapType::any()
-    @lib.FuncCompType(_, _) =>
-      abs == @lib.AbsHeapType::func() || abs == @lib.AbsHeapType::any()
+    @lib.FuncCompType(_, _) => abs == @lib.AbsHeapType::func()
     @lib.ContCompType(_) => abs == @lib.AbsHeapType::cont()
   }
 }

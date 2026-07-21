@@ -516,7 +516,6 @@ fn merge_locals_run_raw_straight_line_func(
       candidate_idx = candidate_idx + 1 {
     let candidate = candidates[candidate_idx]
     let trivial_gets = influences[candidate.virtual_source]
-    let copy_gets = influences[candidate.copy_source]
     let same_type = candidate.source_local >= 0 &&
       candidate.target_local >= 0 &&
       candidate.source_local < local_types.length() &&
@@ -530,14 +529,6 @@ fn merge_locals_run_raw_straight_line_func(
       )
       orientations[candidate_idx] = 1
       rewrite_gets.push(trivial_gets)
-    } else if same_type && !trivial_gets.is_empty() && !copy_gets.is_empty() {
-      merge_locals_raw_retarget_gets(
-        rewritten,
-        copy_gets,
-        candidate.source_local,
-      )
-      orientations[candidate_idx] = 2
-      rewrite_gets.push(copy_gets)
     } else {
       rewrite_gets.push([])
     }
@@ -556,11 +547,7 @@ fn merge_locals_run_raw_straight_line_func(
       continue
     }
     let candidate = candidates[candidate_idx]
-    let expected = if orientation == 1 {
-      candidate.copy_source
-    } else {
-      candidate.virtual_source
-    }
+    let expected = candidate.copy_source
     let mut valid = true
     for get_idx in rewrite_gets[candidate_idx] {
       if get_idx < 0 ||
@@ -576,11 +563,7 @@ fn merge_locals_run_raw_straight_line_func(
       merge_locals_raw_retarget_gets(
         rewritten,
         rewrite_gets[candidate_idx],
-        if orientation == 1 {
-          candidate.source_local
-        } else {
-          candidate.target_local
-        },
+        candidate.source_local,
       )
     }
   }

@@ -1368,12 +1368,10 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.F64Const(_)
     | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some((0, 1))
-    @lib.LocalSet(_)
-    | @lib.GlobalSet(_)
-    | @lib.TableSet(_)
-    | @lib.BrIf(_)
-    | @lib.BrOnNull(_)
-    | @lib.BrOnNonNull(_) => Some((1, 0))
+    @lib.LocalSet(_) | @lib.GlobalSet(_) | @lib.BrIf(_) | @lib.BrOnNonNull(_) =>
+      Some((1, 0))
+    @lib.BrOnNull(_) => Some((1, 1))
+    @lib.TableSet(_) => Some((2, 0))
     @lib.LocalTee(_)
     | @lib.MemoryGrow(_)
     | @lib.TableGet(_)
@@ -1438,8 +1436,6 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.I64Extend32S
     | @lib.RefTest(_, _, _)
     | @lib.RefCast(_, _, _)
-    | @lib.RefTestDesc(_, _)
-    | @lib.RefCastDescEq(_, _, _)
     | @lib.I32TruncSatF32S
     | @lib.I32TruncSatF32U
     | @lib.I32TruncSatF64S
@@ -1562,7 +1558,9 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.F64Min
     | @lib.F64Max
     | @lib.F64Copysign
-    | @lib.RefEq => Some((2, 1))
+    | @lib.RefEq
+    | @lib.RefTestDesc(_, _)
+    | @lib.RefCastDescEq(_, _, _) => Some((2, 1))
     @lib.I32Store(_)
     | @lib.I64Store(_)
     | @lib.F32Store(_)
@@ -1585,8 +1583,8 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     | @lib.ArrayFill(_)
     | @lib.ArrayInitData(_, _)
     | @lib.ArrayInitElem(_, _) => Some((3, 0))
-    @lib.MemoryCopy(_, _) | @lib.TableCopy(_, _) | @lib.ArrayCopy(_, _) =>
-      Some((3, 0))
+    @lib.MemoryCopy(_, _) | @lib.TableCopy(_, _) => Some((3, 0))
+    @lib.ArrayCopy(_, _) => Some((5, 0))
     @lib.DataDrop(_) | @lib.ElemDrop(_) | @lib.AtomicFence => Some((0, 0))
     _ => None
   }

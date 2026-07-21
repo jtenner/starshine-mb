@@ -2322,3 +2322,30 @@ test "merge-blocks moves pure block prefixes out of throw operands like Binaryen
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
 }
+
+///|
+test "merge-blocks does not execute effectful roots after unreachable" {
+  let source =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $set (result i32)
+    #|     i32.const 1
+    #|     global.set $g
+    #|     i32.const 7)
+    #|   (func (result i32)
+    #|     block (result i32)
+    #|       unreachable
+    #|       call $set
+    #|     end))
+    #|
+  let baseline = match pass_test_run_pipeline(source, []) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected merge-blocks baseline success, got \{err}")
+  }
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected merge-blocks dead suffix success, got \{err}")
+  }
+
+  @debug.assert_eq(optimized, baseline)
+}

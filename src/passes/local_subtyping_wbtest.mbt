@@ -54,3 +54,31 @@ test "local-subtyping prefilter detects only writes to ref body locals" {
     None => ()
   }
 }
+
+///|
+test "local-subtyping follows the validator abstract heap hierarchy" {
+  assert_false(
+    ls_abs_heap_is_subtype(@lib.AbsHeapType::func(), @lib.AbsHeapType::any()),
+  )
+  assert_false(
+    ls_abs_heap_is_subtype(@lib.AbsHeapType::extern_(), @lib.AbsHeapType::any()),
+  )
+  assert_false(
+    ls_abs_heap_is_subtype(@lib.AbsHeapType::no_func(), @lib.AbsHeapType::any()),
+  )
+  assert_true(
+    ls_abs_heap_is_subtype(@lib.AbsHeapType::none(), @lib.AbsHeapType::i31()),
+  )
+  assert_true(
+    ls_abs_heap_is_subtype(
+      @lib.AbsHeapType::no_cont(),
+      @lib.AbsHeapType::cont(),
+    ),
+  )
+  assert_true(
+    ls_abs_heap_is_subtype(
+      @lib.AbsHeapType::string_(),
+      @lib.AbsHeapType::extern_(),
+    ),
+  )
+}
