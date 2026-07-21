@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
@@ -257,6 +257,32 @@ The source map shows the right split:
 - the core evaluator is shared,
 - plain `precompute` is the top-level no-DWARF public mode,
 - and the sibling adds the `LazyLocalGraph` local-worklist plus one extra rerun and is used in aggressive/nested contexts.
+
+## Starshine raw-control correctness boundary
+
+The 2026-07-21 correctness audit found that Starshine's raw terminal-branch
+flattening had modeled every removed `br` as carrying exactly one payload. That
+assumption was wrong at both ends of the label-type surface:
+
+- a type-indexed multivalue target lost one payload and produced an invalid
+  candidate stack,
+- a void target retained a dead value after removing the branch.
+
+Writeback validation rejected both candidates (`skip-invalid-lower`), so the bug
+was fail-closed at module commit rather than a persisted miscompile, but the pass
+silently missed valid optimization work.
+
+The raw rewriter now threads known branch-label arities through nested blocks,
+loops, `if`, `try_table`, direct terminal-block flattening, and constant-`if`
+tail folding. Void and scalar block labels are exact; loop labels use parameter
+arity; unresolved type-indexed/multivalue labels fail closed instead of guessing.
+Focused public regressions cover both `precompute` and `precompute-propagate`, and
+a white-box regression covers the constant-`if` void-arm helper whose public
+fixture currently encounters an unrelated HOT lowering abort.
+
+This is a durable implementation rule: raw control rewrites must reason about
+the branch target's label type, not the enclosing construct's result shape and
+not a single-value default.
 
 ## Porting takeaway
 
