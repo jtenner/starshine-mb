@@ -120,6 +120,10 @@ For a behavior change:
 
 Do not use a stale `target/native/...` artifact as current signoff evidence; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
+## 2026-07-21 correctness hardening
+
+The HOT unreachable-root repair now moves only effect-free, nontrapping values before an `unreachable`. An effectful root in the ambiguous post-terminator root suffix makes block flattening fail closed, because it may be source-level dead code that originally followed the trap. `merge_blocks_test.mbt` covers a dead call that previously became live before `unreachable`.
+
 ## Sources
 
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>

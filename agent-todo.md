@@ -21,8 +21,8 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | --- | --- | --- |
 | `duplicate-function-elimination` | Direct behavior closed; both slots scheduled. | None. |
 | `remove-unused-module-elements` | Closed for previously tested Binaryen-v131 direct behavior, but reopened for decoded legacy-EH `try` reachability: the module-element scanner currently traverses `try_table` but not legacy `try` bodies or catches. | **Open correctness and scheduler work:** `[AUDIT-LEGACY-EH]001` plus the second early slot. |
-| `memory-packing` | Closed at Binaryen-v131 behavior parity: source-order trampling, imported in-bounds admission, overflow-safe memory32/memory64 bounds, focused fixtures, four-lane evidence, and O4z slot proof are current. | None. |
-| `once-reduction` | Reopened because its scan, dataflow, and rewrite walkers omit decoded legacy `try` bodies and catches, allowing optimization from incomplete once-global and call facts. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
+| `memory-packing` | Correctness-repaired on 2026-07-21 after fixing five operand stack deltas; prior v131 parity evidence predates the repair. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
+| `once-reduction` | Correctness-repaired on 2026-07-21 with branch-exit must-fact intersection, but reopened because its scan, dataflow, and rewrite walkers omit decoded legacy `try` bodies and catches. Prior v131 parity evidence predates both repairs. | **Open correctness and evidence renewal:** `[AUDIT-LEGACY-EH]001` and `[AUDIT-CORRECTNESS]001`. |
 | `global-refining` | Closed. | None. |
 | `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
 | `ssa-nomerge` | Closed. | None; full `ssa` is separate future work. |
@@ -31,7 +31,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `local-cse` | Direct behavior closed; both late and aggressive-prelude slots scheduled. | None; shared nested-rerun proof remains under `[O4Z-NESTED]001`. |
 | `dead-code-elimination` / `dce` | Closed. | None. |
 | `remove-unused-names` | Closed. | None. |
-| `remove-unused-brs` | Direct behavior closed. | **Open scheduler reconciliation:** Starshine has one extra slot. |
+| `remove-unused-brs` | Correctness-repaired on 2026-07-21 so selectification cannot speculate unchosen traps or move condition writes/calls past invalidated local and mutable-global arm reads. Prior v131 parity evidence predates the repair. | **Open evidence renewal and scheduler reconciliation:** `[AUDIT-CORRECTNESS]001`; Starshine also has one extra slot. |
 | `optimize-instructions` | Closed for the representable Binaryen-v131 surface with four-lane direct evidence, O4z neighborhood proof, size wins, and pass-local timing. | Ordered memory-atomic acquire/release evidence remains a representation blocker outside OI; reopen when that instruction surface lands. |
 | `heap-store-optimization` | Closed. | None. |
 | `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
@@ -44,11 +44,11 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 | `heap2local` | Closed for the representable v131 surface: sequential branch-target struct/array candidates, unreachable flow, GC-supertype drop-only owners, and direct fresh packed/unpacked reads are covered; the four-lane matrix and O4z slot are current. | Shared reference `acqrel` cmpxchg remains a validator/atomic-semantics representation blocker; reopen when that surface lands. |
 | `merge-locals` | Previously closed at Binaryen-v131 parity for covered inputs, but reopened because the raw straight-line fallback rejects `try_table` while accepting and ignoring decoded legacy `try` control and nested local effects. | **Open correctness repair:** `[AUDIT-LEGACY-EH]001`. |
 | `optimize-casts` | Closed. | None. |
-| `local-subtyping` | Closed. | None. |
+| `local-subtyping` | Correctness-repaired on 2026-07-21 to match the validator's abstract heap hierarchy; prior v131 parity evidence predates the repair. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
 | `coalesce-locals` | Direct behavior closed. | **Open extended-neighborhood shape parity:** the full slot-27 suffix can renumber locals differently even when `merge-locals` is a byte no-op in both tools. |
 | `simplify-locals` | Closed. | None. |
 | `code-folding` | Closed: Binaryen-v131 semantics, external validity, canonical late scheduling, and pass-local performance completed on 2026-07-19. | None; final representative medians are `1.70x` on the candidate-heavy fixture and `1.98x` on the large debug artifact. |
-| `merge-blocks` | Closed for the current v0.1.1 audit. | None. |
+| `merge-blocks` | Correctness-repaired on 2026-07-21 so effectful ambiguous roots cannot move before `unreachable`; prior v131 parity evidence predates the repair. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
 | `redundant-set-elimination` / `rse` | Direct behavior, 1x timing, and the canonical late O4z scheduler slot are closed. The public optimize/shrink rosters run `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing`. | None for v0.1.1. |
 | `dae-optimizing` | Closed locally for v0.1.1 DAE ownership. Numeric production identities are gone; final Binaryen-v131 four-lane matrices are current for plain DAE and DAEO; the shared nested roster and exact slot-48 placement are proven. Plain/optimizing retained artifacts validate and are byte-idempotent. Final medians are plain `85.329s` / `64.277s` and DAEO `25.440s` / `21.475s`; the latter improves the prior `47.956s` / `44.490s` without changing bytes. Retained thresholds are optional phase/profitability budgets only. | No DAE-owned work. The DAEO canonical `+4,318` local-layout/remap family belongs to shared nested local-cleanup passes, and the full large O4z wall stop is pre-DAEO in `simplify-locals-nostructure`. |
 | `inlining-optimizing` | The v131 shared-engine behavior audit is implemented locally: toolchain hints, CLI/configurable heuristics, complete trivial-instruction classes, Pattern A/B splitting, EH-aware direct/indirect/ref tail hoisting, roots, metadata repair, active `inline-main`, and exact nested order. **Release target: v0.2.0 or later; these changes are not part of the v0.1.1 release scope.** | Direct behavior has no open v131 transform-family gap. Track shipment under `[V02-INL]001`; shared DAE/SGO scheduler routing remains under `[O4Z-NESTED]001`. |
@@ -68,6 +68,20 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Run focused v131 source/test probes before any full rerun.
   - [ ] Keep a pass closed when the probe is green and the owner contract is unchanged; open a dedicated slice only for a classified mismatch or missing released family.
 - **Exit criteria:** every target has an explicit v131 renewed/unchanged verdict or an owning follow-up slice.
+
+### [AUDIT-CORRECTNESS]001 - Renew evidence after cross-pass correctness repairs
+
+- **Status:** implementation and red-first deterministic regression work are complete for `merge-blocks`, `once-reduction`, `memory-packing`, `local-subtyping`, `remove-unused-brs`, full `ssa` plan application, and the raw merge-locals cleanup. Focused tests, current `moon test src/passes` (`6225/6225`), current full native `moon test` (`9704/9704`), the earlier wasm-gc full suite (`9699/9699` before the five newest regressions), direct `moon check --target wasm-gc`, every CI fuzz suite, fresh native build SHA-256 `e925ebcdcb40bdc0cb5b36fd838912e27755747f409293a280a9d0934d860d42`, and the two original semantic replays are green. The aggregate `bun validate full` wrapper intermittently reported nonzero Moon subprocesses even though the same commands passed immediately when run directly.
+- **Goal:** renew explicit Binaryen-v131 direct evidence for the five behavior-changing public passes after the repair.
+- **Deliverables:**
+  - [ ] Run the required four-lane v131 matrix for `merge-blocks`.
+  - [ ] Run the required four-lane v131 matrix for `once-reduction`.
+  - [ ] Run the required four-lane v131 matrix for `memory-packing`.
+  - [ ] Run the required four-lane v131 matrix for `local-subtyping`.
+  - [ ] Run the required four-lane v131 matrix for `remove-unused-brs`.
+  - [x] Keep full `ssa`'s stale-plan regression white-box because it hardens an internal failure path without widening public transform admission.
+  - [x] Keep raw merge-locals output unchanged while deleting its unreachable orientation-two branch.
+- **Exit criteria:** all five behavior-changing passes have fresh explicit-v131 direct matrices with zero validation or true semantic failures, or an inspected mismatch has its own owning follow-up.
 
 ### [AUDIT-LEGACY-EH]001 - Repair decoded legacy `try` traversal across optimizer passes
 

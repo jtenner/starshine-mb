@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-21
 sources:
   - ./index.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -70,14 +70,16 @@ The pass supports more than trivial const arms. Current regressions cover:
 - a boundary where a `local.tee` condition invalidates an arm local read, so selectification stays disabled
 - conditions involving calls when the ordering is still known to be safe
 - returned condition ladders with side-effect prefixes
-- costly integer `div`/`rem` arms staying as `if` at speed shrink level and becoming `select` under `shrink_level=1` when the cost threshold allows it
+- provably nontrapping constant-divisor integer `div`/`rem` arms staying as `if` at speed shrink level and becoming `select` under `shrink_level=1` when the cost threshold allows it
 
 The crucial helper pair is:
 
 - `remove_unused_brs_build_region_value_expr(...)`
 - `remove_unused_brs_condition_is_select_safe_over_value_arms(...)`
 
-That pair is what keeps "selectify" from silently reordering side effects or local traffic. The 2026-06-29 value-legality audit in [research note 1378](./index.md) added focused coverage for the local invalidation case and records unreachable-condition selectify as a HOT-lift tooling boundary until polymorphic unreachable conditions lift cleanly.
+That pair is what keeps "selectify" from silently reordering side effects or local traffic. The 2026-07-21 correctness audit tightened this contract after finding that the reorder predicate admitted potentially trapping integer division/remainder and checked float-to-int truncations. Those operations must stay conditional unless their operands prove the represented operation nontrapping; otherwise `select` would execute an unchosen trap. The focused regressions cover zero-divisor `i32.div_s` and NaN `i32.trunc_f64_s` arms under shrink mode.
+
+The earlier 2026-06-29 value-legality audit in [research note 1378](./index.md) added focused coverage for local invalidation and records unreachable-condition selectify as a HOT-lift tooling boundary until polymorphic unreachable conditions lift cleanly.
 
 ## Condition-Child Value-`if` Rewrites
 
@@ -88,6 +90,8 @@ This helper exists because some functions do not present the interesting value-`
 - Instead, a void outer `if` uses a one-result inner `if` as its condition.
 - The pass first selectifies the condition child.
 - Only then do later branch cleanups or suffix rewrites become visible.
+
+The condition-child path does not bypass ordering proofs. A `local.tee` condition may not move after an arm that reads the same local. Calls are admitted only across nontrapping local-only arms whose call arguments preserve those local reads; arms that read mutable globals remain conditional because the call may change the observed value. The 2026-07-21 regressions lock both boundaries while retaining the established call-conditioned local-arm rewrite.
 
 This helper is also the reason some returned ladders cannot use the raw structured-return skip.
 
@@ -181,8 +185,9 @@ Binaryen also exposes `remove-unused-brs-never-unconditionalize` to disable rewr
 - If the family is already a direct one-result `if`, start with the direct select helper.
 - If the family only becomes value-like after peeling branch exits or returned wrappers, it probably belongs to another helper first.
 - Never widen the select rules without re-checking:
-  - reorder-safety
-  - local-read interaction
+  - reorder-safety and trap freedom
+  - local-read invalidation
+  - mutable-global reads across calls
   - returned-ladder regressions
   - branch-payload arity constraints
 

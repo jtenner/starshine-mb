@@ -231,6 +231,10 @@ A future strict-parity implementation must keep these durable facts explicit:
 - self-recursive once calls are safe to fold in ways some multi-node cycles are not
 - idempotent annotations extend the same once-bit framework, but only narrowly
 
+## 2026-07-21 conditional-exit correction
+
+Starshine's local implementation now tracks must-facts separately for structured fallthrough and branch exits. `br_if`, `br_table`, `br_on_*`, and unconditional branches contribute facts to their actual label target; block continuation intersects all reachable exits. This prevents a call or positive once-global write after a conditional block exit from being treated as guaranteed. Post-`if` fact propagation remains deliberately conservative to preserve the released Binaryen shape.
+
 ## Freshness note
 
 The 2026-04-22 source review rechecked the official `version_129` release page plus the current-`main` `OnceReduction.cpp` and dedicated `once-reduction.wast` surfaces, without finding a teaching-relevant drift in these dominance, summary-propagation, or wrapper-cycle rules. The retained 2026-06-08 behavior inventory later confirmed that `version_130` kept the same owner and dedicated lit surface.

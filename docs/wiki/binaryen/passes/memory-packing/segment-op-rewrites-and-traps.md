@@ -289,6 +289,10 @@ Why wrong:
 
 - it explains only the easiest active subset, not the passive/user-rewrite half.
 
+## 2026-07-21 operand-boundary correction
+
+The passive-segment `memory.init` operand scanner now uses the validator's exact stack deltas for `table.set`, `array.copy`, `br_on_null`, `ref.test_desc`, and `ref.cast_desc_eq`. Incorrect deltas could make `mp_find_value_start` splice an enclosing pending stack value into the destination expression. White-box tests lock all five corrected counts.
+
 ## Practical future-port checklist
 
 If a future Starshine port grows toward full Binaryen parity, keep this checklist handy:

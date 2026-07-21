@@ -122,6 +122,10 @@ If you only remember a few things from this page, remember these:
 5. Repeated refinement after refinalization is part of the pass.
 6. The old `LocalUpdater` / copy-local story remains an overread, but the old set-only correction was also too narrow.
 
+## 2026-07-21 heap-hierarchy correction
+
+Starshine's abstract-heap helper now matches the validator hierarchy: function and extern references are not subtypes of `any`; `none` includes the `i31` and string bottoms; `nocont <: cont`; and `string <: extern`. The concrete function-shape helper likewise no longer treats function types as internal `any` references. A white-box test cross-checks these easy-to-confuse edges.
+
 ## Porting checklist
 
 A Starshine parity expansion should preserve:

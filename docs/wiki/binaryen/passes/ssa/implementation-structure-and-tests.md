@@ -169,6 +169,10 @@ Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code lo
 - `src/passes/ssa_nomerge.mbt` remains the no-merge sibling owner; full `ssa` may reuse its non-merge rewrite path, but merge-local materialization belongs to `[O4Z-AUDIT-SSA-FULL]` / `[SSA-FULL-*]`, not `SSANM`.
 - No local owner currently implements Binaryen full `ssa`'s merge-local + incoming-`tee` + entry-prepend contract for public merge families; those are the open `[SSA-FULL-002C]` through `[SSA-FULL-003]` slices.
 
+## 2026-07-21 transactional merge-plan correction
+
+The simple explicit-write merge-local path now validates the get, every reaching write, original local, child arity, and next local id before appending a local or retargeting a node. A malformed or stale plan therefore returns unchanged without leaving a partially rewritten function. `ssa_wbtest.mbt` locks this no-partial-mutation contract.
+
 ## Current-main freshness and admission note
 
 The 2026-07-11 recheck reread current `main`'s `SSAify.cpp`, `pass.cpp`, and `ssa.wast`. The shared `SSAify(bool allowMerges)` owner, full-SSA merge-local path, and `ssa-nomerge`-only default scheduling remain present. It is a scoped source reading, **not** a full current-main-versus-`version_130` diff; the tagged manifests remain the released-oracle provenance.
