@@ -1,4 +1,24 @@
 ///|
+test "precompute raw constant-if flattening drops void branch values" {
+  let out : Array[@lib.Instruction] = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+      ],
+      None,
+    ),
+  ]
+  assert_true(precompute_raw_try_fold_const_if_tail(out, []))
+  @debug.assert_eq(out, [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 test "precompute raw tlsf prologue repair produces valid lowered function" {
   let source =
     #|(module

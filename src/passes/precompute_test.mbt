@@ -383,6 +383,78 @@ test "precompute folds loop-carried constant breaks to the enclosing result" {
 }
 
 ///|
+test "precompute preserves every payload of a flattened multivalue branch" {
+  let source =
+    #| (module
+    #|   (type $pair (func (result i32 i64)))
+    #|   (func (result i32 i64)
+    #|     (block (type $pair)
+    #|       (block
+    #|         i32.const 1
+    #|         i64.const 2
+    #|         br 1)
+    #|       unreachable)))
+    #|
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        source,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected \{pass_name} multivalue branch preservation, got \{err}; trace=\{trace}",
+        )
+    }
+
+    assert_false(
+      trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+      msg=trace.to_string(),
+    )
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail("expected \{pass_name} multivalue output to validate, got \{err}")
+    }
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(pretty.contains("I32(1)"), msg=pretty)
+    assert_true(pretty.contains("I64(2)"), msg=pretty)
+  }
+}
+
+///|
+test "precompute drops every dead value of a flattened void branch" {
+  let source = "(module (func (block (i32.const 1) (br 0))))"
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        source,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} void branch cleanup, got \{err}")
+    }
+    assert_false(
+      trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+      msg=trace.to_string(),
+    )
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) => fail("expected \{pass_name} void branch output, got \{err}")
+    }
+  }
+}
+
+///|
 test "precompute preserves label depth while folding a constant if with an escaping value" {
   let optimized = match
     pass_test_run_pipeline(

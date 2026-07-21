@@ -5739,7 +5739,10 @@ fn precompute_raw_instrs_have_branch_to_current_label(
 }
 
 ///|
-fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool {
+fn precompute_raw_try_fold_const_if_tail(
+  out : Array[@lib.Instruction],
+  label_arities : Array[Int?],
+) -> Bool {
   if out.length() < 2 {
     return false
   }
@@ -5767,7 +5770,25 @@ fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool 
   if precompute_raw_instrs_have_label_relative_branch(selected) {
     match precompute_raw_block_terminal_branch_depth(selected) {
       Some(depth) => {
-        let prefix = match precompute_raw_terminal_branch_prefix(selected) {
+        let selected_label_arities = precompute_raw_append_label_arity(
+          label_arities,
+          precompute_raw_block_label_arity(block_type),
+        )
+        let payload_arity = match
+          precompute_raw_branch_target_arity(selected_label_arities, depth) {
+          Some(arity) => arity
+          None => {
+            out.push(
+              @lib.Instruction::block(
+                block_type,
+                @lib.Expr::new(selected.copy()),
+              ),
+            )
+            return true
+          }
+        }
+        let prefix = match
+          precompute_raw_terminal_branch_prefix(selected, payload_arity) {
           Some(prefix) => prefix
           None => {
             out.push(
@@ -6558,14 +6579,17 @@ fn precompute_raw_try_fold_string_slice_tail(
 }
 
 ///|
-fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
+fn precompute_raw_fold_output_tail(
+  out : Array[@lib.Instruction],
+  label_arities? : Array[Int?] = [],
+) -> Bool {
   if precompute_raw_try_fold_string_slice_tail(out) {
     return true
   }
   if precompute_raw_try_fold_string_new_wtf16_tail(out) {
     return true
   }
-  if precompute_raw_try_fold_const_if_tail(out) {
+  if precompute_raw_try_fold_const_if_tail(out, label_arities) {
     return true
   }
   if precompute_raw_try_partial_select_condition_tail(out) ||
@@ -6967,9 +6991,49 @@ fn precompute_raw_void_block_is_selector_only_self_br_table(
 }
 
 ///|
+fn precompute_raw_block_label_arity(block_type : @lib.BlockType) -> Int? {
+  match block_type {
+    @lib.VoidBlockType => Some(0)
+    @lib.ValTypeBlockType(_) => Some(1)
+    @lib.TypeIdxBlockType(_) => None
+  }
+}
+
+///|
+fn precompute_raw_loop_label_arity(block_type : @lib.BlockType) -> Int? {
+  match block_type {
+    @lib.VoidBlockType | @lib.ValTypeBlockType(_) => Some(0)
+    @lib.TypeIdxBlockType(_) => None
+  }
+}
+
+///|
+fn precompute_raw_append_label_arity(
+  label_arities : Array[Int?],
+  arity : Int?,
+) -> Array[Int?] {
+  let nested = label_arities.copy()
+  nested.push(arity)
+  nested
+}
+
+///|
+fn precompute_raw_branch_target_arity(
+  label_arities : Array[Int?],
+  depth : UInt,
+) -> Int? {
+  let slot = label_arities.length() - 1 - depth.reinterpret_as_int()
+  if slot < 0 || slot >= label_arities.length() {
+    return None
+  }
+  label_arities[slot]
+}
+
+///|
 fn precompute_raw_rewrite_instr(
   instr : @lib.Instruction,
   module_ctx : @ir.HotModuleContext?,
+  label_arities : Array[Int?],
 ) -> (@lib.Instruction, Bool) {
   match instr {
     @lib.GlobalGet(global_idx) =>
@@ -6979,7 +7043,12 @@ fn precompute_raw_rewrite_instr(
       }
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (next_body, nested_changed) = precompute_raw_rewrite_instrs(
-        body, module_ctx,
+        body,
+        module_ctx,
+        label_arities=precompute_raw_append_label_arity(
+          label_arities,
+          precompute_raw_block_label_arity(block_type),
+        ),
       )
       let local_changed = precompute_raw_fold_block_local_constants(next_body)
       let changed = nested_changed || local_changed
@@ -7026,7 +7095,14 @@ fn precompute_raw_rewrite_instr(
       }
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
+      let (next_body, changed) = precompute_raw_rewrite_instrs(
+        body,
+        module_ctx,
+        label_arities=precompute_raw_append_label_arity(
+          label_arities,
+          precompute_raw_loop_label_arity(block_type),
+        ),
+      )
       if block_type == @lib.BlockType::void_() &&
         precompute_raw_instrs_are_all_nops(next_body) {
         return (@lib.Instruction::nop(), true)
@@ -7038,14 +7114,22 @@ fn precompute_raw_rewrite_instr(
       }
     }
     @lib.If(block_type, then_body, else_body) => {
+      let arm_label_arities = precompute_raw_append_label_arity(
+        label_arities,
+        precompute_raw_block_label_arity(block_type),
+      )
       let (next_then, then_changed) = precompute_raw_rewrite_instrs(
-        then_body, module_ctx,
+        then_body,
+        module_ctx,
+        label_arities=arm_label_arities,
       )
       let mut changed = then_changed
       let next_else = match else_body {
         Some(body) => {
           let (rewritten, else_changed) = precompute_raw_rewrite_instrs(
-            body, module_ctx,
+            body,
+            module_ctx,
+            label_arities=arm_label_arities,
           )
           if else_changed {
             changed = true
@@ -7061,7 +7145,14 @@ fn precompute_raw_rewrite_instr(
       }
     }
     @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
+      let (next_body, changed) = precompute_raw_rewrite_instrs(
+        body,
+        module_ctx,
+        label_arities=precompute_raw_append_label_arity(
+          label_arities,
+          precompute_raw_block_label_arity(block_type),
+        ),
+      )
       if next_body.length() == 0 {
         (
           @lib.Instruction::try_table(
@@ -7186,6 +7277,7 @@ fn precompute_raw_terminal_prefix_stack_effect(
 ///|
 fn precompute_raw_terminal_branch_prefix(
   instrs : Array[@lib.Instruction],
+  payload_arity : Int,
 ) -> Array[@lib.Instruction]? {
   if instrs.length() == 0 {
     return None
@@ -7218,9 +7310,10 @@ fn precompute_raw_terminal_branch_prefix(
       return None
     }
   }
-  if starts.length() == 0 {
+  if payload_arity < 0 || starts.length() < payload_arity {
     return None
   }
+  let drop_count = starts.length() - payload_arity
   let out : Array[@lib.Instruction] = []
   let mut live_idx = 0
   for i in 0..<branch_idx {
@@ -7228,7 +7321,7 @@ fn precompute_raw_terminal_branch_prefix(
     if instr != @lib.Instruction::nop() {
       out.push(instr)
     }
-    while live_idx + 1 < ends.length() && ends[live_idx] == i {
+    while live_idx < drop_count && ends[live_idx] == i {
       out.push(@lib.Instruction::drop())
       live_idx += 1
     }
@@ -7290,6 +7383,7 @@ fn precompute_raw_block_has_flat_return_flow(
 fn precompute_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext?,
+  label_arities? : Array[Int?] = [],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -7311,7 +7405,7 @@ fn precompute_raw_rewrite_instrs(
       None => ()
     }
     let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
-      instr, module_ctx,
+      instr, module_ctx, label_arities,
     )
     if rewritten == @lib.Instruction::unreachable_() {
       let mut trailing_idx = out.length() - 1
@@ -7343,7 +7437,20 @@ fn precompute_raw_rewrite_instrs(
       @lib.Block(block_type, @lib.Expr(body)) =>
         match precompute_raw_block_terminal_branch_depth(body) {
           Some(depth) => {
-            let prefix = match precompute_raw_terminal_branch_prefix(body) {
+            let block_label_arities = precompute_raw_append_label_arity(
+              label_arities,
+              precompute_raw_block_label_arity(block_type),
+            )
+            let payload_arity = match
+              precompute_raw_branch_target_arity(block_label_arities, depth) {
+              Some(arity) => arity
+              None => {
+                out.push(rewritten)
+                continue
+              }
+            }
+            let prefix = match
+              precompute_raw_terminal_branch_prefix(body, payload_arity) {
               Some(prefix) => prefix
               None => {
                 out.push(rewritten)
@@ -7352,7 +7459,7 @@ fn precompute_raw_rewrite_instrs(
             }
             for child in prefix {
               out.push(child)
-              while precompute_raw_fold_output_tail(out) {
+              while precompute_raw_fold_output_tail(out, label_arities~) {
                 changed = true
               }
             }
@@ -7379,7 +7486,7 @@ fn precompute_raw_rewrite_instrs(
     if nested_changed {
       changed = true
     }
-    while precompute_raw_fold_output_tail(out) {
+    while precompute_raw_fold_output_tail(out, label_arities~) {
       changed = true
     }
     if !terminates &&
