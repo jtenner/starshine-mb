@@ -53,7 +53,27 @@ A faithful local design should preserve these source-level properties even when 
 
 **Gap.** Starshine has rich boundary reasons and an original/current graph, but visibility, tail, tag/table/type exposure, and parameter-use legality are still consumed by multiple family-specific collectors. The pass also needs one CFG-quality definition of whether the incoming parameter value is live at function entry; syntactic `local.get` scanning is insufficient when a parameter is overwritten before its first read or when reads/writes occur through branches and exceptional control.
 
-**Implementation strategy.**
+**Implementation status (2026-07-21, `[O4Z-DAE-BOUNDARY]001`).**
+
+Shared fact structures now in `src/passes/dead_argument_elimination.mbt`:
+
+- `DaeFunctionExposure` — reason-coded original exposure flags (import/export/start/`ref.func` body vs module code/active/passive/declarative element/table carrier/tag type carrier/unknown indirect/`call_ref`).
+- `DaeOriginalBoundarySnapshot.exposure` — immutable per-function exposure snapshot built once by `dae_collect_original_exposure` before mutation; `escaped` remains the derived boolean OR.
+- `DaeCurrentTopologyExtras` on `DaeCurrentBoundaryGraph` — exact direct `return_call` callers/callees plus conservative `call_indirect` / `call_ref` / indirect-tail / reference-tail barriers, refreshed with the current graph.
+- `DaeBoundaryFacts` — combines original exposure, current graph/topology, and per-definition incoming-parameter live-in vectors.
+- Queries: `dae_can_change_function_boundary` (requires no original exposure reason and no current unsupported caller/tail barrier) and `dae_is_incoming_parameter_live` / `dae_incoming_parameter_liveness`.
+
+**Liveness algorithm.** Prefer HOT CFG liveness via `dae_hot_param_entry_liveness` (`@ir.cfg_build` + `@ir.liveness_build` + `@ir.local_live_in` at the entry block), which models structured control including `block`/`if`/`loop`/`br*`/`try_table` exceptional edges. Writes kill incoming values; merges are conservative. Legacy `Try` is not HOT-lifted today, so analysis fail-closes by marking affected parameters live (safe). Stack-switching and other unsupported forms likewise fail closed.
+
+**Consumers migrated.** Ordinary generic unused-parameter eligibility in `dae_run_core_once`, the scalar unused-param rewrite plan guard, and the selected unread dispatcher path now consume the shared live-in oracle and final `dae_can_change_function_boundary` guard. Specialized family scanners remain temporarily with TODOs pointing at later workstreams; the shared final guard is authoritative for protected/uncertain boundaries.
+
+**Unsupported / fail-closed.** Legacy `Try` (no HOT lift), stack-switch/resume forms, uncertain exceptional/delegate paths, and any exposure or topology barrier reason above. Never classify an uncertain parameter as dead.
+
+**Deterministic tests added** in `dead_argument_elimination_wbtest.mbt`: overwritten/live control cases, `try_table`/legacy-`try` live-or-fail-closed cases, export/start/`ref.func`/element/tag/indirect/`call_ref`/tail barriers, return_call vs call topology, dropped observers, stale epoch refresh, and shared-guard signature protection.
+
+**Exit criterion.** No signature-changing family has a private visibility or parameter-use scanner, and every unsupported exposure produces one reason-coded fail-closed outcome.
+
+**Implementation strategy (historical plan; see status above for landed slice).**
 
 - Build one immutable original exposure snapshot for imports, exports, start, `ref.func`, active and passive elements, table/type carriers, tags, module-level code, direct calls, and direct `return_call` sites.
 - Maintain one current boundary graph containing exact direct callers, dropped-call observers, caller-to-callee parameter slices, direct-tail edges, and conservative indirect/reference tail barriers.
@@ -62,8 +82,6 @@ A faithful local design should preserve these source-level properties even when 
 - Keep indirect and `call_ref` callers conservative; Binaryen v131 does not rewrite those callsites in the original DAE pass.
 
 **Required tests.** Parameters overwritten before first read; reads on one branch; loop-carried reads; `try_table` and legacy-`try` body/catch reads; export/start/ref.func/element exposure; direct and indirect tail barriers; imported and defined tags; module-level `ref.func`; stale caller-count refresh.
-
-**Exit criterion.** No signature-changing family has a private visibility or parameter-use scanner, and every unsupported exposure produces one reason-coded fail-closed outcome.
 
 ### 2. One value-slice carrier and one atomic parameter transaction
 

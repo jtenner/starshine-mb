@@ -184,6 +184,123 @@ fn dae_boundary_surface_reason(
   }
 }
 
+// [O4Z-DAE-BOUNDARY]001 scanner inventory (do not delete consumers blindly):
+// - dae_collect_exported_funcs / dae_mark_elem_escapes / dae_scan_escapes_instrs /
+//   dae_collect_escapes → original escape booleans; now also feed
+//   dae_collect_original_exposure / DaeFunctionExposure reason flags.
+// - dae_collect_current_function_analysis / dae_scan_current_call_facts_instrs →
+//   current direct/return_call/drop/ref.func facts (DaeCurrentCallFacts +
+//   DaeFunctionInfo); extended for legacy Try and barrier flags.
+// - dae_scan_local_use_ignoring_instrs / dae_function_info_refresh_unused_params →
+//   syntactic local.get/set still used for writes/repair; gets are no longer the
+//   authoritative incoming live-in oracle for signature changes.
+// - dae_hot_param_entry_liveness / dae_scan_param_entry_liveness_instrs →
+//   consumed by dae_incoming_parameter_liveness; private scanners remain for
+//   specialized families until later workstreams (TODO [O4Z-DAE-FLOW]001 /
+//   [O4Z-DAE-TYPES]001 / [O4Z-DAE-RESULTS]001).
+// - dae_call_boundary_candidate / dae_tail_call_boundary_evidence → wrapped by
+//   dae_can_change_function_boundary as the authoritative final guard.
+
+///|
+priv struct DaeFunctionExposure {
+  mut imported : Bool
+  mut exported : Bool
+  mut start : Bool
+  mut ref_func_body : Bool
+  mut ref_func_module : Bool
+  mut active_element : Bool
+  mut passive_element : Bool
+  mut declarative_element : Bool
+  mut tag_type_carrier : Bool
+  mut table_type_carrier : Bool
+  mut unknown_indirect : Bool
+  mut unknown_call_ref : Bool
+}
+
+///|
+fn dae_function_exposure_empty() -> DaeFunctionExposure {
+  {
+    imported: false,
+    exported: false,
+    start: false,
+    ref_func_body: false,
+    ref_func_module: false,
+    active_element: false,
+    passive_element: false,
+    declarative_element: false,
+    tag_type_carrier: false,
+    table_type_carrier: false,
+    unknown_indirect: false,
+    unknown_call_ref: false,
+  }
+}
+
+///|
+fn dae_function_exposure_blocks_boundary(
+  exposure : DaeFunctionExposure,
+) -> Bool {
+  exposure.imported ||
+  exposure.exported ||
+  exposure.start ||
+  exposure.ref_func_body ||
+  exposure.ref_func_module ||
+  exposure.active_element ||
+  exposure.passive_element ||
+  exposure.declarative_element ||
+  exposure.tag_type_carrier ||
+  exposure.table_type_carrier ||
+  exposure.unknown_indirect ||
+  exposure.unknown_call_ref
+}
+
+///|
+fn dae_function_exposure_primary_reason(
+  exposure : DaeFunctionExposure,
+) -> DaeDecisionReason {
+  if exposure.imported {
+    DaeVisibleBoundary
+  } else if exposure.exported {
+    DaeExportedFunction
+  } else if exposure.start {
+    DaeStartFunction
+  } else if exposure.ref_func_body || exposure.ref_func_module {
+    DaeEscapedThroughRefFunc
+  } else if exposure.active_element || exposure.table_type_carrier {
+    DaeActiveElementTableExposure
+  } else if exposure.passive_element {
+    DaePassiveElementExposure
+  } else if exposure.declarative_element {
+    DaePassiveElementExposure
+  } else if exposure.tag_type_carrier {
+    DaeVisibleBoundary
+  } else if exposure.unknown_indirect {
+    DaeUnknownIndirectCaller
+  } else if exposure.unknown_call_ref {
+    DaeUnknownCallRefCaller
+  } else {
+    DaeCandidateProduced
+  }
+}
+
+///|
+priv struct DaeCurrentTopologyExtras {
+  direct_return_callers : Array[Array[Int]]
+  direct_return_callees_by_caller : Array[Array[Int]]
+  indirect_call_barrier : Array[Bool]
+  call_ref_barrier : Array[Bool]
+  indirect_tail_barrier : Array[Bool]
+  reference_tail_barrier : Array[Bool]
+}
+
+///|
+priv struct DaeBoundaryFacts {
+  original : DaeOriginalBoundarySnapshot
+  graph : DaeCurrentBoundaryGraph
+  exposure : Array[DaeFunctionExposure]
+  mut topology : DaeCurrentTopologyExtras
+  mut incoming_param_live : Array[Array[Bool]]
+}
+
 ///|
 fn dae_operand_decision_reason(
   operand : DaeOperandDisposition,
@@ -1147,6 +1264,7 @@ priv struct DaeOriginalBoundarySnapshot {
   total : Int
   type_indices : Array[@lib.TypeIdx]
   escaped : Array[Bool]
+  exposure : Array[DaeFunctionExposure]
   param_counts : Array[Int]
   large_unreachable_prefixes : Array[Bool]
   call_summary : DaeOriginalCallSummary
@@ -1306,6 +1424,7 @@ priv struct DaeCandidateEpoch {
 priv struct DaeCurrentBoundaryGraph {
   mut mod_ : @lib.Module
   mut snapshot : DaeModuleBoundarySnapshot
+  mut topology : DaeCurrentTopologyExtras
   mut function_epochs : Array[DaeFunctionEpochs]
   mut module_epoch : Int
   mut call_epoch : Int
@@ -1975,6 +2094,7 @@ fn dae_current_boundary_graph_new(
   {
     mod_,
     snapshot,
+    topology: dae_collect_current_topology_extras(mod_, snapshot),
     function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
     module_epoch: 0,
     call_epoch: 0,
@@ -2072,6 +2192,366 @@ fn dae_current_boundary_graph_refresh(
   }
   graph.mod_ = mod_
   graph.snapshot = next
+  graph.topology = dae_collect_current_topology_extras(mod_, next)
+}
+
+///|
+fn dae_empty_topology_extras(total_funcs : Int) -> DaeCurrentTopologyExtras {
+  {
+    direct_return_callers: dae_make_direct_callers(total_funcs),
+    direct_return_callees_by_caller: dae_make_direct_callers(total_funcs),
+    indirect_call_barrier: Array::make(total_funcs, false),
+    call_ref_barrier: Array::make(total_funcs, false),
+    indirect_tail_barrier: Array::make(total_funcs, false),
+    reference_tail_barrier: Array::make(total_funcs, false),
+  }
+}
+
+///|
+fn dae_topology_add_unique(row : Array[Int], value : Int) -> Unit {
+  if !row.contains(value) {
+    row.push(value)
+  }
+}
+
+///|
+fn dae_scan_topology_extras_instrs(
+  instrs : Array[@lib.Instruction],
+  caller_def : Int,
+  caller_abs : Int,
+  imported : Int,
+  type_indices : Array[@lib.TypeIdx],
+  topology : DaeCurrentTopologyExtras,
+  active : Bool,
+) -> Unit {
+  let mut idx = 0
+  let mut current_active = active
+  while idx < instrs.length() {
+    if current_active && dae_instr_is_unreachable_root(instrs[idx]) {
+      current_active = false
+    }
+    match instrs[idx] {
+      @lib.ReturnCall(func_idx) =>
+        if current_active {
+          let slot = dae_func_idx_slot(func_idx)
+          let def_idx = slot - imported
+          if slot >= 0 &&
+            slot < topology.direct_return_callers.length() &&
+            def_idx >= 0 {
+            dae_topology_add_unique(
+              topology.direct_return_callers[slot],
+              caller_def,
+            )
+            if caller_abs >= 0 &&
+              caller_abs < topology.direct_return_callees_by_caller.length() {
+              dae_topology_add_unique(
+                topology.direct_return_callees_by_caller[caller_abs],
+                slot,
+              )
+            }
+          }
+        }
+      @lib.ReturnCallIndirect(_, _) =>
+        if current_active &&
+          caller_abs >= 0 &&
+          caller_abs < topology.indirect_tail_barrier.length() {
+          topology.indirect_tail_barrier[caller_abs] = true
+        }
+      @lib.ReturnCallRef(_) =>
+        if current_active &&
+          caller_abs >= 0 &&
+          caller_abs < topology.reference_tail_barrier.length() {
+          topology.reference_tail_barrier[caller_abs] = true
+        }
+      @lib.CallIndirect(type_idx, _) =>
+        if current_active {
+          match dae_type_idx_slot(type_idx) {
+            Some(type_slot) => {
+              let mut func_abs = 0
+              while func_abs < type_indices.length() &&
+                    func_abs < topology.indirect_call_barrier.length() {
+                match dae_type_idx_slot(type_indices[func_abs]) {
+                  Some(func_type_slot) if func_type_slot == type_slot =>
+                    topology.indirect_call_barrier[func_abs] = true
+                  _ => ()
+                }
+                func_abs += 1
+              }
+            }
+            None => ()
+          }
+        }
+      @lib.CallRef(type_idx) =>
+        if current_active {
+          match dae_type_idx_slot(type_idx) {
+            Some(type_slot) => {
+              let mut func_abs = 0
+              while func_abs < type_indices.length() &&
+                    func_abs < topology.call_ref_barrier.length() {
+                match dae_type_idx_slot(type_indices[func_abs]) {
+                  Some(func_type_slot) if func_type_slot == type_slot =>
+                    topology.call_ref_barrier[func_abs] = true
+                  _ => ()
+                }
+                func_abs += 1
+              }
+            }
+            None => ()
+          }
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_scan_topology_extras_instrs(
+          body, caller_def, caller_abs, imported, type_indices, topology, current_active,
+        )
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae_scan_topology_extras_instrs(
+          body, caller_def, caller_abs, imported, type_indices, topology, current_active,
+        )
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              dae_scan_topology_extras_instrs(
+                catch_body, caller_def, caller_abs, imported, type_indices, topology,
+                current_active,
+              )
+          }
+        }
+      }
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_scan_topology_extras_instrs(
+          then_body, caller_def, caller_abs, imported, type_indices, topology, current_active,
+        )
+        dae_scan_topology_extras_instrs(
+          else_body, caller_def, caller_abs, imported, type_indices, topology, current_active,
+        )
+      }
+      @lib.If(_, then_body, None) =>
+        dae_scan_topology_extras_instrs(
+          then_body, caller_def, caller_abs, imported, type_indices, topology, current_active,
+        )
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn dae_collect_current_topology_extras(
+  mod_ : @lib.Module,
+  snapshot : DaeModuleBoundarySnapshot,
+) -> DaeCurrentTopologyExtras {
+  let topology = dae_empty_topology_extras(snapshot.total)
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let mut caller_def = 0
+      while caller_def < funcs.length() {
+        let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+        dae_scan_topology_extras_instrs(
+          body,
+          caller_def,
+          snapshot.imported + caller_def,
+          snapshot.imported,
+          snapshot.type_indices,
+          topology,
+          true,
+        )
+        caller_def += 1
+      }
+    }
+    None => ()
+  }
+  // Table/element-exposed functions keep call_indirect barriers; ref.func-exposed
+  // functions keep call_ref barriers. Clear speculative type matches otherwise.
+  let mut func_abs = 0
+  while func_abs < snapshot.total &&
+        func_abs < snapshot.call_facts.escaped.length() {
+    if !snapshot.call_facts.escaped[func_abs] {
+      if func_abs < topology.indirect_call_barrier.length() {
+        topology.indirect_call_barrier[func_abs] = false
+      }
+      if func_abs < topology.call_ref_barrier.length() {
+        topology.call_ref_barrier[func_abs] = false
+      }
+    }
+    func_abs += 1
+  }
+  topology
+}
+
+///|
+fn dae_incoming_parameter_liveness_fail_closed(
+  param_count : Int,
+) -> Array[Bool] {
+  Array::make(param_count, true)
+}
+
+///|
+fn dae_incoming_parameter_liveness(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+) -> Array[Bool] {
+  if param_count <= 0 {
+    return []
+  }
+  match dae_hot_param_entry_liveness(mod_, callee_abs, param_count) {
+    Some(live) => {
+      // HOT may return a longer array when locals exist; only parameters matter.
+      let out = Array::make(param_count, true)
+      let mut idx = 0
+      while idx < param_count && idx < live.length() {
+        out[idx] = live[idx]
+        idx += 1
+      }
+      out
+    }
+    None => dae_incoming_parameter_liveness_fail_closed(param_count)
+  }
+}
+
+///|
+fn dae_collect_incoming_param_live_for_module(
+  mod_ : @lib.Module,
+  snapshot : DaeModuleBoundarySnapshot,
+) -> Array[Array[Bool]] {
+  let out : Array[Array[Bool]] = []
+  let mut def_idx = 0
+  while def_idx < snapshot.defined {
+    let callee_abs = snapshot.imported + def_idx
+    let param_count = match snapshot.function_types[callee_abs] {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => 0
+    }
+    out.push(dae_incoming_parameter_liveness(mod_, callee_abs, param_count))
+    def_idx += 1
+  }
+  out
+}
+
+///|
+fn dae_boundary_facts_new(mod_ : @lib.Module) -> DaeBoundaryFacts {
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  {
+    original,
+    graph,
+    exposure: original.exposure,
+    topology: graph.topology,
+    incoming_param_live: dae_collect_incoming_param_live_for_module(
+      mod_,
+      graph.snapshot,
+    ),
+  }
+}
+
+///|
+fn dae_boundary_facts_refresh_current(
+  facts : DaeBoundaryFacts,
+  mod_ : @lib.Module,
+) -> Unit {
+  dae_current_boundary_graph_refresh(facts.graph, mod_)
+  // Original exposure remains immutable after the first snapshot.
+  facts.topology = facts.graph.topology
+  facts.incoming_param_live = dae_collect_incoming_param_live_for_module(
+    mod_,
+    facts.graph.snapshot,
+  )
+}
+
+///|
+fn dae_can_change_function_boundary(
+  facts : DaeBoundaryFacts,
+  func_abs : Int,
+) -> Bool {
+  if func_abs < 0 || func_abs >= facts.exposure.length() {
+    return false
+  }
+  if dae_function_exposure_blocks_boundary(facts.exposure[func_abs]) {
+    return false
+  }
+  if func_abs < facts.graph.snapshot.call_facts.escaped.length() &&
+    facts.graph.snapshot.call_facts.escaped[func_abs] {
+    return false
+  }
+  let topology = facts.topology
+  if func_abs < topology.indirect_call_barrier.length() &&
+    topology.indirect_call_barrier[func_abs] {
+    return false
+  }
+  if func_abs < topology.call_ref_barrier.length() &&
+    topology.call_ref_barrier[func_abs] {
+    return false
+  }
+  if func_abs < topology.indirect_tail_barrier.length() &&
+    topology.indirect_tail_barrier[func_abs] {
+    return false
+  }
+  if func_abs < topology.reference_tail_barrier.length() &&
+    topology.reference_tail_barrier[func_abs] {
+    return false
+  }
+  match
+    dae_call_boundary_candidate(facts.graph.snapshot.boundary_facts, func_abs) {
+    Some(candidate) => candidate.owned
+    None => false
+  }
+}
+
+///|
+fn dae_can_change_function_boundary_reason(
+  facts : DaeBoundaryFacts,
+  func_abs : Int,
+) -> DaeDecisionReason {
+  if func_abs < 0 || func_abs >= facts.exposure.length() {
+    return DaeVisibleBoundary
+  }
+  if dae_function_exposure_blocks_boundary(facts.exposure[func_abs]) {
+    return dae_function_exposure_primary_reason(facts.exposure[func_abs])
+  }
+  let topology = facts.topology
+  if func_abs < topology.indirect_call_barrier.length() &&
+    topology.indirect_call_barrier[func_abs] {
+    return DaeUnknownIndirectCaller
+  }
+  if func_abs < topology.call_ref_barrier.length() &&
+    topology.call_ref_barrier[func_abs] {
+    return DaeUnknownCallRefCaller
+  }
+  if func_abs < topology.indirect_tail_barrier.length() &&
+    topology.indirect_tail_barrier[func_abs] {
+    return DaeIndirectTailDependency
+  }
+  if func_abs < topology.reference_tail_barrier.length() &&
+    topology.reference_tail_barrier[func_abs] {
+    return DaeReferenceTailDependency
+  }
+  match
+    dae_call_boundary_candidate(facts.graph.snapshot.boundary_facts, func_abs) {
+    Some(candidate) => candidate.decision_reason
+    None => DaeVisibleBoundary
+  }
+}
+
+///|
+fn dae_is_incoming_parameter_live(
+  facts : DaeBoundaryFacts,
+  func_abs : Int,
+  param_idx : Int,
+) -> Bool {
+  let def_idx = func_abs - facts.graph.snapshot.imported
+  if def_idx < 0 ||
+    def_idx >= facts.incoming_param_live.length() ||
+    param_idx < 0 {
+    return true
+  }
+  let live = facts.incoming_param_live[def_idx]
+  if param_idx >= live.length() {
+    return true
+  }
+  live[param_idx]
 }
 
 ///|
@@ -3629,6 +4109,16 @@ fn dae_scan_escapes_instrs(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         dae_scan_escapes_instrs(body, escaped)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae_scan_escapes_instrs(body, escaped)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              dae_scan_escapes_instrs(catch_body, escaped)
+          }
+        }
+      }
       @lib.If(_, then_body, Some(else_body)) => {
         dae_scan_escapes_instrs(then_body, escaped)
         dae_scan_escapes_instrs(else_body, escaped)
@@ -3640,25 +4130,334 @@ fn dae_scan_escapes_instrs(
 }
 
 ///|
-fn dae_collect_escapes(mod_ : @lib.Module, total_funcs : Int) -> Array[Bool] {
-  let escaped = dae_collect_exported_funcs(mod_, total_funcs)
+fn dae_mark_ref_func_exposure_instrs(
+  instrs : Array[@lib.Instruction],
+  exposure : Array[DaeFunctionExposure],
+  from_module_code : Bool,
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.RefFunc(func_idx) => {
+        let slot = dae_func_idx_slot(func_idx)
+        if slot >= 0 && slot < exposure.length() {
+          if from_module_code {
+            exposure[slot].ref_func_module = true
+          } else {
+            exposure[slot].ref_func_body = true
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_mark_ref_func_exposure_instrs(body, exposure, from_module_code)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae_mark_ref_func_exposure_instrs(body, exposure, from_module_code)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              dae_mark_ref_func_exposure_instrs(
+                catch_body, exposure, from_module_code,
+              )
+          }
+        }
+      }
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_mark_ref_func_exposure_instrs(then_body, exposure, from_module_code)
+        dae_mark_ref_func_exposure_instrs(else_body, exposure, from_module_code)
+      }
+      @lib.If(_, then_body, None) =>
+        dae_mark_ref_func_exposure_instrs(then_body, exposure, from_module_code)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_mark_elem_exposure(
+  mode : @lib.ElemMode,
+  kind : @lib.ElemKind,
+  exposure : Array[DaeFunctionExposure],
+) -> Unit {
+  let mark_slot = fn(slot : Int) {
+    if slot < 0 || slot >= exposure.length() {
+      return
+    }
+    match mode {
+      @lib.Active(_, _) => {
+        exposure[slot].active_element = true
+        exposure[slot].table_type_carrier = true
+      }
+      @lib.Passive => exposure[slot].passive_element = true
+      @lib.Declarative => exposure[slot].declarative_element = true
+    }
+  }
+  match kind {
+    @lib.FuncsElemKind(funcs) =>
+      for func_idx in funcs {
+        mark_slot(dae_func_idx_slot(func_idx))
+      }
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+      for expr in exprs {
+        let @lib.Expr(instrs) = expr
+        for instr in instrs {
+          match instr {
+            @lib.RefFunc(func_idx) => mark_slot(dae_func_idx_slot(func_idx))
+            _ => ()
+          }
+        }
+        dae_mark_ref_func_exposure_instrs(instrs, exposure, true)
+      }
+  }
+}
+
+///|
+fn dae_collect_original_exposure(
+  mod_ : @lib.Module,
+  total_funcs : Int,
+  type_indices : Array[@lib.TypeIdx],
+) -> Array[DaeFunctionExposure] {
+  let exposure : Array[DaeFunctionExposure] = []
+  let mut idx = 0
+  while idx < total_funcs {
+    exposure.push(dae_function_exposure_empty())
+    idx += 1
+  }
+  let imported = dae_imported_func_count(mod_)
+  let mut import_idx = 0
+  while import_idx < imported && import_idx < exposure.length() {
+    exposure[import_idx].imported = true
+    import_idx += 1
+  }
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        match export_ {
+          @lib.Export(_, @lib.FuncExternIdx(func_idx)) => {
+            let slot = dae_func_idx_slot(func_idx)
+            if slot >= 0 && slot < exposure.length() {
+              exposure[slot].exported = true
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.start_sec {
+    Some(@lib.StartSec(func_idx)) => {
+      let slot = dae_func_idx_slot(func_idx)
+      if slot >= 0 && slot < exposure.length() {
+        exposure[slot].start = true
+      }
+    }
+    None => ()
+  }
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(_, @lib.Expr(body)) = func
-        dae_scan_escapes_instrs(body, escaped)
+        dae_mark_ref_func_exposure_instrs(body, exposure, false)
+      }
+    None => ()
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global_ in globals {
+        let @lib.Global(_, @lib.Expr(init)) = global_
+        dae_mark_ref_func_exposure_instrs(init, exposure, true)
+      }
+    None => ()
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      for table in tables {
+        match table {
+          @lib.Table(_, Some(@lib.Expr(init))) =>
+            dae_mark_ref_func_exposure_instrs(init, exposure, true)
+          _ => ()
+        }
       }
     None => ()
   }
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
       for elem in elems {
-        let @lib.Elem(_, kind) = elem
-        dae_mark_elem_escapes(kind, escaped)
+        let @lib.Elem(mode, kind) = elem
+        dae_mark_elem_exposure(mode, kind, exposure)
       }
     None => ()
   }
+  let type_slot_count = match mod_.type_sec {
+    Some(type_sec) => dae_type_sec_flattened_length(type_sec)
+    None => type_indices.length()
+  }
+  let tag_type_slots = Array::make(@math.maximum(type_slot_count, 1), false)
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TagExternType(@lib.TagType(type_idx))) =>
+            match dae_type_idx_slot(type_idx) {
+              Some(slot) if slot >= 0 && slot < tag_type_slots.length() =>
+                tag_type_slots[slot] = true
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.tag_sec {
+    Some(@lib.TagSec(tags)) =>
+      for tag in tags {
+        let @lib.TagType(type_idx) = tag
+        match dae_type_idx_slot(type_idx) {
+          Some(slot) if slot >= 0 && slot < tag_type_slots.length() =>
+            tag_type_slots[slot] = true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let mut func_abs = 0
+  while func_abs < type_indices.length() && func_abs < exposure.length() {
+    match dae_type_idx_slot(type_indices[func_abs]) {
+      Some(type_slot) if type_slot >= 0 &&
+        type_slot < tag_type_slots.length() &&
+        tag_type_slots[type_slot] => exposure[func_abs].tag_type_carrier = true
+      _ => ()
+    }
+    func_abs += 1
+  }
+  let indirect_types = Array::make(@math.maximum(type_slot_count, 1), false)
+  let call_ref_types = Array::make(@math.maximum(type_slot_count, 1), false)
+  dae_mark_call_type_barrier_uses(mod_, indirect_types, call_ref_types)
+  func_abs = 0
+  while func_abs < type_indices.length() && func_abs < exposure.length() {
+    match dae_type_idx_slot(type_indices[func_abs]) {
+      Some(type_slot) => {
+        let table_exposed = exposure[func_abs].active_element ||
+          exposure[func_abs].passive_element ||
+          exposure[func_abs].declarative_element ||
+          exposure[func_abs].table_type_carrier
+        let ref_exposed = exposure[func_abs].ref_func_body ||
+          exposure[func_abs].ref_func_module
+        if type_slot >= 0 &&
+          type_slot < indirect_types.length() &&
+          indirect_types[type_slot] &&
+          table_exposed {
+          exposure[func_abs].unknown_indirect = true
+        }
+        if type_slot >= 0 &&
+          type_slot < call_ref_types.length() &&
+          call_ref_types[type_slot] &&
+          ref_exposed {
+          exposure[func_abs].unknown_call_ref = true
+        }
+      }
+      None => ()
+    }
+    func_abs += 1
+  }
+  exposure
+}
+
+///|
+fn dae_mark_call_type_barrier_uses_instrs(
+  instrs : Array[@lib.Instruction],
+  indirect_types : Array[Bool],
+  call_ref_types : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.CallIndirect(type_idx, _) =>
+        match dae_type_idx_slot(type_idx) {
+          Some(slot) if slot >= 0 && slot < indirect_types.length() =>
+            indirect_types[slot] = true
+          _ => ()
+        }
+      @lib.CallRef(type_idx) =>
+        match dae_type_idx_slot(type_idx) {
+          Some(slot) if slot >= 0 && slot < call_ref_types.length() =>
+            call_ref_types[slot] = true
+          _ => ()
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        dae_mark_call_type_barrier_uses_instrs(
+          body, indirect_types, call_ref_types,
+        )
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae_mark_call_type_barrier_uses_instrs(
+          body, indirect_types, call_ref_types,
+        )
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              dae_mark_call_type_barrier_uses_instrs(
+                catch_body, indirect_types, call_ref_types,
+              )
+          }
+        }
+      }
+      @lib.If(_, then_body, Some(else_body)) => {
+        dae_mark_call_type_barrier_uses_instrs(
+          then_body, indirect_types, call_ref_types,
+        )
+        dae_mark_call_type_barrier_uses_instrs(
+          else_body, indirect_types, call_ref_types,
+        )
+      }
+      @lib.If(_, then_body, None) =>
+        dae_mark_call_type_barrier_uses_instrs(
+          then_body, indirect_types, call_ref_types,
+        )
+      _ => ()
+    }
+  }
+}
+
+///|
+fn dae_mark_call_type_barrier_uses(
+  mod_ : @lib.Module,
+  indirect_types : Array[Bool],
+  call_ref_types : Array[Bool],
+) -> Unit {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(body)) = func
+        dae_mark_call_type_barrier_uses_instrs(
+          body, indirect_types, call_ref_types,
+        )
+      }
+    None => ()
+  }
+}
+
+///|
+fn dae_exposure_to_escaped(
+  exposure : Array[DaeFunctionExposure],
+) -> Array[Bool] {
+  let escaped = Array::make(exposure.length(), false)
+  let mut idx = 0
+  while idx < exposure.length() {
+    escaped[idx] = dae_function_exposure_blocks_boundary(exposure[idx])
+    idx += 1
+  }
   escaped
+}
+
+///|
+fn dae_collect_escapes(mod_ : @lib.Module, total_funcs : Int) -> Array[Bool] {
+  let type_indices = dae_collect_func_type_indices(mod_)
+  dae_exposure_to_escaped(
+    dae_collect_original_exposure(mod_, total_funcs, type_indices),
+  )
 }
 
 ///|
@@ -3812,7 +4611,13 @@ fn dae_scan_current_call_facts_instrs(
             }
           }
         }
-      @lib.ReturnCallIndirect(_, _) | @lib.ReturnCallRef(_) =>
+      @lib.ReturnCallIndirect(_, _) =>
+        if current_active &&
+          caller_abs >= 0 &&
+          caller_abs < function_infos.length() {
+          function_infos[caller_abs].has_tail_calls = true
+        }
+      @lib.ReturnCallRef(_) =>
         if current_active &&
           caller_abs >= 0 &&
           caller_abs < function_infos.length() {
@@ -3917,6 +4722,44 @@ fn dae_scan_current_call_facts_instrs(
           caller_seen_stamps,
           current_active,
         )
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        dae_scan_current_call_facts_instrs(
+          body,
+          caller_def,
+          caller_abs,
+          dae_callsite_child_path(path, idx, 4),
+          direct_calls,
+          tail_calls,
+          direct_callers,
+          dropped_calls,
+          escaped,
+          function_infos,
+          caller_seen_stamps,
+          current_active,
+        )
+        let mut catch_idx = 0
+        while catch_idx < catches.length() {
+          match catches[catch_idx] {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              dae_scan_current_call_facts_instrs(
+                catch_body,
+                caller_def,
+                caller_abs,
+                dae_callsite_child_path(path, idx, 5 + catch_idx),
+                direct_calls,
+                tail_calls,
+                direct_callers,
+                dropped_calls,
+                escaped,
+                function_infos,
+                caller_seen_stamps,
+                current_active,
+              )
+          }
+          catch_idx += 1
+        }
+      }
       _ => ()
     }
     idx += 1
@@ -3984,7 +4827,9 @@ fn dae_collect_current_function_analysis(
   let tail_calls = Array::make(total_funcs, false)
   let direct_callers = dae_make_direct_callers(total_funcs)
   let dropped_calls = Array::make(total_funcs, 0)
-  let escaped = dae_collect_exported_funcs(mod_, total_funcs)
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let exposure = dae_collect_original_exposure(mod_, total_funcs, type_indices)
+  let escaped = dae_exposure_to_escaped(exposure)
   let function_infos = dae_make_function_infos(total_funcs, escaped)
   let caller_seen_stamps = Array::make(total_funcs, -1)
   let imported = dae_imported_func_count(mod_)
@@ -4012,17 +4857,10 @@ fn dae_collect_current_function_analysis(
     }
     None => ()
   }
-  match mod_.elem_sec {
-    Some(@lib.ElemSec(elems)) =>
-      for elem in elems {
-        let @lib.Elem(_, kind) = elem
-        dae_mark_elem_escapes(kind, escaped)
-      }
-    None => ()
-  }
   let mut escaped_idx = 0
   while escaped_idx < escaped.length() && escaped_idx < function_infos.length() {
-    function_infos[escaped_idx].has_unseen_calls = escaped[escaped_idx]
+    function_infos[escaped_idx].has_unseen_calls = escaped[escaped_idx] ||
+      function_infos[escaped_idx].has_unseen_calls
     escaped_idx += 1
   }
   ignore(direct_calls)
@@ -4211,12 +5049,12 @@ fn dae_instr_supports_hot_param_entry_liveness(
     | @lib.Resume(_, _)
     | @lib.ResumeThrow(_, _, _)
     | @lib.ResumeThrowRef(_, _)
-    | @lib.StackSwitch(_, _)
-    | @lib.Try(_, _, _, _) => false
+    | @lib.StackSwitch(_, _) => false
+    // Legacy Try is not yet lifted by HOT; callers fail closed via None.
+    @lib.Try(_, _, _, _) => false
     @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
       body.all(fn(child) { dae_instr_supports_hot_param_entry_liveness(child) })
     @lib.TryTable(_, _, @lib.Expr(body)) =>
-      !body.any(fn(child) { dae_instr_contains_call(child) }) &&
       body.all(fn(child) { dae_instr_supports_hot_param_entry_liveness(child) })
     @lib.If(_, then_body, Some(else_body)) =>
       then_body.all(fn(child) {
@@ -15790,6 +16628,17 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     Some(candidate) if candidate.owned => candidate
     _ => return None
   }
+  // Authoritative final boundary guard for every signature-changing family.
+  let shared_facts : DaeBoundaryFacts = {
+    original,
+    graph,
+    exposure: original.exposure,
+    topology: graph.topology,
+    incoming_param_live: [],
+  }
+  if !dae_can_change_function_boundary(shared_facts, callee_abs) {
+    return None
+  }
   if boundary_candidate.direct_call_count != direct_call_count ||
     boundary_candidate.direct_callers != direct_caller_defs {
     return None
@@ -17766,6 +18615,20 @@ fn dae_tail_call_boundary_evidence_instrs(
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
         dae_tail_call_boundary_evidence_instrs(body)
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        let mut evidence = dae_tail_call_boundary_evidence_instrs(body)
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              evidence = dae_merge_tail_call_boundary_evidence(
+                evidence,
+                dae_tail_call_boundary_evidence_instrs(catch_body),
+              )
+          }
+        }
+        evidence
+      }
       @lib.If(_, then_body, Some(else_body)) =>
         dae_merge_tail_call_boundary_evidence(
           dae_tail_call_boundary_evidence_instrs(then_body),
@@ -19634,7 +20497,8 @@ fn dae_collect_original_boundary_snapshot(
   let defined = dae_defined_func_count(mod_)
   let total = imported + defined
   let type_indices = dae_collect_func_type_indices(mod_)
-  let escaped = dae_collect_escapes(mod_, total)
+  let exposure = dae_collect_original_exposure(mod_, total, type_indices)
+  let escaped = dae_exposure_to_escaped(exposure)
   let param_counts = dae_collect_original_param_counts_with_type_indices(
     mod_, type_indices,
   )
@@ -19744,6 +20608,7 @@ fn dae_collect_original_boundary_snapshot(
     total,
     type_indices,
     escaped,
+    exposure,
     param_counts,
     large_unreachable_prefixes: dae_collect_original_large_unreachable_prefixes(
       mod_,
@@ -22356,6 +23221,13 @@ fn dae_run_core_once(
   let boundary_facts = dae_boundary_facts_for_epoch(
     current_graph, expected_call_epoch, boundary_facts_override,
   )
+  let shared_boundary_facts : DaeBoundaryFacts = {
+    original,
+    graph: current_graph,
+    exposure: original.exposure,
+    topology: current_graph.topology,
+    incoming_param_live: [],
+  }
   let function_infos = boundary_snapshot.function_infos
   let direct_calls = boundary_facts.direct_calls
   let direct_callers = boundary_facts.direct_callers
@@ -22417,7 +23289,8 @@ fn dae_run_core_once(
         continue
       }
     }
-    if !boundary_candidate.owned {
+    if !boundary_candidate.owned ||
+      !dae_can_change_function_boundary(shared_boundary_facts, callee_abs) {
       def_idx += 1
       continue
     }
@@ -22914,45 +23787,29 @@ fn dae_run_core_once(
       params.length(),
     )
     let mut rewrite_mod = mod_
+    // Shared incoming-parameter live-in analysis ([O4Z-DAE-BOUNDARY]001).
+    // Syntactic local.get scanning remains only for write/repair facts.
+    let entry_live = dae_incoming_parameter_liveness(
+      mod_,
+      callee_abs,
+      params.length(),
+    )
     if params.length() > 0 {
-      let entry_live = if self_calls_anywhere == 0 {
-        dae_hot_param_entry_liveness(mod_, callee_abs, params.length())
-      } else {
-        None
-      }
-      let resolved_entry_live = match entry_live {
-        Some(live) => Some(live)
-        None if !optimize &&
-          dae_instrs_support_param_entry_liveness(candidate_body) => {
-          let live = Array::make(params.length() + locals.length(), false)
-          dae_scan_param_entry_liveness_instrs(
-            candidate_body,
-            live,
-            callee_abs,
-            params.length(),
-          )
-          Some(live)
-        }
-        None => None
-      }
-      match resolved_entry_live {
-        Some(live) => {
-          let mut found_entry_dead_param = false
-          let mut param_idx = 0
-          while param_idx < params.length() {
-            if !live[param_idx] && (!optimize || local_use.writes[param_idx]) {
-              local_use.gets[param_idx] = false
-              found_entry_dead_param = true
-            }
-            param_idx += 1
+      let mut found_entry_dead_param = false
+      let mut param_idx = 0
+      while param_idx < params.length() {
+        if !entry_live[param_idx] {
+          local_use.gets[param_idx] = false
+          if !optimize || local_use.writes[param_idx] {
+            found_entry_dead_param = true
           }
-          if found_entry_dead_param {
-            rewrite_mod = dae_strip_function_terminal_suffix_for_def(
-              mod_, def_idx,
-            )
-          }
+        } else {
+          local_use.gets[param_idx] = true
         }
-        None => ()
+        param_idx += 1
+      }
+      if found_entry_dead_param {
+        rewrite_mod = dae_strip_function_terminal_suffix_for_def(mod_, def_idx)
       }
     }
     let unused_params = dae_function_info_refresh_unused_params(
@@ -24011,6 +24868,9 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  // TODO([O4Z-DAE-WORKLIST]001): plumb shared facts from the dispatcher instead
+  // of reconstructing them here; the final guard remains authoritative.
+  let selected_guard_facts = dae_boundary_facts_new(mod_)
   let scan_limit = if only_def >= 0 && only_def < funcs.length() {
     only_def + 1
   } else if only_def >= funcs.length() {
@@ -24037,7 +24897,8 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     }
     if !boundary_candidate.owned ||
       boundary_candidate.has_self_direct_caller ||
-      !boundary_candidate.allows_nonself_direct_rewrite {
+      !boundary_candidate.allows_nonself_direct_rewrite ||
+      !dae_can_change_function_boundary(selected_guard_facts, callee_abs) {
       def_idx += 1
       continue
     }
@@ -24061,6 +24922,16 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       callee_abs,
       params.length(),
     )
+    let entry_live = dae_incoming_parameter_liveness(
+      mod_,
+      callee_abs,
+      params.length(),
+    )
+    let mut param_idx = 0
+    while param_idx < params.length() {
+      local_use.gets[param_idx] = entry_live[param_idx]
+      param_idx += 1
+    }
     let remove = Array::make(params.length(), false)
     let const_params : Array[@lib.Instruction?] = Array::make(
       params.length(),

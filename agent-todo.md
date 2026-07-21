@@ -121,10 +121,10 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - **Owner:** `src/passes/dead_argument_elimination.mbt` boundary scanning, liveness, and current graph.
 - **Deliverables:**
-  - [ ] One immutable original exposure snapshot for imports, exports, start, `ref.func`, elements/tables, tags, module code, and type carriers.
-  - [ ] One current graph for direct calls, direct `return_call`, dropped calls, parameter-flow edges, result observers, and tail dependencies.
-  - [ ] One CFG-quality parameter live-in analysis that treats writes as kills and covers branches, loops, `try_table`, decoded legacy `try`, catches, and delegates.
-  - [ ] Exact fail-closed reasons and focused tests for indirect/reference callers and tail barriers.
+  - [x] One immutable original exposure snapshot for imports, exports, start, `ref.func`, elements/tables, tags, module code, and type carriers.
+  - [x] One current graph for direct calls, direct `return_call`, dropped calls, parameter-flow edges, result observers, and tail dependencies.
+  - [x] One CFG-quality parameter live-in analysis that treats writes as kills and covers branches, loops, `try_table`, decoded legacy `try`, catches, and delegates.
+  - [x] Exact fail-closed reasons and focused tests for indirect/reference callers and tail barriers.
 - **Exit criteria:** no signature-changing family uses a private visibility or parameter-use scanner.
 
 ### [O4Z-DAE-PLAN]001 - Finish the common value-slice and transaction lifecycle
