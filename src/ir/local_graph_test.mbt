@@ -282,6 +282,72 @@ test "local graph classifies tee-defined local as already SSA" {
 }
 
 ///|
+test "local graph tracks a tee through a branch-free value block operand" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let tee = hot_build_local_tee(func, 0, hot_build_const_i32(func, @lib.I32(7)))
+  let value_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [hot_build_drop(func, tee), hot_build_const_i32(func, @lib.I32(0))],
+  )
+  let result_set = hot_build_local_set(func, 1, value_block)
+  let get = hot_build_local_get(func, 0)
+  hot_root_append(func, result_set)
+  hot_root_append(func, hot_build_drop(func, get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_true(local_graph_local_is_already_ssa(graph, 0))
+  assert_false(local_graph_write_is_no_merge_freshenable(graph, tee))
+  let sources = local_graph_reaching_sources_for_get(graph, get)
+  @debug.assert_eq(sources.length(), 1)
+  match sources[0] {
+    HotLocalGraphSource::SetSource(write_id) => @debug.assert_eq(write_id, tee)
+    HotLocalGraphSource::EntrySource(_) =>
+      fail("expected value-block tee source")
+  }
+}
+
+///|
+test "local graph does not partially transfer a branching value block operand" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let branch_write = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let branch = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    hot_build_const_i32(func, @lib.I32(1)),
+    [branch_write],
+  )
+  let value_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [branch, hot_build_const_i32(func, @lib.I32(0))],
+  )
+  hot_root_append(func, hot_build_local_set(func, 1, value_block))
+  let get = hot_build_local_get(func, 0)
+  hot_root_append(func, hot_build_drop(func, get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_false(local_graph_local_is_already_ssa(graph, 0))
+  let sources = local_graph_reaching_sources_for_get(graph, get)
+  @debug.assert_eq(sources.length(), 1)
+  match sources[0] {
+    HotLocalGraphSource::EntrySource(local_id) => @debug.assert_eq(local_id, 0)
+    HotLocalGraphSource::SetSource(_) =>
+      fail("expected conservative entry source")
+  }
+}
+
+///|
 test "local graph rejects branch merge local as already SSA" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[

@@ -30,6 +30,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Durable Conclusions
 
+- The 17 `precompute-propagate-local-facts` residuals from the shortened 2026-07-21 random-all lane were one repeated parity-gap family, not a Starshine win. A branch-free value block used as a `local.set` operand hid its nested `local.tee` write from `HotLocalGraph`; the later legacy structured alias rewrite then reused a defaulted local, replaced a subsequent empty-callee argument, and compacted/renumbered fresh locals. LocalGraph now transfers branch-free nested block operands while rejecting branching, exceptional, and terminating children; the post-default path flattens the label-free tee carrier into its consumer and returns the LocalGraph-planned result before legacy alias rewriting. All 17 saved outputs are valid and raw-byte identical to Binaryen v131, and a targeted `10000/10000` profile is normalized-exact.
 - The 2026-07-21 command-robustness reopen is repaired: all raw LocalGraph admission lifts are non-aborting, unsupported HOT instructions preserve the original function, and deferred batch writeback validates the complete candidate module before commit. Three independent `atomic.fence` regressions cover loop-backedge, one-arm, and multisource admissions; all 15 saved valid generated inputs that formerly exited 134 now exit 0 and validate with official Binaryen v131.
 - Direct `ssa-nomerge` closeout is published as of 2026-06-18 for Binaryen `SSAify(false)` behavior: the final broad direct mixed-generator lane and dedicated `ssa-nomerge-all` GenValid aggregate lane have zero mismatches at the requested closeout scales, and remaining command failures are Binaryen/oracle tool boundaries rather than Starshine transform failures.
 - The June 2026 exceptional-edge corruption family is fixed in-tree by making HOT `ssa-nomerge` fail closed on `try_table` / throw-family flow, matching the documented SSA v1 normal-flow-only contract.
@@ -58,6 +59,20 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Current Signoff State
 
+### 2026-07-21 precompute value-block local-allocation repair
+
+The shortened random-all lane's 17 `precompute-propagate-local-facts` mismatches were all copies of one input hash (`b22b794dcb1ad72bd9bf7552804e40cab2b3dee77aff53b5db8afa9e44831b95`), represented by `case-000074-gen-valid`. Binaryen v131 kept the already-SSA `local.tee 5` / `local.get 5` pair, flattened its branch-free value block into the following assignment, and allocated later fresh locals in source order as `7`, `8`, and `9`. Starshine instead treated the tee as freshenable because LocalGraph did not transfer writes from a block used as an expression operand; the subsequent legacy structured rewrite reused local `3`, changed the later argument shape, and compacted the final fresh-local sequence to eight body locals.
+
+This was an output-shape parity gap. The earlier observable-callee experiment changed admission through the legacy rewrite and therefore did not prove that the original drift was an intentional effect-aware win. The repair has three linked boundaries:
+
+1. `src/ir/local_graph.mbt` transfers writes/reads from branch-free nested block operands, but rejects terminators and nested loop/if/try control rather than learning partial facts.
+2. `src/passes/pass_manager.mbt` flattens only a single-result, branch-free value-block tee carrier that has a later read before overwrite.
+3. That post-default family returns the LocalGraph-planned result before the legacy structured alias rewriter can reinterpret or compact the carrier allocation.
+
+Strict TDD evidence: the reduced public regression first failed at eight versus Binaryen's nine body locals, and the adjacent LocalGraph regression first failed because local `5` was not already SSA. After implementation, the focused LocalGraph file passes `29/29`, complete `ssa_nomerge_test.mbt` passes `490/490`, pass tests pass `6271/6271`, and full Moon passes `9756/9756`. Current native SHA-256 is `bfd29c22efeb1b87fc23d6827d2e8ba5d7c0670ce4e76f360cd774d0d8647e1b`; official `wasm-opt version 131 (version_131)` SHA-256 is `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`. Replay ledger `.tmp/ssa-precompute-17-replay.tsv` records `17/17` exit-zero, `17/17` v131-valid, and `17/17` raw-byte identical. Targeted command `--gen-valid-profile precompute-propagate-local-facts --count 10000 --seed 0x5555` compared and normalized `10000/10000` with zero mismatches, validation/generator/property failures, or command failures and Binaryen cache `10000/0`.
+
+The other 54 residuals in the stopped random-all partial are separate declaration-only families and are not reclassified by this repair.
+
 ### 2026-07-21 unsupported-HOT admission repair
 
 A fresh discovery lane found 15 Starshine command failures among valid generated `ssa-nomerge` inputs. Debug-native replay localized the family to raw LocalGraph admissions calling the aborting `hot_lift_func(...)` on functions containing `atomic.fence`. The repair replaces those admission-only calls with `hot_lift_func_with_context_result(...)` and returns unchanged/no-op on lift failure. The three selected public branches were proved independently red-first: decorated loop backedge, one-arm merge, and multisource merge. The same boundary was then applied to sibling mixed/default/rematerialized/straight-line admissions.
@@ -68,7 +83,7 @@ The first saved replay cleared 14 failures and exposed a separate combined batch
 - `ssa-nomerge-all`: `10000/10000` normalized, zero mismatches or failures, sampling parity `3750`, smoke `2500`, coverage `2500`, and stress `1250`;
 - wasm-smith: `9956/9956` normalized, zero mismatches or Starshine failures, with 44 Binaryen-only tool failures (`39` rec-group-zero, `3` bad-section-size, `1` invalid-tag-index, `1` table-index-out-of-range).
 
-With explicit user approval, the unrelated `random-all-profiles` lane was stopped rather than spending roughly a working day on 10,000 heavyweight mixed-pass inputs. Its two-hour partial processed 1,858 cases: 1,787 normalized matches and 71 output-shape mismatches, with no command or validation failures. Those 71 residuals are not used as semantic-closeout evidence or classified as safe here; 69 have equal canonical size and two are two-byte Starshine canonical wins, but they belong to broad representation/parity analysis rather than this command-abort repair. This is a correctness/robustness repair, not an acceptance of output drift and not a claim that HOT now represents atomic instructions.
+With explicit user approval, the unrelated `random-all-profiles` lane was stopped rather than spending roughly a working day on 10,000 heavyweight mixed-pass inputs. Its two-hour partial processed 1,858 cases: 1,787 normalized matches and 71 output-shape mismatches, with no command or validation failures. Those residuals were not used to close the command-abort repair. The later precompute follow-up above classified and fixed 17 repeated cases as one actionable parity gap; 54 declaration-only residuals remain separate. This is a correctness/robustness repair, not an acceptance of output drift and not a claim that HOT now represents atomic instructions.
 
 ### 2026-06-18 final closeout publication (`[SSANM-012e]`)
 

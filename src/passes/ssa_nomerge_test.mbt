@@ -32946,6 +32946,105 @@ test "ssa-nomerge freshens pre-branch writes before later branch merges" {
 }
 
 ///|
+test "ssa-nomerge preserves Binaryen allocation across default read and value block tee" {
+  // Reduced from all 17 `precompute-propagate-local-facts` mismatches in the
+  // shortened 2026-07-21 random-all lane. They are one repeated hash family.
+  // Binaryen SSAify(false) materializes the never-written local 3 read, keeps
+  // the already-SSA local 5 tee/get pair across the branch-free value block,
+  // flattens that label-free block into its consumer, and preserves source-order
+  // fresh locals 7, 8, and 9. The legacy structured alias rewrite must not run
+  // after the LocalGraph plan and reuse or remove those slots.
+  let source =
+    #|(module
+    #|  (type $sink (func (param i32)))
+    #|  (func $sink (type $sink) (param i32))
+    #|  (func (type $sink) (param i32)
+    #|    (local i32 i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 10
+    #|      local.set 1
+    #|    else
+    #|      i32.const 10
+    #|      local.set 1
+    #|    end
+    #|    local.get 1
+    #|    call $sink
+    #|    local.get 0
+    #|    if
+    #|      i32.const 10
+    #|      local.set 2
+    #|    else
+    #|      i32.const 20
+    #|      local.set 2
+    #|    end
+    #|    local.get 2
+    #|    call $sink
+    #|    local.get 3
+    #|    call $sink
+    #|    i32.const 7
+    #|    local.tee 4
+    #|    drop
+    #|    local.get 4
+    #|    call $sink
+    #|    block (result i32)
+    #|      i32.const 7
+    #|      local.tee 5
+    #|      drop
+    #|      i32.const 0
+    #|    end
+    #|    local.set 6
+    #|    local.get 5
+    #|    call $sink
+    #|    i32.const 10
+    #|    local.set 1
+    #|    local.get 0
+    #|    if
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set 2
+    #|    else
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set 2
+    #|    end
+    #|    local.get 2
+    #|    i32.const 10
+    #|    i32.add
+    #|    local.set 2
+    #|    local.get 2
+    #|    call $sink
+    #|    local.get 0
+    #|    call $sink))
+    #|
+  let input = pass_test_module_from_wat(source)
+  let hot_func = @ir.hot_lift_func(input, @lib.FuncIdx::new(1U))
+  let local_graph = @ir.local_graph_build(hot_func, @ir.cfg_build(hot_func))
+  assert_true(@ir.local_graph_local_is_already_ssa(local_graph, 5))
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  @debug.assert_eq(locals.length(), 9)
+  assert_false(
+    instrs.any(fn(instr) {
+      match instr {
+        @lib.Block(@lib.ValTypeBlockType(_), _) => true
+        _ => false
+      }
+    }),
+    msg=instrs.to_string(),
+  )
+  @debug.assert_eq(ssa_test_local_set_indices(instrs), [
+    1U, 1U, 2U, 2U, 7U, 8U, 2U, 2U, 9U,
+  ])
+  @debug.assert_eq(ssa_test_local_tee_indices(instrs), [4U, 5U])
+  @debug.assert_eq(ssa_nomerge_test_local_get_indices(instrs), [
+    0U, 1U, 0U, 2U, 4U, 5U, 0U, 8U, 8U, 2U, 9U, 0U,
+  ])
+}
+
+///|
 test "ssa-nomerge compacts large branch-exit alias scratch locals" {
   // Reduced from the current debug-WASI `defined=6070 abs=6097` first
   // non-masked diff after the one-use temp-local chain. A branch exit stores
