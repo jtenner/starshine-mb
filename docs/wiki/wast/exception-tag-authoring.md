@@ -35,7 +35,7 @@ related:
 Exception handling in Starshine crosses three layers:
 
 1. **Feature status**: Exception Handling is a finished/Core-3.0 WebAssembly surface for ordinary `tag`, `throw`, `throw_ref`, and `try_table` claims. It is not an active proposal gap, and it is not the same as active Stack Switching continuations, JSPI host async wrappers, or Relaxed Dead Code Validation.
-2. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses. Starshine also accepts legacy `try` / `delegate` / `rethrow` text as compatibility syntax, but that lowers away instead of becoming a preserved core legacy instruction.
+2. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses. Starshine also accepts legacy `try` / `delegate` / `rethrow` text as compatibility syntax; accepted legacy `try` now lowers to a preserved core `Instruction::Try`, while `rethrow` retains narrower compatibility behavior.
 3. **Core module representation**: tags occupy the same imported-prefix `TagIdx` space whether they come from imports or from the tag section; instructions carry numeric `TagIdx` and `LabelIdx` values.
 4. **Validation and execution constraints**: Starshine currently requires tag types to point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable, while execution still traps on null; `try_table` catches branch to labels outside the temporary try body. Current Core 3.0 source is slightly broader at tag-declaration validation time, so keep the local-versus-official split below visible.
 
@@ -125,10 +125,10 @@ Starshine's lowering gives the `try_table` body its own temporary label for resu
 
 | Layer | Owner files | Current contract |
 | --- | --- | --- |
-| Core types | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Defines `TagIdx`, `TagType`, `Catch::{Catch,CatchRef,CatchAll,CatchAllRef}`, `Instruction::{Throw,ThrowRef,TryTable}`. |
+| Core types | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Defines `TagIdx`, `TagType`, modern `Catch::{Catch,CatchRef,CatchAll,CatchAllRef}`, legacy `LegacyCatch::{LegacyCatch,LegacyCatchAll}`, and `Instruction::{Throw,ThrowRef,Try,TryTable}`. |
 | WAST parse | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Parses tag fields, inline tag imports, inline tag exports, `throw`, `throw_ref`, modern `try_table`, and legacy `try` / `do` / `catch` / `catch_all` / `delegate` / `rethrow`. |
 | WAST print | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints tag fields, tag import/export descriptors, throw forms, modern `try_table` catches, and legacy catch syntax. |
-| WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves tag ids to absolute imported-prefix `TagIdx`, converts modern `try_table` to core `TryTable`, validates catch labels during lowering, and lowers legacy `try` to synthetic block/unreachable forms. |
+| WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves tag ids to absolute imported-prefix `TagIdx`, converts modern `try_table` to core `TryTable`, validates labels during lowering, and preserves accepted legacy protected/catch bodies plus delegate targets as core `Try`. |
 | Module validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Validates tag definitions after memories and before globals; each `TagType` must resolve to a function type with no results. |
 | Instruction typecheck | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Checks `throw`, nullable-operand `throw_ref`, `try_table`, and catch payload-to-label compatibility, with `catch_ref` / `catch_all_ref` adding non-null `(ref exn)` to branch payloads. |
 | Fuzz/text coverage | [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) | WAST arbitrary generation includes representative exception syntax; invalid lanes include tag-family diagnostics and unlinkable tag-import seeds. |
@@ -136,7 +136,7 @@ Starshine's lowering gives the `try_table` body its own temporary label for resu
 
 ## Modern Versus Legacy Exception Syntax
 
-Prefer **modern `try_table`** for new semantic fixtures. It is the first-class core instruction shape in Starshine's `@lib.Instruction` model and is validated directly.
+Prefer **modern `try_table`** for new semantic fixtures. Both modern `TryTable` and compatibility legacy `Try` are first-class core instruction shapes after lowering or binary decoding, but modern EH remains the primary authored surface.
 
 Starshine also accepts a legacy text family:
 
@@ -156,7 +156,7 @@ Starshine also accepts a legacy text family:
       (catch $e (rethrow 0)))))
 ```
 
-Treat this as compatibility syntax, not as proof that Starshine has a preserved core legacy `try` instruction. [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) validates legacy `delegate` / `rethrow` labels during lowering, lowers accepted `rethrow` to `unreachable`, and lowers accepted legacy `try` into synthetic block/unreachable/check shapes. Add tests here only when the parser/lowerer compatibility boundary is what matters.
+Treat this as compatibility syntax even though accepted legacy `try` is now preserved as core `Instruction::Try`. [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) validates legacy labels, retains protected bodies, typed/catch-all handler bodies, and delegate targets, while accepted `rethrow` still has narrower compatibility behavior. Optimizer tests should use first-class `Try` fixtures when traversal, remapping, or exceptional-flow analysis is the behavior under test.
 
 ## Validation Invariants And Edge Cases
 
