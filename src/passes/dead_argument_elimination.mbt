@@ -12289,7 +12289,7 @@ fn dae_direct_call_gc_result_signature_evidence(
   match dae_resolve_func_type(mod_, func_type_indices, slot) {
     Some(@lib.FuncType(params, [result])) =>
       match result {
-        @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(_))) =>
+        @lib.RefTypeValType(_) =>
           Some({
             candidate: result,
             refined_candidate: None,
@@ -16679,13 +16679,13 @@ fn dae_signature_has_heap_ref(
 ) -> Bool {
   for val_type in params {
     match val_type {
-      @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, _)) => return true
+      @lib.RefTypeValType(_) => return true
       _ => ()
     }
   }
   for val_type in results {
     match val_type {
-      @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, _)) => return true
+      @lib.RefTypeValType(_) => return true
       _ => ()
     }
   }

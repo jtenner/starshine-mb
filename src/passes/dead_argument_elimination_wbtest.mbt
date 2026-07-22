@@ -16235,7 +16235,15 @@ test "dae GC result refinement joins abstract heap returns" {
     }
     _ => fail("expected abstract multiple-return GC result work to commit")
   }
-  let core = dae_run_core(mod_, fn(_) { () })
+  let encoded = match @binary.encode_module(mod_) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected abstract return fixture encode, got \{err}")
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected abstract return fixture decode, got \{err}")
+  }
+  let core = dae_run_core(decoded, fn(_) { () })
   let core_type_indices = dae_collect_func_type_indices(core.mod_out)
   match dae_resolve_func_type(core.mod_out, core_type_indices, 0) {
     Some(@lib.FuncType([], [result])) =>
