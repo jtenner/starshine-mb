@@ -15507,6 +15507,24 @@ test "dae forwarded constant revisit admission is module-size independent" {
 }
 
 ///|
+test "dae exact-uniform phase ownership is variant based, not module-size based" {
+  for defined in [2, 1024, 1025, 4096] {
+    assert_true(
+      dae_should_run_broad_uniform_parameter_flow(defined, optimize=false),
+    )
+    assert_false(
+      dae_should_run_reverse_exact_literal_phase(defined, optimize=false),
+    )
+    assert_false(
+      dae_should_run_broad_uniform_parameter_flow(defined, optimize=true),
+    )
+    assert_true(
+      dae_should_run_reverse_exact_literal_phase(defined, optimize=true),
+    )
+  }
+}
+
+///|
 test "dae uniform collection admission is module-size independent and cycle aware" {
   for defined in [2, 1024, 4096] {
     assert_true(

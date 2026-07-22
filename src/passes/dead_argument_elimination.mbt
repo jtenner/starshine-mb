@@ -26097,6 +26097,22 @@ fn dae_should_run_scalar_parameter_candidate(
 }
 
 ///|
+fn dae_should_run_broad_uniform_parameter_flow(
+  _defined : Int,
+  optimize~ : Bool,
+) -> Bool {
+  !optimize
+}
+
+///|
+fn dae_should_run_reverse_exact_literal_phase(
+  _defined : Int,
+  optimize~ : Bool,
+) -> Bool {
+  optimize
+}
+
+///|
 fn dae_should_run_computed_unread_dependency_worklist(
   _defined : Int,
   optimize~ : Bool,
@@ -43340,20 +43356,19 @@ fn dae_run_core(
   // with separate freshly allocated bitmaps.
   let selected_scratch_defs = Array::make(original_defined, false)
   let mut reverse_iter = 0
-  if original_defined > 1024 {
-    if !optimize {
-      let broad_uniform = dae_run_broad_uniform_parameter_flow(
-        current, mod_, touched, changed,
-      )
-      current = broad_uniform.mod_out
-      touched = broad_uniform.touched
-      changed = broad_uniform.changed
-      effects = dae_commit_effects_merge(effects, broad_uniform.effects)
-      for primary_def in broad_uniform.productive_defs {
-        trace("pass[dae]:broad-exact-uniform primary_def=\{primary_def}")
-      }
+  if dae_should_run_broad_uniform_parameter_flow(original_defined, optimize~) {
+    let broad_uniform = dae_run_broad_uniform_parameter_flow(
+      current, mod_, touched, changed,
+    )
+    current = broad_uniform.mod_out
+    touched = broad_uniform.touched
+    changed = broad_uniform.changed
+    effects = dae_commit_effects_merge(effects, broad_uniform.effects)
+    for primary_def in broad_uniform.productive_defs {
+      trace("pass[dae]:broad-exact-uniform primary_def=\{primary_def}")
     }
-  } else {
+  }
+  if dae_should_run_reverse_exact_literal_phase(original_defined, optimize~) {
     while true {
       let reverse_result = dae_try_rewrite_reverse_exact_literal_once(
         current, original_param_counts, original_call_counts, original_active_nonself_call_counts,
