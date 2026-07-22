@@ -7292,8 +7292,10 @@ fn dae_value_slice_enrich_from_instrs(
     ..slice,
     value_type,
     producer_kind,
-    has_observable_effect: has_observable_effect ||
-    slice.disposition.preserve_effects_on_removal,
+    // Keep actual observable effects distinct from trap preservation. The
+    // operand disposition still records whether ordinary-mode removal must
+    // replay the slice, while traps-never-happen may ignore trap-only work.
+    has_observable_effect,
     may_trap,
     has_escaping_branch: has_escaping_branch || slice.has_branch,
     produces_unreachable,
@@ -9044,6 +9046,7 @@ fn dae_classify_parameter_slot(
   param_idx : Int,
   incoming_live : Bool,
   callsite_param_slices : Array[DaeValueSlice],
+  traps_never_happen? : Bool = false,
 ) -> DaeParameterAction {
   let imported = facts.graph.snapshot.imported
   let func_abs = dae_abs_func_idx(imported, def_idx)
@@ -9092,7 +9095,13 @@ fn dae_classify_parameter_slot(
       any_localize = true
       continue
     }
-    if slice.disposition.droppable_without_repair &&
+    if traps_never_happen &&
+      slice.may_trap &&
+      !slice.has_observable_effect &&
+      !slice.has_escaping_branch &&
+      !slice.produces_unreachable {
+      ()
+    } else if slice.disposition.droppable_without_repair &&
       !slice.may_trap &&
       !slice.has_observable_effect {
       ()
@@ -9261,6 +9270,7 @@ fn dae_classify_unused_parameter_actions(
   param_types : Array[@lib.ValType],
   entry_live : Array[Bool],
   direct_caller_defs : Array[Int],
+  traps_never_happen? : Bool = false,
 ) -> Array[DaeParameterAction]? {
   if entry_live.length() != param_types.length() {
     return None
@@ -9282,6 +9292,7 @@ fn dae_classify_unused_parameter_actions(
         param_idx,
         entry_live[param_idx],
         slices,
+        traps_never_happen~,
       ),
     )
     param_idx += 1
@@ -9580,6 +9591,7 @@ fn dae_callsite_rewrite_plan(
   callsite : DaeCallsiteValueSliceEvidence,
   remove : Array[Bool],
   localization_param_types : Array[@lib.ValType]?,
+  traps_never_happen? : Bool = false,
 ) -> DaeCallsiteRewritePlan? {
   if remove.length() != callsite.arg_count {
     return None
@@ -9594,40 +9606,62 @@ fn dae_callsite_rewrite_plan(
   let localized_params = Array::make(callsite.arg_count, false)
   let mut p = 0
   while p < callsite.arg_count {
-    let (operand_plan, scratch_type) = match localization_param_types {
-      Some(param_types) => {
-        let disposition = callsite.slices[p].disposition
-        let rewrite_disposition = dae_operand_rewrite_disposition(
-          disposition,
-          localization_available=remove[p],
-          has_escaping_branch=disposition.has_branch,
-        )
-        let operand_plan = dae_operand_removal_plan(
-          rewrite_disposition,
-          !remove[p],
-        )
-        if !dae_operand_removal_plan_is_consistent(
-            rewrite_disposition, operand_plan,
-          ) {
-          return None
+    let slice = callsite.slices[p]
+    let tnh_drops_trap_only_slice = traps_never_happen &&
+      remove[p] &&
+      slice.may_trap &&
+      !slice.has_observable_effect &&
+      !slice.has_escaping_branch &&
+      !slice.produces_unreachable
+    let (operand_plan, scratch_type) = if tnh_drops_trap_only_slice {
+      (
+        {
+          start: slice.start,
+          end: slice.end,
+          keep_operand: false,
+          replay_operand: false,
+          append_drop: false,
+          requires_localization_retry: false,
+          rejects_direct_removal: false,
+        },
+        None,
+      )
+    } else {
+      match localization_param_types {
+        Some(param_types) => {
+          let disposition = callsite.slices[p].disposition
+          let rewrite_disposition = dae_operand_rewrite_disposition(
+            disposition,
+            localization_available=remove[p],
+            has_escaping_branch=disposition.has_branch,
+          )
+          let operand_plan = dae_operand_removal_plan(
+            rewrite_disposition,
+            !remove[p],
+          )
+          if !dae_operand_removal_plan_is_consistent(
+              rewrite_disposition, operand_plan,
+            ) {
+            return None
+          }
+          let scratch_type = if operand_plan.requires_localization_retry {
+            match dae_localization_scratch_type(param_types[p]) {
+              Some(scratch_type) => Some(scratch_type)
+              None => return None
+            }
+          } else {
+            None
+          }
+          (operand_plan, scratch_type)
         }
-        let scratch_type = if operand_plan.requires_localization_retry {
-          match dae_localization_scratch_type(param_types[p]) {
-            Some(scratch_type) => Some(scratch_type)
+        None => {
+          let operand_plan = match
+            dae_callsite_operand_removal_plan(callsite, p, remove[p]) {
+            Some(operand_plan) => operand_plan
             None => return None
           }
-        } else {
-          None
+          (operand_plan, None)
         }
-        (operand_plan, scratch_type)
-      }
-      None => {
-        let operand_plan = match
-          dae_callsite_operand_removal_plan(callsite, p, remove[p]) {
-          Some(operand_plan) => operand_plan
-          None => return None
-        }
-        (operand_plan, None)
       }
     }
     if operand_plan.rejects_direct_removal {
@@ -9733,6 +9767,7 @@ fn dae_rewrite_callsite_with_localization_at(
   func_type_indices : Array[@lib.TypeIdx],
   existing_scratch_local_types? : Array[@lib.ValType] = [],
   allow_stack_carried_void_effects? : Bool = false,
+  traps_never_happen? : Bool = false,
 ) -> DaeCallsiteRewriteApplicationEvidence? {
   if remove.length() != param_types.length() || first_scratch_local < 0 {
     return None
@@ -9751,7 +9786,12 @@ fn dae_rewrite_callsite_with_localization_at(
     None => return None
   }
   let plan = match
-    dae_callsite_rewrite_plan(callsite, remove, Some(param_types)) {
+    dae_callsite_rewrite_plan(
+      callsite,
+      remove,
+      Some(param_types),
+      traps_never_happen~,
+    ) {
     Some(plan) => plan
     None => return None
   }
@@ -9771,6 +9811,7 @@ fn dae_rewrite_callsite_at(
   entry_stack_values : Int,
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
+  traps_never_happen? : Bool = false,
 ) -> (Array[@lib.Instruction], Int, Bool) {
   let evidence = match
     dae_callsite_value_slice_evidence(
@@ -9784,7 +9825,8 @@ fn dae_rewrite_callsite_at(
     Some(result) => result
     None => return ([], -1, false)
   }
-  let plan = match dae_callsite_rewrite_plan(evidence, remove, None) {
+  let plan = match
+    dae_callsite_rewrite_plan(evidence, remove, None, traps_never_happen~) {
     Some(plan) => plan
     None => return ([], -1, false)
   }
@@ -10000,6 +10042,7 @@ fn dae_rewrite_calls_instr(
   func_type_indices : Array[@lib.TypeIdx],
   localization? : DaeCallsiteLocalizationContext? = None,
   allow_stack_carried_void_effects? : Bool = false,
+  traps_never_happen? : Bool = false,
 ) -> (@lib.Instruction, Int, Bool) {
   let children = match dae_nested_control_children_evidence(instr, mod_) {
     Some(evidence) => evidence
@@ -10022,6 +10065,7 @@ fn dae_rewrite_calls_instr(
     func_type_indices,
     localization~,
     allow_stack_carried_void_effects~,
+    traps_never_happen~,
   )
   if !primary_result.ok {
     return (instr, primary_result.calls_rewritten, false)
@@ -10038,6 +10082,7 @@ fn dae_rewrite_calls_instr(
         func_type_indices,
         localization~,
         allow_stack_carried_void_effects~,
+        traps_never_happen~,
       )
       calls += secondary_result.calls_rewritten
       if !secondary_result.ok {
@@ -10069,6 +10114,7 @@ fn dae_rewrite_calls_instrs(
   func_type_indices : Array[@lib.TypeIdx],
   localization? : DaeCallsiteLocalizationContext? = None,
   allow_stack_carried_void_effects? : Bool = false,
+  traps_never_happen? : Bool = false,
 ) -> DaeRewriteResult {
   let current = instrs.copy()
   let mut idx = 0
@@ -10098,6 +10144,7 @@ fn dae_rewrite_calls_instrs(
                 func_type_indices,
                 existing_scratch_local_types=context.scratch_local_types,
                 allow_stack_carried_void_effects~,
+                traps_never_happen~,
               ) {
               Some(evidence) => {
                 context.scratch_local_types.clear()
@@ -10115,7 +10162,13 @@ fn dae_rewrite_calls_instrs(
             }
           None =>
             dae_rewrite_callsite_at(
-              current, idx, remove, entry_stack_values, mod_, func_type_indices,
+              current,
+              idx,
+              remove,
+              entry_stack_values,
+              mod_,
+              func_type_indices,
+              traps_never_happen~,
             )
         }
         if !ok {
@@ -10135,6 +10188,7 @@ fn dae_rewrite_calls_instrs(
           func_type_indices,
           localization~,
           allow_stack_carried_void_effects~,
+          traps_never_happen~,
         )
         if !ok {
           return {
@@ -18917,6 +18971,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   callee_source? : @lib.Func? = None,
   materialized_params? : Array[@lib.Instruction?]? = None,
   verified_materialized_suffix? : Array[@lib.Instruction]? = None,
+  traps_never_happen? : Bool = false,
 ) -> DaeRewritePlan? {
   let def_idx = callee_abs - graph.snapshot.imported
   if graph.snapshot.imported != original.imported ||
@@ -18979,7 +19034,14 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     )
     match
       dae_classify_unused_parameter_actions(
-        shared_facts, mod_, def_idx, callee_abs, params, entry_live, direct_caller_defs,
+        shared_facts,
+        mod_,
+        def_idx,
+        callee_abs,
+        params,
+        entry_live,
+        direct_caller_defs,
+        traps_never_happen~,
       ) {
       Some(actions) => actions
       None => return None
@@ -19120,6 +19182,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       mod_,
       graph.snapshot.type_indices,
       localization=Some(localization),
+      traps_never_happen~,
     )
     if !result.ok {
       return {
@@ -19624,6 +19687,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
   callee_source? : @lib.Func? = None,
+  traps_never_happen? : Bool = false,
 ) -> DaeRewritePlanApplication {
   match
     dae_build_scalar_unused_param_rewrite_plan(
@@ -19636,6 +19700,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
       direct_call_count,
       direct_caller_defs,
       callee_source~,
+      traps_never_happen~,
     ) {
     Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan)
     None => dae_rewrite_plan_rejection(mod_, DaeActualValueSliceUnavailable)
@@ -26154,6 +26219,7 @@ fn dae_run_core_once(
   start_def_inclusive? : Int = 0,
   boundary_facts_override? : DaeCallBoundaryFacts? = None,
   producer_effects_report? : Array[DaeCommitEffects] = [],
+  traps_never_happen? : Bool = false,
 ) -> DaePassResult {
   let original_param_counts = original.param_counts
   let original_large_unreachable_prefixes = original.large_unreachable_prefixes
@@ -26971,6 +27037,7 @@ fn dae_run_core_once(
           direct_calls[callee_abs],
           direct_callers[callee_abs],
           callee_source~,
+          traps_never_happen~,
         )
         if planned.applied {
           return planned.result
@@ -42999,6 +43066,7 @@ fn dae_run_core(
   optimize? : Bool = false,
   perf? : HotPerfSession? = None,
   single_caller_throttle_consumed? : Bool = false,
+  traps_never_happen? : Bool = false,
 ) -> DaeCoreRunResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
@@ -43226,6 +43294,7 @@ fn dae_run_core(
         start_def_inclusive=def_idx,
         boundary_facts_override=Some(boundary_facts),
         producer_effects_report~,
+        traps_never_happen~,
       )
       let before_primary_param_count = if result.primary_def >= 0 {
         let before_type_indices = dae_collect_func_type_indices(current)
@@ -44194,6 +44263,7 @@ fn dae_run_nested_cleanup(
   touched : Array[Bool],
   trace : (String) -> Unit,
   optimize : Bool,
+  traps_never_happen : Bool,
 ) -> @lib.Module {
   if !optimize || dae_count_touched(touched) == 0 {
     return mod_
@@ -44206,7 +44276,7 @@ fn dae_run_nested_cleanup(
   )
   if folded_changed {
     trace("pass[dae-optimizing]:nested-cleanup exact-ref-is-null-fold")
-    let rerun = dae_run_core(folded, trace, optimize=true)
+    let rerun = dae_run_core(folded, trace, optimize=true, traps_never_happen~)
     return rerun.mod_out
   }
   // The active hot-pipeline runner is whole-module; Binaryen's helper is
@@ -44217,16 +44287,17 @@ fn dae_run_nested_cleanup(
 }
 
 ///|
-pub fn dae_run_module_pass(
+fn dae_run_module_pass_with_trap_policy(
   mod_ : @lib.Module,
   optimize? : Bool = false,
   trace? : ((String) -> Unit)? = None,
+  traps_never_happen? : Bool = false,
 ) -> @lib.Module {
   let trace_fn = match trace {
     Some(cb) => cb
     None => fn(_line : String) { () }
   }
-  let result = dae_run_core(mod_, trace_fn, optimize~)
+  let result = dae_run_core(mod_, trace_fn, optimize~, traps_never_happen~)
   let (debris_cleaned, debris_changed) = dae_cleanup_dropped_unreachable_debris(
     result.mod_out,
   )
@@ -44238,6 +44309,16 @@ pub fn dae_run_module_pass(
     result.touched,
     trace_fn,
     optimize,
+    traps_never_happen,
   )
   dae_prune_unused_simple_func_types(cleaned)
+}
+
+///|
+pub fn dae_run_module_pass(
+  mod_ : @lib.Module,
+  optimize? : Bool = false,
+  trace? : ((String) -> Unit)? = None,
+) -> @lib.Module {
+  dae_run_module_pass_with_trap_policy(mod_, optimize~, trace~)
 }

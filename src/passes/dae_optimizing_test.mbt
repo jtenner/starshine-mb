@@ -1289,6 +1289,97 @@ test "dead-argument-elimination trims unreachable tail debris from coverage-shap
 }
 
 ///|
+test "dead-argument-elimination removes trapping unused actuals only under traps-never-happen" {
+  let source =
+    #|(module
+    #|  (type $struct (sub (struct (field i32))))
+    #|  (func $target (param i32)
+    #|    nop)
+    #|  (func $caller (param (ref null $struct))
+    #|    local.get 0
+    #|    struct.get $struct 0
+    #|    call $target))
+  let ordinary = match
+    pass_test_run_pipeline(source, ["dead-argument-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ordinary DAE success, got \{err}")
+  }
+  let tnh = match
+    pass_test_run_pipeline(
+      source,
+      ["dead-argument-elimination"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected TNH DAE success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(ordinary_caller)) = dae_test_defined_func(
+    ordinary, 1,
+  )
+  let @lib.Func(_, @lib.Expr(tnh_caller)) = dae_test_defined_func(tnh, 1)
+  assert_true(
+    dae_test_instrs_match(ordinary_caller, fn(instr) {
+      instr is @lib.StructGet(_, _)
+    }),
+  )
+  assert_false(
+    dae_test_instrs_match(tnh_caller, fn(instr) {
+      instr is @lib.StructGet(_, _)
+    }),
+  )
+  @debug.assert_eq(dae_test_func_params(tnh, 0).length(), 0)
+  match @validate.validate_module(tnh) {
+    Ok(_) => ()
+    Err(err) => fail("expected TNH DAE output to validate, got \{err}")
+  }
+}
+
+///|
+test "dae-optimizing removes trapping unused actuals only under traps-never-happen" {
+  let source =
+    #|(module
+    #|  (type $struct (sub (struct (field i32))))
+    #|  (func $target (param i32)
+    #|    nop)
+    #|  (func $caller (param (ref null $struct))
+    #|    local.get 0
+    #|    struct.get $struct 0
+    #|    call $target))
+  let ordinary = match pass_test_run_pipeline(source, ["dae-optimizing"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ordinary DAEO success, got \{err}")
+  }
+  let tnh = match
+    pass_test_run_pipeline(
+      source,
+      ["dae-optimizing"],
+      options=HotPipelineOptions::new(traps_never_happen=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected TNH DAEO success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(ordinary_caller)) = dae_test_defined_func(
+    ordinary, 1,
+  )
+  let @lib.Func(_, @lib.Expr(tnh_caller)) = dae_test_defined_func(tnh, 1)
+  assert_true(
+    dae_test_instrs_match(ordinary_caller, fn(instr) {
+      instr is @lib.StructGet(_, _)
+    }),
+  )
+  assert_false(
+    dae_test_instrs_match(tnh_caller, fn(instr) {
+      instr is @lib.StructGet(_, _)
+    }),
+  )
+  @debug.assert_eq(dae_test_func_params(tnh, 0).length(), 0)
+  match @validate.validate_module(tnh) {
+    Ok(_) => ()
+    Err(err) => fail("expected TNH DAEO output to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination preserves trapping prefixes before unreachable cleanup" {
   let source =
     #|(module
