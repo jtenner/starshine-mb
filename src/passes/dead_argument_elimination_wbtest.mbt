@@ -15481,6 +15481,58 @@ test "dae GC parameter refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae GC refinement dispatcher honors original escaped ownership" {
+  let escaped_source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $target)
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let current_source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let escaped = pass_test_module_from_wat(escaped_source)
+  let current_mod = pass_test_module_from_wat(current_source)
+  let original = dae_collect_original_boundary_snapshot(escaped)
+  let graph = dae_current_boundary_graph_new(current_mod)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let item = dae_work_item_new(
+    graph,
+    dependencies,
+    0,
+    DaeGcParameterRefinementWork,
+  )
+  match
+    dae_process_work_item(
+      original,
+      current_mod,
+      [],
+      false,
+      graph,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(_) =>
+      fail("expected original escaped GC boundary to reject transaction")
+    _ => ()
+  }
+}
+
+///|
 test "dae GC result refinement work commits through dispatcher" {
   let source =
     #|(module

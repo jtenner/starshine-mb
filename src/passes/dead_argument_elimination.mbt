@@ -1705,6 +1705,18 @@ priv struct DaeRewritePlanApplication {
 }
 
 ///|
+priv struct DaeFamilyRewritePlan {
+  target_def : Int
+  expected_module_epoch : Int
+  expected_call_epoch : Int
+  expected_type_epoch : Int
+  expected_functions : Array[DaeComponentMemberExpectation]
+  expected_call_identities : Array[DaeDirectCallIdentity]
+  source : @lib.Module
+  candidate : DaePassResult
+}
+
+///|
 priv struct DaeComponentMemberExpectation {
   def_idx : Int
   signature_epoch : Int
@@ -3289,6 +3301,139 @@ fn dae_work_item_epoch_is_current(
 }
 
 ///|
+fn dae_build_family_rewrite_plan(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+  candidate : DaePassResult,
+) -> DaeFamilyRewritePlan? {
+  if target_def < 0 ||
+    target_def >= graph.snapshot.defined ||
+    !candidate.changed ||
+    candidate.mod_out == current ||
+    candidate.primary_def != target_def ||
+    candidate.touched.length() != graph.snapshot.defined ||
+    dae_defined_func_count(candidate.mod_out) != graph.snapshot.defined ||
+    dae_imported_func_count(candidate.mod_out) != graph.snapshot.imported {
+    return None
+  }
+  let next_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let expected_functions : Array[DaeComponentMemberExpectation] = []
+  let expected_call_identities : Array[DaeDirectCallIdentity] = []
+  let shared_facts : DaeBoundaryFacts = {
+    original,
+    graph,
+    incoming_param_live_by_def: [],
+    incoming_param_live_body_epochs: [],
+  }
+  let mut def_idx = 0
+  while def_idx < graph.snapshot.defined {
+    let func_abs = graph.snapshot.imported + def_idx
+    let old_signature = if func_abs >= 0 &&
+      func_abs < graph.snapshot.function_types.length() {
+      graph.snapshot.function_types[func_abs]
+    } else {
+      None
+    }
+    let next_signature = dae_resolve_func_type(
+      candidate.mod_out,
+      next_type_indices,
+      func_abs,
+    )
+    let signature_changed = old_signature != next_signature
+    if signature_changed && !dae_can_change_parameters(shared_facts, func_abs) {
+      return None
+    }
+    if candidate.touched[def_idx] || signature_changed || def_idx == target_def {
+      if def_idx >= graph.function_epochs.length() {
+        return None
+      }
+      let epochs = graph.function_epochs[def_idx]
+      let (direct_calls, return_calls) = dae_count_component_target_call_kinds(
+        graph.snapshot.funcs,
+        func_abs,
+      )
+      expected_functions.push({
+        def_idx,
+        signature_epoch: epochs.signature_epoch,
+        body_epoch: epochs.body_epoch,
+        direct_calls,
+        return_calls,
+      })
+      for
+        identity in dae_collect_target_call_identities(graph.snapshot, func_abs) {
+        expected_call_identities.push(identity)
+      }
+    }
+    def_idx += 1
+  }
+  Some({
+    target_def,
+    expected_module_epoch: graph.module_epoch,
+    expected_call_epoch: graph.call_epoch,
+    expected_type_epoch: graph.type_epoch,
+    expected_functions,
+    expected_call_identities,
+    source: current,
+    candidate,
+  })
+}
+
+///|
+fn dae_apply_family_rewrite_plan(
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  plan : DaeFamilyRewritePlan,
+) -> DaeRewritePlanApplication {
+  if current != plan.source ||
+    graph.mod_ != current ||
+    plan.expected_module_epoch != graph.module_epoch ||
+    plan.expected_call_epoch != graph.call_epoch ||
+    plan.expected_type_epoch != graph.type_epoch {
+    return dae_rewrite_plan_rejection(current, DaeStaleCandidateFacts)
+  }
+  let actual_call_identities : Array[DaeDirectCallIdentity] = []
+  for expected in plan.expected_functions {
+    if expected.def_idx < 0 ||
+      expected.def_idx >= graph.function_epochs.length() ||
+      expected.def_idx >= graph.snapshot.defined {
+      return dae_rewrite_plan_rejection(current, DaeStaleCandidateFacts)
+    }
+    let epochs = graph.function_epochs[expected.def_idx]
+    if epochs.signature_epoch != expected.signature_epoch ||
+      epochs.body_epoch != expected.body_epoch {
+      return dae_rewrite_plan_rejection(current, DaeStaleCandidateFacts)
+    }
+    let func_abs = graph.snapshot.imported + expected.def_idx
+    let (direct_calls, return_calls) = dae_count_component_target_call_kinds(
+      graph.snapshot.funcs,
+      func_abs,
+    )
+    if direct_calls != expected.direct_calls ||
+      return_calls != expected.return_calls {
+      return dae_rewrite_plan_rejection(current, DaeCallCountChanged)
+    }
+    for identity in dae_collect_target_call_identities(graph.snapshot, func_abs) {
+      actual_call_identities.push(identity)
+    }
+  }
+  if actual_call_identities != plan.expected_call_identities {
+    return dae_rewrite_plan_rejection(current, DaeCallCountChanged)
+  }
+  if plan.candidate.primary_def != plan.target_def ||
+    !plan.candidate.changed ||
+    plan.candidate.mod_out == current {
+    return dae_rewrite_plan_rejection(current, DaeNoStrictImprovement)
+  }
+  match @validate.validate_module(plan.candidate.mod_out) {
+    Ok(_) =>
+      { result: plan.candidate, applied: true, reason: DaeCandidateApplied }
+    Err(_) => dae_rewrite_plan_rejection(current, DaeValidationRollback)
+  }
+}
+
+///|
 fn dae_process_work_item(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -3424,16 +3569,34 @@ fn dae_process_work_item(
       DaeWorkDeferred(DaeNoStrictImprovement)
     }
     Some(candidate) => {
-      let application = dae_apply_core_result(
-        current, touched, changed, candidate,
-      )
-      if application.applied {
+      let plan = match
+        dae_build_family_rewrite_plan(
+          original,
+          current,
+          graph,
+          item.target_def,
+          candidate,
+        ) {
+        Some(plan) => plan
+        None => {
+          dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+          return DaeWorkNoChange(DaeNoStrictImprovement)
+        }
+      }
+      let plan_application = dae_apply_family_rewrite_plan(current, graph, plan)
+      if plan_application.applied {
         diagnostics.candidates_applied += 1
         dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
-        DaeWorkCommitted(application)
+        DaeWorkCommitted({
+          mod_out: plan_application.result.mod_out,
+          touched: dae_merge_touched(touched, plan_application.result.touched),
+          changed: changed || plan_application.result.changed,
+          applied: true,
+          primary_def: plan_application.result.primary_def,
+        })
       } else {
-        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
-        DaeWorkNoChange(DaeNoStrictImprovement)
+        dae_diagnostics_record_reason(diagnostics, plan_application.reason)
+        DaeWorkNoChange(plan_application.reason)
       }
     }
   }
