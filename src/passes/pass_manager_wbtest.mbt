@@ -23146,6 +23146,21 @@ test "dae optimizing payoff exact literal retains original ownership" {
 
 ///|
 test "dae nested replay does not use function cardinality as selection" {
+  let module_source = StringBuilder::new()
+  module_source.write_string("(module")
+  for def_idx = 0; def_idx < 101; def_idx = def_idx + 1 {
+    module_source.write_string(" (func)")
+  }
+  module_source.write_string(")")
+  let large_module = pass_test_module_from_wat(module_source.to_string())
+  assert_eq(
+    run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
+      large_module,
+      Array::make(101, true),
+    ),
+    None,
+  )
+
   let local_source = StringBuilder::new()
   local_source.write_string("(module (func (local")
   for local_idx = 0; local_idx < 129; local_idx = local_idx + 1 {

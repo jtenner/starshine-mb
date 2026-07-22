@@ -61964,23 +61964,16 @@ fn run_hot_pipeline_apply_reorder_locals_to_touched(
 }
 
 ///|
-// These limits gate only the expensive default-function replay. Mandatory
-// signature/call repair and the validated changed-boundary precompute,
-// remove-unused-brs, and vacuum fallbacks run before this policy is consulted.
+// Semantic DAEO nested replay is selected only by producer-owned worth. Module,
+// local, and instruction cardinality may still guide earlier optional cleanup,
+// but they do not suppress the source-required touched-function roster.
 fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
   mod_ : @lib.Module,
   touched : Array[Bool],
 ) -> String? {
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      ignore(touched)
-      if funcs.length() > 100 {
-        return Some("large-module")
-      }
-      None
-    }
-    None => None
-  }
+  ignore(mod_)
+  ignore(touched)
+  None
 }
 
 ///|

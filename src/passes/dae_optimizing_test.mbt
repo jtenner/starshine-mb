@@ -11720,7 +11720,7 @@ test "dae-optimizing materializes selected Func521 literal actual" {
 }
 
 ///|
-test "dae-optimizing materializes selected Func505 literal actual" {
+test "dae-optimizing materializes mid-range literal actual and applies nested cleanup" {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   for i = 0; i < 505; i = i + 1 {
@@ -11759,7 +11759,8 @@ test "dae-optimizing materializes selected Func505 literal actual" {
   @debug.assert_eq(dae_test_func_params(optimized, 505).length(), 1)
   let target = optimized.pretty_print_defined_func(505U)
   assert_false(target.contains("55168"), msg=target)
-  assert_true(target.contains("local.tee"), msg=target)
+  // Binaryen v131's optimizing suffix removes the dead tee after DAE.
+  assert_false(target.contains("local.tee"), msg=target)
   assert_true(target.contains("i32.lt_s"), msg=target)
   assert_false(target.contains("i32.gt_s"), msg=target)
 }
@@ -11839,7 +11840,7 @@ test "dae-optimizing removes bool-result guard carrier after selected Func505 re
 }
 
 ///|
-test "dae-optimizing materializes immutable global actuals for the mid-prefix exact literal slice" {
+test "dae-optimizing materializes immutable global actuals independent of module cardinality" {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (global $g i32 (i32.const 42))\n")
@@ -11865,7 +11866,9 @@ test "dae-optimizing materializes immutable global actuals for the mid-prefix ex
   let optimized = dae_test_run(out.to_string())
   @debug.assert_eq(dae_test_func_params(optimized, 313).length(), 0)
   let target = optimized.pretty_print_defined_func(313U)
-  assert_true(target.contains("global.get"), msg=target)
+  // Binaryen v131's optimizing suffix folds the injected immutable global.
+  assert_false(target.contains("global.get"), msg=target)
+  assert_true(target.contains("i32.const I32(45)"), msg=target)
 }
 
 ///|
