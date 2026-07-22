@@ -12183,6 +12183,22 @@ fn dae_lub_gc_candidate_ref_type(
         None => None
       }
     }
+    (
+      @lib.RefTypeValType(left_ref),
+      @lib.RefTypeValType(right_ref),
+      @lib.RefTypeValType(old_ref),
+    ) => {
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      let candidate = match ls_ref_pair_lub(module_ctx, left_ref, right_ref) {
+        Some(ref_type) => ref_type
+        None => return None
+      }
+      if ls_ref_is_subtype(module_ctx, candidate, old_ref) {
+        Some(@lib.ValType::ref_type(candidate))
+      } else {
+        None
+      }
+    }
     _ => None
   }
 }
@@ -12223,6 +12239,18 @@ fn dae_refined_gc_candidate_ref_type(
         None
       } else {
         Some(next)
+      }
+    }
+    (@lib.RefTypeValType(old_ref), @lib.RefTypeValType(candidate_ref)) => {
+      let next = @lib.ValType::ref_type(candidate_ref)
+      if next == old_type {
+        return None
+      }
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      if ls_ref_is_subtype(module_ctx, candidate_ref, old_ref) {
+        Some(next)
+      } else {
+        None
       }
     }
     _ => None
@@ -12979,6 +13007,14 @@ fn dae_gc_candidate_local_get_type(
       } else {
         None
       }
+    (@lib.RefTypeValType(old_ref), @lib.RefTypeValType(candidate_ref)) => {
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      if ls_ref_is_subtype(module_ctx, candidate_ref, old_ref) {
+        Some(candidate_type)
+      } else {
+        None
+      }
+    }
     _ => None
   }
 }
@@ -15090,6 +15126,110 @@ fn dae_direct_gc_result_select_candidate_body(
 }
 
 ///|
+fn dae_collect_explicit_gc_result_candidates_instrs(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  func_locals : @lib.FunctionLocals?,
+  body : Array[@lib.Instruction],
+  old_type : @lib.ValType,
+  candidates : Array[@lib.ValType],
+  failed : Array[Bool],
+) -> Int {
+  let mut count = 0
+  let mut idx = 0
+  while idx < body.length() && !failed[0] {
+    if dae_instr_is_unreachable_root(body[idx]) {
+      break
+    }
+    match body[idx] {
+      @lib.Return => {
+        if idx == 0 {
+          failed[0] = true
+          break
+        }
+        match
+          dae_direct_gc_result_candidate_instr(
+            mod_,
+            func_type_indices,
+            func_locals,
+            body[idx - 1],
+            old_type,
+          ) {
+          Some((candidate, None)) => {
+            candidates.push(candidate)
+            count += 1
+          }
+          _ => failed[0] = true
+        }
+      }
+      @lib.Block(_, @lib.Expr(child))
+      | @lib.Loop(_, @lib.Expr(child))
+      | @lib.TryTable(_, _, @lib.Expr(child)) =>
+        count += dae_collect_explicit_gc_result_candidates_instrs(
+          mod_, func_type_indices, func_locals, child, old_type, candidates, failed,
+        )
+      @lib.If(_, then_body, else_body) => {
+        count += dae_collect_explicit_gc_result_candidates_instrs(
+          mod_, func_type_indices, func_locals, then_body, old_type, candidates,
+          failed,
+        )
+        match else_body {
+          Some(child) =>
+            count += dae_collect_explicit_gc_result_candidates_instrs(
+              mod_, func_type_indices, func_locals, child, old_type, candidates,
+              failed,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  count
+}
+
+///|
+fn dae_direct_gc_result_multiple_return_candidate_body(
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  func_locals : @lib.FunctionLocals?,
+  body : Array[@lib.Instruction],
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let candidates : Array[@lib.ValType] = []
+  let failed = [false]
+  let explicit_count = dae_collect_explicit_gc_result_candidates_instrs(
+    mod_, func_type_indices, func_locals, body, old_type, candidates, failed,
+  )
+  if failed[0] || explicit_count == 0 || candidates.length() == 0 {
+    return None
+  }
+  match body[body.length() - 1] {
+    @lib.Return | @lib.Unreachable => ()
+    terminal =>
+      match
+        dae_direct_gc_result_candidate_instr(
+          mod_, func_type_indices, func_locals, terminal, old_type,
+        ) {
+        Some((candidate, None)) => candidates.push(candidate)
+        _ => return None
+      }
+  }
+  let mut joined = candidates[0]
+  let mut idx = 1
+  while idx < candidates.length() {
+    joined = match
+      dae_lub_gc_candidate_ref_type(mod_, joined, candidates[idx], old_type) {
+      Some(candidate) => candidate
+      None => return None
+    }
+    idx += 1
+  }
+  Some(joined)
+}
+
+///|
 fn dae_direct_gc_result_candidate_body(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -15102,6 +15242,13 @@ fn dae_direct_gc_result_candidate_body(
       mod_, func_type_indices, func_locals, body, old_type,
     ) {
     Some(result) => return Some(result)
+    None => ()
+  }
+  match
+    dae_direct_gc_result_multiple_return_candidate_body(
+      mod_, func_type_indices, func_locals, body, old_type,
+    ) {
+    Some(candidate) => return Some((candidate, None))
     None => ()
   }
   match
@@ -17088,8 +17235,13 @@ fn dae_try_refine_direct_gc_types_for_def_with_facts(
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   if !candidate.owned ||
-    candidate.has_self_direct_caller ||
-    !candidate.allows_nonself_direct_rewrite {
+    (
+      refine_params &&
+      (
+        candidate.has_self_direct_caller ||
+        !candidate.allows_nonself_direct_rewrite
+      )
+    ) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   dae_try_refine_direct_gc_types(
@@ -25754,6 +25906,24 @@ fn dae_run_core_once(
           current_graph,
           def_idx,
           DaeGcParameterRefinementWork,
+        ) {
+        Some(application) =>
+          return dae_core_pass_result_from_work_application(
+            application, producer_effects_report,
+          )
+        None => ()
+      }
+    }
+    if self_calls_anywhere > 0 &&
+      boundary_candidate.direct_call_count > 0 &&
+      dae_signature_has_heap_ref([], results) {
+      match
+        dae_try_process_core_work_item(
+          original,
+          mod_,
+          current_graph,
+          def_idx,
+          DaeGcResultRefinementWork,
         ) {
         Some(application) =>
           return dae_core_pass_result_from_work_application(
