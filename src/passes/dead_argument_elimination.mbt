@@ -1256,6 +1256,14 @@ priv struct DaeGcParameterLubEvidence {
 }
 
 ///|
+priv struct DaeGcParameterLubActualCollection {
+  candidates : Array[@lib.ValType?]
+  rejected : Array[Bool]
+  calls_seen : Int
+  collect_ok : Bool
+}
+
+///|
 priv struct DaeCallsiteLocalizationContext {
   first_scratch_local : Int
   param_types : Array[@lib.ValType]
@@ -16946,6 +16954,43 @@ fn dae_signature_has_heap_ref(
 }
 
 ///|
+fn dae_collect_gc_parameter_lub_actuals_for_callers(
+  mod_ : @lib.Module,
+  funcs : Array[@lib.Func],
+  direct_caller_defs : Array[Int],
+  type_indices : Array[@lib.TypeIdx],
+  imported : Int,
+  callee_abs : Int,
+  params : Array[@lib.ValType],
+  local_use : DaeLocalUse,
+) -> DaeGcParameterLubActualCollection {
+  let candidates : Array[@lib.ValType?] = Array::make(params.length(), None)
+  let rejected = Array::make(params.length(), false)
+  let mut calls_seen = 0
+  for caller_def in direct_caller_defs {
+    if caller_def < 0 || caller_def >= funcs.length() {
+      return { candidates, rejected, calls_seen, collect_ok: false }
+    }
+    let @lib.Func(caller_body_locals, @lib.Expr(caller_body)) = funcs[caller_def]
+    let caller_func_locals = match
+      dae_resolve_func_type(mod_, type_indices, imported + caller_def) {
+      Some(@lib.FuncType(caller_params, _)) =>
+        Some(@lib.FunctionLocals::new(caller_params, caller_body_locals))
+      None => None
+    }
+    let (caller_calls, ok) = dae_collect_direct_struct_default_actuals_instrs(
+      caller_body, callee_abs, params, local_use, candidates, rejected, 0, mod_,
+      type_indices, caller_func_locals,
+    )
+    calls_seen += caller_calls
+    if !ok {
+      return { candidates, rejected, calls_seen, collect_ok: false }
+    }
+  }
+  { candidates, rejected, calls_seen, collect_ok: true }
+}
+
+///|
 fn dae_apply_gc_parameter_lub_evidence(
   mod_ : @lib.Module,
   params : Array[@lib.ValType],
@@ -17187,30 +17232,21 @@ fn dae_try_refine_direct_gc_types(
   let mut rewrite_type_sec : @lib.TypeSec? = None
   let mut changed = false
   if refine_params && params.length() > 0 {
-    let candidates : Array[@lib.ValType?] = Array::make(params.length(), None)
-    let rejected = Array::make(params.length(), false)
-    let mut calls_seen = 0
-    for caller_def in direct_caller_defs {
-      if caller_def >= 0 && caller_def < funcs.length() {
-        let @lib.Func(caller_body_locals, @lib.Expr(caller_body)) = funcs[caller_def]
-        let caller_func_locals = match
-          dae_resolve_func_type(mod_, type_indices, imported + caller_def) {
-          Some(@lib.FuncType(caller_params, _)) =>
-            Some(@lib.FunctionLocals::new(caller_params, caller_body_locals))
-          None => None
-        }
-        let (caller_calls, ok) = dae_collect_direct_struct_default_actuals_instrs(
-          caller_body, callee_abs, params, local_use, candidates, rejected, 0, mod_,
-          type_indices, caller_func_locals,
-        )
-        calls_seen += caller_calls
-        if !ok {
-          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-        }
-      }
-    }
+    let actuals = dae_collect_gc_parameter_lub_actuals_for_callers(
+      mod_, funcs, direct_caller_defs, type_indices, imported, callee_abs, params,
+      local_use,
+    )
     let parameter_evidence = dae_apply_gc_parameter_lub_evidence(
-      mod_, params, candidates, rejected, calls_seen, direct_call_count,
+      mod_,
+      params,
+      actuals.candidates,
+      actuals.rejected,
+      actuals.calls_seen,
+      if actuals.collect_ok {
+        direct_call_count
+      } else {
+        -1
+      },
     )
     if parameter_evidence.complete {
       next_params = parameter_evidence.next_params
@@ -18521,40 +18557,24 @@ fn dae_try_apply_direct_gc_batch(
             callee_abs,
             params.length(),
           )
-          evidence_candidates = Array::make(params.length(), None)
-          evidence_rejected = Array::make(params.length(), false)
-          evidence_calls_seen = 0
-          evidence_collect_ok = true
           let current_view = mod_
             .with_type_sec(type_sec)
             .with_func_sec(@lib.FuncSec::new(type_idxs))
             .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-          for direct_caller_def in candidate.direct_callers {
-            if direct_caller_def < 0 ||
-              direct_caller_def >= rewritten_funcs.length() {
-              evidence_collect_ok = false
-              break
-            }
-            let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[direct_caller_def]
-            let caller_func_locals = match
-              dae_type_sec_func_type(
-                type_sec,
-                current_type_indices[imported + direct_caller_def],
-              ) {
-              Some(@lib.FuncType(caller_params, _)) =>
-                Some(@lib.FunctionLocals::new(caller_params, caller_locals))
-              None => None
-            }
-            let (calls, ok) = dae_collect_direct_struct_default_actuals_instrs(
-              caller_body, callee_abs, params, current_local_use, evidence_candidates,
-              evidence_rejected, 0, current_view, current_type_indices, caller_func_locals,
-            )
-            evidence_calls_seen += calls
-            if !ok {
-              evidence_collect_ok = false
-              break
-            }
-          }
+          let actuals = dae_collect_gc_parameter_lub_actuals_for_callers(
+            current_view,
+            rewritten_funcs,
+            candidate.direct_callers,
+            current_type_indices,
+            imported,
+            callee_abs,
+            params,
+            current_local_use,
+          )
+          evidence_candidates = actuals.candidates
+          evidence_rejected = actuals.rejected
+          evidence_calls_seen = actuals.calls_seen
+          evidence_collect_ok = actuals.collect_ok
         }
         let parameter_evidence = dae_apply_gc_parameter_lub_evidence(
           mod_,

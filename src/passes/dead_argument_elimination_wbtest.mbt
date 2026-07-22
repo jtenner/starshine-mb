@@ -15876,6 +15876,76 @@ test "dae GC parameter refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae GC parameter actual collection is shared and fail closed" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base))
+    #|    local.get 0
+    #|    drop)
+    #|  (func
+    #|    struct.new_default $leaf
+    #|    call $target)
+    #|  (func
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code")
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let @lib.FuncType(params, _) = match
+    dae_resolve_func_type(mod_, type_indices, 0) {
+    Some(func_type) => func_type
+    None => fail("expected target type")
+  }
+  let @lib.Func(locals, _) = funcs[0]
+  let local_use = dae_local_use_for_callee(
+    funcs[0],
+    params.length() + locals.length(),
+    0,
+    params.length(),
+  )
+  let collection = dae_collect_gc_parameter_lub_actuals_for_callers(
+    mod_,
+    funcs,
+    [1, 2],
+    type_indices,
+    0,
+    0,
+    params,
+    local_use,
+  )
+  assert_true(collection.collect_ok)
+  assert_eq(collection.calls_seen, 2)
+  assert_eq(collection.rejected, [false])
+  assert_eq(collection.candidates, [
+    Some(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+          exact=true,
+        ),
+      ),
+    ),
+  ])
+  let invalid = dae_collect_gc_parameter_lub_actuals_for_callers(
+    mod_,
+    funcs,
+    [1, 99],
+    type_indices,
+    0,
+    0,
+    params,
+    local_use,
+  )
+  assert_false(invalid.collect_ok)
+}
+
+///|
 test "dae GC parameter LUB evidence is complete and fail closed" {
   let source =
     #|(module
