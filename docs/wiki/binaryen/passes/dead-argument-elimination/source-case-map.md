@@ -140,7 +140,7 @@ The file contains five anonymous modules, so rows use source order.
 | Completion-matrix rows | Classification | Reason |
 | --- | --- | --- |
 | A1, A2, A3, C1, F2, K1 | **5. stale documentation** | Current code has common boundary ownership, direct/return-call identities, value slices, transactional scalar commits, and plain/optimizing separation. Update wording after implementation slices land. |
-| B1, B2, B3, A4, C2 | **2. release-blocking lifecycle risk** | Behavior is broadly represented. Scalar and forwarding-component effects now reach DAEO without pass-manager local-growth inference, but the older unread/localization work-item adapter and some phase-local producer entry points still derive effects from snapshot-only candidates. |
+| B1, B2, B3, A4, C2 | **2. release-blocking lifecycle risk** | Behavior is broadly represented. Scalar, dispatcher unread/localization, and forwarding-component effects now reach DAEO without local-growth inference; some legacy phase-local selected producer entry points still use the older mutation fallback. |
 | D1, D2, E1, E2, E3, E4 | **2. release-blocking lifecycle risk** plus **4. mechanical consolidation** | Focused Binaryen-v131 behavior exists; collection and control/type finalization remain fragmented. |
 | F1, F4 | **2. release-blocking lifecycle risk** | Legality is graph-backed, but ordinary/specialized body and caller repair are not yet one lane-aware atomic result plan. |
 | F3 | **3. represented fail-closed exception** | Indirect/reference tails remain conservative barriers; reopen only with an exact source-backed target/type relation. |
@@ -154,7 +154,7 @@ The file contains five anonymous modules, so rows use source order.
 ## Immediate implementation order from the map
 
 1. Add the missing TNH source fixture and thread pass options into DAE operand-removal policy.
-2. Finish the remaining unread/localization work-item producer effects; pass-manager local-growth worth inference is removed.
+2. Retire remaining legacy phase-local selected producer entry points; scalar, unread/localization work-item, and forwarding effects are producer-owned without local-growth inference.
 3. Consolidate GC parameter evidence, returned-value evidence, and type finalization.
 4. Consolidate the atomic result plan and remove stale-call double-rewrite opportunities.
 5. Move remaining production loops through epoch-bearing work items and exact invalidations.

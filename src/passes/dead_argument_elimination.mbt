@@ -4043,7 +4043,6 @@ fn dae_invalidation_domains_for_work_family(
 
 ///|
 fn dae_commit_effects_for_work_item(
-  current : @lib.Module,
   defined : Int,
   item : DaeWorkItem,
   candidate : DaePassResult,
@@ -4060,24 +4059,6 @@ fn dae_commit_effects_for_work_item(
   let target = item.target_def
   if target < 0 || target >= defined {
     return effects
-  }
-  // Compatibility bridge for older scalar producers that return only a module
-  // candidate: scratch-local growth is an exact localization consequence until
-  // those producers return their plan effects directly.
-  match (current.code_sec, candidate.mod_out.code_sec) {
-    (Some(@lib.CodeSec(before_funcs)), Some(@lib.CodeSec(after_funcs))) => {
-      def_idx = 0
-      while def_idx < before_funcs.length() && def_idx < after_funcs.length() {
-        let @lib.Func(before_locals, _) = before_funcs[def_idx]
-        let @lib.Func(after_locals, _) = after_funcs[def_idx]
-        if def_idx != target && after_locals.length() > before_locals.length() {
-          effects.worth_optimizing[def_idx] = true
-          effects.body_localized[def_idx] = true
-        }
-        def_idx += 1
-      }
-    }
-    _ => ()
   }
   match item.family {
     DaeUnusedParameterWork | DaePostCleanupBoundaryRevisitWork => {
@@ -4215,6 +4196,7 @@ fn dae_process_work_item(
       }
     }
   }
+  let producer_effects_report : Array[DaeCommitEffects] = []
   let result = match item.family {
     DaeUnusedParameterWork
     | DaeLocalizationRetryWork
@@ -4227,6 +4209,9 @@ fn dae_process_work_item(
           allow_stack_carried_void_effects=true,
           require_localization_retry=item.family == DaeLocalizationRetryWork,
           type_indices_override=Some(graph.snapshot.type_indices),
+          original=Some(original),
+          graph=Some(graph),
+          producer_effects_report~,
         ),
       )
     DaeUniformActualWork =>
@@ -4299,12 +4284,15 @@ fn dae_process_work_item(
       DaeWorkDeferred(DaeNoStrictImprovement)
     }
     Some(candidate) => {
-      let producer_effects = dae_commit_effects_for_work_item(
-        current,
-        graph.snapshot.defined,
-        item,
-        candidate,
-      )
+      let producer_effects = match producer_effects_report.get(0) {
+        Some(effects) => effects
+        None =>
+          dae_commit_effects_for_work_item(
+            graph.snapshot.defined,
+            item,
+            candidate,
+          )
+      }
       let plan = match
         dae_build_family_rewrite_plan(
           original,
@@ -27987,9 +27975,9 @@ fn dae_find_shifted_forward_wrapper_callee_def(
 }
 
 ///|
-// TODO([O4Z-DAE-PLAN]001): route selected unread / localization-retry work
-// through `dae_classify_parameter_slot` after the localization transaction lands
-// under [O4Z-DAE-FLOW]001. Scalar unused-only plans already use the classifier.
+// Dispatcher-backed unread and localization-retry work uses the canonical
+// scalar classifier and immutable rewrite plan. Legacy selected scans retain
+// the older mutation fallback until their phase-local callers are retired.
 fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -27998,6 +27986,9 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   require_localization_retry? : Bool = false,
   only_def? : Int = -1,
   type_indices_override? : Array[@lib.TypeIdx]? = None,
+  original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
+  producer_effects_report? : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -28089,6 +28080,85 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       p += 1
     }
     if any {
+      match (original, graph) {
+        (Some(original), Some(graph)) => {
+          let planned = dae_try_rewrite_scalar_unused_param_candidate(
+            mod_,
+            original,
+            graph,
+            callee_abs,
+            remove,
+            local_use,
+            boundary_candidate.direct_call_count,
+            boundary_candidate.direct_callers,
+          )
+          if planned.applied {
+            if !require_localization_retry ||
+              planned.effects.body_localized.any(fn(value) { value }) {
+              dae_record_producer_effects(
+                producer_effects_report,
+                planned.effects,
+              )
+              return planned.result
+            }
+            def_idx += 1
+            continue
+          }
+          let mut kept_count = 0
+          let mut removed_param_written = false
+          p = 0
+          while p < params.length() {
+            if remove[p] {
+              removed_param_written = removed_param_written ||
+                local_use.writes[p]
+            } else {
+              kept_count += 1
+            }
+            p += 1
+          }
+          // The canonical slice plan intentionally fails closed when older
+          // stack-carried void effects obscure an operand boundary. This one
+          // represented retry remains a producer-owned localization branch.
+          if allow_stack_carried_void_effects &&
+            kept_count == 1 &&
+            !removed_param_written {
+            let stack_carried = dae_try_rewrite_candidate(
+              mod_,
+              callee_abs,
+              remove,
+              const_params,
+              local_use,
+              boundary_candidate.direct_call_count,
+              boundary_candidate.direct_callers,
+              allow_stack_carried_void_effects=true,
+            )
+            if stack_carried.changed {
+              let structurally_touched_defs : Array[Int] = []
+              let mut touched_def = 0
+              while touched_def < stack_carried.touched.length() {
+                if stack_carried.touched[touched_def] {
+                  structurally_touched_defs.push(touched_def)
+                }
+                touched_def += 1
+              }
+              dae_record_producer_effects(
+                producer_effects_report,
+                dae_commit_effects_parameter_change(
+                  graph.snapshot.defined,
+                  def_idx,
+                  structurally_touched_defs,
+                  false,
+                  boundary_candidate.direct_callers,
+                ),
+              )
+              return stack_carried
+            }
+          }
+          def_idx += 1
+          continue
+        }
+        _ => ()
+      }
       let result = dae_try_rewrite_candidate(
         mod_,
         callee_abs,
@@ -28113,12 +28183,6 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
         }
         p += 1
       }
-      // After an exact control literal folds, a selected callee can retain one
-      // argument while older removed arguments remain stack-carried across void
-      // effects in its callers. Retry only that bounded shape. The alternate
-      // value slicing includes those void effects in the preceding operand;
-      // the existing localization, exact call-count, signature, callee-local,
-      // and module-validation transaction remains authoritative.
       if allow_stack_carried_void_effects &&
         !direct_rewrite_succeeded &&
         kept_count == 1 &&
@@ -28151,6 +28215,9 @@ fn dae_try_rewrite_unread_params_for_def_with_facts(
   allow_stack_carried_void_effects? : Bool = false,
   require_localization_retry? : Bool = false,
   type_indices_override? : Array[@lib.TypeIdx]? = None,
+  original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
+  producer_effects_report? : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     mod_,
@@ -28160,6 +28227,9 @@ fn dae_try_rewrite_unread_params_for_def_with_facts(
     require_localization_retry~,
     only_def=def_idx,
     type_indices_override~,
+    original~,
+    graph~,
+    producer_effects_report~,
   )
 }
 
