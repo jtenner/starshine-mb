@@ -23143,3 +23143,54 @@ test "dae optimizing payoff exact literal retains original ownership" {
   assert_false(changed)
   assert_eq(rewritten, current)
 }
+
+///|
+test "dae optimizing worth set excludes callsite-only parameter callers" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let after = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target nop)
+      #|  (func (export "run")
+      #|    call $target))
+    ),
+  )
+  let worth = run_hot_pipeline_dae_worth_optimizing_touched(before, after, [
+    true, true,
+  ])
+  @debug.assert_eq(worth, [true, false])
+}
+
+///|
+test "dae optimizing worth set includes dropped-result callers" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (result i32)
+      #|    i32.const 7)
+      #|  (func (export "run")
+      #|    call $target
+      #|    drop))
+    ),
+  )
+  let after = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target nop)
+      #|  (func (export "run")
+      #|    call $target))
+    ),
+  )
+  let worth = run_hot_pipeline_dae_worth_optimizing_touched(before, after, [
+    true, true,
+  ])
+  @debug.assert_eq(worth, [true, true])
+}

@@ -15100,6 +15100,18 @@ test "dae-optimizing runs nested cleanup for large touched sets" {
     trace.any(fn(line) { line.contains("reason=large-touched-set") }),
     msg=trace.to_string(),
   )
+  assert_false(
+    trace.contains(
+      "pass[dae-optimizing]:nested-cleanup touched=10 prefix=precompute-propagate",
+    ),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains(
+      "pass[dae-optimizing]:nested-cleanup touched=9 prefix=precompute-propagate",
+    ),
+    msg=trace.to_string(),
+  )
   assert_true(
     trace.contains("pass[dae-optimizing]:nested-pass name=precompute-propagate"),
     msg=trace.to_string(),

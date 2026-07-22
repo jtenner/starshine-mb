@@ -70187,6 +70187,94 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_dae_worth_optimizing_touched(
+  before : @lib.Module,
+  after : @lib.Module,
+  changed_touched : Array[Bool],
+) -> Array[Bool] {
+  let after_funcs = match after.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let worth = Array::make(after_funcs.length(), false)
+  let before_funcs = match before.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return worth
+  }
+  let before_imported = dae_imported_func_count(before)
+  let after_imported = dae_imported_func_count(after)
+  if before_funcs.length() != after_funcs.length() ||
+    before_imported != after_imported {
+    return changed_touched
+  }
+  let before_type_indices = dae_collect_func_type_indices(before)
+  let after_type_indices = dae_collect_func_type_indices(after)
+  let before_calls = dae_collect_current_call_facts(
+    before,
+    before_imported + before_funcs.length(),
+  )
+  let after_calls = dae_collect_current_call_facts(
+    after,
+    after_imported + after_funcs.length(),
+  )
+  for def_idx = 0; def_idx < after_funcs.length(); def_idx = def_idx + 1 {
+    if def_idx >= changed_touched.length() || !changed_touched[def_idx] {
+      continue
+    }
+    let before_type = dae_resolve_func_type(
+      before,
+      before_type_indices,
+      before_imported + def_idx,
+    )
+    let after_type = dae_resolve_func_type(
+      after,
+      after_type_indices,
+      after_imported + def_idx,
+    )
+    match (before_type, after_type) {
+      (
+        Some(@lib.FuncType(before_params, before_results)),
+        Some(@lib.FuncType(after_params, after_results)),
+      ) => {
+        if before_params != after_params || before_results != after_results {
+          worth[def_idx] = true
+        } else {
+          let @lib.Func(after_locals, _) = after_funcs[def_idx]
+          if after_locals.length() > 0 {
+            // Parameter-callsite repair can introduce scratch locals in callers.
+            // Binaryen simplifies those operands during ParamUtils rewriting;
+            // keep the caller in Starshine's replay until that cleanup is owned
+            // directly by the common parameter transaction.
+            worth[def_idx] = true
+          }
+        }
+        if before_results != after_results {
+          let before_abs = before_imported + def_idx
+          if before_abs >= 0 &&
+            before_abs < before_calls.direct_callers.length() {
+            for caller_def in before_calls.direct_callers[before_abs] {
+              if caller_def >= 0 && caller_def < worth.length() {
+                worth[caller_def] = true
+              }
+            }
+          }
+          let after_abs = after_imported + def_idx
+          if after_abs >= 0 && after_abs < after_calls.direct_callers.length() {
+            for caller_def in after_calls.direct_callers[after_abs] {
+              if caller_def >= 0 && caller_def < worth.length() {
+                worth[caller_def] = true
+              }
+            }
+          }
+        }
+      }
+      _ => worth[def_idx] = true
+    }
+  }
+  worth
+}
+
+///|
 fn run_hot_pipeline_dae_strip_touched_terminal_returns(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -72682,8 +72770,13 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     Err(err) => return Err(err)
   }
   core_mod = broad_cleaned
+  let worth_optimizing_touched = run_hot_pipeline_dae_worth_optimizing_touched(
+    mod_, core_mod, core_touched,
+  )
   let cleaned = match
-    run_hot_pipeline_apply_dae_nested_cleanup(core_mod, core_touched, options) {
+    run_hot_pipeline_apply_dae_nested_cleanup(
+      core_mod, worth_optimizing_touched, options,
+    ) {
     Ok(next) => next
     Err(err) => return Err(err)
   }

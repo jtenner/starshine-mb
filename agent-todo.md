@@ -186,7 +186,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAEO-LIFECYCLE]001 - Match Binaryen's worth-optimizing set and nested convergence
 
 - **Owner:** `src/passes/pass_manager.mbt` DAEO touched scheduler and the shared boundary/nested loop.
-- **Status (2026-07-22 partial):** the arbitrary `touched_count > 8` full-roster skip is removed; every semantically touched definition now reaches the ordinary nested replay unless a remaining module/function-size policy applies. Module `>100`, local `>128`, instruction `>1000`, material-caller admission, and exact convergence feedback remain open.
+- **Status (2026-07-22 partial):** the arbitrary `touched_count > 8` full-roster skip is removed. The ordinary nested replay now derives a Binaryen-shaped worth set from changed function signatures, result-change callers in both original and current call graphs, and transitional caller scratch-local cleanup; plain callsite-only edits without cleanup debris are no longer replayed. Module `>100`, local `>128`, instruction `>1000`, material-caller admission, and exact convergence feedback remain open. A red-first module-guard removal trial exposed phase-order regressions in the selected literal/global fixtures, so the module guard remains until those producers move ahead of or into the common lifecycle.
 - **Deliverables:**
   - [ ] Define `worthOptimizing` from productive param/refinement/localization/result changes and affected callers, not artifact size or definition identity.
   - [ ] Run touched-only `precompute-propagate` plus the shared default function roster, nested and validated; keep plain DAE free of this suffix.
