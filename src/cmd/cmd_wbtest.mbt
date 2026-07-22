@@ -4136,7 +4136,24 @@ test "run_cmd_with_adapter accepts remove-unused-brs" {
 ///|
 test "run_cmd_with_adapter accepts code-pushing" {
   let input_mod = @passes.pass_test_module_from_wat(
-    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    i32.const 7 local.set 1
+      #|    local.get 0 if nop end
+      #|    i32.const 0 drop)
+      #|  (func (param i32) (local i32)
+      #|    i32.const 8 local.set 1
+      #|    local.get 0 if (result i32) i32.const 1 else i32.const 2 end drop
+      #|    i32.const 0 drop)
+      #|  (func (param i32) (local i32)
+      #|    block
+      #|      i32.const 9 local.set 1
+      #|      local.get 0 br_if 0
+      #|      i32.const 0 drop
+      #|    end))
+      #|
+    ),
   )
   let input_wasm = encode_module_bytes(input_mod)
   let writes : Array[(String, Bytes)] = []
@@ -4168,6 +4185,48 @@ test "run_cmd_with_adapter accepts code-pushing" {
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) => fail("expected code-pushing output to validate, got \{err}")
+  }
+  let funcs = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code-pushing output functions")
+  }
+  @debug.assert_eq(funcs.length(), 3)
+  let first_body = match funcs[0] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match (first_body[1], first_body[3]) {
+    (@lib.If(_, _, _), @lib.LocalSet(@lib.LocalIdx(1U))) => ()
+    other =>
+      fail(
+        "expected zero-read set after ordinary if, got \{@debug.to_string(other)}",
+      )
+  }
+  let second_body = match funcs[1] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match (second_body[1], second_body[2], second_body[4]) {
+    (@lib.If(_, _, _), @lib.Drop, @lib.LocalSet(@lib.LocalIdx(1U))) => ()
+    other =>
+      fail(
+        "expected zero-read set after dropped if, got \{@debug.to_string(other)}",
+      )
+  }
+  let third_body = match funcs[2] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match third_body {
+    [@lib.Block(_, @lib.Expr(block_body))] =>
+      match (block_body[1], block_body[3]) {
+        (@lib.BrIf(@lib.LabelIdx(0U)), @lib.LocalSet(@lib.LocalIdx(1U))) => ()
+        other =>
+          fail(
+            "expected zero-read set after br_if, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail(
+        "expected block-wrapped br_if output, got \{@debug.to_string(other)}",
+      )
   }
 }
 

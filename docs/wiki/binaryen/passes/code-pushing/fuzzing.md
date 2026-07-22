@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-22
 sources:
   - ./index.md
   - ../../../tooling/pass-fuzz-compare.md
@@ -22,7 +22,7 @@ Native-path note: after `moon build --target native --release src/cmd`, use `_bu
 
 ## Dedicated GenValid profile
 
-Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over nineteen currently aggregate-safe positive families:
+Use `code-pushing-all` for the pass-specific lane. It is a deterministic composite over twenty currently aggregate-safe positive families:
 
 | Leaf profile | Shape |
 | --- | --- |
@@ -45,6 +45,7 @@ Use `code-pushing-all` for the pass-specific lane. It is a deterministic composi
 | `code-pushing-multi-set-drop-window` | Two local-independent pure SFA sets separated by `drop (i32.const ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. |
 | `code-pushing-multi-set-local-get-window` | Two local-independent pure SFA sets separated by `drop (local.get ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. |
 | `code-pushing-multi-set-global-get-window` | Two local-independent pure SFA sets separated by `drop (global.get ...)` before an ordinary void `if`, followed by suffix reads after the `if`, preserving source order while leaving the drop before the push point. This leaf covers the positive ordinary-`if` family; focused pass tests also cover the dropped-`if` positive and `br_if` boundary. |
+| `code-pushing-zero-read` | One valid module with three pure exactly-once zero-read sets before an ordinary void `if`, a dropped value `if`, and a no-payload void-block-target `br_if`, each followed by an unrelated root so safe delay is observable. |
 
 The profile intentionally does **not** cover remaining audit gaps such as call and tag-based `throw` ordered barriers before later push points, broader EH forms beyond the focused pure-value `throw_ref` / later-`br_if` movement in [`0855`](./index.md) the plain-`throw` stationary boundary in [`0857`](./index.md), and the `try_table` stationary boundary in [`0858`](./index.md), switch/`br_table` beyond the protected no-branch-value, first value-carrying, and first multi-label stationary boundaries, broader `br_on_*` forms beyond the narrow dropped zero-arity-label `br_on_null`, one-result-block-label `br_on_non_null`, two-result block-label `br_on_non_null` prefix-payload movement, dropped one-result-block-label `br_on_cast`, and dropped one-result-block-label `br_on_cast_fail` leaves, broader prefix-payload/reference-carrying variants including the current Binaryen-stationary prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` boundaries, broader branch-value conditional branches beyond the current adjacent `br_if` family, ordered multi-set movement outside the first ordinary-void-`if`, dropped-value-`if`, narrow no-branch-value block-/loop-target `br_if`, dropped `br_on_null`, value-block-target `br_if`, local-copy, `nop`-window, `drop(const)`-window, `drop(local.get)`-window, and bounded ordinary-/dropped-`if` `drop(global.get)`-window slices, broader atomics/GC, or trap-option widening. The 2026-06-21 and 2026-06-25 `br_table` work added focused no-mutation boundary tests only, including the multi-label nested-block boundary in [`0848`](./index.md), so no GenValid leaf was added for it. The 2026-06-25 prefix-payload `br_on_null` / `br_on_cast` / `br_on_cast_fail` work also added or recorded no-mutation boundaries only. The 2026-06-21 atomics/GC slice added focused HOT tests for the narrow non-null `struct.get` atomic-load/store family, also without a GenValid leaf. Add aggregate leaves when future positive generated movement families are aggregate-safe.
 
@@ -54,7 +55,7 @@ Current bounded dedicated lane:
 bun scripts/pass-fuzz-compare.ts --count 200 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-profile-200-local-cleanup --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 50 --keep-going-after-command-failures
 ```
 
-Latest final-lane matrix and stop condition: [`0892`](./index.md) closes `[O4Z-AUDIT-CP]` for the v0.1.0 direct-pass release gate. [`0888`](./index.md) refreshed the 19-leaf `code-pushing-all` profile after the post-`0884` behavior changes and post-`0887` coverage refinements. `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-0887` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, validation/generator/property/command failures `0`, Binaryen cache `10000 hits/0 misses`, Binaryen failure cache `0 hits/0 misses`, and selected all 19 aggregate leaves. [`0889`](./index.md) satisfies the explicit wasm-smith 10000 lane with `9956` normalized compared cases, `44` cached Binaryen/tool command failures, and `0` mismatches. [`0890`](./index.md) satisfies the regular GenValid 100000 lane with `100000/100000` normalized and no failures. [`0891`](./index.md) satisfies the broad named `pass-fuzz-stress` 10000 lane with `10000/10000` normalized and no failures. Any future behavior change, unexplained generated mismatch, validation failure, Binaryen/source drift, or cleanup-normalizer scope expansion reopens the need for a current matrix refresh and source-backed decision.
+The 2026-06-25 final-lane matrix and stop condition in [`0892`](./index.md) closed the prior v0.1.0 direct-pass gate. [`0888`](./index.md) refreshed the then-current 19-leaf `code-pushing-all` profile after the post-`0884` behavior changes and post-`0887` coverage refinements. `.tmp/pass-fuzz-code-pushing-all-10000-20260625-post-0887` compared `10000/10000`, normalized `4769`, cleanup-normalized `5231`, raw mismatches/failures `0`, validation/generator/property/command failures `0`, Binaryen cache `10000 hits/0 misses`, Binaryen failure cache `0 hits/0 misses`, and selected all 19 aggregate leaves. [`0889`](./index.md) satisfies the explicit wasm-smith 10000 lane with `9956` normalized compared cases, `44` cached Binaryen/tool command failures, and `0` mismatches. [`0890`](./index.md) satisfies the regular GenValid 100000 lane with `100000/100000` normalized and no failures. [`0891`](./index.md) satisfies the broad named `pass-fuzz-stress` 10000 lane with `10000/10000` normalized and no failures. Any future behavior change, unexplained generated mismatch, validation failure, Binaryen/source drift, or cleanup-normalizer scope expansion reopens the need for a current matrix refresh and source-backed decision.
 
 2026-06-20 initial profile result before the dropped-if leaf: compared `200/200`, cleanup-normalized matches `200`, raw mismatches `0`, validation/generator/property/command failures `0`, selected subprofiles `code-pushing-if-arm: 100` and `code-pushing-after-if: 100`, cache `wasm-smith 0 hits/0 misses`, `Binaryen 200 hits/0 misses`, `Binaryen failures 0 hits/0 misses`.
 
@@ -206,12 +207,23 @@ Result: compared `1000/1000`, normalized matches `375`, cleanup-normalized match
 
 A raw lane without `--normalize local-cleanup-debris` stopped after `65` raw mismatches in `65` compared cases before the dropped-if slice. Inspected artifacts showed a bounded local-cleanup drift: Starshine removes standalone `nop`/empty-else debris around the movement while Binaryen leaves it. Treat the normalized lane as bounded slice evidence, not final raw-output parity or pass closeout.
 
+## 2026-07-22 zero-read discovery
+
+An expanded explicit-v131 `random-all-profiles` lane at seed `0xc0de08` stopped at the 100-mismatch budget after `1511/2000` compared cases (`1410` normalized, `101` raw mismatches, zero validation/property/generator/command failures). Sampled residuals from many selected leaf profiles shared one pass-owned shape: a pure exactly-once `local.set` with zero reads stayed before control in Starshine while Binaryen delayed it. Reduced direct probes established three supported destinations—ordinary void `if`, dropped value `if`, and no-payload void-block-target `br_if`—and focused/command tests cover their HOT and lowered order. The new `code-pushing-zero-read` leaf emits all three opportunities in one valid module and is the twentieth member of `code-pushing-all`.
+
 ## Final closeout lane
 
-The 2026-06-25 final closeout is filed in [`0892`](./index.md). For any future reopen or behavior-changing slice, rerun the repo-standard four-lane pass matrix. The current broad named lane is `pass-fuzz-stress` unless a literal random all-profiles profile is added later. The dedicated lane should use:
+The current closeout was rerun on 2026-07-22 with native SHA-256 `05bda3d8275dc5fa2174acdbe443c5892f04abbb92ca0b0842d8d34e15908fc1` and explicit `.tmp/binaryen-version-131/bin/wasm-opt` (`wasm-opt version 131 (version_131)`):
+
+- regular GenValid, `.tmp/pass-fuzz-code-pushing-genvalid-100000-20260722-zero-read`: `100000/100000` normalized, zero mismatches or failures, Binaryen cache `317 hits/99683 misses`;
+- explicit wasm-smith, `.tmp/pass-fuzz-code-pushing-wasm-smith-10000-20260722-zero-read`: `9956/10000` comparable and normalized, zero mismatches or Starshine failures, with `44` Binaryen/tool command failures (`39` rec-group-zero, `1` invalid-tag-index, `1` table-index-out-of-range, `3` bad-section-size), wasm-smith cache `10000 hits/0 misses`, Binaryen cache `106 hits/9850 misses`, Binaryen-failure cache `0 hits/44 misses`;
+- pass-owned `code-pushing-all`, `.tmp/pass-fuzz-code-pushing-all-10000-20260722-zero-read`: `10000/10000`, normalized `4493`, cleanup-normalized `5507`, zero raw mismatches or failures, Binaryen cache `9973 hits/27 misses`; all twenty leaves were selected and `code-pushing-zero-read` contributed `493` cases;
+- `random-all-profiles`, `.tmp/pass-fuzz-code-pushing-all-profiles-10000-20260722-zero-read`: `10000/10000` normalized, zero mismatches or failures, Binaryen cache `5673 hits/4327 misses`.
+
+The dedicated lane should use:
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-genvalid-code-pushing-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-pushing --gen-valid-profile code-pushing-all --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-code-pushing-genvalid-code-pushing-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures
 ```
 
 Report `selected_profile` counts from the GenValid manifest separately from the ordinary GenValid, explicit wasm-smith, and random all-profiles lanes.

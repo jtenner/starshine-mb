@@ -20165,6 +20165,11 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
     "code-pushing-multi-set-global-get-window",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(CodePushingZeroReadProfile),
+    "code-pushing-zero-read",
+  )
+  assert_true(gen_valid_profile_names().contains("code-pushing-zero-read"))
+  @debug.assert_eq(
     gen_valid_profile_name(CodePushingAllProfile),
     "code-pushing-all",
   )
@@ -20174,7 +20179,7 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
       @debug.assert_eq(profile, CodePushingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 19)
+      @debug.assert_eq(members.length(), 20)
       assert_true(
         members.any(fn(entry) { entry.profile == CodePushingIfArmProfile }),
       )
@@ -20250,6 +20255,9 @@ test "code-pushing gen-valid profiles resolve and expose replayable aggregate" {
           entry.profile == CodePushingMultiSetGlobalGetWindowProfile
         }),
       )
+      assert_true(
+        members.any(fn(entry) { entry.profile == CodePushingZeroReadProfile }),
+      )
     }
     Err(msg) => fail(msg)
   }
@@ -20291,6 +20299,89 @@ test "code-pushing aggregate profile samples every current code-pushing family" 
   assert_true(seen.contains(CodePushingMultiSetDropWindowProfile))
   assert_true(seen.contains(CodePushingMultiSetLocalGetWindowProfile))
   assert_true(seen.contains(CodePushingMultiSetGlobalGetWindowProfile))
+  assert_true(seen.contains(CodePushingZeroReadProfile))
+}
+
+///|
+test "code-pushing zero-read profile emits all repaired push points" {
+  let profile = match gen_valid_profile_by_name("code-pushing-zero-read") {
+    Ok(profile) => profile
+    Err(msg) => fail(msg)
+  }
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x5eedUL,
+      GenValidConfig::for_profile(profile),
+    ) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(generated.config_label, "code-pushing-zero-read")
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let funcs = match generated.wasm_module.code_sec {
+    Some(CodeSec(funcs)) => funcs
+    None => fail("expected zero-read profile functions")
+  }
+  @debug.assert_eq(funcs.length(), 3)
+  match funcs[0] {
+    Func(
+      _,
+      Expr(
+        [
+          I32Const(_),
+          LocalSet(LocalIdx(1U)),
+          LocalGet(LocalIdx(0U)),
+          If(_, _, _),
+          I32Const(_),
+          Drop,
+        ]
+      )
+    ) => ()
+    other => fail("expected zero-read if profile body, got \{other}")
+  }
+  match funcs[1] {
+    Func(
+      _,
+      Expr(
+        [
+          I32Const(_),
+          LocalSet(LocalIdx(1U)),
+          LocalGet(LocalIdx(0U)),
+          If(_, _, _),
+          Drop,
+          I32Const(_),
+          Drop,
+        ]
+      )
+    ) => ()
+    other => fail("expected zero-read dropped-if body, got \{other}")
+  }
+  match funcs[2] {
+    Func(
+      _,
+      Expr(
+        [
+          Block(
+            _,
+            Expr(
+              [
+                I32Const(_),
+                LocalSet(LocalIdx(1U)),
+                LocalGet(LocalIdx(0U)),
+                BrIf(LabelIdx(0U)),
+                I32Const(_),
+                Drop,
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other => fail("expected zero-read br_if body, got \{other}")
+  }
 }
 
 ///|

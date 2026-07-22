@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: strong
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-22
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
@@ -30,7 +30,9 @@ supersedes:
 
 ## Binaryen v131 renewal status
 
-The owner file did not change between v130 and v131, so this pass is **not automatically reopened**. V131 did change shared effect/type expectations and the dedicated TNH output, however, so `[V131-SPOT]001` requires a focused source/test probe before older closeout evidence is used for a v131 release claim. Until that probe is filed, describe the existing evidence as v130-closed rather than v131-renewed.
+The owner file did not change between v130 and v131, but an explicit-v131 `random-all-profiles` discovery lane on 2026-07-22 reopened one narrow behavior family: Binaryen delays a pure single-first-assignment `local.set` even when the destination has zero reads, while Starshine previously required a suffix use. Starshine now matches the three reduced destinations proven by direct oracle probes: ordinary void `if`, dropped value `if`, and no-payload `br_if` to a void block label. The path still requires exactly one write, zero reads, an existing movable-value/effect proof, a non-final push point, and no unsafe crossed root; loop labels and broader branch forms remain outside this repair.
+
+Current Binaryen-v131 closeout uses native SHA-256 `05bda3d8275dc5fa2174acdbe443c5892f04abbb92ca0b0842d8d34e15908fc1`. Focused HOT, white-box, command-adapter, and GenValid suites pass `141/141`, `11/11`, `1/1`, and `161/161`; full Moon passes `9766/9766`. The required matrix is regular GenValid `100000/100000` exact, random all-profiles `10000/10000` exact, pass-owned aggregate `10000/10000` with `4493` normalized plus `5507` documented local-cleanup-normalized matches, and wasm-smith `9956/9956` exact comparable cases plus `44` classified Binaryen/tool failures. There are zero Starshine validation, generator, property, command, raw mismatch, unknown/risky, or true-semantic failures.
 
 ## Role
 
@@ -52,6 +54,7 @@ The current Starshine implementation is closed for the user-directed CP audit un
 - a distinct Binaryen-compatible `--ignore-implicit-traps` / `-iit` option wired through CLI/config/command options/hot-pass context, with lit-derived memory-load `br_if` movement that remains separate from TNH;
 - safe movable-value `local.set` sinking into the single `if` arm that contains all reads of that local;
 - a first ordinary-void-`if` segment movement slice that moves one SFA set after the `if` when all reads are same-region suffix reads;
+- a narrow zero-read slice that moves an exactly-once pure set after an ordinary void `if`, dropped value `if`, or no-payload void-block-target `br_if` when another root follows the push point;
 - a dropped value-`if` segment movement slice that moves one SFA set after the dropped wrapper when all reads are same-region suffix reads;
 - narrow conditional-branch segment movement slices that move one SFA set after a void-block-target or void-loop-target `br_if`, a dropped void-label `br_on_null`, a one-result-block `br_on_non_null`, a dropped one-result-block `br_on_cast`, a dropped one-result-block `br_on_cast_fail`, and a branch-value slice for value-block-target `br_if`, when the branch/guard/payload does not read the local and all reads are same-block / same-loop-body suffix reads;
 - ordered multi-set movement slices that move adjacent local-independent SFA sets after an ordinary void `if`, dropped value-`if`, narrow void-block-target / void-loop-target `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, or value-block-target `br_if` while preserving source order;

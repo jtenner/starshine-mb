@@ -767,6 +767,7 @@ pub enum GenValidProfile {
   CodePushingMultiSetDropWindowProfile
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
+  CodePushingZeroReadProfile
   CodePushingAllProfile
   MergeBlocksStructuralProfile
   MergeBlocksExpressionProfile
@@ -1033,6 +1034,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "code-pushing-multi-set-local-get-window"
     CodePushingMultiSetGlobalGetWindowProfile =>
       "code-pushing-multi-set-global-get-window"
+    CodePushingZeroReadProfile => "code-pushing-zero-read"
     CodePushingAllProfile => "code-pushing-all"
     MergeBlocksStructuralProfile => "merge-blocks-structural"
     MergeBlocksExpressionProfile => "merge-blocks-expression"
@@ -1304,6 +1306,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
+        GenValidProfileMember::new(CodePushingZeroReadProfile, 1),
       ]
     MergeBlocksAllProfile =>
       [
@@ -1710,6 +1713,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetDropWindowProfile,
     CodePushingMultiSetLocalGetWindowProfile,
     CodePushingMultiSetGlobalGetWindowProfile,
+    CodePushingZeroReadProfile,
     CodePushingAllProfile,
     MergeBlocksStructuralProfile,
     MergeBlocksExpressionProfile,
@@ -4389,7 +4393,8 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     | CodePushingLoopBrIfProfile
     | CodePushingMultiSetDropWindowProfile
     | CodePushingMultiSetLocalGetWindowProfile
-    | CodePushingMultiSetGlobalGetWindowProfile =>
+    | CodePushingMultiSetGlobalGetWindowProfile
+    | CodePushingZeroReadProfile =>
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
@@ -5229,7 +5234,11 @@ fn gen_valid_code_pushing_profile_config(
     ..base,
     max_type_defs: 1,
     max_imports: 0,
-    max_defined_funcs: 1,
+    max_defined_funcs: if profile == CodePushingZeroReadProfile {
+      3
+    } else {
+      1
+    },
     max_tables: 0,
     max_mems: 0,
     max_globals: if profile == CodePushingMultiSetGlobalGetWindowProfile {
@@ -5293,6 +5302,7 @@ fn gen_valid_code_pushing_profile_config(
       CodePushingMultiSetDropWindowProfile => 16
       CodePushingMultiSetLocalGetWindowProfile => 16
       CodePushingMultiSetGlobalGetWindowProfile => 16
+      CodePushingZeroReadProfile => 7
       _ => 5
     },
     max_body_depth: 2,
@@ -5349,7 +5359,8 @@ fn gen_valid_is_code_pushing_profile_config(config : GenValidConfig) -> Bool {
   config ==
   GenValidConfig::for_profile(CodePushingMultiSetLocalGetWindowProfile) ||
   config ==
-  GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile)
+  GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile) ||
+  config == GenValidConfig::for_profile(CodePushingZeroReadProfile)
 }
 
 ///|
@@ -21702,6 +21713,8 @@ fn gen_valid_code_pushing_profile_kind(
   } else if config ==
     GenValidConfig::for_profile(CodePushingMultiSetGlobalGetWindowProfile) {
     CodePushingMultiSetGlobalGetWindowProfile
+  } else if config == GenValidConfig::for_profile(CodePushingZeroReadProfile) {
+    CodePushingZeroReadProfile
   } else {
     CodePushingIfArmProfile
   }
@@ -22124,8 +22137,64 @@ fn gen_valid_code_pushing_multi_set_br_if_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_code_pushing_zero_read_profile_module() -> Module {
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  let make_func = fn(body : Array[Instruction]) {
+    Func::new(Locals::from_types([ValType::i32()]), Expr::new(body))
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U), TypeIdx::new(0U)]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      make_func([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::if_(BlockType::void_(), [Instruction::nop()], None),
+        Instruction::i32_const(I32(0)),
+        Instruction::drop(),
+      ]),
+      make_func([
+        Instruction::i32_const(I32(8)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::if_(
+          BlockType::val_type(ValType::i32()),
+          [Instruction::i32_const(I32(1))],
+          Some([Instruction::i32_const(I32(2))]),
+        ),
+        Instruction::drop(),
+        Instruction::i32_const(I32(0)),
+        Instruction::drop(),
+      ]),
+      make_func([
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::i32_const(I32(9)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::br_if(LabelIdx::new(0U)),
+            Instruction::i32_const(I32(0)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
   let kind = gen_valid_code_pushing_profile_kind(config)
+  if kind == CodePushingZeroReadProfile {
+    return gen_valid_code_pushing_zero_read_profile_module()
+  }
   let result_type = if kind == CodePushingAfterIfProfile ||
     kind == CodePushingBrIfValueProfile {
     [ValType::i32()]

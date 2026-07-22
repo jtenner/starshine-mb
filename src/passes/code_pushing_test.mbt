@@ -797,6 +797,33 @@ test "code-pushing moves pure SFA set after harmless if before later use" {
 }
 
 ///|
+test "code-pushing moves zero-read pure SFA set after harmless if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    i32.const 7
+      #|    local.set 1
+      #|    local.get 0
+      #|    if
+      #|      nop
+      #|    end
+      #|    i32.const 0
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "if")
+  let moved_set = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "drop")
+}
+
+///|
 test "code-pushing preserves order when moving multiple SFA sets after if" {
   let func = code_pushing_test_run_hot(
     (
@@ -1167,6 +1194,38 @@ test "code-pushing moves pure SFA set after dropped value if before later use" {
 }
 
 ///|
+test "code-pushing moves zero-read pure SFA set after dropped value if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    i32.const 8
+      #|    local.set 1
+      #|    local.get 0
+      #|    if (result i32)
+      #|      i32.const 1
+      #|    else
+      #|      i32.const 2
+      #|    end
+      #|    drop
+      #|    i32.const 0
+      #|    drop))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 4)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let dropped_if = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, dropped_if, "drop")
+  code_pushing_expect_op(func, @ir.hot_child_get(func, dropped_if, 0), "if")
+  let moved_set = @ir.hot_root_get(func, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 3), "drop")
+}
+
+///|
 test "code-pushing keeps SFA set before dropped if when the dropped if reads it" {
   let trace : Array[String] = []
   let optimized = match
@@ -1385,6 +1444,36 @@ test "code-pushing moves pure SFA set after br_if before later same-block use" {
       #|      local.get 0
       #|      br_if $exit
       #|      local.get 1
+      #|      drop)))
+      #|
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 1)
+  let block_id = @ir.hot_root_get(func, 0)
+  code_pushing_expect_op(func, block_id, "block")
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body_ref), 4)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 0), "nop")
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 1), "br_if")
+  let moved_set = @ir.hot_region_get(func, body_ref, 2)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+  code_pushing_expect_op(func, @ir.hot_region_get(func, body_ref, 3), "drop")
+}
+
+///|
+test "code-pushing moves zero-read pure SFA set after block-target br_if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    (block $exit
+      #|      i32.const 9
+      #|      local.set 1
+      #|      local.get 0
+      #|      br_if $exit
+      #|      i32.const 0
       #|      drop)))
       #|
     ),
