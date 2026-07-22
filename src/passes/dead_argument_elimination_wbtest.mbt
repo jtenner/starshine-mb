@@ -14638,6 +14638,55 @@ test "dae scalar rewrite plan localizes nested call operands atomically" {
 }
 
 ///|
+test "dae scalar rewrite plan materializes a uniform constant atomically" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 42
+      #|    call $target))
+    ),
+  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let local_use = dae_local_use_for_callee(graph.snapshot.funcs[0], 1, 0, 1)
+  let plan = match
+    dae_build_scalar_unused_param_rewrite_plan(
+      mod_,
+      original,
+      graph,
+      0,
+      [true],
+      local_use,
+      1,
+      [1],
+      materialized_params=Some([Some(@lib.Instruction::i32_const(@lib.I32(42)))]),
+    ) {
+    Some(plan) => plan
+    None => fail("expected constant-materializing scalar rewrite plan")
+  }
+  assert_eq(plan.parameter_actions, [
+    DaeMaterializeConstantParameter(@lib.Instruction::i32_const(@lib.I32(42))),
+  ])
+  assert_eq(
+    plan.replacement_signature,
+    @lib.FuncType::new([], [@lib.ValType::i32()]),
+  )
+  match plan.candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(callee_body)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[1]
+      assert_eq(callee_body, [@lib.Instruction::i32_const(@lib.I32(42))])
+      assert_eq(caller_body, [@lib.Instruction::call(@lib.FuncIdx::new(0U))])
+    }
+    None => fail("expected candidate code section")
+  }
+  assert_true(dae_apply_rewrite_plan(mod_, graph, plan).applied)
+}
+
+///|
 test "dae localized scalar candidate reaches a bounded common-core fixed point" {
   let mod_ = pass_test_module_from_wat(
     (

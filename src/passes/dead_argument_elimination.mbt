@@ -3358,8 +3358,9 @@ fn dae_process_work_item(
         Some(
           dae_try_rewrite_uniform_values_def_with_facts_once(
             current,
+            original,
+            graph,
             item.target_def,
-            graph.snapshot.call_facts,
             item.uniform_values,
           ),
         )
@@ -7992,10 +7993,9 @@ fn dae_parameter_action_removes(action : DaeParameterAction) -> Bool {
   match action {
     DaeRemovePureParameter
     | DaeRemoveParameterReplayEffects
-    | DaeLocalizeParameterAndRetry => true
-    DaeKeepParameter
-    | DaeMaterializeConstantParameter(_)
-    | DaeRefineParameterType(_) => false
+    | DaeLocalizeParameterAndRetry
+    | DaeMaterializeConstantParameter(_) => true
+    DaeKeepParameter | DaeRefineParameterType(_) => false
   }
 }
 
@@ -17264,6 +17264,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
   callee_source? : @lib.Func? = None,
+  materialized_params? : Array[@lib.Instruction?]? = None,
 ) -> DaeRewritePlan? {
   let def_idx = callee_abs - graph.snapshot.imported
   if graph.snapshot.imported != original.imported ||
@@ -17322,15 +17323,76 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     Some(actions) => actions
     None => return None
   }
+  let const_params : Array[@lib.Instruction?] = match materialized_params {
+    Some(values) if values.length() == params.length() => values.copy()
+    Some(_) => return None
+    None => Array::make(params.length(), None)
+  }
+  let collect_materialized = Array::make(params.length(), false)
+  let mut allow_immutable_global_get = false
+  let mut has_materialized = false
   let mut param_idx = 0
   while param_idx < params.length() {
-    match classified[param_idx] {
-      DaeRemovePureParameter | DaeRemoveParameterReplayEffects =>
+    match const_params[param_idx] {
+      Some(value) => {
+        if !dae_instr_is_materializable_const_with_immutable_global(mod_, value) {
+          return None
+        }
+        collect_materialized[param_idx] = true
+        has_materialized = true
+        match value {
+          @lib.GlobalGet(_) => allow_immutable_global_get = true
+          _ => ()
+        }
+      }
+      None => ()
+    }
+    param_idx += 1
+  }
+  if has_materialized {
+    let observed = match
+      dae_collect_uniform_const_actuals_from_current_call_facts(
+        mod_,
+        callee_abs,
+        params.length(),
+        graph.snapshot.type_indices,
+        graph.snapshot.boundary_facts,
+        graph.snapshot.function_infos,
+        allow_immutable_global_get~,
+        collect_params=Some(collect_materialized),
+      ) {
+      Some(values) => values
+      None => return None
+    }
+    param_idx = 0
+    while param_idx < params.length() {
+      match const_params[param_idx] {
+        Some(expected) =>
+          match observed[param_idx] {
+            Some(actual) if dae_materialized_const_equal(actual, expected) => ()
+            _ => return None
+          }
+        None => ()
+      }
+      param_idx += 1
+    }
+  }
+  param_idx = 0
+  while param_idx < params.length() {
+    match const_params[param_idx] {
+      Some(value) => {
+        classified[param_idx] = DaeMaterializeConstantParameter(value)
         remove[param_idx] = true
-      DaeLocalizeParameterAndRetry => remove[param_idx] = true
-      DaeKeepParameter
-      | DaeMaterializeConstantParameter(_)
-      | DaeRefineParameterType(_) => remove[param_idx] = false
+      }
+      None =>
+        match classified[param_idx] {
+          DaeRemovePureParameter | DaeRemoveParameterReplayEffects =>
+            remove[param_idx] = true
+          DaeLocalizeParameterAndRetry => remove[param_idx] = true
+          DaeKeepParameter | DaeRefineParameterType(_) =>
+            remove[param_idx] = false
+          DaeMaterializeConstantParameter(_) => return None
+        }
     }
     param_idx += 1
   }
@@ -17399,10 +17461,6 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     caller_application.calls_rewritten != direct_call_count {
     return None
   }
-  let no_const_params : Array[@lib.Instruction?] = Array::make(
-    params.length(),
-    None,
-  )
   match callee_source {
     Some(_) if caller_application.changed_defs[def_idx] => return None
     Some(source) => caller_application.funcs[def_idx] = source
@@ -17413,7 +17471,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       caller_application.funcs[def_idx],
       params,
       remove,
-      no_const_params,
+      const_params,
       local_use,
       localized_params,
     ) {
@@ -17617,9 +17675,9 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
       DaeKeepParameter => expected_next_params += 1
       DaeRemovePureParameter
       | DaeRemoveParameterReplayEffects
-      | DaeLocalizeParameterAndRetry => ()
-      DaeMaterializeConstantParameter(_) | DaeRefineParameterType(_) =>
-        return false
+      | DaeLocalizeParameterAndRetry
+      | DaeMaterializeConstantParameter(_) => ()
+      DaeRefineParameterType(_) => return false
     }
   }
   if expected_next_params != next_params.length() {
@@ -36133,8 +36191,9 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
 ///|
 fn dae_try_rewrite_uniform_values_def_with_facts_once(
   mod_ : @lib.Module,
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
   def_idx : Int,
-  call_facts : DaeCurrentCallFacts,
   uniform_values : Array[@lib.Instruction?],
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
@@ -36148,9 +36207,12 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let callee_abs = imported + def_idx
-  let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
   let boundary_candidate = match
-    dae_call_boundary_candidate(boundary_facts, callee_abs, def_idx~) {
+    dae_call_boundary_candidate(
+      graph.snapshot.boundary_facts,
+      callee_abs,
+      def_idx~,
+    ) {
     Some(candidate) => candidate
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -36198,15 +36260,28 @@ fn dae_try_rewrite_uniform_values_def_with_facts_once(
   if !any {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  dae_try_rewrite_candidate(
-    mod_,
-    callee_abs,
-    remove,
-    const_params,
-    local_use,
-    boundary_candidate.direct_call_count,
-    boundary_candidate.direct_callers,
-  )
+  match
+    dae_build_scalar_unused_param_rewrite_plan(
+      mod_,
+      original,
+      graph,
+      callee_abs,
+      remove,
+      local_use,
+      boundary_candidate.direct_call_count,
+      boundary_candidate.direct_callers,
+      materialized_params=Some(const_params),
+    ) {
+    Some(plan) => {
+      let application = dae_apply_rewrite_plan(mod_, graph, plan)
+      if application.applied {
+        application.result
+      } else {
+        { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+    }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
 }
 
 ///|
