@@ -17288,6 +17288,37 @@ test "dae family worklist is epoch aware component ordered and duplicate resista
 }
 
 ///|
+test "dae GC commits schedule control reconstruction and type repair followups" {
+  let mod_ = pass_test_module_from_wat(
+    (#|(module (func (result i32) i32.const 0))),
+  )
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let effects = dae_commit_effects_empty(1)
+  effects.control_refinalization_required[0] = true
+  let followups = dae_followup_work_items_for_commit(
+    graph,
+    dependencies,
+    dae_work_item_new(graph, dependencies, 0, DaeGcResultRefinementWork),
+    { ..effects, type_section_changed: true },
+  )
+  assert_eq(followups.length(), 2)
+  assert_eq(followups[0].family, DaeControlReconstructionWork)
+  assert_eq(followups[1].family, DaeTypeRepairRetryWork)
+  assert_eq(followups[0].target_def, 0)
+  assert_eq(followups[1].target_def, 0)
+  assert_eq(
+    dae_followup_work_items_for_commit(
+      graph,
+      dependencies,
+      dae_work_item_new(graph, dependencies, 0, DaeControlReconstructionWork),
+      { ..effects, type_section_changed: false },
+    ),
+    [],
+  )
+}
+
+///|
 fn dae_forwarded_component_plan_fixture() -> @lib.Module {
   let param_type = @lib.TypeIdx::new(0U)
   @lib.Module::new()
