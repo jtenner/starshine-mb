@@ -15323,6 +15323,51 @@ test "dae dependency invalidation keeps metadata-only changes local" {
 }
 
 ///|
+test "dae work families publish narrow semantic invalidation domains" {
+  assert_eq(dae_invalidation_domains_for_work_family(DaeUnusedParameterWork), [
+    DaeInvalidateCalls,
+    DaeInvalidateSignature,
+    DaeInvalidateBody,
+    DaeInvalidateLocals,
+    DaeInvalidateTypes,
+    DaeInvalidateMetadata,
+    DaeInvalidateNestedCleanup,
+  ])
+  assert_eq(
+    dae_invalidation_domains_for_work_family(DaeGcResultRefinementWork),
+    [
+      DaeInvalidateCalls,
+      DaeInvalidateSignature,
+      DaeInvalidateResult,
+      DaeInvalidateBody,
+      DaeInvalidateControl,
+      DaeInvalidateTypes,
+      DaeInvalidateMetadata,
+      DaeInvalidateNestedCleanup,
+    ],
+  )
+  assert_eq(dae_invalidation_domains_for_work_family(DaeDroppedResultWork), [
+    DaeInvalidateCalls,
+    DaeInvalidateSignature,
+    DaeInvalidateResult,
+    DaeInvalidateBody,
+    DaeInvalidateControl,
+    DaeInvalidateTypes,
+    DaeInvalidateMetadata,
+    DaeInvalidateNestedCleanup,
+  ])
+  assert_eq(
+    dae_invalidation_domains_for_work_family(DaeControlReconstructionWork),
+    [
+      DaeInvalidateBody,
+      DaeInvalidateControl,
+      DaeInvalidateMetadata,
+      DaeInvalidateNestedCleanup,
+    ],
+  )
+}
+
+///|
 test "dae dependency graph distinguishes exact parameter forwarding from constant calls" {
   let unary = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()

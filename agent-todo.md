@@ -177,7 +177,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [O4Z-DAE-WORKLIST]001 - Finish common family dispatch, invalidation, diagnostics, and budgets
 
 - **Owner:** `DaeBoundaryWorklist`, `DaeWorkItem`, `dae_process_work_item`, and family collectors.
-- **Status (2026-07-22 partial):** committed work-item effects now drive dependency requeue by explicit invalidation domain across before/after graphs. Result invalidation uses exact undropped observer/direct-tail rows, metadata-only changes remain local, and callers without producer domains retain the conservative caller/callee compatibility fallback. Several producers still emit intentionally broad domain sets, and result/type/body/cleanup legality plus diagnostics need further narrowing.
+- **Status (2026-07-22 partial):** committed work-item effects drive dependency requeue by explicit invalidation domain across before/after graphs. Result invalidation uses exact undropped observer/direct-tail rows, metadata-only changes remain local, and common work families now publish narrow parameter/materialization, result, and control-only domain sets. Callers without producer domains retain the conservative caller/callee compatibility fallback; legacy result/type/body/cleanup producers and diagnostics still need migration.
 - **Deliverables:**
   - [ ] Route every family through epoch-bearing no-change/deferred/commit/stale/rollback outcomes.
   - [ ] Replace parallel full scans and specialized phase loops with exact caller/callee/result/type/body/cleanup invalidations.

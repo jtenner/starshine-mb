@@ -3964,6 +3964,56 @@ fn dae_apply_family_result_transaction(
 }
 
 ///|
+fn dae_invalidation_domains_for_work_family(
+  family : DaeWorkFamily,
+) -> Array[DaeInvalidationDomain] {
+  match family {
+    DaeUnusedParameterWork
+    | DaeUniformActualWork
+    | DaeLocalizationRetryWork
+    | DaeGcParameterRefinementWork
+    | DaePostCleanupBoundaryRevisitWork =>
+      [
+        DaeInvalidateCalls,
+        DaeInvalidateSignature,
+        DaeInvalidateBody,
+        DaeInvalidateLocals,
+        DaeInvalidateTypes,
+        DaeInvalidateMetadata,
+        DaeInvalidateNestedCleanup,
+      ]
+    DaeGcResultRefinementWork | DaeDroppedResultWork | DaeTypeRepairRetryWork =>
+      [
+        DaeInvalidateCalls,
+        DaeInvalidateSignature,
+        DaeInvalidateResult,
+        DaeInvalidateBody,
+        DaeInvalidateControl,
+        DaeInvalidateTypes,
+        DaeInvalidateMetadata,
+        DaeInvalidateNestedCleanup,
+      ]
+    DaeControlReconstructionWork =>
+      [
+        DaeInvalidateBody,
+        DaeInvalidateControl,
+        DaeInvalidateMetadata,
+        DaeInvalidateNestedCleanup,
+      ]
+    DaeForwardingWork =>
+      [
+        DaeInvalidateCalls,
+        DaeInvalidateSignature,
+        DaeInvalidateBody,
+        DaeInvalidateLocals,
+        DaeInvalidateTypes,
+        DaeInvalidateMetadata,
+        DaeInvalidateNestedCleanup,
+      ]
+  }
+}
+
+///|
 fn dae_commit_effects_for_work_item(
   current : @lib.Module,
   defined : Int,
@@ -4076,17 +4126,7 @@ fn dae_commit_effects_for_work_item(
       DaeControlReconstructionWork => false
     },
     metadata_changed: true,
-    invalidation_domains: [
-      DaeInvalidateCalls,
-      DaeInvalidateSignature,
-      DaeInvalidateResult,
-      DaeInvalidateBody,
-      DaeInvalidateControl,
-      DaeInvalidateLocals,
-      DaeInvalidateTypes,
-      DaeInvalidateMetadata,
-      DaeInvalidateNestedCleanup,
-    ],
+    invalidation_domains: dae_invalidation_domains_for_work_family(item.family),
     decision_reasons: [DaeCandidateProduced],
   }
 }
