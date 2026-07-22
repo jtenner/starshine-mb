@@ -1248,6 +1248,14 @@ priv struct DaeDirectGcParamBatchPlan {
 }
 
 ///|
+priv struct DaeGcParameterLubEvidence {
+  next_params : Array[@lib.ValType]
+  refined_params : Array[Bool]
+  complete : Bool
+  changed : Bool
+}
+
+///|
 priv struct DaeCallsiteLocalizationContext {
   first_scratch_local : Int
   param_types : Array[@lib.ValType]
@@ -16938,6 +16946,49 @@ fn dae_signature_has_heap_ref(
 }
 
 ///|
+fn dae_apply_gc_parameter_lub_evidence(
+  mod_ : @lib.Module,
+  params : Array[@lib.ValType],
+  candidates : Array[@lib.ValType?],
+  rejected : Array[Bool],
+  calls_seen : Int,
+  expected_call_count : Int,
+) -> DaeGcParameterLubEvidence {
+  let next_params = params.copy()
+  let refined_params = Array::make(params.length(), false)
+  if candidates.length() != params.length() ||
+    rejected.length() != params.length() ||
+    calls_seen != expected_call_count {
+    return { next_params, refined_params, complete: false, changed: false }
+  }
+  let mut changed = false
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    if !rejected[param_idx] {
+      match candidates[param_idx] {
+        Some(candidate_type) =>
+          match
+            dae_refined_gc_candidate_ref_type(
+              mod_,
+              params[param_idx],
+              candidate_type,
+            ) {
+            Some(refined) => {
+              next_params[param_idx] = refined
+              refined_params[param_idx] = true
+              changed = true
+            }
+            None => ()
+          }
+        None => ()
+      }
+    }
+    param_idx += 1
+  }
+  { next_params, refined_params, complete: true, changed }
+}
+
+///|
 fn dae_rewrite_nondefaultable_fixup_gets(
   instrs : Array[@lib.Instruction],
   first_fixup_idx : Int,
@@ -17124,9 +17175,9 @@ fn dae_try_refine_direct_gc_types(
     callee_abs,
     params.length(),
   )
-  let next_params = params.copy()
+  let mut next_params = params.copy()
   let next_results = results.copy()
-  let refined_params = Array::make(params.length(), false)
+  let mut refined_params = Array::make(params.length(), false)
   let mut rewritten_funcs = funcs.copy()
   let mut caller_body_changed = false
   let mut next_body = body
@@ -17158,29 +17209,15 @@ fn dae_try_refine_direct_gc_types(
         }
       }
     }
-    if calls_seen == direct_call_count {
-      let mut p = 0
-      while p < params.length() {
-        if rejected[p] {
-          p += 1
-          continue
-        }
-        match candidates[p] {
-          Some(type_idx) =>
-            match dae_refined_gc_candidate_ref_type(mod_, params[p], type_idx) {
-              Some(refined) => {
-                next_params[p] = refined
-                refined_params[p] = true
-                changed = true
-              }
-              None => ()
-            }
-          None => ()
-        }
-        p += 1
-      }
+    let parameter_evidence = dae_apply_gc_parameter_lub_evidence(
+      mod_, params, candidates, rejected, calls_seen, direct_call_count,
+    )
+    if parameter_evidence.complete {
+      next_params = parameter_evidence.next_params
+      refined_params = parameter_evidence.refined_params
     }
-    if changed {
+    if parameter_evidence.changed {
+      changed = true
       let rewrite_caller = fn(caller_func, _) {
         let @lib.Func(caller_locals, @lib.Expr(caller_body)) = caller_func
         let (rewritten_body, calls, ok, body_changed) = dae_rewrite_refined_gc_actuals_instrs(
@@ -18459,9 +18496,9 @@ fn dae_try_apply_direct_gc_batch(
       None => continue
     }
     let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[def_idx]
-    let next_params = params.copy()
+    let mut next_params = params.copy()
     let next_results = results.copy()
-    let refined_params = Array::make(params.length(), false)
+    let mut refined_params = Array::make(params.length(), false)
     let mut changed = false
     match param_plans[callee_abs] {
       Some(plan) => {
@@ -18519,32 +18556,23 @@ fn dae_try_apply_direct_gc_batch(
             }
           }
         }
-        if evidence_collect_ok &&
-          evidence_calls_seen == candidate.direct_call_count {
-          let mut p = 0
-          while p < params.length() {
-            if !evidence_rejected[p] {
-              match evidence_candidates[p] {
-                Some(candidate_type) =>
-                  match
-                    dae_refined_gc_candidate_ref_type(
-                      mod_,
-                      params[p],
-                      candidate_type,
-                    ) {
-                    Some(refined) => {
-                      next_params[p] = refined
-                      refined_params[p] = true
-                      changed = true
-                    }
-                    None => ()
-                  }
-                None => ()
-              }
-            }
-            p += 1
-          }
+        let parameter_evidence = dae_apply_gc_parameter_lub_evidence(
+          mod_,
+          params,
+          evidence_candidates,
+          evidence_rejected,
+          evidence_calls_seen,
+          if evidence_collect_ok {
+            candidate.direct_call_count
+          } else {
+            -1
+          },
+        )
+        if parameter_evidence.complete {
+          next_params = parameter_evidence.next_params
+          refined_params = parameter_evidence.refined_params
         }
+        changed = changed || parameter_evidence.changed
       }
       None => ()
     }

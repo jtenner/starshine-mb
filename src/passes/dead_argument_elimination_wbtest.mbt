@@ -15876,6 +15876,50 @@ test "dae GC parameter refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae GC parameter LUB evidence is complete and fail closed" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func (param (ref null $base) i32)))
+  let mod_ = pass_test_module_from_wat(source)
+  let base = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let leaf = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let evidence = dae_apply_gc_parameter_lub_evidence(
+    mod_,
+    [base, @lib.ValType::i32()],
+    [Some(leaf), None],
+    [false, false],
+    2,
+    2,
+  )
+  assert_true(evidence.complete)
+  assert_true(evidence.changed)
+  assert_eq(evidence.next_params, [leaf, @lib.ValType::i32()])
+  assert_eq(evidence.refined_params, [true, false])
+  let incomplete = dae_apply_gc_parameter_lub_evidence(
+    mod_,
+    [base, @lib.ValType::i32()],
+    [Some(leaf), None],
+    [false, false],
+    1,
+    2,
+  )
+  assert_false(incomplete.complete)
+  assert_false(incomplete.changed)
+  assert_eq(incomplete.next_params, [base, @lib.ValType::i32()])
+  assert_eq(incomplete.refined_params, [false, false])
+}
+
+///|
 test "dae GC parameter refinement repairs reused old-type parameters with a local" {
   let source =
     #|(module
