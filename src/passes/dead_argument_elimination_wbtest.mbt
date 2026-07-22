@@ -16192,6 +16192,56 @@ test "dae family dispatcher commits uniform literal work" {
 }
 
 ///|
+test "dae forwarding component plan includes ref-null follow-up atomically" {
+  let source =
+    #|(module
+    #|  (type $box (struct))
+    #|  (func $a (param i32)
+    #|    local.get 0
+    #|    call $b
+    #|    ref.null $box
+    #|    call $target
+    #|    drop)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    call $a)
+    #|  (func $target (param (ref null $box)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let nodes = dae_collect_forwarded_param_component(
+    mod_,
+    [0, 1],
+    graph.snapshot.type_indices,
+    graph.snapshot.boundary_facts,
+  )
+  let plan = dae_build_forwarded_param_component_rewrite_plan(
+    mod_,
+    graph,
+    dependencies,
+    [],
+    nodes,
+    graph.snapshot.boundary_facts,
+    original=Some(original),
+  ).unwrap()
+  assert_true(plan.candidate.touched[0])
+  assert_true(plan.candidate.touched[1])
+  assert_true(plan.candidate.touched[2])
+  let candidate_types = dae_collect_func_type_indices(plan.candidate.mod_out)
+  match dae_resolve_func_type(plan.candidate.mod_out, candidate_types, 2) {
+    Some(@lib.FuncType([], [result])) => assert_eq(result, @lib.ValType::i32())
+    _ => fail("expected ref-null follow-up inside component candidate")
+  }
+  match @validate.validate_module(plan.candidate.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid complete forwarding candidate, got \{err}")
+  }
+}
+
+///|
 test "dae forwarding family component includes exact one-way parameter forwarders" {
   let source =
     #|(module

@@ -18143,6 +18143,8 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
   total : Int,
   type_indices : Array[@lib.TypeIdx],
   boundary_facts : DaeCallBoundaryFacts,
+  original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
 ) -> DaePassResult {
   if caller_defs.length() == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -18253,18 +18255,46 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       None,
     )
     const_params[final_param] = Some(expected)
-    let result = dae_apply_removed_param_candidate_after_caller_scope(
-      mod_,
-      callee_def,
-      params,
-      results,
-      remove,
-      const_params,
-      local_use,
-      Array::make(params.length(), false),
-      application,
-      boundary_facts.direct_calls[callee_abs],
-    )
+    let result = match (original, graph) {
+      (Some(original), Some(graph)) =>
+        match
+          dae_build_scalar_unused_param_rewrite_plan(
+            mod_,
+            original,
+            graph,
+            callee_abs,
+            remove,
+            local_use,
+            boundary_facts.direct_calls[callee_abs],
+            boundary_facts.direct_callers[callee_abs],
+            materialized_params=Some(const_params),
+            verified_materialized_suffix=Some([expected]),
+          ) {
+          Some(plan) => {
+            let plan_application = dae_apply_rewrite_plan(mod_, graph, plan)
+            if plan_application.applied {
+              plan_application.result
+            } else {
+              { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+            }
+          }
+          None =>
+            { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        }
+      _ =>
+        dae_apply_removed_param_candidate_after_caller_scope(
+          mod_,
+          callee_def,
+          params,
+          results,
+          remove,
+          const_params,
+          local_use,
+          Array::make(params.length(), false),
+          application,
+          boundary_facts.direct_calls[callee_abs],
+        )
+    }
     if result.changed {
       if result.primary_def < 0 || result.primary_def >= result.touched.length() {
         return result
@@ -38423,12 +38453,42 @@ fn dae_build_forwarded_param_component_rewrite_plan(
   boundary_facts : DaeCallBoundaryFacts,
   original? : DaeOriginalBoundarySnapshot? = None,
 ) -> DaeComponentRewritePlan? {
-  let candidate = match
+  let base_candidate = match
     dae_build_forwarded_param_component_candidate(
       current, touched, nodes, boundary_facts,
     ) {
     Some(value) => value
     None => return None
+  }
+  let original_snapshot = match original {
+    Some(snapshot) => snapshot
+    None => dae_collect_original_boundary_snapshot(current)
+  }
+  let candidate_graph = dae_current_boundary_graph_new(base_candidate.mod_out)
+  let candidate_boundary_facts = candidate_graph.snapshot.boundary_facts
+  let ref_null_followup = dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
+    base_candidate.mod_out,
+    base_candidate.defs,
+    candidate_graph.snapshot.imported,
+    candidate_graph.snapshot.defined,
+    candidate_graph.snapshot.imported + candidate_graph.snapshot.defined,
+    candidate_graph.snapshot.type_indices,
+    candidate_boundary_facts,
+    original=Some(original_snapshot),
+    graph=Some(candidate_graph),
+  )
+  let candidate = if ref_null_followup.changed {
+    {
+      mod_out: ref_null_followup.mod_out,
+      touched: dae_merge_touched(
+        base_candidate.touched,
+        ref_null_followup.touched,
+      ),
+      defs: base_candidate.defs,
+      param_count: base_candidate.param_count,
+    }
+  } else {
+    base_candidate
   }
   let (expected_type_sec, expected_type_idxs, expected_funcs) = match
     (current.type_sec, current.func_sec, current.code_sec) {
@@ -38448,10 +38508,6 @@ fn dae_build_forwarded_param_component_rewrite_plan(
   let expected_members : Array[DaeComponentMemberExpectation] = []
   let expected_callers : Array[DaeComponentCallerExpectation] = []
   let expected_call_identities : Array[DaeDirectCallIdentity] = []
-  let original_snapshot = match original {
-    Some(snapshot) => snapshot
-    None => dae_collect_original_boundary_snapshot(current)
-  }
   let shared_facts : DaeBoundaryFacts = {
     original: original_snapshot,
     graph,
@@ -38603,7 +38659,6 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
   if cycle_defs.length() < 2 {
     return None
   }
-  let total = dae_imported_func_count(current) + dae_defined_func_count(current)
   let boundary_facts = graph.snapshot.boundary_facts
   let nodes = dae_collect_forwarded_param_component(
     current,
@@ -38629,35 +38684,7 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
     DaeComponentPlanCommitted(application) => application
     DaeComponentPlanRejected(_, _) => return None
   }
-  let rewritten_type_indices = dae_collect_func_type_indices(
-    application.mod_out,
-  )
-  let uniform_ref_null = dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
-    application.mod_out,
-    application.defs,
-    dae_imported_func_count(application.mod_out),
-    dae_defined_func_count(application.mod_out),
-    total,
-    rewritten_type_indices,
-    boundary_facts,
-  )
-  if !uniform_ref_null.changed {
-    return Some(application)
-  }
-  let combined_touched = application.touched.copy()
-  for def_idx = 0
-      def_idx < uniform_ref_null.touched.length()
-      def_idx = def_idx + 1 {
-    if uniform_ref_null.touched[def_idx] && def_idx < combined_touched.length() {
-      combined_touched[def_idx] = true
-    }
-  }
-  Some({
-    mod_out: uniform_ref_null.mod_out,
-    touched: combined_touched,
-    defs: application.defs,
-    param_count: application.param_count,
-  })
+  Some(application)
 }
 
 ///|
