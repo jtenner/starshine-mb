@@ -3283,6 +3283,8 @@ fn dae_boundary_dependency_graph_new(
   let callers_by_def = dae_dependency_adjacency_new(defined)
   let callees_by_def = dae_dependency_adjacency_new(defined)
   let return_callers_by_def = dae_dependency_adjacency_new(defined)
+  let result_forwarders_by_def = dae_dependency_adjacency_new(defined)
+  let result_observers_by_def = dae_dependency_adjacency_new(defined)
   let direct_callers = graph.snapshot.call_facts.direct_callers
   let mut callee_def = 0
   while callee_def < defined {
@@ -3301,22 +3303,40 @@ fn dae_boundary_dependency_graph_new(
     }
     callee_def += 1
   }
-  let mut caller_def = 0
-  while caller_def < defined &&
-        caller_def < graph.snapshot.function_infos.length() {
-    for callee_abs in graph.snapshot.function_infos[caller_def].tail_callees {
-      let target_def = callee_abs - imported
-      if target_def >= 0 &&
-        target_def < defined &&
-        !return_callers_by_def[target_def].contains(caller_def) {
-        return_callers_by_def[target_def].push(caller_def)
+  callee_def = 0
+  while callee_def < defined {
+    let callee_abs = imported + callee_def
+    if callee_abs >= 0 && callee_abs < graph.snapshot.function_infos.length() {
+      for callsite in graph.snapshot.function_infos[callee_abs].calls {
+        let caller_def = callsite.caller_def
+        if callsite.active && caller_def >= 0 && caller_def < defined {
+          if callsite.tail {
+            dae_topology_add_unique(
+              return_callers_by_def[callee_def],
+              caller_def,
+            )
+            dae_topology_add_unique(
+              result_forwarders_by_def[callee_def],
+              caller_def,
+            )
+          } else if !callsite.dropped {
+            dae_topology_add_unique(
+              result_observers_by_def[callee_def],
+              caller_def,
+            )
+            dae_topology_add_unique(
+              result_forwarders_by_def[callee_def],
+              caller_def,
+            )
+          }
+        }
       }
     }
-    caller_def += 1
+    callee_def += 1
   }
   let parameter_forwarding_edges : Array[DaeParameterForwardingEdge] = []
   let parameter_forwarders_by_def = dae_dependency_adjacency_new(defined)
-  caller_def = 0
+  let mut caller_def = 0
   while caller_def < defined && caller_def < graph.snapshot.funcs.length() {
     let caller_abs = imported + caller_def
     let caller_param_count = match
@@ -3373,10 +3393,8 @@ fn dae_boundary_dependency_graph_new(
     uniform_value_forwarders_by_def: dae_dependency_adjacency_copy(
       callers_by_def,
     ),
-    result_forwarders_by_def: dae_dependency_adjacency_copy(
-      caller_callee_dependencies,
-    ),
-    result_observers_by_def: dae_dependency_adjacency_copy(callers_by_def),
+    result_forwarders_by_def,
+    result_observers_by_def,
     tail_result_dependencies_by_def: dae_dependency_adjacency_copy(
       return_callers_by_def,
     ),

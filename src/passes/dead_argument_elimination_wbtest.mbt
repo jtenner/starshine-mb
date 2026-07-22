@@ -15229,6 +15229,32 @@ test "dae boundary dependency graph records callers callees and self edges" {
 }
 
 ///|
+test "dae dependency graph separates dropped observers from result forwarding" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (result i32)
+      #|    i32.const 7)
+      #|  (func (export "dropped")
+      #|    call $target
+      #|    drop)
+      #|  (func (export "observed") (result i32)
+      #|    call $target)
+      #|  (func (export "tail") (result i32)
+      #|    return_call $target))
+    ),
+  )
+  let graph = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  assert_eq(graph.callers_by_def[0], [1, 2, 3])
+  assert_eq(graph.result_observers_by_def[0], [2])
+  assert_eq(graph.return_callers_by_def[0], [3])
+  assert_eq(graph.tail_result_dependencies_by_def[0], [3])
+  assert_eq(graph.result_forwarders_by_def[0], [2, 3])
+}
+
+///|
 test "dae dependency graph distinguishes exact parameter forwarding from constant calls" {
   let unary = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()

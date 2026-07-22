@@ -181,7 +181,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 **Implementation strategy.**
 
-- Build an exact result-observer graph from direct calls and direct tail calls. A result may be removed only when all owned direct calls drop it, the function has no unseen calls, the function itself has no tail-call result dependency, and it is not a direct-tail callee whose signature must remain compatible.
+- Complete the exact result-observer graph from direct calls and direct tail calls. The current dependency graph already derives active non-tail undropped observers, direct-tail dependencies, and their combined potential forwarding frontier from stable call identities while excluding dropped calls from observer evidence; candidate legality and lane/control repair still need to consume that graph. A result may be removed only when all owned direct calls drop it, the function has no unseen calls, the function itself has no tail-call result dependency, and it is not a direct-tail callee whose signature must remain compatible.
 - Keep indirect and reference tail calls as explicit fail-closed barriers unless a future source-backed type relation proves otherwise.
 - Do not rewrite the same call location for parameter deletion and result removal in one stale iteration. Use plan epochs or Binaryen-equivalent phase separation.
 - Replace function results, call result types, surrounding drops, explicit returns, fallthrough values, typed controls, and multivalue lanes through one return-rewrite plan that preserves operand effects and control.
