@@ -15956,6 +15956,215 @@ test "dae specialized uncalled result removal preserves exported boundary" {
 }
 
 ///|
+test "dae specialized result facts preserve ref.func and element exposure" {
+  let ref_func_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (elem declare func $target)
+      #|  (func $target (result i32)
+      #|    unreachable)
+      #|  (func (result funcref)
+      #|    ref.func $target))
+    ),
+  )
+  let ref_func_original = dae_collect_original_boundary_snapshot(ref_func_mod)
+  let ref_func_graph = dae_current_boundary_graph_new(ref_func_mod)
+  match dae_specialized_result_facts_new(ref_func_original, ref_func_graph, 0) {
+    Some(facts) => {
+      assert_false(facts.original_owned)
+      assert_true(dae_specialized_result_facts_block_change(facts))
+    }
+    None => fail("expected ref.func specialized result facts")
+  }
+
+  let element_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (elem (i32.const 0) func $target)
+      #|  (func $target (result i32)
+      #|    unreachable))
+    ),
+  )
+  let element_original = dae_collect_original_boundary_snapshot(element_mod)
+  let element_graph = dae_current_boundary_graph_new(element_mod)
+  match dae_specialized_result_facts_new(element_original, element_graph, 0) {
+    Some(facts) => {
+      assert_false(facts.original_owned)
+      assert_true(dae_specialized_result_facts_block_change(facts))
+    }
+    None => fail("expected element-exposed specialized result facts")
+  }
+}
+
+///|
+test "dae specialized dead suffix facts retain dead-chain observers" {
+  let source =
+    #|(module
+    #|  (func $dead (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $dead
+    #|    drop
+    #|    f64.const 1)
+    #|  (func (export "run")))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let facts = match dae_specialized_result_facts_new(original, graph, 0) {
+    Some(facts) => facts
+    None => fail("expected dead-suffix specialized result facts")
+  }
+  assert_true(facts.original_owned)
+  assert_eq(facts.result_observers, [])
+  assert_false(facts.has_outgoing_tail)
+  assert_false(facts.direct_tail_callee)
+  assert_false(dae_specialized_result_facts_block_change(facts))
+  let candidate = dae_try_remove_dead_self_suffix_result_with_facts(mod_, facts)
+  assert_true(candidate.changed)
+  let application = dae_apply_specialized_result_family_plan(
+    mod_, graph, facts, candidate,
+  )
+  assert_true(application.applied)
+  match @validate.validate_module(application.result.mod_out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected valid specialized dead-chain candidate, got \{err}")
+  }
+}
+
+///|
+test "dae specialized result facts ignore unrelated tails and block target tails" {
+  let unrelated = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (result i32)
+      #|    unreachable)
+      #|  (func $tail_target)
+      #|  (func
+      #|    return_call $tail_target))
+    ),
+  )
+  let unrelated_original = dae_collect_original_boundary_snapshot(unrelated)
+  let unrelated_graph = dae_current_boundary_graph_new(unrelated)
+  match
+    dae_specialized_result_facts_new(unrelated_original, unrelated_graph, 0) {
+    Some(facts) => {
+      assert_false(facts.has_outgoing_tail)
+      assert_false(facts.direct_tail_callee)
+      assert_false(dae_specialized_result_facts_block_change(facts))
+    }
+    None => fail("expected unrelated-tail specialized result facts")
+  }
+
+  let target_tail = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (result i32)
+      #|    return_call $tail_target)
+      #|  (func $tail_target (result i32)
+      #|    i32.const 0))
+    ),
+  )
+  let target_original = dae_collect_original_boundary_snapshot(target_tail)
+  let target_graph = dae_current_boundary_graph_new(target_tail)
+  match dae_specialized_result_facts_new(target_original, target_graph, 0) {
+    Some(facts) => {
+      assert_true(facts.has_outgoing_tail)
+      assert_true(dae_specialized_result_facts_block_change(facts))
+    }
+    None => fail("expected target-tail specialized result facts")
+  }
+}
+
+///|
+test "dae specialized result family plan rejects stale identity and result epoch" {
+  let source =
+    #|(module
+    #|  (func $dead (result f64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $dead
+    #|    drop
+    #|    f64.const 1)
+    #|  (func (export "run")))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let facts = match dae_specialized_result_facts_new(original, graph, 0) {
+    Some(facts) => facts
+    None => fail("expected specialized result facts")
+  }
+  let candidate = dae_try_remove_dead_self_suffix_result_with_facts(mod_, facts)
+  assert_true(candidate.changed)
+
+  let stale_identity = {
+    ..facts,
+    active_call_identities: [
+      { caller_def: 0, path: [99], call_kind: DaeDirectCall, callee_abs: 0 },
+    ],
+  }
+  let identity_application = dae_apply_specialized_result_family_plan(
+    mod_, graph, stale_identity, candidate,
+  )
+  assert_false(identity_application.applied)
+  assert_eq(identity_application.result.mod_out, mod_)
+  assert_eq(identity_application.reason, DaeStaleCandidateFacts)
+
+  let stale_result = { ..facts, result_epoch: facts.result_epoch + 1 }
+  let result_application = dae_apply_specialized_result_family_plan(
+    mod_, graph, stale_result, candidate,
+  )
+  assert_false(result_application.applied)
+  assert_eq(result_application.result.mod_out, mod_)
+  assert_eq(result_application.reason, DaeStaleCandidateFacts)
+}
+
+///|
+test "dae specialized result effects publish exact result invalidations" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    unreachable)
+    #|  (func
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let facts = match dae_specialized_result_facts_new(original, graph, 0) {
+    Some(facts) => facts
+    None => fail("expected specialized result facts")
+  }
+  let candidate = dae_try_remove_dropped_results(
+    mod_,
+    0,
+    1,
+    1,
+    caller_defs=Some([1]),
+  )
+  assert_true(candidate.changed)
+  let effects = dae_specialized_result_commit_effects(facts, candidate)
+  assert_eq(effects.structurally_touched, candidate.touched)
+  assert_true(effects.result_changed[0])
+  assert_true(effects.result_removed[0])
+  assert_true(effects.worth_optimizing[0])
+  assert_true(effects.caller_drop_removed[1])
+  assert_eq(effects.invalidation_domains, [
+    DaeInvalidateCalls,
+    DaeInvalidateSignature,
+    DaeInvalidateResult,
+    DaeInvalidateBody,
+    DaeInvalidateControl,
+    DaeInvalidateTypes,
+    DaeInvalidateMetadata,
+    DaeInvalidateNestedCleanup,
+  ])
+}
+
+///|
 test "dae dropped result batch ignores unrelated direct tails" {
   let source =
     #|(module

@@ -2156,6 +2156,33 @@ priv struct DaeDroppedResultModuleContext {
 }
 
 ///|
+/// Source-compatible result facts for the specialized dead-suffix families.
+/// Active observer and tail evidence comes from the common current graph, but
+/// dead-suffix legality remains the narrower specialized predicate rather than
+/// the ordinary all-direct-calls-dropped rule.
+priv struct DaeSpecializedResultFacts {
+  original : DaeOriginalBoundarySnapshot
+  graph : DaeCurrentBoundaryGraph
+  context : DaeDroppedResultModuleContext
+  target_abs : Int
+  target_def : Int
+  original_owned : Bool
+  expected_type_idx : @lib.TypeIdx
+  expected_results : Array[@lib.ValType]
+  expected_module_epoch : Int
+  expected_call_epoch : Int
+  expected_type_epoch : Int
+  expected_signature_epoch : Int
+  expected_body_epoch : Int
+  result_epoch : Int
+  active_call_identities : Array[DaeDirectCallIdentity]
+  result_observers : Array[Int]
+  direct_tail_callers : Array[Int]
+  has_outgoing_tail : Bool
+  direct_tail_callee : Bool
+}
+
+///|
 priv struct DaeOriginalResultPreservationEvidence {
   same_self_result_operand : Bool
   result_from_undropped_self_caller : Bool
@@ -20485,6 +20512,246 @@ fn dae_dropped_result_module_context(
 }
 
 ///|
+fn dae_specialized_result_facts_new(
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
+  callee_abs : Int,
+  caller_defs? : Array[Int]? = None,
+) -> DaeSpecializedResultFacts? {
+  let context = match
+    dae_dropped_result_module_context(graph.mod_, callee_abs, caller_defs~) {
+    Some(context) => context
+    None => return None
+  }
+  let target_def = context.signature.def_idx
+  if target_def < 0 ||
+    target_def >= graph.snapshot.defined ||
+    target_def >= graph.function_epochs.length() ||
+    callee_abs < 0 ||
+    callee_abs >= context.type_indices.length() {
+    return None
+  }
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let topology = graph.topology
+  let epochs = graph.function_epochs[target_def]
+  let original_owned = callee_abs >= 0 &&
+    callee_abs < original.exposure.length() &&
+    !dae_function_exposure_blocks_boundary(original.exposure[callee_abs])
+  let result_observers = if target_def <
+    dependencies.result_observers_by_def.length() {
+    dependencies.result_observers_by_def[target_def].copy()
+  } else {
+    []
+  }
+  let direct_tail_callers = if target_def <
+    dependencies.tail_result_dependencies_by_def.length() {
+    dependencies.tail_result_dependencies_by_def[target_def].copy()
+  } else {
+    []
+  }
+  let has_outgoing_tail = (
+      callee_abs < topology.has_outgoing_return_call.length() &&
+      topology.has_outgoing_return_call[callee_abs]
+    ) ||
+    (
+      callee_abs < topology.has_outgoing_return_call_indirect.length() &&
+      topology.has_outgoing_return_call_indirect[callee_abs]
+    ) ||
+    (
+      callee_abs < topology.has_outgoing_return_call_ref.length() &&
+      topology.has_outgoing_return_call_ref[callee_abs]
+    )
+  let direct_tail_callee = direct_tail_callers.length() > 0 ||
+    (
+      callee_abs < graph.snapshot.call_facts.tail_calls.length() &&
+      graph.snapshot.call_facts.tail_calls[callee_abs]
+    )
+  Some({
+    original,
+    graph,
+    context,
+    target_abs: callee_abs,
+    target_def,
+    original_owned,
+    expected_type_idx: context.type_indices[callee_abs],
+    expected_results: context.results.copy(),
+    expected_module_epoch: graph.module_epoch,
+    expected_call_epoch: graph.call_epoch,
+    expected_type_epoch: graph.type_epoch,
+    expected_signature_epoch: epochs.signature_epoch,
+    expected_body_epoch: epochs.body_epoch,
+    result_epoch: epochs.signature_epoch,
+    active_call_identities: dae_collect_target_call_identities(
+      graph.snapshot,
+      callee_abs,
+    ),
+    result_observers,
+    direct_tail_callers,
+    has_outgoing_tail,
+    direct_tail_callee,
+  })
+}
+
+///|
+fn dae_specialized_result_facts_are_current(
+  facts : DaeSpecializedResultFacts,
+  graph : DaeCurrentBoundaryGraph,
+) -> Bool {
+  if graph.mod_ != facts.graph.mod_ ||
+    facts.expected_module_epoch != graph.module_epoch ||
+    facts.expected_call_epoch != graph.call_epoch ||
+    facts.expected_type_epoch != graph.type_epoch ||
+    facts.target_def < 0 ||
+    facts.target_def >= graph.function_epochs.length() ||
+    facts.target_abs != graph.snapshot.imported + facts.target_def {
+    return false
+  }
+  let epochs = graph.function_epochs[facts.target_def]
+  if facts.expected_signature_epoch != epochs.signature_epoch ||
+    facts.expected_body_epoch != epochs.body_epoch ||
+    facts.result_epoch != epochs.signature_epoch {
+    return false
+  }
+  if facts.target_abs < 0 ||
+    facts.target_abs >= graph.snapshot.type_indices.length() ||
+    graph.snapshot.type_indices[facts.target_abs] != facts.expected_type_idx {
+    return false
+  }
+  let current_results = match
+    dae_resolve_func_type(
+      graph.mod_,
+      graph.snapshot.type_indices,
+      facts.target_abs,
+    ) {
+    Some(@lib.FuncType(_, results)) => results
+    None => return false
+  }
+  if current_results != facts.expected_results ||
+    dae_collect_target_call_identities(graph.snapshot, facts.target_abs) !=
+    facts.active_call_identities {
+    return false
+  }
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let result_observers = if facts.target_def <
+    dependencies.result_observers_by_def.length() {
+    dependencies.result_observers_by_def[facts.target_def]
+  } else {
+    []
+  }
+  let direct_tail_callers = if facts.target_def <
+    dependencies.tail_result_dependencies_by_def.length() {
+    dependencies.tail_result_dependencies_by_def[facts.target_def]
+  } else {
+    []
+  }
+  result_observers == facts.result_observers &&
+  direct_tail_callers == facts.direct_tail_callers
+}
+
+///|
+fn dae_specialized_result_facts_block_change(
+  facts : DaeSpecializedResultFacts,
+) -> Bool {
+  !facts.original_owned ||
+  facts.has_outgoing_tail ||
+  facts.direct_tail_callee ||
+  facts.result_observers.length() > 0 ||
+  dae_dropped_result_removal_legality_blocks(
+    facts.context.result_removal_legality,
+  )
+}
+
+///|
+fn dae_specialized_result_commit_effects(
+  facts : DaeSpecializedResultFacts,
+  candidate : DaePassResult,
+) -> DaeCommitEffects {
+  let defined = facts.graph.snapshot.defined
+  let effects = dae_commit_effects_empty(defined)
+  let mut def_idx = 0
+  while def_idx < candidate.touched.length() && def_idx < defined {
+    if candidate.touched[def_idx] {
+      effects.structurally_touched[def_idx] = true
+      effects.worth_decided[def_idx] = true
+      effects.worth_optimizing[def_idx] = true
+      if def_idx != facts.target_def {
+        effects.caller_drop_removed[def_idx] = true
+      }
+    }
+    def_idx += 1
+  }
+  if facts.target_def >= 0 && facts.target_def < defined {
+    effects.worth_decided[facts.target_def] = true
+    effects.worth_optimizing[facts.target_def] = true
+    effects.result_changed[facts.target_def] = true
+    effects.result_removed[facts.target_def] = true
+    effects.control_refinalization_required[facts.target_def] = true
+  }
+  let repairs_bottom = facts.expected_results.length() == 1 &&
+    dae_result_type_is_uninhabitable(facts.expected_results[0])
+  if repairs_bottom {
+    def_idx = 0
+    while def_idx < candidate.touched.length() && def_idx < defined {
+      if def_idx != facts.target_def && candidate.touched[def_idx] {
+        effects.caller_bottom_repaired[def_idx] = true
+        effects.control_refinalization_required[def_idx] = true
+      }
+      def_idx += 1
+    }
+  }
+  {
+    ..effects,
+    type_section_changed: true,
+    metadata_changed: true,
+    invalidation_domains: dae_invalidation_domains_for_work_family(
+      DaeDroppedResultWork,
+    ),
+    decision_reasons: [DaeCandidateProduced],
+  }
+}
+
+///|
+fn dae_apply_specialized_result_family_plan(
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  facts : DaeSpecializedResultFacts,
+  candidate : DaePassResult,
+) -> DaeRewritePlanApplication {
+  if !dae_specialized_result_facts_are_current(facts, graph) {
+    return dae_rewrite_plan_rejection(current, DaeStaleCandidateFacts)
+  }
+  if dae_specialized_result_facts_block_change(facts) {
+    return dae_rewrite_plan_rejection(current, DaeVisibleBoundary)
+  }
+  let effects = dae_specialized_result_commit_effects(facts, candidate)
+  let plan = match
+    dae_build_family_rewrite_plan(
+      facts.original,
+      current,
+      graph,
+      facts.target_def,
+      candidate,
+      effects=Some(effects),
+    ) {
+    Some(plan) => plan
+    None => return dae_rewrite_plan_rejection(current, DaeNoStrictImprovement)
+  }
+  dae_apply_family_rewrite_plan(current, graph, plan)
+}
+
+///|
+fn dae_record_producer_effects(
+  producer_effects_report : Array[DaeCommitEffects],
+  effects : DaeCommitEffects,
+) -> Unit {
+  if producer_effects_report.length() == 0 {
+    producer_effects_report.push(effects)
+  } else {
+    producer_effects_report[0] = effects
+  }
+}
+
+///|
 fn dae_rewrite_dropped_result_calls_in_scope_with_policy(
   funcs : Array[@lib.Func],
   scope : DaeDroppedResultScope,
@@ -22426,15 +22693,14 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
 }
 
 ///|
-fn dae_try_remove_unobserved_unreachable_function(
+fn dae_try_remove_unobserved_unreachable_function_with_facts(
   mod_ : @lib.Module,
-  callee_abs : Int,
+  facts : DaeSpecializedResultFacts,
 ) -> DaePassResult {
-  let context = match dae_dropped_result_module_context(mod_, callee_abs) {
-    Some(context) => context
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  if dae_specialized_result_facts_block_change(facts) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let context = facts.context
   let def_idx = context.signature.def_idx
   let funcs = context.signature.funcs
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
@@ -22442,13 +22708,14 @@ fn dae_try_remove_unobserved_unreachable_function(
     context.params,
     context.results,
     context.result_removal_legality,
-    callee_abs,
+    facts.target_abs,
   )
   if rewrite_evidence.param_count == 0 && rewrite_evidence.result_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let module_calls_anywhere = dae_count_module_calls_anywhere_to(
-    funcs, callee_abs,
+    funcs,
+    facts.target_abs,
   )
   if module_calls_anywhere == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -22474,15 +22741,28 @@ fn dae_try_remove_unobserved_unreachable_function(
 }
 
 ///|
-fn dae_try_remove_dead_self_suffix_result(
+fn dae_try_remove_unobserved_unreachable_function(
   mod_ : @lib.Module,
   callee_abs : Int,
 ) -> DaePassResult {
-  let context = match dae_dropped_result_module_context(mod_, callee_abs) {
-    Some(context) => context
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  match dae_specialized_result_facts_new(original, graph, callee_abs) {
+    Some(facts) =>
+      dae_try_remove_unobserved_unreachable_function_with_facts(mod_, facts)
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+}
+
+///|
+fn dae_try_remove_dead_self_suffix_result_with_facts(
+  mod_ : @lib.Module,
+  facts : DaeSpecializedResultFacts,
+) -> DaePassResult {
+  if dae_specialized_result_facts_block_change(facts) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let context = facts.context
   let def_idx = context.signature.def_idx
   let funcs = context.signature.funcs
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
@@ -22490,7 +22770,7 @@ fn dae_try_remove_dead_self_suffix_result(
     context.params,
     context.results,
     context.result_removal_legality,
-    callee_abs,
+    facts.target_abs,
   )
   if rewrite_evidence.param_count != 0 || rewrite_evidence.result_count != 1 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -22511,15 +22791,28 @@ fn dae_try_remove_dead_self_suffix_result(
 }
 
 ///|
-fn dae_try_remove_uncalled_results(
+fn dae_try_remove_dead_self_suffix_result(
   mod_ : @lib.Module,
   callee_abs : Int,
 ) -> DaePassResult {
-  let context = match dae_dropped_result_module_context(mod_, callee_abs) {
-    Some(context) => context
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  match dae_specialized_result_facts_new(original, graph, callee_abs) {
+    Some(facts) =>
+      dae_try_remove_dead_self_suffix_result_with_facts(mod_, facts)
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+}
+
+///|
+fn dae_try_remove_uncalled_results_with_facts(
+  mod_ : @lib.Module,
+  facts : DaeSpecializedResultFacts,
+) -> DaePassResult {
+  if dae_specialized_result_facts_block_change(facts) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let context = facts.context
   let def_idx = context.signature.def_idx
   let funcs = context.signature.funcs
   let rewrite_evidence = dae_dropped_result_callee_rewrite_evidence(
@@ -22527,7 +22820,7 @@ fn dae_try_remove_uncalled_results(
     context.params,
     context.results,
     context.result_removal_legality,
-    callee_abs,
+    facts.target_abs,
   )
   if rewrite_evidence.param_count != 0 || rewrite_evidence.result_count == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -22544,6 +22837,19 @@ fn dae_try_remove_uncalled_results(
     context.params,
   )
   dae_apply_dropped_result_unreachable_callee_rewrite(mod_, context, plan)
+}
+
+///|
+fn dae_try_remove_uncalled_results(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+) -> DaePassResult {
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  match dae_specialized_result_facts_new(original, graph, callee_abs) {
+    Some(facts) => dae_try_remove_uncalled_results_with_facts(mod_, facts)
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
 }
 
 ///|
@@ -25661,11 +25967,23 @@ fn dae_run_core_once(
       original_result_escape_row.private_result_escaped_operand_call_count == 0 &&
       !(original_result_escape_row.dead_suffix_undropped_escaped_result_call &&
       original_result_escape_row.escaped_dead_suffix_call_count == 0) {
-      let unobserved = dae_try_remove_unobserved_unreachable_function(
-        mod_, callee_abs,
-      )
-      if unobserved.changed {
-        return unobserved
+      match
+        dae_specialized_result_facts_new(original, current_graph, callee_abs) {
+        Some(specialized_facts) => {
+          let unobserved = dae_try_remove_unobserved_unreachable_function_with_facts(
+            mod_, specialized_facts,
+          )
+          if unobserved.changed {
+            dae_record_producer_effects(
+              producer_effects_report,
+              dae_specialized_result_commit_effects(
+                specialized_facts, unobserved,
+              ),
+            )
+            return unobserved
+          }
+        }
+        None => ()
       }
     }
     if boundary_candidate.direct_call_count == 0 {
@@ -25887,11 +26205,23 @@ fn dae_run_core_once(
         !skip_self_suffix_result &&
         !skip_original_large_result_cleanup &&
         original_call_count == original_self_calls {
-        let self_suffix = dae_try_remove_dead_self_suffix_result(
-          mod_, callee_abs,
-        )
-        if self_suffix.changed {
-          return self_suffix
+        match
+          dae_specialized_result_facts_new(original, current_graph, callee_abs) {
+          Some(specialized_facts) => {
+            let self_suffix = dae_try_remove_dead_self_suffix_result_with_facts(
+              mod_, specialized_facts,
+            )
+            if self_suffix.changed {
+              dae_record_producer_effects(
+                producer_effects_report,
+                dae_specialized_result_commit_effects(
+                  specialized_facts, self_suffix,
+                ),
+              )
+              return self_suffix
+            }
+          }
+          None => ()
         }
       }
       let uncalled_result_shape_candidate = match
@@ -25913,9 +26243,21 @@ fn dae_run_core_once(
           dae_original_int_fact_at(current_call_counts_anywhere, def_idx) !=
           self_calls_anywhere
         ) {
-        let result = dae_try_remove_uncalled_results(mod_, callee_abs)
-        if result.changed {
-          return result
+        match
+          dae_specialized_result_facts_new(original, current_graph, callee_abs) {
+          Some(specialized_facts) => {
+            let result = dae_try_remove_uncalled_results_with_facts(
+              mod_, specialized_facts,
+            )
+            if result.changed {
+              dae_record_producer_effects(
+                producer_effects_report,
+                dae_specialized_result_commit_effects(specialized_facts, result),
+              )
+              return result
+            }
+          }
+          None => ()
         }
       }
       if self_calls_anywhere == 0 {
