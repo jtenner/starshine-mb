@@ -528,10 +528,10 @@ priv struct DaeOperandRemovalPlan {
 }
 
 ///|
-/// Canonical direct-call operand / value carrier for ordinary unused-parameter
-/// analysis ([O4Z-DAE-PLAN]001). Specialized GC/select/control paths still
-/// construct slices through the shared helpers; migrate them in later
-/// workstreams rather than inventing a parallel carrier.
+/// Canonical direct-call and typed-select operand/value carrier
+/// ([O4Z-DAE-PLAN]001). Specialized GC/control/result paths still construct
+/// slices through shared helpers; migrate them in later workstreams rather than
+/// inventing a parallel carrier.
 priv struct DaeValueSlice {
   start : Int
   end : Int
@@ -6928,9 +6928,8 @@ fn dae_operand_removal_plan_drops_without_repair(
 // Shared operand-range disposition helper. Ordinary unused-parameter analysis
 // must consume canonical `DaeValueSlice` facts via `dae_direct_call_operand_slices`
 // / `dae_classify_parameter_slot` instead of calling this directly.
-// Remaining specialized consumers (constants/GC/select/control) are migrated
-// under later [O4Z-DAE-PLAN]001 / [O4Z-DAE-FLOW]001 / [O4Z-DAE-TYPES]001 /
-// [O4Z-DAE-RESULTS]001 workstreams.
+// Remaining specialized GC/control/result consumers are migrated under later
+// [O4Z-DAE-TYPES]001 / [O4Z-DAE-RESULTS]001 workstreams.
 fn dae_operand_disposition_from_range(
   instrs : Array[@lib.Instruction],
   start : Int,
@@ -7378,8 +7377,6 @@ fn dae_value_slice_single_instruction_index(slice : DaeValueSlice) -> Int? {
 }
 
 ///|
-// TODO([O4Z-DAE-TYPES]001): migrate select operand recovery onto the enriched
-// canonical `DaeValueSlice` call-operand API once GC refinement shares it.
 fn dae_find_select_value_slices(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -7407,37 +7404,28 @@ fn dae_find_select_value_slices(
         continue
       }
     }
-    let right_shape = match
-      dae_find_value_slice(body, condition_start, 0, mod_, func_type_indices) {
-      Some((shape, _, 0)) => shape
-      _ => {
+    let (value_slices, cursor) = match
+      dae_collect_callsite_value_slices(
+        body, condition_start, 2, 0, mod_, func_type_indices,
+      ) {
+      Some(evidence) => evidence
+      None => {
         condition_start -= 1
         continue
       }
     }
-    let left_shape = match
-      dae_find_value_slice(body, right_shape.start, 0, mod_, func_type_indices) {
-      Some((shape, _, 0)) => shape
-      _ => {
-        condition_start -= 1
-        continue
-      }
-    }
-    if required_left_start >= 0 && left_shape.start != required_left_start {
+    let left = value_slices[0]
+    let right = value_slices[1]
+    if required_left_start >= 0 && left.start != required_left_start {
       condition_start -= 1
       continue
     }
     if require_dropped_prefix &&
-      dae_trivially_dropped_prefix_evidence(body, left_shape.start) is None {
+      dae_trivially_dropped_prefix_evidence(body, cursor) is None {
       condition_start -= 1
       continue
     }
-    return Some({
-      left: dae_value_slice_from_call_shape(body, left_shape),
-      right: dae_value_slice_from_call_shape(body, right_shape),
-      condition,
-      select_idx,
-    })
+    return Some({ left, right, condition, select_idx })
   }
   None
 }
@@ -9114,6 +9102,7 @@ fn dae_collect_owned_callsite_param_slices_instrs(
   epoch : DaeCandidateEpoch,
   entry_stack_values : Int,
   out : Array[DaeValueSlice],
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> Bool {
   let mut call_idx = 0
   while call_idx < instrs.length() {
@@ -9137,6 +9126,7 @@ fn dae_collect_owned_callsite_param_slices_instrs(
             facts.graph.snapshot.type_indices,
             epoch,
             entry_stack_values~,
+            allow_stack_carried_void_effects~,
           ) {
           Some(slices) => {
             if param_idx >= slices.slices.length() {
@@ -9160,6 +9150,7 @@ fn dae_collect_owned_callsite_param_slices_instrs(
             epoch,
             children.entry_stack_values,
             out,
+            allow_stack_carried_void_effects~,
           ) {
           return false
         }
@@ -9175,6 +9166,7 @@ fn dae_collect_owned_callsite_param_slices_instrs(
                 epoch,
                 children.entry_stack_values,
                 out,
+                allow_stack_carried_void_effects~,
               ) {
               return false
             }
@@ -9197,6 +9189,7 @@ fn dae_collect_owned_callsite_param_slices_instrs(
                       epoch,
                       children.entry_stack_values,
                       out,
+                      allow_stack_carried_void_effects~,
                     ) {
                     return false
                   }
@@ -9220,6 +9213,7 @@ fn dae_collect_owned_callsite_param_slices(
   param_types : Array[@lib.ValType],
   direct_caller_defs : Array[Int],
   param_idx : Int,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> Array[DaeValueSlice]? {
   if param_idx < 0 || param_idx >= param_types.length() {
     return None
@@ -9232,7 +9226,16 @@ fn dae_collect_owned_callsite_param_slices(
     let epoch = dae_boundary_candidate_epoch(facts.graph, caller_def)
     let @lib.Func(_, @lib.Expr(body)) = facts.graph.snapshot.funcs[caller_def]
     if !dae_collect_owned_callsite_param_slices_instrs(
-        facts, mod_, body, callee_abs, param_types, param_idx, epoch, 0, out,
+        facts,
+        mod_,
+        body,
+        callee_abs,
+        param_types,
+        param_idx,
+        epoch,
+        0,
+        out,
+        allow_stack_carried_void_effects~,
       ) {
       return None
     }
@@ -9250,6 +9253,7 @@ fn dae_classify_unused_parameter_actions(
   entry_live : Array[Bool],
   direct_caller_defs : Array[Int],
   traps_never_happen? : Bool = false,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> Array[DaeParameterAction]? {
   if entry_live.length() != param_types.length() {
     return None
@@ -9259,7 +9263,13 @@ fn dae_classify_unused_parameter_actions(
   while param_idx < param_types.length() {
     let slices = match
       dae_collect_owned_callsite_param_slices(
-        facts, mod_, callee_abs, param_types, direct_caller_defs, param_idx,
+        facts,
+        mod_,
+        callee_abs,
+        param_types,
+        direct_caller_defs,
+        param_idx,
+        allow_stack_carried_void_effects~,
       ) {
       Some(slices) => slices
       None => return None
@@ -18798,6 +18808,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   materialized_params? : Array[@lib.Instruction?]? = None,
   verified_materialized_suffix? : Array[@lib.Instruction]? = None,
   traps_never_happen? : Bool = false,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeRewritePlan? {
   let def_idx = callee_abs - graph.snapshot.imported
   if graph.snapshot.imported != original.imported ||
@@ -18842,6 +18853,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     boundary_candidate.direct_callers != direct_caller_defs {
     return None
   }
+  let requested_remove = remove.copy()
   let materialized_suffix = match verified_materialized_suffix {
     Some(values) => values.copy()
     None => []
@@ -18868,6 +18880,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         entry_live,
         direct_caller_defs,
         traps_never_happen~,
+        allow_stack_carried_void_effects~,
       ) {
       Some(actions) => actions
       None => return None
@@ -18885,7 +18898,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   while param_idx < params.length() {
     match const_params[param_idx] {
       Some(value) => {
-        if !dae_instr_is_materializable_const_with_immutable_global(mod_, value) {
+        if !requested_remove[param_idx] ||
+          !dae_instr_is_materializable_const_with_immutable_global(mod_, value) {
           return None
         }
         collect_materialized[param_idx] = true
@@ -19009,6 +19023,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       graph.snapshot.type_indices,
       localization=Some(localization),
       traps_never_happen~,
+      allow_stack_carried_void_effects~,
     )
     if !result.ok {
       return {
@@ -19534,10 +19549,6 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
 }
 
 ///|
-// TODO([O4Z-DAE-PLAN]001): migrate this general remove/const path through
-// `dae_classify_parameter_slot` once constant materialization and localization
-// transactions share the same action model. Ordinary unused-only scalar plans
-// already classify via the canonical slice/action APIs.
 fn dae_try_rewrite_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -19548,85 +19559,24 @@ fn dae_try_rewrite_candidate(
   direct_caller_defs : Array[Int],
   allow_stack_carried_void_effects? : Bool = false,
 ) -> DaePassResult {
-  let imported = dae_imported_func_count(mod_)
-  let def_idx = callee_abs - imported
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
-    Some(ft) => ft
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let @lib.FuncType(params, results) = func_type
-  let funcs = match (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(_), Some(@lib.CodeSec(funcs)), Some(_)) => funcs
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let tail_call_boundary = dae_tail_call_boundary_evidence(funcs)
-  if tail_call_boundary.blocks_direct_call_rewrite {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let localized_params = Array::make(params.length(), false)
-  let rewrite_caller = fn(caller_func, caller_def) {
-    let @lib.Func(locals, @lib.Expr(body)) = caller_func
-    let caller_abs = imported + caller_def
-    let caller_params = match
-      dae_resolve_func_type(mod_, type_indices, caller_abs) {
-      Some(@lib.FuncType(caller_params, _)) => caller_params
-      None =>
-        return {
-          func: caller_func,
-          calls_rewritten: 0,
-          changed: false,
-          ok: false,
-        }
-    }
-    let localization = {
-      first_scratch_local: dae_next_free_local_idx(
-        body,
-        caller_params.length() + locals.length(),
-      ),
-      param_types: params,
-      scratch_local_types: [],
-      localized_params,
-    }
-    let result = dae_rewrite_calls_instrs(
-      body,
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  match
+    dae_build_scalar_unused_param_rewrite_plan(
+      mod_,
+      original,
+      graph,
       callee_abs,
       remove,
-      0,
-      mod_,
-      type_indices,
-      localization=Some(localization),
+      local_use,
+      direct_call_count,
+      direct_caller_defs,
+      materialized_params=Some(const_params),
       allow_stack_carried_void_effects~,
-    )
-    if !result.ok {
-      return {
-        func: caller_func,
-        calls_rewritten: 0,
-        changed: false,
-        ok: false,
-      }
-    }
-    if result.calls_rewritten > 0 {
-      let rewritten_locals = locals.copy()
-      rewritten_locals.append_types(localization.scratch_local_types)
-      {
-        func: @lib.Func::new(rewritten_locals, @lib.Expr::new(result.instrs)),
-        calls_rewritten: result.calls_rewritten,
-        changed: true,
-        ok: true,
-      }
-    } else {
-      { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
-    }
+    ) {
+    Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan).result
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let application = dae_apply_direct_caller_scope_rewrite(
-    funcs, direct_caller_defs, rewrite_caller,
-  )
-  dae_apply_removed_param_candidate_after_caller_scope(
-    mod_, def_idx, params, results, remove, const_params, local_use, localized_params,
-    application, direct_call_count,
-  )
 }
 
 ///|

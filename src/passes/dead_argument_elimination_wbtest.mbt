@@ -17328,6 +17328,38 @@ test "dae uniform dispatcher carries immutable-global specialization policy" {
 }
 
 ///|
+test "dae general remove candidate rejects an element-exposed boundary" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (elem (i32.const 0) func $target)
+      #|  (func $target (param i32) (result i32)
+      #|    i32.const 1)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let local_use = dae_local_use_for_callee(funcs[0], 1, 0, 1)
+  let result = dae_try_rewrite_candidate(
+    mod_,
+    0,
+    [true],
+    [None],
+    local_use,
+    1,
+    [1],
+  )
+  assert_false(result.changed)
+  assert_eq(result.mod_out, mod_)
+}
+
+///|
 test "dae exact-literal transaction rejects original escaped ownership" {
   let escaped_source =
     #|(module
