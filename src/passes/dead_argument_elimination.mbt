@@ -19529,6 +19529,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   direct_caller_defs : Array[Int],
   callee_source? : @lib.Func? = None,
   traps_never_happen? : Bool = false,
+  allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeRewritePlanApplication {
   match
     dae_build_scalar_unused_param_rewrite_plan(
@@ -19542,6 +19543,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
       direct_caller_defs,
       callee_source~,
       traps_never_happen~,
+      allow_stack_carried_void_effects~,
     ) {
     Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan)
     None => dae_rewrite_plan_rejection(mod_, DaeActualValueSliceUnavailable)
@@ -27789,9 +27791,16 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  // TODO([O4Z-DAE-WORKLIST]001): plumb shared facts from the dispatcher instead
-  // of reconstructing them here; the final guard remains authoritative.
-  let selected_guard_facts = dae_boundary_facts_new(mod_)
+  let selected_guard_facts = match (original, graph) {
+    (Some(original), Some(graph)) =>
+      {
+        original,
+        graph,
+        incoming_param_live_by_def: [],
+        incoming_param_live_body_epochs: [],
+      }
+    _ => dae_boundary_facts_new(mod_)
+  }
   let scan_limit = if only_def >= 0 && only_def < funcs.length() {
     only_def + 1
   } else if only_def >= funcs.length() {
@@ -27879,6 +27888,7 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
             local_use,
             boundary_candidate.direct_call_count,
             boundary_candidate.direct_callers,
+            allow_stack_carried_void_effects~,
           )
           if planned.applied {
             if !require_localization_retry ||
@@ -27891,56 +27901,6 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
             }
             def_idx += 1
             continue
-          }
-          let mut kept_count = 0
-          let mut removed_param_written = false
-          p = 0
-          while p < params.length() {
-            if remove[p] {
-              removed_param_written = removed_param_written ||
-                local_use.writes[p]
-            } else {
-              kept_count += 1
-            }
-            p += 1
-          }
-          // The canonical slice plan intentionally fails closed when older
-          // stack-carried void effects obscure an operand boundary. This one
-          // represented retry remains a producer-owned localization branch.
-          if allow_stack_carried_void_effects &&
-            kept_count == 1 &&
-            !removed_param_written {
-            let stack_carried = dae_try_rewrite_candidate(
-              mod_,
-              callee_abs,
-              remove,
-              const_params,
-              local_use,
-              boundary_candidate.direct_call_count,
-              boundary_candidate.direct_callers,
-              allow_stack_carried_void_effects=true,
-            )
-            if stack_carried.changed {
-              let structurally_touched_defs : Array[Int] = []
-              let mut touched_def = 0
-              while touched_def < stack_carried.touched.length() {
-                if stack_carried.touched[touched_def] {
-                  structurally_touched_defs.push(touched_def)
-                }
-                touched_def += 1
-              }
-              dae_record_producer_effects(
-                producer_effects_report,
-                dae_commit_effects_parameter_change(
-                  graph.snapshot.defined,
-                  def_idx,
-                  structurally_touched_defs,
-                  false,
-                  boundary_candidate.direct_callers,
-                ),
-              )
-              return stack_carried
-            }
           }
           def_idx += 1
           continue

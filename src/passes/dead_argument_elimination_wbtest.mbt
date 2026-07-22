@@ -16182,6 +16182,49 @@ test "dae core scalar localization reports producer-owned effects" {
 }
 
 ///|
+test "dae scalar plan owns stack-carried void-effect localization" {
+  let source =
+    #|(module
+    #|  (global $g (mut i32) (i32.const 0))
+    #|  (func $target (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 1
+    #|    i32.const 99
+    #|    global.set $g
+    #|    i32.const 7
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let local_use = dae_local_use_for_callee(funcs[0], 2, 0, 2)
+  let application = dae_try_rewrite_scalar_unused_param_candidate(
+    mod_,
+    original,
+    graph,
+    0,
+    [true, false],
+    local_use,
+    1,
+    [1],
+    allow_stack_carried_void_effects=true,
+  )
+  assert_true(application.applied)
+  assert_true(application.effects.parameter_changed[0])
+  assert_true(application.effects.body_localized[1])
+  assert_true(application.effects.worth_optimizing[0])
+  assert_true(application.effects.worth_optimizing[1])
+  match @validate.validate_module(application.result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid stack-carried scalar plan, got \{err}")
+  }
+}
+
+///|
 test "dae core GC parameter refinement reports producer-owned effects" {
   let source =
     #|(module
