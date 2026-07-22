@@ -105,9 +105,22 @@ Plain DAE reproduces the July 20 counts exactly: regular `100000/100000` exact; 
 
 Plain artifact evidence is now also current: valid/idempotent `2,991,169` bytes, SHA-256 `f7bbacf174d6b1edacddc3f60abef4a107b385b14f86fc5373d7c3e6ac025c72`, productive/idempotent medians `85.329s` / `64.277s`, and canonical delta `-9,670` versus Binaryen v131. This closes the old separate plain-artifact renewal blocker.
 
-## July 22, 2026 active-parity development probes
+## July 22, 2026 active-parity renewal
 
-After replacing the remaining `1024` exact-uniform phase split with pass-semantic ownership, native SHA-256 `3534db2ee9641a5b10193aef5535c96ac5277af5dc36ff6514bf9fa32bbea04a` completed two bounded regular GenValid probes. Plain `dead-argument-elimination` compared `1000/1000` with `1000` normalized matches; normalized `dae-optimizing` also compared `1000/1000` with `1000` normalized matches. Both had zero mismatches, validation failures, generator failures, property failures, or command failures. The focused self-recursive-result, effectful forwarding-component, and one-wave written-forwarding regressions remain green. These are development probes, not replacements for the required four-lane closeout matrix.
+After replacing the remaining `1024` exact-uniform phase split with pass-semantic ownership, native SHA-256 `3534db2ee9641a5b10193aef5535c96ac5277af5dc36ff6514bf9fa32bbea04a` completed the required four compare lanes for both variants:
+
+| variant / lane | requested / compared | normalized | cleanup-normalized | raw residuals | command failures |
+|---|---:|---:|---:|---:|---:|
+| plain regular GenValid | `100000 / 100000` | `100000` | `0` | `0` | `0` |
+| plain dedicated DAE | `10000 / 8750` | `1875` | `0` | `6875` | `1250` |
+| plain wasm-smith | `10000 / 6719` | `6718` | `0` | `1` | `3281` |
+| plain random-all | `10000 / 9109` | `7750` | `0` | `1359` | `891` |
+| DAEO regular GenValid | `100000 / 100000` | `100000` | `0` | `0` | `0` |
+| DAEO dedicated | `10000 / 10000` | `7662` | `0` | `2338` | `0` |
+| DAEO wasm-smith | `10000 / 6719` | `6719` | `0` | `0` | `3281` |
+| DAEO random-all | `10000 / 9109` | `8620` | `62` | `427` | `891` |
+
+There are zero Starshine validation, generator, property, or command failures. Dedicated and random-all residual profile families are unchanged representation/cleanup families already covered by the July 20-21 source, size, and effect-preservation classifications: plain DAE performs stronger parameter removal in constant, unused, effectful, localization, convergence, and tail fixtures; DAEO residuals remain computed-effects, table-effects, touched-caller, structured-locals, and shared precompute-local-fact cleanup. The one plain wasm-smith residual preserves `memory.size`, the evaluated `f64.const`, and terminal `unreachable` while removing a redundant typed block; canonical output is `77` bytes versus Binaryen's `82`, so it is classified as a measured Starshine cleanup win rather than a parity gap. The `1250` dedicated plain failures are Binaryen-v131 failures on the two GC refinement leaves; wasm-smith and random-all command failures are likewise oracle/tool failures and are recorded separately from compared cases. The focused self-recursive-result, effectful forwarding-component, and one-wave written-forwarding regressions remain green. Artifact, performance, source-fixture, and remaining implementation-lifecycle work still prevent declaring the reopened roadmap closed.
 
 ## Historical blockers and superseded checkpoints
 
