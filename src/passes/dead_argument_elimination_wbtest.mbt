@@ -16350,6 +16350,45 @@ test "dae GC result refinement derives exact ref.func return types" {
 }
 
 ///|
+test "dae GC result refinement narrows one multivalue tuple lane" {
+  let source =
+    #|(module
+    #|  (global $ref_sink (mut anyref) (ref.null any))
+    #|  (global $i32_sink (mut i32) (i32.const 0))
+    #|  (func $producer (result anyref i32)
+    #|    (local $value i31ref)
+    #|    local.get $value
+    #|    i32.const 1)
+    #|  (func (export "run")
+    #|    call $producer
+    #|    global.set $i32_sink
+    #|    global.set $ref_sink))
+  let parsed = pass_test_module_from_wat(source)
+  let encoded = match @binary.encode_module(parsed) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected multivalue result fixture encode, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected multivalue result fixture decode, got \{err}")
+  }
+  let result = dae_run_core(mod_, fn(_) { () })
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(_, results)) => {
+      assert_eq(results.length(), 2)
+      assert_eq(results[0], @lib.ValType::i31ref_nullable())
+      assert_eq(results[1], @lib.ValType::i32())
+    }
+    _ => fail("expected refined multivalue result signature")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid refined multivalue result, got \{err}")
+  }
+}
+
+///|
 test "dae GC result refinement joins nullable explicit-return branches" {
   let source =
     #|(module
