@@ -17939,10 +17939,7 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
       },
     )
   }
-  let tail_boundary = dae_tail_call_boundary_evidence(funcs)
-  if tail_boundary.blocks_result_removal {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
+  let boundary_facts = dae_boundary_facts_new(mod_)
   let plans : Array[DaeDroppedResultBatchPlan] = []
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
     let callee_abs = imported + def_idx
@@ -17956,7 +17953,8 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
     }
     if !candidate.owned ||
       candidate.direct_call_count ==
-      dae_count_self_calls(funcs[def_idx], callee_abs) {
+      dae_count_self_calls(funcs[def_idx], callee_abs) ||
+      !dae_can_remove_function_result(boundary_facts, callee_abs) {
       continue
     }
     let @lib.FuncType(params, results) = match
