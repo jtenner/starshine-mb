@@ -403,6 +403,55 @@ fn dae_diagnostics_reason_count(
 }
 
 ///|
+fn dae_diagnostics_record_commit_effects(
+  diagnostics : DaeDiagnostics,
+  effects : DaeCommitEffects,
+) -> Unit {
+  diagnostics.candidates_produced += 1
+  dae_diagnostics_record_reason(diagnostics, DaeCandidateProduced)
+  let mut def_idx = 0
+  while def_idx < effects.parameter_changed.length() {
+    if effects.parameter_changed[def_idx] {
+      if def_idx < effects.parameter_type_refined.length() &&
+        effects.parameter_type_refined[def_idx] {
+        diagnostics.parameter_types_refined += 1
+      } else {
+        diagnostics.parameters_removed += 1
+      }
+    }
+    if def_idx < effects.body_materialized.length() &&
+      effects.body_materialized[def_idx] {
+      diagnostics.parameters_materialized += 1
+    }
+    if def_idx < effects.result_changed.length() &&
+      effects.result_changed[def_idx] {
+      if def_idx < effects.result_removed.length() &&
+        effects.result_removed[def_idx] {
+        diagnostics.results_removed += 1
+      } else {
+        diagnostics.result_types_refined += 1
+      }
+    }
+    if def_idx < effects.caller_drop_removed.length() &&
+      effects.caller_drop_removed[def_idx] {
+      diagnostics.callsites_rewritten += 1
+    }
+    if def_idx < effects.caller_bottom_repaired.length() &&
+      effects.caller_bottom_repaired[def_idx] {
+      diagnostics.callsites_rewritten += 1
+    }
+    if def_idx < effects.body_localized.length() &&
+      effects.body_localized[def_idx] {
+      diagnostics.localization_retries += 1
+    }
+    def_idx += 1
+  }
+  if effects.type_section_changed {
+    diagnostics.type_entries_appended += 1
+  }
+}
+
+///|
 priv struct DaeCallShape {
   start : Int
   end : Int
@@ -4080,6 +4129,7 @@ fn dae_process_work_item(
         dependencies,
       ) {
       Some(commit) => {
+        dae_diagnostics_record_commit_effects(diagnostics, commit.effects)
         diagnostics.candidates_applied += 1
         dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
         return DaeWorkCommitted({
@@ -4204,6 +4254,10 @@ fn dae_process_work_item(
       }
       let plan_application = dae_apply_family_rewrite_plan(current, graph, plan)
       if plan_application.applied {
+        dae_diagnostics_record_commit_effects(
+          diagnostics,
+          plan_application.effects,
+        )
         diagnostics.candidates_applied += 1
         dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
         DaeWorkCommitted({
@@ -4215,6 +4269,9 @@ fn dae_process_work_item(
           effects: plan_application.effects,
         })
       } else {
+        if plan_application.reason == DaeValidationRollback {
+          diagnostics.validation_rollbacks += 1
+        }
         dae_diagnostics_record_reason(diagnostics, plan_application.reason)
         DaeWorkNoChange(plan_application.reason)
       }

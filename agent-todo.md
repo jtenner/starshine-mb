@@ -182,7 +182,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [ ] Route every family through epoch-bearing no-change/deferred/commit/stale/rollback outcomes.
   - [ ] Replace parallel full scans and specialized phase loops with exact caller/callee/result/type/body/cleanup invalidations.
   - [ ] Remove correctness and required-parity attempt/cardinality caps; a defensive budget may stop optional work only with valid output and explicit telemetry.
-  - [ ] Plumb production counters for selected-only admission, guards, stale retries, rollbacks, localization, type/result edits, and nested replay.
+  - [ ] Plumb production counters for selected-only admission, guards, stale retries, rollbacks, localization, type/result edits, and nested replay. *(common committed work now records produced/applied candidates, removed or refined parameters/results, materialization, caller result repair, localization, type-section edits, stale requeues, and validation rollback through `DaeDiagnostics`; selected-only, guard, scratch-local reuse, effect replay, and nested-roster counters remain)*
 - **Exit criteria:** no required transform depends on a `FuncNNN`, numeric band, module-size bucket, or arbitrary productive-attempt cap; selected-only correctness counters are zero.
 
 ### [O4Z-DAEO-LIFECYCLE]001 - Match Binaryen's worth-optimizing set and nested convergence

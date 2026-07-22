@@ -16809,6 +16809,11 @@ test "dae family dispatcher commits uniform literal work" {
     }
     _ => fail("expected uniform literal family to commit")
   }
+  assert_eq(diagnostics.candidates_produced, 1)
+  assert_eq(diagnostics.candidates_applied, 1)
+  assert_eq(diagnostics.parameters_removed, 1)
+  assert_eq(diagnostics.parameters_materialized, 1)
+  assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateProduced), 1)
 }
 
 ///|
