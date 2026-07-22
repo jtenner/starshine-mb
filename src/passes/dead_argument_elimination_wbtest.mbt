@@ -16350,6 +16350,68 @@ test "dae GC result refinement derives exact ref.func return types" {
 }
 
 ///|
+test "dae GC result refinement joins nullable explicit-return branches" {
+  let source =
+    #|(module
+    #|  (type $struct (struct))
+    #|  (global $sink (mut anyref) (ref.null any))
+    #|  (func $producer (param i32 i32) (result anyref)
+    #|    local.get 0
+    #|    if (result anyref)
+    #|      local.get 1
+    #|      if (result anyref)
+    #|        struct.new_default $struct
+    #|      else
+    #|        ref.null any
+    #|      end
+    #|    else
+    #|      struct.new_default $struct
+    #|    end)
+    #|  (func (export "run")
+    #|    i32.const 1
+    #|    i32.const 1
+    #|    call $producer
+    #|    global.set $sink
+    #|    i32.const 1
+    #|    i32.const 0
+    #|    call $producer
+    #|    global.set $sink
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    call $producer
+    #|    global.set $sink))
+  let parsed = pass_test_module_from_wat(source)
+  let encoded = match @binary.encode_module(parsed) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected nullable result fixture encode, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected nullable result fixture decode, got \{err}")
+  }
+  let result = dae_run_core(mod_, fn(_) { () })
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      true,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(_, results)) => {
+      assert_eq(results.length(), 1)
+      assert_eq(results[0], expected)
+    }
+    _ => fail("expected nullable joined result refinement")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid nullable joined result, got \{err}")
+  }
+}
+
+///|
 test "dae GC parameter refinement derives exact ref.func actual types" {
   let source =
     #|(module

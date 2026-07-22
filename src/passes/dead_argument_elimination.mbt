@@ -12403,6 +12403,15 @@ fn dae_nullable_gc_candidate_ref_type(
       } else {
         None
       }
+    (@lib.RefTypeValType(candidate_ref), @lib.RefTypeValType(old_ref)) => {
+      let nullable_ref = candidate_ref.make_nullable()
+      let module_ctx = @ir.hot_module_context_from_module(mod_)
+      if ls_ref_is_subtype(module_ctx, nullable_ref, old_ref) {
+        Some(@lib.ValType::ref_type(nullable_ref))
+      } else {
+        None
+      }
+    }
     _ => None
   }
 }
@@ -13132,6 +13141,32 @@ fn dae_single_result_control_pair_repair_evidence_is_consistent(
 }
 
 ///|
+fn dae_rewrite_single_result_null_body(
+  body : Array[@lib.Instruction],
+  candidate : @lib.ValType,
+) -> Array[@lib.Instruction]? {
+  let ref_type = match candidate {
+    @lib.RefTypeValType(ref_type) => ref_type
+    _ => return None
+  }
+  if body.length() == 0 {
+    return None
+  }
+  let null_idx = if body[body.length() - 1] is @lib.RefNull(_) {
+    body.length() - 1
+  } else if body[body.length() - 1] is @lib.Return &&
+    body.length() >= 2 &&
+    body[body.length() - 2] is @lib.RefNull(_) {
+    body.length() - 2
+  } else {
+    return None
+  }
+  let rewritten = body.copy()
+  rewritten[null_idx] = @lib.Instruction::ref_null_type(ref_type)
+  Some(rewritten)
+}
+
+///|
 fn dae_single_result_control_pair_repair_evidence(
   mod_ : @lib.Module,
   then_body : Array[@lib.Instruction],
@@ -13143,21 +13178,59 @@ fn dae_single_result_control_pair_repair_evidence(
     Array[@lib.Instruction]?,
   )?,
 ) -> DaeSingleResultControlPairRepairEvidence? {
-  let (then_candidate, then_rewrite) = match arm_candidate(then_body) {
-    Some(result) => result
-    None => return None
-  }
-  let (else_candidate, else_rewrite) = match arm_candidate(else_body) {
-    Some(result) => result
-    None => return None
-  }
-  let pair = match
-    dae_single_result_control_pair_gc_evidence(
-      mod_, then_body, then_candidate, then_rewrite, else_body, else_candidate, else_rewrite,
-      old_type,
-    ) {
-    Some(evidence) => evidence
-    None => return None
+  let then_result = arm_candidate(then_body)
+  let else_result = arm_candidate(else_body)
+  let pair = match (then_result, else_result) {
+    (Some((then_candidate, then_rewrite)), Some((else_candidate, else_rewrite))) =>
+      match
+        dae_single_result_control_pair_gc_evidence(
+          mod_, then_body, then_candidate, then_rewrite, else_body, else_candidate,
+          else_rewrite, old_type,
+        ) {
+        Some(evidence) => evidence
+        None => return None
+      }
+    (Some((candidate, then_rewrite)), None) => {
+      let nullable = match
+        dae_nullable_gc_candidate_ref_type(candidate, old_type, mod_) {
+        Some(nullable) => nullable
+        None => return None
+      }
+      let rewritten_else_body = match
+        dae_rewrite_single_result_null_body(else_body, nullable) {
+        Some(body) => body
+        None => return None
+      }
+      {
+        candidate: nullable,
+        rewritten_then_body: match then_rewrite {
+          Some(body) => body
+          None => then_body
+        },
+        rewritten_else_body,
+      }
+    }
+    (None, Some((candidate, else_rewrite))) => {
+      let nullable = match
+        dae_nullable_gc_candidate_ref_type(candidate, old_type, mod_) {
+        Some(nullable) => nullable
+        None => return None
+      }
+      let rewritten_then_body = match
+        dae_rewrite_single_result_null_body(then_body, nullable) {
+        Some(body) => body
+        None => return None
+      }
+      {
+        candidate: nullable,
+        rewritten_then_body,
+        rewritten_else_body: match else_rewrite {
+          Some(body) => body
+          None => else_body
+        },
+      }
+    }
+    (None, None) => return None
   }
   let (rewritten, application) = match
     dae_apply_single_result_control_pair_gc_evidence(pair, result_is_void) {
