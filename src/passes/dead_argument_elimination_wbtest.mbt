@@ -15481,6 +15481,33 @@ test "dae GC parameter refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae unread parameter batch is definition-count independent" {
+  let source =
+    #|(module
+    #|  (func $target (param i32 i64) (result i64)
+    #|    local.get 1)
+    #|  (func (export "run") (result i64)
+    #|    i32.const 7
+    #|    i64.const 9
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let result = dae_try_apply_unread_param_batch(mod_)
+  assert_true(result.changed)
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType([param], [result_type])) => {
+      assert_eq(param, @lib.ValType::i64())
+      assert_eq(result_type, @lib.ValType::i64())
+    }
+    _ => fail("expected compact unread batch parameter removal")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid compact unread batch, got \{err}")
+  }
+}
+
+///|
 test "dae direct GC batch is definition-count independent" {
   let source =
     #|(module

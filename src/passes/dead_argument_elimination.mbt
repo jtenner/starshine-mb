@@ -16713,11 +16713,8 @@ fn dae_try_apply_unread_param_batch(mod_ : @lib.Module) -> DaePassResult {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
-  // Large-module batch acceleration only. The dependency-driven scalar core
-  // remains authoritative for every module size.
-  if defined < 1024 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
+  // Definition-count-independent batch candidate construction. The family
+  // transaction remains the only production commit boundary.
   let boundary_facts = snapshot.boundary_facts
   let mut type_sec = match mod_.type_sec {
     Some(type_sec) => type_sec
@@ -41447,22 +41444,28 @@ fn dae_run_core(
       perf, "detail:dae:core:unread-param-batch",
     )
     let mut unread_batch_wave = 0
-    while true {
-      let batch = dae_try_apply_unread_param_batch(current)
-      let batch_graph = dae_current_boundary_graph_new(current)
-      let application = dae_apply_family_result_transaction(
-        original_boundary_snapshot, current, touched, changed, batch_graph, batch,
-      )
-      if !application.applied {
-        break
+    if original_defined >= 1024 {
+      while true {
+        let batch = dae_try_apply_unread_param_batch(current)
+        let batch_graph = dae_current_boundary_graph_new(current)
+        let application = dae_apply_family_result_transaction(
+          original_boundary_snapshot, current, touched, changed, batch_graph, batch,
+        )
+        if !application.applied {
+          break
+        }
+        current = application.mod_out
+        touched = application.touched
+        changed = application.changed
+        trace(
+          "pass[dae-optimizing]:unread-param-batch wave=\{unread_batch_wave} first_def=\{application.primary_def}",
+        )
+        unread_batch_wave += 1
       }
-      current = application.mod_out
-      touched = application.touched
-      changed = application.changed
+    } else {
       trace(
-        "pass[dae-optimizing]:unread-param-batch wave=\{unread_batch_wave} first_def=\{application.primary_def}",
+        "pass[dae-optimizing]:unread-param-batch skip=small-module-acceleration optional=true defined=\{original_defined}",
       )
-      unread_batch_wave += 1
     }
     perf_stop_timer_opt(
       perf, "detail:dae:core:unread-param-batch", unread_batch_start_us,
