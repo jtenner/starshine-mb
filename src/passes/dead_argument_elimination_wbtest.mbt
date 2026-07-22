@@ -15473,6 +15473,32 @@ test "dae parameter flow records exact reordered forwarding slots and tail compo
 }
 
 ///|
+test "dae uniform collection admission is module-size independent and cycle aware" {
+  for defined in [2, 1024, 4096] {
+    assert_true(
+      dae_should_collect_phase_local_uniform_constants(
+        defined,
+        optimize=true,
+        allow_written_uniform_const=false,
+        self_calls_anywhere=0,
+        has_collect_const_param=true,
+        has_direct_caller_cycle=false,
+      ),
+    )
+    assert_false(
+      dae_should_collect_phase_local_uniform_constants(
+        defined,
+        optimize=true,
+        allow_written_uniform_const=false,
+        self_calls_anywhere=0,
+        has_collect_const_param=true,
+        has_direct_caller_cycle=true,
+      ),
+    )
+  }
+}
+
+///|
 test "dae parameter flow lattice distinguishes unseen forwarded uniform conflict and blocked" {
   let facts : Array[DaeParameterFlowFact] = []
   let empty = { facts, }

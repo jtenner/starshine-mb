@@ -25770,6 +25770,21 @@ fn dae_core_pass_result_from_work_application(
 }
 
 ///|
+fn dae_should_collect_phase_local_uniform_constants(
+  _defined : Int,
+  optimize~ : Bool,
+  allow_written_uniform_const~ : Bool,
+  self_calls_anywhere~ : Int,
+  has_collect_const_param~ : Bool,
+  has_direct_caller_cycle~ : Bool,
+) -> Bool {
+  (optimize || allow_written_uniform_const) &&
+  self_calls_anywhere == 0 &&
+  has_collect_const_param &&
+  !has_direct_caller_cycle
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
@@ -26296,15 +26311,17 @@ fn dae_run_core_once(
             }
             collect_p += 1
           }
-          // Preserve Binaryen's phase-local profitability frontier here. Broad
-          // modules use the later exact call-target/value-slice revisit instead.
-          let uniform_const_params = if optimize &&
-            defined < 1024 &&
-            has_collect_const_param &&
-            !(defined >= 1024 &&
-            dae_boundary_has_direct_caller_cycle(
-              boundary_facts, imported, callee_abs,
-            )) {
+          let has_direct_caller_cycle = dae_boundary_has_direct_caller_cycle(
+            boundary_facts, imported, callee_abs,
+          )
+          let uniform_const_params = if dae_should_collect_phase_local_uniform_constants(
+              defined,
+              optimize~,
+              allow_written_uniform_const=false,
+              self_calls_anywhere~,
+              has_collect_const_param~,
+              has_direct_caller_cycle~,
+            ) {
             dae_collect_uniform_const_actuals_from_current_call_facts(
               mod_,
               callee_abs,
@@ -26520,15 +26537,14 @@ fn dae_run_core_once(
       }
       collect_p += 1
     }
-    // This early materialization lane is optional phase-local cleanup. Broad
-    // modules use the exact later uniform-constant frontier, avoiding premature
-    // component changes while keeping correctness size-independent.
-    let uniform_const_params = if (optimize || allow_written_uniform_const) &&
-      defined < 1024 &&
-      self_calls_anywhere == 0 &&
-      has_collect_const_param &&
-      !(defined >= 1024 &&
-      dae_boundary_has_direct_caller_cycle(boundary_facts, imported, callee_abs)) {
+    let uniform_const_params = if dae_should_collect_phase_local_uniform_constants(
+        defined,
+        optimize~,
+        allow_written_uniform_const~,
+        self_calls_anywhere~,
+        has_collect_const_param~,
+        has_direct_caller_cycle=preserve_direct_cycle,
+      ) {
       dae_collect_uniform_const_actuals_from_current_call_facts(
         mod_,
         callee_abs,
