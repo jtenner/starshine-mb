@@ -18335,3 +18335,67 @@ test "dae ordinary unused-parameter path preserves exposure and type-only non-bl
     Err(err) => fail("type-only tag DAE output must validate, got \{err}")
   }
 }
+
+///|
+test "dae call identities exclude inactive suffix calls" {
+  let source = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target
+      #|    unreachable
+      #|    i32.const 8
+      #|    call $target))
+    ),
+  )
+  let graph = dae_current_boundary_graph_new(source)
+  let identities = dae_collect_target_call_identities(graph.snapshot, 0)
+  assert_eq(identities.length(), 1)
+  assert_eq(identities[0].caller_def, 1)
+  assert_eq(identities[0].call_kind, DaeDirectCall)
+}
+
+///|
+test "dae family transaction derives exact touched ownership" {
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let candidate_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target
+      #|    nop)
+      #|  (func (export "run")
+      #|    call $target))
+    ),
+  )
+  let original = dae_collect_original_boundary_snapshot(current)
+  let graph = dae_current_boundary_graph_new(current)
+  let application = dae_apply_family_result_transaction(
+    original,
+    current,
+    [],
+    false,
+    graph,
+    { mod_out: candidate_mod, touched: [], changed: true, primary_def: -1 },
+  )
+  assert_true(application.applied)
+  assert_eq(application.primary_def, 0)
+  assert_eq(application.touched.length(), 2)
+  assert_true(application.touched[0])
+  assert_true(application.touched[1])
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("family transaction output must validate, got \{err}")
+  }
+}

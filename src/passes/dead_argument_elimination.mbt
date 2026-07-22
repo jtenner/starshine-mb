@@ -2582,6 +2582,28 @@ fn dae_can_change_parameters(facts : DaeBoundaryFacts, func_abs : Int) -> Bool {
 }
 
 ///|
+fn dae_can_change_family_signature(
+  facts : DaeBoundaryFacts,
+  func_abs : Int,
+) -> Bool {
+  if dae_can_change_parameters(facts, func_abs) {
+    return true
+  }
+  let exposure = dae_boundary_facts_exposure(facts)
+  if func_abs < 0 ||
+    func_abs >= exposure.length() ||
+    dae_function_exposure_blocks_boundary(exposure[func_abs]) ||
+    (
+      func_abs < facts.graph.snapshot.call_facts.escaped.length() &&
+      facts.graph.snapshot.call_facts.escaped[func_abs]
+    ) {
+    return false
+  }
+  dae_collect_target_call_identities(facts.graph.snapshot, func_abs).length() ==
+  0
+}
+
+///|
 fn dae_can_change_parameters_reason(
   facts : DaeBoundaryFacts,
   func_abs : Int,
@@ -3342,7 +3364,8 @@ fn dae_build_family_rewrite_plan(
       func_abs,
     )
     let signature_changed = old_signature != next_signature
-    if signature_changed && !dae_can_change_parameters(shared_facts, func_abs) {
+    if signature_changed &&
+      !dae_can_change_family_signature(shared_facts, func_abs) {
       return None
     }
     if candidate.touched[def_idx] || signature_changed || def_idx == target_def {
@@ -3442,13 +3465,61 @@ fn dae_apply_family_result_transaction(
   graph : DaeCurrentBoundaryGraph,
   candidate : DaePassResult,
 ) -> DaeCoreResultApplication {
+  let candidate_funcs = match candidate.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  let candidate_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let normalized_touched = Array::make(graph.snapshot.defined, false)
+  let mut def_idx = 0
+  while def_idx < graph.snapshot.defined && def_idx < candidate_funcs.length() {
+    let func_abs = graph.snapshot.imported + def_idx
+    let next_signature = dae_resolve_func_type(
+      candidate.mod_out,
+      candidate_type_indices,
+      func_abs,
+    )
+    if graph.snapshot.funcs[def_idx] != candidate_funcs[def_idx] ||
+      graph.snapshot.function_types[func_abs] != next_signature {
+      normalized_touched[def_idx] = true
+    }
+    def_idx += 1
+  }
+  let mut inferred_target_def = -1
+  let mut touched_idx = 0
+  while touched_idx < normalized_touched.length() {
+    if normalized_touched[touched_idx] {
+      inferred_target_def = touched_idx
+      break
+    }
+    touched_idx += 1
+  }
+  let target_def = if candidate.primary_def >= 0 &&
+    candidate.primary_def < normalized_touched.length() &&
+    normalized_touched[candidate.primary_def] {
+    candidate.primary_def
+  } else {
+    inferred_target_def
+  }
+  let target_abs = graph.snapshot.imported + target_def
+  let transaction_mod = if target_def >= 0 &&
+    dae_collect_target_call_identities(graph.snapshot, target_abs).length() > 0 {
+    dae_cleanup_dropped_unreachable_debris_touched(
+      candidate.mod_out,
+      normalized_touched,
+    ).0
+  } else {
+    candidate.mod_out
+  }
+  let normalized_candidate = {
+    mod_out: transaction_mod,
+    touched: normalized_touched,
+    changed: candidate.changed,
+    primary_def: target_def,
+  }
   let plan = match
     dae_build_family_rewrite_plan(
-      original,
-      current,
-      graph,
-      candidate.primary_def,
-      candidate,
+      original, current, graph, target_def, normalized_candidate,
     ) {
     Some(plan) => plan
     None =>
@@ -17429,6 +17500,56 @@ fn dae_count_target_call_kinds_instrs(
 }
 
 ///|
+fn dae_count_active_target_call_kinds_instrs(
+  instrs : Array[@lib.Instruction],
+  callee_abs : Int,
+) -> (Int, Int) {
+  let mut direct_calls = 0
+  let mut return_calls = 0
+  for instr in instrs {
+    if dae_instr_is_unreachable_root(instr) {
+      break
+    }
+    match instr {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        direct_calls += 1
+      @lib.ReturnCall(func_idx) if dae_func_idx_slot(func_idx) == callee_abs => {
+        direct_calls += 1
+        return_calls += 1
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (nested_direct, nested_return) = dae_count_active_target_call_kinds_instrs(
+          body, callee_abs,
+        )
+        direct_calls += nested_direct
+        return_calls += nested_return
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_direct, then_return) = dae_count_active_target_call_kinds_instrs(
+          then_body, callee_abs,
+        )
+        direct_calls += then_direct
+        return_calls += then_return
+        match else_body {
+          Some(body) => {
+            let (else_direct, else_return) = dae_count_active_target_call_kinds_instrs(
+              body, callee_abs,
+            )
+            direct_calls += else_direct
+            return_calls += else_return
+          }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (direct_calls, return_calls)
+}
+
+///|
 fn dae_collect_target_call_identities(
   snapshot : DaeModuleBoundarySnapshot,
   callee_abs : Int,
@@ -17438,7 +17559,7 @@ fn dae_collect_target_call_identities(
     return identities
   }
   for callsite in snapshot.function_infos[callee_abs].calls {
-    if callsite.callee_abs == callee_abs {
+    if callsite.active && callsite.callee_abs == callee_abs {
       identities.push({
         caller_def: callsite.caller_def,
         path: callsite.path.copy(),
@@ -17452,6 +17573,24 @@ fn dae_collect_target_call_identities(
     }
   }
   identities
+}
+
+///|
+fn dae_count_call_identities_for_caller(
+  identities : Array[DaeDirectCallIdentity],
+  caller_def : Int,
+) -> (Int, Int) {
+  let mut direct_calls = 0
+  let mut return_calls = 0
+  for identity in identities {
+    if identity.caller_def == caller_def {
+      direct_calls += 1
+      if identity.call_kind == DaeDirectReturnCall {
+        return_calls += 1
+      }
+    }
+  }
+  (direct_calls, return_calls)
 }
 
 ///|
@@ -17780,11 +17919,24 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       ),
     ),
   )
-  let callee_rewrite = dae_simplify_to_unreachable_when_prefix_unobservable(
+  let mut callee_rewrite = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(callee_evidence.locals, @lib.Expr::new(callee_body)),
   )
   let rewritten_funcs = caller_application.funcs
   rewritten_funcs[def_idx] = callee_rewrite
+  let mut cleanup_idx = 0
+  while cleanup_idx < rewritten_funcs.length() {
+    if graph.snapshot.funcs[cleanup_idx] != rewritten_funcs[cleanup_idx] {
+      let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[cleanup_idx]
+      let (cleaned_body, _) = dae_trim_instrs_after_unreachable_tail(body)
+      rewritten_funcs[cleanup_idx] = @lib.Func::new(
+        locals,
+        @lib.Expr::new(cleaned_body),
+      )
+    }
+    cleanup_idx += 1
+  }
+  callee_rewrite = rewritten_funcs[def_idx]
   let context = match
     dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
     Some(context) => context
@@ -17818,6 +17970,13 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   }
   let expected_callers : Array[DaeCallerEpochExpectation] = []
   let caller_rewrites : Array[DaeCallerRewritePlan] = []
+  let expected_call_identities = dae_collect_target_call_identities(
+    graph.snapshot,
+    callee_abs,
+  )
+  if expected_call_identities.length() != direct_call_count {
+    return None
+  }
   let mut expected_return_call_count = 0
   for caller_def in direct_caller_defs {
     if caller_def < 0 ||
@@ -17826,9 +17985,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       return None
     }
     let epochs = graph.function_epochs[caller_def]
-    let @lib.Func(_, @lib.Expr(caller_body)) = graph.snapshot.funcs[caller_def]
-    let (caller_direct_calls, caller_return_calls) = dae_count_target_call_kinds_instrs(
-      caller_body, callee_abs,
+    let (caller_direct_calls, caller_return_calls) = dae_count_call_identities_for_caller(
+      expected_call_identities, caller_def,
     )
     expected_return_call_count += caller_return_calls
     expected_callers.push({
@@ -17861,10 +18019,6 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   }
   touched[def_idx] = true
   let target_epochs = graph.function_epochs[def_idx]
-  let expected_call_identities = dae_collect_target_call_identities(
-    graph.snapshot,
-    callee_abs,
-  )
   let candidate_with_sections = mod_
     .with_type_sec(next_type_sec)
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
@@ -18019,6 +18173,13 @@ fn dae_apply_rewrite_plan(
     graph.snapshot.function_types[plan.target_abs] != Some(plan.old_signature) {
     return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
   }
+  let current_call_identities = dae_collect_target_call_identities(
+    graph.snapshot,
+    plan.target_abs,
+  )
+  if current_call_identities != plan.expected_call_identities {
+    return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
+  }
   let mut direct_calls = 0
   let mut return_calls = 0
   for expected in plan.expected_callers {
@@ -18033,7 +18194,7 @@ fn dae_apply_rewrite_plan(
       return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
     }
     let @lib.Func(_, @lib.Expr(body)) = graph.snapshot.funcs[expected.def_idx]
-    let (caller_direct, caller_return) = dae_count_target_call_kinds_instrs(
+    let (caller_direct, caller_return) = dae_count_active_target_call_kinds_instrs(
       body,
       plan.target_abs,
     )
@@ -18045,9 +18206,7 @@ fn dae_apply_rewrite_plan(
     return_calls += caller_return
   }
   if direct_calls != plan.expected_direct_call_count ||
-    return_calls != plan.expected_return_call_count ||
-    dae_collect_target_call_identities(graph.snapshot, plan.target_abs) !=
-    plan.expected_call_identities {
+    return_calls != plan.expected_return_call_count {
     return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
   }
   match (mod_.type_sec, mod_.func_sec, mod_.code_sec) {
@@ -41539,8 +41698,9 @@ fn dae_run_core(
         original_dead_suffix_mutual_calls, original_dead_suffix_calls_from_param_operand_self_result_callers,
         original_dead_suffix_escaped_result_operand_call_counts, original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       )
-      let reverse_application = dae_apply_core_result(
-        current, touched, changed, reverse_result,
+      let reverse_graph = dae_current_boundary_graph_new(current)
+      let reverse_application = dae_apply_family_result_transaction(
+        original_boundary_snapshot, current, touched, changed, reverse_graph, reverse_result,
       )
       if !reverse_application.applied {
         break
@@ -41585,8 +41745,9 @@ fn dae_run_core(
       reverse=false,
       max_def_exclusive=4096,
     )
-    let low_revisit_application = dae_apply_core_result(
-      current, touched, changed, low_revisit_result,
+    let low_revisit_graph = dae_current_boundary_graph_new(current)
+    let low_revisit_application = dae_apply_family_result_transaction(
+      original_boundary_snapshot, current, touched, changed, low_revisit_graph, low_revisit_result,
     )
     if !low_revisit_application.applied {
       break
@@ -41637,8 +41798,10 @@ fn dae_run_core(
   let low_exact_null_if_cleanup = dae_try_fold_selected_ref_null_is_null_ifs_once(
     current, low_exact_cleanup_defs,
   )
-  let low_exact_null_if_application = dae_apply_core_result(
-    current, touched, changed, low_exact_null_if_cleanup,
+  let low_exact_null_if_graph = dae_current_boundary_graph_new(current)
+  let low_exact_null_if_application = dae_apply_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, low_exact_null_if_graph,
+    low_exact_null_if_cleanup,
   )
   if low_exact_null_if_application.applied {
     current = low_exact_null_if_application.mod_out
@@ -41651,8 +41814,10 @@ fn dae_run_core(
   let low_exact_terminal_locals = dae_try_inline_selected_terminal_call_local_sets_once(
     current, low_exact_cleanup_defs,
   )
-  let low_exact_terminal_application = dae_apply_core_result(
-    current, touched, changed, low_exact_terminal_locals,
+  let low_exact_terminal_graph = dae_current_boundary_graph_new(current)
+  let low_exact_terminal_application = dae_apply_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, low_exact_terminal_graph,
+    low_exact_terminal_locals,
   )
   if low_exact_terminal_application.applied {
     current = low_exact_terminal_application.mod_out
@@ -41715,8 +41880,8 @@ fn dae_run_core(
         graph=Some(exact_graph),
       )
       large_selected[candidate_def] = false
-      let global_application = dae_apply_core_result(
-        current, touched, changed, global_result,
+      let global_application = dae_apply_family_result_transaction(
+        original_boundary_snapshot, current, touched, changed, exact_graph, global_result,
       )
       if global_application.applied {
         current = global_application.mod_out
@@ -41778,8 +41943,9 @@ fn dae_run_core(
       current, selected_scratch_defs, low_callee_call_facts,
     )
     selected_scratch_defs[boundary_callee_def] = false
-    let boundary_application = dae_apply_core_result(
-      current, touched, changed, boundary_result,
+    let boundary_graph = dae_current_boundary_graph_new(current)
+    let boundary_application = dae_apply_family_result_transaction(
+      original_boundary_snapshot, current, touched, changed, boundary_graph, boundary_result,
     )
     if boundary_application.applied {
       current = boundary_application.mod_out
