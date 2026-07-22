@@ -1428,6 +1428,7 @@ priv struct DaeCoreRunResult {
   changed : Bool
   primary_def : Int
   effects : DaeCommitEffects
+  single_caller_throttle_consumed : Bool
 }
 
 ///|
@@ -41939,6 +41940,7 @@ fn dae_run_core(
   trace : (String) -> Unit,
   optimize? : Bool = false,
   perf? : HotPerfSession? = None,
+  single_caller_throttle_consumed? : Bool = false,
 ) -> DaeCoreRunResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
@@ -41978,7 +41980,7 @@ fn dae_run_core(
       perf, "detail:dae:core:unread-param-batch",
     )
     let mut unread_batch_wave = 0
-    if original_defined >= 1024 {
+    if original_defined >= 1024 && !single_caller_throttle_consumed {
       while true {
         let batch = dae_try_apply_unread_param_batch(current)
         let batch_graph = dae_current_boundary_graph_new(current)
@@ -41997,6 +41999,10 @@ fn dae_run_core(
         )
         unread_batch_wave += 1
       }
+    } else if single_caller_throttle_consumed {
+      trace(
+        "pass[dae-optimizing]:unread-param-batch skip=single-caller-throttle-consumed",
+      )
     } else {
       trace(
         "pass[dae-optimizing]:unread-param-batch skip=small-module-acceleration optional=true defined=\{original_defined}",
@@ -42127,7 +42133,11 @@ fn dae_run_core(
       )
     None => Array::make(original_defined, 0)
   }
-  let mut unprofitable_removal_iters = 0
+  let mut unprofitable_removal_iters = if single_caller_throttle_consumed {
+    1
+  } else {
+    0
+  }
   while core_worklist.cursor < core_worklist.queue.length() {
     // Keep Binaryen's one-wave profitability boundary while making discovery
     // dependency-driven: work enqueued by this frontier is processed in the
@@ -42840,7 +42850,65 @@ fn dae_run_core(
   perf_stop_timer_opt(
     perf, "detail:dae:core:post-raw-selected-lanes", post_raw_selected_lanes_start_us,
   )
-  { mod_out: current, touched, changed, primary_def: -1, effects }
+  {
+    mod_out: current,
+    touched,
+    changed,
+    primary_def: -1,
+    effects,
+    single_caller_throttle_consumed: unprofitable_removal_iters > 0,
+  }
+}
+
+///|
+fn dae_modules_form_single_caller_param_wave(
+  before : @lib.Module,
+  after : @lib.Module,
+) -> Bool {
+  if after == before {
+    return false
+  }
+  let defined = dae_defined_func_count(before)
+  if dae_defined_func_count(after) != defined {
+    return false
+  }
+  let imported = dae_imported_func_count(before)
+  if dae_imported_func_count(after) != imported {
+    return false
+  }
+  let before_types = dae_collect_func_type_indices(before)
+  let after_types = dae_collect_func_type_indices(after)
+  let before_calls = dae_collect_current_call_facts(before, imported + defined)
+  let mut reduced_def = -1
+  for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    let (before_params, before_results) = match
+      dae_resolve_func_type(before, before_types, imported + def_idx) {
+      Some(@lib.FuncType(params, results)) => (params, results)
+      None => return false
+    }
+    let (after_params, after_results) = match
+      dae_resolve_func_type(after, after_types, imported + def_idx) {
+      Some(@lib.FuncType(params, results)) => (params, results)
+      None => return false
+    }
+    if after_results != before_results {
+      return false
+    }
+    if after_params.length() < before_params.length() {
+      if reduced_def >= 0 {
+        return false
+      }
+      reduced_def = def_idx
+    } else if after_params != before_params {
+      return false
+    }
+  }
+  if reduced_def < 0 {
+    return false
+  }
+  let callee_abs = imported + reduced_def
+  callee_abs < before_calls.direct_calls.length() &&
+  before_calls.direct_calls[callee_abs] == 1
 }
 
 ///|

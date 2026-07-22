@@ -8875,6 +8875,10 @@ test "dae-optimizing folds a changed terminal caller before default args" {
   )
   let optimized = dae_test_run(out.to_string())
   @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 10)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_false(target.contains("drop"), msg=target)
   let caller = optimized.pretty_print_defined_func(
     caller_def.reinterpret_as_uint(),
   )
@@ -17295,12 +17299,10 @@ test "dae-optimizing converges cleanup-exposed unread parameters in one invocati
   let (once, trace) = dae_test_run_with_perf_trace(
     dae_test_cleanup_exposed_unread_params_module(),
   )
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[dae-optimizing]:final-convergence")
-    }),
-    msg=trace.to_string(),
-  )
+  let convergence_events = trace.filter(fn(line) {
+    line.contains("pass[dae-optimizing]:final-convergence")
+  })
+  assert_true(convergence_events.length() >= 2, msg=trace.to_string())
   for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
     @debug.assert_eq(dae_test_func_params(once, helper_idx).length(), 0)
   }

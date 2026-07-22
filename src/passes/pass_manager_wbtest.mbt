@@ -19592,6 +19592,16 @@ test "DAEO broad changed-boundary cleanup reports non-fold body changes" {
 }
 
 ///|
+test "DAEO broad cleanup selects every exact changed boundary for nested replay" {
+  let (selected, defs) = run_hot_pipeline_dae_select_broad_nested_defs(
+    [0, 2, 5],
+    3,
+  )
+  @debug.assert_eq(selected, [true, false, true])
+  @debug.assert_eq(defs, [0, 2])
+}
+
+///|
 test "DAEO broad cleanup admits every body-only worth function without size thresholds" {
   let cleaned_defs = [0]
   let removed_local_counts = [2]

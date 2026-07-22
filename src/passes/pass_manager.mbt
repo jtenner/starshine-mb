@@ -71698,6 +71698,23 @@ fn run_hot_pipeline_dae_collect_direct_callees_from_defs(
 }
 
 ///|
+fn run_hot_pipeline_dae_select_broad_nested_defs(
+  cleaned_defs : Array[Int],
+  defined : Int,
+) -> (Array[Bool], Array[Int]) {
+  let selected = Array::make(defined, false)
+  let defs : Array[Int] = []
+  for def_idx in cleaned_defs {
+    if def_idx < 0 || def_idx >= defined || selected[def_idx] {
+      continue
+    }
+    selected[def_idx] = true
+    defs.push(def_idx)
+  }
+  (selected, defs)
+}
+
+///|
 fn run_hot_pipeline_dae_admit_body_only_worth_defs(
   worth_touched : Array[Bool],
   cleaned_defs : Array[Int],
@@ -71791,7 +71808,7 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
   // The caller supplies that producer-owned worth bitmap, so no encoded-size or
   // removed-local threshold is needed here. Every later adapter remains
   // transactional, individually non-larger, and module-validated.
-  let body_only_worth_defs = run_hot_pipeline_dae_admit_body_only_worth_defs(
+  let _body_only_worth_defs = run_hot_pipeline_dae_admit_body_only_worth_defs(
     touched,
     cleaned_defs,
     removed_local_counts,
@@ -71858,50 +71875,19 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
     "broad-changed-boundary-nested-batch",
     payload="pass=immutable-global-struct-fields accepted_defs=\{folded_defs.to_string()}",
   )
-  let nested_selected = Array::make(dae_defined_func_count(cleaned_mod), false)
-  let nested_defs : Array[Int] = []
-  let cleaned_funcs = match cleaned_mod.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return Err("DAE broad changed-boundary cleanup has no code")
-  }
+  let (nested_selected, nested_defs) = run_hot_pipeline_dae_select_broad_nested_defs(
+    cleaned_defs,
+    dae_defined_func_count(cleaned_mod),
+  )
   let accepted_passes_by_def : Array[Array[String]] = []
   for cleanup_idx = 0
       cleanup_idx < cleaned_defs.length()
       cleanup_idx = cleanup_idx + 1 {
     let cleaned_def = cleaned_defs[cleanup_idx]
-    // Producer-owned body-only worth functions always receive the filtered
-    // replay. Existing exact-boundary owners retain their current admission
-    // policy until the bidirectional convergence scheduler replaces it.
-    let material_body = match cleaned_funcs.get(cleaned_def) {
-      Some(func) =>
-        match run_hot_pipeline_dae_encoded_func_size(func) {
-          Some(size) => size >= 2048
-          None => false
-        }
-      None => false
-    }
-    let small_call_free_local_cleanup = if removed_local_counts[cleanup_idx] > 0 {
-      match cleaned_funcs.get(cleaned_def) {
-        Some(@lib.Func(_, @lib.Expr(body))) => {
-          let (_, has_structured_control, _, _, _, _) = run_hot_pipeline_instr_scan(
-            body,
-          )
-          !has_structured_control &&
-          !body.any(fn(instr) { dae_instr_contains_call(instr) })
-        }
-        None => false
-      }
-    } else {
-      false
-    }
-    if body_only_worth_defs.contains(cleaned_def) ||
-      removed_local_counts[cleanup_idx] >= 16 ||
-      small_call_free_local_cleanup ||
-      material_body ||
-      folded_defs.contains(cleaned_def) {
-      nested_selected[cleaned_def] = true
-      nested_defs.push(cleaned_def)
-    }
+    // Every exact changed boundary and producer-owned body-only worth function
+    // receives the filtered replay. Validation and per-definition non-larger
+    // retention remain authoritative; the core carries the one-wave throttle
+    // across cleanup reentry so broader replay cannot prune a second chain wave.
     accepted_passes_by_def.push([])
     if folded_defs.contains(cleaned_def) {
       accepted_passes_by_def[cleanup_idx].push("immutable-global-struct-fields")
@@ -72422,10 +72408,24 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_dae_report_single_caller_throttle(
+  report : Array[Bool],
+  consumed : Bool,
+) -> Unit {
+  if report.length() == 0 {
+    report.push(consumed)
+  } else {
+    report[0] = consumed
+  }
+}
+
+///|
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
   allow_final_convergence? : Bool = true,
+  single_caller_throttle_consumed? : Bool = false,
+  single_caller_throttle_report? : Array[Bool] = [],
 ) -> Result[@lib.Module, String] {
   let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
   let result = dae_run_core(
@@ -72433,7 +72433,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     options.trace,
     optimize=true,
     perf=options.perf,
+    single_caller_throttle_consumed~,
   )
+  let mut throttle_consumed = result.single_caller_throttle_consumed ||
+    dae_modules_form_single_caller_param_wave(mod_, result.mod_out)
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
   let (core_repaired, core_repair_changed) = dae_cleanup_dropped_unreachable_debris_touched(
     result.mod_out,
@@ -72842,15 +72845,19 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       options.perf,
       "detail:dae:post-cleanup-core",
     )
-    let boundary_revisit = dae_run_post_cleanup_boundary_revisit_worklist(
-      cleaned, core_touched,
-    )
+    let boundary_revisit = if throttle_consumed {
+      { mod_out: cleaned, touched: [], changed: false, primary_def: -1 }
+    } else {
+      dae_run_post_cleanup_boundary_revisit_worklist(cleaned, core_touched)
+    }
     let post_cleanup = dae_run_core(
       boundary_revisit.mod_out,
       options.trace,
       optimize=broad_cleanup_changed,
       perf=options.perf,
+      single_caller_throttle_consumed=throttle_consumed,
     )
+    throttle_consumed = post_cleanup.single_caller_throttle_consumed
     perf_stop_timer_opt(
       options.perf,
       "detail:dae:post-cleanup-core",
@@ -72915,70 +72922,101 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     final_reordered, high_literal_field_delay_defs, options,
   )
   if !allow_final_convergence || !broad_cleanup_changed {
-    return Ok(field_delayed)
-  }
-  // The filtered replay can expose one final fact boundary only after local
-  // ordering, type pruning, and delayed immutable-field cleanup have all
-  // settled. Run one bounded complete optimizing wave over that finalized
-  // module, then retain it only when it validates and is strictly smaller.
-  // Equal-size alternate shapes remain aligned with the first-pass/Binaryen
-  // boundary instead of introducing unmeasured representation drift. Disabling
-  // this block in the recursive call makes the convergence bound explicit.
-  let converged = match
-    run_hot_pipeline_apply_dae_optimizing_module_pass(
-      field_delayed,
-      options,
-      allow_final_convergence=false,
-    ) {
-    Ok(next) => next
-    Err(err) => {
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "final-convergence",
-        payload="accepted=false reason=retry-error err=\{err}",
-      )
-      return Ok(field_delayed)
-    }
-  }
-  if converged == field_delayed {
-    pipeline_trace_hook(
-      options.trace,
-      "dae-optimizing",
-      "final-convergence",
-      payload="accepted=false reason=unchanged",
+    run_hot_pipeline_dae_report_single_caller_throttle(
+      single_caller_throttle_report, throttle_consumed,
     )
     return Ok(field_delayed)
   }
-  match
-    (
-      run_hot_pipeline_dae_encoded_size(field_delayed),
-      run_hot_pipeline_dae_encoded_size(converged),
-      @validate.validate_module(converged),
-    ) {
-    (Some(before), Some(after), Ok(_)) if after < before => {
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "final-convergence",
-        payload="accepted=true before=\{before} after=\{after}",
-      )
-      Ok(converged)
-    }
-    (before, after, validation) => {
-      let reason = match validation {
-        Ok(_) => "non-smaller-or-unencodable"
-        Err(_) => "validation"
+  // Cleanup can expose another exact boundary only after local ordering, type
+  // pruning, and delayed immutable-field cleanup settle. Iterate complete waves
+  // until a wave is unchanged or cannot be retained. Every accepted wave must
+  // validate and strictly reduce encoded size, which is the convergence metric;
+  // equal-size alternate shapes remain aligned with the first-pass boundary.
+  // Carry the source-backed one-wave single-caller throttle across every retry.
+  let mut converged = field_delayed
+  let mut convergence_wave = 0
+  while true {
+    pipeline_trace_hook(
+      options.trace,
+      "dae-optimizing",
+      "final-convergence-check",
+      payload="wave=\{convergence_wave} throttle_consumed=\{throttle_consumed}",
+    )
+    let candidate_throttle_report : Array[Bool] = []
+    let candidate = match
+      run_hot_pipeline_apply_dae_optimizing_module_pass(
+        converged,
+        options,
+        allow_final_convergence=false,
+        single_caller_throttle_consumed=throttle_consumed,
+        single_caller_throttle_report=candidate_throttle_report,
+      ) {
+      Ok(next) => next
+      Err(err) => {
+        pipeline_trace_hook(
+          options.trace,
+          "dae-optimizing",
+          "final-convergence",
+          payload="wave=\{convergence_wave} accepted=false reason=retry-error err=\{err}",
+        )
+        run_hot_pipeline_dae_report_single_caller_throttle(
+          single_caller_throttle_report, throttle_consumed,
+        )
+        return Ok(converged)
       }
+    }
+    let candidate_throttle_consumed = match candidate_throttle_report.get(0) {
+      Some(consumed) => consumed
+      None => throttle_consumed
+    }
+    if candidate == converged {
       pipeline_trace_hook(
         options.trace,
         "dae-optimizing",
         "final-convergence",
-        payload="accepted=false reason=\{reason} before=\{before.to_string()} after=\{after.to_string()}",
+        payload="wave=\{convergence_wave} accepted=false reason=unchanged",
       )
-      Ok(field_delayed)
+      run_hot_pipeline_dae_report_single_caller_throttle(
+        single_caller_throttle_report, candidate_throttle_consumed,
+      )
+      return Ok(converged)
+    }
+    match
+      (
+        run_hot_pipeline_dae_encoded_size(converged),
+        run_hot_pipeline_dae_encoded_size(candidate),
+        @validate.validate_module(candidate),
+      ) {
+      (Some(before), Some(after), Ok(_)) if after < before => {
+        throttle_consumed = candidate_throttle_consumed
+        pipeline_trace_hook(
+          options.trace,
+          "dae-optimizing",
+          "final-convergence",
+          payload="wave=\{convergence_wave} accepted=true before=\{before} after=\{after} throttle_consumed=\{throttle_consumed}",
+        )
+        converged = candidate
+        convergence_wave += 1
+      }
+      (before, after, validation) => {
+        let reason = match validation {
+          Ok(_) => "non-smaller-or-unencodable"
+          Err(_) => "validation"
+        }
+        pipeline_trace_hook(
+          options.trace,
+          "dae-optimizing",
+          "final-convergence",
+          payload="wave=\{convergence_wave} accepted=false reason=\{reason} before=\{before.to_string()} after=\{after.to_string()}",
+        )
+        run_hot_pipeline_dae_report_single_caller_throttle(
+          single_caller_throttle_report, throttle_consumed,
+        )
+        return Ok(converged)
+      }
     }
   }
+  Ok(converged)
 }
 
 ///|

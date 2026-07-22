@@ -15468,6 +15468,87 @@ test "dae uniform dispatcher consumes solved forwarding values" {
 }
 
 ///|
+test "dae single-caller wave classification rejects mixed boundary changes" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $left (param i32 i32) (result i32)
+      #|    local.get 0)
+      #|  (func $right (param i32 i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $left
+      #|    drop
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $right))
+    ),
+  )
+  let single = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $left (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func $right (param i32 i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    call $left
+      #|    drop
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $right))
+    ),
+  )
+  let mixed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $left (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func $right (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    call $left
+      #|    drop
+      #|    local.get 0
+      #|    call $right))
+    ),
+  )
+  assert_true(dae_modules_form_single_caller_param_wave(before, single))
+  assert_false(dae_modules_form_single_caller_param_wave(before, mixed))
+}
+
+///|
+test "dae core preserves a consumed single-caller throttle across cleanup reentry" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    call $target))
+    ),
+  )
+  let result = dae_run_core(
+    mod_,
+    fn(_) { () },
+    optimize=true,
+    single_caller_throttle_consumed=true,
+  )
+  assert_true(result.single_caller_throttle_consumed)
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, _)) => @debug.assert_eq(params.length(), 2)
+    None => fail("expected target signature")
+  }
+}
+
+///|
 test "dae post-cleanup boundary revisit commits through dispatcher" {
   let (mod_, _, _, _) = dae_scalar_rewrite_plan_fixture()
   let original = dae_collect_original_boundary_snapshot(mod_)
