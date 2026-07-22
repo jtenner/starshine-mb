@@ -25770,6 +25770,14 @@ fn dae_core_pass_result_from_work_application(
 }
 
 ///|
+fn dae_should_run_computed_unread_dependency_worklist(
+  _defined : Int,
+  optimize~ : Bool,
+) -> Bool {
+  optimize
+}
+
+///|
 fn dae_should_collect_phase_local_uniform_constants(
   _defined : Int,
   optimize~ : Bool,
@@ -43060,11 +43068,10 @@ fn dae_run_core(
     }
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
-  if optimize && original_defined < 1024 {
-    // Optional early retry: broad modules reach the same required boundary
-    // semantics through batch/common work and later exact dependency frontiers.
-    // Preserve the established small-module phase order while replacing its
-    // selected-all array and `defined * 2 + 1` cap with dependency exhaustion.
+  if dae_should_run_computed_unread_dependency_worklist(
+      original_defined,
+      optimize~,
+    ) {
     let computed_application = dae_run_computed_unread_param_dependency_worklist(
       original_boundary_snapshot,
       current,

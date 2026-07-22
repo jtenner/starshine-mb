@@ -15473,6 +15473,21 @@ test "dae parameter flow records exact reordered forwarding slots and tail compo
 }
 
 ///|
+test "dae computed unread dependency worklist admission is module-size independent" {
+  for defined in [2, 1024, 4096] {
+    assert_true(
+      dae_should_run_computed_unread_dependency_worklist(defined, optimize=true),
+    )
+    assert_false(
+      dae_should_run_computed_unread_dependency_worklist(
+        defined,
+        optimize=false,
+      ),
+    )
+  }
+}
+
+///|
 test "dae uniform collection admission is module-size independent and cycle aware" {
   for defined in [2, 1024, 4096] {
     assert_true(
