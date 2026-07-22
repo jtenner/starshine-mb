@@ -145,7 +145,8 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 **Implementation strategy.**
 
-- Match Binaryen's `PossibleConstantValues` contract for every represented constant expression: numeric and SIMD constants, `ref.null`, `ref.func`, `string.const`, supported `extern.convert_any` / `any.convert_extern` wrappers, tuples of single constants, and immutable `global.get` identity. Do not equate merely similar expressions or mutable globals.
+- Match Binaryen's `PossibleConstantValues` contract for every represented per-operand constant expression: numeric and SIMD constants, `ref.null`, `ref.func`, `string.const`, supported `extern.convert_any` / `any.convert_extern` wrappers, and immutable `global.get` identity. Do not equate merely similar expressions or mutable globals.
+- Keep generic tuple constant expressions out of the DAE parameter contract unless upstream changes: Binaryen v131 `applyConstantValues` visits each `Call` / `CallRef` operand independently, while `PossibleConstantValues` stores one `Literal`; the broader `TupleMake` branch belongs to the shared `Properties::isConstantExpression` API, not this per-parameter use (Binaryen v131 `src/passes/param-utils.cpp`, `src/ir/possible-constant.h`, and `src/ir/properties.h`).
 - Use one per-parameter monotone lattice over the forwarding graph: `Unseen`, `ForwardedOnly`, `Uniform(value)`, `Conflict`, and `Blocked`. Merge caller evidence through normalized SCCs until no slot changes.
 - Materialize the agreed value in the callee before ordinary live-in analysis/removal, then let the common parameter plan delete the now-unread boundary input.
 - Replace correctness- or parity-affecting `<=1024`, `<=4096`, prefix, nullable-count, and phase-only admissions with exact candidate facts. A retained threshold may only suppress optional non-boundary cleanup and must be labeled as such in diagnostics.
@@ -153,7 +154,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 - When removal fails because of nested effects, localize every owned call to the target with a ChildLocalizer-equivalent transform, repair exceptional nested-pop/control structure, mark the affected callers stale, and requeue the boundary.
 - Commit recursive forwarding components atomically. The component transaction rejects stale type/call identities and any member that escaped in the original module before changing a signature; triggered ref-null specialization is included in the same final candidate so a cycle cannot expose partial follow-up edits.
 
-**Required tests.** Long forwarding chains; reordered parameter forwarding; mutually recursive cycles; multiple independent SCCs; constant disagreement; immutable-global identity; ref/null/string/tuple constants; localization nested inside another call; EH-localization repair; large module with one candidate; prior threshold boundaries; deterministic queue order.
+**Required tests.** Long forwarding chains; reordered parameter forwarding; mutually recursive cycles; multiple independent SCCs; constant disagreement; immutable-global identity; represented ref/null/string constants and flat multivalue lanes; localization nested inside another call; EH-localization repair; large module with one candidate; prior threshold boundaries; deterministic queue order.
 
 **Exit criterion.** Uniform values and forwarding are definition- and module-size-independent, all supported constant forms match the upstream contract, and localization is a normal requeue transition rather than a side phase.
 

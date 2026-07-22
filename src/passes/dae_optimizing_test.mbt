@@ -11677,6 +11677,25 @@ test "dae-optimizing materializes uniform re-internalized i31 actuals" {
 }
 
 ///|
+test "dae-optimizing materializes uniform string.const actuals" {
+  let source =
+    #|(module
+    #|  (func $target (param stringref) (result stringref)
+    #|    local.get 0)
+    #|  (func (export "run") (result stringref)
+    #|    string.const "hello"
+    #|    call $target
+    #|    drop
+    #|    string.const "hello"
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_true(target.contains("string.const"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes selected Func521 literal actual" {
   let out = StringBuilder::new()
   out.write_string("(module\n")
