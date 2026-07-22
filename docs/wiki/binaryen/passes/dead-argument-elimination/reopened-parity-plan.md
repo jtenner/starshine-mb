@@ -101,7 +101,7 @@ Shared fact structures now in `src/passes/dead_argument_elimination.mbt`:
 
 Structures / APIs introduced or extended:
 
-- `DaeValueSlice` — sole direct-call operand carrier; now carries `input_arity` / `output_arity`, optional static `value_type`, `DaeValueProducerKind`, observable-effect / trap / escaping-branch / unreachable facts, optional `DaeDirectCallKind`, call identity (`call_idx`, `callee_abs`), and module/call/signature/body epochs.
+- `DaeValueSlice` — sole direct-call operand carrier; now carries `input_arity` / `output_arity`, optional static `value_type`, `DaeValueProducerKind`, observable-effect / trap / escaping-branch / unreachable facts, optional `DaeDirectCallKind`, call identity (`call_idx`, `caller_def`, `callee_abs`), and module/call/type/signature/body epochs. Per-function staleness is checked against the owning caller, not the target callee.
 - `DaeValueProducerKind` — enum (not string compares): constant/pure leaf, local read, global read, ordinary expression, direct call, indirect call, `call_ref`, structured control, unreachable, unknown.
 - `DaeDirectCallKind` — `DaeDirectCall` | `DaeDirectReturnCall`; part of slice / plan identity so a stale `call` plan cannot apply after the site becomes `return_call` (and vice versa).
 - `DaeDirectCallOperandSlices` — ordered parameter slices for one owned direct callsite.
@@ -118,7 +118,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 - Full immutable validated plan commit/rollback for every signature-changing family. The ordinary scalar plan now also owns a preconstructed complete candidate module, an independent type epoch, and exact path-plus-kind direct-call identities; application revalidates all three before validating and committing the candidate.
 - Constant materialization migration onto the action model.
-- Localization transaction (classify only today; ordinary scalar still fail-closes on localize).
+- Localization consolidation beyond the ordinary scalar transaction. The scalar plan now owns typed scratch-local insertion, localized removed-slot projection, exact caller epochs, candidate validation, commit, and rollback; forwarding/broad-family localization still needs the same lifecycle.
 - GC parameter/result refinement migration.
 - Dropped-result migration.
 - Control/type reconstruction migration.

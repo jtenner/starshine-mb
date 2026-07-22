@@ -500,6 +500,7 @@ priv struct DaeValueSlice {
   produces_unreachable : Bool
   call_kind : DaeDirectCallKind?
   call_idx : Int
+  caller_def : Int
   callee_abs : Int
   module_epoch : Int
   call_epoch : Int
@@ -6245,6 +6246,7 @@ fn dae_value_slice_from_operand_disposition_with_purity(
     produces_unreachable: false,
     call_kind: None,
     call_idx: -1,
+    caller_def: -1,
     callee_abs: -1,
     module_epoch: -1,
     call_epoch: -1,
@@ -6261,6 +6263,7 @@ fn dae_value_slice_enrich_from_instrs(
   value_type : @lib.ValType?,
   call_kind : DaeDirectCallKind?,
   call_idx : Int,
+  caller_def : Int,
   callee_abs : Int,
   module_epoch : Int,
   call_epoch : Int,
@@ -6290,6 +6293,7 @@ fn dae_value_slice_enrich_from_instrs(
     produces_unreachable,
     call_kind,
     call_idx,
+    caller_def,
     callee_abs,
     module_epoch,
     call_epoch,
@@ -6330,6 +6334,7 @@ fn dae_value_slice_from_call_shape(
     -1,
     -1,
     -1,
+    -1,
   )
 }
 
@@ -6360,6 +6365,7 @@ fn dae_value_slice_from_range(
     instrs,
     None,
     None,
+    -1,
     -1,
     -1,
     -1,
@@ -7933,6 +7939,7 @@ fn dae_direct_call_operand_slices(
         value_type,
         Some(call_kind),
         call_idx,
+        epoch.def_idx,
         callee_abs,
         epoch.module_epoch,
         epoch.call_epoch,
@@ -7983,9 +7990,10 @@ fn dae_direct_call_operand_slices_epoch_is_current(
 ///|
 fn dae_parameter_action_removes(action : DaeParameterAction) -> Bool {
   match action {
-    DaeRemovePureParameter | DaeRemoveParameterReplayEffects => true
+    DaeRemovePureParameter
+    | DaeRemoveParameterReplayEffects
+    | DaeLocalizeParameterAndRetry => true
     DaeKeepParameter
-    | DaeLocalizeParameterAndRetry
     | DaeMaterializeConstantParameter(_)
     | DaeRefineParameterType(_) => false
   }
@@ -8029,14 +8037,17 @@ fn dae_classify_parameter_slot(
       return DaeKeepParameter
     }
     if slice.module_epoch >= 0 &&
-      !dae_candidate_epoch_is_current(facts.graph, {
-        def_idx,
-        module_epoch: slice.module_epoch,
-        call_epoch: slice.call_epoch,
-        type_epoch: slice.type_epoch,
-        signature_epoch: slice.signature_epoch,
-        body_epoch: slice.body_epoch,
-      }) {
+      (
+        slice.caller_def < 0 ||
+        !dae_candidate_epoch_is_current(facts.graph, {
+          def_idx: slice.caller_def,
+          module_epoch: slice.module_epoch,
+          call_epoch: slice.call_epoch,
+          type_epoch: slice.type_epoch,
+          signature_epoch: slice.signature_epoch,
+          body_epoch: slice.body_epoch,
+        })
+      ) {
       return DaeKeepParameter
     }
     if slice.has_escaping_branch ||
@@ -17316,10 +17327,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     match classified[param_idx] {
       DaeRemovePureParameter | DaeRemoveParameterReplayEffects =>
         remove[param_idx] = true
-      DaeLocalizeParameterAndRetry =>
-        // Localization transaction is owned by later [O4Z-DAE-PLAN]/[O4Z-DAE-FLOW]
-        // work; ordinary scalar path still fail-closes like the legacy plan.
-        return None
+      DaeLocalizeParameterAndRetry => remove[param_idx] = true
       DaeKeepParameter
       | DaeMaterializeConstantParameter(_)
       | DaeRefineParameterType(_) => remove[param_idx] = false
@@ -17361,7 +17369,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       graph.snapshot.type_indices,
       localization=Some(localization),
     )
-    if !result.ok || localization.localized_params.any(fn(value) { value }) {
+    if !result.ok {
       return {
         func: caller_func,
         calls_rewritten: 0,
@@ -17370,8 +17378,10 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       }
     }
     if result.calls_rewritten > 0 {
+      let rewritten_locals = locals.copy()
+      rewritten_locals.append_types(localization.scratch_local_types)
       {
-        func: @lib.Func::new(locals, @lib.Expr::new(result.instrs)),
+        func: @lib.Func::new(rewritten_locals, @lib.Expr::new(result.instrs)),
         calls_rewritten: result.calls_rewritten,
         changed: true,
         ok: true,
@@ -17455,7 +17465,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     let action = classified[param_idx]
     parameter_actions.push(action)
     if dae_parameter_action_removes(action) {
-      preserved_removed_params[param_idx] = local_use.writes[param_idx]
+      preserved_removed_params[param_idx] = local_use.writes[param_idx] ||
+        localized_params[param_idx]
     }
     param_idx += 1
   }
@@ -17546,6 +17557,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         },
         remove,
         local_use,
+        preserve_removed_params=Some(localized_params),
       ),
       preserved_removed_params,
     },
@@ -17603,10 +17615,11 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
   for action in plan.parameter_actions {
     match action {
       DaeKeepParameter => expected_next_params += 1
-      DaeRemovePureParameter | DaeRemoveParameterReplayEffects => ()
-      DaeMaterializeConstantParameter(_)
-      | DaeLocalizeParameterAndRetry
-      | DaeRefineParameterType(_) => return false
+      DaeRemovePureParameter
+      | DaeRemoveParameterReplayEffects
+      | DaeLocalizeParameterAndRetry => ()
+      DaeMaterializeConstantParameter(_) | DaeRefineParameterType(_) =>
+        return false
     }
   }
   if expected_next_params != next_params.length() {
@@ -24452,7 +24465,7 @@ fn dae_run_core_once(
         boundary_candidate.direct_call_count,
         boundary_candidate.direct_callers,
       )
-      if refined_types.changed {
+      if refined_types.changed && refined_types.mod_out != mod_ {
         return refined_types
       }
     }
@@ -24894,7 +24907,7 @@ fn dae_apply_core_result(
   changed : Bool,
   result : DaePassResult,
 ) -> DaeCoreResultApplication {
-  if !result.changed {
+  if !result.changed || result.mod_out == current {
     return {
       mod_out: current,
       touched,

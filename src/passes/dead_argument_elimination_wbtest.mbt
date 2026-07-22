@@ -322,8 +322,12 @@ test "dae singleton-selected core rewrite owns selection and result application"
 ///|
 test "dae bounded singleton-selected core rewrite stops after first no-op" {
   let current = dae_wbtest_call_summary_fixture()
-  let rewritten_once = @lib.Module::new()
-  let rewritten_twice = @lib.Module::new()
+  let rewritten_once = @lib.Module::new().with_data_cnt_sec(
+    @lib.DataCntSec::new(@lib.U32(0U)),
+  )
+  let rewritten_twice = @lib.Module::new().with_data_cnt_sec(
+    @lib.DataCntSec::new(@lib.U32(1U)),
+  )
   let selected = [true, false, true]
   let mut producer_calls = 0
   let observed_active_modules : Array[Bool] = []
@@ -14576,6 +14580,134 @@ test "dae scalar rewrite plan commits caller callee type and touched transaction
 }
 
 ///|
+test "dae scalar rewrite plan localizes nested call operands atomically" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $side (result i32)
+      #|    i32.const 7)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    call $side
+      #|    call $target))
+    ),
+  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let local_use = dae_local_use_for_callee(graph.snapshot.funcs[1], 1, 1, 1)
+  let plan = match
+    dae_build_scalar_unused_param_rewrite_plan(
+      mod_,
+      original,
+      graph,
+      1,
+      [true],
+      local_use,
+      1,
+      [2],
+    ) {
+    Some(plan) => plan
+    None => fail("expected localization-aware scalar rewrite plan")
+  }
+  assert_eq(plan.parameter_actions, [DaeLocalizeParameterAndRetry])
+  assert_eq(plan.local_projection.preserved_removed_params, [true])
+  match plan.candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(callee_locals, _) = funcs[1]
+      let @lib.Func(caller_locals, @lib.Expr(caller_body)) = funcs[2]
+      assert_eq(callee_locals.length(), 1)
+      assert_eq(caller_locals.length(), 1)
+      assert_eq(caller_locals.get(0), @lib.ValType::i32())
+      assert_eq(caller_body, [
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+      ])
+    }
+    None => fail("expected candidate code section")
+  }
+  match @validate.validate_module(plan.candidate) {
+    Ok(_) => ()
+    Err(err) => fail("localized scalar candidate must validate, got \{err}")
+  }
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  assert_true(application.result.touched[1])
+  assert_true(application.result.touched[2])
+}
+
+///|
+test "dae localized scalar candidate reaches a bounded common-core fixed point" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $s (struct))
+      #|  (global $g (mut i32) (i32.const 0))
+      #|  (func $make (result (ref $s))
+      #|    i32.const 1
+      #|    global.set $g
+      #|    struct.new_default $s)
+      #|  (func $side (result i32)
+      #|    i32.const 2
+      #|    global.set $g
+      #|    i32.const 7)
+      #|  (func $target (param (ref $s) i32) (result i32)
+      #|    local.get 0
+      #|    ref.is_null)
+      #|  (func (export "run") (result i32)
+      #|    call $make
+      #|    block (result i32)
+      #|      call $side
+      #|    end
+      #|    call $target))
+    ),
+  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let mut current = mod_
+  let productive_defs : Array[Int] = []
+  for iteration = 0; iteration < 16; iteration = iteration + 1 {
+    let call_counts = match current.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        dae_collect_module_call_counts_anywhere(
+          funcs,
+          original.imported,
+          original.defined,
+        )
+      None => Array::make(original.defined, 0)
+    }
+    let result = dae_run_core_once(
+      current,
+      [],
+      call_counts,
+      false,
+      false,
+      original,
+      graph,
+      expected_call_epoch=graph.call_epoch,
+    )
+    let application = dae_apply_core_result(current, [], false, result)
+    if !application.applied {
+      match @validate.validate_module(current) {
+        Ok(_) => ()
+        Err(err) => fail("fixed-point candidate must validate, got \{err}")
+      }
+      let final_types = dae_collect_func_type_indices(current)
+      match dae_resolve_func_type(current, final_types, 2) {
+        Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 1)
+        None => fail("expected final target signature")
+      }
+      return
+    }
+    productive_defs.push(application.primary_def)
+    current = application.mod_out
+    dae_current_boundary_graph_refresh(graph, current)
+  }
+  fail("localized common core did not converge; defs=\{productive_defs}")
+}
+
+///|
 test "dae scalar rewrite plan rejects stale target and caller epochs" {
   let (mod_, _, signature_graph, signature_plan) = dae_scalar_rewrite_plan_fixture()
   signature_graph.function_epochs[0].signature_epoch += 1
@@ -17155,6 +17287,7 @@ test "dae direct-call operand slices recover exact pure and mixed actuals" {
   assert_eq(slices.slices[0].start, 0)
   assert_eq(slices.slices[0].end, 1)
   assert_eq(slices.slices[0].producer_kind, DaeProducerConstantOrPureLeaf)
+  assert_eq(slices.slices[0].caller_def, 2)
   assert_eq(slices.slices[0].value_type, Some(@lib.ValType::i32()))
   assert_eq(slices.slices[1].start, 1)
   assert_eq(slices.slices[1].end, 2)
@@ -17208,6 +17341,8 @@ test "dae direct-call operand slices cover multiple callsites and imported offse
   assert_eq(collected.length(), 2)
   assert_eq(collected[0].producer_kind, DaeProducerConstantOrPureLeaf)
   assert_eq(collected[1].producer_kind, DaeProducerConstantOrPureLeaf)
+  assert_eq(collected[0].caller_def, 1)
+  assert_eq(collected[1].caller_def, 2)
   assert_eq(collected[0].callee_abs, callee_abs)
   assert_eq(collected[1].callee_abs, callee_abs)
 }
@@ -17245,6 +17380,7 @@ test "dae direct-call operand slices support return_call and reject stale call k
       assert_eq(slices.call_kind, DaeDirectReturnCall)
       assert_eq(slices.slices.length(), 1)
       assert_eq(slices.slices[0].call_kind, Some(DaeDirectReturnCall))
+      assert_eq(slices.slices[0].caller_def, 2)
       assert_eq(slices.slices[0].producer_kind, DaeProducerLocalRead)
     }
     None => fail("expected return_call operand slices")
