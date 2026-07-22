@@ -1127,7 +1127,7 @@ test "dae exact-literal worklist owns immutable-global materialization effects" 
 }
 
 ///|
-test "dae exact-literal candidate worklist can select wide nullable-default boundaries" {
+test "dae exact-literal candidate worklist admits every semantic parameter shape" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -1169,14 +1169,8 @@ test "dae exact-literal candidate worklist can select wide nullable-default boun
   let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
   let call_facts = dae_collect_current_call_facts(mod_, total)
   assert_eq(
-    dae_collect_exact_literal_candidate_defs_with_facts(
-      mod_,
-      call_facts,
-      2,
-      min_param_count=8,
-      require_all_nullable_refs=true,
-    ),
-    [0],
+    dae_collect_post_revisit_exact_literal_candidates(mod_, call_facts, 2),
+    [0, 1],
   )
 }
 

@@ -38177,8 +38177,6 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
   call_facts : DaeCurrentCallFacts,
   max_def_exclusive : Int,
   allow_immutable_global_get? : Bool = false,
-  min_param_count? : Int = 1,
-  require_all_nullable_refs? : Bool = false,
 ) -> Array[Int] {
   let candidates : Array[Int] = []
   let imported = dae_imported_func_count(mod_)
@@ -38219,23 +38217,6 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
       }
     }
     let @lib.FuncType(params, _) = func_type
-    if params.length() < min_param_count {
-      def_idx += 1
-      continue
-    }
-    if require_all_nullable_refs {
-      let mut all_nullable_refs = true
-      for param in params {
-        match param {
-          @lib.RefTypeValType(@lib.HeapTypeRefType(true, _, _)) => ()
-          _ => all_nullable_refs = false
-        }
-      }
-      if !all_nullable_refs {
-        def_idx += 1
-        continue
-      }
-    }
     let @lib.Func(locals, _) = funcs[def_idx]
     let local_use = dae_local_use_for_callee(
       funcs[def_idx],
@@ -38275,6 +38256,17 @@ fn dae_collect_exact_literal_candidate_defs_with_facts(
     def_idx += 1
   }
   candidates
+}
+
+///|
+fn dae_collect_post_revisit_exact_literal_candidates(
+  mod_ : @lib.Module,
+  call_facts : DaeCurrentCallFacts,
+  max_def_exclusive : Int,
+) -> Array[Int] {
+  dae_collect_exact_literal_candidate_defs_with_facts(
+    mod_, call_facts, max_def_exclusive,
+  )
 }
 
 ///|
@@ -43118,22 +43110,18 @@ fn dae_run_core(
     )
     low_revisit_iter += 1
   }
-  // Exact nullable/type/call-fact admission is independent of module size.
+  // Exact type/call-fact admission is independent of parameter count and shape.
   // Run it after the ordinary reverse phase so it cannot preempt that proof.
-  // Broad modules can contain profitable low exact/default candidates that the
-  // fixed eight-iteration core never reaches. Build the ordered low worklist
+  // Modules can contain profitable exact/default candidates that the fixed
+  // eight-iteration core never reaches. Build the ordered worklist
   // once from one current caller-fact snapshot, then revalidate and apply each
   // candidate against the evolving module. Signature and operand rewrites do
   // not change direct-call edges, so the snapshot remains valid for this batch.
   let low_exact_literal_call_facts = dae_collect_current_call_facts(
     current, original_total,
   )
-  let low_exact_literal_candidates = dae_collect_exact_literal_candidate_defs_with_facts(
-    current,
-    low_exact_literal_call_facts,
-    original_defined,
-    min_param_count=8,
-    require_all_nullable_refs=true,
+  let low_exact_literal_candidates = dae_collect_post_revisit_exact_literal_candidates(
+    current, low_exact_literal_call_facts, original_defined,
   )
   let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
     current, touched, changed, low_exact_literal_candidates,
