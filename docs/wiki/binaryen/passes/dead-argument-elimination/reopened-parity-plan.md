@@ -227,7 +227,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 ### 8. Exact DAEO touched set and optimizing lifecycle
 
-**Gap.** Starshine shares the nested roster and has correct slot placement. The arbitrary `touched_count > 8` replay skip was removed on 2026-07-22, and ordinary replay now derives a semantic worth set from changed signatures, result-change callers, and transitional scratch-local cleanup instead of replaying every structurally changed callsite caller. Full replay is still selected by module-size, local-count, instruction-count, and material-caller thresholds. A focused module-guard removal trial exposed selected literal/global phase-order regressions, so those remaining guards cannot be called closed until the older producers join the common lifecycle.
+**Gap.** Starshine shares the nested roster and has correct slot placement. The arbitrary `touched_count > 8` replay skip was removed on 2026-07-22, and ordinary replay now derives a semantic worth set from changed signatures, result-change callers, and exact local-count growth for transitional scratch-local cleanup instead of replaying every structurally changed callsite caller or every touched caller with preexisting locals. Full replay is still selected by module-size, local-count, instruction-count, and material-caller thresholds. A focused module-guard removal trial exposed selected literal/global phase-order regressions, so those remaining guards cannot be called closed until the older producers join the common lifecycle.
 
 **Implementation strategy.**
 

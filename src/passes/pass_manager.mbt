@@ -70239,12 +70239,13 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
         if before_params != after_params || before_results != after_results {
           worth[def_idx] = true
         } else {
+          let @lib.Func(before_locals, _) = before_funcs[def_idx]
           let @lib.Func(after_locals, _) = after_funcs[def_idx]
-          if after_locals.length() > 0 {
+          if after_locals.length() > before_locals.length() {
             // Parameter-callsite repair can introduce scratch locals in callers.
             // Binaryen simplifies those operands during ParamUtils rewriting;
-            // keep the caller in Starshine's replay until that cleanup is owned
-            // directly by the common parameter transaction.
+            // replay only actual local growth until that cleanup is owned directly
+            // by the common parameter transaction.
             worth[def_idx] = true
           }
         }
