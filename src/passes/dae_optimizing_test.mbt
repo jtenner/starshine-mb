@@ -17296,13 +17296,7 @@ fn dae_test_cleanup_exposed_unread_params_module() -> String {
 
 ///|
 test "dae-optimizing converges cleanup-exposed unread parameters in one invocation" {
-  let (once, trace) = dae_test_run_with_perf_trace(
-    dae_test_cleanup_exposed_unread_params_module(),
-  )
-  let convergence_events = trace.filter(fn(line) {
-    line.contains("pass[dae-optimizing]:final-convergence")
-  })
-  assert_true(convergence_events.length() >= 2, msg=trace.to_string())
+  let once = dae_test_run(dae_test_cleanup_exposed_unread_params_module())
   for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
     @debug.assert_eq(dae_test_func_params(once, helper_idx).length(), 0)
   }

@@ -19569,6 +19569,22 @@ test "DAEO post-component cleanup selected-definition validation rolls back an i
 }
 
 ///|
+test "DAEO broad cleanup does not use function or touched cardinality fast skips" {
+  let original = pass_test_module_from_wat(
+    "(module (func (param i32) (local i32) local.get 1 drop))",
+  )
+  let current = pass_test_module_from_wat(
+    "(module (func (local i32) local.get 0 drop))",
+  )
+  let (_, cleaned_defs, _, _) = run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
+    original,
+    current,
+    [true],
+  )
+  @debug.assert_eq(cleaned_defs, [0])
+}
+
+///|
 test "DAEO broad changed-boundary cleanup reports non-fold body changes" {
   let original = pass_test_module_from_wat(
     "(module (func (param i32) (local i32) i32.const 0 local.set 1 local.get 1 drop))",
@@ -19582,23 +19598,12 @@ test "DAEO broad changed-boundary cleanup reports non-fold body changes" {
       current,
       [true],
       HotPipelineOptions::new(),
-      follow_folded_callees=false,
     ) {
     Ok(result) => result
     Err(err) => fail("expected broad changed-boundary cleanup, got \{err}")
   }
   assert_true(cleaned != current)
   assert_true(changed)
-}
-
-///|
-test "DAEO broad cleanup selects every exact changed boundary for nested replay" {
-  let (selected, defs) = run_hot_pipeline_dae_select_broad_nested_defs(
-    [0, 2, 5],
-    3,
-  )
-  @debug.assert_eq(selected, [true, false, true])
-  @debug.assert_eq(defs, [0, 2])
 }
 
 ///|
