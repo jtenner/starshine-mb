@@ -1446,6 +1446,7 @@ priv struct DaeExactLiteralWorklistApplication {
   touched : Array[Bool]
   changed : Bool
   productive_defs : Array[Int]
+  effects : DaeCommitEffects
 }
 
 ///|
@@ -1755,6 +1756,7 @@ priv struct DaeWorkItem {
   family : DaeWorkFamily
   uniform_values : Array[@lib.Instruction?]
   allow_immutable_global_get : Bool
+  allow_immediate_i32_suffix_fallback : Bool
   expected_module_epoch : Int
   expected_call_epoch : Int
   expected_type_epoch : Int
@@ -3497,6 +3499,7 @@ fn dae_work_item_new(
     family,
     uniform_values: [],
     allow_immutable_global_get: false,
+    allow_immediate_i32_suffix_fallback: false,
     expected_module_epoch: epoch.module_epoch,
     expected_call_epoch: epoch.call_epoch,
     expected_type_epoch: epoch.type_epoch,
@@ -3935,6 +3938,7 @@ fn dae_process_work_item(
       {
         ..dae_work_item_new(graph, dependencies, item.target_def, item.family),
         allow_immutable_global_get: item.allow_immutable_global_get,
+        allow_immediate_i32_suffix_fallback: item.allow_immediate_i32_suffix_fallback,
       },
     ])
   }
@@ -3998,6 +4002,7 @@ fn dae_process_work_item(
             item.target_def,
             graph.snapshot.call_facts,
             allow_immutable_global_get=item.allow_immutable_global_get,
+            allow_immediate_i32_suffix_fallback=item.allow_immediate_i32_suffix_fallback,
             original=Some(original),
             graph=Some(graph),
           ),
@@ -26384,7 +26389,13 @@ fn dae_run_changed_direct_callee_uniform_frontier(
 ) -> DaeExactLiteralWorklistApplication {
   let seed_defs = dae_collect_changed_direct_callee_defs(before, current)
   if seed_defs.length() == 0 {
-    return { mod_out: current, touched, changed, productive_defs: [] }
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      productive_defs: [],
+      effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+    }
   }
   let total = dae_imported_func_count(current) + dae_defined_func_count(current)
   let call_facts = dae_collect_current_call_facts(current, total)
@@ -36422,6 +36433,7 @@ fn dae_run_dropped_result_candidate_worklist_with_facts(
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
   let diagnostics = dae_diagnostics_new()
   let productive_defs : Array[Int] = []
+  let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = changed
@@ -36441,13 +36453,20 @@ fn dae_run_dropped_result_candidate_worklist_with_facts(
         touched_out = application.touched
         changed_out = application.changed
         productive_defs.push(application.primary_def)
+        effects = dae_commit_effects_merge(effects, application.effects)
         dae_current_boundary_graph_refresh(graph, mod_out)
         dependencies = dae_boundary_dependency_graph_new(graph)
       }
       _ => ()
     }
   }
-  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+  {
+    mod_out,
+    touched: touched_out,
+    changed: changed_out,
+    productive_defs,
+    effects,
+  }
 }
 
 ///|
@@ -36620,6 +36639,7 @@ fn dae_run_broad_dropped_result_payoff_chain(
   let mut current_mod = current
   let mut current_touched = touched
   let productive_defs : Array[Int] = []
+  let effects = dae_commit_effects_empty(defined)
   let mut iteration = 0
   while true {
     let call_facts = dae_collect_current_call_facts(current_mod, total)
@@ -36677,6 +36697,7 @@ fn dae_run_broad_dropped_result_payoff_chain(
     touched: current_touched,
     changed: changed || productive_defs.length() > 0,
     productive_defs,
+    effects,
   }
 }
 
@@ -37588,13 +37609,19 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   call_facts : DaeCurrentCallFacts,
   productive_limit : Int,
   allow_immutable_global_get? : Bool = false,
+  allow_immediate_i32_suffix_fallback? : Bool = false,
+  original? : DaeOriginalBoundarySnapshot? = None,
 ) -> DaeExactLiteralWorklistApplication {
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = changed
   let productive_defs : Array[Int] = []
+  let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
   ignore(call_facts.direct_calls.length())
-  let original = dae_collect_original_boundary_snapshot(current)
+  let original = match original {
+    Some(original) => original
+    None => dae_collect_original_boundary_snapshot(current)
+  }
   let graph = dae_current_boundary_graph_new(current)
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
   let mut flow = if allow_immutable_global_get {
@@ -37618,6 +37645,7 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
         graph, flow, candidate_def,
       ),
       allow_immutable_global_get,
+      allow_immediate_i32_suffix_fallback,
     }
     match
       dae_process_work_item(
@@ -37628,6 +37656,7 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
         touched_out = application.touched
         changed_out = application.changed
         productive_defs.push(application.primary_def)
+        effects = dae_commit_effects_merge(effects, application.effects)
         dae_current_boundary_graph_refresh(graph, mod_out)
         dependencies = dae_boundary_dependency_graph_new(graph)
         if !allow_immutable_global_get {
@@ -37641,7 +37670,13 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
       _ => ()
     }
   }
-  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
+  {
+    mod_out,
+    touched: touched_out,
+    changed: changed_out,
+    productive_defs,
+    effects,
+  }
 }
 
 ///|
@@ -40253,7 +40288,14 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   ignore(call_facts.direct_calls.length())
   let funcs = match current.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return { mod_out: current, touched, changed, productive_defs: [] }
+    None =>
+      return {
+        mod_out: current,
+        touched,
+        changed,
+        productive_defs: [],
+        effects: dae_commit_effects_empty(defined),
+      }
   }
   let queue : Array[Int] = []
   let queued = Array::make(defined, false)
@@ -40264,6 +40306,7 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   }
   let seen = Array::make(defined, false)
   let productive_defs : Array[Int] = []
+  let mut effects = dae_commit_effects_empty(defined)
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = changed
@@ -40302,6 +40345,7 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
         touched_out = application.touched
         changed_out = application.changed
         productive_defs.push(application.primary_def)
+        effects = dae_commit_effects_merge(effects, application.effects)
         dae_current_boundary_graph_refresh(graph, mod_out)
         dependencies = dae_boundary_dependency_graph_new(graph)
         let callers = before_callers
@@ -40321,38 +40365,13 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
       _ => ()
     }
   }
-  { mod_out, touched: touched_out, changed: changed_out, productive_defs }
-}
-
-///|
-fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-  call_facts : DaeCurrentCallFacts,
-  allow_immutable_global_get? : Bool = false,
-  allow_immediate_i32_suffix_fallback? : Bool = false,
-  original? : DaeOriginalBoundarySnapshot? = None,
-  graph? : DaeCurrentBoundaryGraph? = None,
-) -> DaePassResult {
-  let mut def_idx = 0
-  while def_idx < selected_defs.length() {
-    if selected_defs[def_idx] {
-      let result = dae_try_rewrite_exact_literal_def_with_facts_once(
-        mod_,
-        def_idx,
-        call_facts,
-        allow_immutable_global_get~,
-        allow_immediate_i32_suffix_fallback~,
-        original~,
-        graph~,
-      )
-      if result.changed {
-        return result
-      }
-    }
-    def_idx += 1
+  {
+    mod_out,
+    touched: touched_out,
+    changed: changed_out,
+    productive_defs,
+    effects,
   }
-  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
 }
 
 ///|
@@ -42270,6 +42289,7 @@ fn dae_run_core(
       current = broad_uniform.mod_out
       touched = broad_uniform.touched
       changed = broad_uniform.changed
+      effects = dae_commit_effects_merge(effects, broad_uniform.effects)
       for primary_def in broad_uniform.productive_defs {
         trace("pass[dae]:broad-exact-uniform primary_def=\{primary_def}")
       }
@@ -42376,6 +42396,10 @@ fn dae_run_core(
   current = low_exact_literal_application.mod_out
   touched = low_exact_literal_application.touched
   changed = low_exact_literal_application.changed
+  effects = dae_commit_effects_merge(
+    effects,
+    low_exact_literal_application.effects,
+  )
   for iter, primary_def in low_exact_literal_application.productive_defs {
     trace(
       "pass[dae-optimizing]:low-exact-literal-worklist iter=\{iter} primary_def=\{primary_def}",
@@ -42438,6 +42462,10 @@ fn dae_run_core(
   current = low_exact_result_application.mod_out
   touched = low_exact_result_application.touched
   changed = low_exact_result_application.changed
+  effects = dae_commit_effects_merge(
+    effects,
+    low_exact_result_application.effects,
+  )
   for iter, primary_def in low_exact_result_application.productive_defs {
     trace(
       "pass[dae-optimizing]:low-exact-result-worklist iter=\{iter} primary_def=\{primary_def}",
@@ -42451,11 +42479,11 @@ fn dae_run_core(
     let large_global_defs = dae_collect_large_uniform_const_revisit_defs(
       current,
     )
-    let large_selected = Array::make(original_defined, false)
     let all_large_defs = Array::make(original_defined, true)
-    // Direct-call edges and operand facts are unchanged between rejected
-    // candidates. Reuse one current-fact snapshot and refresh it only after a
-    // committed rewrite mutates a signature or call operand slice.
+    // Each candidate enters the common epoch-bearing uniform-value work item.
+    // The current graph refreshes after every commit, so newly exposed direct
+    // callees can join the same deterministic frontier without a selected-only
+    // scan-and-mutate path.
     let mut immutable_global_call_facts = dae_collect_current_call_facts(
       current, original_total,
     )
@@ -42465,25 +42493,21 @@ fn dae_run_core(
       if !large_global_defs[candidate_def] {
         continue
       }
-      large_selected[candidate_def] = true
       trace(
         "pass[dae-optimizing]:large-uniform-const-candidate primary_def=\{candidate_def}",
       )
-      let exact_graph = dae_current_boundary_graph_new(current)
-      let global_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      let global_application = dae_run_exact_literal_candidate_worklist_with_facts(
         current,
-        large_selected,
+        touched,
+        changed,
+        [candidate_def],
         immutable_global_call_facts,
+        -1,
         allow_immutable_global_get=true,
         allow_immediate_i32_suffix_fallback=true,
         original=Some(original_boundary_snapshot),
-        graph=Some(exact_graph),
       )
-      large_selected[candidate_def] = false
-      let global_application = dae_apply_family_result_transaction(
-        original_boundary_snapshot, current, touched, changed, exact_graph, global_result,
-      )
-      if global_application.applied {
+      if global_application.productive_defs.length() > 0 {
         current = global_application.mod_out
         touched = global_application.touched
         changed = global_application.changed
@@ -42492,14 +42516,14 @@ fn dae_run_core(
           current, original_total,
         )
         trace(
-          "pass[dae-optimizing]:large-uniform-const-revisit primary_def=\{global_application.primary_def}",
+          "pass[dae-optimizing]:large-uniform-const-revisit primary_def=\{global_application.productive_defs[0]}",
         )
         // Materializing this boundary can expose an immediate literal in a
         // forwarded direct callee. Admit only those newly visible call targets;
         // the same exact call-slice/ownership transaction remains authoritative.
         match current.code_sec {
           Some(@lib.CodeSec(funcs)) => {
-            let primary_def = global_application.primary_def
+            let primary_def = global_application.productive_defs[0]
             if primary_def >= 0 && primary_def < funcs.length() {
               let @lib.Func(_, @lib.Expr(body)) = funcs[primary_def]
               dae_collect_immediate_materializable_call_targets_instrs(
@@ -42599,6 +42623,7 @@ fn dae_run_core(
     current = fact_dropped_result.mod_out
     touched = fact_dropped_result.touched
     changed = fact_dropped_result.changed
+    effects = dae_commit_effects_merge(effects, fact_dropped_result.effects)
     for primary_def in fact_dropped_result.productive_defs {
       trace(
         "pass[dae-optimizing]:fact-dropped-result wave=\{fact_dropped_result_wave} primary_def=\{primary_def}",
@@ -42708,6 +42733,7 @@ fn dae_run_core(
   current = post_shape_uniform.mod_out
   touched = post_shape_uniform.touched
   changed = post_shape_uniform.changed
+  effects = dae_commit_effects_merge(effects, post_shape_uniform.effects)
   for primary_def in post_shape_uniform.productive_defs {
     trace("pass[dae-optimizing]:post-shape-uniform primary_def=\{primary_def}")
   }
@@ -42791,6 +42817,7 @@ fn dae_run_core(
   current = changed_terminal_uniform.mod_out
   touched = changed_terminal_uniform.touched
   changed = changed_terminal_uniform.changed
+  effects = dae_commit_effects_merge(effects, changed_terminal_uniform.effects)
   for primary_def in changed_terminal_uniform.productive_defs {
     trace(
       "pass[dae-optimizing]:post-changed-terminal-uniform primary_def=\{primary_def}",

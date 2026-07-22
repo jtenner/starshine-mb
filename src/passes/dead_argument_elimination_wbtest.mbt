@@ -1081,6 +1081,9 @@ test "dae exact-literal worklist batches multiple candidates from one call-fact 
     8,
   )
   assert_eq(application.productive_defs, [0, 1])
+  @debug.assert_eq(application.effects.worth_optimizing, [true, true, false])
+  @debug.assert_eq(application.effects.body_materialized, [true, true, false])
+  @debug.assert_eq(application.effects.parameter_changed, [true, true, false])
   let type_indices = dae_collect_func_type_indices(application.mod_out)
   match dae_resolve_func_type(application.mod_out, type_indices, 0) {
     Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
@@ -1089,6 +1092,42 @@ test "dae exact-literal worklist batches multiple candidates from one call-fact 
   match dae_resolve_func_type(application.mod_out, type_indices, 1) {
     Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
     None => fail("expected rewritten second candidate type")
+  }
+}
+
+///|
+test "dae exact-literal worklist owns immutable-global materialization effects" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (global $constant i32 (i32.const 7))
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    global.get $constant
+      #|    call $target))
+    ),
+  )
+  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
+  let application = dae_run_exact_literal_candidate_worklist_with_facts(
+    mod_,
+    [],
+    false,
+    [0],
+    dae_collect_current_call_facts(mod_, total),
+    -1,
+    allow_immutable_global_get=true,
+    original=Some(dae_collect_original_boundary_snapshot(mod_)),
+  )
+  assert_eq(application.productive_defs, [0])
+  @debug.assert_eq(application.effects.structurally_touched, [true, true])
+  @debug.assert_eq(application.effects.worth_optimizing, [true, false])
+  @debug.assert_eq(application.effects.body_materialized, [true, false])
+  @debug.assert_eq(application.effects.parameter_changed, [true, false])
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    None => fail("expected immutable-global target type")
   }
 }
 

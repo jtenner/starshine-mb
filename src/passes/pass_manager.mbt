@@ -71644,33 +71644,34 @@ fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
 }
 
 ///|
-fn run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
+fn run_hot_pipeline_dae_collect_direct_callee_defs_instrs(
   instrs : Array[@lib.Instruction],
   imported : Int,
-  selected : Array[Bool],
+  defined : Int,
+  callee_defs : Array[Int],
 ) -> Unit {
   for instr in instrs {
     match instr {
       @lib.Call(func_idx) => {
         let def_idx = dae_func_idx_slot(func_idx) - imported
-        if def_idx >= 0 && def_idx < selected.length() {
-          selected[def_idx] = true
+        if def_idx >= 0 && def_idx < defined && !callee_defs.contains(def_idx) {
+          callee_defs.push(def_idx)
         }
       }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
-          body, imported, selected,
+        run_hot_pipeline_dae_collect_direct_callee_defs_instrs(
+          body, imported, defined, callee_defs,
         )
       @lib.If(_, then_body, else_body) => {
-        run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
-          then_body, imported, selected,
+        run_hot_pipeline_dae_collect_direct_callee_defs_instrs(
+          then_body, imported, defined, callee_defs,
         )
         match else_body {
           Some(body) =>
-            run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
-              body, imported, selected,
+            run_hot_pipeline_dae_collect_direct_callee_defs_instrs(
+              body, imported, defined, callee_defs,
             )
           None => ()
         }
@@ -71684,22 +71685,23 @@ fn run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
 fn run_hot_pipeline_dae_collect_direct_callees_from_defs(
   mod_ : @lib.Module,
   caller_defs : Array[Int],
-) -> Array[Bool] {
-  let selected = Array::make(dae_defined_func_count(mod_), false)
+) -> Array[Int] {
+  let callee_defs : Array[Int] = []
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return selected
+    None => return callee_defs
   }
   let imported = dae_imported_func_count(mod_)
+  let defined = funcs.length()
   for caller_def in caller_defs {
     if caller_def >= 0 && caller_def < funcs.length() {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      run_hot_pipeline_dae_collect_selected_direct_callees_instrs(
-        body, imported, selected,
+      run_hot_pipeline_dae_collect_direct_callee_defs_instrs(
+        body, imported, defined, callee_defs,
       )
     }
   }
-  selected
+  callee_defs
 }
 
 ///|
@@ -72361,9 +72363,10 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
     // ownership proof on only those direct callees, then recursively clean the
     // resulting boundary changes once.
     let follow_baseline = cleaned_mod
-    let follow_selected = run_hot_pipeline_dae_collect_direct_callees_from_defs(
+    let follow_candidates = run_hot_pipeline_dae_collect_direct_callees_from_defs(
       cleaned_mod, folded_defs,
     )
+    let follow_original = dae_collect_original_boundary_snapshot(original)
     let mut follow_mod = cleaned_mod
     let mut follow_touched : Array[Bool] = []
     let mut follow_iter = 0
@@ -72371,24 +72374,30 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
       let total = dae_imported_func_count(follow_mod) +
         dae_defined_func_count(follow_mod)
       let follow_facts = dae_collect_current_call_facts(follow_mod, total)
-      let follow_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+      let follow_application = dae_run_exact_literal_candidate_worklist_with_facts(
         follow_mod,
-        follow_selected,
+        follow_touched,
+        false,
+        follow_candidates,
         follow_facts,
+        -1,
         allow_immutable_global_get=true,
+        original=Some(follow_original),
       )
-      if !follow_result.changed {
+      if follow_application.productive_defs.length() == 0 {
         break
       }
-      follow_mod = follow_result.mod_out
-      follow_touched = dae_merge_touched(follow_touched, follow_result.touched)
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "broad-changed-boundary-folded-callee",
-        payload="iter=\{follow_iter} primary_def=\{follow_result.primary_def}",
-      )
-      follow_iter += 1
+      follow_mod = follow_application.mod_out
+      follow_touched = follow_application.touched
+      for primary_def in follow_application.productive_defs {
+        pipeline_trace_hook(
+          options.trace,
+          "dae-optimizing",
+          "broad-changed-boundary-folded-callee",
+          payload="iter=\{follow_iter} primary_def=\{primary_def}",
+        )
+        follow_iter += 1
+      }
     }
     if follow_touched.length() > 0 {
       let (follow_cleaned, _) = match
