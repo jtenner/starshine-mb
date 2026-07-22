@@ -15944,6 +15944,18 @@ test "dae dropped result batch is definition-count independent" {
 }
 
 ///|
+test "dae specialized uncalled result removal preserves exported boundary" {
+  let source =
+    #|(module
+    #|  (func $target (export "target") (result i32)
+    #|    unreachable))
+  let mod_ = pass_test_module_from_wat(source)
+  let result = dae_try_remove_uncalled_results(mod_, 0)
+  assert_false(result.changed)
+  assert_eq(result.mod_out, mod_)
+}
+
+///|
 test "dae dropped result batch ignores unrelated direct tails" {
   let source =
     #|(module

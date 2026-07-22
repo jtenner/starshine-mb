@@ -20474,13 +20474,23 @@ fn dae_dropped_result_module_context(
   } else {
     0UL
   }
-  let result_removal_legality = dae_dropped_result_removal_legality_evidence(
+  let scoped_result_removal_legality = dae_dropped_result_removal_legality_evidence(
     signature.funcs,
     scope,
     callee_abs,
     def_idx,
     results,
   )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let original_exposure_blocks = callee_abs < 0 ||
+    callee_abs >= original.exposure.length() ||
+    dae_function_exposure_blocks_boundary(original.exposure[callee_abs])
+  let result_removal_legality = if results.length() > 0 &&
+    original_exposure_blocks {
+    { ..scoped_result_removal_legality, blocks_result_removal: true }
+  } else {
+    scoped_result_removal_legality
+  }
   if timer_prefix.length() > 0 {
     perf_stop_timer_opt(
       perf, undropped_scan_timer_name, undropped_scan_start_us,
