@@ -19592,6 +19592,28 @@ test "DAEO broad changed-boundary cleanup reports non-fold body changes" {
 }
 
 ///|
+test "DAEO broad cleanup admits every body-only worth function without size thresholds" {
+  let cleaned_defs = [0]
+  let removed_local_counts = [2]
+  let used_fallbacks = [false]
+  let trace : Array[String] = []
+  let admitted = run_hot_pipeline_dae_admit_body_only_worth_defs(
+    [true, true, false, true],
+    cleaned_defs,
+    removed_local_counts,
+    used_fallbacks,
+    fn(line) { trace.push(line) },
+  )
+  @debug.assert_eq(admitted, [1, 3])
+  @debug.assert_eq(cleaned_defs, [0, 1, 3])
+  @debug.assert_eq(removed_local_counts, [2, 0, 0])
+  @debug.assert_eq(used_fallbacks, [false, false, false])
+  assert_true(
+    trace.any(fn(line) { line.contains("broad-worth-touched-admit") }),
+  )
+}
+
+///|
 test "DAEO broad local cleanup retains valid definitions when a sibling candidate is invalid" {
   let baseline = pass_test_module_from_wat("(module (func nop) (func))")
   let candidate_funcs = match baseline.code_sec {

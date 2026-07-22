@@ -71698,6 +71698,33 @@ fn run_hot_pipeline_dae_collect_direct_callees_from_defs(
 }
 
 ///|
+fn run_hot_pipeline_dae_admit_body_only_worth_defs(
+  worth_touched : Array[Bool],
+  cleaned_defs : Array[Int],
+  removed_local_counts : Array[Int],
+  used_fallbacks : Array[Bool],
+  trace : (String) -> Unit,
+) -> Array[Int] {
+  let admitted : Array[Int] = []
+  for def_idx = 0; def_idx < worth_touched.length(); def_idx = def_idx + 1 {
+    if !worth_touched[def_idx] || cleaned_defs.contains(def_idx) {
+      continue
+    }
+    cleaned_defs.push(def_idx)
+    removed_local_counts.push(0)
+    used_fallbacks.push(false)
+    admitted.push(def_idx)
+    pipeline_trace_hook(
+      trace,
+      "dae-optimizing",
+      "broad-worth-touched-admit",
+      payload="def=\{def_idx}",
+    )
+  }
+  admitted
+}
+
+///|
 fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
   original : @lib.Module,
   current : @lib.Module,
@@ -71759,36 +71786,18 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
       return Ok((current, false))
     }
   }
-  // Binaryen reruns its filtered function pipeline on every function DAE
-  // modified, not only callees whose own signature changed. Admit material
-  // touched callers here while keeping the cheap small-function path limited
-  // to proved changed boundaries. Every later adapter remains transactional,
-  // individually non-larger, and module-validated.
-  match cleaned_mod.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for def_idx = 0; def_idx < funcs.length(); def_idx = def_idx + 1 {
-        if def_idx >= touched.length() ||
-          !touched[def_idx] ||
-          cleaned_defs.contains(def_idx) {
-          continue
-        }
-        match run_hot_pipeline_dae_encoded_func_size(funcs[def_idx]) {
-          Some(size) if size >= 2048 => {
-            cleaned_defs.push(def_idx)
-            removed_local_counts.push(0)
-            used_fallbacks.push(false)
-            pipeline_trace_hook(
-              options.trace,
-              "dae-optimizing",
-              "broad-material-touched-admit",
-              payload="def=\{def_idx} size=\{size}",
-            )
-          }
-          _ => ()
-        }
-      }
-    None => ()
-  }
+  // Binaryen reruns its filtered function pipeline on every function DAE marks
+  // worth optimizing, including body-only localization/materialization callers.
+  // The caller supplies that producer-owned worth bitmap, so no encoded-size or
+  // removed-local threshold is needed here. Every later adapter remains
+  // transactional, individually non-larger, and module-validated.
+  let body_only_worth_defs = run_hot_pipeline_dae_admit_body_only_worth_defs(
+    touched,
+    cleaned_defs,
+    removed_local_counts,
+    used_fallbacks,
+    options.trace,
+  )
   // Boundary constant materialization can inject immutable global reads into
   // small functions with no local declarations. Fold their immutable struct
   // fields before applying the heavier size-gated nested replay.
@@ -71860,11 +71869,9 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
       cleanup_idx < cleaned_defs.length()
       cleanup_idx = cleanup_idx + 1 {
     let cleaned_def = cleaned_defs[cleanup_idx]
-    // Direct compaction is cheap and applies to every proven boundary change.
-    // Reserve the heavier Binaryen nested replay for material declaration
-    // debris or already-large changed bodies. The latter keeps the source-owned
-    // post-signature replay for large functions even when compaction itself
-    // removes only a few declarations.
+    // Producer-owned body-only worth functions always receive the filtered
+    // replay. Existing exact-boundary owners retain their current admission
+    // policy until the bidirectional convergence scheduler replaces it.
     let material_body = match cleaned_funcs.get(cleaned_def) {
       Some(func) =>
         match run_hot_pipeline_dae_encoded_func_size(func) {
@@ -71887,7 +71894,8 @@ fn run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
     } else {
       false
     }
-    if removed_local_counts[cleanup_idx] >= 16 ||
+    if body_only_worth_defs.contains(cleaned_def) ||
+      removed_local_counts[cleanup_idx] >= 16 ||
       small_call_free_local_cleanup ||
       material_body ||
       folded_defs.contains(cleaned_def) {
@@ -72793,10 +72801,18 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     }
   }
   // Run the general changed-boundary fallback only after specialized DAEO
-  // convergence owners have consumed their original fact neighborhoods.
+  // convergence owners have consumed their original fact neighborhoods. Feed
+  // it the semantic worth set so body-only callers are replayed without a size
+  // heuristic and callsite-only structural edits remain excluded.
+  let broad_cleanup_touched = run_hot_pipeline_dae_worth_optimizing_touched(
+    mod_,
+    core_mod,
+    core_touched,
+    producer_effects=Some(result.effects),
+  )
   let (broad_cleaned, broad_cleanup_changed) = match
     run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
-      mod_, core_mod, core_touched, options,
+      mod_, core_mod, broad_cleanup_touched, options,
     ) {
     Ok(next) => next
     Err(err) => return Err(err)
