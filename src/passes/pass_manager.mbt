@@ -70163,6 +70163,16 @@ fn run_hot_pipeline_apply_dae_post_component_cleanup(
 }
 
 ///|
+fn run_hot_pipeline_dae_effects_own_worth_for_def(
+  effects : DaeCommitEffects,
+  def_idx : Int,
+) -> Bool {
+  def_idx >= 0 &&
+  def_idx < effects.worth_decided.length() &&
+  effects.worth_decided[def_idx]
+}
+
+///|
 fn run_hot_pipeline_dae_worth_optimizing_touched(
   before : @lib.Module,
   after : @lib.Module,
@@ -70178,11 +70188,15 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
       effects.worth_optimizing.copy()
     _ => Array::make(after_funcs.length(), false)
   }
-  let producer_owned = match producer_effects {
-    Some(effects) if effects.structurally_touched.length() ==
-      after_funcs.length() &&
-      effects.invalidation_domains.length() > 0 => effects.structurally_touched
-    _ => Array::make(after_funcs.length(), false)
+  let producer_owned = Array::make(after_funcs.length(), false)
+  match producer_effects {
+    Some(effects) =>
+      for def_idx = 0; def_idx < after_funcs.length(); def_idx = def_idx + 1 {
+        producer_owned[def_idx] = run_hot_pipeline_dae_effects_own_worth_for_def(
+          effects, def_idx,
+        )
+      }
+    None => ()
   }
   let before_funcs = match before.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs

@@ -1259,6 +1259,7 @@ priv enum DaeInvalidationDomain {
 ///|
 priv struct DaeCommitEffects {
   structurally_touched : Array[Bool]
+  worth_decided : Array[Bool]
   worth_optimizing : Array[Bool]
   parameter_changed : Array[Bool]
   parameter_type_refined : Array[Bool]
@@ -1280,6 +1281,7 @@ priv struct DaeCommitEffects {
 fn dae_commit_effects_empty(defined : Int) -> DaeCommitEffects {
   {
     structurally_touched: Array::make(defined, false),
+    worth_decided: Array::make(defined, false),
     worth_optimizing: Array::make(defined, false),
     parameter_changed: Array::make(defined, false),
     parameter_type_refined: Array::make(defined, false),
@@ -1310,6 +1312,7 @@ fn dae_commit_effects_parameter_change(
   for def_idx in structurally_touched_defs {
     if def_idx >= 0 && def_idx < defined {
       effects.structurally_touched[def_idx] = true
+      effects.worth_decided[def_idx] = true
     }
   }
   if target_def >= 0 && target_def < defined {
@@ -1371,6 +1374,8 @@ fn dae_commit_effects_merge(
     }
     merged.structurally_touched[idx] = left_has(left.structurally_touched) ||
       right_has(right.structurally_touched)
+    merged.worth_decided[idx] = left_has(left.worth_decided) ||
+      right_has(right.worth_decided)
     merged.worth_optimizing[idx] = left_has(left.worth_optimizing) ||
       right_has(right.worth_optimizing)
     merged.parameter_changed[idx] = left_has(left.parameter_changed) ||
@@ -3597,6 +3602,7 @@ fn dae_build_family_rewrite_plan(
   let producer_effects = match effects {
     Some(value) => {
       if value.structurally_touched.length() != graph.snapshot.defined ||
+        value.worth_decided.length() != graph.snapshot.defined ||
         value.worth_optimizing.length() != graph.snapshot.defined ||
         value.parameter_changed.length() != graph.snapshot.defined ||
         value.body_materialized.length() != graph.snapshot.defined ||
@@ -3801,6 +3807,7 @@ fn dae_commit_effects_for_work_item(
   while def_idx < candidate.touched.length() && def_idx < defined {
     if candidate.touched[def_idx] {
       effects.structurally_touched[def_idx] = true
+      effects.worth_decided[def_idx] = true
     }
     def_idx += 1
   }
@@ -24909,6 +24916,50 @@ fn dae_collect_original_dead_suffix_calls_from_param_operand_self_result_callers
 }
 
 ///|
+fn dae_try_process_core_work_item(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+  family : DaeWorkFamily,
+) -> DaeCoreResultApplication? {
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let item = dae_work_item_new(graph, dependencies, target_def, family)
+  match
+    dae_process_work_item(
+      original,
+      current,
+      [],
+      false,
+      graph,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => Some(application)
+    _ => None
+  }
+}
+
+///|
+fn dae_core_pass_result_from_work_application(
+  application : DaeCoreResultApplication,
+  producer_effects_report : Array[DaeCommitEffects],
+) -> DaePassResult {
+  if producer_effects_report.length() == 0 {
+    producer_effects_report.push(application.effects)
+  } else {
+    producer_effects_report[0] = application.effects
+  }
+  {
+    mod_out: application.mod_out,
+    touched: application.touched,
+    changed: application.changed,
+    primary_def: application.primary_def,
+  }
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
@@ -25474,78 +25525,74 @@ fn dae_run_core_once(
     if self_calls_anywhere == 0 &&
       boundary_candidate.direct_call_count > 0 &&
       dae_signature_has_heap_ref(params, results) {
-      let dependencies = dae_boundary_dependency_graph_new(current_graph)
-      let item = dae_work_item_new(
-        current_graph,
-        dependencies,
-        def_idx,
-        DaeGcParameterRefinementWork,
-      )
       match
-        dae_process_work_item(
+        dae_try_process_core_work_item(
           original,
           mod_,
-          [],
-          false,
           current_graph,
-          dependencies,
-          item,
-          dae_diagnostics_new(),
+          def_idx,
+          DaeGcParameterRefinementWork,
         ) {
-        DaeWorkCommitted(application) => {
-          if producer_effects_report.length() == 0 {
-            producer_effects_report.push(application.effects)
-          } else {
-            producer_effects_report[0] = application.effects
-          }
-          return {
-            mod_out: application.mod_out,
-            touched: application.touched,
-            changed: application.changed,
-            primary_def: application.primary_def,
-          }
-        }
-        _ => ()
+        Some(application) =>
+          return dae_core_pass_result_from_work_application(
+            application, producer_effects_report,
+          )
+        None => ()
       }
     }
     if params.length() == 0 {
       let preserve_original_result = original_result_preservation_for_def
       if original_result_removal_prune_for_def.dropped_self_result_with_void_side_callers &&
         !skip_original_large_result_cleanup {
-        let dropped_result = dae_try_remove_dropped_results(
-          mod_,
-          callee_abs,
-          boundary_candidate.direct_call_count,
-          boundary_candidate.dropped_call_count,
-        )
-        if dropped_result.changed {
-          return dropped_result
+        match
+          dae_try_process_core_work_item(
+            original,
+            mod_,
+            current_graph,
+            def_idx,
+            DaeDroppedResultWork,
+          ) {
+          Some(application) =>
+            return dae_core_pass_result_from_work_application(
+              application, producer_effects_report,
+            )
+          None => ()
         }
       }
       if !skip_original_large_result_cleanup &&
         dae_should_prune_params_absent_result_cleanup(
           original_result_removal_prune_for_def,
         ) {
-        let dropped_result = dae_try_remove_dropped_results(
-          mod_,
-          callee_abs,
-          boundary_candidate.direct_call_count,
-          boundary_candidate.dropped_call_count,
-        )
-        if dropped_result.changed {
-          return dropped_result
+        match
+          dae_try_process_core_work_item(
+            original,
+            mod_,
+            current_graph,
+            def_idx,
+            DaeDroppedResultWork,
+          ) {
+          Some(application) =>
+            return dae_core_pass_result_from_work_application(
+              application, producer_effects_report,
+            )
+          None => ()
         }
       }
       if !skip_original_large_result_cleanup &&
         !dae_original_result_preservation_any(preserve_original_result) {
-        let dropped_result = dae_try_remove_dropped_results(
-          mod_,
-          callee_abs,
-          boundary_candidate.direct_call_count,
-          boundary_candidate.dropped_call_count,
-        )
-        if dropped_result.changed {
-          return dropped_result
+        match
+          dae_try_process_core_work_item(
+            original,
+            mod_,
+            current_graph,
+            def_idx,
+            DaeDroppedResultWork,
+          ) {
+          Some(application) =>
+            return dae_core_pass_result_from_work_application(
+              application, producer_effects_report,
+            )
+          None => ()
         }
       }
       def_idx += 1
@@ -39471,6 +39518,7 @@ fn dae_build_forwarded_param_component_rewrite_plan(
   while effect_def < candidate.touched.length() {
     if candidate.touched[effect_def] {
       effects.structurally_touched[effect_def] = true
+      effects.worth_decided[effect_def] = true
     }
     effect_def += 1
   }

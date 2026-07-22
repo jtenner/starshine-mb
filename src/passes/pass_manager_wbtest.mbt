@@ -23307,6 +23307,52 @@ test "dae optimizing worth set trusts producer effects over local growth inferen
 }
 
 ///|
+test "dae optimizing worth ownership remains per definition across mixed producers" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $result_target (result i32)
+      #|    i32.const 7)
+      #|  (func $param_target (param i32) nop)
+      #|  (func (export "run")
+      #|    call $result_target
+      #|    drop
+      #|    i32.const 9
+      #|    call $param_target))
+    ),
+  )
+  let after = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $result_target nop)
+      #|  (func $param_target nop)
+      #|  (func (export "run")
+      #|    call $result_target
+      #|    call $param_target))
+    ),
+  )
+  let base = dae_commit_effects_empty(3)
+  base.structurally_touched[0] = true
+  base.structurally_touched[1] = true
+  base.structurally_touched[2] = true
+  base.worth_decided[0] = true
+  base.worth_decided[2] = true
+  base.worth_optimizing[0] = true
+  base.worth_optimizing[2] = true
+  base.result_changed[0] = true
+  base.result_removed[0] = true
+  base.caller_drop_removed[2] = true
+  let effects = { ..base, invalidation_domains: [DaeInvalidateResult] }
+  let worth = run_hot_pipeline_dae_worth_optimizing_touched(
+    before,
+    after,
+    [true, true, true],
+    producer_effects=Some(effects),
+  )
+  @debug.assert_eq(worth, [true, true, true])
+}
+
+///|
 test "dae optimizing worth set includes dropped-result callers" {
   let before = pass_test_module_from_wat(
     (

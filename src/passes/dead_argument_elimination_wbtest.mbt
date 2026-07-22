@@ -15718,6 +15718,43 @@ test "dae core GC parameter refinement reports producer-owned effects" {
 }
 
 ///|
+test "dae core dropped-result removal reports producer-owned effects" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run")
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let effects_report : Array[DaeCommitEffects] = []
+  let result = dae_run_core_once(
+    mod_,
+    Array::make(2, false),
+    dae_collect_module_call_counts_anywhere(funcs, 0, 2),
+    false,
+    false,
+    original,
+    graph,
+    max_def_exclusive=1,
+    producer_effects_report=effects_report,
+  )
+  assert_true(result.changed)
+  @debug.assert_eq(effects_report.length(), 1)
+  assert_true(effects_report[0].worth_decided[0])
+  assert_true(effects_report[0].worth_decided[1])
+  assert_true(effects_report[0].result_removed[0])
+  assert_true(effects_report[0].worth_optimizing[0])
+  assert_true(effects_report[0].caller_drop_removed[1])
+}
+
+///|
 test "dae unread parameter batch is definition-count independent" {
   let source =
     #|(module
