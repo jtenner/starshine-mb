@@ -25030,7 +25030,6 @@ fn dae_run_core_once(
   let function_infos = boundary_snapshot.function_infos
   let direct_calls = boundary_facts.direct_calls
   let direct_callers = boundary_facts.direct_callers
-  let dropped_calls = boundary_facts.dropped_calls
   let type_indices = boundary_snapshot.type_indices
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -25756,14 +25755,19 @@ fn dae_run_core_once(
       !dae_original_result_preservation_blocks_argument_side_result_repair(
         preserve_current_result, true,
       ) {
-      let dropped_result = dae_try_remove_dropped_results(
-        mod_,
-        callee_abs,
-        direct_calls[callee_abs],
-        dropped_calls[callee_abs],
-      )
-      if dropped_result.changed {
-        return dropped_result
+      match
+        dae_try_process_core_work_item(
+          original,
+          mod_,
+          current_graph,
+          def_idx,
+          DaeDroppedResultWork,
+        ) {
+        Some(application) =>
+          return dae_core_pass_result_from_work_application(
+            application, producer_effects_report,
+          )
+        None => ()
       }
     }
     def_idx += 1
