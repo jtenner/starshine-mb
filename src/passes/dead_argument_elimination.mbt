@@ -16939,6 +16939,80 @@ fn dae_signature_has_heap_ref(
 }
 
 ///|
+fn dae_rewrite_nondefaultable_fixup_gets(
+  instrs : Array[@lib.Instruction],
+  first_fixup_idx : Int,
+  needs_non_null : Array[Bool],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(local_idx) | @lib.LocalTee(local_idx) => {
+        out.push(instr)
+        let slot = dae_local_idx_slot(local_idx) - first_fixup_idx
+        if slot >= 0 && slot < needs_non_null.length() && needs_non_null[slot] {
+          out.push(@lib.Instruction::ref_as_non_null())
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              dae_rewrite_nondefaultable_fixup_gets(
+                body, first_fixup_idx, needs_non_null,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              dae_rewrite_nondefaultable_fixup_gets(
+                body, first_fixup_idx, needs_non_null,
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        out.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              dae_rewrite_nondefaultable_fixup_gets(
+                body, first_fixup_idx, needs_non_null,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        out.push(
+          @lib.Instruction::if_(
+            block_type,
+            dae_rewrite_nondefaultable_fixup_gets(
+              then_body, first_fixup_idx, needs_non_null,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  dae_rewrite_nondefaultable_fixup_gets(
+                    body, first_fixup_idx, needs_non_null,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => out.push(instr)
+    }
+  }
+  out
+}
+
+///|
 fn dae_apply_reused_gc_param_fixups(
   params : Array[@lib.ValType],
   refined_params : Array[Bool],
@@ -16953,6 +17027,7 @@ fn dae_apply_reused_gc_param_fixups(
     idx += 1
   }
   let fixup_types : Array[@lib.ValType] = []
+  let fixup_needs_non_null : Array[Bool] = []
   let fixup_params : Array[Int] = []
   let mut param_idx = 0
   while param_idx < params.length() {
@@ -16961,12 +17036,19 @@ fn dae_apply_reused_gc_param_fixups(
       param_idx < local_use.writes.length() &&
       local_use.writes[param_idx] {
       match params[param_idx] {
-        @lib.RefTypeValType(@lib.HeapTypeRefType(true, _, _)) => {
+        @lib.RefTypeValType(@lib.HeapTypeRefType(nullable, exact, heap_type)) => {
           let fixup_idx = params.length() +
             locals.length() +
             fixup_types.length()
           local_map[param_idx] = fixup_idx
-          fixup_types.push(params[param_idx])
+          fixup_types.push(
+            if nullable {
+              params[param_idx]
+            } else {
+              @lib.ValType::ref_type(@lib.RefType::new(true, heap_type, exact~))
+            },
+          )
+          fixup_needs_non_null.push(!nullable)
           fixup_params.push(param_idx)
         }
         _ => return None
@@ -16977,11 +17059,15 @@ fn dae_apply_reused_gc_param_fixups(
   if fixup_types.length() == 0 {
     return Some((locals, body, false))
   }
-  let rewritten_body = dae_rewrite_locals_instrs(body, local_map)
+  let first_fixup_idx = params.length() + locals.length()
+  let remapped_body = dae_rewrite_locals_instrs(body, local_map)
+  let rewritten_body = dae_rewrite_nondefaultable_fixup_gets(
+    remapped_body, first_fixup_idx, fixup_needs_non_null,
+  )
   let next_body : Array[@lib.Instruction] = []
   idx = 0
   while idx < fixup_params.length() {
-    let fixup_idx = params.length() + locals.length() + idx
+    let fixup_idx = first_fixup_idx + idx
     next_body.push(
       @lib.Instruction::local_get(
         @lib.LocalIdx::new(fixup_params[idx].reinterpret_as_uint()),
