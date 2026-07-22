@@ -12906,7 +12906,7 @@ fn dae_collect_direct_struct_default_actuals_instrs(
         }
         let mut p = 0
         while p < params.length() {
-          if !local_use.writes[p] && !rejected[p] {
+          if !rejected[p] {
             match params[p] {
               @lib.RefTypeValType(_) =>
                 match
@@ -16939,6 +16939,71 @@ fn dae_signature_has_heap_ref(
 }
 
 ///|
+fn dae_apply_reused_gc_param_fixups(
+  params : Array[@lib.ValType],
+  refined_params : Array[Bool],
+  local_use : DaeLocalUse,
+  locals : @lib.Locals,
+  body : Array[@lib.Instruction],
+) -> (@lib.Locals, Array[@lib.Instruction], Bool)? {
+  let local_map = Array::make(params.length() + locals.length(), 0)
+  let mut idx = 0
+  while idx < local_map.length() {
+    local_map[idx] = idx
+    idx += 1
+  }
+  let fixup_types : Array[@lib.ValType] = []
+  let fixup_params : Array[Int] = []
+  let mut param_idx = 0
+  while param_idx < params.length() {
+    if param_idx < refined_params.length() &&
+      refined_params[param_idx] &&
+      param_idx < local_use.writes.length() &&
+      local_use.writes[param_idx] {
+      match params[param_idx] {
+        @lib.RefTypeValType(@lib.HeapTypeRefType(true, _, _)) => {
+          let fixup_idx = params.length() +
+            locals.length() +
+            fixup_types.length()
+          local_map[param_idx] = fixup_idx
+          fixup_types.push(params[param_idx])
+          fixup_params.push(param_idx)
+        }
+        _ => return None
+      }
+    }
+    param_idx += 1
+  }
+  if fixup_types.length() == 0 {
+    return Some((locals, body, false))
+  }
+  let rewritten_body = dae_rewrite_locals_instrs(body, local_map)
+  let next_body : Array[@lib.Instruction] = []
+  idx = 0
+  while idx < fixup_params.length() {
+    let fixup_idx = params.length() + locals.length() + idx
+    next_body.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new(fixup_params[idx].reinterpret_as_uint()),
+      ),
+    )
+    next_body.push(
+      @lib.Instruction::local_set(
+        @lib.LocalIdx::new(fixup_idx.reinterpret_as_uint()),
+      ),
+    )
+    idx += 1
+  }
+  for instr in rewritten_body {
+    next_body.push(instr)
+  }
+  let next_locals = @lib.Locals::from_types([])
+  next_locals.append(locals)
+  next_locals.append(@lib.Locals::from_types(fixup_types))
+  Some((next_locals, next_body, true))
+}
+
+///|
 fn dae_try_refine_direct_gc_types(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -16980,6 +17045,8 @@ fn dae_try_refine_direct_gc_types(
   let mut rewritten_funcs = funcs.copy()
   let mut caller_body_changed = false
   let mut next_body = body
+  let mut next_locals = locals
+  let mut param_fixup_body_changed = false
   let mut result_body_changed = false
   let mut rewrite_type_sec : @lib.TypeSec? = None
   let mut changed = false
@@ -17059,6 +17126,18 @@ fn dae_try_refine_direct_gc_types(
         application.changed_defs[def_idx] {
         let @lib.Func(_, @lib.Expr(rewritten_body)) = rewritten_funcs[def_idx]
         next_body = rewritten_body
+      }
+      match
+        dae_apply_reused_gc_param_fixups(
+          params, refined_params, local_use, locals, next_body,
+        ) {
+        Some((fixed_locals, fixed_body, body_changed)) => {
+          next_locals = fixed_locals
+          next_body = fixed_body
+          param_fixup_body_changed = body_changed
+        }
+        None =>
+          return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
       }
     }
   }
@@ -17441,10 +17520,10 @@ fn dae_try_refine_direct_gc_types(
     Some(type_sec) => mod_.with_type_sec(type_sec)
     None => mod_
   }
-  if result_body_changed || caller_body_changed {
-    if result_body_changed {
+  if result_body_changed || param_fixup_body_changed || caller_body_changed {
+    if result_body_changed || param_fixup_body_changed {
       rewritten_funcs[def_idx] = @lib.Func::new(
-        locals,
+        next_locals,
         @lib.Expr::new(next_body),
       )
     }

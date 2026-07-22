@@ -15876,6 +15876,86 @@ test "dae GC parameter refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae GC parameter refinement repairs reused old-type parameters with a local" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    ref.null $base
+    #|    local.set 0
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let item = dae_work_item_new(
+    graph,
+    dependencies,
+    0,
+    DaeGcParameterRefinementWork,
+  )
+  match
+    dae_process_work_item(
+      dae_collect_original_boundary_snapshot(mod_),
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType([param], [result])) => {
+          assert_eq(
+            param,
+            @lib.ValType::ref_type(
+              @lib.RefType::new(
+                false,
+                @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+                exact=true,
+              ),
+            ),
+          )
+          assert_eq(result, @lib.ValType::i32())
+        }
+        _ => fail("expected refined reused parameter signature")
+      }
+      let funcs = match application.mod_out.code_sec {
+        Some(@lib.CodeSec(funcs)) => funcs
+        None => fail("expected rewritten code")
+      }
+      let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
+      assert_eq(locals.length(), 1)
+      let local_runs = locals.runs()
+      assert_eq(local_runs.length(), 1)
+      assert_eq(local_runs[0].count(), 1U)
+      assert_eq(
+        local_runs[0].val_type(),
+        @lib.ValType::ref_type(
+          @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+        ),
+      )
+      assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+      assert_eq(body[1], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
+      assert_eq(body[3], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
+      assert_eq(body[4], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid reused parameter repair, got \{err}")
+      }
+    }
+    _ => fail("expected reused GC parameter refinement to commit")
+  }
+}
+
+///|
 test "dae core GC parameter refinement reports producer-owned effects" {
   let source =
     #|(module
