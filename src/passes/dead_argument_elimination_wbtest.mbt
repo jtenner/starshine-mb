@@ -15726,6 +15726,41 @@ test "dae exact-literal transaction rejects original escaped ownership" {
 }
 
 ///|
+test "dae exact-literal family entry retains original escaped ownership" {
+  let escaped = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (elem (i32.const 0) func $target)
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let current_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let application = dae_apply_exact_literal_family_once(
+    escaped,
+    current_mod,
+    0,
+    [],
+    false,
+  )
+  assert_false(application.applied)
+  assert_eq(application.mod_out, current_mod)
+}
+
+///|
 test "dae immediate-suffix transaction rejects original escaped ownership" {
   let escaped_source =
     #|(module

@@ -39542,6 +39542,32 @@ fn dae_run_call_sink_uniform_parameter_flow(
 }
 
 ///|
+fn dae_apply_exact_literal_family_once(
+  original_source : @lib.Module,
+  current : @lib.Module,
+  def_idx : Int,
+  touched : Array[Bool],
+  changed : Bool,
+  allow_immutable_global_get? : Bool = false,
+  allow_immediate_i32_suffix_fallback? : Bool = false,
+) -> DaeCoreResultApplication {
+  let original = dae_collect_original_boundary_snapshot(original_source)
+  let graph = dae_current_boundary_graph_new(current)
+  let candidate = dae_try_rewrite_exact_literal_def_with_facts_once(
+    current,
+    def_idx,
+    graph.snapshot.call_facts,
+    allow_immutable_global_get~,
+    allow_immediate_i32_suffix_fallback~,
+    original=Some(original),
+    graph=Some(graph),
+  )
+  dae_apply_family_result_transaction(
+    original, current, touched, changed, graph, candidate,
+  )
+}
+
+///|
 fn dae_run_broad_exact_param_adjacent_cleanup_root(
   candidate_source : @lib.Module,
   current : @lib.Module,
@@ -39561,6 +39587,10 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
   )
   let source_type_indices = dae_collect_func_type_indices(candidate_source)
   let current_type_indices = dae_collect_func_type_indices(current)
+  let original = dae_collect_original_boundary_snapshot(candidate_source)
+  let current_graph = dae_current_boundary_graph_new(current)
+  let source_original = dae_collect_original_boundary_snapshot(candidate_source)
+  let source_graph = dae_current_boundary_graph_new(candidate_source)
   let neighborhood_candidates = dae_collect_broad_exact_param_adjacent_cleanup_candidates(
     current, root_defs,
   )
@@ -39578,12 +39608,16 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
       current,
       candidate.root_def,
       call_facts,
+      original=Some(original),
+      graph=Some(current_graph),
     )
     let root_already_applied = if !root_result.changed {
       let source_result = dae_try_rewrite_exact_literal_def_with_facts_once(
         candidate_source,
         candidate.root_def,
         source_call_facts,
+        original=Some(source_original),
+        graph=Some(source_graph),
       )
       let source_abs = source_imported + candidate.root_def
       let current_abs = imported + candidate.root_def
@@ -39637,11 +39671,8 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
   if best_root_already_applied {
     return { mod_out: current, touched, candidate: best_candidate }
   }
-  let root_result = dae_try_rewrite_exact_literal_def_with_facts_once(
-    current, best_root, call_facts,
-  )
-  let root_application = dae_apply_core_result(
-    current, touched, changed, root_result,
+  let root_application = dae_apply_exact_literal_family_once(
+    candidate_source, current, best_root, touched, changed,
   )
   if !root_application.applied {
     return { mod_out: current, touched, candidate: None }
