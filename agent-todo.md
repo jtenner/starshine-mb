@@ -156,7 +156,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - **Owner:** GC argument/result LUBs, return evidence, control reconstruction, type-section edits, rec groups, and type liveness.
 - **Deliverables:**
-  - [ ] Strict-improvement reference-parameter LUB across every owned direct operand, including old-type local repair for incompatible writes. *(direct-GC batch discovery is now definition-count-independent and its external pass-manager application is family-transaction-owned; producer centralization and old-type local repair remain open)*
+  - [ ] Strict-improvement reference-parameter LUB across every owned direct operand, including old-type local repair for incompatible writes. *(direct-GC batch discovery is definition-count-independent; both the batch and ordinary core parameter-refinement producer now dispatch `DaeGcParameterRefinementWork` and preserve producer effects through the family transaction; deterministic evidence centralization and old-type local repair remain open)*
   - [ ] One returned-value API for fallthrough, explicit returns, block/if/loop/select, typed/typeidx controls, static locals, tuples, flat multivalue lanes, and represented exceptional exits.
   - [ ] Lane-wise result LUB plus call, tee, parent-control, and caller refinalization.
   - [ ] One deterministic type edit plan covering reuse/append, typeidx controls, rec groups, exactness/nullability, abstract heaps, tags, call_ref/call_indirect, tables/elements, globals, and metadata policy.

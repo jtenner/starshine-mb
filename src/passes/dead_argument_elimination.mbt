@@ -24921,6 +24921,7 @@ fn dae_run_core_once(
   max_def_exclusive? : Int = -1,
   start_def_inclusive? : Int = 0,
   boundary_facts_override? : DaeCallBoundaryFacts? = None,
+  producer_effects_report? : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let original_param_counts = original.param_counts
   let original_large_unreachable_prefixes = original.large_unreachable_prefixes
@@ -25473,14 +25474,38 @@ fn dae_run_core_once(
     if self_calls_anywhere == 0 &&
       boundary_candidate.direct_call_count > 0 &&
       dae_signature_has_heap_ref(params, results) {
-      let refined_types = dae_try_refine_direct_gc_types(
-        mod_,
-        callee_abs,
-        boundary_candidate.direct_call_count,
-        boundary_candidate.direct_callers,
+      let dependencies = dae_boundary_dependency_graph_new(current_graph)
+      let item = dae_work_item_new(
+        current_graph,
+        dependencies,
+        def_idx,
+        DaeGcParameterRefinementWork,
       )
-      if refined_types.changed && refined_types.mod_out != mod_ {
-        return refined_types
+      match
+        dae_process_work_item(
+          original,
+          mod_,
+          [],
+          false,
+          current_graph,
+          dependencies,
+          item,
+          dae_diagnostics_new(),
+        ) {
+        DaeWorkCommitted(application) => {
+          if producer_effects_report.length() == 0 {
+            producer_effects_report.push(application.effects)
+          } else {
+            producer_effects_report[0] = application.effects
+          }
+          return {
+            mod_out: application.mod_out,
+            touched: application.touched,
+            changed: application.changed,
+            primary_def: application.primary_def,
+          }
+        }
+        _ => ()
       }
     }
     if params.length() == 0 {
@@ -42154,6 +42179,7 @@ fn dae_run_core(
       let before_call_facts = current_boundary_graph.snapshot.call_facts
       let call_epoch = current_boundary_graph.call_epoch
       let boundary_facts = current_boundary_graph.snapshot.boundary_facts
+      let producer_effects_report : Array[DaeCommitEffects] = []
       let result = dae_run_core_once(
         current,
         no_already_rewritten_defs,
@@ -42166,6 +42192,7 @@ fn dae_run_core(
         max_def_exclusive=def_idx + 1,
         start_def_inclusive=def_idx,
         boundary_facts_override=Some(boundary_facts),
+        producer_effects_report~,
       )
       let before_primary_param_count = if result.primary_def >= 0 {
         let before_type_indices = dae_collect_func_type_indices(current)
@@ -42182,8 +42209,13 @@ fn dae_run_core(
         -1
       }
       let application = dae_apply_family_result_transaction(
-        original_boundary_snapshot, current, touched, changed, current_boundary_graph,
+        original_boundary_snapshot,
+        current,
+        touched,
+        changed,
+        current_boundary_graph,
         result,
+        effects=producer_effects_report.get(0),
       )
       if !application.applied {
         continue
