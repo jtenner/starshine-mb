@@ -8881,44 +8881,6 @@ test "dae shifted forwarding wrapper order is derived without definition identit
 }
 
 ///|
-test "dae selected dropped-result fallback skips covered entries" {
-  let fallback = dae_selected_dropped_result_fallback_neighborhood_defs()
-  assert_false(fallback.contains(3799))
-  assert_false(fallback.contains(503))
-  assert_false(fallback.contains(298))
-  assert_false(fallback.contains(299))
-  assert_false(fallback.contains(459))
-  assert_false(fallback.contains(472))
-  assert_false(fallback.contains(476))
-  assert_false(fallback.contains(3566))
-  assert_false(fallback.contains(3732))
-  assert_false(fallback.contains(3814))
-  assert_false(fallback.contains(4232))
-  assert_false(fallback.contains(4241))
-  assert_false(fallback.contains(4242))
-}
-
-///|
-test "dae large dropped-result bucket order interleaves fallback neighborhood before low tail" {
-  let selected = Array::make(5000, false)
-  selected[1] = true
-  selected[2] = true
-  selected[427] = true
-  selected[459] = true
-  selected[472] = true
-  selected[476] = true
-  selected[4644] = true
-  selected[4645] = true
-  selected[4646] = true
-  selected[4647] = true
-  selected[4648] = true
-  assert_eq(
-    dae_collect_bucketed_large_dropped_result_attempts(selected, 5000, 8),
-    [4648, 4647, 4646, 4645, 1, 2],
-  )
-}
-
-///|
 test "dae raw cleanup preserves nops and strips selected dropped pure leaves after any DAE touch" {
   let v128_zero = @lib.Instruction::v128_const(
     b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',

@@ -1482,43 +1482,7 @@ test "simplify-locals-nostructure lowered cleanup directizes ref.func local call
 }
 
 ///|
-test "dae descending dropped-result scheduler orders high candidates without huge module" {
-  let selected_defs = Array::make(4600, false)
-  for i = 0; i < 40; i = i + 1 {
-    selected_defs[i] = true
-  }
-  for i = 4500; i < 4509; i = i + 1 {
-    selected_defs[i] = true
-  }
-  let candidates = dae_collect_descending_selected_def_candidates(
-    selected_defs, 4600,
-  )
-  @debug.assert_eq(candidates.length(), 49)
-  @debug.assert_eq(candidates[0], 4508)
-  @debug.assert_eq(candidates[1], 4507)
-  @debug.assert_eq(candidates[8], 4500)
-  @debug.assert_eq(candidates[9], 39)
-}
-
-///|
-test "dae descending dropped-result scheduler caps productive attempts after ordering" {
-  let selected_defs = Array::make(4600, false)
-  for i = 0; i < 40; i = i + 1 {
-    selected_defs[i] = true
-  }
-  for i = 4500; i < 4514; i = i + 1 {
-    selected_defs[i] = true
-  }
-  let attempts = dae_collect_descending_selected_def_attempts(
-    selected_defs, 4600, 14,
-  )
-  @debug.assert_eq(attempts.length(), 14)
-  @debug.assert_eq(attempts[0], 4513)
-  @debug.assert_eq(attempts[13], 4500)
-}
-
-///|
-test "dae selected dropped-result helper respects precomputed dropped-call facts" {
+test "dae dropped-result definition helper respects precomputed dropped-call facts" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -1529,8 +1493,6 @@ test "dae selected dropped-result helper respects precomputed dropped-call facts
       #|    drop))
     ),
   )
-  let selected_defs = Array::make(2, false)
-  selected_defs[0] = true
   let direct_calls = Array::make(2, 0)
   direct_calls[0] = 1
   let facts = DaeCurrentCallFacts::{
@@ -1540,29 +1502,12 @@ test "dae selected dropped-result helper respects precomputed dropped-call facts
     dropped_calls: Array::make(2, 0),
     escaped: Array::make(2, false),
   }
-  let trace : Array[String] = []
-  let perf = HotPerfSession::new(
-    trace=fn(line) { trace.push(line) },
-    dump_options=HotPerfDumpOptions::new(),
-  )
-  let result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-    mod_,
-    selected_defs,
-    facts,
-    perf=Some(perf),
-  )
+  let result = dae_try_remove_dropped_result_def_with_facts(mod_, 0, facts)
   assert_false(result.changed)
-  let text = trace.to_string()
-  assert_true(
-    text.contains(
-      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
-    ),
-    msg=text,
-  )
 }
 
 ///|
-test "dae selected dropped-result helper times candidate type-index collection" {
+test "dae dropped-result definition helper times candidate application" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -1573,8 +1518,6 @@ test "dae selected dropped-result helper times candidate type-index collection" 
       #|    drop))
     ),
   )
-  let selected_defs = Array::make(2, false)
-  selected_defs[0] = true
   let direct_calls = Array::make(2, 0)
   direct_calls[0] = 1
   let dropped_calls = Array::make(2, 0)
@@ -1593,9 +1536,9 @@ test "dae selected dropped-result helper times candidate type-index collection" 
     trace=fn(line) { trace.push(line) },
     dump_options=HotPerfDumpOptions::new(),
   )
-  let result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
+  let result = dae_try_remove_dropped_result_def_with_facts(
     mod_,
-    selected_defs,
+    0,
     facts,
     perf=Some(perf),
   )
@@ -1616,7 +1559,7 @@ test "dae selected dropped-result helper times candidate type-index collection" 
 }
 
 ///|
-test "dae selected dropped-result helper returns caller touched flag from caller-filtered rewrite" {
+test "dae dropped-result definition helper returns exact caller touched flag" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
@@ -1627,8 +1570,6 @@ test "dae selected dropped-result helper returns caller touched flag from caller
       #|    drop))
     ),
   )
-  let selected_defs = Array::make(2, false)
-  selected_defs[0] = true
   let direct_calls = Array::make(2, 0)
   direct_calls[0] = 1
   let dropped_calls = Array::make(2, 0)
@@ -1642,9 +1583,7 @@ test "dae selected dropped-result helper returns caller touched flag from caller
     dropped_calls,
     escaped: Array::make(2, false),
   }
-  let result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-    mod_, selected_defs, facts,
-  )
+  let result = dae_try_remove_dropped_result_def_with_facts(mod_, 0, facts)
   assert_true(result.changed)
   @debug.assert_eq(result.touched, [true, true])
 }
