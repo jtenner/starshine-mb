@@ -25770,6 +25770,15 @@ fn dae_core_pass_result_from_work_application(
 }
 
 ///|
+fn dae_should_run_scalar_parameter_candidate(
+  _defined : Int,
+  has_direct_caller_cycle~ : Bool,
+) -> Bool {
+  let _ = has_direct_caller_cycle
+  true
+}
+
+///|
 fn dae_should_run_computed_unread_dependency_worklist(
   _defined : Int,
   optimize~ : Bool,
@@ -26530,8 +26539,13 @@ fn dae_run_core_once(
       params.length(),
       None,
     )
-    let preserve_direct_cycle = defined >= 1024 &&
-      dae_boundary_has_direct_caller_cycle(boundary_facts, imported, callee_abs)
+    let has_direct_caller_cycle = dae_boundary_has_direct_caller_cycle(
+      boundary_facts, imported, callee_abs,
+    )
+    let run_scalar_parameter_candidate = dae_should_run_scalar_parameter_candidate(
+      defined,
+      has_direct_caller_cycle~,
+    )
     let allow_written_uniform_const = params.length() > 0 &&
       dae_instrs_support_param_entry_liveness(candidate_body)
     let collect_const_params = Array::make(params.length(), false)
@@ -26551,7 +26565,7 @@ fn dae_run_core_once(
         allow_written_uniform_const~,
         self_calls_anywhere~,
         has_collect_const_param~,
-        has_direct_caller_cycle=preserve_direct_cycle,
+        has_direct_caller_cycle=!run_scalar_parameter_candidate,
       ) {
       dae_collect_uniform_const_actuals_from_current_call_facts(
         mod_,
@@ -26569,10 +26583,10 @@ fn dae_run_core_once(
     let mut any = false
     let mut p = 0
     while p < params.length() {
-      if !preserve_direct_cycle && unused_params[p] {
+      if run_scalar_parameter_candidate && unused_params[p] {
         remove[p] = true
         any = true
-      } else if !preserve_direct_cycle &&
+      } else if run_scalar_parameter_candidate &&
         (!local_use.writes[p] || allow_written_uniform_const) {
         match uniform_const_params {
           Some(values) =>

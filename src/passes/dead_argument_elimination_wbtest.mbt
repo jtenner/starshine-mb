@@ -15473,6 +15473,18 @@ test "dae parameter flow records exact reordered forwarding slots and tail compo
 }
 
 ///|
+test "dae scalar parameter candidates do not defer cycles by module size" {
+  for defined in [2, 1024, 4096] {
+    assert_true(
+      dae_should_run_scalar_parameter_candidate(
+        defined,
+        has_direct_caller_cycle=true,
+      ),
+    )
+  }
+}
+
+///|
 test "dae computed unread dependency worklist admission is module-size independent" {
   for defined in [2, 1024, 4096] {
     assert_true(
