@@ -15508,6 +15508,30 @@ test "dae unread parameter batch is definition-count independent" {
 }
 
 ///|
+test "dae dropped result batch is definition-count independent" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run") (result i32)
+    #|    call $target
+    #|    drop
+    #|    i32.const 9))
+  let mod_ = pass_test_module_from_wat(source)
+  let result = dae_try_apply_dropped_result_batch(mod_)
+  assert_true(result.changed)
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType([], results)) => assert_eq(results.length(), 0)
+    _ => fail("expected compact dropped-result batch removal")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid compact dropped-result batch, got \{err}")
+  }
+}
+
+///|
 test "dae direct GC batch is definition-count independent" {
   let source =
     #|(module

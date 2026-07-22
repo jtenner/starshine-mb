@@ -16946,11 +16946,8 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
-  // Large-module batch acceleration only. Exact result-observer work remains
-  // available through the ordinary dispatcher at every module size.
-  if defined < 1024 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
+  // Definition-count-independent batch candidate construction. Exact
+  // result-observer work remains authoritative through the dispatcher.
   let mut type_sec = match mod_.type_sec {
     Some(type_sec) => type_sec
     None =>
@@ -41474,22 +41471,28 @@ fn dae_run_core(
       perf, "detail:dae:core:dropped-result-batch",
     )
     let mut dropped_result_batch_wave = 0
-    while true {
-      let batch = dae_try_apply_dropped_result_batch(current)
-      let batch_graph = dae_current_boundary_graph_new(current)
-      let application = dae_apply_family_result_transaction(
-        original_boundary_snapshot, current, touched, changed, batch_graph, batch,
-      )
-      if !application.applied {
-        break
+    if original_defined >= 1024 {
+      while true {
+        let batch = dae_try_apply_dropped_result_batch(current)
+        let batch_graph = dae_current_boundary_graph_new(current)
+        let application = dae_apply_family_result_transaction(
+          original_boundary_snapshot, current, touched, changed, batch_graph, batch,
+        )
+        if !application.applied {
+          break
+        }
+        current = application.mod_out
+        touched = application.touched
+        changed = application.changed
+        trace(
+          "pass[dae-optimizing]:dropped-result-batch wave=\{dropped_result_batch_wave} first_def=\{application.primary_def}",
+        )
+        dropped_result_batch_wave += 1
       }
-      current = application.mod_out
-      touched = application.touched
-      changed = application.changed
+    } else {
       trace(
-        "pass[dae-optimizing]:dropped-result-batch wave=\{dropped_result_batch_wave} first_def=\{application.primary_def}",
+        "pass[dae-optimizing]:dropped-result-batch skip=small-module-acceleration optional=true defined=\{original_defined}",
       )
-      dropped_result_batch_wave += 1
     }
     perf_stop_timer_opt(
       perf, "detail:dae:core:dropped-result-batch", dropped_result_batch_start_us,
