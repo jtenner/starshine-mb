@@ -11586,6 +11586,25 @@ test "dae-optimizing preserves Binaryen nops without a DAE boundary change" {
 }
 
 ///|
+test "dae-optimizing materializes uniform v128 actuals" {
+  let source =
+    #|(module
+    #|  (func $target (param v128) (result v128)
+    #|    local.get 0)
+    #|  (func (export "run") (result v128)
+    #|    v128.const i32x4 1 2 3 4
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_true(
+    target.contains("v128.const") || target.contains("V128Const"),
+    msg=target,
+  )
+}
+
+///|
 test "dae-optimizing materializes selected Func521 literal actual" {
   let out = StringBuilder::new()
   out.write_string("(module\n")

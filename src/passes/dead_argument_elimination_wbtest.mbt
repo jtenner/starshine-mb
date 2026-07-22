@@ -3881,6 +3881,24 @@ test "dae uniform const candidate recorder centralizes merge invalidation" {
 }
 
 ///|
+test "dae materialized v128 constants compare all bytes" {
+  let first = @lib.Instruction::v128_const(
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08', b'\x09',
+    b'\x0a', b'\x0b', b'\x0c', b'\x0d', b'\x0e', b'\x0f', b'\x10',
+  )
+  let same = @lib.Instruction::v128_const(
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08', b'\x09',
+    b'\x0a', b'\x0b', b'\x0c', b'\x0d', b'\x0e', b'\x0f', b'\x10',
+  )
+  let different = @lib.Instruction::v128_const(
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08', b'\x09',
+    b'\x0a', b'\x0b', b'\x0c', b'\x0d', b'\x0e', b'\x0f', b'\x11',
+  )
+  assert_true(dae_materialized_const_equal(first, same))
+  assert_false(dae_materialized_const_equal(first, different))
+}
+
+///|
 test "dae control result slices centralize flat and return arm bounds" {
   let pair_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new().with_type_sec(

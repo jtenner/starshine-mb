@@ -5640,6 +5640,7 @@ fn dae_instr_stack_effect(
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.V128Const(_)
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
     | @lib.StringConst(_)
@@ -6053,6 +6054,7 @@ fn dae_instr_is_trivially_droppable(instr : @lib.Instruction) -> Bool {
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.V128Const(_)
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
     | @lib.StringConst(_)
@@ -6411,6 +6413,7 @@ fn dae_instr_producer_kind(instr : @lib.Instruction) -> DaeValueProducerKind {
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.V128Const(_)
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
     | @lib.StringConst(_) => DaeProducerConstantOrPureLeaf
@@ -7591,6 +7594,7 @@ fn dae_instr_is_materializable_const(instr : @lib.Instruction) -> Bool {
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
+    | @lib.V128Const(_)
     | @lib.RefNull(_)
     | @lib.StringConst(_) => true
     _ => false
@@ -9413,6 +9417,7 @@ fn dae_materialized_const_equal(
     (@lib.I64Const(a), @lib.I64Const(b)) => a == b
     (@lib.F32Const(a), @lib.F32Const(b)) => a == b
     (@lib.F64Const(a), @lib.F64Const(b)) => a == b
+    (@lib.V128Const(_), @lib.V128Const(_)) => lhs == rhs
     (@lib.RefNull(a), @lib.RefNull(b)) => a == b
     (@lib.StringConst(a), @lib.StringConst(b)) => a == b
     (@lib.GlobalGet(a), @lib.GlobalGet(b)) => a == b
@@ -16702,8 +16707,11 @@ fn dae_boundary_has_direct_caller_cycle(
 ///|
 fn dae_batchable_uniform_literal(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.I32Const(_) | @lib.I64Const(_) | @lib.F32Const(_) | @lib.F64Const(_) =>
-      true
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_) => true
     _ => false
   }
 }
