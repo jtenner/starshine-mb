@@ -16350,6 +16350,58 @@ test "dae GC result refinement derives exact ref.func return types" {
 }
 
 ///|
+test "dae GC parameter refinement derives exact ref.func actual types" {
+  let source =
+    #|(module
+    #|  (type $sig (func))
+    #|  (elem declare func $target $target2)
+    #|  (global $sink (mut funcref) (ref.null func))
+    #|  (func $target (type $sig))
+    #|  (func $target2 (type $sig))
+    #|  (func $callee (param funcref) (result i32)
+    #|    local.get 0
+    #|    global.set $sink
+    #|    i32.const 0)
+    #|  (func (export "run") (result i32)
+    #|    ref.func $target
+    #|    call $callee
+    #|    drop
+    #|    ref.func $target2
+    #|    call $callee))
+  let parsed = pass_test_module_from_wat(source)
+  let encoded = match @binary.encode_module(parsed) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected ref.func actual fixture encode, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected ref.func actual fixture decode, got \{err}")
+  }
+  let result = dae_run_core(mod_, fn(_) { () })
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  match dae_resolve_func_type(result.mod_out, type_indices, 2) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params.length(), 1)
+      assert_eq(results.length(), 1)
+      assert_eq(params[0], expected)
+      assert_eq(results[0], @lib.ValType::i32())
+    }
+    _ => fail("expected exact ref.func parameter refinement")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid exact ref.func parameter, got \{err}")
+  }
+}
+
+///|
 test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
   let function_count = 20
   let out = StringBuilder::new()

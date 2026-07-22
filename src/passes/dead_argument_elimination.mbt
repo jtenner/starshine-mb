@@ -12333,16 +12333,44 @@ fn dae_direct_gc_actual_candidate_type(
   func_type_indices : Array[@lib.TypeIdx],
 ) -> @lib.ValType? {
   match instr {
-    @lib.StructNewDefault(type_idx) =>
+    @lib.StructNew(type_idx) | @lib.StructNewDefault(type_idx) =>
       Some(
         @lib.ValType::ref_type(
           @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
         ),
       )
-    @lib.Call(func_idx) =>
+    @lib.RefFunc(func_idx) => {
+      let slot = dae_func_idx_slot(func_idx)
+      if slot < 0 || slot >= func_type_indices.length() {
+        None
+      } else {
+        Some(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(
+              false,
+              @lib.HeapType::new(func_type_indices[slot]),
+              exact=true,
+            ),
+          ),
+        )
+      }
+    }
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
       dae_direct_call_gc_result_signature_evidence(
         mod_, func_type_indices, func_idx,
       ).map(fn(evidence) { evidence.candidate })
+    @lib.CallIndirect(type_idx, _)
+    | @lib.ReturnCallIndirect(type_idx, _)
+    | @lib.CallRef(type_idx)
+    | @lib.ReturnCallRef(type_idx) =>
+      match mod_.type_sec {
+        Some(type_sec) =>
+          match dae_type_sec_func_type(type_sec, type_idx) {
+            Some(@lib.FuncType(_, [result])) => Some(result)
+            _ => None
+          }
+        None => None
+      }
     @lib.Block(block_type, _)
     | @lib.Loop(block_type, _)
     | @lib.If(block_type, _, _) =>
@@ -12768,7 +12796,7 @@ fn dae_collect_direct_struct_default_actuals_instrs(
         while p < params.length() {
           if !local_use.writes[p] && !rejected[p] {
             match params[p] {
-              @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(_))) =>
+              @lib.RefTypeValType(_) =>
                 match
                   dae_direct_gc_actual_candidate_type_for_value_slice(
                     instrs,
@@ -12914,9 +12942,7 @@ fn dae_collect_direct_gc_batch_actuals_instrs(
               while p < plan.params.length() {
                 if !plan.local_use.writes[p] && !plan.rejected[p] {
                   match plan.params[p] {
-                    @lib.RefTypeValType(
-                      @lib.HeapTypeRefType(_, _, @lib.HeapType(_))
-                    ) =>
+                    @lib.RefTypeValType(_) =>
                       match
                         dae_direct_gc_actual_candidate_type_for_value_slice(
                           instrs,
