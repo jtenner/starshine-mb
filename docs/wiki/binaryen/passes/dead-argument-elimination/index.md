@@ -8,6 +8,7 @@ sources:
   - ../../../../../src/validate/gen_valid.mbt
   - ./fuzzing.md
   - ./completion-matrix.md
+  - ./source-case-map.md
   - ./de-artifacting-inventory.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -19,6 +20,7 @@ related:
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ./completion-matrix.md
+  - ./source-case-map.md
   - ./de-artifacting-inventory.md
   - ../dae-optimizing/index.md
   - ../signature-pruning/index.md
@@ -31,10 +33,10 @@ related:
 
 - `dead-argument-elimination` is an upstream Binaryen boundary pass.
 - The public upstream CLI alias is `dae`.
-- It has a locally release-complete Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. Final deterministic totals are `253/253`, `347/347`, `6217/6217`, and `9696/9696`; the complete Binaryen-v131 four-lane matrix is current with no new or unclassified family.
+- It has an active-partial Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. The July 21–22 deterministic and four-lane results remain regression baselines, not current release closure, while the reopened lifecycle work remains active.
 - The current repo no-DWARF default optimize path uses the related later pass `dae-optimizing`, not this plain variant.
 - The two passes share the same core engine in upstream `version_131`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun. The `version_130...version_131` source comparison leaves `DeadArgumentElimination.cpp` and its helper owners unchanged; v131 updates the expected unreachable local write from `local.tee` to `local.set` in `dae-gc.wast` and `dae2.wast`.
-- [`completion-matrix.md`](./completion-matrix.md) is the authoritative release ledger. [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates and the remaining optional phase/profitability budgets. No retained threshold controls correctness.
+- [`source-case-map.md`](./source-case-map.md) maps every represented Binaryen-v131 source fixture to current focused coverage and identifies the missing TNH option path. [`completion-matrix.md`](./completion-matrix.md) remains the detailed release ledger, and [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates plus remaining optional phase/profitability budgets.
 - The 2026-07-21 artifact closeout fixes a real mixed-type local-projection bug: a removed slot that the exact body still reads must have constant replacement evidence or a typed local projection. Plain DAE now validates and is byte-idempotent at `2,991,169` bytes, SHA-256 `f7bbacf174d6b1edacddc3f60abef4a107b385b14f86fc5373d7c3e6ac025c72`, with `85.329s` productive and `64.277s` idempotent medians; canonical Starshine is `9,670` bytes smaller than Binaryen v131.
 
 ## Why it matters
