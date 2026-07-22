@@ -1077,8 +1077,6 @@ test "dae exact-literal worklist batches multiple candidates from one call-fact 
     [],
     false,
     candidates,
-    call_facts,
-    8,
   )
   assert_eq(application.productive_defs, [0, 1])
   @debug.assert_eq(application.effects.worth_optimizing, [true, true, false])
@@ -1108,14 +1106,11 @@ test "dae exact-literal worklist owns immutable-global materialization effects" 
       #|    call $target))
     ),
   )
-  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
   let application = dae_run_exact_literal_candidate_worklist_with_facts(
     mod_,
     [],
     false,
     [0],
-    dae_collect_current_call_facts(mod_, total),
-    -1,
     allow_immutable_global_get=true,
     original=Some(dae_collect_original_boundary_snapshot(mod_)),
   )
@@ -16404,14 +16399,11 @@ test "dae uniform candidate worklist solves forwarded values before direct liter
     #|    i32.const 7
     #|    call $wrapper))
   let mod_ = pass_test_module_from_wat(source)
-  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
   let application = dae_run_exact_literal_candidate_worklist_with_facts(
     mod_,
     [],
     false,
     [0],
-    dae_collect_current_call_facts(mod_, total),
-    -1,
   )
   assert_eq(application.productive_defs, [0])
   let type_indices = dae_collect_func_type_indices(application.mod_out)

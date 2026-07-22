@@ -26619,8 +26619,6 @@ fn dae_run_changed_direct_callee_uniform_frontier(
     touched,
     changed,
     candidates,
-    call_facts,
-    -1,
     allow_immutable_global_get=true,
   )
 }
@@ -37678,8 +37676,6 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   touched : Array[Bool],
   changed : Bool,
   candidate_defs : Array[Int],
-  call_facts : DaeCurrentCallFacts,
-  productive_limit : Int,
   allow_immutable_global_get? : Bool = false,
   allow_immediate_i32_suffix_fallback? : Bool = false,
   original? : DaeOriginalBoundarySnapshot? = None,
@@ -37689,7 +37685,6 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   let mut changed_out = changed
   let productive_defs : Array[Int] = []
   let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
-  ignore(call_facts.direct_calls.length())
   let original = match original {
     Some(original) => original
     None => dae_collect_original_boundary_snapshot(current)
@@ -37703,9 +37698,6 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   }
   let diagnostics = dae_diagnostics_new()
   for candidate_def in candidate_defs {
-    if productive_limit >= 0 && productive_defs.length() >= productive_limit {
-      break
-    }
     let item = {
       ..dae_work_item_new(
         graph,
@@ -40075,8 +40067,6 @@ fn dae_run_broad_uniform_parameter_flow(
   changed : Bool,
 ) -> DaeExactLiteralWorklistApplication {
   let defined = dae_defined_func_count(current)
-  let total = dae_imported_func_count(current) + defined
-  let call_facts = dae_collect_current_call_facts(current, total)
   let candidates : Array[Int] = []
   let source_defined = dae_defined_func_count(candidate_source)
   let mut candidate_def = 0
@@ -40098,7 +40088,7 @@ fn dae_run_broad_uniform_parameter_flow(
     candidate_def += 1
   }
   dae_run_exact_literal_candidate_worklist_with_facts(
-    current, touched, changed, candidates, call_facts, -1,
+    current, touched, changed, candidates,
   )
 }
 
@@ -40153,8 +40143,6 @@ fn dae_run_call_sink_uniform_parameter_flow(
   changed : Bool,
 ) -> DaeExactLiteralWorklistApplication {
   let defined = dae_defined_func_count(current)
-  let total = dae_imported_func_count(current) + defined
-  let call_facts = dae_collect_current_call_facts(current, total)
   let candidates : Array[Int] = []
   let source_defined = dae_defined_func_count(candidate_source)
   let mut candidate_def = 0
@@ -40167,7 +40155,7 @@ fn dae_run_call_sink_uniform_parameter_flow(
     candidate_def += 1
   }
   dae_run_exact_literal_candidate_worklist_with_facts(
-    current, touched, changed, candidates, call_facts, -1,
+    current, touched, changed, candidates,
   )
 }
 
@@ -42456,8 +42444,7 @@ fn dae_run_core(
     require_all_nullable_refs=true,
   )
   let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
-    current, touched, changed, low_exact_literal_candidates, low_exact_literal_call_facts,
-    -1,
+    current, touched, changed, low_exact_literal_candidates,
   )
   current = low_exact_literal_application.mod_out
   touched = low_exact_literal_application.touched
@@ -42548,9 +42535,6 @@ fn dae_run_core(
     // The current graph refreshes after every commit, so newly exposed direct
     // callees can join the same deterministic frontier without a selected-only
     // scan-and-mutate path.
-    let mut immutable_global_call_facts = dae_collect_current_call_facts(
-      current, original_total,
-    )
     for candidate_def = 0
         candidate_def < large_global_defs.length()
         candidate_def = candidate_def + 1 {
@@ -42565,8 +42549,6 @@ fn dae_run_core(
         touched,
         changed,
         [candidate_def],
-        immutable_global_call_facts,
-        -1,
         allow_immutable_global_get=true,
         allow_immediate_i32_suffix_fallback=true,
         original=Some(original_boundary_snapshot),
@@ -42576,9 +42558,6 @@ fn dae_run_core(
         touched = global_application.touched
         changed = global_application.changed
         effects = dae_commit_effects_merge(effects, global_application.effects)
-        immutable_global_call_facts = dae_collect_current_call_facts(
-          current, original_total,
-        )
         trace(
           "pass[dae-optimizing]:large-uniform-const-revisit primary_def=\{global_application.productive_defs[0]}",
         )
