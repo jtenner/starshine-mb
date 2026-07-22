@@ -13387,6 +13387,23 @@ fn dae_single_result_control_gc_candidate_instr_evidence(
 }
 
 ///|
+fn dae_typed_call_gc_result_candidate(
+  mod_ : @lib.Module,
+  type_idx : @lib.TypeIdx,
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let type_sec = match mod_.type_sec {
+    Some(type_sec) => type_sec
+    None => return None
+  }
+  let candidate = match dae_type_sec_func_type(type_sec, type_idx) {
+    Some(@lib.FuncType(_, [result])) => result
+    _ => return None
+  }
+  dae_refined_gc_candidate_ref_type(mod_, old_type, candidate)
+}
+
+///|
 fn dae_direct_gc_result_candidate_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -13403,7 +13420,7 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate_type, None)
       })
-    @lib.Call(func_idx) =>
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
       match
         dae_direct_call_gc_result_refinement_evidence(
           mod_, func_type_indices, func_idx, old_type,
@@ -13415,6 +13432,15 @@ fn dae_direct_gc_result_candidate_instr(
           }
         None => None
       }
+    @lib.CallIndirect(type_idx, _)
+    | @lib.ReturnCallIndirect(type_idx, _)
+    | @lib.CallRef(type_idx)
+    | @lib.ReturnCallRef(type_idx) =>
+      dae_typed_call_gc_result_candidate(mod_, type_idx, old_type).map(fn(
+        candidate,
+      ) {
+        (candidate, None)
+      })
     @lib.Block(_, _) | @lib.Loop(_, _) =>
       dae_single_result_control_gc_candidate_instr_evidence(
         mod_, func_type_indices, func_locals, instr, old_type,

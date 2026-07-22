@@ -16258,6 +16258,58 @@ test "dae GC result refinement joins abstract heap returns" {
 }
 
 ///|
+test "dae GC result refinement follows direct tail calls" {
+  let mod_ = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 24, 5, 80, 0, 95, 0, 80, 1, 0, 95, 0, 96,
+        0, 1, 99, 1, 96, 0, 1, 99, 0, 96, 0, 1, 127, 3, 4, 3, 2, 3, 4, 7, 7, 1, 3,
+        114, 117, 110, 0, 2, 10, 16, 3, 3, 0, 0, 11, 4, 0, 18, 0, 11, 5, 0, 16, 1,
+        209, 11,
+      ]),
+    ) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected tail result fixture decode, got \{err}")
+  }
+  let result = dae_run_core(mod_, fn(_) { () })
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  match dae_resolve_func_type(result.mod_out, type_indices, 1) {
+    Some(@lib.FuncType([], [actual])) => assert_eq(actual, expected)
+    _ => fail("expected refined direct tail caller")
+  }
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  for
+    instr in [
+      @lib.Instruction::return_call_indirect(
+        @lib.TypeIdx::new(2U),
+        @lib.TableIdx::new(0U),
+      ),
+      @lib.Instruction::return_call_ref(@lib.TypeIdx::new(2U)),
+    ] {
+    match
+      dae_direct_gc_result_candidate_instr(
+        mod_,
+        type_indices,
+        None,
+        instr,
+        old_type,
+      ) {
+      Some((actual, None)) => assert_eq(actual, expected)
+      _ => fail("expected typed tail result evidence")
+    }
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid tail result refinement, got \{err}")
+  }
+}
+
+///|
 test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
   let function_count = 20
   let out = StringBuilder::new()
