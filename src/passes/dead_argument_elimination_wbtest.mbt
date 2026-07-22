@@ -12042,7 +12042,7 @@ test "dae func246 builder folds constant local and reuses released param" {
 }
 
 ///|
-test "dae func867 default literal specialization removes call operands" {
+test "dae historical func867 default literals use generic uniform worklist" {
   let default_type = @lib.TypeIdx::new(0U)
   let caller_type = @lib.TypeIdx::new(1U)
   let mod_ = @lib.Module::new()
@@ -12093,7 +12093,13 @@ test "dae func867 default literal specialization removes call operands" {
         ),
       ]),
     )
-  let result = dae_try_specialize_func867_default_args_once(mod_, 0)
+  let result = dae_run_exact_literal_candidate_worklist_with_facts(
+    mod_,
+    [],
+    false,
+    [0],
+    original=Some(dae_collect_original_boundary_snapshot(mod_)),
+  )
   assert_true(result.changed)
   match (result.mod_out.func_sec, result.mod_out.code_sec) {
     (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
