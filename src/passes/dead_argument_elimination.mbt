@@ -25787,6 +25787,11 @@ fn dae_should_run_computed_unread_dependency_worklist(
 }
 
 ///|
+fn dae_should_run_forwarded_constant_revisit(_defined : Int) -> Bool {
+  true
+}
+
+///|
 fn dae_should_collect_phase_local_uniform_constants(
   _defined : Int,
   optimize~ : Bool,
@@ -43066,11 +43071,11 @@ fn dae_run_core(
       reverse_iter += 1
     }
   }
-  // Optional phase-local profitability replay. Broad modules use exact
-  // call-target/value-slice collectors below; widening this legacy full scan
-  // preempts Binaryen's one-wave frontier and materially increases wall time.
+  // Phase-local profitability replay uses semantic candidate evidence rather
+  // than a module-size admission threshold. Each wave still commits at most one
+  // validated candidate, preserving the existing source-order frontier.
   let mut low_revisit_iter = 0
-  while original_defined <= 4096 {
+  while dae_should_run_forwarded_constant_revisit(original_defined) {
     let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
       current,
       original_param_counts,
@@ -43095,7 +43100,7 @@ fn dae_run_core(
       original_dead_suffix_escaped_result_operand_call_counts,
       original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       reverse=false,
-      max_def_exclusive=4096,
+      max_def_exclusive=original_defined,
     )
     let low_revisit_graph = dae_current_boundary_graph_new(current)
     let low_revisit_application = dae_apply_family_result_transaction(

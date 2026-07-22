@@ -15506,6 +15506,13 @@ test "dae computed unread dependency worklist admission is module-size independe
 }
 
 ///|
+test "dae forwarded constant revisit admission is module-size independent" {
+  for defined in [2, 4096, 4097, 8192] {
+    assert_true(dae_should_run_forwarded_constant_revisit(defined))
+  }
+}
+
+///|
 test "dae uniform collection admission is module-size independent and cycle aware" {
   for defined in [2, 1024, 4096] {
     assert_true(
