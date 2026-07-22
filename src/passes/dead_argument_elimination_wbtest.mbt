@@ -17767,6 +17767,51 @@ test "dae type-only tag table indirect and call_ref surfaces stay parameter-elig
 }
 
 ///|
+test "dae dropped-result legality ignores unrelated direct tails" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 1)
+    #|  (func $caller
+    #|    call $target
+    #|    drop)
+    #|  (func $leaf (result i32)
+    #|    i32.const 2)
+    #|  (func $unrelated-tail (result i32)
+    #|    return_call $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $unrelated-tail))
+  let mod_ = pass_test_module_from_wat(source)
+  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
+  let result = dae_try_remove_dropped_result_def_with_facts(
+    mod_,
+    0,
+    dae_collect_current_call_facts(mod_, total),
+  )
+  assert_true(result.changed)
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType([], results)) => assert_eq(results, [])
+    _ => fail("expected target result removal")
+  }
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[1]
+      assert_eq(caller_body, [@lib.Instruction::call(@lib.FuncIdx::new(0U))])
+      let @lib.Func(_, @lib.Expr(tail_body)) = funcs[3]
+      assert_eq(tail_body, [
+        @lib.Instruction::return_call(@lib.FuncIdx::new(2U)),
+      ])
+    }
+    None => fail("expected code section")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid exact result-tail legality, got \{err}")
+  }
+}
+
+///|
 test "dae outgoing tails block result removal not parameter removal" {
   let indirect_tail = pass_test_module_from_wat(
     (

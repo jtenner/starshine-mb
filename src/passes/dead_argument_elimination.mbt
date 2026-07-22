@@ -19980,9 +19980,16 @@ fn dae_dropped_result_removal_legality_evidence(
     skip_def >= 0 &&
     skip_def < funcs.length() &&
     dae_should_skip_large_result_unreachable_cleanup(funcs[skip_def], results)
-  let tail_call_boundary = dae_tail_call_boundary_evidence(funcs)
+  let target_tail_call_boundary = if skip_def >= 0 && skip_def < funcs.length() {
+    let @lib.Func(_, @lib.Expr(body)) = funcs[skip_def]
+    dae_tail_call_boundary_evidence_instrs(body)
+  } else {
+    // Callers without an exact target definition retain the historical
+    // fail-closed aggregate barrier.
+    dae_tail_call_boundary_evidence(funcs)
+  }
   let has_live_tail_call = repairs_results &&
-    tail_call_boundary.blocks_result_removal
+    target_tail_call_boundary.blocks_result_removal
   let scope_direct_calls = dae_dropped_result_scope_direct_call_evidence(
     funcs, scope, callee_abs, skip_def,
   )
@@ -36451,9 +36458,12 @@ fn dae_try_remove_dropped_result_def_with_facts(
   }
   let candidate = match
     dae_dropped_result_candidate_from_current_call_facts(call_facts, callee_abs) {
-    Some(candidate) => candidate
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    Some(candidate) if candidate.owned_dropped_result_candidate => candidate
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let boundary_facts = dae_boundary_facts_new(mod_)
+  if !dae_can_remove_function_result(boundary_facts, callee_abs) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let result = dae_try_remove_dropped_results(
     mod_,
