@@ -17129,11 +17129,9 @@ fn dae_try_apply_direct_gc_batch(
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
-  // Large-module batch acceleration only. Exact GC parameter/result work is
-  // also dispatched by the common boundary worklist.
-  if defined < 1024 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
+  // Definition-count-independent batch candidate construction. Application
+  // remains owned by the family transaction so original ownership, epochs,
+  // exact call identities, complete validation, and rollback stay common.
   let mut type_sec = match mod_.type_sec {
     Some(type_sec) => type_sec
     None =>
@@ -17450,6 +17448,21 @@ fn dae_try_apply_direct_gc_batch(
     changed: true,
     primary_def: first_def,
   }
+}
+
+///|
+fn dae_apply_direct_gc_batch_transaction(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  active_defs? : Array[Bool]? = None,
+) -> DaeCoreResultApplication {
+  let graph = dae_current_boundary_graph_new(current)
+  let candidate = dae_try_apply_direct_gc_batch(current, active_defs~)
+  dae_apply_family_result_transaction(
+    original, current, touched, changed, graph, candidate,
+  )
 }
 
 ///|

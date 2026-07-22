@@ -15481,6 +15481,78 @@ test "dae GC parameter refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae direct GC batch is definition-count independent" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let result = dae_try_apply_direct_gc_batch(mod_)
+  assert_true(result.changed)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+    Some(@lib.FuncType([param], [result_type])) => {
+      assert_eq(param, expected)
+      assert_eq(result_type, @lib.ValType::i32())
+    }
+    _ => fail("expected compact direct-GC batch refinement")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid compact direct-GC batch, got \{err}")
+  }
+}
+
+///|
+test "dae direct GC batch transaction retains original escaped ownership" {
+  let escaped_source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $target)
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let current_source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let escaped = pass_test_module_from_wat(escaped_source)
+  let current_mod = pass_test_module_from_wat(current_source)
+  let application = dae_apply_direct_gc_batch_transaction(
+    dae_collect_original_boundary_snapshot(escaped),
+    current_mod,
+    [],
+    false,
+  )
+  assert_false(application.applied)
+  assert_eq(application.mod_out, current_mod)
+}
+
+///|
 test "dae GC refinement dispatcher honors original escaped ownership" {
   let escaped_source =
     #|(module

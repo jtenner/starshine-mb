@@ -72555,13 +72555,15 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   core_mod = payoff_literal_mod
   core_touched = payoff_literal_touched
   if payoff_literal_changed {
-    let post_literal_direct_gc = dae_try_apply_direct_gc_batch(core_mod)
-    if post_literal_direct_gc.changed {
+    let post_literal_direct_gc = dae_apply_direct_gc_batch_transaction(
+      dae_collect_original_boundary_snapshot(mod_),
+      core_mod,
+      core_touched,
+      true,
+    )
+    if post_literal_direct_gc.applied {
       core_mod = post_literal_direct_gc.mod_out
-      core_touched = dae_merge_touched(
-        core_touched,
-        post_literal_direct_gc.touched,
-      )
+      core_touched = post_literal_direct_gc.touched
       (options.trace)(
         "pass[dae-optimizing]:payoff-post-literal-direct-gc primary_def=\{post_literal_direct_gc.primary_def}",
       )
