@@ -14544,8 +14544,17 @@ test "dae scalar rewrite plan commits caller callee type and touched transaction
   )
   assert_eq(plan.expected_direct_call_count, 1)
   assert_eq(plan.expected_return_call_count, 0)
+  assert_eq(plan.expected_call_identities.length(), 1)
+  assert_eq(plan.expected_call_identities[0].caller_def, 1)
+  assert_eq(plan.expected_call_identities[0].path, [2])
+  assert_eq(plan.expected_call_identities[0].call_kind, DaeDirectCall)
   assert_eq(plan.caller_rewrites.length(), 1)
   assert_eq(plan.local_projection.preserved_removed_params, [false, false])
+  match @validate.validate_module(plan.candidate) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("preconstructed scalar candidate must validate, got \{err}")
+  }
   let application = dae_apply_rewrite_plan(mod_, graph, plan)
   assert_true(application.applied)
   assert_eq(dae_decision_reason_code(application.reason), "candidate-applied")
@@ -14596,6 +14605,15 @@ test "dae scalar rewrite plan rejects stale target and caller epochs" {
     dae_decision_reason_code(caller_rejection.reason),
     "stale-candidate-facts",
   )
+
+  let (mod_, _, type_graph, type_plan) = dae_scalar_rewrite_plan_fixture()
+  type_graph.type_epoch += 1
+  let type_rejection = dae_apply_rewrite_plan(mod_, type_graph, type_plan)
+  assert_false(type_rejection.applied)
+  assert_eq(
+    dae_decision_reason_code(type_rejection.reason),
+    "stale-candidate-facts",
+  )
 }
 
 ///|
@@ -14642,6 +14660,27 @@ test "dae scalar rewrite plan rejects stale calls and call composition" {
     dae_decision_reason_code(tail_rejection.reason),
     "call-count-changed",
   )
+}
+
+///|
+test "dae scalar rewrite plan rejects moved call identities at equal counts" {
+  let (mod_, _, _, plan) = dae_scalar_rewrite_plan_fixture()
+  let moved = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next = funcs.copy()
+      let @lib.Func(locals, @lib.Expr(body)) = next[1]
+      let shifted = body.copy()
+      shifted.insert(0, @lib.Instruction::nop())
+      next[1] = @lib.Func::new(locals, @lib.Expr::new(shifted))
+      mod_.with_code_sec(@lib.CodeSec::new(next))
+    }
+    None => fail("expected code section")
+  }
+  let moved_graph = dae_current_boundary_graph_new(moved)
+  let rejection = dae_apply_rewrite_plan(moved, moved_graph, plan)
+  assert_false(rejection.applied)
+  assert_eq(dae_decision_reason_code(rejection.reason), "call-count-changed")
+  assert_eq(rejection.result.mod_out, moved)
 }
 
 ///|
@@ -17297,6 +17336,7 @@ test "dae direct-call operand slices fail closed on underflow and signature mism
     def_idx: 0,
     module_epoch: 0,
     call_epoch: 0,
+    type_epoch: 0,
     signature_epoch: 0,
     body_epoch: 0,
   }

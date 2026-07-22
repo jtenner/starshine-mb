@@ -503,6 +503,7 @@ priv struct DaeValueSlice {
   callee_abs : Int
   module_epoch : Int
   call_epoch : Int
+  type_epoch : Int
   signature_epoch : Int
   body_epoch : Int
 }
@@ -516,6 +517,7 @@ priv struct DaeDirectCallOperandSlices {
   cursor : Int
   module_epoch : Int
   call_epoch : Int
+  type_epoch : Int
   signature_epoch : Int
   body_epoch : Int
 }
@@ -1492,6 +1494,7 @@ priv struct DaeCandidateEpoch {
   def_idx : Int
   module_epoch : Int
   call_epoch : Int
+  type_epoch : Int
   signature_epoch : Int
   body_epoch : Int
 }
@@ -1504,6 +1507,7 @@ priv struct DaeCurrentBoundaryGraph {
   mut function_epochs : Array[DaeFunctionEpochs]
   mut module_epoch : Int
   mut call_epoch : Int
+  mut type_epoch : Int
 }
 
 ///|
@@ -1564,6 +1568,7 @@ priv struct DaeWorkItem {
   allow_immutable_global_get : Bool
   expected_module_epoch : Int
   expected_call_epoch : Int
+  expected_type_epoch : Int
   expected_signature_epoch : Int
   expected_body_epoch : Int
 } derive(Eq, Debug)
@@ -1602,6 +1607,14 @@ priv enum DaeResultAction {
   DaeRemoveResult
   DaeRefineResult(@lib.ValType)
 }
+
+///|
+priv struct DaeDirectCallIdentity {
+  caller_def : Int
+  path : Array[Int]
+  call_kind : DaeDirectCallKind
+  callee_abs : Int
+} derive(Eq, Debug)
 
 ///|
 priv struct DaeCallerEpochExpectation {
@@ -1658,9 +1671,11 @@ priv struct DaeRewritePlan {
   target_abs : Int
   expected_module_epoch : Int
   expected_call_epoch : Int
+  expected_type_epoch : Int
   expected_target_signature_epoch : Int
   expected_target_body_epoch : Int
   expected_callers : Array[DaeCallerEpochExpectation]
+  expected_call_identities : Array[DaeDirectCallIdentity]
   expected_direct_call_count : Int
   expected_return_call_count : Int
   parameter_actions : Array[DaeParameterAction]
@@ -1677,6 +1692,7 @@ priv struct DaeRewritePlan {
   invalidated_dependencies : Array[Int]
   metadata_rewrite : DaeMetadataRewritePlan
   rewritten_funcs : Array[@lib.Func]
+  candidate : @lib.Module
   decision_reason : DaeDecisionReason
 }
 
@@ -2176,6 +2192,7 @@ fn dae_current_boundary_graph_new(
     function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
     module_epoch: 0,
     call_epoch: 0,
+    type_epoch: 0,
   }
 }
 
@@ -2189,6 +2206,7 @@ fn dae_boundary_candidate_epoch(
       def_idx,
       module_epoch: graph.module_epoch,
       call_epoch: graph.call_epoch,
+      type_epoch: graph.type_epoch,
       signature_epoch: -1,
       body_epoch: -1,
     }
@@ -2198,6 +2216,7 @@ fn dae_boundary_candidate_epoch(
     def_idx,
     module_epoch: graph.module_epoch,
     call_epoch: graph.call_epoch,
+    type_epoch: graph.type_epoch,
     signature_epoch: epochs.signature_epoch,
     body_epoch: epochs.body_epoch,
   }
@@ -2215,6 +2234,7 @@ fn dae_candidate_epoch_is_current(
   let epochs = graph.function_epochs[candidate.def_idx]
   candidate.module_epoch == graph.module_epoch &&
   candidate.call_epoch == graph.call_epoch &&
+  candidate.type_epoch == graph.type_epoch &&
   candidate.signature_epoch == epochs.signature_epoch &&
   candidate.body_epoch == epochs.body_epoch
 }
@@ -2224,6 +2244,7 @@ fn dae_current_boundary_graph_refresh(
   graph : DaeCurrentBoundaryGraph,
   mod_ : @lib.Module,
 ) -> Unit {
+  let previous_mod = graph.mod_
   let previous = graph.snapshot
   let next = dae_collect_module_boundary_snapshot(mod_)
   let shape_changed = previous.imported != next.imported ||
@@ -2263,6 +2284,11 @@ fn dae_current_boundary_graph_refresh(
   }
   if !dae_current_call_facts_equal(previous.call_facts, next.call_facts) {
     graph.call_epoch += 1
+    changed = true
+  }
+  if previous_mod.type_sec != mod_.type_sec ||
+    previous_mod.func_sec != mod_.func_sec {
+    graph.type_epoch += 1
     changed = true
   }
   if changed {
@@ -3238,6 +3264,7 @@ fn dae_work_item_new(
     allow_immutable_global_get: false,
     expected_module_epoch: epoch.module_epoch,
     expected_call_epoch: epoch.call_epoch,
+    expected_type_epoch: epoch.type_epoch,
     expected_signature_epoch: epoch.signature_epoch,
     expected_body_epoch: epoch.body_epoch,
   }
@@ -3252,6 +3279,7 @@ fn dae_work_item_epoch_is_current(
     def_idx: item.target_def,
     module_epoch: item.expected_module_epoch,
     call_epoch: item.expected_call_epoch,
+    type_epoch: item.expected_type_epoch,
     signature_epoch: item.expected_signature_epoch,
     body_epoch: item.expected_body_epoch,
   })
@@ -6220,6 +6248,7 @@ fn dae_value_slice_from_operand_disposition_with_purity(
     callee_abs: -1,
     module_epoch: -1,
     call_epoch: -1,
+    type_epoch: -1,
     signature_epoch: -1,
     body_epoch: -1,
   }
@@ -6235,6 +6264,7 @@ fn dae_value_slice_enrich_from_instrs(
   callee_abs : Int,
   module_epoch : Int,
   call_epoch : Int,
+  type_epoch : Int,
   signature_epoch : Int,
   body_epoch : Int,
 ) -> DaeValueSlice {
@@ -6263,6 +6293,7 @@ fn dae_value_slice_enrich_from_instrs(
     callee_abs,
     module_epoch,
     call_epoch,
+    type_epoch,
     signature_epoch,
     body_epoch,
     input_arity: 0,
@@ -6292,6 +6323,7 @@ fn dae_value_slice_from_call_shape(
     instrs,
     None,
     None,
+    -1,
     -1,
     -1,
     -1,
@@ -6328,6 +6360,7 @@ fn dae_value_slice_from_range(
     instrs,
     None,
     None,
+    -1,
     -1,
     -1,
     -1,
@@ -7903,6 +7936,7 @@ fn dae_direct_call_operand_slices(
         callee_abs,
         epoch.module_epoch,
         epoch.call_epoch,
+        epoch.type_epoch,
         epoch.signature_epoch,
         epoch.body_epoch,
       ),
@@ -7924,6 +7958,7 @@ fn dae_direct_call_operand_slices(
     cursor: evidence.cursor,
     module_epoch: epoch.module_epoch,
     call_epoch: epoch.call_epoch,
+    type_epoch: epoch.type_epoch,
     signature_epoch: epoch.signature_epoch,
     body_epoch: epoch.body_epoch,
   })
@@ -7939,6 +7974,7 @@ fn dae_direct_call_operand_slices_epoch_is_current(
     def_idx,
     module_epoch: slices.module_epoch,
     call_epoch: slices.call_epoch,
+    type_epoch: slices.type_epoch,
     signature_epoch: slices.signature_epoch,
     body_epoch: slices.body_epoch,
   })
@@ -7997,6 +8033,7 @@ fn dae_classify_parameter_slot(
         def_idx,
         module_epoch: slice.module_epoch,
         call_epoch: slice.call_epoch,
+        type_epoch: slice.type_epoch,
         signature_epoch: slice.signature_epoch,
         body_epoch: slice.body_epoch,
       }) {
@@ -17168,6 +17205,32 @@ fn dae_count_target_call_kinds_instrs(
 }
 
 ///|
+fn dae_collect_target_call_identities(
+  snapshot : DaeModuleBoundarySnapshot,
+  callee_abs : Int,
+) -> Array[DaeDirectCallIdentity] {
+  let identities : Array[DaeDirectCallIdentity] = []
+  if callee_abs < 0 || callee_abs >= snapshot.function_infos.length() {
+    return identities
+  }
+  for callsite in snapshot.function_infos[callee_abs].calls {
+    if callsite.callee_abs == callee_abs {
+      identities.push({
+        caller_def: callsite.caller_def,
+        path: callsite.path.copy(),
+        call_kind: if callsite.tail {
+          DaeDirectReturnCall
+        } else {
+          DaeDirectCall
+        },
+        callee_abs,
+      })
+    }
+  }
+  identities
+}
+
+///|
 fn dae_rewrite_plan_rejection(
   mod_ : @lib.Module,
   reason : DaeDecisionReason,
@@ -17445,14 +17508,25 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   }
   touched[def_idx] = true
   let target_epochs = graph.function_epochs[def_idx]
+  let expected_call_identities = dae_collect_target_call_identities(
+    graph.snapshot,
+    callee_abs,
+  )
+  let candidate_with_sections = mod_
+    .with_type_sec(next_type_sec)
+    .with_func_sec(@lib.FuncSec::new(next_type_idxs))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let candidate = candidate_with_sections.without_name_sec()
   Some({
     target_def: def_idx,
     target_abs: callee_abs,
     expected_module_epoch: graph.module_epoch,
     expected_call_epoch: graph.call_epoch,
+    expected_type_epoch: graph.type_epoch,
     expected_target_signature_epoch: target_epochs.signature_epoch,
     expected_target_body_epoch: target_epochs.body_epoch,
     expected_callers,
+    expected_call_identities,
     expected_direct_call_count: direct_call_count,
     expected_return_call_count,
     parameter_actions,
@@ -17489,6 +17563,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     invalidated_dependencies,
     metadata_rewrite: DaeStripStaleNames,
     rewritten_funcs,
+    candidate,
     decision_reason: DaeCandidateProduced,
   })
 }
@@ -17506,6 +17581,10 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
     plan.target_def >= plan.rewritten_funcs.length() ||
     plan.target_def >= plan.touched_functions.length() ||
     plan.rewritten_funcs[plan.target_def] != plan.callee_rewrite ||
+    plan.candidate.type_sec != Some(plan.type_section_rewrite.replacement) ||
+    plan.candidate.func_sec !=
+    Some(@lib.FuncSec::new(plan.function_section_rewrite.replacement)) ||
+    plan.candidate.code_sec != Some(@lib.CodeSec::new(plan.rewritten_funcs)) ||
     plan.function_section_rewrite.replacement[plan.target_def] !=
     plan.type_section_rewrite.replacement_type_idx ||
     dae_type_sec_func_type(
@@ -17567,6 +17646,9 @@ fn dae_apply_rewrite_plan(
   if plan.expected_call_epoch != graph.call_epoch {
     return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
   }
+  if plan.expected_type_epoch != graph.type_epoch {
+    return dae_rewrite_plan_rejection(mod_, DaeStaleCandidateFacts)
+  }
   if plan.target_def < 0 ||
     plan.target_def >= graph.function_epochs.length() ||
     plan.target_abs != graph.snapshot.imported + plan.target_def {
@@ -17608,7 +17690,9 @@ fn dae_apply_rewrite_plan(
     return_calls += caller_return
   }
   if direct_calls != plan.expected_direct_call_count ||
-    return_calls != plan.expected_return_call_count {
+    return_calls != plan.expected_return_call_count ||
+    dae_collect_target_call_identities(graph.snapshot, plan.target_abs) !=
+    plan.expected_call_identities {
     return dae_rewrite_plan_rejection(mod_, DaeCallCountChanged)
   }
   match (mod_.type_sec, mod_.func_sec, mod_.code_sec) {
@@ -17625,19 +17709,22 @@ fn dae_apply_rewrite_plan(
     _ =>
       return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
   }
-  let candidate = mod_
+  let expected_candidate = mod_
     .with_type_sec(plan.type_section_rewrite.replacement)
     .with_func_sec(@lib.FuncSec::new(plan.function_section_rewrite.replacement))
     .with_code_sec(@lib.CodeSec::new(plan.rewritten_funcs))
-  let candidate = match plan.metadata_rewrite {
-    DaePreserveMetadata => candidate
-    DaeStripStaleNames => candidate.without_name_sec()
+  let expected_candidate = match plan.metadata_rewrite {
+    DaePreserveMetadata => expected_candidate
+    DaeStripStaleNames => expected_candidate.without_name_sec()
   }
-  match @validate.validate_module(candidate) {
+  if expected_candidate != plan.candidate {
+    return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
+  }
+  match @validate.validate_module(plan.candidate) {
     Ok(_) =>
       {
         result: {
-          mod_out: candidate,
+          mod_out: plan.candidate,
           touched: plan.touched_functions,
           changed: true,
           primary_def: plan.target_def,
@@ -17658,14 +17745,19 @@ fn dae_rewrite_plan_with_callee(
   if plan.target_def >= 0 && plan.target_def < rewritten_funcs.length() {
     rewritten_funcs[plan.target_def] = callee
   }
+  let candidate = plan.candidate.with_code_sec(
+    @lib.CodeSec::new(rewritten_funcs),
+  )
   {
     target_def: plan.target_def,
     target_abs: plan.target_abs,
     expected_module_epoch: plan.expected_module_epoch,
     expected_call_epoch: plan.expected_call_epoch,
+    expected_type_epoch: plan.expected_type_epoch,
     expected_target_signature_epoch: plan.expected_target_signature_epoch,
     expected_target_body_epoch: plan.expected_target_body_epoch,
     expected_callers: plan.expected_callers,
+    expected_call_identities: plan.expected_call_identities,
     expected_direct_call_count: plan.expected_direct_call_count,
     expected_return_call_count: plan.expected_return_call_count,
     parameter_actions: plan.parameter_actions,
@@ -17682,6 +17774,7 @@ fn dae_rewrite_plan_with_callee(
     invalidated_dependencies: plan.invalidated_dependencies,
     metadata_rewrite: plan.metadata_rewrite,
     rewritten_funcs,
+    candidate,
     decision_reason: plan.decision_reason,
   }
 }

@@ -116,7 +116,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 **Remaining transaction work (still open):**
 
-- Full immutable validated plan commit/rollback for every signature-changing family.
+- Full immutable validated plan commit/rollback for every signature-changing family. The ordinary scalar plan now also owns a preconstructed complete candidate module, an independent type epoch, and exact path-plus-kind direct-call identities; application revalidates all three before validating and committing the candidate.
 - Constant materialization migration onto the action model.
 - Localization transaction (classify only today; ordinary scalar still fail-closes on localize).
 - GC parameter/result refinement migration.
