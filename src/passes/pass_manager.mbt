@@ -70244,16 +70244,6 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
       ) => {
         if before_params != after_params || before_results != after_results {
           worth[def_idx] = true
-        } else {
-          let @lib.Func(before_locals, _) = before_funcs[def_idx]
-          let @lib.Func(after_locals, _) = after_funcs[def_idx]
-          if after_locals.length() > before_locals.length() {
-            // Parameter-callsite repair can introduce scratch locals in callers.
-            // Binaryen simplifies those operands during ParamUtils rewriting;
-            // replay only actual local growth until that cleanup is owned directly
-            // by the common parameter transaction.
-            worth[def_idx] = true
-          }
         }
         if before_results != after_results {
           let before_abs = before_imported + def_idx
@@ -71811,6 +71801,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     single_caller_throttle_consumed~,
     traps_never_happen=options.traps_never_happen,
   )
+  let mut core_effects = result.effects
   let mut throttle_consumed = result.single_caller_throttle_consumed ||
     dae_modules_form_single_caller_param_wave(mod_, result.mod_out)
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
@@ -71836,6 +71827,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   )
   core_mod = call_sink_uniform.mod_out
   core_touched = call_sink_uniform.touched
+  core_effects = dae_commit_effects_merge(
+    core_effects,
+    call_sink_uniform.effects,
+  )
   let call_sink_frontier = dae_collect_applied_call_sink_uniform_defs(
     mod_, core_mod,
   )
@@ -71980,21 +71975,32 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         }
         None => ()
       }
+      let component_graph = dae_current_boundary_graph_new(core_mod)
+      let component_dependencies = dae_boundary_dependency_graph_new(
+        component_graph,
+      )
+      let component_original = dae_collect_original_boundary_snapshot(core_mod)
       match
-        dae_run_forwarded_param_component_transaction(
-          core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
+        dae_run_forwarded_param_component_transaction_with_graph(
+          component_original, core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
+          component_graph, component_dependencies,
         ) {
         Some(application) => {
-          core_mod = application.mod_out
-          core_touched = application.touched
-          forwarded_scc_seeds = application.touched.copy()
-          for def_idx in application.defs {
+          let candidate = application.candidate
+          core_mod = candidate.mod_out
+          core_touched = candidate.touched
+          forwarded_scc_seeds = candidate.touched.copy()
+          core_effects = dae_commit_effects_merge(
+            core_effects,
+            application.effects,
+          )
+          for def_idx in candidate.defs {
             if !post_component_cleanup_defs.contains(def_idx) {
               post_component_cleanup_defs.push(def_idx)
             }
           }
           (options.trace)(
-            "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
+            "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{candidate.defs.to_string()} params=\{candidate.param_count}",
           )
         }
         None => ()
@@ -72022,6 +72028,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   )
   core_mod = broad_uniform.mod_out
   core_touched = broad_uniform.touched
+  core_effects = dae_commit_effects_merge(core_effects, broad_uniform.effects)
   for primary_def in broad_uniform.productive_defs {
     (options.trace)(
       "pass[dae-optimizing]:broad-exact-uniform primary_def=\{primary_def}",
@@ -72035,6 +72042,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   )
   core_mod = payoff_chain.mod_out
   core_touched = payoff_chain.touched
+  core_effects = dae_commit_effects_merge(core_effects, payoff_chain.effects)
   let payoff_cleanup_candidates = dae_collect_dropped_result_payoff_cleanup_candidates(
     mod_, core_mod,
   )
@@ -72187,7 +72195,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     mod_,
     core_mod,
     core_touched,
-    producer_effects=Some(result.effects),
+    producer_effects=Some(core_effects),
   )
   let (broad_cleaned, broad_cleanup_changed) = match
     run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
@@ -72201,7 +72209,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     mod_,
     core_mod,
     core_touched,
-    producer_effects=Some(result.effects),
+    producer_effects=Some(core_effects),
   )
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(

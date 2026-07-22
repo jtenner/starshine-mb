@@ -18275,7 +18275,7 @@ test "dae-optimizing removes a forwarding-only parameter component and preserves
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
   let run = optimized.pretty_print_defined_func(3U)
   assert_true(run.contains("call (Func 0)"), msg=run)
-  assert_true(run.contains("drop"), msg=run)
+  assert_true(run.contains("drop"), msg="\{run}\ntrace=\{trace}")
   assert_true(
     trace.any(fn(line) {
       line.contains(

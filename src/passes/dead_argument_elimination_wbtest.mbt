@@ -16143,6 +16143,45 @@ test "dae GC parameter refinement repairs nondefaultable reused parameter locals
 }
 
 ///|
+test "dae core scalar localization reports producer-owned effects" {
+  let source =
+    #|(module
+    #|  (import "m" "read" (func $read (result i32)))
+    #|  (func $target (param i32)
+    #|    nop)
+    #|  (func (export "run")
+    #|    call $read
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let effects_report : Array[DaeCommitEffects] = []
+  let result = dae_run_core_once(
+    mod_,
+    Array::make(2, false),
+    dae_collect_module_call_counts_anywhere(funcs, 1, 2),
+    false,
+    false,
+    original,
+    graph,
+    max_def_exclusive=1,
+    producer_effects_report=effects_report,
+  )
+  assert_true(result.changed)
+  @debug.assert_eq(effects_report.length(), 1)
+  assert_true(effects_report[0].worth_decided[0])
+  assert_true(effects_report[0].worth_decided[1])
+  assert_true(effects_report[0].parameter_changed[0])
+  assert_true(effects_report[0].body_localized[1])
+  assert_true(effects_report[0].worth_optimizing[0])
+  assert_true(effects_report[0].worth_optimizing[1])
+}
+
+///|
 test "dae core GC parameter refinement reports producer-owned effects" {
   let source =
     #|(module

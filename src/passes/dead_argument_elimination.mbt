@@ -27040,6 +27040,7 @@ fn dae_run_core_once(
           traps_never_happen~,
         )
         if planned.applied {
+          dae_record_producer_effects(producer_effects_report, planned.effects)
           return planned.result
         }
         if planned.reason != DaeActualValueSliceUnavailable {
@@ -40697,6 +40698,28 @@ fn dae_build_forwarded_param_component_rewrite_plan(
     }
     effect_def += 1
   }
+  // The component transaction owns caller localization. Record scratch-local
+  // growth here rather than asking the DAEO pass manager to infer semantic worth
+  // from arbitrary before/after local counts.
+  match candidate.mod_out.code_sec {
+    Some(@lib.CodeSec(candidate_funcs)) => {
+      effect_def = 0
+      while effect_def < candidate.touched.length() &&
+            effect_def < expected_funcs.length() &&
+            effect_def < candidate_funcs.length() {
+        if candidate.touched[effect_def] && !candidate.defs.contains(effect_def) {
+          let @lib.Func(before_locals, _) = expected_funcs[effect_def]
+          let @lib.Func(after_locals, _) = candidate_funcs[effect_def]
+          if after_locals.length() > before_locals.length() {
+            effects.worth_optimizing[effect_def] = true
+            effects.body_localized[effect_def] = true
+          }
+        }
+        effect_def += 1
+      }
+    }
+    None => return None
+  }
   for member_def in candidate.defs {
     effects.worth_optimizing[member_def] = true
     effects.parameter_changed[member_def] = true
@@ -40859,56 +40882,6 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
     DaeComponentPlanRejected(_, _) => return None
   }
   Some(application)
-}
-
-///|
-fn dae_run_forwarded_param_component_transaction(
-  current : @lib.Module,
-  touched : Array[Bool],
-  cycle_defs : Array[Int],
-) -> DaeForwardedParamSccApplication? {
-  if cycle_defs.length() < 2 {
-    return None
-  }
-  let graph = dae_current_boundary_graph_new(current)
-  let dependencies = dae_boundary_dependency_graph_new(graph)
-  let target_def = cycle_defs[0]
-  let item = {
-    ..dae_work_item_new(graph, dependencies, target_def, DaeForwardingWork),
-    component_members: cycle_defs.copy(),
-  }
-  let nodes = dae_collect_forwarded_param_component(
-    current,
-    cycle_defs,
-    graph.snapshot.type_indices,
-    graph.snapshot.boundary_facts,
-  )
-  if nodes.length() == 0 {
-    return None
-  }
-  let rewritten_defs : Array[Int] = []
-  let imported = graph.snapshot.imported
-  for node in nodes {
-    let def_idx = node.callee_abs - imported
-    if def_idx >= 0 && !rewritten_defs.contains(def_idx) {
-      rewritten_defs.push(def_idx)
-    }
-  }
-  let original = dae_collect_original_boundary_snapshot(current)
-  let diagnostics = dae_diagnostics_new()
-  match
-    dae_process_work_item(
-      original, current, touched, false, graph, dependencies, item, diagnostics,
-    ) {
-    DaeWorkCommitted(application) =>
-      Some({
-        mod_out: application.mod_out,
-        touched: application.touched,
-        defs: rewritten_defs,
-        param_count: nodes.length(),
-      })
-    _ => None
-  }
 }
 
 ///|
