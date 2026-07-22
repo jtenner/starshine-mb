@@ -16002,6 +16002,108 @@ test "dae component rewrite plan rejects stale member and rolls back all members
 }
 
 ///|
+test "dae component rewrite plan rejects a stale type epoch atomically" {
+  let mod_ = dae_forwarded_component_plan_fixture()
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let boundary_facts = graph.snapshot.boundary_facts
+  let nodes = dae_collect_forwarded_param_component(
+    mod_,
+    [0, 1],
+    graph.snapshot.type_indices,
+    boundary_facts,
+  )
+  let plan = dae_build_forwarded_param_component_rewrite_plan(
+    mod_,
+    graph,
+    dependencies,
+    [],
+    nodes,
+    boundary_facts,
+  ).unwrap()
+  graph.type_epoch += 1
+  match dae_apply_component_rewrite_plan(mod_, graph, plan) {
+    DaeComponentPlanRejected(unchanged, DaeStaleCandidateFacts) =>
+      assert_eq(unchanged, mod_)
+    _ => fail("expected stale component type epoch to roll back every member")
+  }
+}
+
+///|
+test "dae component rewrite plan rejects changed exact call identity" {
+  let mod_ = dae_forwarded_component_plan_fixture()
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let boundary_facts = graph.snapshot.boundary_facts
+  let nodes = dae_collect_forwarded_param_component(
+    mod_,
+    [0, 1],
+    graph.snapshot.type_indices,
+    boundary_facts,
+  )
+  let plan = dae_build_forwarded_param_component_rewrite_plan(
+    mod_,
+    graph,
+    dependencies,
+    [],
+    nodes,
+    boundary_facts,
+  ).unwrap()
+  let identities = plan.expected_call_identities.copy()
+  assert_true(identities.length() > 0)
+  identities[0] = { ..identities[0], path: [99] }
+  let stale_plan = { ..plan, expected_call_identities: identities }
+  match dae_apply_component_rewrite_plan(mod_, graph, stale_plan) {
+    DaeComponentPlanRejected(unchanged, DaeCallCountChanged) =>
+      assert_eq(unchanged, mod_)
+    _ => fail("expected changed component call identity to roll back")
+  }
+}
+
+///|
+test "dae forwarding dispatcher honors original escaped ownership" {
+  let escaped_source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $a)
+    #|  (func $a (param i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    call $a))
+  let current_source =
+    #|(module
+    #|  (func $a (param i32)
+    #|    local.get 0
+    #|    call $b)
+    #|  (func $b (param i32)
+    #|    local.get 0
+    #|    call $a))
+  let escaped = pass_test_module_from_wat(escaped_source)
+  let current = pass_test_module_from_wat(current_source)
+  let original = dae_collect_original_boundary_snapshot(escaped)
+  let graph = dae_current_boundary_graph_new(current)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let item = dae_work_item_new(graph, dependencies, 0, DaeForwardingWork)
+  match
+    dae_process_work_item(
+      original,
+      current,
+      [],
+      false,
+      graph,
+      dependencies,
+      item,
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(_) =>
+      fail("expected original escaped ownership to reject the whole component")
+    _ => ()
+  }
+}
+
+///|
 test "dae component rewrite plan validation failure restores the complete module" {
   let mod_ = dae_forwarded_component_plan_fixture()
   let graph = dae_current_boundary_graph_new(mod_)

@@ -137,7 +137,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Deliverables:**
   - [x] Make one `DaeValueSlice` carry arity, type, effects, traps, branches, unreachable state, producer identity, and epochs for every direct-call operand.
   - [x] Express each slot as keep, pure removal, effect replay, localization/retry, constant materialization, or type refinement while preserving left-to-right evaluation. *(ordinary unused-parameter analysis emits keep / remove-pure / remove-replay / localize-and-retry only; materialize/refine production deferred)*
-  - [ ] Move GC refinement, result removal, control reconstruction, and remaining older paths through immutable validated plans. *(ordinary scalar localization and solved/fallback/suffix constant materialization are plan-owned; legacy direct constants plus forwarding/broad localization remain)*
+  - [ ] Move GC refinement, result removal, control reconstruction, and remaining older paths through immutable validated plans. *(ordinary scalar localization, solved/fallback/suffix constants, and forwarding component signature edits are plan-owned; legacy direct constants, forwarding post-materialization, and broad localization remain)*
   - [ ] Repair removed-slot locals, non-defaultable refs, typed tees, local indices, direct `return_call`, type edits, metadata, touched sets, and invalidations atomically.
 - **Exit criteria:** no boundary-changing family mutates callsites or types outside the common candidate validation/commit/rollback boundary.
 
@@ -146,7 +146,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Owner:** uniform-value solver, immutable-global handling, SCC/component discovery, and localization retry.
 - **Deliverables:**
   - [ ] Match represented Binaryen constants: numeric/SIMD, `ref.null`, `ref.func`, `string.const`, supported ref conversions, tuple constants, and immutable `global.get`.
-  - [ ] Use one monotone per-slot lattice across normalized forwarding SCCs and commit whole components atomically.
+  - [ ] Use one monotone per-slot lattice across normalized forwarding SCCs and commit whole components atomically. *(component commits now enforce original ownership plus module/call/type/member/caller epochs and exact call identities; post-component null materialization and full lattice breadth remain)*
   - [ ] Remove parity-affecting `1024`/`4096`, prefix, nullable-count, and phase-only admissions; retain only explicitly optional cleanup budgets.
   - [ ] Localize all owned calls on effect blockage, repair EH/control structure, mark callers stale, and requeue through the common worklist.
   - [ ] Preserve Binaryen's one-wave single-caller profitability throttle.

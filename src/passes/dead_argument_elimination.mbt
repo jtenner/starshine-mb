@@ -1726,6 +1726,8 @@ priv struct DaeComponentRewritePlan {
   member_defs : Array[Int]
   expected_module_epoch : Int
   expected_call_epoch : Int
+  expected_type_epoch : Int
+  expected_call_identities : Array[DaeDirectCallIdentity]
   expected_members : Array[DaeComponentMemberExpectation]
   expected_callers : Array[DaeComponentCallerExpectation]
   expected_type_sec : @lib.TypeSec
@@ -3297,7 +3299,6 @@ fn dae_process_work_item(
   item : DaeWorkItem,
   diagnostics : DaeDiagnostics,
 ) -> DaeWorkOutcome {
-  ignore(original.imported)
   diagnostics.boundaries_analyzed += 1
   if !dae_work_item_epoch_is_current(graph, item) {
     dae_diagnostics_record_reason(diagnostics, DaeStaleCandidateFacts)
@@ -3316,6 +3317,7 @@ fn dae_process_work_item(
   if item.family == DaeForwardingWork {
     match
       dae_run_forwarded_param_component_transaction_with_graph(
+        original,
         current,
         touched,
         item.component_members,
@@ -38419,6 +38421,7 @@ fn dae_build_forwarded_param_component_rewrite_plan(
   touched : Array[Bool],
   nodes : Array[DaeForwardedParamNode],
   boundary_facts : DaeCallBoundaryFacts,
+  original? : DaeOriginalBoundarySnapshot? = None,
 ) -> DaeComponentRewritePlan? {
   let candidate = match
     dae_build_forwarded_param_component_candidate(
@@ -38444,6 +38447,17 @@ fn dae_build_forwarded_param_component_rewrite_plan(
   }
   let expected_members : Array[DaeComponentMemberExpectation] = []
   let expected_callers : Array[DaeComponentCallerExpectation] = []
+  let expected_call_identities : Array[DaeDirectCallIdentity] = []
+  let original_snapshot = match original {
+    Some(snapshot) => snapshot
+    None => dae_collect_original_boundary_snapshot(current)
+  }
+  let shared_facts : DaeBoundaryFacts = {
+    original: original_snapshot,
+    graph,
+    incoming_param_live_by_def: [],
+    incoming_param_live_body_epochs: [],
+  }
   for def_idx in candidate.defs {
     if def_idx < 0 ||
       def_idx >= graph.function_epochs.length() ||
@@ -38452,6 +38466,13 @@ fn dae_build_forwarded_param_component_rewrite_plan(
     }
     let epochs = graph.function_epochs[def_idx]
     let target_abs = graph.snapshot.imported + def_idx
+    if !dae_can_change_parameters(shared_facts, target_abs) {
+      return None
+    }
+    for
+      identity in dae_collect_target_call_identities(graph.snapshot, target_abs) {
+      expected_call_identities.push(identity)
+    }
     let (direct_calls, return_calls) = dae_count_component_target_call_kinds(
       graph.snapshot.funcs,
       target_abs,
@@ -38485,6 +38506,8 @@ fn dae_build_forwarded_param_component_rewrite_plan(
     member_defs: candidate.defs.copy(),
     expected_module_epoch: graph.module_epoch,
     expected_call_epoch: graph.call_epoch,
+    expected_type_epoch: graph.type_epoch,
+    expected_call_identities,
     expected_members,
     expected_callers,
     expected_type_sec,
@@ -38501,7 +38524,8 @@ fn dae_apply_component_rewrite_plan(
   plan : DaeComponentRewritePlan,
 ) -> DaeComponentRewritePlanApplication {
   if plan.expected_module_epoch != graph.module_epoch ||
-    plan.expected_call_epoch != graph.call_epoch {
+    plan.expected_call_epoch != graph.call_epoch ||
+    plan.expected_type_epoch != graph.type_epoch {
     return DaeComponentPlanRejected(current, DaeStaleCandidateFacts)
   }
   match (current.type_sec, current.func_sec, current.code_sec) {
@@ -38539,6 +38563,17 @@ fn dae_apply_component_rewrite_plan(
       return DaeComponentPlanRejected(current, DaeTypeReconstructionUnavailable)
     }
   }
+  let actual_call_identities : Array[DaeDirectCallIdentity] = []
+  for member_def in plan.member_defs {
+    let target_abs = graph.snapshot.imported + member_def
+    for
+      identity in dae_collect_target_call_identities(graph.snapshot, target_abs) {
+      actual_call_identities.push(identity)
+    }
+  }
+  if actual_call_identities != plan.expected_call_identities {
+    return DaeComponentPlanRejected(current, DaeCallCountChanged)
+  }
   for expected in plan.expected_callers {
     if expected.def_idx < 0 ||
       expected.def_idx >= graph.function_epochs.length() {
@@ -38558,6 +38593,7 @@ fn dae_apply_component_rewrite_plan(
 
 ///|
 fn dae_run_forwarded_param_component_transaction_with_graph(
+  original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
   cycle_defs : Array[Int],
@@ -38577,7 +38613,13 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
   )
   let plan = match
     dae_build_forwarded_param_component_rewrite_plan(
-      current, graph, dependencies, touched, nodes, boundary_facts,
+      current,
+      graph,
+      dependencies,
+      touched,
+      nodes,
+      boundary_facts,
+      original=Some(original),
     ) {
     Some(plan) => plan
     None => return None
