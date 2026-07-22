@@ -3415,11 +3415,107 @@ fn dae_boundary_dependency_graph_new(
 }
 
 ///|
+fn dae_mark_dependency_row(
+  rows : Array[Array[Int]],
+  def_idx : Int,
+  invalidated : Array[Bool],
+) -> Unit {
+  if def_idx >= 0 && def_idx < rows.length() {
+    for dependency in rows[def_idx] {
+      if dependency >= 0 && dependency < invalidated.length() {
+        invalidated[dependency] = true
+      }
+    }
+  }
+}
+
+///|
+fn dae_mark_dependency_domain(
+  graph : DaeBoundaryDependencyGraph,
+  def_idx : Int,
+  domain : DaeInvalidationDomain,
+  invalidated : Array[Bool],
+) -> Unit {
+  match domain {
+    DaeInvalidateCalls | DaeInvalidateSignature => {
+      dae_mark_dependency_row(graph.callers_by_def, def_idx, invalidated)
+      dae_mark_dependency_row(graph.callees_by_def, def_idx, invalidated)
+    }
+    DaeInvalidateResult => {
+      dae_mark_dependency_row(
+        graph.result_forwarders_by_def,
+        def_idx,
+        invalidated,
+      )
+      dae_mark_dependency_row(
+        graph.result_observers_by_def,
+        def_idx,
+        invalidated,
+      )
+      dae_mark_dependency_row(
+        graph.tail_result_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+    }
+    DaeInvalidateBody =>
+      dae_mark_dependency_row(
+        graph.body_use_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+    DaeInvalidateControl => {
+      dae_mark_dependency_row(
+        graph.body_use_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+      dae_mark_dependency_row(
+        graph.result_forwarders_by_def,
+        def_idx,
+        invalidated,
+      )
+      dae_mark_dependency_row(
+        graph.tail_result_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+    }
+    DaeInvalidateLocals => {
+      dae_mark_dependency_row(
+        graph.body_use_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+      dae_mark_dependency_row(
+        graph.nested_cleanup_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+    }
+    DaeInvalidateTypes =>
+      dae_mark_dependency_row(
+        graph.type_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+    DaeInvalidateMetadata => ()
+    DaeInvalidateNestedCleanup =>
+      dae_mark_dependency_row(
+        graph.nested_cleanup_dependencies_by_def,
+        def_idx,
+        invalidated,
+      )
+  }
+}
+
+///|
 fn dae_boundary_dependency_invalidations(
   before : DaeBoundaryDependencyGraph,
   after : DaeBoundaryDependencyGraph,
   touched : Array[Bool],
   primary_def : Int,
+  effects? : DaeCommitEffects? = None,
 ) -> Array[Int] {
   let defined = if before.callers_by_def.length() >
     after.callers_by_def.length() {
@@ -3428,34 +3524,28 @@ fn dae_boundary_dependency_invalidations(
     after.callers_by_def.length()
   }
   let invalidated = Array::make(defined, false)
+  let producer_domains = match effects {
+    Some(value) if value.invalidation_domains.length() > 0 =>
+      Some(value.invalidation_domains)
+    _ => None
+  }
   let mut def_idx = 0
   while def_idx < defined {
     let is_touched = def_idx == primary_def ||
       (def_idx < touched.length() && touched[def_idx])
     if is_touched {
       invalidated[def_idx] = true
-      if def_idx < before.callers_by_def.length() {
-        for dependency in before.callers_by_def[def_idx] {
-          if dependency >= 0 && dependency < defined {
-            invalidated[dependency] = true
+      match producer_domains {
+        Some(domains) =>
+          for domain in domains {
+            dae_mark_dependency_domain(before, def_idx, domain, invalidated)
+            dae_mark_dependency_domain(after, def_idx, domain, invalidated)
           }
-        }
-        for dependency in before.callees_by_def[def_idx] {
-          if dependency >= 0 && dependency < defined {
-            invalidated[dependency] = true
-          }
-        }
-      }
-      if def_idx < after.callers_by_def.length() {
-        for dependency in after.callers_by_def[def_idx] {
-          if dependency >= 0 && dependency < defined {
-            invalidated[dependency] = true
-          }
-        }
-        for dependency in after.callees_by_def[def_idx] {
-          if dependency >= 0 && dependency < defined {
-            invalidated[dependency] = true
-          }
+        None => {
+          dae_mark_dependency_row(before.callers_by_def, def_idx, invalidated)
+          dae_mark_dependency_row(before.callees_by_def, def_idx, invalidated)
+          dae_mark_dependency_row(after.callers_by_def, def_idx, invalidated)
+          dae_mark_dependency_row(after.callees_by_def, def_idx, invalidated)
         }
       }
     }
@@ -41872,6 +41962,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
           after_dependencies,
           application.touched,
           application.primary_def,
+          effects=Some(application.effects),
         )
         dependencies = after_dependencies
         current = application.mod_out
@@ -42191,6 +42282,7 @@ fn dae_run_core(
         after_dependencies,
         application.touched,
         application.primary_def,
+        effects=Some(application.effects),
       )
       current_dependencies = after_dependencies
       current = application.mod_out

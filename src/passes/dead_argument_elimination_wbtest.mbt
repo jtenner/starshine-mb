@@ -15255,6 +15255,79 @@ test "dae dependency graph separates dropped observers from result forwarding" {
 }
 
 ///|
+test "dae dependency invalidation follows producer-owned result domains" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (result i32)
+      #|    i32.const 7)
+      #|  (func
+      #|    call $target
+      #|    drop)
+      #|  (func (result i32)
+      #|    call $target)
+      #|  (func (result i32)
+      #|    return_call $target))
+    ),
+  )
+  let graph = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  let base = dae_commit_effects_empty(4)
+  let effects = { ..base, invalidation_domains: [DaeInvalidateResult] }
+  assert_eq(
+    dae_boundary_dependency_invalidations(
+      graph,
+      graph,
+      [true, false, false, false],
+      0,
+      effects=Some(effects),
+    ),
+    [0, 2, 3],
+  )
+}
+
+///|
+test "dae dependency invalidation keeps metadata-only changes local" {
+  let void_type = @lib.TypeIdx::new(0U)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([void_type, void_type, void_type]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let graph = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(mod_),
+  )
+  let base = dae_commit_effects_empty(3)
+  let effects = { ..base, invalidation_domains: [DaeInvalidateMetadata] }
+  assert_eq(
+    dae_boundary_dependency_invalidations(
+      graph,
+      graph,
+      [false, true, false],
+      1,
+      effects=Some(effects),
+    ),
+    [1],
+  )
+}
+
+///|
 test "dae dependency graph distinguishes exact parameter forwarding from constant calls" {
   let unary = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new()
