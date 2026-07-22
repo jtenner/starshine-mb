@@ -3434,6 +3434,52 @@ fn dae_apply_family_rewrite_plan(
 }
 
 ///|
+fn dae_apply_family_result_transaction(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  graph : DaeCurrentBoundaryGraph,
+  candidate : DaePassResult,
+) -> DaeCoreResultApplication {
+  let plan = match
+    dae_build_family_rewrite_plan(
+      original,
+      current,
+      graph,
+      candidate.primary_def,
+      candidate,
+    ) {
+    Some(plan) => plan
+    None =>
+      return {
+        mod_out: current,
+        touched,
+        changed,
+        applied: false,
+        primary_def: -1,
+      }
+  }
+  let application = dae_apply_family_rewrite_plan(current, graph, plan)
+  if !application.applied {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+    }
+  }
+  {
+    mod_out: application.result.mod_out,
+    touched: dae_merge_touched(touched, application.result.touched),
+    changed: changed || application.result.changed,
+    applied: true,
+    primary_def: application.result.primary_def,
+  }
+}
+
+///|
 fn dae_process_work_item(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -41183,7 +41229,10 @@ fn dae_run_core(
     let mut unread_batch_wave = 0
     while true {
       let batch = dae_try_apply_unread_param_batch(current)
-      let application = dae_apply_core_result(current, touched, changed, batch)
+      let batch_graph = dae_current_boundary_graph_new(current)
+      let application = dae_apply_family_result_transaction(
+        original_boundary_snapshot, current, touched, changed, batch_graph, batch,
+      )
       if !application.applied {
         break
       }
@@ -41204,7 +41253,10 @@ fn dae_run_core(
     let mut dropped_result_batch_wave = 0
     while true {
       let batch = dae_try_apply_dropped_result_batch(current)
-      let application = dae_apply_core_result(current, touched, changed, batch)
+      let batch_graph = dae_current_boundary_graph_new(current)
+      let application = dae_apply_family_result_transaction(
+        original_boundary_snapshot, current, touched, changed, batch_graph, batch,
+      )
       if !application.applied {
         break
       }
@@ -41230,7 +41282,10 @@ fn dae_run_core(
         active_defs=direct_gc_active_defs,
       )
       let batch_touched = batch.touched
-      let application = dae_apply_core_result(current, touched, changed, batch)
+      let batch_graph = dae_current_boundary_graph_new(current)
+      let application = dae_apply_family_result_transaction(
+        original_boundary_snapshot, current, touched, changed, batch_graph, batch,
+      )
       if !application.applied {
         break
       }
@@ -41350,7 +41405,10 @@ fn dae_run_core(
       } else {
         -1
       }
-      let application = dae_apply_core_result(current, touched, changed, result)
+      let application = dae_apply_family_result_transaction(
+        original_boundary_snapshot, current, touched, changed, current_boundary_graph,
+        result,
+      )
       if !application.applied {
         continue
       }

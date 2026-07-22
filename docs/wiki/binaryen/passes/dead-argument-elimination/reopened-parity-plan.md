@@ -116,12 +116,12 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 **Remaining transaction work (still open):**
 
-- Full immutable validated plan commit/rollback for every signature-changing family. The scalar plan owns detailed parameter edits; forwarding component plans atomically compose members and triggered ref-null materialization; and the dispatcher now wraps every other produced family result—unread/localization, uniform, GC parameter/result, dropped result, control reconstruction, and type repair—in `DaeFamilyRewritePlan`, rechecking original ownership, module/call/type/function epochs, exact call identities, source equality, structural progress, and final module validation before commit. Broad and selected paths that bypass the dispatcher remain open.
+- Full immutable validated plan commit/rollback for every signature-changing family. The scalar plan owns detailed parameter edits; forwarding component plans atomically compose members and triggered ref-null materialization; and `DaeFamilyRewritePlan` wraps every other dispatcher result plus optimizing unread/dropped-result/GC batches and ordinary core candidates, rechecking original ownership, module/call/type/function epochs, exact call identities, source equality, structural progress, and final module validation before commit. Remaining selected cleanup/application paths still need the same boundary.
 - Constant materialization consolidation beyond the common scalar transaction. Solved uniform values, exact-literal/immutable-global fallback, and verified immediate suffixes now become `DaeMaterializeConstantParameter` actions, honor original ownership, preserve older stack-carried operands, and commit through the complete scalar candidate; older direct/selected entry points that do not supply original/current snapshots still need migration.
 - Localization consolidation beyond the ordinary scalar transaction. The scalar plan now owns typed scratch-local insertion, localized removed-slot projection, exact caller epochs, candidate validation, commit, and rollback; forwarding/broad-family localization still needs the same lifecycle.
-- GC parameter/result refinement migration beyond the dispatcher-owned lanes.
-- Dropped-result migration beyond the dispatcher-owned lane.
-- Control/type reconstruction migration beyond the dispatcher-owned lanes.
+- GC parameter/result producer consolidation beyond the dispatcher and optimizing batch transactions.
+- Dropped-result producer consolidation beyond the dispatcher and optimizing batch transactions.
+- Control/type reconstruction cleanup beyond the dispatcher-owned lanes.
 - Metadata finalization and complete touched/invalidation transaction.
 - Migrate remaining parallel consumers (`dae_try_rewrite_candidate`, selected unread, select/GC helpers) marked with owning `[O4Z-DAE-*]` TODOs.
 
