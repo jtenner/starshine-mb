@@ -23108,3 +23108,38 @@ test "simplify-locals lowered cleanup preserves non-defaultable initialization a
       )
   }
 }
+
+///|
+test "dae optimizing payoff exact literal retains original ownership" {
+  let escaped = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (elem (i32.const 0) func $target)
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let (rewritten, _, changed) = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
+    escaped,
+    current,
+    [1],
+    [],
+    HotPipelineOptions::new(),
+  )
+  assert_false(changed)
+  assert_eq(rewritten, current)
+}

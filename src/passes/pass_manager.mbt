@@ -62544,6 +62544,7 @@ fn run_hot_pipeline_dae_collect_adjacent_literal_callees(
 
 ///|
 fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
+  original_source : @lib.Module,
   mod_ : @lib.Module,
   payoff_defs : Array[Int],
   touched : Array[Bool],
@@ -62574,16 +62575,15 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
   if callee_defs.length() == 0 {
     return (mod_, touched, false)
   }
-  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
   for callee_def in callee_defs {
-    let result = dae_try_rewrite_exact_literal_def_with_facts_once(
-      mod_, callee_def, call_facts,
+    let application = dae_apply_exact_literal_family_once(
+      original_source, mod_, callee_def, touched, false,
     )
-    if result.changed {
+    if application.applied {
       (options.trace)(
         "pass[dae-optimizing]:payoff-direct-callee-exact-literal caller_def=\{caller_def} callee_def=\{callee_def}",
       )
-      return (result.mod_out, dae_merge_touched(touched, result.touched), true)
+      return (application.mod_out, application.touched, true)
     }
   }
   (mod_, touched, false)
@@ -72550,7 +72550,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     payoff_final_reorder_defs.push(candidate.callee_def)
   }
   let (payoff_literal_mod, payoff_literal_touched, payoff_literal_changed) = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
-    core_mod, payoff_final_reorder_defs, core_touched, options,
+    mod_, core_mod, payoff_final_reorder_defs, core_touched, options,
   )
   core_mod = payoff_literal_mod
   core_touched = payoff_literal_touched
