@@ -139,7 +139,7 @@ The file contains five anonymous modules, so rows use source order.
 
 | Completion-matrix rows | Classification | Reason |
 | --- | --- | --- |
-| A1, A2, A3, C1, F2, K1 | **5. stale documentation** | Current code has common boundary ownership, direct/return-call identities, value slices, transactional scalar commits, and plain/optimizing separation. Update wording after implementation slices land. |
+| A1, A2, A3, C1, F2, K1 | **current generic ownership** | The completion matrix now records common boundary ownership, direct/return-call identities, value slices, transactional scalar commits, and plain/optimizing separation. Reopen only for a new source surface or failing focused proof. |
 | B1, B2, B3, A4, C2 | **2. release-blocking lifecycle risk** | Behavior is broadly represented. Scalar, dispatcher unread/localization, general remove/constant, and forwarding-component effects reach DAEO without local-growth inference; producer-specific suffix/ref-null and non-scalar phase-local application tails remain. |
 | D1, D2, E1, E2, E3, E4 | **2. release-blocking lifecycle risk** plus **4. mechanical consolidation** | Focused Binaryen-v131 behavior exists; collection and control/type finalization remain fragmented. |
 | F1, F4 | **2. release-blocking lifecycle risk** | Legality is graph-backed, but ordinary/specialized body and caller repair are not yet one lane-aware atomic result plan. |
@@ -149,7 +149,7 @@ The file contains five anonymous modules, so rows use source order.
 | H3, H4, I1, I2 | **2. release-blocking lifecycle risk** | Family validation and producer-owned worth exist, but conservative fallback invalidation, incomplete diagnostics, and parallel phase loops remain. |
 | J1, J2, J3, J4 | **2. release-blocking lifecycle risk** | Shared roster and producer-owned semantic worth exist; the whole-pass strictly-smaller retry still needs effect-frontier replacement. |
 | K2 | **4. mechanical preservation** | Slot 48 and exact-once placement are already covered; rerun only at final integration signoff. |
-| L1, L2, L3 | **5. stale documentation** | These rows describe prior evidence checkpoints, not current closure after the reopened implementation work. |
+| L1, L2 | **historical evidence checkpoint**; L3 **reopened** | Generated/artifact evidence remains valid provenance, but the completion matrix now prevents those rows from overriding open lifecycle ownership and requires final renewal before release closure. |
 
 ## Immediate implementation order from the map
 
