@@ -226,7 +226,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 ### 8. Exact DAEO touched set and optimizing lifecycle
 
-**Gap.** Starshine shares the nested roster and has correct slot placement, but full replay is still selected by `touched_count > 8`, module-size, local-count, instruction-count, and material-caller thresholds. Those guards are described as optional performance policy, yet they can omit Binaryen-visible optimizing cleanup and the small-module computed queue still has a cross-phase availability split.
+**Gap.** Starshine shares the nested roster and has correct slot placement. The arbitrary `touched_count > 8` replay skip was removed on 2026-07-22, but full replay is still selected by module-size, local-count, instruction-count, and material-caller thresholds. Those remaining guards are described as optional performance policy, yet they can omit Binaryen-visible optimizing cleanup and the small-module computed queue still has a cross-phase availability split.
 
 **Implementation strategy.**
 

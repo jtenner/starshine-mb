@@ -15075,7 +15075,7 @@ test "dae-optimizing routes oversized changed boundaries through transactional c
 }
 
 ///|
-test "dae-optimizing traces large touched set nested cleanup skip" {
+test "dae-optimizing runs nested cleanup for large touched sets" {
   let out = StringBuilder::new()
   out.write_string("(module\n")
   let mut idx = 0
@@ -15096,10 +15096,12 @@ test "dae-optimizing traces large touched set nested cleanup skip" {
     Err(err) =>
       fail("expected traced large-touched-set DAE success, got \{err}")
   }
+  assert_false(
+    trace.any(fn(line) { line.contains("reason=large-touched-set") }),
+    msg=trace.to_string(),
+  )
   assert_true(
-    trace.contains(
-      "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set guard=performance optional=true touched=10",
-    ),
+    trace.contains("pass[dae-optimizing]:nested-pass name=precompute-propagate"),
     msg=trace.to_string(),
   )
 }

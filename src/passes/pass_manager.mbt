@@ -70247,20 +70247,6 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
     "detail:dae:nested-total",
   )
   if !bypass_size_guards {
-    if touched_count > 8 {
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "nested-cleanup-skip",
-        payload="reason=large-touched-set guard=performance optional=true touched=\{touched_count}",
-      )
-      perf_stop_timer_opt(
-        options.perf,
-        "detail:dae:nested-total",
-        nested_total_start_us,
-      )
-      return Ok(mod_)
-    }
     let size_skip_reason = run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
       mod_, touched,
     )
