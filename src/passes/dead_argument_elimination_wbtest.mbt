@@ -3908,6 +3908,43 @@ test "dae materialized ref.func constants compare function identity" {
 }
 
 ///|
+test "dae materialized reference conversion expressions compare exact identity" {
+  let first_body = [
+    @lib.Instruction::i32_const(@lib.I32::new(7)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::extern_convert_any(),
+  ]
+  let same_body = first_body.copy()
+  let different_body = [
+    @lib.Instruction::i32_const(@lib.I32::new(8)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::extern_convert_any(),
+  ]
+  assert_true(dae_instrs_are_materializable_ref_const_expr(first_body))
+  assert_false(
+    dae_instrs_are_materializable_ref_const_expr([
+      @lib.Instruction::i32_const(@lib.I32::new(7)),
+      @lib.Instruction::ref_i31(),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let first = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::externref()),
+    @lib.Expr::new(first_body),
+  )
+  let same = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::externref()),
+    @lib.Expr::new(same_body),
+  )
+  let different = @lib.Instruction::block(
+    @lib.BlockType::val_type(@lib.ValType::externref()),
+    @lib.Expr::new(different_body),
+  )
+  assert_true(dae_materialized_const_equal(first, same))
+  assert_false(dae_materialized_const_equal(first, different))
+}
+
+///|
 test "dae control result slices centralize flat and return arm bounds" {
   let pair_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new().with_type_sec(

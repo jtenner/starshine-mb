@@ -11626,6 +11626,57 @@ test "dae-optimizing materializes uniform ref.func actuals" {
 }
 
 ///|
+test "dae-optimizing materializes uniform externalized i31 actuals" {
+  let source =
+    #|(module
+    #|  (func $target (param externref) (result externref)
+    #|    local.get 0)
+    #|  (func (export "run") (result externref)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    extern.convert_any
+    #|    call $target
+    #|    drop
+    #|    i32.const 7
+    #|    ref.i31
+    #|    extern.convert_any
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_true(target.contains("ref.i31"), msg=target)
+  assert_true(target.contains("extern.convert_any"), msg=target)
+}
+
+///|
+test "dae-optimizing materializes uniform re-internalized i31 actuals" {
+  let source =
+    #|(module
+    #|  (func $target (param anyref) (result anyref)
+    #|    local.get 0)
+    #|  (func (export "run") (result anyref)
+    #|    i32.const 7
+    #|    ref.i31
+    #|    extern.convert_any
+    #|    any.convert_extern
+    #|    call $target
+    #|    drop
+    #|    i32.const 7
+    #|    ref.i31
+    #|    extern.convert_any
+    #|    any.convert_extern
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_true(target.contains("ref.i31"), msg=target)
+  assert_true(target.contains("extern.convert_any"), msg=target)
+  assert_true(target.contains("any.convert_extern"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes selected Func521 literal actual" {
   let out = StringBuilder::new()
   out.write_string("(module\n")

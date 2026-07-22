@@ -7588,6 +7588,30 @@ fn dae_simplify_rewritten_add_zero_instrs(
 }
 
 ///|
+fn dae_instrs_are_materializable_ref_const_expr(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 2 {
+    return false
+  }
+  match (instrs[0], instrs[1]) {
+    (@lib.I32Const(_), @lib.RefI31) => ()
+    _ => return false
+  }
+  let mut externalized = false
+  let mut idx = 2
+  while idx < instrs.length() {
+    match (externalized, instrs[idx]) {
+      (false, @lib.ExternConvertAny) => externalized = true
+      (true, @lib.AnyConvertExtern) => externalized = false
+      _ => return false
+    }
+    idx += 1
+  }
+  true
+}
+
+///|
 fn dae_instr_is_materializable_const(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.I32Const(_)
@@ -7598,6 +7622,8 @@ fn dae_instr_is_materializable_const(instr : @lib.Instruction) -> Bool {
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
     | @lib.StringConst(_) => true
+    @lib.Block(_, @lib.Expr(body)) =>
+      dae_instrs_are_materializable_ref_const_expr(body)
     _ => false
   }
 }
@@ -9422,6 +9448,10 @@ fn dae_materialized_const_equal(
     (@lib.RefNull(a), @lib.RefNull(b)) => a == b
     (@lib.RefFunc(a), @lib.RefFunc(b)) => a == b
     (@lib.StringConst(a), @lib.StringConst(b)) => a == b
+    (@lib.Block(_, @lib.Expr(a)), @lib.Block(_, @lib.Expr(b))) if dae_instrs_are_materializable_ref_const_expr(
+        a,
+      ) &&
+      dae_instrs_are_materializable_ref_const_expr(b) => lhs == rhs
     (@lib.GlobalGet(a), @lib.GlobalGet(b)) => a == b
     _ => false
   }
@@ -9630,7 +9660,7 @@ fn dae_resolve_uniform_const_candidate(
 fn dae_collect_uniform_const_actuals_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
-  param_count : Int,
+  param_types : Array[@lib.ValType],
   entry_stack_values : Int,
   caller_abs : Int,
   mod_ : @lib.Module,
@@ -9643,6 +9673,7 @@ fn dae_collect_uniform_const_actuals_instrs(
   allow_immutable_global_get? : Bool = false,
   collect_params? : Array[Bool]? = None,
 ) -> Bool {
+  let param_count = param_types.length()
   let active_params = match collect_params {
     Some(active) if active.length() == param_count => active
     Some(_) => return false
@@ -9702,7 +9733,29 @@ fn dae_collect_uniform_const_actuals_instrs(
                           _ => invalid[p] = true
                         }
                     }
-                  None => invalid[p] = true
+                  None => {
+                    let slice = evidence.slices[p]
+                    let body : Array[@lib.Instruction] = []
+                    let mut slice_idx = slice.start
+                    while slice_idx < slice.end {
+                      body.push(instrs[slice_idx])
+                      slice_idx += 1
+                    }
+                    if dae_instrs_are_materializable_ref_const_expr(body) {
+                      dae_record_uniform_const_candidate(
+                        seen,
+                        invalid,
+                        candidates,
+                        p,
+                        @lib.Instruction::block(
+                          @lib.BlockType::val_type(param_types[p]),
+                          @lib.Expr::new(body),
+                        ),
+                      )
+                    } else {
+                      invalid[p] = true
+                    }
+                  }
                 }
               }
               p += 1
@@ -9724,7 +9777,7 @@ fn dae_collect_uniform_const_actuals_instrs(
             if !dae_collect_uniform_const_actuals_instrs(
                 child_evidence.primary_body,
                 callee_abs,
-                param_count,
+                param_types,
                 child_evidence.entry_stack_values,
                 caller_abs,
                 mod_,
@@ -9744,7 +9797,7 @@ fn dae_collect_uniform_const_actuals_instrs(
                 if !dae_collect_uniform_const_actuals_instrs(
                     body,
                     callee_abs,
-                    param_count,
+                    param_types,
                     child_evidence.entry_stack_values,
                     caller_abs,
                     mod_,
@@ -9785,6 +9838,11 @@ fn dae_collect_uniform_const_actuals_visited(
     Some(@lib.CodeSec(funcs)) => funcs
     None => return Some(Array::make(param_count, None))
   }
+  let param_types = match
+    dae_resolve_func_type(mod_, func_type_indices, callee_abs) {
+    Some(@lib.FuncType(params, _)) if params.length() == param_count => params
+    _ => return None
+  }
   let imported = dae_imported_func_count(mod_)
   let seen = Array::make(param_count, false)
   let invalid = Array::make(param_count, false)
@@ -9798,7 +9856,7 @@ fn dae_collect_uniform_const_actuals_visited(
       if !dae_collect_uniform_const_actuals_instrs(
           body,
           callee_abs,
-          param_count,
+          param_types,
           0,
           imported + def_idx,
           mod_,
