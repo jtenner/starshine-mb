@@ -15641,6 +15641,39 @@ test "dae uniform dispatcher carries immutable-global specialization policy" {
 }
 
 ///|
+test "dae exact-literal transaction rejects original escaped ownership" {
+  let escaped_source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $target)
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $target))
+  let current_source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $target))
+  let escaped = pass_test_module_from_wat(escaped_source)
+  let current_mod = pass_test_module_from_wat(current_source)
+  let original = dae_collect_original_boundary_snapshot(escaped)
+  let graph = dae_current_boundary_graph_new(current_mod)
+  let result = dae_try_rewrite_exact_literal_def_with_facts_once(
+    current_mod,
+    0,
+    graph.snapshot.call_facts,
+    original=Some(original),
+    graph=Some(graph),
+  )
+  assert_false(result.changed)
+  assert_eq(result.mod_out, current_mod)
+}
+
+///|
 test "dae uniform candidate worklist solves forwarded values before direct literal exposure" {
   let source =
     #|(module

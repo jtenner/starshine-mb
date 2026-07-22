@@ -3371,6 +3371,8 @@ fn dae_process_work_item(
             item.target_def,
             graph.snapshot.call_facts,
             allow_immutable_global_get=item.allow_immutable_global_get,
+            original=Some(original),
+            graph=Some(graph),
           ),
         )
       }
@@ -36062,6 +36064,8 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
   call_facts : DaeCurrentCallFacts,
   allow_immutable_global_get? : Bool = false,
   allow_immediate_i32_suffix_fallback? : Bool = false,
+  original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let boundary_facts = dae_call_boundary_facts_from_current(call_facts)
@@ -36141,15 +36145,40 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   if any_const {
-    return dae_try_rewrite_candidate(
-      mod_,
-      callee_abs,
-      remove,
-      const_params,
-      local_use,
-      boundary_candidate.direct_call_count,
-      boundary_candidate.direct_callers,
-    )
+    match (original, graph) {
+      (Some(original), Some(graph)) =>
+        match
+          dae_build_scalar_unused_param_rewrite_plan(
+            mod_,
+            original,
+            graph,
+            callee_abs,
+            remove,
+            local_use,
+            boundary_candidate.direct_call_count,
+            boundary_candidate.direct_callers,
+            materialized_params=Some(const_params),
+          ) {
+          Some(plan) => {
+            let application = dae_apply_rewrite_plan(mod_, graph, plan)
+            if application.applied {
+              return application.result
+            }
+          }
+          None => ()
+        }
+      _ =>
+        return dae_try_rewrite_candidate(
+          mod_,
+          callee_abs,
+          remove,
+          const_params,
+          local_use,
+          boundary_candidate.direct_call_count,
+          boundary_candidate.direct_callers,
+        )
+    }
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   if !allow_immediate_i32_suffix_fallback {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }

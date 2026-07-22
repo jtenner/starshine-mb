@@ -117,7 +117,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 **Remaining transaction work (still open):**
 
 - Full immutable validated plan commit/rollback for every signature-changing family. The ordinary scalar plan now also owns a preconstructed complete candidate module, an independent type epoch, and exact path-plus-kind direct-call identities; application revalidates all three before validating and committing the candidate.
-- Constant materialization consolidation beyond solved `DaeUniformActualWork`. Solved uniform values now become `DaeMaterializeConstantParameter` actions, are reverified against current call facts, and commit through the complete scalar candidate; exact-literal, immutable-global, suffix, and older selected entry points still need migration.
+- Constant materialization consolidation beyond the common `DaeUniformActualWork` dispatcher. Solved uniform values and its exact-literal/immutable-global fallback now become `DaeMaterializeConstantParameter` actions, are reverified against current call facts, honor original ownership, and commit through the complete scalar candidate; immediate-suffix and older direct/selected entry points still need migration.
 - Localization consolidation beyond the ordinary scalar transaction. The scalar plan now owns typed scratch-local insertion, localized removed-slot projection, exact caller epochs, candidate validation, commit, and rollback; forwarding/broad-family localization still needs the same lifecycle.
 - GC parameter/result refinement migration.
 - Dropped-result migration.
