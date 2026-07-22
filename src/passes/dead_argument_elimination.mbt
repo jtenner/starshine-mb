@@ -13420,6 +13420,24 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate_type, None)
       })
+    @lib.RefFunc(func_idx) => {
+      let slot = dae_func_idx_slot(func_idx)
+      if slot < 0 || slot >= func_type_indices.length() {
+        None
+      } else {
+        let candidate = @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            @lib.HeapType::new(func_type_indices[slot]),
+            exact=true,
+          ),
+        )
+        match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+          Some(refined) => Some((refined, None))
+          None => None
+        }
+      }
+    }
     @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
       match
         dae_direct_call_gc_result_refinement_evidence(

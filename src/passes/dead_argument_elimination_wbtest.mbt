@@ -16310,6 +16310,46 @@ test "dae GC result refinement follows direct tail calls" {
 }
 
 ///|
+test "dae GC result refinement derives exact ref.func return types" {
+  let source =
+    #|(module
+    #|  (type $sig (func (result funcref)))
+    #|  (elem declare func $escaped)
+    #|  (func $escaped (type $sig) (result funcref)
+    #|    ref.null func)
+    #|  (func $producer (result funcref)
+    #|    ref.func $escaped)
+    #|  (func (export "run") (result funcref)
+    #|    call $producer))
+  let parsed = pass_test_module_from_wat(source)
+  let encoded = match @binary.encode_module(parsed) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected ref.func result fixture encode, got \{err}")
+  }
+  let mod_ = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) => fail("expected ref.func result fixture decode, got \{err}")
+  }
+  let result = dae_run_core(mod_, fn(_) { () })
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  match dae_resolve_func_type(result.mod_out, type_indices, 1) {
+    Some(@lib.FuncType([], [actual])) => assert_eq(actual, expected)
+    _ => fail("expected exact ref.func producer result")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid exact ref.func result, got \{err}")
+  }
+}
+
+///|
 test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
   let function_count = 20
   let out = StringBuilder::new()
