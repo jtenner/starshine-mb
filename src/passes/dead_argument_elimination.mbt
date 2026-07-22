@@ -1534,11 +1534,12 @@ priv struct DaeForwardedParamNode {
 
 ///|
 priv enum DaeParameterFlowState {
+  DaeParameterUnseen
   DaeParameterForwardedOnly
   DaeParameterUniform(@lib.Instruction)
   DaeParameterConflict
   DaeParameterBlocked
-}
+} derive(Eq, Debug)
 
 ///|
 priv struct DaeParameterFlowFact {
@@ -38941,9 +38942,11 @@ fn dae_parameter_flow_record(
   }
   let existing = facts[fact_idx].state
   facts[fact_idx].state = match (existing, state) {
+    (DaeParameterBlocked, _) | (_, DaeParameterBlocked) => DaeParameterBlocked
     (DaeParameterConflict, _) | (_, DaeParameterConflict) =>
       DaeParameterConflict
-    (DaeParameterBlocked, _) | (_, DaeParameterBlocked) => DaeParameterBlocked
+    (DaeParameterUnseen, next) => next
+    (current, DaeParameterUnseen) => current
     (DaeParameterUniform(left), DaeParameterUniform(right)) =>
       if dae_materialized_const_equal(left, right) {
         DaeParameterUniform(left)
@@ -39002,6 +39005,7 @@ fn dae_solve_parameter_flow(
       let cycle_nodes : Array[DaeForwardedParamNode] = []
       let constant : Array[@lib.Instruction?] = [None]
       let flags = [true, false, false]
+      dae_parameter_flow_record(facts, def_idx, param_idx, DaeParameterUnseen)
       let collected = dae_collect_forwarded_param_scc_node(
         graph.mod_,
         callee_abs,
@@ -39025,6 +39029,13 @@ fn dae_solve_parameter_flow(
             dae_parameter_flow_record(facts, node_def, node.param_idx, state)
           }
         }
+      } else {
+        dae_parameter_flow_record(
+          facts,
+          def_idx,
+          param_idx,
+          DaeParameterBlocked,
+        )
       }
       param_idx += 1
     }
@@ -39044,7 +39055,7 @@ fn dae_parameter_flow_state_at(
     param_idx,
   )
   if fact_idx < 0 {
-    DaeParameterBlocked
+    DaeParameterUnseen
   } else {
     solution.facts[fact_idx].state
   }

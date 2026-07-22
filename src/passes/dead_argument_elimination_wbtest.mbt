@@ -15473,6 +15473,40 @@ test "dae parameter flow records exact reordered forwarding slots and tail compo
 }
 
 ///|
+test "dae parameter flow lattice distinguishes unseen forwarded uniform conflict and blocked" {
+  let facts : Array[DaeParameterFlowFact] = []
+  let empty = { facts, }
+  assert_eq(dae_parameter_flow_state_at(empty, 0, 0), DaeParameterUnseen)
+
+  dae_parameter_flow_record(facts, 0, 0, DaeParameterUnseen)
+  dae_parameter_flow_record(facts, 0, 0, DaeParameterForwardedOnly)
+  assert_eq(
+    dae_parameter_flow_state_at({ facts, }, 0, 0),
+    DaeParameterForwardedOnly,
+  )
+
+  dae_parameter_flow_record(
+    facts,
+    0,
+    0,
+    DaeParameterUniform(@lib.Instruction::i32_const(@lib.I32(7))),
+  )
+  assert_eq(
+    dae_parameter_flow_state_at({ facts, }, 0, 0),
+    DaeParameterUniform(@lib.Instruction::i32_const(@lib.I32(7))),
+  )
+  dae_parameter_flow_record(
+    facts,
+    0,
+    0,
+    DaeParameterUniform(@lib.Instruction::i32_const(@lib.I32(9))),
+  )
+  assert_eq(dae_parameter_flow_state_at({ facts, }, 0, 0), DaeParameterConflict)
+  dae_parameter_flow_record(facts, 0, 0, DaeParameterBlocked)
+  assert_eq(dae_parameter_flow_state_at({ facts, }, 0, 0), DaeParameterBlocked)
+}
+
+///|
 test "dae parameter flow solves reordered multi-parameter uniforms across a recursive component" {
   let source =
     #|(module
