@@ -23226,6 +23226,35 @@ test "dae optimizing worth set excludes unchanged preexisting caller locals" {
 }
 
 ///|
+test "dae optimizing worth set trusts producer effects over local growth inference" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32) nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let after = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target nop)
+      #|  (func (export "run") (local i32)
+      #|    call $target))
+    ),
+  )
+  let effects = dae_commit_effects_parameter_change(2, 0, [0, 1], false, [])
+  let worth = run_hot_pipeline_dae_worth_optimizing_touched(
+    before,
+    after,
+    [true, true],
+    producer_effects=Some(effects),
+  )
+  @debug.assert_eq(worth, [true, false])
+}
+
+///|
 test "dae optimizing worth set includes dropped-result callers" {
   let before = pass_test_module_from_wat(
     (

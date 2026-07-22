@@ -42,7 +42,7 @@ priv enum DaeDecisionReason {
   DaeValidationRollback
   DaeProfitabilityRejection
   DaeWorkBudgetRejection
-} derive(Eq)
+} derive(Eq, Debug)
 
 ///|
 priv enum DaeBoundarySurface {
@@ -1244,12 +1244,200 @@ priv struct DaePassResult {
 }
 
 ///|
+priv enum DaeInvalidationDomain {
+  DaeInvalidateCalls
+  DaeInvalidateSignature
+  DaeInvalidateResult
+  DaeInvalidateBody
+  DaeInvalidateControl
+  DaeInvalidateLocals
+  DaeInvalidateTypes
+  DaeInvalidateMetadata
+  DaeInvalidateNestedCleanup
+} derive(Eq, Debug)
+
+///|
+priv struct DaeCommitEffects {
+  structurally_touched : Array[Bool]
+  worth_optimizing : Array[Bool]
+  parameter_changed : Array[Bool]
+  parameter_type_refined : Array[Bool]
+  result_changed : Array[Bool]
+  result_removed : Array[Bool]
+  body_materialized : Array[Bool]
+  body_localized : Array[Bool]
+  caller_drop_removed : Array[Bool]
+  caller_bottom_repaired : Array[Bool]
+  control_refinalization_required : Array[Bool]
+  local_projection_changed : Array[Bool]
+  type_section_changed : Bool
+  metadata_changed : Bool
+  invalidation_domains : Array[DaeInvalidationDomain]
+  decision_reasons : Array[DaeDecisionReason]
+} derive(Eq, Debug)
+
+///|
+fn dae_commit_effects_empty(defined : Int) -> DaeCommitEffects {
+  {
+    structurally_touched: Array::make(defined, false),
+    worth_optimizing: Array::make(defined, false),
+    parameter_changed: Array::make(defined, false),
+    parameter_type_refined: Array::make(defined, false),
+    result_changed: Array::make(defined, false),
+    result_removed: Array::make(defined, false),
+    body_materialized: Array::make(defined, false),
+    body_localized: Array::make(defined, false),
+    caller_drop_removed: Array::make(defined, false),
+    caller_bottom_repaired: Array::make(defined, false),
+    control_refinalization_required: Array::make(defined, false),
+    local_projection_changed: Array::make(defined, false),
+    type_section_changed: false,
+    metadata_changed: false,
+    invalidation_domains: [],
+    decision_reasons: [],
+  }
+}
+
+///|
+fn dae_commit_effects_parameter_change(
+  defined : Int,
+  target_def : Int,
+  structurally_touched_defs : Array[Int],
+  body_materialized : Bool,
+  body_localized_callers : Array[Int],
+) -> DaeCommitEffects {
+  let effects = dae_commit_effects_empty(defined)
+  for def_idx in structurally_touched_defs {
+    if def_idx >= 0 && def_idx < defined {
+      effects.structurally_touched[def_idx] = true
+    }
+  }
+  if target_def >= 0 && target_def < defined {
+    effects.worth_optimizing[target_def] = true
+    effects.parameter_changed[target_def] = true
+    effects.local_projection_changed[target_def] = true
+    effects.body_materialized[target_def] = body_materialized
+  }
+  for caller_def in body_localized_callers {
+    if caller_def >= 0 && caller_def < defined {
+      effects.worth_optimizing[caller_def] = true
+      effects.body_localized[caller_def] = true
+    }
+  }
+  {
+    ..effects,
+    type_section_changed: true,
+    metadata_changed: true,
+    invalidation_domains: [
+      DaeInvalidateCalls,
+      DaeInvalidateSignature,
+      DaeInvalidateBody,
+      DaeInvalidateLocals,
+      DaeInvalidateTypes,
+      DaeInvalidateMetadata,
+      DaeInvalidateNestedCleanup,
+    ],
+    decision_reasons: [DaeCandidateProduced],
+  }
+}
+
+///|
+fn dae_commit_effects_with_structural_touched(
+  effects : DaeCommitEffects,
+  structurally_touched : Array[Bool],
+) -> DaeCommitEffects {
+  { ..effects, structurally_touched: structurally_touched.copy() }
+}
+
+///|
+fn dae_commit_effects_merge(
+  left : DaeCommitEffects,
+  right : DaeCommitEffects,
+) -> DaeCommitEffects {
+  let defined = if left.structurally_touched.length() >=
+    right.structurally_touched.length() {
+    left.structurally_touched.length()
+  } else {
+    right.structurally_touched.length()
+  }
+  let merged = dae_commit_effects_empty(defined)
+  let mut idx = 0
+  while idx < defined {
+    let left_has = fn(values : Array[Bool]) {
+      idx < values.length() && values[idx]
+    }
+    let right_has = fn(values : Array[Bool]) {
+      idx < values.length() && values[idx]
+    }
+    merged.structurally_touched[idx] = left_has(left.structurally_touched) ||
+      right_has(right.structurally_touched)
+    merged.worth_optimizing[idx] = left_has(left.worth_optimizing) ||
+      right_has(right.worth_optimizing)
+    merged.parameter_changed[idx] = left_has(left.parameter_changed) ||
+      right_has(right.parameter_changed)
+    merged.parameter_type_refined[idx] = left_has(left.parameter_type_refined) ||
+      right_has(right.parameter_type_refined)
+    merged.result_changed[idx] = left_has(left.result_changed) ||
+      right_has(right.result_changed)
+    merged.result_removed[idx] = left_has(left.result_removed) ||
+      right_has(right.result_removed)
+    merged.body_materialized[idx] = left_has(left.body_materialized) ||
+      right_has(right.body_materialized)
+    merged.body_localized[idx] = left_has(left.body_localized) ||
+      right_has(right.body_localized)
+    merged.caller_drop_removed[idx] = left_has(left.caller_drop_removed) ||
+      right_has(right.caller_drop_removed)
+    merged.caller_bottom_repaired[idx] = left_has(left.caller_bottom_repaired) ||
+      right_has(right.caller_bottom_repaired)
+    merged.control_refinalization_required[idx] = left_has(
+        left.control_refinalization_required,
+      ) ||
+      right_has(right.control_refinalization_required)
+    merged.local_projection_changed[idx] = left_has(
+        left.local_projection_changed,
+      ) ||
+      right_has(right.local_projection_changed)
+    idx += 1
+  }
+  let invalidation_domains = left.invalidation_domains.copy()
+  for domain in right.invalidation_domains {
+    if !invalidation_domains.contains(domain) {
+      invalidation_domains.push(domain)
+    }
+  }
+  let decision_reasons = left.decision_reasons.copy()
+  for reason in right.decision_reasons {
+    if !decision_reasons.contains(reason) {
+      decision_reasons.push(reason)
+    }
+  }
+  {
+    ..merged,
+    type_section_changed: left.type_section_changed ||
+    right.type_section_changed,
+    metadata_changed: left.metadata_changed || right.metadata_changed,
+    invalidation_domains,
+    decision_reasons,
+  }
+}
+
+///|
+priv struct DaeCoreRunResult {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  changed : Bool
+  primary_def : Int
+  effects : DaeCommitEffects
+}
+
+///|
 priv struct DaeCoreResultApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
   changed : Bool
   applied : Bool
   primary_def : Int
+  effects : DaeCommitEffects
 }
 
 ///|
@@ -1668,6 +1856,7 @@ priv enum DaeMetadataRewritePlan {
 
 ///|
 priv struct DaeRewritePlan {
+  effects : DaeCommitEffects
   target_def : Int
   target_abs : Int
   expected_module_epoch : Int
@@ -1702,10 +1891,12 @@ priv struct DaeRewritePlanApplication {
   result : DaePassResult
   applied : Bool
   reason : DaeDecisionReason
+  effects : DaeCommitEffects
 }
 
 ///|
 priv struct DaeFamilyRewritePlan {
+  effects : DaeCommitEffects
   target_def : Int
   expected_module_epoch : Int
   expected_call_epoch : Int
@@ -1734,6 +1925,7 @@ priv struct DaeComponentCallerExpectation {
 
 ///|
 priv struct DaeComponentRewritePlan {
+  effects : DaeCommitEffects
   component_id : Int
   member_defs : Array[Int]
   expected_module_epoch : Int
@@ -1749,8 +1941,14 @@ priv struct DaeComponentRewritePlan {
 }
 
 ///|
+priv struct DaeComponentRewritePlanCommit {
+  candidate : DaeForwardedParamSccApplication
+  effects : DaeCommitEffects
+}
+
+///|
 priv enum DaeComponentRewritePlanApplication {
-  DaeComponentPlanCommitted(DaeForwardedParamSccApplication)
+  DaeComponentPlanCommitted(DaeComponentRewritePlanCommit)
   DaeComponentPlanRejected(@lib.Module, DaeDecisionReason)
 }
 
@@ -3329,6 +3527,7 @@ fn dae_build_family_rewrite_plan(
   graph : DaeCurrentBoundaryGraph,
   target_def : Int,
   candidate : DaePassResult,
+  effects? : DaeCommitEffects? = None,
 ) -> DaeFamilyRewritePlan? {
   if target_def < 0 ||
     target_def >= graph.snapshot.defined ||
@@ -3391,7 +3590,25 @@ fn dae_build_family_rewrite_plan(
     }
     def_idx += 1
   }
+  let producer_effects = match effects {
+    Some(value) => {
+      if value.structurally_touched.length() != graph.snapshot.defined ||
+        value.worth_optimizing.length() != graph.snapshot.defined ||
+        value.parameter_changed.length() != graph.snapshot.defined ||
+        value.body_materialized.length() != graph.snapshot.defined ||
+        value.body_localized.length() != graph.snapshot.defined {
+        return None
+      }
+      dae_commit_effects_with_structural_touched(value, candidate.touched)
+    }
+    None =>
+      dae_commit_effects_with_structural_touched(
+        dae_commit_effects_empty(graph.snapshot.defined),
+        candidate.touched,
+      )
+  }
   Some({
+    effects: producer_effects,
     target_def,
     expected_module_epoch: graph.module_epoch,
     expected_call_epoch: graph.call_epoch,
@@ -3451,7 +3668,16 @@ fn dae_apply_family_rewrite_plan(
   }
   match @validate.validate_module(plan.candidate.mod_out) {
     Ok(_) =>
-      { result: plan.candidate, applied: true, reason: DaeCandidateApplied }
+      {
+        result: plan.candidate,
+        applied: true,
+        reason: DaeCandidateApplied,
+        effects: {
+          ..plan.effects,
+          decision_reasons: plan.effects.decision_reasons +
+          [DaeCandidateApplied],
+        },
+      }
     Err(_) => dae_rewrite_plan_rejection(current, DaeValidationRollback)
   }
 }
@@ -3464,6 +3690,7 @@ fn dae_apply_family_result_transaction(
   changed : Bool,
   graph : DaeCurrentBoundaryGraph,
   candidate : DaePassResult,
+  effects? : DaeCommitEffects? = None,
 ) -> DaeCoreResultApplication {
   let candidate_funcs = match candidate.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -3519,7 +3746,12 @@ fn dae_apply_family_result_transaction(
   }
   let plan = match
     dae_build_family_rewrite_plan(
-      original, current, graph, target_def, normalized_candidate,
+      original,
+      current,
+      graph,
+      target_def,
+      normalized_candidate,
+      effects~,
     ) {
     Some(plan) => plan
     None =>
@@ -3529,6 +3761,7 @@ fn dae_apply_family_result_transaction(
         changed,
         applied: false,
         primary_def: -1,
+        effects: dae_commit_effects_empty(graph.snapshot.defined),
       }
   }
   let application = dae_apply_family_rewrite_plan(current, graph, plan)
@@ -3539,6 +3772,7 @@ fn dae_apply_family_result_transaction(
       changed,
       applied: false,
       primary_def: -1,
+      effects: application.effects,
     }
   }
   {
@@ -3547,6 +3781,134 @@ fn dae_apply_family_result_transaction(
     changed: changed || application.result.changed,
     applied: true,
     primary_def: application.result.primary_def,
+    effects: application.effects,
+  }
+}
+
+///|
+fn dae_commit_effects_for_work_item(
+  current : @lib.Module,
+  defined : Int,
+  item : DaeWorkItem,
+  candidate : DaePassResult,
+) -> DaeCommitEffects {
+  let effects = dae_commit_effects_empty(defined)
+  let mut def_idx = 0
+  while def_idx < candidate.touched.length() && def_idx < defined {
+    if candidate.touched[def_idx] {
+      effects.structurally_touched[def_idx] = true
+    }
+    def_idx += 1
+  }
+  let target = item.target_def
+  if target < 0 || target >= defined {
+    return effects
+  }
+  // Compatibility bridge for older scalar producers that return only a module
+  // candidate: scratch-local growth is an exact localization consequence until
+  // those producers return their plan effects directly.
+  match (current.code_sec, candidate.mod_out.code_sec) {
+    (Some(@lib.CodeSec(before_funcs)), Some(@lib.CodeSec(after_funcs))) => {
+      def_idx = 0
+      while def_idx < before_funcs.length() && def_idx < after_funcs.length() {
+        let @lib.Func(before_locals, _) = before_funcs[def_idx]
+        let @lib.Func(after_locals, _) = after_funcs[def_idx]
+        if def_idx != target && after_locals.length() > before_locals.length() {
+          effects.worth_optimizing[def_idx] = true
+          effects.body_localized[def_idx] = true
+        }
+        def_idx += 1
+      }
+    }
+    _ => ()
+  }
+  match item.family {
+    DaeUnusedParameterWork | DaePostCleanupBoundaryRevisitWork => {
+      effects.worth_optimizing[target] = true
+      effects.parameter_changed[target] = true
+      effects.local_projection_changed[target] = true
+    }
+    DaeUniformActualWork => {
+      effects.worth_optimizing[target] = true
+      effects.parameter_changed[target] = true
+      effects.body_materialized[target] = true
+      effects.local_projection_changed[target] = true
+    }
+    DaeLocalizationRetryWork => {
+      effects.worth_optimizing[target] = true
+      effects.parameter_changed[target] = true
+      effects.local_projection_changed[target] = true
+      def_idx = 0
+      while def_idx < candidate.touched.length() && def_idx < defined {
+        if def_idx != target && candidate.touched[def_idx] {
+          effects.worth_optimizing[def_idx] = true
+          effects.body_localized[def_idx] = true
+        }
+        def_idx += 1
+      }
+    }
+    DaeGcParameterRefinementWork => {
+      effects.worth_optimizing[target] = true
+      effects.parameter_changed[target] = true
+      effects.parameter_type_refined[target] = true
+      effects.control_refinalization_required[target] = true
+    }
+    DaeGcResultRefinementWork => {
+      effects.worth_optimizing[target] = true
+      effects.result_changed[target] = true
+      effects.control_refinalization_required[target] = true
+      def_idx = 0
+      while def_idx < candidate.touched.length() && def_idx < defined {
+        if candidate.touched[def_idx] {
+          effects.worth_optimizing[def_idx] = true
+        }
+        def_idx += 1
+      }
+    }
+    DaeDroppedResultWork => {
+      effects.worth_optimizing[target] = true
+      effects.result_changed[target] = true
+      effects.result_removed[target] = true
+      def_idx = 0
+      while def_idx < candidate.touched.length() && def_idx < defined {
+        if def_idx != target && candidate.touched[def_idx] {
+          effects.worth_optimizing[def_idx] = true
+          effects.caller_drop_removed[def_idx] = true
+        }
+        def_idx += 1
+      }
+    }
+    DaeControlReconstructionWork | DaeTypeRepairRetryWork =>
+      effects.control_refinalization_required[target] = true
+    DaeForwardingWork => ()
+  }
+  {
+    ..effects,
+    type_section_changed: match item.family {
+      DaeUnusedParameterWork
+      | DaeUniformActualWork
+      | DaeForwardingWork
+      | DaeLocalizationRetryWork
+      | DaeGcParameterRefinementWork
+      | DaeGcResultRefinementWork
+      | DaeDroppedResultWork
+      | DaeTypeRepairRetryWork
+      | DaePostCleanupBoundaryRevisitWork => true
+      DaeControlReconstructionWork => false
+    },
+    metadata_changed: true,
+    invalidation_domains: [
+      DaeInvalidateCalls,
+      DaeInvalidateSignature,
+      DaeInvalidateResult,
+      DaeInvalidateBody,
+      DaeInvalidateControl,
+      DaeInvalidateLocals,
+      DaeInvalidateTypes,
+      DaeInvalidateMetadata,
+      DaeInvalidateNestedCleanup,
+    ],
+    decision_reasons: [DaeCandidateProduced],
   }
 }
 
@@ -3586,15 +3948,16 @@ fn dae_process_work_item(
         graph,
         dependencies,
       ) {
-      Some(candidate) => {
+      Some(commit) => {
         diagnostics.candidates_applied += 1
         dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
         return DaeWorkCommitted({
-          mod_out: candidate.mod_out,
-          touched: dae_merge_touched(touched, candidate.touched),
+          mod_out: commit.candidate.mod_out,
+          touched: dae_merge_touched(touched, commit.candidate.touched),
           changed: true,
           applied: true,
           primary_def: item.target_def,
+          effects: commit.effects,
         })
       }
       None => {
@@ -3686,6 +4049,12 @@ fn dae_process_work_item(
       DaeWorkDeferred(DaeNoStrictImprovement)
     }
     Some(candidate) => {
+      let producer_effects = dae_commit_effects_for_work_item(
+        current,
+        graph.snapshot.defined,
+        item,
+        candidate,
+      )
       let plan = match
         dae_build_family_rewrite_plan(
           original,
@@ -3693,6 +4062,7 @@ fn dae_process_work_item(
           graph,
           item.target_def,
           candidate,
+          effects=Some(producer_effects),
         ) {
         Some(plan) => plan
         None => {
@@ -3710,6 +4080,7 @@ fn dae_process_work_item(
           changed: changed || plan_application.result.changed,
           applied: true,
           primary_def: plan_application.result.primary_def,
+          effects: plan_application.effects,
         })
       } else {
         dae_diagnostics_record_reason(diagnostics, plan_application.reason)
@@ -17678,6 +18049,7 @@ fn dae_rewrite_plan_rejection(
     result: { mod_out: mod_, touched: [], changed: false, primary_def: -1 },
     applied: false,
     reason,
+    effects: dae_commit_effects_empty(dae_defined_func_count(mod_)),
   }
 }
 
@@ -18100,7 +18472,31 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     .with_func_sec(@lib.FuncSec::new(next_type_idxs))
     .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
   let candidate = candidate_with_sections.without_name_sec()
+  let structurally_touched_defs : Array[Int] = []
+  let localized_caller_defs : Array[Int] = []
+  let mut effect_def = 0
+  while effect_def < touched.length() {
+    if touched[effect_def] {
+      structurally_touched_defs.push(effect_def)
+    }
+    effect_def += 1
+  }
+  if localized_params.any(fn(value) { value }) {
+    for caller_def in direct_caller_defs {
+      if !localized_caller_defs.contains(caller_def) {
+        localized_caller_defs.push(caller_def)
+      }
+    }
+  }
+  let effects = dae_commit_effects_parameter_change(
+    graph.snapshot.defined,
+    def_idx,
+    structurally_touched_defs,
+    has_materialized,
+    localized_caller_defs,
+  )
   Some({
+    effects,
     target_def: def_idx,
     target_abs: callee_abs,
     expected_module_epoch: graph.module_epoch,
@@ -18321,6 +18717,10 @@ fn dae_apply_rewrite_plan(
         },
         applied: true,
         reason: DaeCandidateApplied,
+        effects: {
+          ..plan.effects,
+          decision_reasons: [DaeCandidateProduced, DaeCandidateApplied],
+        },
       }
     Err(_) => dae_rewrite_plan_rejection(mod_, DaeValidationRollback)
   }
@@ -18339,6 +18739,7 @@ fn dae_rewrite_plan_with_callee(
     @lib.CodeSec::new(rewritten_funcs),
   )
   {
+    effects: plan.effects,
     target_def: plan.target_def,
     target_abs: plan.target_abs,
     expected_module_epoch: plan.expected_module_epoch,
@@ -25521,6 +25922,7 @@ fn dae_apply_core_result(
       changed,
       applied: false,
       primary_def: -1,
+      effects: dae_commit_effects_empty(dae_defined_func_count(current)),
     }
   }
   {
@@ -25529,6 +25931,7 @@ fn dae_apply_core_result(
     changed: true,
     applied: true,
     primary_def: result.primary_def,
+    effects: dae_commit_effects_empty(dae_defined_func_count(current)),
   }
 }
 
@@ -25598,6 +26001,7 @@ fn dae_run_bounded_singleton_selected_core_rewrite(
     changed,
     applied: false,
     primary_def: -1,
+    effects: dae_commit_effects_empty(dae_defined_func_count(current)),
   }
   let mut iteration = 0
   while iteration < max_iterations {
@@ -39001,7 +39405,42 @@ fn dae_build_forwarded_param_component_rewrite_plan(
       }
     }
   }
+  let effects = dae_commit_effects_empty(graph.snapshot.defined)
+  let mut effect_def = 0
+  while effect_def < candidate.touched.length() {
+    if candidate.touched[effect_def] {
+      effects.structurally_touched[effect_def] = true
+    }
+    effect_def += 1
+  }
+  for member_def in candidate.defs {
+    effects.worth_optimizing[member_def] = true
+    effects.parameter_changed[member_def] = true
+    effects.local_projection_changed[member_def] = true
+  }
+  if ref_null_followup.changed &&
+    ref_null_followup.primary_def >= 0 &&
+    ref_null_followup.primary_def < graph.snapshot.defined {
+    effects.worth_optimizing[ref_null_followup.primary_def] = true
+    effects.body_materialized[ref_null_followup.primary_def] = true
+  }
+  let effects = {
+    ..effects,
+    type_section_changed: true,
+    metadata_changed: true,
+    invalidation_domains: [
+      DaeInvalidateCalls,
+      DaeInvalidateSignature,
+      DaeInvalidateBody,
+      DaeInvalidateLocals,
+      DaeInvalidateTypes,
+      DaeInvalidateMetadata,
+      DaeInvalidateNestedCleanup,
+    ],
+    decision_reasons: [DaeCandidateProduced],
+  }
   Some({
+    effects,
     component_id,
     member_defs: candidate.defs.copy(),
     expected_module_epoch: graph.module_epoch,
@@ -39086,7 +39525,14 @@ fn dae_apply_component_rewrite_plan(
     }
   }
   match @validate.validate_module(plan.candidate.mod_out) {
-    Ok(_) => DaeComponentPlanCommitted(plan.candidate)
+    Ok(_) =>
+      DaeComponentPlanCommitted({
+        candidate: plan.candidate,
+        effects: {
+          ..plan.effects,
+          decision_reasons: [DaeCandidateProduced, DaeCandidateApplied],
+        },
+      })
     Err(_) => DaeComponentPlanRejected(current, DaeValidationRollback)
   }
 }
@@ -39099,7 +39545,7 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
   cycle_defs : Array[Int],
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
-) -> DaeForwardedParamSccApplication? {
+) -> DaeComponentRewritePlanCommit? {
   if cycle_defs.length() < 2 {
     return None
   }
@@ -41424,6 +41870,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
   let diagnostics = dae_diagnostics_new()
   let mut iteration = 0
   let mut applied = false
+  let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
   while true {
     let item = match dae_boundary_worklist_take_item(worklist) {
       Some(value) => value
@@ -41450,6 +41897,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
         touched = application.touched
         changed = application.changed
         applied = true
+        effects = dae_commit_effects_merge(effects, application.effects)
         let requeued = dae_work_items_for_defs(
           graph, dependencies, invalidated, family,
         )
@@ -41463,7 +41911,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
       DaeWorkNoChange(_) | DaeWorkDeferred(_) => ()
     }
   }
-  { mod_out: current, touched, changed, applied, primary_def: -1 }
+  { mod_out: current, touched, changed, applied, primary_def: -1, effects }
 }
 
 ///|
@@ -41472,7 +41920,7 @@ fn dae_run_core(
   trace : (String) -> Unit,
   optimize? : Bool = false,
   perf? : HotPerfSession? = None,
-) -> DaePassResult {
+) -> DaeCoreRunResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
@@ -41480,6 +41928,7 @@ fn dae_run_core(
   let original_boundary_snapshot = dae_collect_original_boundary_snapshot(mod_)
   let original_imported = original_boundary_snapshot.imported
   let original_defined = original_boundary_snapshot.defined
+  let mut effects = dae_commit_effects_empty(original_defined)
   let original_total = original_boundary_snapshot.total
   let original_param_counts = original_boundary_snapshot.param_counts
   let original_call_summary = original_boundary_snapshot.call_summary
@@ -41523,6 +41972,7 @@ fn dae_run_core(
         current = application.mod_out
         touched = application.touched
         changed = application.changed
+        effects = dae_commit_effects_merge(effects, application.effects)
         trace(
           "pass[dae-optimizing]:unread-param-batch wave=\{unread_batch_wave} first_def=\{application.primary_def}",
         )
@@ -41553,6 +42003,7 @@ fn dae_run_core(
         current = application.mod_out
         touched = application.touched
         changed = application.changed
+        effects = dae_commit_effects_merge(effects, application.effects)
         trace(
           "pass[dae-optimizing]:dropped-result-batch wave=\{dropped_result_batch_wave} first_def=\{application.primary_def}",
         )
@@ -41587,6 +42038,7 @@ fn dae_run_core(
       current = application.mod_out
       touched = application.touched
       changed = application.changed
+      effects = dae_commit_effects_merge(effects, application.effects)
       trace(
         "pass[dae-optimizing]:direct-gc-batch wave=\{direct_gc_batch_wave} first_def=\{application.primary_def}",
       )
@@ -41747,6 +42199,7 @@ fn dae_run_core(
       current = application.mod_out
       touched = application.touched
       changed = application.changed
+      effects = dae_commit_effects_merge(effects, application.effects)
       current_call_counts_anywhere = match current.code_sec {
         Some(@lib.CodeSec(funcs)) =>
           dae_collect_module_call_counts_anywhere(
@@ -41786,6 +42239,7 @@ fn dae_run_core(
     current = computed_application.mod_out
     touched = computed_application.touched
     changed = computed_application.changed
+    effects = dae_commit_effects_merge(effects, computed_application.effects)
   }
   let selected_lanes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes",
@@ -41800,6 +42254,7 @@ fn dae_run_core(
     current = restored_application.mod_out
     touched = restored_application.touched
     changed = restored_application.changed
+    effects = dae_commit_effects_merge(effects, restored_application.effects)
   }
   // Reuse one selected-def singleton scratch across the artifact-specific lanes
   // that set at most one bit at a time. Each call clears the bit immediately
@@ -41843,6 +42298,7 @@ fn dae_run_core(
       current = reverse_application.mod_out
       touched = reverse_application.touched
       changed = reverse_application.changed
+      effects = dae_commit_effects_merge(effects, reverse_application.effects)
       trace(
         "pass[dae-optimizing]:reverse-exact-literal iter=\{reverse_iter} primary_def=\{reverse_application.primary_def}",
       )
@@ -41890,6 +42346,7 @@ fn dae_run_core(
     current = low_revisit_application.mod_out
     touched = low_revisit_application.touched
     changed = low_revisit_application.changed
+    effects = dae_commit_effects_merge(effects, low_revisit_application.effects)
     trace(
       "pass[dae-optimizing]:low-forwarded-const-revisit iter=\{low_revisit_iter} primary_def=\{low_revisit_application.primary_def}",
     )
@@ -41942,6 +42399,10 @@ fn dae_run_core(
     current = low_exact_null_if_application.mod_out
     touched = low_exact_null_if_application.touched
     changed = low_exact_null_if_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      low_exact_null_if_application.effects,
+    )
     trace(
       "pass[dae-optimizing]:low-exact-null-if-cleanup primary_def=\{low_exact_null_if_application.primary_def}",
     )
@@ -41958,6 +42419,10 @@ fn dae_run_core(
     current = low_exact_terminal_application.mod_out
     touched = low_exact_terminal_application.touched
     changed = low_exact_terminal_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      low_exact_terminal_application.effects,
+    )
     trace(
       "pass[dae-optimizing]:low-exact-terminal-call-locals primary_def=\{low_exact_terminal_application.primary_def}",
     )
@@ -42022,6 +42487,7 @@ fn dae_run_core(
         current = global_application.mod_out
         touched = global_application.touched
         changed = global_application.changed
+        effects = dae_commit_effects_merge(effects, global_application.effects)
         immutable_global_call_facts = dae_collect_current_call_facts(
           current, original_total,
         )
@@ -42086,6 +42552,7 @@ fn dae_run_core(
       current = boundary_application.mod_out
       touched = boundary_application.touched
       changed = boundary_application.changed
+      effects = dae_commit_effects_merge(effects, boundary_application.effects)
       trace(
         "pass[dae-optimizing]:boundary-wrapper-callee-core primary_def=\{boundary_application.primary_def}",
       )
@@ -42346,7 +42813,7 @@ fn dae_run_core(
   perf_stop_timer_opt(
     perf, "detail:dae:core:post-raw-selected-lanes", post_raw_selected_lanes_start_us,
   )
-  { mod_out: current, touched, changed, primary_def: -1 }
+  { mod_out: current, touched, changed, primary_def: -1, effects }
 }
 
 ///|

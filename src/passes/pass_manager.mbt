@@ -70205,12 +70205,23 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
   before : @lib.Module,
   after : @lib.Module,
   changed_touched : Array[Bool],
+  producer_effects? : DaeCommitEffects? = None,
 ) -> Array[Bool] {
   let after_funcs = match after.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return []
   }
-  let worth = Array::make(after_funcs.length(), false)
+  let worth = match producer_effects {
+    Some(effects) if effects.worth_optimizing.length() == after_funcs.length() =>
+      effects.worth_optimizing.copy()
+    _ => Array::make(after_funcs.length(), false)
+  }
+  let producer_owned = match producer_effects {
+    Some(effects) if effects.structurally_touched.length() ==
+      after_funcs.length() &&
+      effects.invalidation_domains.length() > 0 => effects.structurally_touched
+    _ => Array::make(after_funcs.length(), false)
+  }
   let before_funcs = match before.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => return worth
@@ -70233,6 +70244,11 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
   )
   for def_idx = 0; def_idx < after_funcs.length(); def_idx = def_idx + 1 {
     if def_idx >= changed_touched.length() || !changed_touched[def_idx] {
+      continue
+    }
+    // Common transaction producers own semantic worth. Structural inference is
+    // retained only for legacy producers that have not yet emitted effects.
+    if producer_owned[def_idx] {
       continue
     }
     let before_type = dae_resolve_func_type(
@@ -72785,7 +72801,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   }
   core_mod = broad_cleaned
   let worth_optimizing_touched = run_hot_pipeline_dae_worth_optimizing_touched(
-    mod_, core_mod, core_touched,
+    mod_,
+    core_mod,
+    core_touched,
+    producer_effects=Some(result.effects),
   )
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(

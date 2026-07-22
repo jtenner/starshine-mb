@@ -14629,6 +14629,13 @@ test "dae scalar rewrite plan commits caller callee type and touched transaction
   assert_true(application.result.touched[0])
   assert_true(application.result.touched[1])
   assert_false(application.result.touched[2])
+  assert_eq(application.effects.structurally_touched, [true, true, false])
+  assert_eq(application.effects.worth_optimizing, [true, false, false])
+  assert_eq(application.effects.parameter_changed, [true, false, false])
+  assert_eq(application.effects.body_materialized, [false, false, false])
+  assert_eq(application.effects.body_localized, [false, false, false])
+  assert_true(application.effects.type_section_changed)
+  assert_true(application.effects.metadata_changed)
   assert_eq(
     application.result.mod_out.pretty_print_func(@lib.FuncIdx::new(2U)),
     mod_.pretty_print_func(@lib.FuncIdx::new(2U)),
@@ -14699,6 +14706,10 @@ test "dae scalar rewrite plan localizes nested call operands atomically" {
   assert_true(application.applied)
   assert_true(application.result.touched[1])
   assert_true(application.result.touched[2])
+  assert_eq(application.effects.worth_optimizing, [false, true, true])
+  assert_eq(application.effects.parameter_changed, [false, true, false])
+  assert_eq(application.effects.body_localized, [false, false, true])
+  assert_eq(application.effects.local_projection_changed, [false, true, false])
 }
 
 ///|
@@ -14747,7 +14758,12 @@ test "dae scalar rewrite plan materializes a uniform constant atomically" {
     }
     None => fail("expected candidate code section")
   }
-  assert_true(dae_apply_rewrite_plan(mod_, graph, plan).applied)
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  assert_eq(application.effects.worth_optimizing, [true, false])
+  assert_eq(application.effects.parameter_changed, [true, false])
+  assert_eq(application.effects.body_materialized, [true, false])
+  assert_eq(application.effects.body_localized, [false, false])
 }
 
 ///|
@@ -16236,9 +16252,14 @@ test "dae component rewrite plan validates and commits every forwarding member" 
   assert_eq(plan.member_defs, [0, 1])
   match dae_apply_component_rewrite_plan(mod_, graph, plan) {
     DaeComponentPlanCommitted(application) => {
-      assert_eq(application.defs, [0, 1])
-      assert_eq(application.param_count, 2)
-      match @validate.validate_module(application.mod_out) {
+      assert_eq(application.candidate.defs, [0, 1])
+      assert_eq(application.candidate.param_count, 2)
+      assert_eq(application.effects.structurally_touched, [true, true])
+      assert_eq(application.effects.worth_optimizing, [true, true])
+      assert_eq(application.effects.parameter_changed, [true, true])
+      assert_eq(application.effects.body_materialized, [false, false])
+      assert_eq(application.effects.body_localized, [false, false])
+      match @validate.validate_module(application.candidate.mod_out) {
         Ok(_) => ()
         Err(err) => fail("expected valid component commit, got \{err}")
       }
@@ -18641,6 +18662,7 @@ test "dae family transaction derives exact touched ownership" {
   )
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
+  let effects = dae_commit_effects_parameter_change(2, 0, [0, 1], false, [])
   let application = dae_apply_family_result_transaction(
     original,
     current,
@@ -18648,12 +18670,18 @@ test "dae family transaction derives exact touched ownership" {
     false,
     graph,
     { mod_out: candidate_mod, touched: [], changed: true, primary_def: -1 },
+    effects=Some(effects),
   )
   assert_true(application.applied)
   assert_eq(application.primary_def, 0)
   assert_eq(application.touched.length(), 2)
   assert_true(application.touched[0])
   assert_true(application.touched[1])
+  assert_eq(application.effects.structurally_touched, [true, true])
+  assert_eq(application.effects.worth_optimizing, [true, false])
+  assert_eq(application.effects.parameter_changed, [true, false])
+  assert_eq(application.effects.body_materialized, [false, false])
+  assert_eq(application.effects.body_localized, [false, false])
   match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) => fail("family transaction output must validate, got \{err}")
