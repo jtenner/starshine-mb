@@ -1887,13 +1887,6 @@ priv struct DaeLocalProjectionPlan {
 }
 
 ///|
-priv struct DaeControlTypeRewritePlan {
-  owner_def : Int
-  old_results : Array[@lib.ValType]
-  new_results : Array[@lib.ValType]
-}
-
-///|
 priv struct DaeTypeSectionRewritePlan {
   expected : @lib.TypeSec
   replacement : @lib.TypeSec
@@ -1904,12 +1897,6 @@ priv struct DaeTypeSectionRewritePlan {
 priv struct DaeFunctionSectionRewritePlan {
   expected : Array[@lib.TypeIdx]
   replacement : Array[@lib.TypeIdx]
-}
-
-///|
-priv enum DaeMetadataRewritePlan {
-  DaePreserveMetadata
-  DaeStripStaleNames
 }
 
 ///|
@@ -1933,12 +1920,10 @@ priv struct DaeRewritePlan {
   caller_rewrites : Array[DaeCallerRewritePlan]
   callee_rewrite : @lib.Func
   local_projection : DaeLocalProjectionPlan
-  control_type_rewrites : Array[DaeControlTypeRewritePlan]
   type_section_rewrite : DaeTypeSectionRewritePlan
   function_section_rewrite : DaeFunctionSectionRewritePlan
   touched_functions : Array[Bool]
   invalidated_dependencies : Array[Int]
-  metadata_rewrite : DaeMetadataRewritePlan
   rewritten_funcs : Array[@lib.Func]
   candidate : @lib.Module
   decision_reason : DaeDecisionReason
@@ -19051,7 +19036,6 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       ),
       preserved_removed_params,
     },
-    control_type_rewrites: [],
     type_section_rewrite: {
       expected: context.type_sec,
       replacement: next_type_sec,
@@ -19063,7 +19047,6 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     },
     touched_functions: touched,
     invalidated_dependencies,
-    metadata_rewrite: DaeStripStaleNames,
     rewritten_funcs,
     candidate,
     decision_reason: DaeCandidateProduced,
@@ -19097,7 +19080,6 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
     next_results != old_results ||
     !plan.touched_functions[plan.target_def] ||
     !plan.invalidated_dependencies.contains(plan.target_def) ||
-    plan.control_type_rewrites.length() != 0 ||
     plan.decision_reason != DaeCandidateProduced {
     return false
   }
@@ -19221,10 +19203,7 @@ fn dae_apply_rewrite_plan(
     .with_type_sec(plan.type_section_rewrite.replacement)
     .with_func_sec(@lib.FuncSec::new(plan.function_section_rewrite.replacement))
     .with_code_sec(@lib.CodeSec::new(plan.rewritten_funcs))
-  let expected_candidate = match plan.metadata_rewrite {
-    DaePreserveMetadata => expected_candidate
-    DaeStripStaleNames => expected_candidate.without_name_sec()
-  }
+  let expected_candidate = expected_candidate.without_name_sec()
   if expected_candidate != plan.candidate {
     return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
   }
@@ -19280,12 +19259,10 @@ fn dae_rewrite_plan_with_callee(
     caller_rewrites: plan.caller_rewrites,
     callee_rewrite: callee,
     local_projection: plan.local_projection,
-    control_type_rewrites: plan.control_type_rewrites,
     type_section_rewrite: plan.type_section_rewrite,
     function_section_rewrite: plan.function_section_rewrite,
     touched_functions: plan.touched_functions,
     invalidated_dependencies: plan.invalidated_dependencies,
-    metadata_rewrite: plan.metadata_rewrite,
     rewritten_funcs,
     candidate,
     decision_reason: plan.decision_reason,
