@@ -23145,6 +23145,33 @@ test "dae optimizing payoff exact literal retains original ownership" {
 }
 
 ///|
+test "dae nested replay does not use function cardinality as selection" {
+  let local_source = StringBuilder::new()
+  local_source.write_string("(module (func (local")
+  for local_idx = 0; local_idx < 129; local_idx = local_idx + 1 {
+    local_source.write_string(" i32")
+  }
+  local_source.write_string(") nop))")
+  let local_module = pass_test_module_from_wat(local_source.to_string())
+  assert_eq(
+    run_hot_pipeline_dae_nested_cleanup_size_skip_reason(local_module, [true]),
+    None,
+  )
+
+  let instr_source = StringBuilder::new()
+  instr_source.write_string("(module (func")
+  for instr_idx = 0; instr_idx < 1001; instr_idx = instr_idx + 1 {
+    instr_source.write_string(" nop")
+  }
+  instr_source.write_string("))")
+  let instr_module = pass_test_module_from_wat(instr_source.to_string())
+  assert_eq(
+    run_hot_pipeline_dae_nested_cleanup_size_skip_reason(instr_module, [true]),
+    None,
+  )
+}
+
+///|
 test "dae optimizing worth set excludes callsite-only parameter callers" {
   let before = pass_test_module_from_wat(
     (

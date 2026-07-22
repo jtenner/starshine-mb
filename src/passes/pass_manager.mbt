@@ -61973,12 +61973,26 @@ fn run_hot_pipeline_dae_nested_cleanup_size_skip_reason(
 ) -> String? {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
+      ignore(touched)
       if funcs.length() > 100 {
         return Some("large-module")
       }
-      run_hot_pipeline_touched_function_size_skip_reason(funcs, touched)
+      None
     }
     None => None
+  }
+}
+
+///|
+fn run_hot_pipeline_dae_broad_cleanup_fast_skip_allowed(
+  mod_ : @lib.Module,
+  touched : Array[Bool],
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      funcs.length() <= 100 &&
+      run_hot_pipeline_touched_function_size_skip_reason(funcs, touched) is None
+    None => true
   }
 }
 
@@ -71512,8 +71526,7 @@ fn run_hot_pipeline_dae_broad_changed_boundary_local_cleanup(
   if !bypass_guards &&
     dae_defined_func_count(current) <= 4096 &&
     dae_count_touched(touched) <= 8 &&
-    run_hot_pipeline_dae_nested_cleanup_size_skip_reason(current, touched)
-    is None {
+    run_hot_pipeline_dae_broad_cleanup_fast_skip_allowed(current, touched) {
     let folded_probe = run_hot_pipeline_dae_fold_immutable_global_struct_fields_touched(
       current, touched,
     )
