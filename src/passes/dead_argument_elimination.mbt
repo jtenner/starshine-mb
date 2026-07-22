@@ -17267,6 +17267,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   direct_caller_defs : Array[Int],
   callee_source? : @lib.Func? = None,
   materialized_params? : Array[@lib.Instruction?]? = None,
+  verified_materialized_suffix? : Array[@lib.Instruction]? = None,
 ) -> DaeRewritePlan? {
   let def_idx = callee_abs - graph.snapshot.imported
   if graph.snapshot.imported != original.imported ||
@@ -17311,19 +17312,29 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     boundary_candidate.direct_callers != direct_caller_defs {
     return None
   }
-  // Ordinary unused-parameter analysis: derive remove[] and parameter actions
-  // from canonical call-operand slices + slot classifier ([O4Z-DAE-PLAN]001).
-  let entry_live = dae_incoming_parameter_liveness(
-    mod_,
-    callee_abs,
-    params.length(),
-  )
-  let classified = match
-    dae_classify_unused_parameter_actions(
-      shared_facts, mod_, def_idx, callee_abs, params, entry_live, direct_caller_defs,
-    ) {
-    Some(actions) => actions
-    None => return None
+  let materialized_suffix = match verified_materialized_suffix {
+    Some(values) => values.copy()
+    None => []
+  }
+  // Ordinary unused-parameter analysis derives actions from canonical operand
+  // slices. A separately verified immediate suffix is already exact callsite
+  // evidence for only those trailing slots, so keep every other slot without
+  // requiring reconstruction of older stack-carried operands.
+  let classified = if materialized_suffix.length() > 0 {
+    Array::make(params.length(), DaeKeepParameter)
+  } else {
+    let entry_live = dae_incoming_parameter_liveness(
+      mod_,
+      callee_abs,
+      params.length(),
+    )
+    match
+      dae_classify_unused_parameter_actions(
+        shared_facts, mod_, def_idx, callee_abs, params, entry_live, direct_caller_defs,
+      ) {
+      Some(actions) => actions
+      None => return None
+    }
   }
   let const_params : Array[@lib.Instruction?] = match materialized_params {
     Some(values) if values.length() == params.length() => values.copy()
@@ -17351,7 +17362,35 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     }
     param_idx += 1
   }
-  if has_materialized {
+  if materialized_suffix.length() > params.length() ||
+    materialized_suffix.any(fn(value) {
+      !dae_instr_is_materializable_const_with_immutable_global(mod_, value)
+    }) {
+    return None
+  }
+  if materialized_suffix.length() > 0 {
+    let suffix_start = params.length() - materialized_suffix.length()
+    param_idx = 0
+    while param_idx < params.length() {
+      if param_idx < suffix_start {
+        if const_params[param_idx].is_some() {
+          return None
+        }
+      } else {
+        match const_params[param_idx] {
+          Some(value) if dae_materialized_const_equal(
+              value,
+              materialized_suffix[param_idx - suffix_start],
+            ) => ()
+          _ => return None
+        }
+      }
+      param_idx += 1
+    }
+    if dae_tail_call_boundary_evidence(graph.snapshot.funcs).blocks_direct_call_rewrite {
+      return None
+    }
+  } else if has_materialized {
     let observed = match
       dae_collect_uniform_const_actuals_from_current_call_facts(
         mod_,
@@ -17454,11 +17493,43 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
     }
   }
-  let caller_application = dae_apply_direct_caller_scope_rewrite(
-    graph.snapshot.funcs,
-    direct_caller_defs,
-    rewrite_caller,
-  )
+  let caller_application = if materialized_suffix.length() > 0 {
+    let rewrite_suffix_caller = fn(caller_func, _) {
+      let @lib.Func(locals, @lib.Expr(body)) = caller_func
+      let (rewritten_body, calls_rewritten, ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
+        body, callee_abs, materialized_suffix,
+      )
+      if !ok {
+        return {
+          func: caller_func,
+          calls_rewritten: 0,
+          changed: false,
+          ok: false,
+        }
+      }
+      if calls_rewritten > 0 {
+        {
+          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
+          calls_rewritten,
+          changed: true,
+          ok: true,
+        }
+      } else {
+        { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
+      }
+    }
+    dae_apply_direct_caller_scope_rewrite(
+      graph.snapshot.funcs,
+      direct_caller_defs,
+      rewrite_suffix_caller,
+    )
+  } else {
+    dae_apply_direct_caller_scope_rewrite(
+      graph.snapshot.funcs,
+      direct_caller_defs,
+      rewrite_caller,
+    )
+  }
   if !caller_application.ok ||
     caller_application.calls_rewritten != direct_call_count {
     return None
@@ -36206,15 +36277,50 @@ fn dae_try_rewrite_exact_literal_def_with_facts_once(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  dae_try_rewrite_verified_materialized_const_suffix_candidate(
-    mod_,
-    callee_abs,
-    params,
-    [expected],
-    local_use,
-    boundary_candidate.direct_call_count,
-    boundary_candidate.direct_callers,
-  )
+  match (original, graph) {
+    (Some(original), Some(graph)) => {
+      let remove = Array::make(params.length(), false)
+      remove[final_param] = true
+      let const_params : Array[@lib.Instruction?] = Array::make(
+        params.length(),
+        None,
+      )
+      const_params[final_param] = Some(expected)
+      match
+        dae_build_scalar_unused_param_rewrite_plan(
+          mod_,
+          original,
+          graph,
+          callee_abs,
+          remove,
+          local_use,
+          boundary_candidate.direct_call_count,
+          boundary_candidate.direct_callers,
+          materialized_params=Some(const_params),
+          verified_materialized_suffix=Some([expected]),
+        ) {
+        Some(plan) => {
+          let application = dae_apply_rewrite_plan(mod_, graph, plan)
+          if application.applied {
+            application.result
+          } else {
+            { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+          }
+        }
+        None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+    }
+    _ =>
+      dae_try_rewrite_verified_materialized_const_suffix_candidate(
+        mod_,
+        callee_abs,
+        params,
+        [expected],
+        local_use,
+        boundary_candidate.direct_call_count,
+        boundary_candidate.direct_callers,
+      )
+  }
 }
 
 ///|
@@ -39235,6 +39341,8 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
   call_facts : DaeCurrentCallFacts,
   allow_immutable_global_get? : Bool = false,
   allow_immediate_i32_suffix_fallback? : Bool = false,
+  original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
 ) -> DaePassResult {
   let mut def_idx = 0
   while def_idx < selected_defs.length() {
@@ -39245,6 +39353,8 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         call_facts,
         allow_immutable_global_get~,
         allow_immediate_i32_suffix_fallback~,
+        original~,
+        graph~,
       )
       if result.changed {
         return result
@@ -41304,12 +41414,15 @@ fn dae_run_core(
       trace(
         "pass[dae-optimizing]:large-uniform-const-candidate primary_def=\{candidate_def}",
       )
+      let exact_graph = dae_current_boundary_graph_new(current)
       let global_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
         current,
         large_selected,
         immutable_global_call_facts,
         allow_immutable_global_get=true,
         allow_immediate_i32_suffix_fallback=true,
+        original=Some(original_boundary_snapshot),
+        graph=Some(exact_graph),
       )
       large_selected[candidate_def] = false
       let global_application = dae_apply_core_result(

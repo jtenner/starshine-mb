@@ -15674,6 +15674,101 @@ test "dae exact-literal transaction rejects original escaped ownership" {
 }
 
 ///|
+test "dae immediate-suffix transaction rejects original escaped ownership" {
+  let escaped_source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $target)
+    #|  (func $side)
+    #|  (func $target (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 5
+    #|    call $side
+    #|    i32.const 7
+    #|    call $target))
+  let current_source =
+    #|(module
+    #|  (func $side)
+    #|  (func $target (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 5
+    #|    call $side
+    #|    i32.const 7
+    #|    call $target))
+  let escaped = pass_test_module_from_wat(escaped_source)
+  let current_mod = pass_test_module_from_wat(current_source)
+  let original = dae_collect_original_boundary_snapshot(escaped)
+  let graph = dae_current_boundary_graph_new(current_mod)
+  let result = dae_try_rewrite_exact_literal_def_with_facts_once(
+    current_mod,
+    1,
+    graph.snapshot.call_facts,
+    allow_immediate_i32_suffix_fallback=true,
+    original=Some(original),
+    graph=Some(graph),
+  )
+  assert_false(result.changed)
+  assert_eq(result.mod_out, current_mod)
+}
+
+///|
+test "dae immediate-suffix materialization commits through scalar plan" {
+  let source =
+    #|(module
+    #|  (func $side)
+    #|  (func $target (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 5
+    #|    call $side
+    #|    i32.const 7
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let result = dae_try_rewrite_exact_literal_def_with_facts_once(
+    mod_,
+    1,
+    graph.snapshot.call_facts,
+    allow_immediate_i32_suffix_fallback=true,
+    original=Some(original),
+    graph=Some(graph),
+  )
+  assert_true(result.changed)
+  let type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, type_indices, 1) {
+    Some(@lib.FuncType([param], [result_type])) => {
+      assert_eq(param, @lib.ValType::i32())
+      assert_eq(result_type, @lib.ValType::i32())
+    }
+    _ => fail("expected suffix transaction to remove exactly one parameter")
+  }
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(run_body)) = funcs[2]
+      assert_eq(run_body, [
+        @lib.Instruction::i32_const(5),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid suffix transaction, got \{err}")
+  }
+}
+
+///|
 test "dae uniform candidate worklist solves forwarded values before direct literal exposure" {
   let source =
     #|(module
