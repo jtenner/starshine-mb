@@ -16107,14 +16107,11 @@ test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
     "  (func (export \"run\") (result i32) call $f\{function_count - 1} ref.is_null))",
   )
   let mod_ = pass_test_module_from_wat(out.to_string())
-  let total = dae_imported_func_count(mod_) + dae_defined_func_count(mod_)
-  let application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+  let application = dae_run_direct_gc_result_refinement_dependency_closure(
     mod_,
     [],
     false,
     [function_count - 1],
-    dae_collect_current_call_facts(mod_, total),
-    -1,
   )
   assert_eq(application.productive_defs.length(), function_count)
   let expected = @lib.ValType::ref_type(
@@ -16136,6 +16133,50 @@ test "dae GC result worklist traverses terminal dependencies beyond sixteen" {
   match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) => fail("expected valid deep GC result worklist, got \{err}")
+  }
+}
+
+///|
+test "dae GC result worklist follows nested exact result dependencies" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $source (result (ref null $base))
+    #|    struct.new_default $leaf)
+    #|  (func $forward (result (ref null $base))
+    #|    block (result (ref null $base))
+    #|      call $source
+    #|    end)
+    #|  (func (export "run") (result i32)
+    #|    call $forward
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let application = dae_run_direct_gc_result_refinement_dependency_closure(
+    mod_,
+    [],
+    false,
+    [1],
+  )
+  assert_eq(application.productive_defs, [0, 1])
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  for def_idx = 0; def_idx < 2; def_idx = def_idx + 1 {
+    match dae_resolve_func_type(application.mod_out, type_indices, def_idx) {
+      Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
+      _ =>
+        fail("expected exact nested result at dependency definition \{def_idx}")
+    }
+  }
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid nested GC result worklist, got \{err}")
   }
 }
 

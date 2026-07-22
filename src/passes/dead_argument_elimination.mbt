@@ -1729,6 +1729,7 @@ priv struct DaeBoundaryDependencyGraph {
   parameter_forwarders_by_def : Array[Array[Int]]
   uniform_value_forwarders_by_def : Array[Array[Int]]
   result_forwarders_by_def : Array[Array[Int]]
+  result_dependencies_by_def : Array[Array[Int]]
   result_observers_by_def : Array[Array[Int]]
   tail_result_dependencies_by_def : Array[Array[Int]]
   type_dependencies_by_def : Array[Array[Int]]
@@ -3284,6 +3285,7 @@ fn dae_boundary_dependency_graph_new(
   let callees_by_def = dae_dependency_adjacency_new(defined)
   let return_callers_by_def = dae_dependency_adjacency_new(defined)
   let result_forwarders_by_def = dae_dependency_adjacency_new(defined)
+  let result_dependencies_by_def = dae_dependency_adjacency_new(defined)
   let result_observers_by_def = dae_dependency_adjacency_new(defined)
   let direct_callers = graph.snapshot.call_facts.direct_callers
   let mut callee_def = 0
@@ -3319,6 +3321,10 @@ fn dae_boundary_dependency_graph_new(
               result_forwarders_by_def[callee_def],
               caller_def,
             )
+            dae_topology_add_unique(
+              result_dependencies_by_def[caller_def],
+              callee_def,
+            )
           } else if !callsite.dropped {
             dae_topology_add_unique(
               result_observers_by_def[callee_def],
@@ -3327,6 +3333,10 @@ fn dae_boundary_dependency_graph_new(
             dae_topology_add_unique(
               result_forwarders_by_def[callee_def],
               caller_def,
+            )
+            dae_topology_add_unique(
+              result_dependencies_by_def[caller_def],
+              callee_def,
             )
           }
         }
@@ -3394,6 +3404,7 @@ fn dae_boundary_dependency_graph_new(
       callers_by_def,
     ),
     result_forwarders_by_def,
+    result_dependencies_by_def,
     result_observers_by_def,
     tail_result_dependencies_by_def: dae_dependency_adjacency_copy(
       return_callers_by_def,
@@ -40294,69 +40305,36 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
 }
 
 ///|
-fn dae_append_terminal_result_dependency_postorder(
-  funcs : Array[@lib.Func],
+fn dae_append_result_dependency_postorder(
+  dependencies : DaeBoundaryDependencyGraph,
   def_idx : Int,
-  imported : Int,
-  defined : Int,
   queued : Array[Bool],
   queue : Array[Int],
 ) -> Unit {
   if def_idx < 0 ||
-    def_idx >= defined ||
-    def_idx >= funcs.length() ||
+    def_idx >= dependencies.result_dependencies_by_def.length() ||
     queued[def_idx] {
     return
   }
   queued[def_idx] = true
-  let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
-  if body.length() > 0 {
-    match body[body.length() - 1] {
-      @lib.Call(func_idx) => {
-        let callee_def = dae_func_idx_slot(func_idx) - imported
-        if callee_def != def_idx {
-          dae_append_terminal_result_dependency_postorder(
-            funcs, callee_def, imported, defined, queued, queue,
-          )
-        }
-      }
-      _ => ()
+  for dependency_def in dependencies.result_dependencies_by_def[def_idx] {
+    if dependency_def != def_idx {
+      dae_append_result_dependency_postorder(
+        dependencies, dependency_def, queued, queue,
+      )
     }
   }
   queue.push(def_idx)
 }
 
 ///|
-fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+fn dae_run_direct_gc_result_refinement_dependency_closure(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
   seed_defs : Array[Int],
-  call_facts : DaeCurrentCallFacts,
-  productive_limit : Int,
 ) -> DaeExactLiteralWorklistApplication {
-  let imported = dae_imported_func_count(current)
   let defined = dae_defined_func_count(current)
-  ignore(call_facts.direct_calls.length())
-  let funcs = match current.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return {
-        mod_out: current,
-        touched,
-        changed,
-        productive_defs: [],
-        effects: dae_commit_effects_empty(defined),
-      }
-  }
-  let queue : Array[Int] = []
-  let queued = Array::make(defined, false)
-  for seed_def in seed_defs {
-    dae_append_terminal_result_dependency_postorder(
-      funcs, seed_def, imported, defined, queued, queue,
-    )
-  }
-  let seen = Array::make(defined, false)
   let productive_defs : Array[Int] = []
   let mut effects = dae_commit_effects_empty(defined)
   let mut mod_out = current
@@ -40365,20 +40343,26 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
   let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let queue : Array[Int] = []
+  let queued = Array::make(defined, false)
+  for seed_def in seed_defs {
+    dae_append_result_dependency_postorder(
+      dependencies, seed_def, queued, queue,
+    )
+  }
+  let seen = Array::make(defined, false)
   let diagnostics = dae_diagnostics_new()
   let mut queue_idx = 0
   while queue_idx < queue.length() {
-    if productive_limit >= 0 && productive_defs.length() >= productive_limit {
-      break
-    }
     let def_idx = queue[queue_idx]
     queue_idx += 1
     if def_idx < 0 || def_idx >= defined || seen[def_idx] {
       continue
     }
     seen[def_idx] = true
-    let before_callers = if def_idx < dependencies.callers_by_def.length() {
-      dependencies.callers_by_def[def_idx].copy()
+    let before_forwarders = if def_idx <
+      dependencies.result_forwarders_by_def.length() {
+      dependencies.result_forwarders_by_def[def_idx].copy()
     } else {
       []
     }
@@ -40400,17 +40384,19 @@ fn dae_run_direct_gc_result_refinement_caller_closure_with_facts(
         effects = dae_commit_effects_merge(effects, application.effects)
         dae_current_boundary_graph_refresh(graph, mod_out)
         dependencies = dae_boundary_dependency_graph_new(graph)
-        let callers = before_callers
-        if def_idx < dependencies.callers_by_def.length() {
-          for caller_def in dependencies.callers_by_def[def_idx] {
-            if !callers.contains(caller_def) {
-              callers.push(caller_def)
+        let forwarders = before_forwarders
+        if def_idx < dependencies.result_forwarders_by_def.length() {
+          for forwarder_def in dependencies.result_forwarders_by_def[def_idx] {
+            if !forwarders.contains(forwarder_def) {
+              forwarders.push(forwarder_def)
             }
           }
         }
-        for caller_def in callers {
-          if caller_def >= 0 && caller_def < defined && !seen[caller_def] {
-            queue.push(caller_def)
+        for forwarder_def in forwarders {
+          if forwarder_def >= 0 &&
+            forwarder_def < defined &&
+            !seen[forwarder_def] {
+            queue.push(forwarder_def)
           }
         }
       }
@@ -42521,13 +42507,11 @@ fn dae_run_core(
       "pass[dae-optimizing]:low-exact-terminal-call-locals primary_def=\{low_exact_terminal_application.primary_def}",
     )
   }
-  let low_exact_result_application = dae_run_direct_gc_result_refinement_caller_closure_with_facts(
+  let low_exact_result_application = dae_run_direct_gc_result_refinement_dependency_closure(
     current,
     touched,
     changed,
     low_exact_literal_application.productive_defs,
-    low_exact_literal_call_facts,
-    -1,
   )
   current = low_exact_result_application.mod_out
   touched = low_exact_result_application.touched
