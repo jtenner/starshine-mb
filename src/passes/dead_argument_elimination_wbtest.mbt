@@ -18372,6 +18372,44 @@ test "dae ordinary unused-parameter path preserves exposure and type-only non-bl
 }
 
 ///|
+test "dae dead-suffix parameter restoration commits through family transaction" {
+  let original = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $side (export "side") (param f64) (result f64)
+      #|    local.get 0)
+      #|  (func $dead (param f64)
+      #|    unreachable
+      #|    local.get 0
+      #|    call $side
+      #|    call $dead))
+    ),
+  )
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $side (export "side") (param f64) (result f64)
+      #|    local.get 0)
+      #|  (func $dead
+      #|    unreachable))
+    ),
+  )
+  let application = dae_apply_dead_suffix_self_operand_restore_transaction(
+    original,
+    current,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  assert_eq(application.primary_def, 1)
+  assert_eq(dae_wb_param_count(application.mod_out, 1), 1)
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("restored family transaction must validate, got \{err}")
+  }
+}
+
+///|
 test "dae call identities exclude inactive suffix calls" {
   let source = pass_test_module_from_wat(
     (

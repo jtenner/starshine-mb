@@ -41309,6 +41309,23 @@ fn dae_restore_dead_suffix_self_operand_params(
 }
 
 ///|
+fn dae_apply_dead_suffix_self_operand_restore_transaction(
+  original_source : @lib.Module,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+) -> DaeCoreResultApplication {
+  let original = dae_collect_original_boundary_snapshot(original_source)
+  let graph = dae_current_boundary_graph_new(current)
+  let candidate = dae_restore_dead_suffix_self_operand_params(
+    original_source, current,
+  )
+  dae_apply_family_result_transaction(
+    original, current, touched, changed, graph, candidate,
+  )
+}
+
+///|
 fn dae_run_computed_unread_param_dependency_worklist(
   original : DaeOriginalBoundarySnapshot,
   current_in : @lib.Module,
@@ -41688,9 +41705,8 @@ fn dae_run_core(
   let reverse_exact_literal_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:reverse-exact-literal",
   )
-  let restored = dae_restore_dead_suffix_self_operand_params(mod_, current)
-  let restored_application = dae_apply_core_result(
-    current, touched, changed, restored,
+  let restored_application = dae_apply_dead_suffix_self_operand_restore_transaction(
+    mod_, current, touched, changed,
   )
   if restored_application.applied {
     current = restored_application.mod_out
