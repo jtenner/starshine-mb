@@ -1241,7 +1241,6 @@ priv struct DaeDroppedResultBatchPlan {
 ///|
 priv struct DaeDirectGcParamBatchPlan {
   params : Array[@lib.ValType]
-  local_use : DaeLocalUse
   candidates : Array[@lib.ValType?]
   rejected : Array[Bool]
   calls_seen : Array[Int]
@@ -13052,7 +13051,7 @@ fn dae_collect_direct_gc_batch_actuals_instrs(
               }
               let mut p = 0
               while p < plan.params.length() {
-                if !plan.local_use.writes[p] && !plan.rejected[p] {
+                if !plan.rejected[p] {
                   match plan.params[p] {
                     @lib.RefTypeValType(_) =>
                       match
@@ -18414,15 +18413,8 @@ fn dae_try_apply_direct_gc_batch(
           caller_needed[direct_caller_def] = true
         }
       }
-      let @lib.Func(locals, _) = funcs[def_idx]
       param_plans[callee_abs] = Some({
         params,
-        local_use: dae_local_use_for_callee(
-          funcs[def_idx],
-          params.length() + locals.length(),
-          callee_abs,
-          params.length(),
-        ),
         candidates: Array::make(params.length(), None),
         rejected: Array::make(params.length(), false),
         calls_seen: [0],
@@ -18558,6 +18550,8 @@ fn dae_try_apply_direct_gc_batch(
     }
     let result_func_locals = Some(@lib.FunctionLocals::new(next_params, locals))
     let mut next_body = body
+    let mut next_locals = locals
+    let mut param_fixup_body_changed = false
     let mut result_body_changed = false
     if dae_signature_has_single_concrete_gc_result(results) {
       match
@@ -18626,6 +18620,25 @@ fn dae_try_apply_direct_gc_batch(
     if !rewrite_ok {
       continue
     }
+    if has_refined_param {
+      let current_local_use = dae_local_use_for_callee(
+        rewritten_funcs[def_idx],
+        params.length() + locals.length(),
+        callee_abs,
+        params.length(),
+      )
+      match
+        dae_apply_reused_gc_param_fixups(
+          params, refined_params, current_local_use, locals, next_body,
+        ) {
+        Some((fixed_locals, fixed_body, body_changed)) => {
+          next_locals = fixed_locals
+          next_body = fixed_body
+          param_fixup_body_changed = body_changed
+        }
+        None => continue
+      }
+    }
     let mut staged_idx = 0
     while staged_idx < staged_caller_defs.length() {
       let direct_caller_def = staged_caller_defs[staged_idx]
@@ -18633,9 +18646,9 @@ fn dae_try_apply_direct_gc_batch(
       touched[direct_caller_def] = true
       staged_idx += 1
     }
-    if result_body_changed {
+    if result_body_changed || param_fixup_body_changed {
       rewritten_funcs[def_idx] = @lib.Func::new(
-        locals,
+        next_locals,
         @lib.Expr::new(next_body),
       )
     }

@@ -16457,6 +16457,38 @@ test "dae direct GC batch is definition-count independent" {
 }
 
 ///|
+test "dae direct GC batch repairs reused parameter locals" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (param (ref null $base)) (result i32)
+    #|    ref.null $base
+    #|    local.set 0
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run") (result i32)
+    #|    struct.new_default $leaf
+    #|    call $target))
+  let result = dae_try_apply_direct_gc_batch(pass_test_module_from_wat(source))
+  assert_true(result.changed)
+  let funcs = match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected rewritten batch code")
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[0]
+  assert_eq(locals.length(), 1)
+  assert_eq(body[0], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  assert_eq(body[1], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
+  assert_eq(body[3], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
+  assert_eq(body[4], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  match @validate.validate_module(result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid reused direct-GC batch, got \{err}")
+  }
+}
+
+///|
 test "dae direct GC batch transaction retains original escaped ownership" {
   let escaped_source =
     #|(module
