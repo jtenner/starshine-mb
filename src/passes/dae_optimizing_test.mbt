@@ -11605,6 +11605,27 @@ test "dae-optimizing materializes uniform v128 actuals" {
 }
 
 ///|
+test "dae-optimizing materializes uniform ref.func actuals" {
+  let source =
+    #|(module
+    #|  (func $referenced)
+    #|  (elem declare func $referenced)
+    #|  (func $target (param funcref) (result funcref)
+    #|    local.get 0)
+    #|  (func (export "run") (result funcref)
+    #|    ref.func $referenced
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let target = optimized.pretty_print_defined_func(1U)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_true(
+    target.contains("ref.func") || target.contains("RefFunc"),
+    msg=target,
+  )
+}
+
+///|
 test "dae-optimizing materializes selected Func521 literal actual" {
   let out = StringBuilder::new()
   out.write_string("(module\n")

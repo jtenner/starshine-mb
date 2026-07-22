@@ -7596,6 +7596,7 @@ fn dae_instr_is_materializable_const(instr : @lib.Instruction) -> Bool {
     | @lib.F64Const(_)
     | @lib.V128Const(_)
     | @lib.RefNull(_)
+    | @lib.RefFunc(_)
     | @lib.StringConst(_) => true
     _ => false
   }
@@ -9419,6 +9420,7 @@ fn dae_materialized_const_equal(
     (@lib.F64Const(a), @lib.F64Const(b)) => a == b
     (@lib.V128Const(_), @lib.V128Const(_)) => lhs == rhs
     (@lib.RefNull(a), @lib.RefNull(b)) => a == b
+    (@lib.RefFunc(a), @lib.RefFunc(b)) => a == b
     (@lib.StringConst(a), @lib.StringConst(b)) => a == b
     (@lib.GlobalGet(a), @lib.GlobalGet(b)) => a == b
     _ => false
@@ -16711,7 +16713,8 @@ fn dae_batchable_uniform_literal(instr : @lib.Instruction) -> Bool {
     | @lib.I64Const(_)
     | @lib.F32Const(_)
     | @lib.F64Const(_)
-    | @lib.V128Const(_) => true
+    | @lib.V128Const(_)
+    | @lib.RefFunc(_) => true
     _ => false
   }
 }

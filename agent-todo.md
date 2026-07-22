@@ -145,7 +145,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 - **Owner:** uniform-value solver, immutable-global handling, SCC/component discovery, and localization retry.
 - **Deliverables:**
-  - [ ] Match represented Binaryen constants: numeric/SIMD, `ref.null`, `ref.func`, `string.const`, supported ref conversions, tuple constants, and immutable `global.get`. *(uniform `v128.const` actuals now use the generic value-slice/materialization path with full 16-byte equality; reference conversions and tuple constants remain)*
+  - [ ] Match represented Binaryen constants: numeric/SIMD, `ref.null`, `ref.func`, `string.const`, supported ref conversions, tuple constants, and immutable `global.get`. *(uniform `v128.const` and `ref.func` actuals now use the generic value-slice/materialization path with full SIMD-byte/function-identity equality; reference conversions and tuple constants remain)*
   - [ ] Use one monotone per-slot lattice across normalized forwarding SCCs and commit whole components atomically. *(component commits now enforce original ownership plus module/call/type/member/caller epochs and exact call identities, and include triggered ref-null materialization before final validation; full lattice breadth remains)*
   - [ ] Remove parity-affecting `1024`/`4096`, prefix, nullable-count, and phase-only admissions; retain only explicitly optional cleanup budgets.
   - [ ] Localize all owned calls on effect blockage, repair EH/control structure, mark callers stale, and requeue through the common worklist.

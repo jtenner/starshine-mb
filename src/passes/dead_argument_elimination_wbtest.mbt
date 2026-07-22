@@ -3899,6 +3899,15 @@ test "dae materialized v128 constants compare all bytes" {
 }
 
 ///|
+test "dae materialized ref.func constants compare function identity" {
+  let first = @lib.Instruction::ref_func(@lib.FuncIdx::new(1U))
+  let same = @lib.Instruction::ref_func(@lib.FuncIdx::new(1U))
+  let different = @lib.Instruction::ref_func(@lib.FuncIdx::new(2U))
+  assert_true(dae_materialized_const_equal(first, same))
+  assert_false(dae_materialized_const_equal(first, different))
+}
+
+///|
 test "dae control result slices centralize flat and return arm bounds" {
   let pair_type = @lib.TypeIdx::new(0U)
   let mod_ = @lib.Module::new().with_type_sec(
