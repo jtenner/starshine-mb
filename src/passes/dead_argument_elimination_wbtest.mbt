@@ -17290,7 +17290,7 @@ test "dae family worklist is epoch aware component ordered and duplicate resista
 ///|
 test "dae GC commits schedule control reconstruction and type repair followups" {
   let mod_ = pass_test_module_from_wat(
-    (#|(module (func (result i32) i32.const 0))),
+    "(module (func (result i32) i32.const 0))",
   )
   let graph = dae_current_boundary_graph_new(mod_)
   let dependencies = dae_boundary_dependency_graph_new(graph)
@@ -17307,6 +17307,22 @@ test "dae GC commits schedule control reconstruction and type repair followups" 
   assert_eq(followups[1].family, DaeTypeRepairRetryWork)
   assert_eq(followups[0].target_def, 0)
   assert_eq(followups[1].target_def, 0)
+  let diagnostics = dae_diagnostics_new()
+  let settled = dae_apply_commit_followups(
+    dae_collect_original_boundary_snapshot(mod_),
+    {
+      mod_out: mod_,
+      touched: [true],
+      changed: true,
+      applied: true,
+      primary_def: 0,
+      effects: { ..effects, type_section_changed: true },
+    },
+    dae_work_item_new(graph, dependencies, 0, DaeGcResultRefinementWork),
+    diagnostics,
+  )
+  assert_eq(diagnostics.boundaries_analyzed, 2)
+  assert_eq(settled.mod_out, mod_)
   assert_eq(
     dae_followup_work_items_for_commit(
       graph,

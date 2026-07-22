@@ -4506,6 +4506,58 @@ fn dae_followup_work_items_for_commit(
 }
 
 ///|
+fn dae_apply_commit_followups(
+  original : DaeOriginalBoundarySnapshot,
+  application : DaeCoreResultApplication,
+  committed_item : DaeWorkItem,
+  diagnostics : DaeDiagnostics,
+) -> DaeCoreResultApplication {
+  let mut current = application.mod_out
+  let mut touched = application.touched
+  let mut changed = application.changed
+  let mut effects = application.effects
+  let graph = dae_current_boundary_graph_new(current)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let queue = dae_followup_work_items_for_commit(
+    graph,
+    dependencies,
+    committed_item,
+    application.effects,
+  )
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let item = queue[cursor]
+    cursor += 1
+    match
+      dae_process_work_item(
+        original, current, touched, changed, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkCommitted(repair) => {
+        current = repair.mod_out
+        touched = repair.touched
+        changed = repair.changed
+        effects = dae_commit_effects_merge(effects, repair.effects)
+        dae_current_boundary_graph_refresh(graph, current)
+        dependencies = dae_boundary_dependency_graph_new(graph)
+      }
+      DaeWorkRequeue(items) =>
+        for refreshed in items {
+          queue.push(refreshed)
+        }
+      DaeWorkNoChange(_) | DaeWorkDeferred(_) => ()
+    }
+  }
+  {
+    mod_out: current,
+    touched,
+    changed,
+    applied: application.applied,
+    primary_def: application.primary_def,
+    effects,
+  }
+}
+
+///|
 fn dae_boundary_facts_for_epoch(
   graph : DaeCurrentBoundaryGraph,
   expected_call_epoch : Int,
@@ -25773,6 +25825,7 @@ fn dae_try_process_core_work_item(
 ) -> DaeCoreResultApplication? {
   let dependencies = dae_boundary_dependency_graph_new(graph)
   let item = dae_work_item_new(graph, dependencies, target_def, family)
+  let diagnostics = dae_diagnostics_new()
   match
     dae_process_work_item(
       original,
@@ -25782,9 +25835,10 @@ fn dae_try_process_core_work_item(
       graph,
       dependencies,
       item,
-      dae_diagnostics_new(),
+      diagnostics,
     ) {
-    DaeWorkCommitted(application) => Some(application)
+    DaeWorkCommitted(application) =>
+      Some(dae_apply_commit_followups(original, application, item, diagnostics))
     _ => None
   }
 }
@@ -41196,36 +41250,16 @@ fn dae_run_direct_gc_result_refinement_dependency_closure(
         original, mod_out, touched_out, changed_out, graph, dependencies, item, diagnostics,
       ) {
       DaeWorkCommitted(application) => {
-        mod_out = application.mod_out
-        touched_out = application.touched
-        changed_out = application.changed
-        productive_defs.push(application.primary_def)
-        effects = dae_commit_effects_merge(effects, application.effects)
+        let settled = dae_apply_commit_followups(
+          original, application, item, diagnostics,
+        )
+        mod_out = settled.mod_out
+        touched_out = settled.touched
+        changed_out = settled.changed
+        productive_defs.push(settled.primary_def)
+        effects = dae_commit_effects_merge(effects, settled.effects)
         dae_current_boundary_graph_refresh(graph, mod_out)
         dependencies = dae_boundary_dependency_graph_new(graph)
-        let followups = dae_followup_work_items_for_commit(
-          graph,
-          dependencies,
-          item,
-          application.effects,
-        )
-        for followup in followups {
-          match
-            dae_process_work_item(
-              original, mod_out, touched_out, changed_out, graph, dependencies, followup,
-              diagnostics,
-            ) {
-            DaeWorkCommitted(repair) => {
-              mod_out = repair.mod_out
-              touched_out = repair.touched
-              changed_out = repair.changed
-              effects = dae_commit_effects_merge(effects, repair.effects)
-              dae_current_boundary_graph_refresh(graph, mod_out)
-              dependencies = dae_boundary_dependency_graph_new(graph)
-            }
-            _ => ()
-          }
-        }
         let forwarders = before_forwarders
         if def_idx < dependencies.result_forwarders_by_def.length() {
           for forwarder_def in dependencies.result_forwarders_by_def[def_idx] {
