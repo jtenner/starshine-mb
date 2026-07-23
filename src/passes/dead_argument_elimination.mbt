@@ -4049,6 +4049,37 @@ fn dae_apply_family_result_transaction(
     changed: candidate.changed,
     primary_def: target_def,
   }
+  let signature_effects = dae_commit_effects_with_structural_touched(
+    match effects {
+      Some(effects) => effects
+      None => dae_commit_effects_empty(graph.snapshot.defined)
+    },
+    normalized_touched,
+  )
+  match
+    dae_build_signature_rewrite_plan_from_candidate(
+      original, current, graph, target_def, normalized_candidate, signature_effects,
+    ) {
+    Some(plan) => {
+      let application = dae_apply_rewrite_plan(current, graph, plan)
+      if application.applied ||
+        application.reason != DaeTypeReconstructionUnavailable {
+        return {
+          mod_out: application.result.mod_out,
+          touched: if application.applied {
+            dae_merge_touched(touched, application.result.touched)
+          } else {
+            touched
+          },
+          changed: changed || application.result.changed,
+          applied: application.applied,
+          primary_def: application.result.primary_def,
+          effects: application.effects,
+        }
+      }
+    }
+    None => ()
+  }
   let plan = match
     dae_build_family_rewrite_plan(
       original,
