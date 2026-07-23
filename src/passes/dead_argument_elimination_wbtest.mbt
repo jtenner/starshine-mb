@@ -17377,6 +17377,96 @@ test "dae GC result slices infer string.concat expressions" {
 }
 
 ///|
+test "dae GC result slices infer exact ref.get_desc expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (rec
+      #|    (type $box
+      #|      (descriptor $box_desc)
+      #|      (struct (field i32)))
+      #|    (type $box_desc
+      #|      (describes $box)
+      #|      (struct))))
+    ),
+  )
+  let box_type = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  let locals = @lib.FunctionLocals::new([box_type], @lib.Locals::empty())
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_get_desc(@lib.TypeIdx::new(0U)),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected exact ref.get_desc result evidence")
+  }
+}
+
+///|
+test "dae GC result slices preserve inexact ref.get_desc results" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (rec
+      #|    (type $box
+      #|      (descriptor $box_desc)
+      #|      (struct (field i32)))
+      #|    (type $box_desc
+      #|      (describes $box)
+      #|      (struct))))
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let body = [
+    @lib.Instruction::ref_null(@lib.HeapType::new(@lib.TypeIdx::new(0U))),
+    @lib.Instruction::ref_get_desc(@lib.TypeIdx::new(0U)),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected inexact ref.get_desc result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement follows declared global.get types" {
   let source =
     #|(module

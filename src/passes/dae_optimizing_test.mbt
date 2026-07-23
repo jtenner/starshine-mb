@@ -2222,6 +2222,47 @@ test "dead-argument-elimination narrows default descriptor allocation results" {
 }
 
 ///|
+test "dead-argument-elimination narrows descriptor read results" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $box
+    #|      (descriptor $box_desc)
+    #|      (struct (field i32)))
+    #|    (type $box_desc
+    #|      (describes $box)
+    #|      (struct)))
+    #|  (global $desc (ref (exact $box_desc)) (struct.new $box_desc))
+    #|  (func $inspect
+    #|    (param (ref (exact $box)))
+    #|    (result (ref null $box_desc))
+    #|    local.get 0
+    #|    ref.get_desc $box)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 9
+    #|    global.get $desc
+    #|    struct.new_desc $box
+    #|    call $inspect
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("ref.get_desc"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected descriptor-read DAE result to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination narrows live GC results from local.get evidence" {
   let source =
     #|(module

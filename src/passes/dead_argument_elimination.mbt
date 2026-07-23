@@ -6485,6 +6485,7 @@ fn dae_instr_stack_effect(
     | @lib.I64Eqz
     | @lib.RefIsNull
     | @lib.RefAsNonNull
+    | @lib.RefGetDesc(_)
     | @lib.RefCast(_, _, _)
     | @lib.I32Clz
     | @lib.I32Ctz
@@ -13153,6 +13154,34 @@ fn dae_exact_struct_default_ref_type(type_idx : @lib.TypeIdx) -> @lib.ValType {
 }
 
 ///|
+fn dae_gc_candidate_ref_get_desc_type(
+  mod_ : @lib.Module,
+  type_idx : @lib.TypeIdx,
+  exact : Bool,
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let type_sec = match mod_.type_sec {
+    Some(type_sec) => type_sec
+    None => return None
+  }
+  let descriptor_type = match dae_type_sec_subtype(type_sec, type_idx) {
+    Some(subtype) =>
+      match subtype.metadata().descriptor {
+        Some(descriptor_type) => descriptor_type
+        None => return None
+      }
+    None => return None
+  }
+  dae_refined_gc_candidate_ref_type(
+    mod_,
+    old_type,
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::new(descriptor_type), exact~),
+    ),
+  )
+}
+
+///|
 fn dae_gc_candidate_array_get_type(
   mod_ : @lib.Module,
   type_idx : @lib.TypeIdx,
@@ -15079,6 +15108,33 @@ fn dae_gc_result_candidate_slice(
     )
   }
   match body[end - 1] {
+    @lib.RefGetDesc(type_idx) => {
+      let input_old_type = @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::new(type_idx)),
+      )
+      match
+        dae_gc_result_candidate_slice(
+          mod_,
+          func_type_indices,
+          func_locals,
+          body,
+          start,
+          end - 1,
+          input_old_type,
+        ) {
+        Some((@lib.RefTypeValType(ref_type), None)) =>
+          return dae_gc_candidate_ref_get_desc_type(
+            mod_,
+            type_idx,
+            ref_type.is_exact(),
+            old_type,
+          ).map(fn(candidate) { (candidate, None) })
+        _ =>
+          return dae_gc_candidate_ref_get_desc_type(
+            mod_, type_idx, false, old_type,
+          ).map(fn(candidate) { (candidate, None) })
+      }
+    }
     @lib.ExternConvertAny | @lib.AnyConvertExtern as conversion => {
       let (input_abs, output_abs) = match conversion {
         @lib.ExternConvertAny =>
