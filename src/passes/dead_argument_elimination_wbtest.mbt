@@ -17151,6 +17151,111 @@ test "dae GC result slices infer ref.as_non_null expressions" {
 }
 
 ///|
+test "dae GC result slices infer extern.convert_any nullability" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $leaf (struct)))
+    ),
+  )
+  let leaf_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  let locals = @lib.FunctionLocals::new([leaf_type], @lib.Locals::empty())
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::extern_convert_any(),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected extern.convert_any result evidence")
+  }
+}
+
+///|
+test "dae GC result slices infer any.convert_extern nullability" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let extern_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let locals = @lib.FunctionLocals::new([extern_type], @lib.Locals::empty())
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::any_convert_extern(),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected any.convert_extern result evidence")
+  }
+}
+
+///|
+test "dae GC result slices do not invent nonnull external conversions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let nullable_extern = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let locals = @lib.FunctionLocals::new([nullable_extern], @lib.Locals::empty())
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::any_convert_extern(),
+  ]
+  assert_eq(
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      body,
+      0,
+      body.length(),
+      old_type,
+    ),
+    None,
+  )
+}
+
+///|
 test "dae GC result slices infer ref.i31 expressions" {
   let mod_ = pass_test_module_from_wat(
     (

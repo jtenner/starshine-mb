@@ -15069,6 +15069,54 @@ fn dae_gc_result_candidate_slice(
     )
   }
   match body[end - 1] {
+    @lib.ExternConvertAny | @lib.AnyConvertExtern as conversion => {
+      let (input_abs, output_abs) = match conversion {
+        @lib.ExternConvertAny =>
+          (@lib.AbsHeapType::any(), @lib.AbsHeapType::extern_())
+        @lib.AnyConvertExtern =>
+          (@lib.AbsHeapType::extern_(), @lib.AbsHeapType::any())
+        _ => abort("unreachable external conversion")
+      }
+      for shared in [false, true] {
+        let input_heap = if shared {
+          @lib.HeapType::shared_abs(input_abs)
+        } else {
+          @lib.HeapType::abs(input_abs)
+        }
+        let input_old_type = @lib.ValType::ref_type(
+          @lib.RefType::new(true, input_heap),
+        )
+        match
+          dae_gc_result_candidate_slice(
+            mod_,
+            func_type_indices,
+            func_locals,
+            body,
+            start,
+            end - 1,
+            input_old_type,
+          ) {
+          Some((@lib.RefTypeValType(ref_type), None)) if ref_type
+            .get_heap_type()
+            .is_shared() ==
+            shared => {
+            let output_heap = if shared {
+              @lib.HeapType::shared_abs(output_abs)
+            } else {
+              @lib.HeapType::abs(output_abs)
+            }
+            let candidate = @lib.ValType::ref_type(
+              @lib.RefType::new(ref_type.is_nullable(), output_heap),
+            )
+            match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+              Some(refined) => return Some((refined, None))
+              None => ()
+            }
+          }
+          _ => ()
+        }
+      }
+    }
     @lib.RefAsNonNull =>
       match
         dae_gc_result_candidate_slice(
@@ -15955,6 +16003,31 @@ fn dae_direct_gc_result_candidate_body(
     _ => {
       if body.length() == 0 {
         return None
+      }
+      match
+        dae_find_value_slice(
+          body,
+          body.length(),
+          0,
+          mod_,
+          func_type_indices,
+          allow_stack_carried_void_effects=true,
+        ) {
+        Some((shape, cursor, _)) if shape.start == cursor =>
+          match
+            dae_gc_result_candidate_slice(
+              mod_,
+              func_type_indices,
+              func_locals,
+              body,
+              shape.start,
+              body.length(),
+              old_type,
+            ) {
+            Some((candidate_type, None)) => return Some((candidate_type, None))
+            _ => ()
+          }
+        _ => ()
       }
       let terminal = body[body.length() - 1]
       match
