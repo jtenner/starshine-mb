@@ -27461,6 +27461,13 @@ fn dae_run_core_once(
         mod_, callee_abs, original_call_count, allow_unreachable_only_param_cleanup,
       )
       if dead_suffix_params.changed {
+        dae_record_work_family_candidate_effects(
+          current_graph,
+          def_idx,
+          DaeUnusedParameterWork,
+          dead_suffix_params,
+          producer_effects_report,
+        )
         return dead_suffix_params
       }
       let @lib.Func(_, @lib.Expr(current_body)) = funcs[def_idx]
@@ -27755,6 +27762,17 @@ fn dae_run_core_once(
               boundary_candidate.direct_callers,
             )
             if result.changed {
+              dae_record_work_family_candidate_effects(
+                current_graph,
+                def_idx,
+                if const_params.any(fn(value) { value is Some(_) }) {
+                  DaeUniformActualWork
+                } else {
+                  DaeUnusedParameterWork
+                },
+                result,
+                producer_effects_report,
+              )
               return result
             }
           }
@@ -44550,6 +44568,10 @@ fn dae_run_core(
         }
       } else {
         -1
+      }
+      if result.changed && producer_effects_report.length() == 0 {
+        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+        continue
       }
       let application = dae_apply_family_result_transaction(
         original_boundary_snapshot,
