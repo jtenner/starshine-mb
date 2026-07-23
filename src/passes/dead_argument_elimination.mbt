@@ -4134,6 +4134,21 @@ fn dae_apply_family_result_transaction(
     changed: candidate.changed,
     primary_def: target_def,
   }
+  if effects is None &&
+    !body_only_transaction &&
+    !dae_family_fallback_candidate_is_body_only(
+      graph,
+      normalized_candidate.mod_out,
+    ) {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(graph.snapshot.defined),
+    }
+  }
   let signature_effects = dae_commit_effects_with_structural_touched(
     match effects {
       Some(effects) => effects
@@ -44503,6 +44518,28 @@ fn dae_apply_dead_suffix_self_operand_restore_transaction(
   let candidate = dae_restore_dead_suffix_self_operand_params(
     original_source, current,
   )
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let mut producer_effects = dae_commit_effects_empty(graph.snapshot.defined)
+  let mut def_idx = 0
+  while def_idx < candidate.touched.length() {
+    if candidate.touched[def_idx] {
+      producer_effects = dae_commit_effects_merge(
+        producer_effects,
+        dae_work_item_candidate_effects(
+          current,
+          graph,
+          dae_work_item_new(
+            graph,
+            dependencies,
+            def_idx,
+            DaeUnusedParameterWork,
+          ),
+          candidate,
+        ),
+      )
+    }
+    def_idx += 1
+  }
   dae_apply_family_result_transaction(
     original,
     current,
@@ -44510,6 +44547,7 @@ fn dae_apply_dead_suffix_self_operand_restore_transaction(
     changed,
     graph,
     candidate,
+    effects=Some(producer_effects),
     allow_signature_restoration=true,
   )
 }
@@ -45100,8 +45138,32 @@ fn dae_run_core(
         original_dead_suffix_escaped_result_operand_call_counts, original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       )
       let reverse_graph = dae_current_boundary_graph_new(current)
+      let reverse_effects = if reverse_result.changed &&
+        reverse_result.primary_def >= 0 {
+        Some(
+          dae_work_item_candidate_effects(
+            current,
+            reverse_graph,
+            dae_work_item_new(
+              reverse_graph,
+              dae_boundary_dependency_graph_new(reverse_graph),
+              reverse_result.primary_def,
+              DaeUniformActualWork,
+            ),
+            reverse_result,
+          ),
+        )
+      } else {
+        None
+      }
       let reverse_application = dae_apply_family_result_transaction(
-        original_boundary_snapshot, current, touched, changed, reverse_graph, reverse_result,
+        original_boundary_snapshot,
+        current,
+        touched,
+        changed,
+        reverse_graph,
+        reverse_result,
+        effects=reverse_effects,
       )
       if !reverse_application.applied {
         break
@@ -45148,8 +45210,32 @@ fn dae_run_core(
       max_def_exclusive=original_defined,
     )
     let low_revisit_graph = dae_current_boundary_graph_new(current)
+    let low_revisit_effects = if low_revisit_result.changed &&
+      low_revisit_result.primary_def >= 0 {
+      Some(
+        dae_work_item_candidate_effects(
+          current,
+          low_revisit_graph,
+          dae_work_item_new(
+            low_revisit_graph,
+            dae_boundary_dependency_graph_new(low_revisit_graph),
+            low_revisit_result.primary_def,
+            DaeUniformActualWork,
+          ),
+          low_revisit_result,
+        ),
+      )
+    } else {
+      None
+    }
     let low_revisit_application = dae_apply_family_result_transaction(
-      original_boundary_snapshot, current, touched, changed, low_revisit_graph, low_revisit_result,
+      original_boundary_snapshot,
+      current,
+      touched,
+      changed,
+      low_revisit_graph,
+      low_revisit_result,
+      effects=low_revisit_effects,
     )
     if !low_revisit_application.applied {
       break

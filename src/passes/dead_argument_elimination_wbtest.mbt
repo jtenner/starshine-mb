@@ -14959,6 +14959,27 @@ test "dae localized scalar candidate reaches a bounded common-core fixed point" 
 }
 
 ///|
+test "dae family transaction rejects signature changes without producer effects" {
+  let (mod_, original, graph, plan) = dae_scalar_rewrite_plan_fixture()
+  let candidate : DaePassResult = {
+    mod_out: plan.candidate,
+    touched: plan.touched_functions,
+    changed: true,
+    primary_def: plan.target_def,
+  }
+  let application = dae_apply_family_result_transaction(
+    original,
+    mod_,
+    [],
+    false,
+    graph,
+    candidate,
+  )
+  assert_false(application.applied)
+  assert_eq(application.mod_out, mod_)
+}
+
+///|
 test "dae scalar rewrite plan rejects stale target and caller epochs" {
   let (mod_, _, signature_graph, signature_plan) = dae_scalar_rewrite_plan_fixture()
   signature_graph.function_epochs[0].signature_epoch += 1
