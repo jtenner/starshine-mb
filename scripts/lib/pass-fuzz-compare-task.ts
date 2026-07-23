@@ -103,6 +103,7 @@ type PassFuzzCompareOptions = {
   failureStatus: CaseStatus | null;
   failureClass: CommandFailureClass | null;
   replayCaseIndex: number | null;
+  resume: boolean;
   normalizers: CompareNormalizer[];
 };
 
@@ -152,6 +153,7 @@ export type MismatchReductionArtifact = {
 
 export type PassFuzzCompareSummary = {
   requestedCount: number;
+  resumedCaseCount: number;
   minCompared: number | null;
   comparedCount: number;
   normalizedMatchCount: number;
@@ -242,6 +244,7 @@ const RESERVED_OPTIONS = new Set([
   "--failure-status",
   "--failure-class",
   "--case-index",
+  "--resume",
 ]);
 
 const SUPPORTED_PASS_FLAGS = new Set([
@@ -323,6 +326,7 @@ const HELP_TEXT = [
   "  --seed <value>        Non-negative deterministic seed. Default: 0x5eed",
   "  --min-compared <n>    Require at least this many successful comparisons",
   "  --out-dir <dir>       Output directory for artifacts and failures",
+  "  --resume              Continue an interrupted run in --out-dir by skipping completed case indices",
   "  --external-validator <id>",
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
@@ -389,6 +393,52 @@ function parseNonNegativeInt(label: string, raw: string): number {
     fail(`invalid ${label}: ${raw}`);
   }
   return Number.parseInt(raw, 10);
+}
+
+type PassFuzzResumePlan = {
+  records: CaseRecord[];
+  completedCaseIndices: number[];
+  pendingReplayIndexes: number[];
+};
+
+function passFuzzResumePlan(casesJsonl: string, requestedCount: number): PassFuzzResumePlan {
+  const records: CaseRecord[] = [];
+  const completed = new Set<number>();
+  for (const line of casesJsonl.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) {
+      continue;
+    }
+    const record = JSON.parse(trimmed) as CaseRecord;
+    if (!Number.isInteger(record.caseIndex) || record.caseIndex < 1 || record.caseIndex > requestedCount) {
+      fail(`resumed case index out of range: ${String(record.caseIndex)}`);
+    }
+    if (completed.has(record.caseIndex)) {
+      fail(`duplicate resumed case index: ${record.caseIndex}`);
+    }
+    completed.add(record.caseIndex);
+    records.push(record);
+  }
+  records.sort((left, right) => left.caseIndex - right.caseIndex);
+  const completedCaseIndices = Array.from(completed).sort((left, right) => left - right);
+  const pendingReplayIndexes: number[] = [];
+  for (let replayIndex = 0; replayIndex < requestedCount; replayIndex += 1) {
+    if (!completed.has(replayIndex + 1)) {
+      pendingReplayIndexes.push(replayIndex);
+    }
+  }
+  return { records, completedCaseIndices, pendingReplayIndexes };
+}
+
+export function passFuzzResumePlanForTest(
+  casesJsonl: string,
+  requestedCount: number,
+): Omit<PassFuzzResumePlan, "records"> {
+  const plan = passFuzzResumePlan(casesJsonl, requestedCount);
+  return {
+    completedCaseIndices: plan.completedCaseIndices,
+    pendingReplayIndexes: plan.pendingReplayIndexes,
+  };
 }
 
 function availableParallelism(): number {
@@ -2758,6 +2808,83 @@ function loadReplayCases(
   return replayCases;
 }
 
+function loadPassFuzzResumePlan(casesPath: string, requestedCount: number): PassFuzzResumePlan {
+  if (!fs.existsSync(casesPath)) {
+    fail(`--resume requires an existing cases.jsonl: ${casesPath}`);
+  }
+  return passFuzzResumePlan(fs.readFileSync(casesPath, "utf8"), requestedCount);
+}
+
+function resumedFailureDir(outDir: string, record: CaseRecord): string {
+  return path.join(
+    outDir,
+    "failures",
+    `case-${String(record.caseIndex).padStart(6, "0")}-${record.generator}${record.transformId === undefined ? "" : `-transform-${safeArtifactNameSegment(record.transformId)}`}`,
+  );
+}
+
+function applyResumedCaseRecord(
+  summary: PassFuzzCompareSummary,
+  record: CaseRecord,
+  outDir: string,
+): number {
+  summary.resumedCaseCount += 1;
+  if (record.genValidSelectedProfile !== undefined) {
+    noteGenValidSelectedProfileCount(summary, record.genValidSelectedProfile);
+  }
+  if (record.genValidProfileCaseLabel !== undefined) {
+    noteGenValidProfileCaseCount(summary, record.genValidProfileCaseLabel);
+  }
+  if (record.inputEffectTrapFacts !== undefined) {
+    noteInputEffectTrapFacts(summary, record.inputEffectTrapFacts);
+  }
+
+  const compared = record.status === "match" || record.status === "mismatch";
+  if (compared) {
+    summary.comparedCount += 1;
+    if (record.generator === "gen-valid") {
+      summary.generatorCounts.genValid += 1;
+      noteGenValidTransformCount(summary, record.transformId ?? null);
+    } else {
+      summary.generatorCounts.wasmSmith += 1;
+    }
+  }
+
+  switch (record.status) {
+    case "match":
+      if (record.detail.startsWith("compare-normalized outputs matched")) {
+        summary.cleanupNormalizedMatchCount += 1;
+      } else {
+        summary.normalizedMatchCount += 1;
+      }
+      return 0;
+    case "mismatch":
+      summary.mismatchCount += 1;
+      break;
+    case "validation-failure":
+      summary.validationFailureCount += 1;
+      break;
+    case "generator-failure":
+      summary.generatorFailureCount += 1;
+      break;
+    case "command-failure": {
+      summary.commandFailureCount += 1;
+      const failureClass = record.failureClass ?? classifyCommandFailure(record.detail);
+      noteCommandFailureClass(summary, failureClass);
+      break;
+    }
+    case "property-failure":
+      summary.propertyFailureCount += 1;
+      break;
+  }
+
+  const failureDir = resumedFailureDir(outDir, record);
+  if (fs.existsSync(failureDir)) {
+    summary.failureDirs.push(failureDir);
+  }
+  return record.status === "command-failure" && !summary.commandFailuresCountTowardMaxFailures ? 0 : 1;
+}
+
 export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let count = 10000;
   let minCompared: number | null = null;
@@ -2788,6 +2915,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let failureStatus: CaseStatus | null = null;
   let failureClass: CommandFailureClass | null = null;
   let replayCaseIndex: number | null = null;
+  let resume = false;
   const normalizers: CompareNormalizer[] = [];
   let command: ParseCommand["kind"] = "run";
 
@@ -2960,6 +3088,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         );
         i += 2;
         break;
+      case "--resume":
+        resume = true;
+        i += 1;
+        break;
       default:
         if (token.startsWith("--external-validator=")) {
           externalValidators.push(
@@ -3058,6 +3190,18 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (replayCaseIndex !== null && replayFailuresFrom === null) {
     fail("--case-index requires --replay-failures-from");
   }
+  if (resume && replayFailuresFrom !== null) {
+    fail("--resume cannot be combined with --replay-failures-from");
+  }
+  if (resume && propertyMode !== "none") {
+    fail("--resume does not yet support --property because interrupted property aggregates are not persisted per case");
+  }
+  if (resume && runtimeExecution !== "off") {
+    fail("--resume does not yet support --runtime-execution because interrupted runtime matrices are not persisted per case");
+  }
+  if (resume && externalValidators.length > 0) {
+    fail("--resume does not yet support --external-validator because interrupted skip counts are not persisted per case");
+  }
 
   return {
     kind: "run",
@@ -3091,6 +3235,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       failureStatus,
       failureClass,
       replayCaseIndex,
+      resume,
       normalizers,
     },
   };
@@ -3143,8 +3288,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           options.replayCaseIndex,
         );
   const requestedCount = replayCases?.length ?? options.count;
+  const resumePlan = options.resume ? loadPassFuzzResumePlan(casesPath, requestedCount) : null;
+  const scheduledReplayIndexes = replayCases !== null
+    ? Array.from({ length: replayCases.length }, (_, index) => index)
+    : resumePlan?.pendingReplayIndexes ?? Array.from({ length: requestedCount }, (_, index) => index);
   const defaultJobs = options.starshineBin === null ? 1 : availableParallelism();
-  const effectiveJobs = Math.min(options.jobs ?? defaultJobs, Math.max(requestedCount, 1));
+  const effectiveJobs = Math.min(
+    options.jobs ?? defaultJobs,
+    Math.max(scheduledReplayIndexes.length, 1),
+  );
   if (effectiveJobs > 1 && options.starshineBin === null) {
     fail(
       "--jobs >1 requires --starshine-bin so parallel cases do not run concurrent moon invocations; " +
@@ -3155,11 +3307,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   fs.mkdirSync(outDir, { recursive: true });
   fs.mkdirSync(inputsDir, { recursive: true });
   fs.mkdirSync(smithDir, { recursive: true });
-  fs.writeFileSync(casesPath, "");
+  if (!options.resume) {
+    fs.writeFileSync(casesPath, "");
+  }
 
   const genValidCount =
     replayCases === null ? requiredGenValidCount(options.generator, options.count) : 0;
-  if (genValidCount > 0) {
+  if (genValidCount > 0 && !options.resume) {
     const genValidMoonDir = path.relative(repoRoot, genValidDir) || ".";
     const genValidManifestPath = path.join(genValidMoonDir, "manifest.json");
     runOrThrow(
@@ -3189,7 +3343,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     );
   }
   const genValidInputs = genValidCount > 0 ? listGeneratedGenValidInputs(genValidDir) : [];
+  if (options.resume && genValidInputs.length < genValidCount) {
+    fail(
+      `--resume found ${genValidInputs.length} GenValid inputs in ${genValidDir}, but ${genValidCount} are required`,
+    );
+  }
   const genValidManifestPath = path.join(genValidDir, "manifest.json");
+  if (options.resume && genValidCount > 0 && !fs.existsSync(genValidManifestPath)) {
+    fail(`--resume requires the saved GenValid manifest: ${genValidManifestPath}`);
+  }
   const genValidManifestRecords = new Map<string, unknown>();
   if (genValidCount > 0 && fs.existsSync(genValidManifestPath)) {
     try {
@@ -3210,6 +3372,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const starshineInvocation = resolveStarshineInvocation(repoRoot, options.starshineBin, options.moonBin);
   const summary: PassFuzzCompareSummary = {
     requestedCount,
+    resumedCaseCount: 0,
     minCompared: options.minCompared,
     comparedCount: 0,
     normalizedMatchCount: 0,
@@ -3278,8 +3441,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   };
 
   let failures = 0;
-  let nextReplayIndex = 0;
-  const caseRecords: CaseRecord[] = [];
+  let nextScheduledIndex = 0;
+  const caseRecords: CaseRecord[] = resumePlan?.records.slice() ?? [];
+  for (const record of caseRecords) {
+    failures += applyResumedCaseRecord(summary, record, outDir);
+  }
   const caseTransformIds = new Map<number, string>();
   const caseGenValidSelectedProfiles = new Map<number, string>();
   const caseGenValidProfileCaseLabels = new Map<number, string>();
@@ -3940,17 +4106,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   async function runWorker(): Promise<void> {
     while (true) {
       if (failures >= options.maxFailures) {
-        if (nextReplayIndex < requestedCount) {
+        if (nextScheduledIndex < scheduledReplayIndexes.length) {
           summary.maxFailuresHit = true;
         }
         return;
       }
-      const replayIndex = nextReplayIndex;
-      if (replayIndex >= requestedCount) {
+      const scheduledIndex = nextScheduledIndex;
+      if (scheduledIndex >= scheduledReplayIndexes.length) {
         return;
       }
-      nextReplayIndex += 1;
-      await runCase(replayIndex);
+      nextScheduledIndex += 1;
+      await runCase(scheduledReplayIndexes[scheduledIndex]);
     }
   }
 
@@ -3973,6 +4139,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Wrote pass fuzz compare artifacts to ${outDir}\n`);
   process.stdout.write(`Jobs: ${summary.jobs}\n`);
   process.stdout.write(`Compared cases: ${summary.comparedCount}/${summary.requestedCount}\n`);
+  if (summary.resumedCaseCount > 0) {
+    process.stdout.write(`Resumed completed cases: ${summary.resumedCaseCount}\n`);
+  }
   process.stdout.write(`Normalized matches: ${summary.normalizedMatchCount}\n`);
   process.stdout.write(`Compare-normalized matches: ${summary.cleanupNormalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);

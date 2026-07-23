@@ -16,6 +16,7 @@ import {
   passFuzzSummaryCoverageReport,
   applyCompareNormalizersForTest,
   parsePassFuzzCompareArgs,
+  passFuzzResumePlanForTest,
 } from "./pass-fuzz-compare-task";
 
 describe("pass-fuzz persistent cache options", () => {
@@ -102,6 +103,49 @@ describe("pass-fuzz persistent cache options", () => {
     if (disabledParsed.kind === "run") {
       expect(disabledParsed.options.reduceMismatches).toBe(false);
     }
+  });
+
+  test("accepts resume mode without enabling it by default", () => {
+    const fresh = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
+    const resumed = parsePassFuzzCompareArgs([
+      "--pass",
+      "remove-unused-brs",
+      "--out-dir",
+      ".tmp/interrupted-run",
+      "--resume",
+    ]);
+
+    expect(fresh.kind).toBe("run");
+    if (fresh.kind === "run") {
+      expect(fresh.options.resume).toBe(false);
+    }
+    expect(resumed.kind).toBe("run");
+    if (resumed.kind === "run") {
+      expect(resumed.options.resume).toBe(true);
+    }
+  });
+
+  test("resume plans skip every completed case even when parallel completion left holes", () => {
+    const plan = passFuzzResumePlanForTest(
+      [
+        JSON.stringify({ caseIndex: 3, generator: "gen-valid", status: "match", detail: "normalized outputs matched" }),
+        JSON.stringify({ caseIndex: 1, generator: "gen-valid", status: "mismatch", detail: "normalized outputs differed" }),
+        JSON.stringify({ caseIndex: 5, generator: "gen-valid", status: "match", detail: "normalized outputs matched" }),
+      ].join("\n") + "\n",
+      6,
+    );
+
+    expect(plan.completedCaseIndices).toEqual([1, 3, 5]);
+    expect(plan.pendingReplayIndexes).toEqual([1, 3, 5]);
+  });
+
+  test("resume plans reject duplicate completed cases", () => {
+    const duplicate = [
+      JSON.stringify({ caseIndex: 2, generator: "gen-valid", status: "match", detail: "normalized outputs matched" }),
+      JSON.stringify({ caseIndex: 2, generator: "gen-valid", status: "match", detail: "normalized outputs matched" }),
+    ].join("\n");
+
+    expect(() => passFuzzResumePlanForTest(duplicate, 4)).toThrow("duplicate resumed case index: 2");
   });
 });
 

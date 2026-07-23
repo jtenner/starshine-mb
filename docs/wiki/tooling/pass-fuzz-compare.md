@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-23
 sources:
   - ../binaryen/release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen
@@ -71,6 +71,7 @@ bun fuzz compare-pass \
   [--runtime-execution off|node] \
   [--property none|idempotence|composition] \
   [--cache-dir .tmp/pass-fuzz-cache|--no-cache] \
+  [--resume] \
   [--min-compared <n>] \
   [--max-failures 20] \
   [--keep-going-after-command-failures] \
@@ -86,9 +87,10 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir>
 bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-status <status>
 bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-class <id>
 bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-status <status> --case-index <n>
+bun fuzz compare-pass --pass <name> --count <original-count> --out-dir <interrupted-dir> --resume
 ```
 
-`bun scripts/pass-fuzz-compare.ts ...` is the same underlying implementation. `bun fuzz compare-pass` reaches it through [`scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), which treats compare-pass as a sibling command rather than a `src/fuzz` suite.
+`--resume` is for continuing the original lane in place; `--replay-failures-from` is for starting a separate lane from saved failures. `bun scripts/pass-fuzz-compare.ts ...` is the same underlying implementation. `bun fuzz compare-pass` reaches it through [`scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), which treats compare-pass as a sibling command rather than a `src/fuzz` suite.
 
 ## Pass Eligibility Preflight
 
@@ -127,6 +129,29 @@ Compare-pass uses a persistent cache by default at `.tmp/pass-fuzz-cache`; overr
 - Deterministic Binaryen/canonicalization command failures are cached as `failure.json` for the same input/tool/pass tuple, so repeated lanes do not spend time reproducing the same oracle failure before counting it as a command failure.
 
 `result.json` records cache counters under `cache`: `wasmSmithHits`, `wasmSmithMisses`, `binaryenHits`, `binaryenMisses`, `binaryenFailureHits`, and `binaryenFailureMisses`. Cache hits still validate inputs and Starshine outputs and still canonicalize/print the fresh Starshine result before comparison.
+
+## Interrupted-Run Resume
+
+Pass `--resume` with the original `--out-dir` and `--count` to continue a run that was interrupted before `result.json` and `summary.json` were finalized. The harness reads the existing `cases.jsonl`, preserves those records and failure artifacts, and schedules only missing case indices. It does not merely use the line count: parallel workers can finish out of order, so resume computes the exact completed-index set and fills any holes. For GenValid lanes it reuses the already emitted `inputs/gen-valid/` batch and manifest rather than regenerating the batch.
+
+Repeat the original seed, generator/profile, feature filters, pass flags, optimizer flags, normalizers, tool paths, and output directory. `--count` remains the total requested run size, not the number of remaining cases. A resumed result reconstructs aggregate comparison/failure/effect/profile counters from persisted case records, reports `resumedCaseCount`, and then adds newly completed cases. Cache hit/miss counters describe only work performed by the resumed invocation because an abruptly terminated invocation has no durable aggregate cache counters. Existing mismatch reductions are preserved; `--no-reduce-mismatches` may be added to a broad resumed aggregate lane to stop reducing each newly discovered mismatch while retaining its unreduced failure artifacts.
+
+Resume fails closed on a missing `cases.jsonl`, duplicate or out-of-range case indices, an incomplete saved GenValid input batch, or combinations with replay mode. It currently rejects `--property`, `--runtime-execution`, and `--external-validator` because their interrupted per-case aggregate details are not fully represented in `cases.jsonl` and therefore cannot yet be reconstructed truthfully.
+
+Example:
+
+```text
+bun fuzz compare-pass \
+  --pass dead-argument-elimination \
+  --count 10000 --seed 0x5eed \
+  --gen-valid-profile random-all-profiles \
+  --normalize drop-consts --normalize unreachable-control-debris \
+  --out-dir .tmp/dae-random-all-10000 \
+  --resume --no-reduce-mismatches \
+  --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --wasm-opt-bin <official-version-131-wasm-opt> \
+  --max-failures 10000 --keep-going-after-command-failures
+```
 
 ## Normalization And Comparison Flow
 
@@ -199,7 +224,7 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, compare normalizers, persistent cache directory/counters, requested GenValid profile, feature filters, requested metamorphic transform ids, compared GenValid transform counts, exact `normalizedMatchCount` and `cleanupNormalizedMatchCount` totals, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts and persisted `runtimeExecutionMatrix` summary/outcome/semantic-mismatch samples, requested property mode plus idempotence/composition checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, compare normalizers, persistent cache directory/counters, requested GenValid profile, feature filters, requested metamorphic transform ids, compared GenValid transform counts, exact `normalizedMatchCount` and `cleanupNormalizedMatchCount` totals, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts and persisted `runtimeExecutionMatrix` summary/outcome/semantic-mismatch samples, requested property mode plus idempotence/composition checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, `resumedCaseCount`, and effective jobs.
 - `summary.json` - compact `starshine.fuzz-summary-report.v1` counters for `bun fuzz coverage-delta`, with suite `compare-pass`, profile `<pass>+<generator>`, required requested/compared case counters, optional generator/GenValid transform/property/input-effect/runtime counters, run-status counters including exact normalized-match versus cleanup-normalized-match separation, failure-class counters, and failure-artifact counts.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run; GenValid metamorphic cases include `transformId` when their manifest entry has `transform_id` and `genValidFeatureFacts` when their manifest entry has `feature_facts`; records also include input effect/trap facts once the input has been scanned.
 - `inputs/` - saved generator inputs for generated lanes.
