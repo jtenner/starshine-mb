@@ -17471,6 +17471,54 @@ test "dae GC result evidence preserves exact ref.cast_desc_eq targets" {
 }
 
 ///|
+test "dae GC result evidence infers exact continuation constructors" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  ).with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(@lib.CompType::cont(@lib.TypeIdx::new(0U))),
+      ),
+    ]),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+      exact=true,
+    ),
+  )
+  match
+    dae_direct_gc_result_candidate_instr(
+      mod_,
+      [],
+      None,
+      @lib.Instruction::cont_new(@lib.TypeIdx::new(1U)),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected exact cont.new result evidence")
+  }
+  match
+    dae_direct_gc_result_candidate_instr(
+      mod_,
+      [],
+      None,
+      @lib.Instruction::cont_bind(@lib.TypeIdx::new(1U), @lib.TypeIdx::new(1U)),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected exact cont.bind result evidence")
+  }
+}
+
+///|
 test "dae GC result slices preserve inexact ref.get_desc results" {
   let mod_ = pass_test_module_from_wat(
     (

@@ -13817,7 +13817,9 @@ fn dae_direct_gc_result_candidate_instr(
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   match instr {
-    @lib.StructNew(type_idx)
+    @lib.ContNew(type_idx)
+    | @lib.ContBind(_, type_idx)
+    | @lib.StructNew(type_idx)
     | @lib.StructNewDefault(type_idx)
     | @lib.StructNewDesc(type_idx)
     | @lib.StructNewDefaultDesc(type_idx)
