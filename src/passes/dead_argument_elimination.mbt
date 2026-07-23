@@ -18371,311 +18371,6 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
 }
 
 ///|
-fn dae_try_apply_direct_gc_batch(
-  mod_ : @lib.Module,
-  active_defs? : Array[Bool]? = None,
-) -> DaePassResult {
-  let snapshot = dae_collect_module_boundary_snapshot(mod_)
-  let imported = snapshot.imported
-  let defined = snapshot.defined
-  // Definition-count-independent batch candidate construction. Application
-  // remains owned by the family transaction so original ownership, epochs,
-  // exact call identities, complete validation, and rollback stay common.
-  let mut type_sec = match mod_.type_sec {
-    Some(type_sec) => type_sec
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let type_idxs = match mod_.func_sec {
-    Some(@lib.FuncSec(type_idxs)) => type_idxs.copy()
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let current_type_indices = snapshot.type_indices.copy()
-  let type_lookup = dae_simple_func_type_lookup(type_sec)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = funcs.copy()
-  let touched = Array::make(defined, false)
-  let eligible_defs : Array[Int] = []
-  let param_actuals : Array[DaeGcParameterLubActualCollection?] = Array::make(
-    snapshot.total,
-    None,
-  )
-  for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
-    match active_defs {
-      Some(active) if def_idx >= active.length() || !active[def_idx] => continue
-      _ => ()
-    }
-    let callee_abs = imported + def_idx
-    let candidate = match
-      dae_call_boundary_candidate(snapshot.boundary_facts, callee_abs, def_idx~) {
-      Some(candidate) => candidate
-      None => continue
-    }
-    if !candidate.owned ||
-      !candidate.allows_nonself_direct_rewrite ||
-      candidate.direct_call_count == 0 {
-      continue
-    }
-    let @lib.FuncType(params, results) = match
-      dae_type_sec_func_type(type_sec, current_type_indices[callee_abs]) {
-      Some(func_type) => func_type
-      None => continue
-    }
-    let has_param_work = dae_signature_has_concrete_gc_param(params)
-    let has_result_work = dae_signature_has_single_concrete_gc_result(results)
-    if !has_param_work && !has_result_work {
-      continue
-    }
-    eligible_defs.push(def_idx)
-    if has_param_work {
-      let @lib.Func(locals, _) = funcs[def_idx]
-      let local_use = dae_local_use_for_callee(
-        funcs[def_idx],
-        params.length() + locals.length(),
-        callee_abs,
-        params.length(),
-      )
-      param_actuals[callee_abs] = Some(
-        dae_collect_gc_parameter_lub_actuals_for_callers(
-          mod_,
-          funcs,
-          candidate.direct_callers,
-          current_type_indices,
-          imported,
-          callee_abs,
-          params,
-          local_use,
-        ),
-      )
-    }
-  }
-  if eligible_defs.length() == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let mut first_def = -1
-  let mut applied = 0
-  for def_idx in eligible_defs {
-    let callee_abs = imported + def_idx
-    let candidate = match
-      dae_call_boundary_candidate(snapshot.boundary_facts, callee_abs, def_idx~) {
-      Some(candidate) => candidate
-      None => continue
-    }
-    let @lib.FuncType(params, results) = match
-      dae_type_sec_func_type(type_sec, current_type_indices[callee_abs]) {
-      Some(func_type) => func_type
-      None => continue
-    }
-    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[def_idx]
-    let mut next_params = params.copy()
-    let next_results = results.copy()
-    let mut refined_params = Array::make(params.length(), false)
-    let mut changed = false
-    match param_actuals[callee_abs] {
-      Some(actuals) => {
-        let mut evidence_candidates = actuals.candidates
-        let mut evidence_rejected = actuals.rejected
-        let mut evidence_calls_seen = actuals.calls_seen
-        let mut evidence_collect_ok = actuals.collect_ok
-        let mut refresh_evidence = false
-        for direct_caller_def in candidate.direct_callers {
-          if direct_caller_def >= 0 &&
-            direct_caller_def < touched.length() &&
-            touched[direct_caller_def] {
-            refresh_evidence = true
-          }
-        }
-        if refresh_evidence {
-          let current_local_use = dae_local_use_for_callee(
-            rewritten_funcs[def_idx],
-            params.length() + locals.length(),
-            callee_abs,
-            params.length(),
-          )
-          let current_view = mod_
-            .with_type_sec(type_sec)
-            .with_func_sec(@lib.FuncSec::new(type_idxs))
-            .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-          let actuals = dae_collect_gc_parameter_lub_actuals_for_callers(
-            current_view,
-            rewritten_funcs,
-            candidate.direct_callers,
-            current_type_indices,
-            imported,
-            callee_abs,
-            params,
-            current_local_use,
-          )
-          evidence_candidates = actuals.candidates
-          evidence_rejected = actuals.rejected
-          evidence_calls_seen = actuals.calls_seen
-          evidence_collect_ok = actuals.collect_ok
-        }
-        let parameter_evidence = dae_apply_gc_parameter_lub_evidence(
-          mod_,
-          params,
-          evidence_candidates,
-          evidence_rejected,
-          evidence_calls_seen,
-          if evidence_collect_ok {
-            candidate.direct_call_count
-          } else {
-            -1
-          },
-        )
-        if parameter_evidence.complete {
-          next_params = parameter_evidence.next_params
-          refined_params = parameter_evidence.refined_params
-        }
-        changed = changed || parameter_evidence.changed
-      }
-      None => ()
-    }
-    let result_func_locals = Some(@lib.FunctionLocals::new(next_params, locals))
-    let mut next_body = body
-    let mut next_locals = locals
-    let mut param_fixup_body_changed = false
-    let mut result_body_changed = false
-    if dae_signature_has_single_concrete_gc_result(results) {
-      match
-        dae_direct_gc_result_candidate_body(
-          mod_,
-          current_type_indices,
-          result_func_locals,
-          body,
-          results[0],
-        ) {
-        Some((candidate_type, rewritten_body)) =>
-          match
-            dae_refined_gc_candidate_ref_type(mod_, results[0], candidate_type) {
-            Some(refined) => {
-              next_results[0] = refined
-              changed = true
-              match rewritten_body {
-                Some(instrs) => {
-                  next_body = instrs
-                  result_body_changed = true
-                }
-                None => ()
-              }
-            }
-            None => ()
-          }
-        None => ()
-      }
-    }
-    if !changed {
-      continue
-    }
-    let staged_caller_defs : Array[Int] = []
-    let staged_caller_funcs : Array[@lib.Func] = []
-    let mut calls_rewritten = 0
-    let mut rewrite_ok = true
-    let mut has_refined_param = false
-    for refined in refined_params {
-      has_refined_param = has_refined_param || refined
-    }
-    if has_refined_param {
-      for direct_caller_def in candidate.direct_callers {
-        if direct_caller_def < 0 ||
-          direct_caller_def >= rewritten_funcs.length() {
-          rewrite_ok = false
-          break
-        }
-        let @lib.Func(caller_locals, @lib.Expr(caller_body)) = rewritten_funcs[direct_caller_def]
-        let (rewritten_body, calls, ok, _) = dae_rewrite_refined_gc_actuals_instrs(
-          caller_body, callee_abs, refined_params, next_params, 0, mod_, current_type_indices,
-        )
-        if !ok {
-          rewrite_ok = false
-          break
-        }
-        calls_rewritten += calls
-        staged_caller_defs.push(direct_caller_def)
-        staged_caller_funcs.push(
-          @lib.Func::new(caller_locals, @lib.Expr::new(rewritten_body)),
-        )
-      }
-      if calls_rewritten != candidate.direct_call_count {
-        rewrite_ok = false
-      }
-    }
-    if !rewrite_ok {
-      continue
-    }
-    if has_refined_param {
-      let current_local_use = dae_local_use_for_callee(
-        rewritten_funcs[def_idx],
-        params.length() + locals.length(),
-        callee_abs,
-        params.length(),
-      )
-      match
-        dae_apply_reused_gc_param_fixups(
-          params, refined_params, current_local_use, locals, next_body,
-        ) {
-        Some((fixed_locals, fixed_body, body_changed)) => {
-          next_locals = fixed_locals
-          next_body = fixed_body
-          param_fixup_body_changed = body_changed
-        }
-        None => continue
-      }
-    }
-    let mut staged_idx = 0
-    while staged_idx < staged_caller_defs.length() {
-      let direct_caller_def = staged_caller_defs[staged_idx]
-      rewritten_funcs[direct_caller_def] = staged_caller_funcs[staged_idx]
-      touched[direct_caller_def] = true
-      staged_idx += 1
-    }
-    if result_body_changed || param_fixup_body_changed {
-      rewritten_funcs[def_idx] = @lib.Func::new(
-        next_locals,
-        @lib.Expr::new(next_body),
-      )
-    }
-    let type_key = dae_simple_func_type_key(next_params, next_results)
-    let next_type_idx = match type_lookup.get(type_key) {
-      Some(existing) => existing
-      None => {
-        let (next_type_sec, next_idx) = dae_append_new_func_type(
-          type_sec, next_params, next_results,
-        )
-        type_sec = next_type_sec
-        type_lookup.set(type_key, next_idx)
-        next_idx
-      }
-    }
-    type_idxs[def_idx] = next_type_idx
-    current_type_indices[callee_abs] = next_type_idx
-    touched[def_idx] = true
-    if first_def < 0 {
-      first_def = def_idx
-    }
-    applied += 1
-  }
-  if applied == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  {
-    mod_out: mod_
-    .with_type_sec(type_sec)
-    .with_func_sec(@lib.FuncSec::new(type_idxs))
-    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
-    .without_name_sec(),
-    touched,
-    changed: true,
-    primary_def: first_def,
-  }
-}
-
-///|
 fn dae_apply_direct_gc_batch_transaction(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -18683,11 +18378,96 @@ fn dae_apply_direct_gc_batch_transaction(
   changed : Bool,
   active_defs? : Array[Bool]? = None,
 ) -> DaeCoreResultApplication {
-  let graph = dae_current_boundary_graph_new(current)
-  let candidate = dae_try_apply_direct_gc_batch(current, active_defs~)
-  dae_apply_family_result_transaction(
-    original, current, touched, changed, graph, candidate,
+  let mut current_mod = current
+  let mut merged_touched = touched
+  let mut merged_changed = changed
+  let mut merged_effects = dae_commit_effects_empty(
+    dae_current_boundary_graph_new(current).snapshot.defined,
   )
+  let mut first_def = -1
+  let mut applied = false
+  let initial_defined = merged_effects.structurally_touched.length()
+  for def_idx = 0; def_idx < initial_defined; def_idx = def_idx + 1 {
+    match active_defs {
+      Some(active) if def_idx >= active.length() || !active[def_idx] => continue
+      _ => ()
+    }
+    let graph = dae_current_boundary_graph_new(current_mod)
+    if def_idx >= graph.snapshot.defined {
+      continue
+    }
+    let candidate = dae_try_refine_direct_gc_types_for_def_with_facts(
+      current_mod,
+      def_idx,
+      graph.snapshot.call_facts,
+      true,
+      true,
+    )
+    if !candidate.changed {
+      continue
+    }
+    let candidate_effects = dae_commit_effects_empty(graph.snapshot.defined)
+    let mut touched_def = 0
+    while touched_def < candidate.touched.length() &&
+          touched_def < graph.snapshot.defined {
+      if candidate.touched[touched_def] {
+        candidate_effects.structurally_touched[touched_def] = true
+        candidate_effects.worth_decided[touched_def] = true
+        candidate_effects.worth_optimizing[touched_def] = true
+      }
+      touched_def += 1
+    }
+    let candidate_effects = {
+      ..candidate_effects,
+      type_section_changed: true,
+      metadata_changed: true,
+      invalidation_domains: [
+        DaeInvalidateCalls,
+        DaeInvalidateSignature,
+        DaeInvalidateResult,
+        DaeInvalidateBody,
+        DaeInvalidateControl,
+        DaeInvalidateLocals,
+        DaeInvalidateTypes,
+        DaeInvalidateMetadata,
+        DaeInvalidateNestedCleanup,
+      ],
+      decision_reasons: [DaeCandidateProduced],
+    }
+    let plan = match
+      dae_build_signature_rewrite_plan_from_candidate(
+        original, current_mod, graph, def_idx, candidate, candidate_effects,
+      ) {
+      Some(plan) => plan
+      None => continue
+    }
+    let application = dae_apply_rewrite_plan(current_mod, graph, plan)
+    if !application.applied {
+      continue
+    }
+    current_mod = application.result.mod_out
+    merged_touched = dae_merge_touched(
+      merged_touched,
+      application.result.touched,
+    )
+    merged_changed = merged_changed || application.result.changed
+    merged_effects = dae_commit_effects_merge(
+      merged_effects,
+      application.effects,
+    )
+    if first_def < 0 {
+      first_def = def_idx
+    }
+    applied = true
+  }
+  {
+    mod_out: current_mod,
+    touched: merged_touched,
+    changed: merged_changed,
+    applied,
+    primary_def: first_def,
+    effects: merged_effects,
+  }
 }
 
 ///|
@@ -43446,15 +43226,14 @@ fn dae_run_core(
     let mut direct_gc_batch_wave = 0
     let mut direct_gc_active_defs : Array[Bool]? = None
     while true {
-      let batch = dae_try_apply_direct_gc_batch(
+      let application = dae_apply_direct_gc_batch_transaction(
+        original_boundary_snapshot,
         current,
+        touched,
+        changed,
         active_defs=direct_gc_active_defs,
       )
-      let batch_touched = batch.touched
-      let batch_graph = dae_current_boundary_graph_new(current)
-      let application = dae_apply_family_result_transaction(
-        original_boundary_snapshot, current, touched, changed, batch_graph, batch,
-      )
+      let batch_touched = application.effects.structurally_touched
       if !application.applied {
         break
       }

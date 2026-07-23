@@ -16602,7 +16602,7 @@ test "dae dropped result batch ignores unrelated direct tails" {
 }
 
 ///|
-test "dae direct GC batch is definition-count independent" {
+test "dae direct GC batch transaction is definition-count independent" {
   let source =
     #|(module
     #|  (type $base (sub (struct)))
@@ -16614,8 +16614,13 @@ test "dae direct GC batch is definition-count independent" {
     #|    struct.new_default $leaf
     #|    call $target))
   let mod_ = pass_test_module_from_wat(source)
-  let result = dae_try_apply_direct_gc_batch(mod_)
-  assert_true(result.changed)
+  let application = dae_apply_direct_gc_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  assert_true(application.applied)
   let expected = @lib.ValType::ref_type(
     @lib.RefType::new(
       false,
@@ -16623,22 +16628,22 @@ test "dae direct GC batch is definition-count independent" {
       exact=true,
     ),
   )
-  let type_indices = dae_collect_func_type_indices(result.mod_out)
-  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  match dae_resolve_func_type(application.mod_out, type_indices, 0) {
     Some(@lib.FuncType([param], [result_type])) => {
       assert_eq(param, expected)
       assert_eq(result_type, @lib.ValType::i32())
     }
     _ => fail("expected compact direct-GC batch refinement")
   }
-  match @validate.validate_module(result.mod_out) {
+  match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) => fail("expected valid compact direct-GC batch, got \{err}")
   }
 }
 
 ///|
-test "dae direct GC batch repairs reused parameter locals" {
+test "dae direct GC batch transaction repairs reused parameter locals" {
   let source =
     #|(module
     #|  (type $base (sub (struct)))
@@ -16651,9 +16656,15 @@ test "dae direct GC batch repairs reused parameter locals" {
     #|  (func (export "run") (result i32)
     #|    struct.new_default $leaf
     #|    call $target))
-  let result = dae_try_apply_direct_gc_batch(pass_test_module_from_wat(source))
-  assert_true(result.changed)
-  let funcs = match result.mod_out.code_sec {
+  let mod_ = pass_test_module_from_wat(source)
+  let application = dae_apply_direct_gc_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  let funcs = match application.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None => fail("expected rewritten batch code")
   }
@@ -16663,9 +16674,52 @@ test "dae direct GC batch repairs reused parameter locals" {
   assert_eq(body[1], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
   assert_eq(body[3], @lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
   assert_eq(body[4], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
-  match @validate.validate_module(result.mod_out) {
+  match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) => fail("expected valid reused direct-GC batch, got \{err}")
+  }
+}
+
+///|
+test "dae direct GC batch transaction reports each signature plan effect" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $identity (param (ref null $base)) (result (ref null $base))
+    #|    local.get 0)
+    #|  (func $check (param (ref null $base)) (result i32)
+    #|    local.get 0
+    #|    ref.is_null)
+    #|  (func (export "run")
+    #|    struct.new_default $leaf
+    #|    call $identity
+    #|    drop
+    #|    struct.new_default $leaf
+    #|    call $check
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let application = dae_apply_direct_gc_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  assert_true(application.effects.parameter_changed[0])
+  assert_true(application.effects.parameter_type_refined[0])
+  assert_true(application.effects.result_changed[0])
+  assert_true(application.effects.parameter_changed[1])
+  assert_true(application.effects.parameter_type_refined[1])
+  assert_true(
+    application.effects.invalidation_domains.contains(DaeInvalidateResult),
+  )
+  assert_true(
+    application.effects.invalidation_domains.contains(DaeInvalidateLocals),
+  )
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid direct-GC signature plans: \{err}")
   }
 }
 
