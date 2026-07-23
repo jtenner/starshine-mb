@@ -18552,9 +18552,15 @@ test "dae-optimizing converges a high normalized literal through direct callees"
   assert_true(mid.contains("I32(85)"), msg=mid)
   let normalize = optimized.pretty_print_defined_func(8195U)
   assert_false(normalize.contains("(local"), msg=normalize)
+  assert_false(
+    trace.any(fn(line) { line.contains("broad-high-exact-literal-chain") }),
+    msg=trace.to_string(),
+  )
   assert_true(
     trace.any(fn(line) {
-      line.contains("productive_defs=[8195, 8194, 8192, 8193]")
+      line.contains(
+        "pass[dae-optimizing]:nested-pass name=precompute-propagate",
+      )
     }),
     msg=trace.to_string(),
   )
