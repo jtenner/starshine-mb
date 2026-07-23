@@ -16955,6 +16955,31 @@ test "dae GC result refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae typed call result slices accept abstract heap refinement" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $producer (func (result (ref null eq)))))
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  match
+    dae_indirect_call_gc_result_candidate_signature(
+      mod_,
+      @lib.TypeIdx::new(0U),
+      old_type,
+    ) {
+    Some((0, candidate)) => assert_eq(candidate, expected)
+    _ => fail("expected abstract typed-call result refinement")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module

@@ -14678,16 +14678,10 @@ fn dae_indirect_call_gc_result_candidate_signature(
     Some(type_sec) =>
       match dae_type_sec_func_type(type_sec, type_idx) {
         Some(@lib.FuncType(params, [candidate_type])) =>
-          match candidate_type {
-            @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(_))) =>
-              match
-                dae_refined_gc_candidate_ref_type(
-                  mod_, old_type, candidate_type,
-                ) {
-                Some(refined_type) => Some((params.length(), refined_type))
-                None => None
-              }
-            _ => None
+          match
+            dae_refined_gc_candidate_ref_type(mod_, old_type, candidate_type) {
+            Some(refined_type) => Some((params.length(), refined_type))
+            None => None
           }
         _ => None
       }
