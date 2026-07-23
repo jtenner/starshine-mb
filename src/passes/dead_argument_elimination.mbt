@@ -4162,6 +4162,87 @@ fn dae_apply_family_result_transaction(
 }
 
 ///|
+fn dae_commit_effects_body_only_cleanup(
+  current : @lib.Module,
+  candidate : DaePassResult,
+) -> DaeCommitEffects {
+  let defined = dae_defined_func_count(current)
+  let effects = dae_commit_effects_empty(defined)
+  let current_funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  let candidate_funcs = match candidate.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  let mut locals_changed = false
+  let mut def_idx = 0
+  while def_idx < defined && def_idx < candidate.touched.length() {
+    if candidate.touched[def_idx] {
+      effects.structurally_touched[def_idx] = true
+      effects.worth_decided[def_idx] = true
+      effects.worth_optimizing[def_idx] = true
+      effects.control_refinalization_required[def_idx] = true
+      if def_idx < current_funcs.length() && def_idx < candidate_funcs.length() {
+        let @lib.Func(current_locals, _) = current_funcs[def_idx]
+        let @lib.Func(candidate_locals, _) = candidate_funcs[def_idx]
+        if current_locals != candidate_locals {
+          effects.local_projection_changed[def_idx] = true
+          locals_changed = true
+        }
+      }
+    }
+    def_idx += 1
+  }
+  let metadata_changed = current.name_sec != candidate.mod_out.name_sec
+  let invalidation_domains = [
+    DaeInvalidateBody,
+    DaeInvalidateControl,
+    DaeInvalidateNestedCleanup,
+  ]
+  if locals_changed {
+    invalidation_domains.push(DaeInvalidateLocals)
+  }
+  if metadata_changed {
+    invalidation_domains.push(DaeInvalidateMetadata)
+  }
+  {
+    ..effects,
+    metadata_changed,
+    invalidation_domains,
+    decision_reasons: [DaeCandidateProduced],
+  }
+}
+
+///|
+fn dae_apply_body_only_family_result_transaction(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  candidate : DaePassResult,
+  diagnostics : DaeDiagnostics,
+) -> DaeCoreResultApplication {
+  let graph = dae_current_boundary_graph_new(current)
+  let effects = dae_commit_effects_body_only_cleanup(current, candidate)
+  let application = dae_apply_family_result_transaction(
+    original,
+    current,
+    touched,
+    changed,
+    graph,
+    candidate,
+    effects=Some(effects),
+  )
+  if application.applied {
+    dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+    dae_diagnostics_record_applied_effects(diagnostics, application.effects)
+  }
+  application
+}
+
+///|
 fn dae_invalidation_domains_for_work_family(
   family : DaeWorkFamily,
 ) -> Array[DaeInvalidationDomain] {
@@ -44589,10 +44670,9 @@ fn dae_run_core(
   let low_exact_null_if_cleanup = dae_try_fold_selected_ref_null_is_null_ifs_once(
     current, low_exact_cleanup_defs,
   )
-  let low_exact_null_if_graph = dae_current_boundary_graph_new(current)
-  let low_exact_null_if_application = dae_apply_family_result_transaction(
-    original_boundary_snapshot, current, touched, changed, low_exact_null_if_graph,
-    low_exact_null_if_cleanup,
+  let low_exact_null_if_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, low_exact_null_if_cleanup,
+    diagnostics,
   )
   if low_exact_null_if_application.applied {
     current = low_exact_null_if_application.mod_out
@@ -44609,10 +44689,9 @@ fn dae_run_core(
   let low_exact_terminal_locals = dae_try_inline_selected_terminal_call_local_sets_once(
     current, low_exact_cleanup_defs,
   )
-  let low_exact_terminal_graph = dae_current_boundary_graph_new(current)
-  let low_exact_terminal_application = dae_apply_family_result_transaction(
-    original_boundary_snapshot, current, touched, changed, low_exact_terminal_graph,
-    low_exact_terminal_locals,
+  let low_exact_terminal_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, low_exact_terminal_locals,
+    diagnostics,
   )
   if low_exact_terminal_application.applied {
     current = low_exact_terminal_application.mod_out
@@ -44820,28 +44899,37 @@ fn dae_run_core(
     let const_local_result = dae_try_inline_selected_i32_const_local_sets_once(
       current, const_local_candidates,
     )
-    if !const_local_result.changed {
+    let const_local_application = dae_apply_body_only_family_result_transaction(
+      original_boundary_snapshot, current, touched, changed, const_local_result,
+      diagnostics,
+    )
+    if !const_local_application.applied {
       break
     }
-    current = const_local_result.mod_out
-    touched = dae_merge_touched(touched, const_local_result.touched)
+    current = const_local_application.mod_out
+    touched = const_local_application.touched
+    changed = const_local_application.changed
+    effects = dae_commit_effects_merge(effects, const_local_application.effects)
     trace(
-      "pass[dae-optimizing]:semantic-const-locals iter=\{const_local_iteration} primary_def=\{const_local_result.primary_def}",
+      "pass[dae-optimizing]:semantic-const-locals iter=\{const_local_iteration} primary_def=\{const_local_application.primary_def}",
     )
-    changed = true
     const_local_iteration += 1
   }
   let pair_if_candidates = touched.copy()
   let pair_if_result = dae_try_rewrite_selected_func408_pair_if_carrier_once(
     current, pair_if_candidates,
   )
-  if pair_if_result.changed {
-    current = pair_if_result.mod_out
-    touched = dae_merge_touched(touched, pair_if_result.touched)
+  let pair_if_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, pair_if_result, diagnostics,
+  )
+  if pair_if_application.applied {
+    current = pair_if_application.mod_out
+    touched = pair_if_application.touched
+    changed = pair_if_application.changed
+    effects = dae_commit_effects_merge(effects, pair_if_application.effects)
     trace(
-      "pass[dae-optimizing]:touched-pair-if-carrier primary_def=\{pair_if_result.primary_def}",
+      "pass[dae-optimizing]:touched-pair-if-carrier primary_def=\{pair_if_application.primary_def}",
     )
-    changed = true
   }
   let terminal_args311_candidates = dae_collect_terminal_call_arg_cleanup_candidates(
     mod_, current, 4, 24,
@@ -44849,13 +44937,21 @@ fn dae_run_core(
   let terminal_args311_result = dae_try_rewrite_selected_func311_terminal_call_args_once(
     current, terminal_args311_candidates, trace,
   )
-  if terminal_args311_result.changed {
-    current = terminal_args311_result.mod_out
-    touched = dae_merge_touched(touched, terminal_args311_result.touched)
-    trace(
-      "pass[dae-optimizing]:changed-terminal-call-args-a primary_def=\{terminal_args311_result.primary_def}",
+  let terminal_args311_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, terminal_args311_result,
+    diagnostics,
+  )
+  if terminal_args311_application.applied {
+    current = terminal_args311_application.mod_out
+    touched = terminal_args311_application.touched
+    changed = terminal_args311_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      terminal_args311_application.effects,
     )
-    changed = true
+    trace(
+      "pass[dae-optimizing]:changed-terminal-call-args-a primary_def=\{terminal_args311_application.primary_def}",
+    )
   }
   let terminal_args313_candidates = dae_collect_terminal_call_arg_cleanup_candidates(
     mod_, current, 7, 2,
@@ -44863,13 +44959,21 @@ fn dae_run_core(
   let terminal_args313_result = dae_try_rewrite_selected_func313_terminal_call_args_once(
     current, terminal_args313_candidates, trace,
   )
-  if terminal_args313_result.changed {
-    current = terminal_args313_result.mod_out
-    touched = dae_merge_touched(touched, terminal_args313_result.touched)
-    trace(
-      "pass[dae-optimizing]:changed-terminal-call-args-b primary_def=\{terminal_args313_result.primary_def}",
+  let terminal_args313_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, terminal_args313_result,
+    diagnostics,
+  )
+  if terminal_args313_application.applied {
+    current = terminal_args313_application.mod_out
+    touched = terminal_args313_application.touched
+    changed = terminal_args313_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      terminal_args313_application.effects,
     )
-    changed = true
+    trace(
+      "pass[dae-optimizing]:changed-terminal-call-args-b primary_def=\{terminal_args313_application.primary_def}",
+    )
   }
   let global_suffix_candidates = Array::make(
     dae_defined_func_count(current),
@@ -44925,12 +45029,16 @@ fn dae_run_core(
     touched,
     return_touched=false,
   )
-  let module_raw_cleanup_application = dae_apply_cleanup_result_preserving_touched(
-    current, touched, changed, module_raw_cleanup,
+  let module_raw_cleanup_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, module_raw_cleanup, diagnostics,
   )
   if module_raw_cleanup_application.applied {
     current = module_raw_cleanup_application.mod_out
     touched = module_raw_cleanup_application.touched
+    effects = dae_commit_effects_merge(
+      effects,
+      module_raw_cleanup_application.effects,
+    )
     // The module raw cleanup rewrites bodies but does not discover new DAE
     // candidate functions; preserve the existing scheduler-owned bitmap.
     trace(
@@ -44950,29 +45058,41 @@ fn dae_run_core(
     let const_if_result = dae_try_simplify_selected_const_if_defs_once(
       current, changed_terminal_candidates,
     )
-    if !const_if_result.changed {
+    let const_if_application = dae_apply_body_only_family_result_transaction(
+      original_boundary_snapshot, current, touched, changed, const_if_result, diagnostics,
+    )
+    if !const_if_application.applied {
       break
     }
-    current = const_if_result.mod_out
-    touched = dae_merge_touched(touched, const_if_result.touched)
+    current = const_if_application.mod_out
+    touched = const_if_application.touched
+    changed = const_if_application.changed
+    effects = dae_commit_effects_merge(effects, const_if_application.effects)
     trace(
-      "pass[dae-optimizing]:changed-terminal-const-if primary_def=\{const_if_result.primary_def}",
+      "pass[dae-optimizing]:changed-terminal-const-if primary_def=\{const_if_application.primary_def}",
     )
-    changed = true
   }
   while true {
     let terminal_local_result = dae_try_inline_selected_terminal_call_local_sets_once(
       current, changed_terminal_candidates,
     )
-    if !terminal_local_result.changed {
+    let terminal_local_application = dae_apply_body_only_family_result_transaction(
+      original_boundary_snapshot, current, touched, changed, terminal_local_result,
+      diagnostics,
+    )
+    if !terminal_local_application.applied {
       break
     }
-    current = terminal_local_result.mod_out
-    touched = dae_merge_touched(touched, terminal_local_result.touched)
-    trace(
-      "pass[dae-optimizing]:changed-terminal-call-locals primary_def=\{terminal_local_result.primary_def}",
+    current = terminal_local_application.mod_out
+    touched = terminal_local_application.touched
+    changed = terminal_local_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      terminal_local_application.effects,
     )
-    changed = true
+    trace(
+      "pass[dae-optimizing]:changed-terminal-call-locals primary_def=\{terminal_local_application.primary_def}",
+    )
   }
   let default_wrapper_result = dae_try_cleanup_selected_func327_default_wrappers_once(
     current, changed_terminal_candidates,
@@ -45000,12 +45120,17 @@ fn dae_run_core(
   let final_return_suffix_cleanup = dae_strip_module_root_return_suffix_once(
     current, touched,
   )
-  let final_return_suffix_cleanup_application = dae_apply_cleanup_result_preserving_touched(
-    current, touched, changed, final_return_suffix_cleanup,
+  let final_return_suffix_cleanup_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, final_return_suffix_cleanup,
+    diagnostics,
   )
   if final_return_suffix_cleanup_application.applied {
     current = final_return_suffix_cleanup_application.mod_out
     touched = final_return_suffix_cleanup_application.touched
+    effects = dae_commit_effects_merge(
+      effects,
+      final_return_suffix_cleanup_application.effects,
+    )
     trace(
       "pass[dae-optimizing]:final-return-suffix-cleanup primary_def=\{final_return_suffix_cleanup_application.primary_def}",
     )

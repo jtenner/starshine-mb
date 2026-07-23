@@ -116,6 +116,13 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 - **Non-goals:** byte-identical output; optimizing indirect/call_ref callers that upstream DAE treats as unseen; duplicating shared local-layout algorithms inside DAE; assigning the pre-DAEO full-O4z wall stop to DAE.
 - **Dependencies:** `[O4Z-NESTED]001` for the shared function-pipeline API and neighboring local-cleanup owners for canonical local layout.
 - **Exit criteria:** all owned slices below are closed, every represented upstream source family is implemented or narrowly excepted, matrices and artifacts are renewed, and no DAE-owned release blocker remains.
+- **Release-closure category-6 checklist (live-code audit, 2026-07-23):**
+  - [ ] Move the remaining phase-local body/localization/forwarding applications in `dae_run_core` through epoch-bearing family work and producer-owned effects; delete their direct mutation tails.
+  - [ ] Make represented returned-value/control/type edits use one deterministic finalizer, including complete represented type-user liveness and explicit name/metadata policy; keep value-producing legacy catches and unsupported exceptional exits narrowly fail closed.
+  - [ ] Make every represented ordinary, batch, specialized, partial-multivalue, and bottom result removal use one lane-aware atomic result plan, with stale call-location exclusion against simultaneous parameter rewrites.
+  - [ ] Route remaining production loops through `DaeWorkItem` outcomes with exact invalidation domains; remove conservative fallback invalidation and compatibility worth inference once no live producer needs them.
+  - [ ] Give selected/specialized cleanup, scratch-local add/reuse, replay, nested mini-roster, and convergence-wave activity producer-owned diagnostics; keep selected-only correctness rewrites at zero.
+  - [ ] Reduce DAEO to producer-owned worth plus the shared exact-once nested roster and effect frontier; remove remaining private mini-rosters/phase loops and retain optional `>=1024` batches only as labeled acceleration.
 
 ### [O4Z-DAE-BOUNDARY]001 - Unify exposure facts and parameter live-in analysis
 

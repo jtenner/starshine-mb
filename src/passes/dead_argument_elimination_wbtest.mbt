@@ -22181,3 +22181,56 @@ test "dae family transaction derives exact touched ownership" {
     Err(err) => fail("family transaction output must validate, got \{err}")
   }
 }
+
+///|
+test "dae body-only phase result commits with exact effects and diagnostics" {
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target
+      #|    nop)
+      #|  (func (export "run")
+      #|    call $target))
+    ),
+  )
+  let candidate = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten = funcs.copy()
+      let @lib.Func(locals, _) = rewritten[0]
+      rewritten[0] = @lib.Func::new(locals, @lib.Expr::new([]))
+      {
+        mod_out: current.with_code_sec(@lib.CodeSec::new(rewritten)),
+        touched: [true, false],
+        changed: true,
+        primary_def: 0,
+      }
+    }
+    None => fail("expected code section")
+  }
+  let diagnostics = dae_diagnostics_new()
+  let application = dae_apply_body_only_family_result_transaction(
+    dae_collect_original_boundary_snapshot(current),
+    current,
+    [],
+    false,
+    candidate,
+    diagnostics,
+  )
+  assert_true(application.applied)
+  assert_eq(application.effects.structurally_touched, [true, false])
+  assert_eq(application.effects.worth_decided, [true, false])
+  assert_eq(application.effects.worth_optimizing, [true, false])
+  assert_eq(application.effects.local_projection_changed, [false, false])
+  assert_eq(application.effects.metadata_changed, false)
+  assert_eq(application.effects.invalidation_domains, [
+    DaeInvalidateBody,
+    DaeInvalidateControl,
+    DaeInvalidateNestedCleanup,
+  ])
+  assert_eq(diagnostics.candidates_produced, 1)
+  assert_eq(diagnostics.candidates_applied, 1)
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("body-only family transaction must validate, got \{err}")
+  }
+}
