@@ -16330,7 +16330,7 @@ test "dae unread parameter batch is definition-count independent" {
 }
 
 ///|
-test "dae dropped result batch is definition-count independent" {
+test "dae dropped result batch transaction is definition-count independent" {
   let source =
     #|(module
     #|  (func $target (result i32)
@@ -16340,16 +16340,56 @@ test "dae dropped result batch is definition-count independent" {
     #|    drop
     #|    i32.const 9))
   let mod_ = pass_test_module_from_wat(source)
-  let result = dae_try_apply_dropped_result_batch(mod_)
-  assert_true(result.changed)
-  let type_indices = dae_collect_func_type_indices(result.mod_out)
-  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+  let application = dae_apply_dropped_result_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  match dae_resolve_func_type(application.mod_out, type_indices, 0) {
     Some(@lib.FuncType([], results)) => assert_eq(results.length(), 0)
     _ => fail("expected compact dropped-result batch removal")
   }
-  match @validate.validate_module(result.mod_out) {
+  match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) => fail("expected valid compact dropped-result batch, got \{err}")
+  }
+}
+
+///|
+test "dae dropped result batch transaction reports each signature plan effect" {
+  let source =
+    #|(module
+    #|  (func $left (result i32)
+    #|    i32.const 7)
+    #|  (func $right (result i64)
+    #|    i64.const 9)
+    #|  (func (export "run")
+    #|    call $left
+    #|    drop
+    #|    call $right
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let application = dae_apply_dropped_result_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  assert_true(application.effects.result_changed[0])
+  assert_true(application.effects.result_removed[0])
+  assert_true(application.effects.result_changed[1])
+  assert_true(application.effects.result_removed[1])
+  assert_true(application.effects.caller_drop_removed[2])
+  assert_true(
+    application.effects.invalidation_domains.contains(DaeInvalidateResult),
+  )
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid dropped-result signature plans: \{err}")
   }
 }
 
@@ -16575,7 +16615,7 @@ test "dae specialized result effects publish exact result invalidations" {
 }
 
 ///|
-test "dae dropped result batch ignores unrelated direct tails" {
+test "dae dropped result batch transaction ignores unrelated direct tails" {
   let source =
     #|(module
     #|  (func $target (result i32)
@@ -16587,14 +16627,19 @@ test "dae dropped result batch ignores unrelated direct tails" {
     #|  (func (export "tail")
     #|    return_call $tail_target))
   let mod_ = pass_test_module_from_wat(source)
-  let result = dae_try_apply_dropped_result_batch(mod_)
-  assert_true(result.changed)
-  let type_indices = dae_collect_func_type_indices(result.mod_out)
-  match dae_resolve_func_type(result.mod_out, type_indices, 0) {
+  let application = dae_apply_dropped_result_batch_transaction(
+    dae_collect_original_boundary_snapshot(mod_),
+    mod_,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  let type_indices = dae_collect_func_type_indices(application.mod_out)
+  match dae_resolve_func_type(application.mod_out, type_indices, 0) {
     Some(@lib.FuncType([], results)) => assert_eq(results.length(), 0)
     _ => fail("expected exact-target dropped-result batch removal")
   }
-  match @validate.validate_module(result.mod_out) {
+  match @validate.validate_module(application.mod_out) {
     Ok(_) => ()
     Err(err) =>
       fail("expected valid exact-target dropped-result batch, got \{err}")

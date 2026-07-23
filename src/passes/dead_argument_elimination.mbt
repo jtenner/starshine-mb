@@ -18199,7 +18199,10 @@ fn dae_try_apply_unread_param_batch(mod_ : @lib.Module) -> DaePassResult {
 }
 
 ///|
-fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
+fn dae_try_apply_dropped_result_batch(
+  mod_ : @lib.Module,
+  active_defs? : Array[Bool]? = None,
+) -> DaePassResult {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   let imported = snapshot.imported
   let defined = snapshot.defined
@@ -18235,6 +18238,10 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
   let boundary_facts = dae_boundary_facts_new(mod_)
   let plans : Array[DaeDroppedResultBatchPlan] = []
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
+    match active_defs {
+      Some(active) if def_idx >= active.length() || !active[def_idx] => continue
+      _ => ()
+    }
     let callee_abs = imported + def_idx
     let candidate = match
       dae_dropped_result_candidate_from_boundary_facts(
@@ -18367,6 +18374,95 @@ fn dae_try_apply_dropped_result_batch(mod_ : @lib.Module) -> DaePassResult {
     touched,
     changed: true,
     primary_def: first_def,
+  }
+}
+
+///|
+fn dae_apply_dropped_result_batch_transaction(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+) -> DaeCoreResultApplication {
+  let mut current_mod = current
+  let mut merged_touched = touched
+  let mut merged_changed = changed
+  let mut merged_effects = dae_commit_effects_empty(
+    dae_current_boundary_graph_new(current).snapshot.defined,
+  )
+  let mut first_def = -1
+  let mut applied = false
+  let initial_defined = merged_effects.structurally_touched.length()
+  for def_idx = 0; def_idx < initial_defined; def_idx = def_idx + 1 {
+    let graph = dae_current_boundary_graph_new(current_mod)
+    if def_idx >= graph.snapshot.defined {
+      continue
+    }
+    let active = Array::make(graph.snapshot.defined, false)
+    active[def_idx] = true
+    let candidate = dae_try_apply_dropped_result_batch(
+      current_mod,
+      active_defs=Some(active),
+    )
+    if !candidate.changed {
+      continue
+    }
+    let candidate_effects = dae_commit_effects_empty(graph.snapshot.defined)
+    let mut touched_def = 0
+    while touched_def < candidate.touched.length() &&
+          touched_def < graph.snapshot.defined {
+      if candidate.touched[touched_def] {
+        candidate_effects.structurally_touched[touched_def] = true
+        candidate_effects.worth_decided[touched_def] = true
+        candidate_effects.worth_optimizing[touched_def] = true
+        if touched_def != def_idx {
+          candidate_effects.caller_drop_removed[touched_def] = true
+        }
+      }
+      touched_def += 1
+    }
+    let candidate_effects = {
+      ..candidate_effects,
+      type_section_changed: true,
+      metadata_changed: true,
+      invalidation_domains: dae_invalidation_domains_for_work_family(
+        DaeDroppedResultWork,
+      ),
+      decision_reasons: [DaeCandidateProduced],
+    }
+    let plan = match
+      dae_build_signature_rewrite_plan_from_candidate(
+        original, current_mod, graph, def_idx, candidate, candidate_effects,
+      ) {
+      Some(plan) => plan
+      None => continue
+    }
+    let application = dae_apply_rewrite_plan(current_mod, graph, plan)
+    if !application.applied {
+      continue
+    }
+    current_mod = application.result.mod_out
+    merged_touched = dae_merge_touched(
+      merged_touched,
+      application.result.touched,
+    )
+    merged_changed = merged_changed || application.result.changed
+    merged_effects = dae_commit_effects_merge(
+      merged_effects,
+      application.effects,
+    )
+    if first_def < 0 {
+      first_def = def_idx
+    }
+    applied = true
+  }
+  {
+    mod_out: current_mod,
+    touched: merged_touched,
+    changed: merged_changed,
+    applied,
+    primary_def: first_def,
+    effects: merged_effects,
   }
 }
 
@@ -43195,10 +43291,8 @@ fn dae_run_core(
     let mut dropped_result_batch_wave = 0
     if original_defined >= 1024 {
       while true {
-        let batch = dae_try_apply_dropped_result_batch(current)
-        let batch_graph = dae_current_boundary_graph_new(current)
-        let application = dae_apply_family_result_transaction(
-          original_boundary_snapshot, current, touched, changed, batch_graph, batch,
+        let application = dae_apply_dropped_result_batch_transaction(
+          original_boundary_snapshot, current, touched, changed,
         )
         if !application.applied {
           break
