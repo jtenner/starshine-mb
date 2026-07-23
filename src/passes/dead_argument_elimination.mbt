@@ -4020,6 +4020,7 @@ fn dae_apply_family_result_transaction(
   graph : DaeCurrentBoundaryGraph,
   candidate : DaePassResult,
   effects? : DaeCommitEffects? = None,
+  allow_signature_restoration? : Bool = false,
 ) -> DaeCoreResultApplication {
   let candidate_funcs = match candidate.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -4103,6 +4104,20 @@ fn dae_apply_family_result_transaction(
       }
     }
     None => ()
+  }
+  if !dae_family_fallback_candidate_is_body_only(
+      graph,
+      normalized_candidate.mod_out,
+    ) &&
+    !allow_signature_restoration {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(graph.snapshot.defined),
+    }
   }
   let plan = match
     dae_build_family_rewrite_plan(
@@ -43777,7 +43792,13 @@ fn dae_apply_dead_suffix_self_operand_restore_transaction(
     original_source, current,
   )
   dae_apply_family_result_transaction(
-    original, current, touched, changed, graph, candidate,
+    original,
+    current,
+    touched,
+    changed,
+    graph,
+    candidate,
+    allow_signature_restoration=true,
   )
 }
 

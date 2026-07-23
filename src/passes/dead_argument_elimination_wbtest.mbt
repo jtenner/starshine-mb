@@ -21808,6 +21808,46 @@ test "dae dispatcher family fallback is body only" {
 }
 
 ///|
+test "dae family transaction rejects nonreconstructable signature fallback" {
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let independently_parsed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target
+      #|    nop)
+      #|  (func (export "run")
+      #|    call $target))
+    ),
+  )
+  let graph = dae_current_boundary_graph_new(current)
+  let application = dae_apply_family_result_transaction(
+    dae_collect_original_boundary_snapshot(current),
+    current,
+    [],
+    false,
+    graph,
+    {
+      mod_out: independently_parsed,
+      touched: [],
+      changed: true,
+      primary_def: -1,
+    },
+    effects=Some(dae_commit_effects_parameter_change(2, 0, [0, 1], false, [])),
+  )
+  assert_false(application.applied)
+  assert_eq(application.mod_out, current)
+}
+
+///|
 test "dae family transaction derives exact touched ownership" {
   let current = pass_test_module_from_wat(
     (
@@ -21819,15 +21859,26 @@ test "dae family transaction derives exact touched ownership" {
       #|    call $target))
     ),
   )
-  let candidate_mod = pass_test_module_from_wat(
-    (
-      #|(module
-      #|  (func $target
-      #|    nop)
-      #|  (func (export "run")
-      #|    call $target))
-    ),
-  )
+  let candidate = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten_funcs = funcs.copy()
+      let @lib.Func(caller_locals, _) = rewritten_funcs[1]
+      rewritten_funcs[1] = @lib.Func::new(
+        caller_locals,
+        @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(0U))]),
+      )
+      dae_finalize_module_code_rewrite(
+        current,
+        0,
+        rewritten_funcs,
+        [],
+        [],
+        DaeTouchModuleCodeChangedFuncs,
+      )
+    }
+    None => fail("expected code section")
+  }
+  assert_true(candidate.changed)
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
   let effects = dae_commit_effects_parameter_change(2, 0, [0, 1], false, [])
@@ -21837,7 +21888,7 @@ test "dae family transaction derives exact touched ownership" {
     [],
     false,
     graph,
-    { mod_out: candidate_mod, touched: [], changed: true, primary_def: -1 },
+    candidate,
     effects=Some(effects),
   )
   assert_true(application.applied)
