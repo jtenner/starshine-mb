@@ -17838,7 +17838,7 @@ test "dae family worklist is epoch aware component ordered and duplicate resista
   while dae_boundary_worklist_take_item(worklist) is Some(_) {
 
   }
-  dae_boundary_worklist_requeue_items(worklist, [first, first])
+  assert_eq(dae_boundary_worklist_requeue_items(worklist, [first, first]), 1)
   assert_eq(dae_boundary_worklist_take_item(worklist), Some(first))
   assert_eq(dae_boundary_worklist_take_item(worklist), None)
   let changed = mod_.with_code_sec(

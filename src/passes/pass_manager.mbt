@@ -71788,7 +71788,6 @@ fn run_hot_pipeline_dae_report_single_caller_throttle(
 fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
-  allow_final_convergence? : Bool = true,
   single_caller_throttle_consumed? : Bool = false,
   single_caller_throttle_report? : Array[Bool] = [],
 ) -> Result[@lib.Module, String] {
@@ -72312,43 +72311,67 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let field_delayed = run_hot_pipeline_apply_dae_post_reorder_immutable_field_delay(
     final_reordered, high_literal_field_delay_defs, options,
   )
-  if !allow_final_convergence || !broad_cleanup_changed {
+  if !broad_cleanup_changed {
     run_hot_pipeline_dae_report_single_caller_throttle(
       single_caller_throttle_report, throttle_consumed,
     )
     return Ok(field_delayed)
   }
-  // Cleanup can expose another exact boundary only after local ordering, type
-  // pruning, and delayed immutable-field cleanup settle. Iterate complete waves
-  // until a wave is unchanged or cannot be retained. Every accepted wave must
-  // validate and strictly reduce encoded size, which is the convergence metric;
-  // equal-size alternate shapes remain aligned with the first-pass boundary.
-  // Carry the source-backed one-wave single-caller throttle across every retry.
+  // Final cleanup may expose another owned boundary, but convergence must stay
+  // on the producer-owned dependency frontier. Do not recursively replay the
+  // whole DAEO pipeline. Drain all represented boundary families for the exact
+  // worth/cleanup seed, run the shared nested cleanup only for committed
+  // effects, and retain each wave only when it validates and strictly shrinks.
+  let original = dae_collect_original_boundary_snapshot(mod_)
   let mut converged = field_delayed
+  let mut frontier_seed = dae_merge_touched(
+    broad_cleanup_touched, worth_optimizing_touched,
+  )
+  frontier_seed = dae_merge_touched(frontier_seed, post_cleanup_touched)
   let mut convergence_wave = 0
   while true {
-    pipeline_trace_hook(
-      options.trace,
-      "dae-optimizing",
-      "final-convergence-check",
-      payload="wave=\{convergence_wave} throttle_consumed=\{throttle_consumed}",
+    (options.trace)(
+      "pass[dae-optimizing]:effect-frontier wave=\{convergence_wave} throttle_consumed=\{throttle_consumed} seeds=\{dae_count_touched(frontier_seed)}",
     )
-    let candidate_throttle_report : Array[Bool] = []
-    let candidate = match
-      run_hot_pipeline_apply_dae_optimizing_module_pass(
-        converged,
-        options,
-        allow_final_convergence=false,
-        single_caller_throttle_consumed=throttle_consumed,
-        single_caller_throttle_report=candidate_throttle_report,
+    let frontier = dae_run_effect_frontier_worklist(
+      original,
+      converged,
+      frontier_seed,
+      !throttle_consumed,
+      options.trace,
+    )
+    dae_trace_diagnostics(
+      options.trace,
+      "dae-optimizing-effect-frontier",
+      frontier.diagnostics,
+    )
+    if !frontier.changed {
+      (options.trace)(
+        "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=false reason=empty",
+      )
+      run_hot_pipeline_dae_report_single_caller_throttle(
+        single_caller_throttle_report, throttle_consumed,
+      )
+      return Ok(converged)
+    }
+    let (repaired, _) = dae_cleanup_dropped_unreachable_debris_touched(
+      frontier.mod_out,
+      frontier.touched,
+    )
+    let frontier_worth = run_hot_pipeline_dae_worth_optimizing_touched(
+      converged,
+      repaired,
+      frontier.touched,
+      producer_effects=Some(frontier.effects),
+    )
+    let (frontier_broad, _) = match
+      run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
+        converged, repaired, frontier_worth, options,
       ) {
       Ok(next) => next
       Err(err) => {
-        pipeline_trace_hook(
-          options.trace,
-          "dae-optimizing",
-          "final-convergence",
-          payload="wave=\{convergence_wave} accepted=false reason=retry-error err=\{err}",
+        (options.trace)(
+          "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=false reason=cleanup-error err=\{err}",
         )
         run_hot_pipeline_dae_report_single_caller_throttle(
           single_caller_throttle_report, throttle_consumed,
@@ -72356,22 +72379,22 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         return Ok(converged)
       }
     }
-    let candidate_throttle_consumed = match candidate_throttle_report.get(0) {
-      Some(consumed) => consumed
-      None => throttle_consumed
+    let frontier_cleaned = match
+      run_hot_pipeline_apply_dae_nested_cleanup(
+        frontier_broad, frontier_worth, options,
+      ) {
+      Ok(next) => next
+      Err(err) => {
+        (options.trace)(
+          "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=false reason=nested-error err=\{err}",
+        )
+        run_hot_pipeline_dae_report_single_caller_throttle(
+          single_caller_throttle_report, throttle_consumed,
+        )
+        return Ok(converged)
+      }
     }
-    if candidate == converged {
-      pipeline_trace_hook(
-        options.trace,
-        "dae-optimizing",
-        "final-convergence",
-        payload="wave=\{convergence_wave} accepted=false reason=unchanged",
-      )
-      run_hot_pipeline_dae_report_single_caller_throttle(
-        single_caller_throttle_report, candidate_throttle_consumed,
-      )
-      return Ok(converged)
-    }
+    let candidate = dae_prune_unused_simple_func_types(frontier_cleaned)
     match
       (
         run_hot_pipeline_dae_encoded_size(converged),
@@ -72379,14 +72402,11 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         @validate.validate_module(candidate),
       ) {
       (Some(before), Some(after), Ok(_)) if after < before => {
-        throttle_consumed = candidate_throttle_consumed
-        pipeline_trace_hook(
-          options.trace,
-          "dae-optimizing",
-          "final-convergence",
-          payload="wave=\{convergence_wave} accepted=true before=\{before} after=\{after} throttle_consumed=\{throttle_consumed}",
+        (options.trace)(
+          "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=true before=\{before} after=\{after} defs=\{dae_count_touched(frontier_worth)}",
         )
         converged = candidate
+        frontier_seed = frontier_worth
         convergence_wave += 1
       }
       (before, after, validation) => {
@@ -72394,11 +72414,8 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
           Ok(_) => "non-smaller-or-unencodable"
           Err(_) => "validation"
         }
-        pipeline_trace_hook(
-          options.trace,
-          "dae-optimizing",
-          "final-convergence",
-          payload="wave=\{convergence_wave} accepted=false reason=\{reason} before=\{before.to_string()} after=\{after.to_string()}",
+        (options.trace)(
+          "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=false reason=\{reason} before=\{before.to_string()} after=\{after.to_string()}",
         )
         run_hot_pipeline_dae_report_single_caller_throttle(
           single_caller_throttle_report, throttle_consumed,

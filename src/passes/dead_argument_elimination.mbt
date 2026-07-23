@@ -1566,6 +1566,15 @@ priv struct DaeCoreResultApplication {
 }
 
 ///|
+priv struct DaeEffectFrontierRunResult {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  changed : Bool
+  effects : DaeCommitEffects
+  diagnostics : DaeDiagnostics
+}
+
+///|
 priv struct DaeExactLiteralWorklistApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -4415,6 +4424,7 @@ fn dae_boundary_worklist_families(
   graph : DaeCurrentBoundaryGraph,
   dependencies : DaeBoundaryDependencyGraph,
   families : Array[DaeWorkFamily],
+  seed_defs? : Array[Bool]? = None,
 ) -> DaeBoundaryWorklist {
   let family_queue : Array[DaeWorkItem] = []
   let family_queued : Array[Array[Bool]] = []
@@ -4426,6 +4436,14 @@ fn dae_boundary_worklist_families(
   let mut component_id = 0
   while component_id < dependencies.component_members.length() {
     for member_def in dependencies.component_members[component_id] {
+      let seeded = match seed_defs {
+        Some(seeds) =>
+          seeds.length() == graph.snapshot.defined && seeds[member_def]
+        None => true
+      }
+      if !seeded {
+        continue
+      }
       for family in families {
         let slot = dae_work_family_slot(family)
         if !family_queued[member_def][slot] {
@@ -4499,7 +4517,8 @@ fn dae_boundary_worklist_take_item(
 fn dae_boundary_worklist_requeue_items(
   worklist : DaeBoundaryWorklist,
   items : Array[DaeWorkItem],
-) -> Unit {
+) -> Int {
+  let mut requeued = 0
   for item in items {
     if item.target_def < 0 || item.target_def >= worklist.family_queued.length() {
       continue
@@ -4508,8 +4527,10 @@ fn dae_boundary_worklist_requeue_items(
     if !worklist.family_queued[item.target_def][slot] {
       worklist.family_queue.push(item)
       worklist.family_queued[item.target_def][slot] = true
+      requeued += 1
     }
   }
+  requeued
 }
 
 ///|
@@ -42821,14 +42842,16 @@ fn dae_run_computed_unread_param_dependency_worklist(
         original, current, touched, changed, graph, dependencies, item, diagnostics,
       ) {
       DaeWorkRequeue(items) =>
-        dae_boundary_worklist_requeue_items(worklist, items)
+        diagnostics.candidate_requeues += dae_boundary_worklist_requeue_items(
+          worklist, items,
+        )
       DaeWorkCommitted(application) => {
         dae_current_boundary_graph_refresh(graph, application.mod_out)
         let after_dependencies = dae_boundary_dependency_graph_new(graph)
         let invalidated = dae_boundary_dependency_invalidations(
           before_dependencies,
           after_dependencies,
-          application.touched,
+          application.effects.structurally_touched,
           application.primary_def,
           effects=Some(application.effects),
         )
@@ -42841,8 +42864,9 @@ fn dae_run_computed_unread_param_dependency_worklist(
         let requeued = dae_work_items_for_defs(
           graph, dependencies, invalidated, family,
         )
-        diagnostics.candidate_requeues += requeued.length()
-        dae_boundary_worklist_requeue_items(worklist, requeued)
+        diagnostics.candidate_requeues += dae_boundary_worklist_requeue_items(
+          worklist, requeued,
+        )
         trace(
           "pass[dae-optimizing]:computed-unread-param iter=\{iteration} component=\{item.component_id} family=\{dae_work_family_slot(item.family)} primary_def=\{application.primary_def}",
         )
@@ -42852,6 +42876,116 @@ fn dae_run_computed_unread_param_dependency_worklist(
     }
   }
   { mod_out: current, touched, changed, applied, primary_def: -1, effects }
+}
+
+///|
+fn dae_run_effect_frontier_worklist(
+  original : DaeOriginalBoundarySnapshot,
+  current_in : @lib.Module,
+  seed_defs : Array[Bool],
+  allow_parameter_families : Bool,
+  trace : (String) -> Unit,
+) -> DaeEffectFrontierRunResult {
+  let defined = dae_defined_func_count(current_in)
+  let diagnostics = dae_diagnostics_new()
+  if seed_defs.length() != defined {
+    return {
+      mod_out: current_in,
+      touched: [],
+      changed: false,
+      effects: dae_commit_effects_empty(defined),
+      diagnostics,
+    }
+  }
+  let families : Array[DaeWorkFamily] = if allow_parameter_families {
+    [
+      DaeUnusedParameterWork,
+      DaeUniformActualWork,
+      DaeForwardingWork,
+      DaeGcParameterRefinementWork,
+      DaeGcResultRefinementWork,
+      DaeDroppedResultWork,
+      DaeControlReconstructionWork,
+      DaeTypeRepairRetryWork,
+    ]
+  } else {
+    [
+      DaeGcResultRefinementWork,
+      DaeDroppedResultWork,
+      DaeControlReconstructionWork,
+      DaeTypeRepairRetryWork,
+    ]
+  }
+  let graph = dae_current_boundary_graph_new(current_in)
+  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let worklist = dae_boundary_worklist_families(
+    graph,
+    dependencies,
+    families,
+    seed_defs=Some(seed_defs),
+  )
+  let mut current = current_in
+  let mut touched : Array[Bool] = []
+  let mut changed = false
+  let mut effects = dae_commit_effects_empty(defined)
+  let mut iteration = 0
+  while true {
+    let item = match dae_boundary_worklist_take_item(worklist) {
+      Some(value) => value
+      None => break
+    }
+    let before_dependencies = dependencies
+    match
+      dae_process_work_item(
+        original, current, touched, changed, graph, dependencies, item, diagnostics,
+      ) {
+      DaeWorkRequeue(items) =>
+        diagnostics.candidate_requeues += dae_boundary_worklist_requeue_items(
+          worklist, items,
+        )
+      DaeWorkCommitted(initial_application) => {
+        let application = dae_apply_commit_followups(
+          original, initial_application, item, diagnostics,
+        )
+        dae_current_boundary_graph_refresh(graph, application.mod_out)
+        let after_dependencies = dae_boundary_dependency_graph_new(graph)
+        let invalidated = dae_boundary_dependency_invalidations(
+          before_dependencies,
+          after_dependencies,
+          application.effects.structurally_touched,
+          application.primary_def,
+          effects=Some(application.effects),
+        )
+        dependencies = after_dependencies
+        current = application.mod_out
+        touched = application.touched
+        changed = application.changed
+        effects = dae_commit_effects_merge(effects, application.effects)
+        for family in families {
+          diagnostics.candidate_requeues += dae_boundary_worklist_requeue_items(
+            worklist,
+            dae_work_items_for_defs(graph, dependencies, invalidated, family),
+          )
+        }
+        trace(
+          "pass[dae-optimizing]:effect-frontier-commit iter=\{iteration} family=\{dae_work_family_slot(item.family)} primary_def=\{application.primary_def}",
+        )
+        iteration += 1
+      }
+      DaeWorkNoChange(_) | DaeWorkDeferred(_) => ()
+    }
+  }
+  {
+    mod_out: current,
+    touched: if changed {
+      touched
+    } else {
+      []
+    },
+    changed,
+    effects,
+    diagnostics,
+  }
 }
 
 ///|

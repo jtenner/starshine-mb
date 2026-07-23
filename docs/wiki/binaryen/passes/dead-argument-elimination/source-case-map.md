@@ -41,7 +41,7 @@ This is the active source-to-Starshine map for the original `dead-argument-elimi
 - **Equivalent**: the boundary behavior is the same but Starshine intentionally omits Binaryen helper locals or other measured debris.
 - **Fail closed**: Starshine preserves the original boundary for a narrowly unsupported surface with a focused negative test.
 - **Coverage gap**: the source behavior is represented upstream but does not yet have a focused Starshine proof.
-- **Lifecycle gap**: focused behavior exists, but the producer still relies on a family-specific candidate builder, compatibility worth inference, conservative invalidation, or whole-pass DAEO retry.
+- **Lifecycle gap**: focused behavior exists, but the producer still relies on a family-specific candidate builder, compatibility worth inference, conservative invalidation, or another producer-specific lifecycle tail.
 
 A row is not closed merely because the July 22 generated matrix is green. Closure requires the source behavior, focused positive and negative coverage, common transaction/worklist ownership, and current generated evidence to agree.
 
@@ -57,7 +57,7 @@ A row is not closed merely because the July 22 generated matrix is green. Closur
 | `refineArgumentTypes` / `TypeUpdating::updateParamTypes` | Strict reference LUB over every owned direct actual, skipping unread parameters; repair old-type writes/tees/locals. | Shared exact-caller value-slice collection, strict LUB, and old-type local repair. | Exact focused behavior; lifecycle partial. | Initial and stale-refresh parameter collection now use the canonical evidence API; close when every repair enters the common type finalizer. |
 | `LUB::getResultsLUB` / `ReFinalize` | Join every returned value, explicit return, and tail return source; update call and parent types. | GC result worklist, returned-value scanners, control/type follow-ups. | Exact on represented source cases; lifecycle partial. | Close when one returned-value carrier owns all represented controls and every type user is finalized atomically. |
 | `removeReturnValue` / `ReturnUtils::removeReturns` | Remove a result only when all owned calls drop it and tail/unseen constraints permit it; preserve bottom with `call; unreachable`. | Observer graph, dropped-result work, specialized dead-suffix plans. | Exact for represented scalar/bottom cases; lifecycle partial. | Close when ordinary and specialized repairs share one lane-aware atomic result plan without stale double rewriting. |
-| `OptUtils::optimizeAfterInlining` | In DAEO only, run `precompute-propagate` then the default function optimization roster on `worthOptimizing`. | Shared nested roster and touched adapters in `pass_manager.mbt`. | Roster exact; lifecycle partial. | Replace legacy worth inference and final whole-pass strictly-smaller retry with effect-frontier convergence. |
+| `OptUtils::optimizeAfterInlining` | In DAEO only, run `precompute-propagate` then the default function optimization roster on `worthOptimizing`. | Shared nested roster, touched adapters, and producer-effect-frontier convergence in `pass_manager.mbt`. | Roster and finite convergence owner are exact; remaining producer/nested diagnostics are partial. | Reopen if an exact source case requires work outside the committed effect frontier or whole-pass replay. |
 | `unprofitableRemovalIters` | Permit one single-caller parameter-removal wave, then stop further parameter-chain churn. | Carried single-caller throttle state. | Exact. | Reopen only if a focused source case shows a second same-invocation wave. |
 
 ## `dae_tnh.wast`
@@ -119,7 +119,7 @@ The file contains five anonymous modules, so rows use source order.
 
 | Upstream function/family | Binaryen-v131 behavior | Existing Starshine proof | Output | Common owner | Gap / reopening condition |
 | --- | --- | --- | --- | --- | --- |
-| `$0`, `$1`, `$2` | Core DAE removes constants/dead params, then DAEO runs the touched nested roster and cleans the resulting local/control debris. | Nested roster order, touched-only identity, local cleanup, and deterministic convergence tests. | Focused behavior represented; output can be equivalent-but-different through shared local cleanup. | Pass-manager DAEO lifecycle. | Release-blocking lifecycle gap: replace broad cleanup predicates and whole-pass strict-size retry with producer-effect frontier convergence. |
+| `$0`, `$1`, `$2` | Core DAE removes constants/dead params, then DAEO runs the touched nested roster and cleans the resulting local/control debris. | Nested roster order, touched-only identity, local cleanup, and deterministic producer-effect-frontier convergence tests. | Focused behavior represented; output can be equivalent-but-different through shared local cleanup. | Pass-manager DAEO lifecycle. | Broad cleanup predicates and whole-pass retry are removed; remaining closure is producer-specific result/type/control and nested diagnostic ownership. |
 | `$export -> $internal`, `$import`, `$impossible` | Remove an unused uninhabitable result, rewrite caller to `call; unreachable`, then nested DCE deletes unreachable suffix work while preserving imported effects. | `dead-argument-elimination preserves uninhabitable dropped-call control`; optimizing unused-return cleanup and effect-preservation tests. | Exact semantic behavior. | Atomic result plan plus nested roster. | Close when bottom repair and nested requeue are one effect frontier. |
 
 ## `dae-refine-params-and-optimize.wast`
@@ -133,7 +133,7 @@ The file contains five anonymous modules, so rows use source order.
 - Positive coverage exists for ordinary removal, direct `return_call`, constants, immutable globals, i31/ref/null/ref.func/string values, strict parameter/result LUBs, written-param repair, typed tees, fallthrough, explicit returns, flat multivalue lanes, direct/indirect/reference tails, bottom repair, localization, SCC forwarding, and DAEO touched cleanup.
 - Negative coverage exists for exported/start/ref.func/element exposure, incomparable or incomplete LUBs, stale epochs and call identities, indirect/reference caller ownership, tail-result blockers, escaping branch operands, trapping/effectful preservation, invalid candidates, written forwarding components, and unsupported legacy/continuation control.
 - The one source-backed behavior gap found by the initial mapping, **TNH-aware unused-operand removal**, is now closed for both plain DAE and DAEO with ordinary-mode preservation coverage.
-- The remaining release blockers are lifecycle/ownership gaps, not newly discovered source transform families: producer-specific candidate construction, common type/result finalization, remaining specialized/nested invalidation diagnostics, and DAEO effect-frontier convergence.
+- The remaining release blockers are lifecycle/ownership gaps, not newly discovered source transform families: producer-specific candidate construction, common type/result finalization, and remaining specialized/nested invalidation diagnostics.
 
 ## `generic-partial` row classification
 
@@ -147,7 +147,7 @@ The file contains five anonymous modules, so rows use source order.
 | G1, G2, G3, G4 | **2. release-blocking correctness/lifecycle risk** | Multiple mutation tails and the simple-type pruner do not yet constitute one complete deterministic type-user/finalizer plan; metadata policy is still implicit name stripping. |
 | H1, H2 | **5. stale documentation** | Original/current ownership and epochs are present and exercised; later producers still need to consume them uniformly. |
 | H3, H4, I1, I2 | **2. release-blocking lifecycle risk** | Family validation, producer-owned worth, and canonical-core production diagnostics exist, but conservative fallback invalidation, unintegrated selected/nested counters, and parallel phase loops remain. |
-| J1, J2, J3, J4 | **2. release-blocking lifecycle risk** | Shared roster and producer-owned semantic worth exist; the whole-pass strictly-smaller retry still needs effect-frontier replacement. |
+| J1, J2, J3, J4 | **2. release-blocking lifecycle risk** | Shared roster, producer-owned semantic worth, and finite effect-frontier convergence exist; remaining risk is producer-specific worth/invalidation and selected/nested diagnostic ownership. |
 | K2 | **4. mechanical preservation** | Slot 48 and exact-once placement are already covered; rerun only at final integration signoff. |
 | L1, L2 | **historical evidence checkpoint**; L3 **reopened** | Generated/artifact evidence remains valid provenance, but the completion matrix now prevents those rows from overriding open lifecycle ownership and requires final renewal before release closure. |
 
@@ -157,5 +157,4 @@ The file contains five anonymous modules, so rows use source order.
 2. Consolidate returned-value evidence and common GC/control/type finalization; initial/stale GC parameter collection and select slicing are canonical.
 3. Consolidate the atomic result plan and remove stale-call double-rewrite opportunities.
 4. Move remaining production loops through epoch-bearing work items, exact invalidations, and complete diagnostics.
-5. Replace DAEO whole-pass retry with effect-frontier convergence.
-6. Reconcile this map, the completion matrix, inventory, backlog, and release note before final long gates.
+5. Reconcile this map, the completion matrix, inventory, backlog, and release note before final long gates.

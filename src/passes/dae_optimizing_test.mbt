@@ -17440,6 +17440,33 @@ fn dae_test_cleanup_exposed_unread_params_module() -> String {
 }
 
 ///|
+test "dae-optimizing final convergence follows the producer effect frontier" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (local i32)
+    #|    nop)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    call $target))
+    #|
+  let (once, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(dae_test_func_params(once, 0).length(), 0)
+  let @lib.Func(locals, _) = dae_test_defined_func(once, 0)
+  @debug.assert_eq(locals.length(), 0)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:effect-frontier ") &&
+      line.contains("wave=0")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("final-convergence-check") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing converges cleanup-exposed unread parameters in one invocation" {
   let once = dae_test_run(dae_test_cleanup_exposed_unread_params_module())
   for helper_idx = 0; helper_idx < 9; helper_idx = helper_idx + 1 {
