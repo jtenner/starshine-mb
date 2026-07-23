@@ -17901,6 +17901,36 @@ test "dae exact-literal family entry retains original escaped ownership" {
 }
 
 ///|
+test "dae exact-literal family entry reports signature-plan effects" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 7
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let application = dae_apply_exact_literal_family_once(
+    mod_,
+    mod_,
+    0,
+    [],
+    false,
+  )
+  assert_true(application.applied)
+  assert_true(application.effects.parameter_changed[0])
+  assert_true(application.effects.body_materialized[0])
+  assert_true(application.effects.structurally_touched[1])
+  assert_true(
+    application.effects.invalidation_domains.contains(DaeInvalidateLocals),
+  )
+  match @validate.validate_module(application.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid exact-literal signature plan: \{err}")
+  }
+}
+
+///|
 test "dae immediate-suffix transaction rejects original escaped ownership" {
   let escaped_source =
     #|(module

@@ -4357,10 +4357,10 @@ fn dae_process_work_item(
             candidate,
           )
       }
-      let requires_signature_plan = item.family == DaeGcParameterRefinementWork ||
-        item.family == DaeGcResultRefinementWork
-      let signature_plan = if requires_signature_plan ||
-        item.family == DaeDroppedResultWork {
+      let requires_signature_plan = item.family != DaeControlReconstructionWork &&
+        item.family != DaeTypeRepairRetryWork &&
+        item.family != DaeForwardingWork
+      let signature_plan = if requires_signature_plan {
         dae_build_signature_rewrite_plan_from_candidate(
           original,
           current,
@@ -41493,18 +41493,28 @@ fn dae_apply_exact_literal_family_once(
 ) -> DaeCoreResultApplication {
   let original = dae_collect_original_boundary_snapshot(original_source)
   let graph = dae_current_boundary_graph_new(current)
-  let candidate = dae_try_rewrite_exact_literal_def_with_facts_once(
-    current,
-    def_idx,
-    graph.snapshot.call_facts,
-    allow_immutable_global_get~,
-    allow_immediate_i32_suffix_fallback~,
-    original=Some(original),
-    graph=Some(graph),
-  )
-  dae_apply_family_result_transaction(
-    original, current, touched, changed, graph, candidate,
-  )
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let item = {
+    ..dae_work_item_new(graph, dependencies, def_idx, DaeUniformActualWork),
+    allow_immutable_global_get,
+    allow_immediate_i32_suffix_fallback,
+  }
+  let diagnostics = dae_diagnostics_new()
+  match
+    dae_process_work_item(
+      original, current, touched, changed, graph, dependencies, item, diagnostics,
+    ) {
+    DaeWorkCommitted(application) => application
+    _ =>
+      {
+        mod_out: current,
+        touched,
+        changed,
+        applied: false,
+        primary_def: -1,
+        effects: dae_commit_effects_empty(graph.snapshot.defined),
+      }
+  }
 }
 
 ///|
