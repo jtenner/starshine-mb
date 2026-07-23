@@ -17368,6 +17368,53 @@ test "dae GC result slices follow array.get element types" {
 }
 
 ///|
+test "dae GC result slices follow table.get element types" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf_ref_type = @lib.RefType::new(true, @lib.HeapType::new(leaf_type))
+  let leaf_ref = @lib.ValType::ref_type(leaf_ref_type)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(leaf_ref_type, @lib.Limits::i32(1U, Some(1U))),
+          None,
+        ),
+      ]),
+    )
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      base_ref,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, leaf_ref)
+    _ => fail("expected table.get result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module

@@ -13203,6 +13203,51 @@ fn dae_gc_candidate_struct_get_type(
 }
 
 ///|
+fn dae_gc_candidate_table_get_type(
+  mod_ : @lib.Module,
+  idx : @lib.TableIdx,
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let @lib.TableIdx(raw_slot) = idx
+  let slot = raw_slot.reinterpret_as_int()
+  let mut imported_tables = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TableExternType(@lib.TableType(ref_type, _))) => {
+            if imported_tables == slot {
+              return dae_refined_gc_candidate_ref_type(
+                mod_,
+                old_type,
+                @lib.ValType::ref_type(ref_type),
+              )
+            }
+            imported_tables += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let defined_slot = slot - imported_tables
+  if defined_slot < 0 {
+    return None
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) if defined_slot < tables.length() => {
+      let @lib.Table(@lib.TableType(ref_type, _), _) = tables[defined_slot]
+      dae_refined_gc_candidate_ref_type(
+        mod_,
+        old_type,
+        @lib.ValType::ref_type(ref_type),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
 fn dae_gc_candidate_global_get_type(
   mod_ : @lib.Module,
   idx : @lib.GlobalIdx,
@@ -13765,6 +13810,12 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
+    @lib.TableGet(table_idx) =>
+      dae_gc_candidate_table_get_type(mod_, table_idx, old_type).map(fn(
+        candidate,
+      ) {
+        (candidate, None)
+      })
     @lib.ArrayGet(type_idx) =>
       dae_gc_candidate_array_get_type(mod_, type_idx, old_type).map(fn(
         candidate,
