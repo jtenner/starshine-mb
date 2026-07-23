@@ -16955,6 +16955,56 @@ test "dae GC result refinement work commits through dispatcher" {
 }
 
 ///|
+test "dae GC result refinement includes legacy try explicit returns" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (result (ref null $base))
+    #|    ref.null $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $target
+    #|    ref.is_null))
+  let parsed = pass_test_module_from_wat(source)
+  let funcs = match parsed.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected legacy-try result fixture code")
+  }
+  let base_heap = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let leaf_heap = @lib.HeapType::new(@lib.TypeIdx::new(1U))
+  let legacy_try = @lib.Instruction::try_(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::ref_null(base_heap),
+      @lib.Instruction::return_(),
+    ]),
+    [
+      @lib.LegacyCatch::all(
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(base_heap),
+          @lib.Instruction::return_(),
+        ]),
+      ),
+    ],
+  )
+  funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([legacy_try, @lib.Instruction::ref_null(leaf_heap)]),
+  )
+  let mod_ = parsed.with_code_sec(@lib.CodeSec::new(funcs))
+  let graph = dae_current_boundary_graph_new(mod_)
+  let candidate = dae_try_refine_direct_gc_types_for_def_with_facts(
+    mod_,
+    0,
+    graph.snapshot.call_facts,
+    false,
+    true,
+  )
+  assert_false(candidate.changed)
+  assert_eq(candidate.mod_out, mod_)
+}
+
+///|
 test "dae GC result refinement joins multiple explicit returns and fallthrough" {
   let source =
     #|(module

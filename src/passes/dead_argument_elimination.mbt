@@ -14953,6 +14953,21 @@ fn dae_gc_select_value_slices_candidate_evidence(
 }
 
 ///|
+fn dae_legacy_catches_have_function_return(
+  catches : Array[@lib.LegacyCatch],
+) -> Bool {
+  for catch_ in catches {
+    let @lib.Expr(body) = match catch_ {
+      @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+    }
+    if body.any(fn(child) { dae_instr_has_function_return(child) }) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn dae_instr_has_function_return(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Return
@@ -14963,6 +14978,9 @@ fn dae_instr_has_function_return(instr : @lib.Instruction) -> Bool {
     | @lib.Loop(_, @lib.Expr(body))
     | @lib.TryTable(_, _, @lib.Expr(body)) =>
       body.any(fn(child) { dae_instr_has_function_return(child) })
+    @lib.Try(_, @lib.Expr(body), catches, _) =>
+      body.any(fn(child) { dae_instr_has_function_return(child) }) ||
+      dae_legacy_catches_have_function_return(catches)
     @lib.If(_, then_body, Some(else_body)) =>
       then_body.any(fn(child) { dae_instr_has_function_return(child) }) ||
       else_body.any(fn(child) { dae_instr_has_function_return(child) })
@@ -15446,6 +15464,20 @@ fn dae_collect_explicit_gc_result_candidates_instrs(
         count += dae_collect_explicit_gc_result_candidates_instrs(
           mod_, func_type_indices, func_locals, child, old_type, candidates, failed,
         )
+      @lib.Try(_, @lib.Expr(child), catches, _) => {
+        count += dae_collect_explicit_gc_result_candidates_instrs(
+          mod_, func_type_indices, func_locals, child, old_type, candidates, failed,
+        )
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          count += dae_collect_explicit_gc_result_candidates_instrs(
+            mod_, func_type_indices, func_locals, catch_body, old_type, candidates,
+            failed,
+          )
+        }
+      }
       @lib.If(_, then_body, else_body) => {
         count += dae_collect_explicit_gc_result_candidates_instrs(
           mod_, func_type_indices, func_locals, then_body, old_type, candidates,
