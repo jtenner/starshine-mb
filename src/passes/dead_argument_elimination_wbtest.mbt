@@ -19323,6 +19323,19 @@ test "dae selected global suffix uses signature plan and rejects original exposu
   )
   assert_false(rejected.changed)
   assert_eq(rejected.mod_out, current)
+  let transaction = dae_apply_selected_func323_global_suffix_transaction(
+    owned_original,
+    current,
+    [],
+    false,
+    [false, true, false],
+    fn(_) { () },
+  )
+  assert_true(transaction.applied)
+  assert_eq(transaction.primary_def, 1)
+  assert_eq(transaction.effects.candidates_produced, 1)
+  assert_eq(transaction.effects.candidates_applied, 1)
+  assert_true(transaction.effects.parameter_changed[1])
 }
 
 ///|

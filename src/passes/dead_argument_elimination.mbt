@@ -38388,6 +38388,45 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
 }
 
 ///|
+fn dae_apply_selected_func323_global_suffix_transaction(
+  original : @lib.Module,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  selected_defs : Array[Bool],
+  trace : (String) -> Unit,
+) -> DaeCoreResultApplication {
+  let effects_report : Array[DaeCommitEffects] = []
+  let result = dae_try_rewrite_selected_func323_global_suffix_once(
+    original,
+    current,
+    selected_defs,
+    trace,
+    producer_effects_report=effects_report,
+  )
+  match effects_report.get(0) {
+    Some(effects) if result.changed && result.mod_out != current =>
+      {
+        mod_out: result.mod_out,
+        touched: dae_merge_touched(touched, result.touched),
+        changed: true,
+        applied: true,
+        primary_def: result.primary_def,
+        effects,
+      }
+    _ =>
+      {
+        mod_out: current,
+        touched,
+        changed,
+        applied: false,
+        primary_def: -1,
+        effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+      }
+  }
+}
+
+///|
 fn dae_try_retarget_selected_func236_locals_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -44793,9 +44832,6 @@ fn dae_run_core(
   let low_wrapper_callees_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:low-wrapper-callees",
   )
-  let low_callee_call_facts = dae_collect_current_call_facts(
-    current, original_total,
-  )
   // Keep the phase-local forwarding seed, but derive targets from exact current
   // wrapper shape rather than a fixed wrapper-definition list.
   let boundary_callee_order = dae_collect_shifted_forward_wrapper_callee_order(
@@ -44807,19 +44843,39 @@ fn dae_run_core(
       continue
     }
     selected_scratch_defs[boundary_callee_def] = true
+    let boundary_graph = dae_current_boundary_graph_new(current)
+    let boundary_effects : Array[DaeCommitEffects] = []
     let boundary_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-      current, selected_scratch_defs, low_callee_call_facts,
+      current,
+      selected_scratch_defs,
+      dae_collect_current_call_facts(current, original_total),
+      original=Some(original_boundary_snapshot),
+      graph=Some(boundary_graph),
+      producer_effects_report=boundary_effects,
     )
     selected_scratch_defs[boundary_callee_def] = false
-    let boundary_graph = dae_current_boundary_graph_new(current)
     let boundary_application = dae_apply_family_result_transaction(
-      original_boundary_snapshot, current, touched, changed, boundary_graph, boundary_result,
+      original_boundary_snapshot,
+      current,
+      touched,
+      changed,
+      boundary_graph,
+      boundary_result,
+      effects=boundary_effects.get(0),
     )
     if boundary_application.applied {
       current = boundary_application.mod_out
       touched = boundary_application.touched
       changed = boundary_application.changed
       effects = dae_commit_effects_merge(effects, boundary_application.effects)
+      dae_diagnostics_record_commit_effects(
+        diagnostics,
+        boundary_application.effects,
+      )
+      dae_diagnostics_record_applied_effects(
+        diagnostics,
+        boundary_application.effects,
+      )
       trace(
         "pass[dae-optimizing]:boundary-wrapper-callee-core primary_def=\{boundary_application.primary_def}",
       )
@@ -44979,27 +45035,30 @@ fn dae_run_core(
     true,
   )
   while true {
-    let global_suffix_effects : Array[DaeCommitEffects] = []
-    let global_suffix_result = dae_try_rewrite_selected_func323_global_suffix_once(
-      mod_,
-      current,
-      global_suffix_candidates,
-      trace,
-      producer_effects_report=global_suffix_effects,
+    let global_suffix_application = dae_apply_selected_func323_global_suffix_transaction(
+      mod_, current, touched, changed, global_suffix_candidates, trace,
     )
-    if !global_suffix_result.changed {
+    if !global_suffix_application.applied {
       break
     }
-    current = global_suffix_result.mod_out
-    touched = dae_merge_touched(touched, global_suffix_result.touched)
-    match global_suffix_effects.get(0) {
-      Some(committed) => effects = dae_commit_effects_merge(effects, committed)
-      None => ()
-    }
-    trace(
-      "pass[dae-optimizing]:single-caller-global-suffix primary_def=\{global_suffix_result.primary_def}",
+    current = global_suffix_application.mod_out
+    touched = global_suffix_application.touched
+    changed = global_suffix_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      global_suffix_application.effects,
     )
-    changed = true
+    dae_diagnostics_record_commit_effects(
+      diagnostics,
+      global_suffix_application.effects,
+    )
+    dae_diagnostics_record_applied_effects(
+      diagnostics,
+      global_suffix_application.effects,
+    )
+    trace(
+      "pass[dae-optimizing]:single-caller-global-suffix primary_def=\{global_suffix_application.primary_def}",
+    )
   }
   // Shape cleanup can expose uniform operands only at direct callees of bodies
   // changed by this phase. Seed that exact invalidation frontier instead of
