@@ -23163,7 +23163,7 @@ test "dae nested replay does not use function cardinality as selection" {
 }
 
 ///|
-test "dae optimizing worth set excludes callsite-only parameter callers" {
+test "dae optimizing worth set fails closed without producer ownership" {
   let before = pass_test_module_from_wat(
     (
       #|(module
@@ -23184,7 +23184,7 @@ test "dae optimizing worth set excludes callsite-only parameter callers" {
   let worth = run_hot_pipeline_dae_worth_optimizing_touched(before, after, [
     true, true,
   ])
-  @debug.assert_eq(worth, [true, false])
+  @debug.assert_eq(worth, [false, false])
 }
 
 ///|
@@ -23213,7 +23213,7 @@ test "dae optimizing worth set excludes unchanged preexisting caller locals" {
   let worth = run_hot_pipeline_dae_worth_optimizing_touched(before, after, [
     true, true,
   ])
-  @debug.assert_eq(worth, [true, false])
+  @debug.assert_eq(worth, [false, false])
 }
 
 ///|
@@ -23238,7 +23238,7 @@ test "dae optimizing worth set does not infer worth from local growth" {
   let worth = run_hot_pipeline_dae_worth_optimizing_touched(before, after, [
     true, true,
   ])
-  @debug.assert_eq(worth, [true, false])
+  @debug.assert_eq(worth, [false, false])
 }
 
 ///|
@@ -23313,11 +23313,11 @@ test "dae optimizing worth ownership remains per definition across mixed produce
     [true, true, true],
     producer_effects=Some(effects),
   )
-  @debug.assert_eq(worth, [true, true, true])
+  @debug.assert_eq(worth, [true, false, true])
 }
 
 ///|
-test "dae optimizing worth set includes dropped-result callers" {
+test "dae optimizing worth set fails closed for dropped results without effects" {
   let before = pass_test_module_from_wat(
     (
       #|(module
@@ -23339,5 +23339,5 @@ test "dae optimizing worth set includes dropped-result callers" {
   let worth = run_hot_pipeline_dae_worth_optimizing_touched(before, after, [
     true, true,
   ])
-  @debug.assert_eq(worth, [true, true])
+  @debug.assert_eq(worth, [false, false])
 }

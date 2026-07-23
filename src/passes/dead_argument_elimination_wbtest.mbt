@@ -22264,6 +22264,31 @@ test "dae body-only transaction uses the current boundary after prior signature 
 }
 
 ///|
+test "dae core owns worth for written uniform parameter materialization" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $f (param i32) (result i32) (local i32)
+      #|    local.get 0
+      #|    local.set 1
+      #|    i32.const 9
+      #|    local.set 0
+      #|    local.get 1
+      #|    local.get 0
+      #|    i32.add)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    call $f))
+    ),
+  )
+  let result = dae_run_core(mod_, fn(_) { () }, optimize=true)
+  assert_true(result.changed)
+  assert_true(result.effects.worth_decided[0])
+  assert_true(result.effects.worth_optimizing[0])
+  assert_false(result.effects.worth_optimizing[1])
+}
+
+///|
 test "dae body-only phase result commits with exact effects and diagnostics" {
   let current = pass_test_module_from_wat(
     (

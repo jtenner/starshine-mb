@@ -4391,6 +4391,25 @@ fn dae_commit_effects_for_work_item(
 }
 
 ///|
+fn dae_record_work_family_candidate_effects(
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+  family : DaeWorkFamily,
+  candidate : DaePassResult,
+  producer_effects_report : Array[DaeCommitEffects],
+) -> Unit {
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  dae_record_producer_effects(
+    producer_effects_report,
+    dae_commit_effects_for_work_item(
+      graph.snapshot.defined,
+      dae_work_item_new(graph, dependencies, target_def, family),
+      candidate,
+    ),
+  )
+}
+
+///|
 fn dae_process_work_item(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -27945,6 +27964,17 @@ fn dae_run_core_once(
         direct_callers[callee_abs],
       )
       if result.changed {
+        dae_record_work_family_candidate_effects(
+          current_graph,
+          def_idx,
+          if const_params.any(fn(value) { value is Some(_) }) {
+            DaeUniformActualWork
+          } else {
+            DaeUnusedParameterWork
+          },
+          result,
+          producer_effects_report,
+        )
         return result
       }
     } else if !skip_original_large_result_cleanup &&
