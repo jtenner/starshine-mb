@@ -466,12 +466,39 @@ fn dae_trace_diagnostics(
 }
 
 ///|
+fn dae_diagnostics_record_applied_effects(
+  diagnostics : DaeDiagnostics,
+  effects : DaeCommitEffects,
+) -> Unit {
+  let applied = if effects.candidates_applied > 0 {
+    effects.candidates_applied
+  } else {
+    1
+  }
+  diagnostics.candidates_applied += applied
+  let mut idx = 0
+  while idx < applied {
+    dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+    idx += 1
+  }
+}
+
+///|
 fn dae_diagnostics_record_commit_effects(
   diagnostics : DaeDiagnostics,
   effects : DaeCommitEffects,
 ) -> Unit {
-  diagnostics.candidates_produced += 1
-  dae_diagnostics_record_reason(diagnostics, DaeCandidateProduced)
+  let produced = if effects.candidates_produced > 0 {
+    effects.candidates_produced
+  } else {
+    1
+  }
+  diagnostics.candidates_produced += produced
+  let mut produced_idx = 0
+  while produced_idx < produced {
+    dae_diagnostics_record_reason(diagnostics, DaeCandidateProduced)
+    produced_idx += 1
+  }
   let mut def_idx = 0
   while def_idx < effects.parameter_changed.length() {
     if effects.parameter_changed[def_idx] {
@@ -1389,6 +1416,8 @@ priv struct DaeCommitEffects {
   caller_bottom_repaired : Array[Bool]
   control_refinalization_required : Array[Bool]
   local_projection_changed : Array[Bool]
+  candidates_produced : Int
+  candidates_applied : Int
   type_section_changed : Bool
   metadata_changed : Bool
   invalidation_domains : Array[DaeInvalidationDomain]
@@ -1411,6 +1440,8 @@ fn dae_commit_effects_empty(defined : Int) -> DaeCommitEffects {
     caller_bottom_repaired: Array::make(defined, false),
     control_refinalization_required: Array::make(defined, false),
     local_projection_changed: Array::make(defined, false),
+    candidates_produced: 0,
+    candidates_applied: 0,
     type_section_changed: false,
     metadata_changed: false,
     invalidation_domains: [],
@@ -1536,6 +1567,8 @@ fn dae_commit_effects_merge(
   }
   {
     ..merged,
+    candidates_produced: left.candidates_produced + right.candidates_produced,
+    candidates_applied: left.candidates_applied + right.candidates_applied,
     type_section_changed: left.type_section_changed ||
     right.type_section_changed,
     metadata_changed: left.metadata_changed || right.metadata_changed,
@@ -3944,6 +3977,8 @@ fn dae_apply_family_rewrite_plan(
         reason: DaeCandidateApplied,
         effects: {
           ..plan.effects,
+          candidates_produced: 1,
+          candidates_applied: 1,
           decision_reasons: plan.effects.decision_reasons +
           [DaeCandidateApplied],
         },
@@ -4243,8 +4278,7 @@ fn dae_process_work_item(
       ) {
       Some(commit) => {
         dae_diagnostics_record_commit_effects(diagnostics, commit.effects)
-        diagnostics.candidates_applied += 1
-        dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+        dae_diagnostics_record_applied_effects(diagnostics, commit.effects)
         return DaeWorkCommitted({
           mod_out: commit.candidate.mod_out,
           touched: dae_merge_touched(touched, commit.candidate.touched),
@@ -4397,8 +4431,10 @@ fn dae_process_work_item(
           diagnostics,
           plan_application.effects,
         )
-        diagnostics.candidates_applied += 1
-        dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+        dae_diagnostics_record_applied_effects(
+          diagnostics,
+          plan_application.effects,
+        )
         DaeWorkCommitted({
           mod_out: plan_application.result.mod_out,
           touched: dae_merge_touched(touched, plan_application.result.touched),
@@ -20326,6 +20362,8 @@ fn dae_apply_rewrite_plan(
         reason: DaeCandidateApplied,
         effects: {
           ..plan.effects,
+          candidates_produced: 1,
+          candidates_applied: 1,
           decision_reasons: [DaeCandidateProduced, DaeCandidateApplied],
         },
       }
@@ -41553,6 +41591,8 @@ fn dae_apply_component_rewrite_plan(
         candidate: plan.candidate,
         effects: {
           ..plan.effects,
+          candidates_produced: 1,
+          candidates_applied: 1,
           decision_reasons: [DaeCandidateProduced, DaeCandidateApplied],
         },
       })
@@ -43931,6 +43971,8 @@ fn dae_run_core(
         touched = application.touched
         changed = application.changed
         effects = dae_commit_effects_merge(effects, application.effects)
+        dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+        dae_diagnostics_record_applied_effects(diagnostics, application.effects)
         trace(
           "pass[dae-optimizing]:unread-param-batch wave=\{unread_batch_wave} first_def=\{application.primary_def}",
         )
@@ -43964,6 +44006,8 @@ fn dae_run_core(
         touched = application.touched
         changed = application.changed
         effects = dae_commit_effects_merge(effects, application.effects)
+        dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+        dae_diagnostics_record_applied_effects(diagnostics, application.effects)
         trace(
           "pass[dae-optimizing]:dropped-result-batch wave=\{dropped_result_batch_wave} first_def=\{application.primary_def}",
         )
@@ -43998,6 +44042,8 @@ fn dae_run_core(
       touched = application.touched
       changed = application.changed
       effects = dae_commit_effects_merge(effects, application.effects)
+      dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+      dae_diagnostics_record_applied_effects(diagnostics, application.effects)
       trace(
         "pass[dae-optimizing]:direct-gc-batch wave=\{direct_gc_batch_wave} first_def=\{application.primary_def}",
       )
@@ -44133,8 +44179,7 @@ fn dae_run_core(
         continue
       }
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
-      diagnostics.candidates_applied += 1
-      dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
+      dae_diagnostics_record_applied_effects(diagnostics, application.effects)
       if application.primary_def >= 0 && before_primary_param_count >= 0 {
         let after_type_indices = dae_collect_func_type_indices(
           application.mod_out,

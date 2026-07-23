@@ -210,7 +210,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 
 ### 7. Common worklist, invalidation domains, diagnostics, and budgets
 
-**Gap.** All ten work-family labels have handlers, but result/type/body/cleanup invalidations remain conservative and several specialized collectors still perform their own lifecycle. The canonical core now emits deterministic production diagnostics for plain DAE and DAEO, including every counter and all stable reason codes. Ordinary DAEO nested replay contributes exact touched-function and scheduled shared-roster pass counts to the delayed primary record; selected-only, guard, producer-specific mini-roster, convergence-wave, and specialized-loop counters are not yet integrated.
+**Gap.** All ten work-family labels have handlers, but result/type/body/cleanup invalidations remain conservative and several specialized collectors still perform their own lifecycle. The canonical core now emits deterministic production diagnostics for plain DAE and DAEO, including every counter and all stable reason codes. Additive produced/applied counts now travel in `DaeCommitEffects`, so optimizing unread/direct-GC/dropped-result batches preserve one diagnostic event per committed signature plan rather than one event per aggregate transaction. Ordinary DAEO nested replay contributes exact touched-function and scheduled shared-roster pass counts to the delayed primary record; selected-only, guard, producer-specific mini-roster, convergence-wave, and specialized-loop counters are not yet integrated.
 
 **Implementation strategy.**
 

@@ -16358,6 +16358,15 @@ test "dae unread parameter batch transaction reports each signature plan effect"
   assert_true(application.effects.parameter_changed[1])
   assert_true(application.effects.local_projection_changed[1])
   assert_true(application.effects.structurally_touched[2])
+  assert_eq(application.effects.candidates_produced, 2)
+  assert_eq(application.effects.candidates_applied, 2)
+  let diagnostics = dae_diagnostics_new()
+  dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+  dae_diagnostics_record_applied_effects(diagnostics, application.effects)
+  assert_eq(diagnostics.candidates_produced, 2)
+  assert_eq(diagnostics.candidates_applied, 2)
+  assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateProduced), 2)
+  assert_eq(dae_diagnostics_reason_count(diagnostics, DaeCandidateApplied), 2)
   assert_true(
     application.effects.invalidation_domains.contains(DaeInvalidateLocals),
   )
