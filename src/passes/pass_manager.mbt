@@ -70902,24 +70902,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   // Payoff/result producers already publish exact worth and touched effects.
   // The shared roster below is the sole nested cleanup owner; do not replay
   // simplify/vacuum/coalesce/reorder in a payoff-private fixed-round loop.
-  // Run the general changed-boundary fallback only after specialized DAEO
-  // convergence owners have consumed their original fact neighborhoods. Feed
-  // it the semantic worth set so body-only callers are replayed without a size
-  // heuristic and callsite-only structural edits remain excluded.
-  let broad_cleanup_touched = run_hot_pipeline_dae_worth_optimizing_touched(
-    mod_,
-    core_mod,
-    core_touched,
-    producer_effects=Some(core_effects),
-  )
-  let (broad_cleaned, broad_cleanup_changed) = match
-    run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
-      mod_, core_mod, broad_cleanup_touched, options,
-    ) {
-    Ok(next) => next
-    Err(err) => return Err(err)
-  }
-  core_mod = broad_cleaned
+  // Feed producer-owned worth directly to the sole shared cleanup roster.
+  // Any body cleanup it exposes is detected from the shared before/after
+  // product and drives the boundary effect frontier below.
   let worth_optimizing_touched = run_hot_pipeline_dae_worth_optimizing_touched(
     mod_,
     core_mod,
@@ -70936,6 +70921,8 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     Ok(next) => next
     Err(err) => return Err(err)
   }
+  let broad_cleanup_touched = worth_optimizing_touched
+  let broad_cleanup_changed = cleaned != core_mod
   let mut post_cleanup_mod = cleaned
   let mut post_cleanup_touched : Array[Bool] = []
   if run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
@@ -70976,16 +70963,6 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       boundary_revisit.touched,
       post_cleanup.touched,
     )
-  }
-  if post_cleanup_touched.length() > 0 {
-    let (boundary_recleaned, _) = match
-      run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
-        cleaned, post_cleanup_mod, post_cleanup_touched, options,
-      ) {
-      Ok(next) => next
-      Err(err) => return Err(err)
-    }
-    post_cleanup_mod = boundary_recleaned
   }
   let recleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(

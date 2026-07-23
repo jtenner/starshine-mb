@@ -15698,17 +15698,21 @@ test "dae-optimizing nested precompute-propagate prefix only rewrites touched fu
 }
 
 ///|
-test "dae-optimizing routes oversized changed boundaries through transactional cleanup" {
+test "dae-optimizing routes oversized changed boundaries through the shared roster" {
   let source = "(module (func $f (param i32)" +
     dae_test_many_i32_locals(129) +
     " nop) (func (export \"run\") i32.const 1 call $f))"
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
   let @lib.Func(locals, _) = dae_test_defined_func(optimized, 0)
   @debug.assert_eq(locals.length(), 0)
+  assert_false(
+    trace.any(fn(line) { line.contains("broad-changed-boundary-local-cleanup") }),
+    msg=trace.to_string(),
+  )
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-changed-boundary-local-cleanup def=0 removed_locals=129 mode=direct",
+        "pass[dae-optimizing]:nested-pass name=precompute-propagate",
       )
     }),
     msg=trace.to_string(),
@@ -18885,7 +18889,7 @@ test "dae-optimizing keeps a forwarding-component parameter with one semantic us
 }
 
 ///|
-test "dae-optimizing rejects a written forwarding-only parameter component" {
+test "dae-optimizing revisits a written forwarding parameter after shared cleanup" {
   let source =
     #|(module
     #|  (func $a (param i32 i32)
@@ -18902,8 +18906,8 @@ test "dae-optimizing rejects a written forwarding-only parameter component" {
     #|    i32.const 9
     #|    call $a))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
-  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
 }
 
 ///|
@@ -18962,7 +18966,7 @@ test "dae-optimizing rejects a tail-call forwarding-only parameter boundary" {
 }
 
 ///|
-test "dae-optimizing rejects a non-exact forwarding-only operand slice" {
+test "dae-optimizing revisits a flattened forwarding operand after shared cleanup" {
   let source =
     #|(module
     #|  (func $a (param i32 i32)
@@ -18979,8 +18983,8 @@ test "dae-optimizing rejects a non-exact forwarding-only operand slice" {
     #|    i32.const 9
     #|    call $a))
   let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
-  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 1)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
 }
 
 ///|
