@@ -3057,7 +3057,7 @@ test "dae dropped result unreachable callee rewrite centralizes application" {
 }
 
 ///|
-test "dae module signature finalization preserves code reconstruction boundary" {
+test "dae deterministic boundary finalizer preserves unchanged code" {
   let result_type = @lib.TypeIdx::new(0U)
   let callee = @lib.FuncIdx::new(1U)
   let mod_ = @lib.Module::new()
@@ -3090,7 +3090,17 @@ test "dae module signature finalization preserves code reconstruction boundary" 
     Some(context) => context
     None => fail("expected module signature context")
   }
-  let result = dae_apply_module_signature_finalization(mod_, context, [], [])
+  let plan = dae_module_code_finalization_plan(
+    [],
+    [],
+    DaeTouchModuleCodeCalleeOnly,
+  )
+  let result = dae_apply_module_boundary_finalization(
+    mod_,
+    context,
+    context.funcs,
+    plan,
+  )
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)
   assert_eq(result.touched, [false, true])
@@ -3106,7 +3116,7 @@ test "dae module signature finalization preserves code reconstruction boundary" 
 }
 
 ///|
-test "dae module code finalization installs code with explicit touched policy" {
+test "dae deterministic boundary finalizer installs code with explicit touched policy" {
   let result_type = @lib.TypeIdx::new(0U)
   let callee = @lib.FuncIdx::new(1U)
   let mod_ = @lib.Module::new()
@@ -3156,7 +3166,7 @@ test "dae module code finalization installs code with explicit touched policy" {
     [],
     DaeTouchModuleCodeChangedFuncs,
   )
-  let result = dae_apply_module_code_finalization(
+  let result = dae_apply_module_boundary_finalization(
     mod_, context, rewritten_funcs, plan,
   )
   assert_true(result.changed)
@@ -3766,7 +3776,7 @@ test "dae dropped result module finalization preserves touched policy" {
   )
   assert_eq(plan.next_params, [])
   assert_eq(plan.next_results, [])
-  let result = dae_apply_module_code_finalization(
+  let result = dae_apply_module_boundary_finalization(
     mod_,
     context.signature,
     rewritten_funcs,

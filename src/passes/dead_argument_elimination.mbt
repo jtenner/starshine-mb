@@ -16933,14 +16933,17 @@ fn dae_module_signature_context(
 }
 
 ///|
-fn dae_apply_module_signature_finalization(
+fn dae_apply_module_boundary_finalization(
   mod_ : @lib.Module,
   context : DaeModuleSignatureContext,
-  next_params : Array[@lib.ValType],
-  next_results : Array[@lib.ValType],
+  rewritten_funcs : Array[@lib.Func],
+  plan : DaeModuleCodeFinalizationPlan,
   perf? : HotPerfSession? = None,
   type_update_timer_name? : String = "",
 ) -> DaePassResult {
+  if rewritten_funcs.length() != context.funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   let type_update_start_us = if type_update_timer_name.length() > 0 {
     perf_start_timer_opt(perf, type_update_timer_name)
   } else {
@@ -16951,8 +16954,8 @@ fn dae_apply_module_signature_finalization(
     context.type_sec,
     context.type_idxs,
     context.def_idx,
-    next_params,
-    next_results,
+    plan.next_params,
+    plan.next_results,
   )
   if type_update_timer_name.length() > 0 {
     perf_stop_timer_opt(perf, type_update_timer_name, type_update_start_us)
@@ -16960,10 +16963,23 @@ fn dae_apply_module_signature_finalization(
   context.type_idxs[context.def_idx] = new_type_idx
   let touched = Array::make(context.funcs.length(), false)
   touched[context.def_idx] = true
+  match plan.touched_policy {
+    DaeTouchModuleCodeCalleeOnly => ()
+    DaeTouchModuleCodeChangedFuncs => {
+      let mut def_idx = 0
+      while def_idx < context.funcs.length() {
+        if context.funcs[def_idx] != rewritten_funcs[def_idx] {
+          touched[def_idx] = true
+        }
+        def_idx += 1
+      }
+    }
+  }
   {
     mod_out: mod_
     .with_type_sec(next_type_sec)
     .with_func_sec(@lib.FuncSec::new(context.type_idxs))
+    .with_code_sec(@lib.CodeSec::new(rewritten_funcs))
     .without_name_sec(),
     touched,
     changed: true,
@@ -16984,7 +17000,16 @@ fn dae_try_update_signature_only(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  dae_apply_module_signature_finalization(mod_, context, params, results)
+  dae_apply_module_boundary_finalization(
+    mod_,
+    context,
+    context.funcs,
+    dae_module_code_finalization_plan(
+      params,
+      results,
+      DaeTouchModuleCodeCalleeOnly,
+    ),
+  )
 }
 
 ///|
@@ -22649,47 +22674,6 @@ fn dae_module_code_finalization_plan(
 }
 
 ///|
-fn dae_apply_module_code_finalization(
-  mod_ : @lib.Module,
-  context : DaeModuleSignatureContext,
-  rewritten_funcs : Array[@lib.Func],
-  plan : DaeModuleCodeFinalizationPlan,
-  perf? : HotPerfSession? = None,
-  type_update_timer_name? : String = "",
-) -> DaePassResult {
-  let signature_result = dae_apply_module_signature_finalization(
-    mod_,
-    context,
-    plan.next_params,
-    plan.next_results,
-    perf~,
-    type_update_timer_name~,
-  )
-  let touched = signature_result.touched
-  match plan.touched_policy {
-    DaeTouchModuleCodeCalleeOnly => ()
-    DaeTouchModuleCodeChangedFuncs => {
-      let mut caller_def = 0
-      while caller_def < context.funcs.length() &&
-            caller_def < rewritten_funcs.length() {
-        if context.funcs[caller_def] != rewritten_funcs[caller_def] {
-          touched[caller_def] = true
-        }
-        caller_def += 1
-      }
-    }
-  }
-  {
-    mod_out: signature_result.mod_out.with_code_sec(
-      @lib.CodeSec::new(rewritten_funcs),
-    ),
-    touched,
-    changed: true,
-    primary_def: signature_result.primary_def,
-  }
-}
-
-///|
 fn dae_finalize_module_code_rewrite(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -22712,7 +22696,7 @@ fn dae_finalize_module_code_rewrite(
   let plan = dae_module_code_finalization_plan(
     next_params, next_results, touched_policy,
   )
-  dae_apply_module_code_finalization(
+  dae_apply_module_boundary_finalization(
     mod_,
     context,
     rewritten_funcs,
@@ -22756,7 +22740,7 @@ fn dae_apply_dropped_result_callee_rewrite(
     perf_stop_timer_opt(perf, repair_timer_name, repair_start_us)
   }
   rewritten_funcs[def_idx] = rewritten_callee
-  dae_apply_module_code_finalization(
+  dae_apply_module_boundary_finalization(
     mod_,
     context,
     rewritten_funcs,
@@ -24397,7 +24381,7 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     results,
     DaeTouchModuleCodeCalleeOnly,
   )
-  dae_apply_module_code_finalization(mod_, signature, funcs, plan)
+  dae_apply_module_boundary_finalization(mod_, signature, funcs, plan)
 }
 
 ///|
