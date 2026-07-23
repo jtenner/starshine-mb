@@ -17005,6 +17005,59 @@ test "dae GC result refinement includes legacy try explicit returns" {
 }
 
 ///|
+test "dae GC result refinement joins all-return legacy try" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (result (ref null $base))
+    #|    ref.null $base)
+    #|  (func (export "run") (result i32)
+    #|    call $target
+    #|    ref.is_null))
+  let parsed = pass_test_module_from_wat(source)
+  let funcs = match parsed.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected all-return legacy-try fixture code")
+  }
+  let leaf_heap = @lib.HeapType::new(@lib.TypeIdx::new(1U))
+  let returning_leaf = fn() {
+    @lib.Expr::new([
+      @lib.Instruction::ref_null(leaf_heap),
+      @lib.Instruction::return_(),
+    ])
+  }
+  funcs[0] = @lib.Func::new(
+    @lib.Locals::empty(),
+    @lib.Expr::new([
+      @lib.Instruction::try_(@lib.BlockType::void_(), returning_leaf(), [
+        @lib.LegacyCatch::all(returning_leaf()),
+      ]),
+    ]),
+  )
+  let mod_ = parsed.with_code_sec(@lib.CodeSec::new(funcs))
+  let graph = dae_current_boundary_graph_new(mod_)
+  let candidate = dae_try_refine_direct_gc_types_for_def_with_facts(
+    mod_,
+    0,
+    graph.snapshot.call_facts,
+    false,
+    true,
+  )
+  assert_true(candidate.changed)
+  let type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let expected = @lib.ValType::ref_type(@lib.RefType::new(true, leaf_heap))
+  match dae_resolve_func_type(candidate.mod_out, type_indices, 0) {
+    Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
+    _ => fail("expected all-return legacy-try result refinement")
+  }
+  match @validate.validate_module(candidate.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid all-return legacy try: \{err}")
+  }
+}
+
+///|
 test "dae GC result refinement joins multiple explicit returns and fallthrough" {
   let source =
     #|(module

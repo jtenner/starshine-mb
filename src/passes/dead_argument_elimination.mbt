@@ -15500,6 +15500,45 @@ fn dae_collect_explicit_gc_result_candidates_instrs(
 }
 
 ///|
+fn dae_body_has_no_fallthrough(body : Array[@lib.Instruction]) -> Bool {
+  body.length() > 0 && dae_instr_has_no_fallthrough(body[body.length() - 1])
+}
+
+///|
+fn dae_instr_has_no_fallthrough(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Return
+    | @lib.Unreachable
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) => dae_body_has_no_fallthrough(body)
+    @lib.If(_, then_body, Some(else_body)) =>
+      dae_body_has_no_fallthrough(then_body) &&
+      dae_body_has_no_fallthrough(else_body)
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if !dae_body_has_no_fallthrough(body) {
+        return false
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        if !dae_body_has_no_fallthrough(catch_body) {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn dae_direct_gc_result_multiple_return_candidate_body(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -15517,6 +15556,7 @@ fn dae_direct_gc_result_multiple_return_candidate_body(
   }
   match body[body.length() - 1] {
     @lib.Return | @lib.Unreachable => ()
+    terminal if dae_instr_has_no_fallthrough(terminal) => ()
     terminal =>
       match
         dae_direct_gc_result_candidate_instr(
