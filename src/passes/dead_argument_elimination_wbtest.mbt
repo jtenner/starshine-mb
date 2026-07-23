@@ -17278,6 +17278,45 @@ test "dae GC result refinement follows declared global.get types" {
 }
 
 ///|
+test "dae GC result refinement follows struct.get field types" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (type $holder (sub (struct (field (ref null $leaf)))))
+    #|  (func $target (param (ref $holder)) (result (ref null $base))
+    #|    local.get 0
+    #|    struct.get $holder 0)
+    #|  (func (export "run") (result i32)
+    #|    ref.null $leaf
+    #|    struct.new $holder
+    #|    call $target
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let candidate = dae_try_refine_direct_gc_types_for_def_with_facts(
+    mod_,
+    0,
+    graph.snapshot.call_facts,
+    false,
+    true,
+  )
+  assert_true(candidate.changed)
+  let type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  match dae_resolve_func_type(candidate.mod_out, type_indices, 0) {
+    Some(@lib.FuncType([_], [result])) => assert_eq(result, expected)
+    _ => fail("expected struct.get result refinement")
+  }
+  match @validate.validate_module(candidate.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid struct.get result refinement: \{err}")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module
