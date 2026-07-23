@@ -21763,22 +21763,8 @@ fn dae_apply_specialized_result_family_plan(
       effects,
     ) {
     Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
-    None => {
-      let plan = match
-        dae_build_family_rewrite_plan(
-          facts.original,
-          current,
-          graph,
-          facts.target_def,
-          candidate,
-          effects=Some(effects),
-        ) {
-        Some(plan) => plan
-        None =>
-          return dae_rewrite_plan_rejection(current, DaeNoStrictImprovement)
-      }
-      dae_apply_family_rewrite_plan(current, graph, plan)
-    }
+    None =>
+      dae_rewrite_plan_rejection(current, DaeTypeReconstructionUnavailable)
   }
 }
 
