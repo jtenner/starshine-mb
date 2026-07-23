@@ -73,17 +73,17 @@ priv struct DaeDiagnostics {
   mut results_removed : Int
   mut callsites_rewritten : Int
   mut return_call_sites_rewritten : Int
-  effectful_operands_replayed : Int
+  mut effectful_operands_replayed : Int
   mut localization_retries : Int
-  scratch_locals_added : Int
-  scratch_locals_reused : Int
-  type_entries_reused : Int
+  mut scratch_locals_added : Int
+  mut scratch_locals_reused : Int
+  mut type_entries_reused : Int
   mut type_entries_appended : Int
   mut candidate_requeues : Int
   mut candidate_stale_retries : Int
   mut validation_rollbacks : Int
-  selected_only_rewrites : Int
-  guard_based_skips : Int
+  mut selected_only_rewrites : Int
+  mut guard_based_skips : Int
   mut nested_functions_touched : Int
   mut nested_passes_executed : Int
 }
@@ -536,9 +536,13 @@ fn dae_diagnostics_record_commit_effects(
     }
     def_idx += 1
   }
-  if effects.type_section_changed {
-    diagnostics.type_entries_appended += 1
-  }
+  diagnostics.effectful_operands_replayed += effects.effectful_operands_replayed
+  diagnostics.scratch_locals_added += effects.scratch_locals_added
+  diagnostics.scratch_locals_reused += effects.scratch_locals_reused
+  diagnostics.type_entries_reused += effects.type_entries_reused
+  diagnostics.type_entries_appended += effects.type_entries_appended
+  diagnostics.selected_only_rewrites += effects.selected_only_rewrites
+  diagnostics.guard_based_skips += effects.guard_based_skips
 }
 
 ///|
@@ -1419,6 +1423,13 @@ priv struct DaeCommitEffects {
   local_projection_changed : Array[Bool]
   candidates_produced : Int
   candidates_applied : Int
+  effectful_operands_replayed : Int
+  scratch_locals_added : Int
+  scratch_locals_reused : Int
+  type_entries_reused : Int
+  type_entries_appended : Int
+  selected_only_rewrites : Int
+  guard_based_skips : Int
   type_section_changed : Bool
   metadata_changed : Bool
   invalidation_domains : Array[DaeInvalidationDomain]
@@ -1443,6 +1454,13 @@ fn dae_commit_effects_empty(defined : Int) -> DaeCommitEffects {
     local_projection_changed: Array::make(defined, false),
     candidates_produced: 0,
     candidates_applied: 0,
+    effectful_operands_replayed: 0,
+    scratch_locals_added: 0,
+    scratch_locals_reused: 0,
+    type_entries_reused: 0,
+    type_entries_appended: 0,
+    selected_only_rewrites: 0,
+    guard_based_skips: 0,
     type_section_changed: false,
     metadata_changed: false,
     invalidation_domains: [],
@@ -1570,6 +1588,17 @@ fn dae_commit_effects_merge(
     ..merged,
     candidates_produced: left.candidates_produced + right.candidates_produced,
     candidates_applied: left.candidates_applied + right.candidates_applied,
+    effectful_operands_replayed: left.effectful_operands_replayed +
+    right.effectful_operands_replayed,
+    scratch_locals_added: left.scratch_locals_added + right.scratch_locals_added,
+    scratch_locals_reused: left.scratch_locals_reused +
+    right.scratch_locals_reused,
+    type_entries_reused: left.type_entries_reused + right.type_entries_reused,
+    type_entries_appended: left.type_entries_appended +
+    right.type_entries_appended,
+    selected_only_rewrites: left.selected_only_rewrites +
+    right.selected_only_rewrites,
+    guard_based_skips: left.guard_based_skips + right.guard_based_skips,
     type_section_changed: left.type_section_changed ||
     right.type_section_changed,
     metadata_changed: left.metadata_changed || right.metadata_changed,
@@ -19895,6 +19924,8 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     return None
   }
   let localized_params = Array::make(params.length(), false)
+  let scratch_locals_added = [0]
+  let scratch_locals_reused = [0]
   let rewrite_caller = fn(caller_func, caller_def) {
     let @lib.Func(locals, @lib.Expr(body)) = caller_func
     let caller_abs = graph.snapshot.imported + caller_def
@@ -19937,6 +19968,13 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       }
     }
     if result.calls_rewritten > 0 {
+      let localized_occurrences = dae_count_touched(localized_params) *
+        result.calls_rewritten
+      let added = localization.scratch_local_types.length()
+      scratch_locals_added[0] += added
+      if localized_occurrences > added {
+        scratch_locals_reused[0] += localized_occurrences - added
+      }
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(localization.scratch_local_types)
       {
@@ -20146,13 +20184,35 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       }
     }
   }
-  let effects = dae_commit_effects_parameter_change(
-    graph.snapshot.defined,
-    def_idx,
-    structurally_touched_defs,
-    has_materialized,
-    localized_caller_defs,
-  )
+  let mut effectful_operands_replayed = 0
+  for action in classified {
+    if action == DaeRemoveParameterReplayEffects {
+      effectful_operands_replayed += direct_call_count
+    }
+  }
+  let type_entry_reused = next_type_sec == context.type_sec
+  let effects = {
+    ..dae_commit_effects_parameter_change(
+      graph.snapshot.defined,
+      def_idx,
+      structurally_touched_defs,
+      has_materialized,
+      localized_caller_defs,
+    ),
+    effectful_operands_replayed,
+    scratch_locals_added: scratch_locals_added[0],
+    scratch_locals_reused: scratch_locals_reused[0],
+    type_entries_reused: if type_entry_reused {
+      1
+    } else {
+      0
+    },
+    type_entries_appended: if type_entry_reused {
+      0
+    } else {
+      1
+    },
+  }
   Some({
     effects,
     target_def: def_idx,

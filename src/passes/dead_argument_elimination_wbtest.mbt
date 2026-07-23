@@ -16295,6 +16295,13 @@ test "dae core scalar localization reports producer-owned effects" {
   assert_true(effects_report[0].body_localized[1])
   assert_true(effects_report[0].worth_optimizing[0])
   assert_true(effects_report[0].worth_optimizing[1])
+  assert_eq(effects_report[0].scratch_locals_added, 1)
+  assert_eq(effects_report[0].scratch_locals_reused, 0)
+  let diagnostics = dae_diagnostics_new()
+  dae_diagnostics_record_commit_effects(diagnostics, effects_report[0])
+  assert_eq(diagnostics.scratch_locals_added, 1)
+  assert_eq(diagnostics.scratch_locals_reused, 0)
+  assert_eq(diagnostics.selected_only_rewrites, 0)
 }
 
 ///|
@@ -16334,6 +16341,8 @@ test "dae scalar plan owns stack-carried void-effect localization" {
   assert_true(application.effects.body_localized[1])
   assert_true(application.effects.worth_optimizing[0])
   assert_true(application.effects.worth_optimizing[1])
+  assert_eq(application.effects.scratch_locals_added, 1)
+  assert_eq(application.effects.scratch_locals_reused, 0)
   match @validate.validate_module(application.result.mod_out) {
     Ok(_) => ()
     Err(err) => fail("expected valid stack-carried scalar plan, got \{err}")
