@@ -14716,7 +14716,7 @@ fn dae_indirect_call_gc_result_slice_evidence(
   }
   let mut value_idx = start
   while value_idx < stack_value_end {
-    if dae_instr_has_observable_effect_or_branch(body[value_idx]) {
+    if dae_instr_has_branch(body[value_idx]) {
       return None
     }
     match
