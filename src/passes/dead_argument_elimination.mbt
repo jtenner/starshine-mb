@@ -6480,13 +6480,14 @@ fn dae_instr_stack_effect(
     @lib.LocalSet(_) | @lib.GlobalSet(_) => Some((1, 0))
     @lib.LocalTee(_) => Some((1, 1))
     @lib.Drop => Some((1, 0))
-    @lib.Select(_) => Some((3, 1))
+    @lib.Select(_) | @lib.StringViewWtf16Slice => Some((3, 1))
     @lib.I32Eqz
     | @lib.I64Eqz
     | @lib.RefIsNull
     | @lib.RefAsNonNull
     | @lib.RefGetDesc(_)
     | @lib.RefCast(_, _, _)
+    | @lib.StringAsWtf16
     | @lib.I32Clz
     | @lib.I32Ctz
     | @lib.I32Popcnt
@@ -13845,7 +13846,10 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
-    @lib.StringConst(_) | @lib.StringConcat => {
+    @lib.StringConst(_)
+    | @lib.StringConcat
+    | @lib.StringAsWtf16
+    | @lib.StringViewWtf16Slice => {
       let candidate = @lib.ValType::stringref()
       match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
         Some(refined) => Some((refined, None))

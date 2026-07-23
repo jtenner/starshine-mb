@@ -2387,6 +2387,33 @@ test "dead-argument-elimination infers concatenated string GC results" {
 }
 
 ///|
+test "dead-argument-elimination infers sliced string-view GC results" {
+  let source =
+    #|(module
+    #|  (func $f (result (ref null extern))
+    #|    string.const "starshine"
+    #|    string.as_wtf16
+    #|    i32.const 0
+    #|    i32.const 4
+    #|    stringview_wtf16.slice)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::stringref(),
+  ])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("string.as_wtf16"), msg=target)
+  assert_true(target.contains("stringview_wtf16.slice"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected sliced string-view DAE result to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination narrows branchful select-condition GC results" {
   let source =
     #|(module
