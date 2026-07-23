@@ -17117,6 +17117,40 @@ test "dae GC result slices infer typed ref.cast expressions" {
 }
 
 ///|
+test "dae GC result slices infer ref.as_non_null expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $base (sub (struct)))
+      #|  (type $leaf (sub $base (struct))))
+    ),
+  )
+  let base_heap = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let leaf_heap = @lib.HeapType::new(@lib.TypeIdx::new(1U))
+  let old_type = @lib.ValType::ref_type(@lib.RefType::new(true, base_heap))
+  let leaf_type = @lib.ValType::ref_type(@lib.RefType::new(true, leaf_heap))
+  let expected = @lib.ValType::ref_type(@lib.RefType::new(false, leaf_heap))
+  let locals = @lib.FunctionLocals::new([leaf_type], @lib.Locals::empty())
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_as_non_null(),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected ref.as_non_null result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module

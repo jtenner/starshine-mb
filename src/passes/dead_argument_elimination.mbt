@@ -14884,6 +14884,35 @@ fn dae_gc_result_candidate_slice(
       old_type,
     )
   }
+  match body[end - 1] {
+    @lib.RefAsNonNull =>
+      match
+        dae_gc_result_candidate_slice(
+          mod_,
+          func_type_indices,
+          func_locals,
+          body,
+          start,
+          end - 1,
+          old_type,
+        ) {
+        Some((@lib.RefTypeValType(ref_type), None)) => {
+          let candidate = @lib.ValType::ref_type(
+            @lib.RefType::new(
+              false,
+              ref_type.get_heap_type(),
+              exact=ref_type.is_exact(),
+            ),
+          )
+          match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+            Some(refined) => return Some((refined, None))
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
   match
     dae_find_value_slice(
       body,
