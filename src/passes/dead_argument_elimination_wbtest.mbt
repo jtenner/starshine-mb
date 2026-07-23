@@ -17151,6 +17151,38 @@ test "dae GC result slices infer ref.as_non_null expressions" {
 }
 
 ///|
+test "dae GC result slices infer ref.i31 expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+  )
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::ref_i31(),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected ref.i31 result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module

@@ -13649,6 +13649,15 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
+    @lib.RefI31 => {
+      let candidate = @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      )
+      match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+        Some(refined) => Some((refined, None))
+        None => None
+      }
+    }
     @lib.LocalGet(idx) =>
       dae_gc_candidate_local_get_type(mod_, func_locals, idx, old_type).map(fn(
         candidate_type,
