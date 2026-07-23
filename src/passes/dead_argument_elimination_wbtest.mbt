@@ -16980,6 +16980,38 @@ test "dae typed call result slices accept abstract heap refinement" {
 }
 
 ///|
+test "dae call_ref result slices accept local reference targets" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $producer (func (result (ref null eq)))))
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+  ]
+  match
+    dae_call_ref_gc_result_candidate_slice(
+      mod_,
+      [],
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected local-target call_ref result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module

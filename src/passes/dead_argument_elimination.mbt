@@ -14750,16 +14750,22 @@ fn dae_call_ref_gc_result_candidate_slice(
     return None
   }
   let target_idx = end - 2
-  match (body[target_idx], body[end - 1]) {
-    (@lib.RefFunc(_), @lib.CallRef(type_idx)) =>
+  match body[end - 1] {
+    @lib.CallRef(type_idx) =>
       match
         dae_indirect_call_gc_result_slice_evidence(
-          mod_, func_type_indices, body, start, target_idx, target_idx, type_idx,
+          mod_,
+          func_type_indices,
+          body,
+          start,
+          target_idx,
+          target_idx + 1,
+          type_idx,
           old_type,
         ) {
         Some(evidence) => {
           if evidence.param_count != target_idx - start ||
-            evidence.stack_value_count != target_idx - start {
+            evidence.stack_value_count != target_idx + 1 - start {
             return None
           }
           Some((evidence.candidate, None))
@@ -16994,26 +17000,6 @@ fn dae_apply_direct_caller_scope_rewrite(
     }
   }
   { funcs: rewritten_funcs, calls_rewritten, changed_defs, changed, ok: true }
-}
-
-///|
-fn dae_val_type_is_concrete_gc_ref(value : @lib.ValType) -> Bool {
-  match value {
-    @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(_))) => true
-    _ => false
-  }
-}
-
-///|
-fn dae_signature_has_concrete_gc_param(params : Array[@lib.ValType]) -> Bool {
-  params.any(dae_val_type_is_concrete_gc_ref)
-}
-
-///|
-fn dae_signature_has_single_concrete_gc_result(
-  results : Array[@lib.ValType],
-) -> Bool {
-  results.length() == 1 && dae_val_type_is_concrete_gc_ref(results[0])
 }
 
 ///|
