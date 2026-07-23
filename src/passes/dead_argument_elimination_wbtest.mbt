@@ -4034,6 +4034,22 @@ test "dae control result slices centralize flat and return arm bounds" {
 }
 
 ///|
+test "dae GC subtype traversal uses flattened rec-group indexes" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::group([
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ]),
+    ]),
+  )
+  assert_true(dae_type_idx_is_subtype_of(mod_, leaf_type, base_type))
+  assert_eq(dae_collect_type_ancestors(mod_, leaf_type), [leaf_type, base_type])
+}
+
+///|
 test "dae control result GC evidence centralizes lane candidates and rewrites" {
   let base_type = @lib.TypeIdx::new(0U)
   let leaf_type = @lib.TypeIdx::new(1U)

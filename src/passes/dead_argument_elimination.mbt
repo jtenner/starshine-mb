@@ -12428,9 +12428,9 @@ fn dae_type_idx_is_subtype_of_visit(
   }
   visited[slot] = true
   match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) if slot < rec_types.length() =>
-      match rec_types[slot] {
-        @lib.SingleRecType(subtype) => {
+    Some(type_sec) =>
+      match dae_type_sec_subtype(type_sec, candidate) {
+        Some(subtype) => {
           for super_type in subtype.super_types() {
             if dae_type_idx_is_subtype_of_visit(
                 mod_, super_type, target, visited,
@@ -12440,9 +12440,9 @@ fn dae_type_idx_is_subtype_of_visit(
           }
           false
         }
-        @lib.GroupRecType(_) => false
+        None => false
       }
-    _ => false
+    None => false
   }
 }
 
@@ -12453,7 +12453,7 @@ fn dae_type_idx_is_subtype_of(
   target : @lib.TypeIdx,
 ) -> Bool {
   let rec_len = match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) => rec_types.length()
+    Some(type_sec) => dae_type_sec_flattened_length(type_sec)
     None => return false
   }
   dae_type_idx_is_subtype_of_visit(
@@ -12481,15 +12481,15 @@ fn dae_collect_type_ancestors_visit(
   visited[slot] = true
   out.push(type_idx)
   match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) if slot < rec_types.length() =>
-      match rec_types[slot] {
-        @lib.SingleRecType(subtype) =>
+    Some(type_sec) =>
+      match dae_type_sec_subtype(type_sec, type_idx) {
+        Some(subtype) =>
           for super_type in subtype.super_types() {
             dae_collect_type_ancestors_visit(mod_, super_type, out, visited)
           }
-        @lib.GroupRecType(_) => ()
+        None => ()
       }
-    _ => ()
+    None => ()
   }
 }
 
@@ -12499,7 +12499,7 @@ fn dae_collect_type_ancestors(
   type_idx : @lib.TypeIdx,
 ) -> Array[@lib.TypeIdx] {
   let rec_len = match mod_.type_sec {
-    Some(@lib.TypeSec(rec_types)) => rec_types.length()
+    Some(type_sec) => dae_type_sec_flattened_length(type_sec)
     None => return []
   }
   let out : Array[@lib.TypeIdx] = []

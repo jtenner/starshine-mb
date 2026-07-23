@@ -169,7 +169,7 @@ Deterministic tests added in `dead_argument_elimination_wbtest.mbt` cover exact 
 - Build one returned-value evidence API covering implicit fallthrough, explicit `return`, terminal `block` / `if` / `loop`, typed and type-indexed controls, `select`, static `local.get` types, simple nested carriers, tuples, flat multivalue lanes, and represented `try_table` exits.
 - Compute result LUBs lane by lane. Update the function result, every direct call expression, terminal control types, and dependent callers in one transaction.
 - Refinalize only the changed functions and their affected parents when possible; use module-wide refinalization only as a conservative fallback.
-- Extend the type graph utilities for exactness, nullability, abstract heap types, recursive groups, shared types, and mixed rec groups. Unsupported proposal forms must fail closed with a representation-blocker test.
+- Extend the type graph utilities for exactness, nullability, abstract heap types, recursive groups, shared types, and mixed rec groups. Concrete subtype and ancestor traversal now resolves every recursive-group member through flattened type-section slots, matching signature lookup/append; pruning and mixed-group edit breadth remain open. Unsupported proposal forms must fail closed with a representation-blocker test.
 
 **Required tests.** Upstream `dae-gc-refine-params` and `dae-gc-refine-return` families; sibling leaf LUB; nullable/non-null exactness; incompatible leaves; parameter writes and tees; explicit-return branches; typed/type-indexed block/if/loop; multivalue lanes; local-return evidence; recursive-group result and parameter types; shared/unshared barriers.
 
