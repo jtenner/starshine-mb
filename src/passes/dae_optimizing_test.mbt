@@ -2391,6 +2391,48 @@ test "dead-argument-elimination infers explicit-return external conversion resul
 }
 
 ///|
+test "dead-argument-elimination joins nested explicit conversion value slices" {
+  let source =
+    #|(module
+    #|  (type $leaf (struct))
+    #|  (func $f
+    #|    (param (ref $leaf))
+    #|    (param i32)
+    #|    (result (ref null extern))
+    #|    local.get 1
+    #|    if
+    #|      local.get 0
+    #|      extern.convert_any
+    #|      return
+    #|    end
+    #|    local.get 0
+    #|    extern.convert_any)
+    #|  (func (export "run")
+    #|    (param (ref $leaf))
+    #|    (param i32)
+    #|    (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("extern.convert_any"), msg=target)
+  assert_true(target.contains("return"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested explicit conversion DAE result to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "dead-argument-elimination infers concatenated string GC results" {
   let source =
     #|(module

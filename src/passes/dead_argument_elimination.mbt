@@ -15872,12 +15872,29 @@ fn dae_collect_explicit_gc_result_candidates_instrs(
           failed[0] = true
           break
         }
+        let shape = match
+          dae_find_value_slice(
+            body,
+            idx,
+            0,
+            mod_,
+            func_type_indices,
+            allow_stack_carried_void_effects=true,
+          ) {
+          Some((shape, cursor, _)) if shape.start == cursor => shape
+          _ => {
+            failed[0] = true
+            break
+          }
+        }
         match
-          dae_direct_gc_result_candidate_instr(
+          dae_gc_result_candidate_slice(
             mod_,
             func_type_indices,
             func_locals,
-            body[idx - 1],
+            body,
+            shape.start,
+            idx,
             old_type,
           ) {
           Some((candidate, None)) => {
@@ -15986,14 +16003,33 @@ fn dae_direct_gc_result_multiple_return_candidate_body(
   match body[body.length() - 1] {
     @lib.Return | @lib.Unreachable => ()
     terminal if dae_instr_has_no_fallthrough(terminal) => ()
-    terminal =>
+    _ => {
+      let shape = match
+        dae_find_value_slice(
+          body,
+          body.length(),
+          0,
+          mod_,
+          func_type_indices,
+          allow_stack_carried_void_effects=true,
+        ) {
+        Some((shape, cursor, _)) if shape.start == cursor => shape
+        _ => return None
+      }
       match
-        dae_direct_gc_result_candidate_instr(
-          mod_, func_type_indices, func_locals, terminal, old_type,
+        dae_gc_result_candidate_slice(
+          mod_,
+          func_type_indices,
+          func_locals,
+          body,
+          shape.start,
+          body.length(),
+          old_type,
         ) {
         Some((candidate, None)) => candidates.push(candidate)
         _ => return None
       }
+    }
   }
   let mut joined = candidates[0]
   let mut idx = 1
