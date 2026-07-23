@@ -71801,6 +71801,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     single_caller_throttle_consumed~,
     traps_never_happen=options.traps_never_happen,
   )
+  dae_trace_diagnostics(options.trace, "dae-optimizing", result.diagnostics)
   let mut core_effects = result.effects
   let mut throttle_consumed = result.single_caller_throttle_consumed ||
     dae_modules_form_single_caller_param_wave(mod_, result.mod_out)
@@ -72243,6 +72244,11 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       traps_never_happen=options.traps_never_happen,
     )
     throttle_consumed = post_cleanup.single_caller_throttle_consumed
+    dae_trace_diagnostics(
+      options.trace,
+      "dae-optimizing-post-cleanup",
+      post_cleanup.diagnostics,
+    )
     perf_stop_timer_opt(
       options.perf,
       "detail:dae:post-cleanup-core",
@@ -72465,6 +72471,7 @@ fn run_hot_pipeline_apply_module_pass(
     "dead-argument-elimination" | "dae" =>
       dae_run_module_pass_with_trap_policy(
         mod_,
+        trace=Some(options.trace),
         traps_never_happen=options.traps_never_happen,
       )
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>

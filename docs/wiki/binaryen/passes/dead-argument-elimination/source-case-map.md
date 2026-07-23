@@ -133,7 +133,7 @@ The file contains five anonymous modules, so rows use source order.
 - Positive coverage exists for ordinary removal, direct `return_call`, constants, immutable globals, i31/ref/null/ref.func/string values, strict parameter/result LUBs, written-param repair, typed tees, fallthrough, explicit returns, flat multivalue lanes, direct/indirect/reference tails, bottom repair, localization, SCC forwarding, and DAEO touched cleanup.
 - Negative coverage exists for exported/start/ref.func/element exposure, incomparable or incomplete LUBs, stale epochs and call identities, indirect/reference caller ownership, tail-result blockers, escaping branch operands, trapping/effectful preservation, invalid candidates, written forwarding components, and unsupported legacy/continuation control.
 - The one source-backed behavior gap found by the initial mapping, **TNH-aware unused-operand removal**, is now closed for both plain DAE and DAEO with ordinary-mode preservation coverage.
-- The remaining release blockers are lifecycle/ownership gaps, not newly discovered source transform families: producer-specific candidate construction, common type/result finalization, exact invalidation/diagnostics, and DAEO effect-frontier convergence.
+- The remaining release blockers are lifecycle/ownership gaps, not newly discovered source transform families: producer-specific candidate construction, common type/result finalization, remaining specialized/nested invalidation diagnostics, and DAEO effect-frontier convergence.
 
 ## `generic-partial` row classification
 
@@ -146,7 +146,7 @@ The file contains five anonymous modules, so rows use source order.
 | F3 | **3. represented fail-closed exception** | Indirect/reference tails remain conservative barriers; reopen only with an exact source-backed target/type relation. |
 | G1, G2, G3, G4 | **2. release-blocking correctness/lifecycle risk** | Multiple mutation tails and the simple-type pruner do not yet constitute one complete deterministic type-user/finalizer plan; metadata policy is still implicit name stripping. |
 | H1, H2 | **5. stale documentation** | Original/current ownership and epochs are present and exercised; later producers still need to consume them uniformly. |
-| H3, H4, I1, I2 | **2. release-blocking lifecycle risk** | Family validation and producer-owned worth exist, but conservative fallback invalidation, incomplete diagnostics, and parallel phase loops remain. |
+| H3, H4, I1, I2 | **2. release-blocking lifecycle risk** | Family validation, producer-owned worth, and canonical-core production diagnostics exist, but conservative fallback invalidation, unintegrated selected/nested counters, and parallel phase loops remain. |
 | J1, J2, J3, J4 | **2. release-blocking lifecycle risk** | Shared roster and producer-owned semantic worth exist; the whole-pass strictly-smaller retry still needs effect-frontier replacement. |
 | K2 | **4. mechanical preservation** | Slot 48 and exact-once placement are already covered; rerun only at final integration signoff. |
 | L1, L2 | **historical evidence checkpoint**; L3 **reopened** | Generated/artifact evidence remains valid provenance, but the completion matrix now prevents those rows from overriding open lifecycle ownership and requires final renewal before release closure. |

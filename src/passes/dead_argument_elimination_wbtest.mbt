@@ -18442,7 +18442,7 @@ test "dae family dispatcher refreshes productive stale work and drops dead targe
 test "dae boundary worklist requeues invalidated dependencies deterministically" {
   let worklist = dae_boundary_worklist_all(4)
   assert_eq(dae_boundary_worklist_take(worklist), Some(0))
-  dae_boundary_worklist_requeue(worklist, [2, 0, 2, 3])
+  assert_eq(dae_boundary_worklist_requeue(worklist, [2, 0, 2, 3]), 1)
   assert_eq(dae_boundary_worklist_take(worklist), Some(1))
   assert_eq(dae_boundary_worklist_take(worklist), Some(2))
   assert_eq(dae_boundary_worklist_take(worklist), Some(3))
@@ -18618,7 +18618,7 @@ test "dae diagnostic counters aggregate stable reason events" {
   dae_diagnostics_record_reason(diagnostics, DaeValidationRollback)
   diagnostics.boundaries_analyzed += 3
   diagnostics.parameters_removed += 2
-  diagnostics.return_call_sites_rewritten += 1
+  dae_diagnostics_record_return_callsite_rewrite(diagnostics)
   assert_eq(diagnostics.boundaries_analyzed, 3)
   assert_eq(diagnostics.parameters_removed, 2)
   assert_eq(diagnostics.return_call_sites_rewritten, 1)

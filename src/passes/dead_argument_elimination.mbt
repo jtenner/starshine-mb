@@ -73,19 +73,19 @@ priv struct DaeDiagnostics {
   mut results_removed : Int
   mut callsites_rewritten : Int
   mut return_call_sites_rewritten : Int
-  mut effectful_operands_replayed : Int
+  effectful_operands_replayed : Int
   mut localization_retries : Int
-  mut scratch_locals_added : Int
-  mut scratch_locals_reused : Int
-  mut type_entries_reused : Int
+  scratch_locals_added : Int
+  scratch_locals_reused : Int
+  type_entries_reused : Int
   mut type_entries_appended : Int
   mut candidate_requeues : Int
   mut candidate_stale_retries : Int
   mut validation_rollbacks : Int
-  mut selected_only_rewrites : Int
-  mut guard_based_skips : Int
-  mut nested_functions_touched : Int
-  mut nested_passes_executed : Int
+  selected_only_rewrites : Int
+  guard_based_skips : Int
+  nested_functions_touched : Int
+  nested_passes_executed : Int
 }
 
 ///|
@@ -400,6 +400,69 @@ fn dae_diagnostics_reason_count(
   reason : DaeDecisionReason,
 ) -> Int {
   diagnostics.reason_counts[dae_decision_reason_index(reason)]
+}
+
+///|
+fn dae_diagnostics_record_return_callsite_rewrite(
+  diagnostics : DaeDiagnostics,
+) -> Unit {
+  diagnostics.return_call_sites_rewritten += 1
+}
+
+///|
+fn dae_diagnostics_all_reasons() -> Array[DaeDecisionReason] {
+  [
+    DaeCandidateApplied,
+    DaeCandidateProduced,
+    DaeNoStrictImprovement,
+    DaeVisibleBoundary,
+    DaeExportedFunction,
+    DaeStartFunction,
+    DaeEscapedThroughRefFunc,
+    DaeActiveElementTableExposure,
+    DaePassiveElementExposure,
+    DaeUnknownIndirectCaller,
+    DaeUnknownCallRefCaller,
+    DaeDirectTailDependency,
+    DaeIndirectTailDependency,
+    DaeReferenceTailDependency,
+    DaeParameterStillRead,
+    DaeResultStillObserved,
+    DaeUniformActualsDisagree,
+    DaeActualValueSliceUnavailable,
+    DaeOperandDirectlyDroppable,
+    DaeOperandEffectsMustBeReplayed,
+    DaeOperandRequiresLocalization,
+    DaeOperandContainsEscapingControl,
+    DaeOperandMayTrap,
+    DaeUnknownObservability,
+    DaeGcLubUnavailable,
+    DaeGcRefinementNotStrict,
+    DaeStaleCandidateFacts,
+    DaeCallCountChanged,
+    DaeTypeReconstructionUnavailable,
+    DaeValidationRollback,
+    DaeProfitabilityRejection,
+    DaeWorkBudgetRejection,
+  ]
+}
+
+///|
+fn dae_trace_diagnostics(
+  trace : (String) -> Unit,
+  pass_name : String,
+  diagnostics : DaeDiagnostics,
+) -> Unit {
+  let out = StringBuilder::new()
+  out.write_string(
+    "pass[\{pass_name}]:diagnostics boundaries_analyzed=\{diagnostics.boundaries_analyzed} candidates_produced=\{diagnostics.candidates_produced} candidates_applied=\{diagnostics.candidates_applied} parameters_removed=\{diagnostics.parameters_removed} parameters_materialized=\{diagnostics.parameters_materialized} parameter_types_refined=\{diagnostics.parameter_types_refined} result_types_refined=\{diagnostics.result_types_refined} results_removed=\{diagnostics.results_removed} callsites_rewritten=\{diagnostics.callsites_rewritten} return_callsites_rewritten=\{diagnostics.return_call_sites_rewritten} effectful_operands_replayed=\{diagnostics.effectful_operands_replayed} localization_retries=\{diagnostics.localization_retries} scratch_locals_added=\{diagnostics.scratch_locals_added} scratch_locals_reused=\{diagnostics.scratch_locals_reused} type_entries_reused=\{diagnostics.type_entries_reused} type_entries_appended=\{diagnostics.type_entries_appended} candidate_requeues=\{diagnostics.candidate_requeues} candidate_stale_retries=\{diagnostics.candidate_stale_retries} validation_rollbacks=\{diagnostics.validation_rollbacks} selected_only_rewrites=\{diagnostics.selected_only_rewrites} guard_based_skips=\{diagnostics.guard_based_skips} nested_functions_touched=\{diagnostics.nested_functions_touched} nested_passes_executed=\{diagnostics.nested_passes_executed}",
+  )
+  for reason in dae_diagnostics_all_reasons() {
+    out.write_string(
+      " reason.\{dae_decision_reason_code(reason)}=\{dae_diagnostics_reason_count(diagnostics, reason)}",
+    )
+  }
+  trace(out.to_string())
 }
 
 ///|
@@ -1488,6 +1551,7 @@ priv struct DaeCoreRunResult {
   changed : Bool
   primary_def : Int
   effects : DaeCommitEffects
+  diagnostics : DaeDiagnostics
   single_caller_throttle_consumed : Bool
 }
 
@@ -4401,15 +4465,18 @@ fn dae_boundary_worklist_take(worklist : DaeBoundaryWorklist) -> Int? {
 fn dae_boundary_worklist_requeue(
   worklist : DaeBoundaryWorklist,
   defs : Array[Int],
-) -> Unit {
+) -> Int {
+  let mut requeued = 0
   for def_idx in defs {
     if def_idx >= 0 &&
       def_idx < worklist.queued.length() &&
       !worklist.queued[def_idx] {
       worklist.queue.push(def_idx)
       worklist.queued[def_idx] = true
+      requeued += 1
     }
   }
+  requeued
 }
 
 ///|
@@ -42804,6 +42871,7 @@ fn dae_run_core(
   let original_imported = original_boundary_snapshot.imported
   let original_defined = original_boundary_snapshot.defined
   let mut effects = dae_commit_effects_empty(original_defined)
+  let diagnostics = dae_diagnostics_new()
   let original_total = original_boundary_snapshot.total
   let original_param_counts = original_boundary_snapshot.param_counts
   let original_call_summary = original_boundary_snapshot.call_summary
@@ -43004,6 +43072,7 @@ fn dae_run_core(
         Some(value) => value
         None => break
       }
+      diagnostics.boundaries_analyzed += 1
       let before_dependencies = current_dependencies
       let before_call_facts = current_boundary_graph.snapshot.call_facts
       let call_epoch = current_boundary_graph.call_epoch
@@ -43048,8 +43117,12 @@ fn dae_run_core(
         effects=producer_effects_report.get(0),
       )
       if !application.applied {
+        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
         continue
       }
+      dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+      diagnostics.candidates_applied += 1
+      dae_diagnostics_record_reason(diagnostics, DaeCandidateApplied)
       if application.primary_def >= 0 && before_primary_param_count >= 0 {
         let after_type_indices = dae_collect_func_type_indices(
           application.mod_out,
@@ -43099,7 +43172,9 @@ fn dae_run_core(
           )
         None => Array::make(original_defined, 0)
       }
-      dae_boundary_worklist_requeue(core_worklist, invalidated)
+      diagnostics.candidate_requeues += dae_boundary_worklist_requeue(
+        core_worklist, invalidated,
+      )
       trace(
         "pass[dae-optimizing]:core-worklist iter=\{iter} primary_def=\{application.primary_def}",
       )
@@ -43711,6 +43786,7 @@ fn dae_run_core(
     changed,
     primary_def: -1,
     effects,
+    diagnostics,
     single_caller_throttle_consumed: unprofitable_removal_iters > 0,
   }
 }
@@ -44035,6 +44111,15 @@ fn dae_run_module_pass_with_trap_policy(
     None => fn(_line : String) { () }
   }
   let result = dae_run_core(mod_, trace_fn, optimize~, traps_never_happen~)
+  dae_trace_diagnostics(
+    trace_fn,
+    if optimize {
+      "dae-optimizing"
+    } else {
+      "dead-argument-elimination"
+    },
+    result.diagnostics,
+  )
   let (debris_cleaned, debris_changed) = dae_cleanup_dropped_unreachable_debris(
     result.mod_out,
   )

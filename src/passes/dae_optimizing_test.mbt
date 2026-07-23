@@ -72,7 +72,10 @@ fn dae_test_run(
 }
 
 ///|
-fn dae_test_run_with_perf_trace(text : String) -> (@lib.Module, Array[String]) {
+fn dae_test_run_with_perf_trace(
+  text : String,
+  pass_name? : String = "dae-optimizing",
+) -> (@lib.Module, Array[String]) {
   let trace : Array[String] = []
   let trace_fn = fn(line) { trace.push(line) }
   let perf = HotPerfSession::new(
@@ -83,12 +86,63 @@ fn dae_test_run_with_perf_trace(text : String) -> (@lib.Module, Array[String]) {
     run_hot_pipeline(
       pass_test_module_from_wat(text),
       HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
-      ["dae-optimizing"],
+      [pass_name],
     ) {
     Ok(mod_) => mod_
     Err(err) => abort("expected perf-traced DAE success, got \{err}")
   }
   (mod_, trace)
+}
+
+///|
+test "plain DAE emits canonical worklist diagnostics" {
+  let source =
+    #|(module
+    #|  (func $target (param i32)
+    #|    nop)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    call $target))
+    #|
+  let (_, trace) = dae_test_run_with_perf_trace(
+    source,
+    pass_name="dead-argument-elimination",
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dead-argument-elimination]:diagnostics ") &&
+      line.contains("candidates_applied=1") &&
+      line.contains("parameters_removed=1") &&
+      line.contains("reason.candidate-applied=1")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing emits canonical worklist diagnostics" {
+  let source =
+    #|(module
+    #|  (func $target (param i32)
+    #|    nop)
+    #|  (func (export "run")
+    #|    i32.const 7
+    #|    call $target))
+    #|
+  let (_, trace) = dae_test_run_with_perf_trace(source)
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:diagnostics ") &&
+      line.contains("boundaries_analyzed=3") &&
+      line.contains("candidates_produced=1") &&
+      line.contains("candidates_applied=1") &&
+      line.contains("parameters_removed=1") &&
+      line.contains("candidate_requeues=1") &&
+      line.contains("reason.candidate-produced=1") &&
+      line.contains("reason.candidate-applied=1")
+    }),
+    msg=trace.to_string(),
+  )
 }
 
 ///|
