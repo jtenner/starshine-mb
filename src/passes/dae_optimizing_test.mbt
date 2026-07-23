@@ -18043,7 +18043,7 @@ fn dae_test_broad_exact_param_adjacent_cleanup_module() -> String {
 }
 
 ///|
-test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
+test "dae-optimizing sends a broad exact-param adjacent pair through the shared roster" {
   let source = dae_test_broad_exact_param_adjacent_cleanup_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
@@ -18055,7 +18055,7 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
       optimized, def_idx,
     )
     @debug.assert_eq(plain_locals.length(), 128)
-    @debug.assert_eq(optimized_locals.length(), 1)
+    @debug.assert_eq(optimized_locals.length(), 0)
     let plain_func = plain.pretty_print_defined_func(
       def_idx.reinterpret_as_uint(),
     )
@@ -18063,7 +18063,7 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
       def_idx.reinterpret_as_uint(),
     )
     assert_true(plain_func.contains("local.set"), msg=plain_func)
-    assert_true(optimized_func.contains("local.set"), msg=optimized_func)
+    assert_false(optimized_func.contains("local.set"), msg=optimized_func)
     assert_true(optimized_func.contains("I32(77)"), msg=optimized_func)
   }
   assert_true(
@@ -18075,7 +18075,7 @@ test "dae-optimizing cleans a broad exact-param adjacent local-copy pair" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=500 defs=[504, 505] payoff=142 local_order=type-stable ordered_defs=2",
+        "pass[dae-optimizing]:broad-exact-param-adjacent root_def=500 defs=[504, 505] payoff=142",
       )
     }),
     msg=trace.to_string(),

@@ -1666,6 +1666,7 @@ priv struct DaeBroadExactParamAdjacentCleanupApplication {
   mod_out : @lib.Module
   touched : Array[Bool]
   candidate : DaeBroadExactParamAdjacentCleanupCandidate?
+  effects : DaeCommitEffects
 }
 
 ///|
@@ -42967,21 +42968,54 @@ fn dae_run_broad_exact_param_adjacent_cleanup_root(
     "pass[dae-optimizing]:broad-exact-param-adjacent-candidates roots=\{root_count} pairs=\{pair_count}",
   )
   if best_root < 0 {
-    return { mod_out: current, touched, candidate: None }
+    return {
+      mod_out: current,
+      touched,
+      candidate: None,
+      effects: dae_commit_effects_empty(defined),
+    }
   }
   if best_root_already_applied {
-    return { mod_out: current, touched, candidate: best_candidate }
+    let effects = dae_commit_effects_empty(defined)
+    match best_candidate {
+      Some(candidate) =>
+        for cleanup_def in [candidate.first_def, candidate.second_def] {
+          if cleanup_def >= 0 && cleanup_def < defined {
+            effects.worth_decided[cleanup_def] = true
+            effects.worth_optimizing[cleanup_def] = true
+          }
+        }
+      None => ()
+    }
+    return { mod_out: current, touched, candidate: best_candidate, effects }
   }
   let root_application = dae_apply_exact_literal_family_once(
     candidate_source, current, best_root, touched, changed,
   )
   if !root_application.applied {
-    return { mod_out: current, touched, candidate: None }
+    return {
+      mod_out: current,
+      touched,
+      candidate: None,
+      effects: dae_commit_effects_empty(defined),
+    }
+  }
+  let effects = root_application.effects
+  match best_candidate {
+    Some(candidate) =>
+      for cleanup_def in [candidate.first_def, candidate.second_def] {
+        if cleanup_def >= 0 && cleanup_def < defined {
+          effects.worth_decided[cleanup_def] = true
+          effects.worth_optimizing[cleanup_def] = true
+        }
+      }
+    None => ()
   }
   {
     mod_out: root_application.mod_out,
     touched: root_application.touched,
     candidate: best_candidate,
+    effects,
   }
 }
 

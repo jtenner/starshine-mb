@@ -71333,43 +71333,12 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   )
   core_mod = broad_adjacent.mod_out
   core_touched = broad_adjacent.touched
+  core_effects = dae_commit_effects_merge(core_effects, broad_adjacent.effects)
   match broad_adjacent.candidate {
-    Some(candidate) => {
-      let cleanup_touched = Array::make(dae_defined_func_count(core_mod), false)
-      cleanup_touched[candidate.first_def] = true
-      cleanup_touched[candidate.second_def] = true
-      for cleanup_pass in ["simplify-locals", "vacuum"] {
-        let descriptor = match
-          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-          Ok(descriptor) => descriptor
-          Err(err) => return Err(err)
-        }
-        core_mod = match
-          run_hot_pipeline_apply_hot_pass_to_touched(
-            core_mod, descriptor, cleanup_touched, options,
-          ) {
-          Ok(next) => next
-          Err(err) =>
-            return Err(
-              "DAE broad exact-param adjacent \{cleanup_pass} cleanup: \{err}",
-            )
-        }
-      }
-      core_mod = match
-        run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(core_mod, [
-          candidate.first_def,
-          candidate.second_def,
-        ]) {
-        Ok(next) => next
-        Err(err) =>
-          return Err(
-            "DAE broad exact-param adjacent type-stable reorder-locals: \{err}",
-          )
-      }
+    Some(candidate) =>
       (options.trace)(
-        "pass[dae-optimizing]:broad-exact-param-adjacent-cleanup root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff} local_order=type-stable ordered_defs=2",
+        "pass[dae-optimizing]:broad-exact-param-adjacent root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff}",
       )
-    }
     None => ()
   }
   let high_literal_start_us = perf_start_timer_opt(
@@ -71431,16 +71400,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
         scc_cleanup_touched[def_idx] = true
       }
     }
-    core_mod = match
-      run_hot_pipeline_apply_hot_pass_to_touched(
-        core_mod,
-        precompute_propagate_descriptor(),
-        scc_cleanup_touched,
-        options,
-      ) {
-      Ok(next) => next
-      Err(err) => return Err("DAE forwarded SCC precompute: \{err}")
-    }
+    // Forwarding producers do not own a private precompute phase. Their exact
+    // touched/worth effects feed the shared nested roster below.
+    ignore(scc_cleanup_touched)
     for forwarded_cycle_defs in forwarded_cycle_batches {
       (options.trace)(
         "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=\{forwarded_cycle_defs.to_string()}",
@@ -71495,10 +71457,39 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   // Binaryen-shaped touched roster below is the sole nested cleanup owner;
   // do not run the former component-private coalesce/vacuum mini-roster.
   ignore(post_component_cleanup_defs)
+  let scc_before = core_mod
+  let scc_graph = dae_current_boundary_graph_new(scc_before)
+  let scc_dependencies = dae_boundary_dependency_graph_new(scc_graph)
   match dae_run_forwarded_param_scc_transaction(core_mod, forwarded_scc_seeds) {
     Some(application) => {
       core_mod = application.mod_out
       core_touched = application.touched
+      let candidate : DaePassResult = {
+        mod_out: application.mod_out,
+        touched: application.touched,
+        changed: true,
+        primary_def: if application.defs.length() > 0 {
+          application.defs[0]
+        } else {
+          -1
+        },
+      }
+      for def_idx in application.defs {
+        core_effects = dae_commit_effects_merge(
+          core_effects,
+          dae_work_item_candidate_effects(
+            scc_before,
+            scc_graph,
+            dae_work_item_new(
+              scc_graph,
+              scc_dependencies,
+              def_idx,
+              DaeUnusedParameterWork,
+            ),
+            candidate,
+          ),
+        )
+      }
       (options.trace)(
         "pass[dae-optimizing]:forwarded-param-scc-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
       )
@@ -71569,46 +71560,15 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     )
     core_mod = post_literal_adjacent.mod_out
     core_touched = post_literal_adjacent.touched
+    core_effects = dae_commit_effects_merge(
+      core_effects,
+      post_literal_adjacent.effects,
+    )
     match post_literal_adjacent.candidate {
-      Some(candidate) => {
-        let adjacent_touched = Array::make(
-          dae_defined_func_count(core_mod),
-          false,
-        )
-        adjacent_touched[candidate.first_def] = true
-        adjacent_touched[candidate.second_def] = true
-        for cleanup_pass in ["simplify-locals", "vacuum"] {
-          let descriptor = match
-            run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-            Ok(descriptor) => descriptor
-            Err(err) => return Err(err)
-          }
-          core_mod = match
-            run_hot_pipeline_apply_hot_pass_to_touched(
-              core_mod, descriptor, adjacent_touched, options,
-            ) {
-            Ok(next) => next
-            Err(err) =>
-              return Err(
-                "DAE payoff post-literal adjacent \{cleanup_pass} cleanup: \{err}",
-              )
-          }
-        }
-        core_mod = match
-          run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(core_mod, [
-            candidate.first_def,
-            candidate.second_def,
-          ]) {
-          Ok(next) => next
-          Err(err) =>
-            return Err(
-              "DAE payoff post-literal adjacent type-stable reorder-locals: \{err}",
-            )
-        }
+      Some(candidate) =>
         (options.trace)(
           "pass[dae-optimizing]:payoff-post-literal-adjacent root_def=\{candidate.root_def} defs=[\{candidate.first_def}, \{candidate.second_def}] payoff=\{candidate.payoff}",
         )
-      }
       None => ()
     }
   }
