@@ -6641,6 +6641,7 @@ fn dae_instr_stack_effect(
     | @lib.ArrayGet(_)
     | @lib.ArrayGetS(_)
     | @lib.ArrayGetU(_)
+    | @lib.RefCastDescEq(_, _, _)
     | @lib.StringConcat
     | @lib.TableGrow(_) => Some((2, 1))
     @lib.Call(func_idx) | @lib.ReturnCall(func_idx) => {
@@ -13878,7 +13879,8 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate_type, None)
       })
-    @lib.RefCast(nullable, exact, heap_type) => {
+    @lib.RefCast(nullable, exact, heap_type)
+    | @lib.RefCastDescEq(nullable, exact, heap_type) => {
       let candidate = @lib.ValType::ref_type(
         @lib.RefType::new(nullable, heap_type, exact~),
       )

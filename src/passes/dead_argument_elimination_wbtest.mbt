@@ -17428,6 +17428,49 @@ test "dae GC result slices infer exact ref.get_desc expressions" {
 }
 
 ///|
+test "dae GC result evidence preserves exact ref.cast_desc_eq targets" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (rec
+      #|    (type $box
+      #|      (descriptor $box_desc)
+      #|      (struct (field i32)))
+      #|    (type $box_desc
+      #|      (describes $box)
+      #|      (struct))))
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  match
+    dae_direct_gc_result_candidate_instr(
+      mod_,
+      [],
+      None,
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected exact ref.cast_desc_eq result evidence")
+  }
+}
+
+///|
 test "dae GC result slices preserve inexact ref.get_desc results" {
   let mod_ = pass_test_module_from_wat(
     (
