@@ -16926,6 +16926,59 @@ test "dae GC result refinement joins null-bottom explicit returns" {
 }
 
 ///|
+test "dae GC result refinement builds a common signature rewrite plan" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (result (ref null $base))
+    #|    (local $leaf (ref null $leaf))
+    #|    local.get $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $target
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let candidate = dae_try_refine_direct_gc_types_for_def_with_facts(
+    mod_,
+    0,
+    graph.snapshot.call_facts,
+    false,
+    true,
+  )
+  let item = dae_work_item_new(
+    graph,
+    dae_boundary_dependency_graph_new(graph),
+    0,
+    DaeGcResultRefinementWork,
+  )
+  let effects = dae_commit_effects_for_work_item(
+    graph.snapshot.defined,
+    item,
+    candidate,
+  )
+  let plan = match
+    dae_build_signature_rewrite_plan_from_candidate(
+      original, mod_, graph, 0, candidate, effects,
+    ) {
+    Some(plan) => plan
+    None => fail("expected common GC result signature plan")
+  }
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+  )
+  assert_eq(plan.parameter_actions, [])
+  assert_eq(plan.result_actions, [DaeRefineResult(expected)])
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  match @validate.validate_module(application.result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid common result plan: \{err}")
+  }
+}
+
+///|
 test "dae GC result refinement joins abstract heap returns" {
   let source =
     #|(module

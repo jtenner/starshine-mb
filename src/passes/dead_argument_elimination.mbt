@@ -1933,7 +1933,7 @@ priv enum DaeResultAction {
   DaeKeepResult
   DaeRemoveResult
   DaeRefineResult(@lib.ValType)
-}
+} derive(Eq, Debug)
 
 ///|
 priv struct DaeDirectCallIdentity {
@@ -4357,22 +4357,40 @@ fn dae_process_work_item(
             candidate,
           )
       }
-      let plan = match
-        dae_build_family_rewrite_plan(
-          original,
-          current,
-          graph,
-          item.target_def,
-          candidate,
-          effects=Some(producer_effects),
-        ) {
-        Some(plan) => plan
-        None => {
-          dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
-          return DaeWorkNoChange(DaeNoStrictImprovement)
+      let plan_application = if item.family == DaeGcResultRefinementWork {
+        match
+          dae_build_signature_rewrite_plan_from_candidate(
+            original,
+            current,
+            graph,
+            item.target_def,
+            candidate,
+            producer_effects,
+          ) {
+          Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
+          None => {
+            dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+            return DaeWorkNoChange(DaeNoStrictImprovement)
+          }
         }
+      } else {
+        let plan = match
+          dae_build_family_rewrite_plan(
+            original,
+            current,
+            graph,
+            item.target_def,
+            candidate,
+            effects=Some(producer_effects),
+          ) {
+          Some(plan) => plan
+          None => {
+            dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+            return DaeWorkNoChange(DaeNoStrictImprovement)
+          }
+        }
+        dae_apply_family_rewrite_plan(current, graph, plan)
       }
-      let plan_application = dae_apply_family_rewrite_plan(current, graph, plan)
       if plan_application.applied {
         dae_diagnostics_record_commit_effects(
           diagnostics,
@@ -19328,6 +19346,192 @@ fn dae_build_scalar_unused_param_rewrite_plan(
 }
 
 ///|
+fn dae_build_signature_rewrite_plan_from_candidate(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+  candidate : DaePassResult,
+  effects : DaeCommitEffects,
+) -> DaeRewritePlan? {
+  if target_def < 0 ||
+    target_def >= graph.snapshot.defined ||
+    candidate.primary_def != target_def ||
+    !candidate.changed ||
+    candidate.mod_out == current ||
+    candidate.touched.length() != graph.snapshot.defined ||
+    target_def >= candidate.touched.length() ||
+    !candidate.touched[target_def] {
+    return None
+  }
+  let target_abs = graph.snapshot.imported + target_def
+  let old_signature = match graph.snapshot.function_types[target_abs] {
+    Some(signature) => signature
+    None => return None
+  }
+  let next_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let replacement_signature = match
+    dae_resolve_func_type(candidate.mod_out, next_type_indices, target_abs) {
+    Some(signature) => signature
+    None => return None
+  }
+  let @lib.FuncType(old_params, old_results) = old_signature
+  let @lib.FuncType(next_params, next_results) = replacement_signature
+  if old_params != next_params || old_results.length() != next_results.length() {
+    return None
+  }
+  let shared_facts : DaeBoundaryFacts = {
+    original,
+    graph,
+    incoming_param_live_by_def: [],
+    incoming_param_live_body_epochs: [],
+  }
+  if !dae_can_change_family_signature(shared_facts, target_abs) {
+    return None
+  }
+  let parameter_actions : Array[DaeParameterAction] = []
+  for _ in old_params {
+    parameter_actions.push(DaeKeepParameter)
+  }
+  let result_actions : Array[DaeResultAction] = []
+  let mut result_changed = false
+  let mut result_idx = 0
+  while result_idx < old_results.length() {
+    if old_results[result_idx] == next_results[result_idx] {
+      result_actions.push(DaeKeepResult)
+    } else {
+      result_actions.push(DaeRefineResult(next_results[result_idx]))
+      result_changed = true
+    }
+    result_idx += 1
+  }
+  if !result_changed {
+    return None
+  }
+  let (expected_type_sec, expected_type_idxs, expected_funcs) = match
+    (current.type_sec, current.func_sec, current.code_sec) {
+    (Some(type_sec), Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      (type_sec, type_idxs, funcs)
+    _ => return None
+  }
+  let (replacement_type_sec, replacement_type_idxs, rewritten_funcs) = match
+    (
+      candidate.mod_out.type_sec,
+      candidate.mod_out.func_sec,
+      candidate.mod_out.code_sec,
+    ) {
+    (Some(type_sec), Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
+      (type_sec, type_idxs, funcs)
+    _ => return None
+  }
+  if expected_type_idxs.length() != replacement_type_idxs.length() ||
+    expected_funcs.length() != rewritten_funcs.length() ||
+    target_def >= replacement_type_idxs.length() ||
+    target_def >= rewritten_funcs.length() {
+    return None
+  }
+  let expected_call_identities = dae_collect_target_call_identities(
+    graph.snapshot,
+    target_abs,
+  )
+  let caller_defs : Array[Int] = []
+  for identity in expected_call_identities {
+    if !caller_defs.contains(identity.caller_def) {
+      caller_defs.push(identity.caller_def)
+    }
+  }
+  let expected_callers : Array[DaeCallerEpochExpectation] = []
+  let caller_rewrites : Array[DaeCallerRewritePlan] = []
+  let mut expected_direct_call_count = 0
+  let mut expected_return_call_count = 0
+  for caller_def in caller_defs {
+    if caller_def < 0 ||
+      caller_def >= graph.snapshot.funcs.length() ||
+      caller_def >= graph.function_epochs.length() {
+      return None
+    }
+    let @lib.Func(_, @lib.Expr(body)) = graph.snapshot.funcs[caller_def]
+    let (direct_calls, return_calls) = dae_count_active_target_call_kinds_instrs(
+      body, target_abs,
+    )
+    let epochs = graph.function_epochs[caller_def]
+    expected_callers.push({
+      def_idx: caller_def,
+      signature_epoch: epochs.signature_epoch,
+      body_epoch: epochs.body_epoch,
+      direct_calls,
+      return_calls,
+    })
+    expected_direct_call_count += direct_calls
+    expected_return_call_count += return_calls
+    if expected_funcs[caller_def] != rewritten_funcs[caller_def] {
+      caller_rewrites.push({
+        def_idx: caller_def,
+        func: rewritten_funcs[caller_def],
+        calls_rewritten: direct_calls + return_calls,
+        return_calls_rewritten: return_calls,
+      })
+    }
+  }
+  let @lib.Func(old_locals, _) = expected_funcs[target_def]
+  let local_map : Array[Int] = []
+  let mut local_idx = 0
+  while local_idx < old_params.length() + old_locals.length() {
+    local_map.push(local_idx)
+    local_idx += 1
+  }
+  let before_dependencies = dae_boundary_dependency_graph_new(graph)
+  let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
+  let after_dependencies = dae_boundary_dependency_graph_new(candidate_graph)
+  let invalidated_dependencies = dae_boundary_dependency_invalidations(
+    before_dependencies,
+    after_dependencies,
+    effects.structurally_touched,
+    target_def,
+    effects=Some(effects),
+  )
+  let target_epochs = graph.function_epochs[target_def]
+  Some({
+    effects,
+    target_def,
+    target_abs,
+    expected_module_epoch: graph.module_epoch,
+    expected_call_epoch: graph.call_epoch,
+    expected_type_epoch: graph.type_epoch,
+    expected_target_signature_epoch: target_epochs.signature_epoch,
+    expected_target_body_epoch: target_epochs.body_epoch,
+    expected_callers,
+    expected_call_identities,
+    expected_direct_call_count,
+    expected_return_call_count,
+    parameter_actions,
+    result_actions,
+    old_signature,
+    replacement_signature,
+    caller_rewrites,
+    callee_rewrite: rewritten_funcs[target_def],
+    local_projection: {
+      local_map,
+      preserved_removed_params: Array::make(old_params.length(), false),
+    },
+    type_section_rewrite: {
+      expected: expected_type_sec,
+      replacement: replacement_type_sec,
+      replacement_type_idx: replacement_type_idxs[target_def],
+    },
+    function_section_rewrite: {
+      expected: expected_type_idxs,
+      replacement: replacement_type_idxs,
+    },
+    touched_functions: candidate.touched,
+    invalidated_dependencies,
+    rewritten_funcs,
+    candidate: candidate.mod_out,
+    decision_reason: DaeCandidateProduced,
+  })
+}
+
+///|
 fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
   let @lib.FuncType(old_params, old_results) = plan.old_signature
   let @lib.FuncType(next_params, next_results) = plan.replacement_signature
@@ -19351,31 +19555,63 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
       plan.type_section_rewrite.replacement_type_idx,
     ) !=
     Some(plan.replacement_signature) ||
-    next_results != old_results ||
     !plan.touched_functions[plan.target_def] ||
     !plan.invalidated_dependencies.contains(plan.target_def) ||
     plan.decision_reason != DaeCandidateProduced {
     return false
   }
-  let mut expected_next_params = 0
+  let mut next_param_idx = 0
+  let mut old_param_idx = 0
   for action in plan.parameter_actions {
     match action {
-      DaeKeepParameter => expected_next_params += 1
+      DaeKeepParameter => {
+        if next_param_idx >= next_params.length() ||
+          next_params[next_param_idx] != old_params[old_param_idx] {
+          return false
+        }
+        next_param_idx += 1
+      }
+      DaeRefineParameterType(refined_type) => {
+        if next_param_idx >= next_params.length() ||
+          next_params[next_param_idx] != refined_type {
+          return false
+        }
+        next_param_idx += 1
+      }
       DaeRemovePureParameter
       | DaeRemoveParameterReplayEffects
       | DaeLocalizeParameterAndRetry
       | DaeMaterializeConstantParameter(_) => ()
-      DaeRefineParameterType(_) => return false
     }
+    old_param_idx += 1
   }
-  if expected_next_params != next_params.length() {
+  if next_param_idx != next_params.length() {
     return false
   }
+  let mut next_result_idx = 0
+  let mut old_result_idx = 0
   for action in plan.result_actions {
     match action {
-      DaeKeepResult => ()
-      DaeRemoveResult | DaeRefineResult(_) => return false
+      DaeKeepResult => {
+        if next_result_idx >= next_results.length() ||
+          next_results[next_result_idx] != old_results[old_result_idx] {
+          return false
+        }
+        next_result_idx += 1
+      }
+      DaeRefineResult(refined_type) => {
+        if next_result_idx >= next_results.length() ||
+          next_results[next_result_idx] != refined_type {
+          return false
+        }
+        next_result_idx += 1
+      }
+      DaeRemoveResult => ()
     }
+    old_result_idx += 1
+  }
+  if next_result_idx != next_results.length() {
+    return false
   }
   for rewrite in plan.caller_rewrites {
     if rewrite.def_idx < 0 ||
