@@ -6682,6 +6682,9 @@ fn dae_instr_stack_effect(
     | @lib.StructGet(_, _)
     | @lib.StructGetS(_, _)
     | @lib.StructGetU(_, _)
+    | @lib.StructAtomicGet(_, _, _)
+    | @lib.StructAtomicGetS(_, _, _)
+    | @lib.StructAtomicGetU(_, _, _)
     | @lib.MemoryGrow(_)
     | @lib.TableGet(_) => Some((1, 1))
     @lib.I32Eq
@@ -6763,6 +6766,9 @@ fn dae_instr_stack_effect(
     | @lib.ArrayGet(_)
     | @lib.ArrayGetS(_)
     | @lib.ArrayGetU(_)
+    | @lib.ArrayAtomicGet(_, _)
+    | @lib.ArrayAtomicGetS(_, _)
+    | @lib.ArrayAtomicGetU(_, _)
     | @lib.RefCastDescEq(_, _, _)
     | @lib.StringConcat
     | @lib.TableGrow(_) => Some((2, 1))
@@ -14060,13 +14066,14 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate, None)
       })
-    @lib.ArrayGet(type_idx) =>
+    @lib.ArrayGet(type_idx) | @lib.ArrayAtomicGet(_, type_idx) =>
       dae_gc_candidate_array_get_type(mod_, type_idx, old_type).map(fn(
         candidate,
       ) {
         (candidate, None)
       })
-    @lib.StructGet(type_idx, field_idx) =>
+    @lib.StructGet(type_idx, field_idx)
+    | @lib.StructAtomicGet(_, type_idx, field_idx) =>
       dae_gc_candidate_struct_get_type(mod_, type_idx, field_idx, old_type).map(fn(
           candidate,
         ) {

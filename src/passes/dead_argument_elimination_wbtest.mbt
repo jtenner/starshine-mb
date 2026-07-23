@@ -17797,6 +17797,99 @@ test "dae GC result slices follow array.get element types" {
 }
 
 ///|
+test "dae GC result slices follow atomic aggregate read types" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let struct_type = @lib.TypeIdx::new(2U)
+  let array_type = @lib.TypeIdx::new(3U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(leaf_type)),
+  )
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(struct_type)),
+  )
+  let array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(array_type)),
+  )
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::struct_([
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(leaf_ref),
+              @lib.Mut::var_(),
+            ),
+          ]),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::array(
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(leaf_ref),
+              @lib.Mut::var_(),
+            ),
+          ),
+        ),
+      ),
+    ]),
+  )
+  let locals = @lib.FunctionLocals::new(
+    [struct_ref, array_ref],
+    @lib.Locals::empty(),
+  )
+  let struct_body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::struct_atomic_get(
+      @lib.AtomicOrder::acq_rel(),
+      struct_type,
+      0U,
+    ),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      struct_body,
+      0,
+      struct_body.length(),
+      base_ref,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, leaf_ref)
+    _ => fail("expected struct.atomic.get result evidence")
+  }
+  let array_body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::array_atomic_get(@lib.AtomicOrder::acq_rel(), array_type),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      Some(locals),
+      array_body,
+      0,
+      array_body.length(),
+      base_ref,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, leaf_ref)
+    _ => fail("expected array.atomic.get result evidence")
+  }
+}
+
+///|
 test "dae GC result slices follow table.get element types" {
   let base_type = @lib.TypeIdx::new(0U)
   let leaf_type = @lib.TypeIdx::new(1U)
