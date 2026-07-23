@@ -4022,6 +4022,7 @@ fn dae_apply_family_result_transaction(
   candidate : DaePassResult,
   effects? : DaeCommitEffects? = None,
   allow_signature_restoration? : Bool = false,
+  body_only_transaction? : Bool = false,
 ) -> DaeCoreResultApplication {
   let candidate_funcs = match candidate.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
@@ -4060,7 +4061,8 @@ fn dae_apply_family_result_transaction(
     inferred_target_def
   }
   let target_abs = graph.snapshot.imported + target_def
-  let transaction_mod = if target_def >= 0 &&
+  let transaction_mod = if !body_only_transaction &&
+    target_def >= 0 &&
     dae_collect_target_call_identities(graph.snapshot, target_abs).length() > 0 {
     dae_cleanup_dropped_unreachable_debris_touched(
       candidate.mod_out,
@@ -4082,29 +4084,31 @@ fn dae_apply_family_result_transaction(
     },
     normalized_touched,
   )
-  match
-    dae_build_signature_rewrite_plan_from_candidate(
-      original, current, graph, target_def, normalized_candidate, signature_effects,
-    ) {
-    Some(plan) => {
-      let application = dae_apply_rewrite_plan(current, graph, plan)
-      if application.applied ||
-        application.reason != DaeTypeReconstructionUnavailable {
-        return {
-          mod_out: application.result.mod_out,
-          touched: if application.applied {
-            dae_merge_touched(touched, application.result.touched)
-          } else {
-            touched
-          },
-          changed: changed || application.result.changed,
-          applied: application.applied,
-          primary_def: application.result.primary_def,
-          effects: application.effects,
+  if !body_only_transaction {
+    match
+      dae_build_signature_rewrite_plan_from_candidate(
+        original, current, graph, target_def, normalized_candidate, signature_effects,
+      ) {
+      Some(plan) => {
+        let application = dae_apply_rewrite_plan(current, graph, plan)
+        if application.applied ||
+          application.reason != DaeTypeReconstructionUnavailable {
+          return {
+            mod_out: application.result.mod_out,
+            touched: if application.applied {
+              dae_merge_touched(touched, application.result.touched)
+            } else {
+              touched
+            },
+            changed: changed || application.result.changed,
+            applied: application.applied,
+            primary_def: application.result.primary_def,
+            effects: application.effects,
+          }
         }
       }
+      None => ()
     }
-    None => ()
   }
   if !dae_family_fallback_candidate_is_body_only(
       graph,
@@ -4181,9 +4185,6 @@ fn dae_commit_effects_body_only_cleanup(
   while def_idx < defined && def_idx < candidate.touched.length() {
     if candidate.touched[def_idx] {
       effects.structurally_touched[def_idx] = true
-      effects.worth_decided[def_idx] = true
-      effects.worth_optimizing[def_idx] = true
-      effects.control_refinalization_required[def_idx] = true
       if def_idx < current_funcs.length() && def_idx < candidate_funcs.length() {
         let @lib.Func(current_locals, _) = current_funcs[def_idx]
         let @lib.Func(candidate_locals, _) = candidate_funcs[def_idx]
@@ -4196,11 +4197,7 @@ fn dae_commit_effects_body_only_cleanup(
     def_idx += 1
   }
   let metadata_changed = current.name_sec != candidate.mod_out.name_sec
-  let invalidation_domains = [
-    DaeInvalidateBody,
-    DaeInvalidateControl,
-    DaeInvalidateNestedCleanup,
-  ]
+  let invalidation_domains = [DaeInvalidateBody]
   if locals_changed {
     invalidation_domains.push(DaeInvalidateLocals)
   }
@@ -4217,7 +4214,7 @@ fn dae_commit_effects_body_only_cleanup(
 
 ///|
 fn dae_apply_body_only_family_result_transaction(
-  original : DaeOriginalBoundarySnapshot,
+  _original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
@@ -4225,15 +4222,17 @@ fn dae_apply_body_only_family_result_transaction(
   diagnostics : DaeDiagnostics,
 ) -> DaeCoreResultApplication {
   let graph = dae_current_boundary_graph_new(current)
+  let current_boundary = dae_collect_original_boundary_snapshot(current)
   let effects = dae_commit_effects_body_only_cleanup(current, candidate)
   let application = dae_apply_family_result_transaction(
-    original,
+    current_boundary,
     current,
     touched,
     changed,
     graph,
     candidate,
     effects=Some(effects),
+    body_only_transaction=true,
   )
   if application.applied {
     dae_diagnostics_record_commit_effects(diagnostics, application.effects)
@@ -45097,13 +45096,21 @@ fn dae_run_core(
   let default_wrapper_result = dae_try_cleanup_selected_func327_default_wrappers_once(
     current, changed_terminal_candidates,
   )
-  if default_wrapper_result.changed {
-    current = default_wrapper_result.mod_out
-    touched = dae_merge_touched(touched, default_wrapper_result.touched)
-    trace(
-      "pass[dae-optimizing]:changed-terminal-default-wrappers primary_def=\{default_wrapper_result.primary_def}",
+  let default_wrapper_application = dae_apply_body_only_family_result_transaction(
+    original_boundary_snapshot, current, touched, changed, default_wrapper_result,
+    diagnostics,
+  )
+  if default_wrapper_application.applied {
+    current = default_wrapper_application.mod_out
+    touched = default_wrapper_application.touched
+    changed = default_wrapper_application.changed
+    effects = dae_commit_effects_merge(
+      effects,
+      default_wrapper_application.effects,
     )
-    changed = true
+    trace(
+      "pass[dae-optimizing]:changed-terminal-default-wrappers primary_def=\{default_wrapper_application.primary_def}",
+    )
   }
   let changed_terminal_uniform = dae_run_changed_direct_callee_uniform_frontier(
     changed_terminal_cleanup_input, current, touched, changed,

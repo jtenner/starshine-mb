@@ -22183,6 +22183,74 @@ test "dae family transaction derives exact touched ownership" {
 }
 
 ///|
+test "dae body-only transaction uses the current boundary after prior signature commits" {
+  let original = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target
+      #|    nop)
+      #|  (func (export "run")
+      #|    call $target))
+    ),
+  )
+  let candidate = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten = funcs.copy()
+      rewritten[0] = @lib.Func::new(
+        @lib.Locals::from_types([]),
+        @lib.Expr::new([]),
+      )
+      rewritten[1] = @lib.Func::new(
+        @lib.Locals::from_types([]),
+        @lib.Expr::new([
+          @lib.Instruction::nop(),
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+        ]),
+      )
+      {
+        mod_out: current.with_code_sec(@lib.CodeSec::new(rewritten)),
+        touched: [true, true],
+        changed: true,
+        primary_def: 0,
+      }
+    }
+    None => fail("expected current code section")
+  }
+  let application = dae_apply_body_only_family_result_transaction(
+    dae_collect_original_boundary_snapshot(original),
+    current,
+    [],
+    true,
+    candidate,
+    dae_diagnostics_new(),
+  )
+  assert_true(application.applied)
+  match application.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(target_locals, @lib.Expr(target_body)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[1]
+      assert_eq(target_locals, @lib.Locals::from_types([]))
+      assert_eq(target_body, [])
+      assert_eq(caller_body, [
+        @lib.Instruction::nop(),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ])
+    }
+    None => fail("expected applied code section")
+  }
+}
+
+///|
 test "dae body-only phase result commits with exact effects and diagnostics" {
   let current = pass_test_module_from_wat(
     (
@@ -22218,15 +22286,11 @@ test "dae body-only phase result commits with exact effects and diagnostics" {
   )
   assert_true(application.applied)
   assert_eq(application.effects.structurally_touched, [true, false])
-  assert_eq(application.effects.worth_decided, [true, false])
-  assert_eq(application.effects.worth_optimizing, [true, false])
+  assert_eq(application.effects.worth_decided, [false, false])
+  assert_eq(application.effects.worth_optimizing, [false, false])
   assert_eq(application.effects.local_projection_changed, [false, false])
   assert_eq(application.effects.metadata_changed, false)
-  assert_eq(application.effects.invalidation_domains, [
-    DaeInvalidateBody,
-    DaeInvalidateControl,
-    DaeInvalidateNestedCleanup,
-  ])
+  assert_eq(application.effects.invalidation_domains, [DaeInvalidateBody])
   assert_eq(diagnostics.candidates_produced, 1)
   assert_eq(diagnostics.candidates_applied, 1)
   match @validate.validate_module(application.mod_out) {
