@@ -6478,6 +6478,7 @@ fn dae_instr_stack_effect(
     | @lib.I64Eqz
     | @lib.RefIsNull
     | @lib.RefAsNonNull
+    | @lib.RefCast(_, _, _)
     | @lib.I32Clz
     | @lib.I32Ctz
     | @lib.I32Popcnt
@@ -13654,6 +13655,15 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate_type, None)
       })
+    @lib.RefCast(nullable, exact, heap_type) => {
+      let candidate = @lib.ValType::ref_type(
+        @lib.RefType::new(nullable, heap_type, exact~),
+      )
+      match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+        Some(refined) => Some((refined, None))
+        None => None
+      }
+    }
     @lib.RefFunc(func_idx) => {
       let slot = dae_func_idx_slot(func_idx)
       if slot < 0 || slot >= func_type_indices.length() {
@@ -14873,6 +14883,31 @@ fn dae_gc_result_candidate_slice(
       body[start],
       old_type,
     )
+  }
+  match
+    dae_find_value_slice(
+      body,
+      end,
+      0,
+      mod_,
+      func_type_indices,
+      allow_stack_carried_void_effects=true,
+    ) {
+    Some((shape, cursor, _)) if shape.start == start &&
+      cursor == start &&
+      !dae_operand_disposition_from_call_shape(body, shape).has_branch =>
+      match
+        dae_direct_gc_result_candidate_instr(
+          mod_,
+          func_type_indices,
+          func_locals,
+          body[end - 1],
+          old_type,
+        ) {
+        Some((candidate, None)) => return Some((candidate, None))
+        _ => ()
+      }
+    _ => ()
   }
   match
     dae_call_ref_gc_result_candidate_slice(

@@ -17083,6 +17083,40 @@ test "dae call_ref result slices recover multi-instruction arguments" {
 }
 
 ///|
+test "dae GC result slices infer typed ref.cast expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let body = [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+    @lib.Instruction::ref_cast_type(
+      @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    ),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected typed ref.cast result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module
