@@ -14077,7 +14077,7 @@ fn dae_direct_gc_result_candidate_instr(
       dae_gc_candidate_global_get_type(mod_, idx, old_type).map(fn(candidate) {
         (candidate, None)
       })
-    @lib.LocalGet(idx) =>
+    @lib.LocalGet(idx) | @lib.LocalTee(idx) =>
       dae_gc_candidate_local_get_type(mod_, func_locals, idx, old_type).map(fn(
         candidate_type,
       ) {
