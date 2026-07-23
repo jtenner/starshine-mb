@@ -17515,6 +17515,114 @@ test "dae direct immediate-suffix helper rejects an exposed boundary" {
 }
 
 ///|
+test "dae selected global suffix uses family plan and rejects original exposure" {
+  let original_source =
+    #|(module
+    #|  (global $g i32 (i32.const 169472))
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $callee)
+    #|  (func $caller (param i32 i32 i32 i32 i32 i32 i32) (result i32)
+    #|    nop
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    local.get 4
+    #|    local.get 5
+    #|    local.get 6
+    #|    global.get $g
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 2
+    #|    end
+    #|    i32.const 0
+    #|    if
+    #|      i32.const 0
+    #|      call $release
+    #|    end
+    #|    i32.const 35864
+    #|    call $callee)
+    #|  (func $callee (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)
+    #|    local.get 7
+    #|    local.get 8
+    #|    i32.add)
+    #|  (func $release (param i32)))
+  let current_source =
+    #|(module
+    #|  (global $g i32 (i32.const 169472))
+    #|  (func $caller (param i32 i32 i32 i32 i32 i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    local.get 4
+    #|    local.get 5
+    #|    local.get 6
+    #|    global.get $g
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 2
+    #|    end
+    #|    i32.const 0
+    #|    if
+    #|      i32.const 0
+    #|      call $release
+    #|    end
+    #|    i32.const 35864
+    #|    call $callee)
+    #|  (func $callee (param i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)
+    #|    local.get 7
+    #|    local.get 8
+    #|    i32.add)
+    #|  (func $release (param i32)))
+  let exposed_original = pass_test_module_from_wat(original_source)
+  let current = pass_test_module_from_wat(current_source)
+  let owned_original = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let original_funcs = funcs.copy()
+      let @lib.Func(locals, @lib.Expr(body)) = original_funcs[0]
+      original_funcs[0] = @lib.Func::new(
+        locals,
+        @lib.Expr::new([@lib.Instruction::nop()] + body),
+      )
+      current.with_code_sec(@lib.CodeSec::new(original_funcs))
+    }
+    None => fail("expected code section")
+  }
+  let effects_report : Array[DaeCommitEffects] = []
+  let committed = dae_try_rewrite_selected_func323_global_suffix_once(
+    owned_original,
+    current,
+    [false, true, false],
+    fn(_) { () },
+    producer_effects_report=effects_report,
+  )
+  assert_true(committed.changed)
+  assert_eq(committed.primary_def, 1)
+  assert_eq(committed.touched, [true, true, false])
+  match effects_report.get(0) {
+    Some(effects) => {
+      assert_eq(effects.worth_optimizing, [true, true, false])
+      assert_eq(effects.parameter_changed, [false, true, false])
+      assert_eq(effects.body_materialized, [false, true, false])
+      assert_false(effects.type_section_changed)
+      assert_true(effects.invalidation_domains.contains(DaeInvalidateSignature))
+    }
+    None => fail("expected producer-owned global-suffix effects")
+  }
+  let rejected = dae_try_rewrite_selected_func323_global_suffix_once(
+    exposed_original,
+    current,
+    [false, true, false],
+    fn(_) { () },
+  )
+  assert_false(rejected.changed)
+  assert_eq(rejected.mod_out, current)
+}
+
+///|
 test "dae immediate-suffix materialization commits through scalar plan" {
   let source =
     #|(module

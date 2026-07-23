@@ -37002,14 +37002,69 @@ fn dae_try_rewrite_global_suffix_candidate_once(
 }
 
 ///|
+fn dae_global_suffix_commit_effects(
+  graph : DaeCurrentBoundaryGraph,
+  candidate : DaePassResult,
+) -> DaeCommitEffects {
+  let effects = dae_commit_effects_empty(graph.snapshot.defined)
+  let next_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let next_funcs = match candidate.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => []
+  }
+  let mut def_idx = 0
+  while def_idx < graph.snapshot.defined {
+    if def_idx < candidate.touched.length() && candidate.touched[def_idx] {
+      effects.structurally_touched[def_idx] = true
+      effects.worth_decided[def_idx] = true
+      effects.worth_optimizing[def_idx] = true
+    }
+    let func_abs = graph.snapshot.imported + def_idx
+    let next_signature = dae_resolve_func_type(
+      candidate.mod_out,
+      next_type_indices,
+      func_abs,
+    )
+    if func_abs < graph.snapshot.function_types.length() &&
+      graph.snapshot.function_types[func_abs] != next_signature {
+      effects.worth_decided[def_idx] = true
+      effects.worth_optimizing[def_idx] = true
+      effects.parameter_changed[def_idx] = true
+      effects.body_materialized[def_idx] = true
+      effects.local_projection_changed[def_idx] = true
+    }
+    if def_idx < graph.snapshot.funcs.length() && def_idx < next_funcs.length() {
+      let @lib.Func(old_locals, _) = graph.snapshot.funcs[def_idx]
+      let @lib.Func(next_locals, _) = next_funcs[def_idx]
+      if old_locals != next_locals {
+        effects.local_projection_changed[def_idx] = true
+      }
+    }
+    def_idx += 1
+  }
+  {
+    ..effects,
+    type_section_changed: graph.mod_.type_sec != candidate.mod_out.type_sec,
+    metadata_changed: graph.mod_.name_sec != candidate.mod_out.name_sec,
+    invalidation_domains: dae_invalidation_domains_for_work_family(
+      DaeUniformActualWork,
+    ),
+    decision_reasons: [DaeCandidateProduced],
+  }
+}
+
+///|
 fn dae_try_rewrite_selected_func323_global_suffix_once(
   original : @lib.Module,
   current : @lib.Module,
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
+  producer_effects_report? : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let defined = dae_defined_func_count(current)
-  let boundary_snapshot = dae_collect_module_boundary_snapshot(current)
+  let original_snapshot = dae_collect_original_boundary_snapshot(original)
+  let graph = dae_current_boundary_graph_new(current)
+  let boundary_snapshot = graph.snapshot
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
@@ -37036,11 +37091,36 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
           caller_def < original_funcs.length() &&
           caller_def < current_funcs.length() &&
           original_funcs[caller_def] != current_funcs[caller_def] {
-          let result = dae_try_rewrite_global_suffix_candidate_once(
+          let candidate = dae_try_rewrite_global_suffix_candidate_once(
             current, def_idx, boundary_snapshot, trace,
           )
-          if result.changed {
-            return result
+          if candidate.changed {
+            let producer_effects = dae_global_suffix_commit_effects(
+              graph, candidate,
+            )
+            match
+              dae_build_family_rewrite_plan(
+                original_snapshot,
+                current,
+                graph,
+                candidate.primary_def,
+                candidate,
+                effects=Some(producer_effects),
+              ) {
+              Some(plan) => {
+                let application = dae_apply_family_rewrite_plan(
+                  current, graph, plan,
+                )
+                if application.applied {
+                  dae_record_producer_effects(
+                    producer_effects_report,
+                    application.effects,
+                  )
+                  return application.result
+                }
+              }
+              None => ()
+            }
           }
         }
       }
@@ -43480,14 +43560,23 @@ fn dae_run_core(
     true,
   )
   while true {
+    let global_suffix_effects : Array[DaeCommitEffects] = []
     let global_suffix_result = dae_try_rewrite_selected_func323_global_suffix_once(
-      mod_, current, global_suffix_candidates, trace,
+      mod_,
+      current,
+      global_suffix_candidates,
+      trace,
+      producer_effects_report=global_suffix_effects,
     )
     if !global_suffix_result.changed {
       break
     }
     current = global_suffix_result.mod_out
     touched = dae_merge_touched(touched, global_suffix_result.touched)
+    match global_suffix_effects.get(0) {
+      Some(committed) => effects = dae_commit_effects_merge(effects, committed)
+      None => ()
+    }
     trace(
       "pass[dae-optimizing]:single-caller-global-suffix primary_def=\{global_suffix_result.primary_def}",
     )
