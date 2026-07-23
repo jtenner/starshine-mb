@@ -20072,8 +20072,8 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let plan_effects = {
     ..effects,
-    type_section_changed: true,
-    metadata_changed: true,
+    type_section_changed: expected_type_sec != replacement_type_sec,
+    metadata_changed: current.name_sec != candidate.mod_out.name_sec,
     invalidation_domains,
   }
   let before_dependencies = dae_boundary_dependency_graph_new(graph)
@@ -38008,6 +38008,33 @@ fn dae_global_suffix_commit_effects(
 }
 
 ///|
+fn dae_apply_global_suffix_signature_plan(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  candidate : DaePassResult,
+  effects : DaeCommitEffects,
+) -> DaeRewritePlanApplication {
+  let plan = match
+    dae_build_signature_rewrite_plan_from_candidate(
+      original,
+      current,
+      graph,
+      candidate.primary_def,
+      candidate,
+      effects,
+    ) {
+    Some(plan) => plan
+    None =>
+      return dae_rewrite_plan_rejection(
+        current,
+        DaeTypeReconstructionUnavailable,
+      )
+  }
+  dae_apply_rewrite_plan(current, graph, plan)
+}
+
+///|
 fn dae_try_rewrite_selected_func323_global_suffix_once(
   original : @lib.Module,
   current : @lib.Module,
@@ -38052,28 +38079,15 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
             let producer_effects = dae_global_suffix_commit_effects(
               graph, candidate,
             )
-            match
-              dae_build_family_rewrite_plan(
-                original_snapshot,
-                current,
-                graph,
-                candidate.primary_def,
-                candidate,
-                effects=Some(producer_effects),
-              ) {
-              Some(plan) => {
-                let application = dae_apply_family_rewrite_plan(
-                  current, graph, plan,
-                )
-                if application.applied {
-                  dae_record_producer_effects(
-                    producer_effects_report,
-                    application.effects,
-                  )
-                  return application.result
-                }
-              }
-              None => ()
+            let application = dae_apply_global_suffix_signature_plan(
+              original_snapshot, current, graph, candidate, producer_effects,
+            )
+            if application.applied {
+              dae_record_producer_effects(
+                producer_effects_report,
+                application.effects,
+              )
+              return application.result
             }
           }
         }

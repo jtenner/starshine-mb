@@ -18916,7 +18916,7 @@ test "dae direct immediate-suffix helper rejects an exposed boundary" {
 }
 
 ///|
-test "dae selected global suffix uses family plan and rejects original exposure" {
+test "dae selected global suffix uses signature plan and rejects original exposure" {
   let original_source =
     #|(module
     #|  (global $g i32 (i32.const 169472))
@@ -19013,6 +19013,24 @@ test "dae selected global suffix uses family plan and rejects original exposure"
     }
     None => fail("expected producer-owned global-suffix effects")
   }
+  let graph = dae_current_boundary_graph_new(current)
+  let candidate = dae_try_rewrite_global_suffix_candidate_once(
+    current,
+    1,
+    graph.snapshot,
+    fn(_) { () },
+  )
+  assert_true(candidate.changed)
+  let signature_application = dae_apply_global_suffix_signature_plan(
+    dae_collect_original_boundary_snapshot(owned_original),
+    current,
+    graph,
+    candidate,
+    dae_global_suffix_commit_effects(graph, candidate),
+  )
+  assert_true(signature_application.applied)
+  assert_eq(signature_application.result.primary_def, 1)
+  assert_eq(signature_application.result.touched, [true, true, false])
   let rejected = dae_try_rewrite_selected_func323_global_suffix_once(
     exposed_original,
     current,
