@@ -1101,6 +1101,7 @@ priv struct DaeSingleResultControlPairRepairEvidence {
 priv struct DaeSingleBodyControlShapeEvidence {
   control_kind : Int
   block_type : @lib.BlockType
+  catches : Array[@lib.Catch]
   body : Array[@lib.Instruction]
 }
 
@@ -13746,9 +13747,11 @@ fn dae_single_body_control_shape_evidence(
 ) -> DaeSingleBodyControlShapeEvidence? {
   match instr {
     @lib.Block(block_type, @lib.Expr(body)) =>
-      Some({ control_kind: 0, block_type, body })
+      Some({ control_kind: 0, block_type, catches: [], body })
     @lib.Loop(block_type, @lib.Expr(body)) =>
-      Some({ control_kind: 1, block_type, body })
+      Some({ control_kind: 1, block_type, catches: [], body })
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      Some({ control_kind: 2, block_type, catches, body })
     _ => None
   }
 }
@@ -13779,6 +13782,14 @@ fn dae_apply_single_body_control_rewrite_evidence(
   match evidence.shape.control_kind {
     0 => Some(@lib.Instruction::block(evidence.replacement_block_type, expr))
     1 => Some(@lib.Instruction::loop_(evidence.replacement_block_type, expr))
+    2 =>
+      Some(
+        @lib.Instruction::try_table(
+          evidence.replacement_block_type,
+          evidence.shape.catches,
+          expr,
+        ),
+      )
     _ => None
   }
 }
@@ -13800,7 +13811,7 @@ fn dae_direct_gc_result_explicit_return_candidate_instr(
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   match instr {
-    @lib.Block(_, _) | @lib.Loop(_, _) => {
+    @lib.Block(_, _) | @lib.Loop(_, _) | @lib.TryTable(_, _, _) => {
       let shape = match dae_single_body_control_shape_evidence(instr) {
         Some(shape) => shape
         None => return None
@@ -14139,7 +14150,7 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate, None)
       })
-    @lib.Block(_, _) | @lib.Loop(_, _) =>
+    @lib.Block(_, _) | @lib.Loop(_, _) | @lib.TryTable(_, _, _) =>
       dae_single_result_control_gc_candidate_instr_evidence(
         mod_, func_type_indices, func_locals, instr, old_type,
       )

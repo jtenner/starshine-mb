@@ -4054,6 +4054,48 @@ test "dae GC subtype traversal uses flattened rec-group indexes" {
 }
 
 ///|
+test "dae GC result evidence refines try_table fallthrough controls" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+  )
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+    ]),
+  )
+  let body = [@lib.Instruction::struct_new_default(leaf_type)]
+  let instr = @lib.Instruction::try_table(
+    @lib.BlockType::val_type(base_ref),
+    [],
+    @lib.Expr::new(body),
+  )
+  match dae_direct_gc_result_candidate_instr(mod_, [], None, instr, base_ref) {
+    Some((candidate, Some(rewritten))) => {
+      assert_eq(candidate, leaf_ref)
+      assert_eq(
+        rewritten,
+        @lib.Instruction::try_table(
+          @lib.BlockType::val_type(leaf_ref),
+          [],
+          @lib.Expr::new(body),
+        ),
+      )
+    }
+    _ => fail("expected try_table result refinement evidence")
+  }
+}
+
+///|
 test "dae control result GC evidence centralizes lane candidates and rewrites" {
   let base_type = @lib.TypeIdx::new(0U)
   let leaf_type = @lib.TypeIdx::new(1U)
