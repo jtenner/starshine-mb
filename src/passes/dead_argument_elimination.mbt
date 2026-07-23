@@ -13701,18 +13701,32 @@ fn dae_direct_gc_result_explicit_return_candidate_body(
       if body.length() < 2 {
         return None
       }
-      let value_idx = body.length() - 2
+      let value_end = body.length() - 1
+      let shape = match
+        dae_find_value_slice(
+          body,
+          value_end,
+          0,
+          mod_,
+          func_type_indices,
+          allow_stack_carried_void_effects=true,
+        ) {
+        Some((shape, cursor, _)) if shape.start == cursor => shape
+        _ => return None
+      }
       match
-        dae_direct_gc_result_candidate_instr(
+        dae_gc_result_candidate_slice(
           mod_,
           func_type_indices,
           func_locals,
-          body[value_idx],
+          body,
+          shape.start,
+          value_end,
           old_type,
         ) {
         Some((candidate_type, Some(rewritten_value))) => {
           let rewritten = body.copy()
-          rewritten[value_idx] = rewritten_value
+          rewritten[value_end - 1] = rewritten_value
           Some((candidate_type, Some(rewritten)))
         }
         Some((candidate_type, None)) => Some((candidate_type, None))
