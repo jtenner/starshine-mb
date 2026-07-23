@@ -3823,6 +3823,30 @@ fn dae_work_item_epoch_is_current(
 }
 
 ///|
+fn dae_family_fallback_candidate_is_body_only(
+  graph : DaeCurrentBoundaryGraph,
+  candidate : @lib.Module,
+) -> Bool {
+  if dae_defined_func_count(candidate) != graph.snapshot.defined ||
+    dae_imported_func_count(candidate) != graph.snapshot.imported {
+    return false
+  }
+  let next_type_indices = dae_collect_func_type_indices(candidate)
+  let mut def_idx = 0
+  while def_idx < graph.snapshot.defined {
+    let func_abs = graph.snapshot.imported + def_idx
+    if func_abs < 0 ||
+      func_abs >= graph.snapshot.function_types.length() ||
+      graph.snapshot.function_types[func_abs] !=
+      dae_resolve_func_type(candidate, next_type_indices, func_abs) {
+      return false
+    }
+    def_idx += 1
+  }
+  true
+}
+
+///|
 fn dae_build_family_rewrite_plan(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -4438,6 +4462,16 @@ fn dae_process_work_item(
           if !allows_family_fallback {
             dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
             return DaeWorkNoChange(DaeNoStrictImprovement)
+          }
+          if !dae_family_fallback_candidate_is_body_only(
+              graph,
+              candidate.mod_out,
+            ) {
+            dae_diagnostics_record_reason(
+              diagnostics,
+              DaeTypeReconstructionUnavailable,
+            )
+            return DaeWorkNoChange(DaeTypeReconstructionUnavailable)
           }
           let plan = match
             dae_build_family_rewrite_plan(

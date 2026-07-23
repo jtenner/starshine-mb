@@ -21777,6 +21777,37 @@ test "dae call identities exclude inactive suffix calls" {
 }
 
 ///|
+test "dae dispatcher family fallback is body only" {
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    nop))
+    ),
+  )
+  let signature_changed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target
+      #|    nop))
+    ),
+  )
+  let body_changed = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    local.get 0
+      #|    drop))
+    ),
+  )
+  let graph = dae_current_boundary_graph_new(current)
+  assert_false(
+    dae_family_fallback_candidate_is_body_only(graph, signature_changed),
+  )
+  assert_true(dae_family_fallback_candidate_is_body_only(graph, body_changed))
+}
+
+///|
 test "dae family transaction derives exact touched ownership" {
   let current = pass_test_module_from_wat(
     (
