@@ -19383,11 +19383,8 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let @lib.FuncType(old_params, old_results) = old_signature
   let @lib.FuncType(next_params, next_results) = replacement_signature
-  if (old_params.length() != next_params.length() && next_params.length() != 0) ||
-    (
-      old_results.length() != next_results.length() &&
-      next_results.length() != 0
-    ) {
+  if next_params.length() > old_params.length() ||
+    next_results.length() > old_results.length() {
     return None
   }
   let shared_facts : DaeBoundaryFacts = {
@@ -19401,43 +19398,67 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let parameter_actions : Array[DaeParameterAction] = []
   let mut parameter_changed = false
-  if next_params.length() == 0 && old_params.length() > 0 {
-    for _ in old_params {
-      parameter_actions.push(DaeRemoveParameterReplayEffects)
-    }
-    parameter_changed = true
-  } else {
-    let mut parameter_idx = 0
-    while parameter_idx < old_params.length() {
-      if old_params[parameter_idx] == next_params[parameter_idx] {
+  let mut parameter_refined = false
+  let mut old_parameter_idx = 0
+  let mut next_parameter_idx = 0
+  while old_parameter_idx < old_params.length() {
+    let remaining_old = old_params.length() - old_parameter_idx
+    let remaining_next = next_params.length() - next_parameter_idx
+    let maps_to_next = next_parameter_idx < next_params.length() &&
+      (
+        old_params[old_parameter_idx] == next_params[next_parameter_idx] ||
+        remaining_old == remaining_next
+      )
+    if maps_to_next {
+      if old_params[old_parameter_idx] == next_params[next_parameter_idx] {
         parameter_actions.push(DaeKeepParameter)
       } else {
         parameter_actions.push(
-          DaeRefineParameterType(next_params[parameter_idx]),
+          DaeRefineParameterType(next_params[next_parameter_idx]),
         )
         parameter_changed = true
+        parameter_refined = true
       }
-      parameter_idx += 1
+      next_parameter_idx += 1
+    } else {
+      parameter_actions.push(DaeRemoveParameterReplayEffects)
+      parameter_changed = true
     }
+    old_parameter_idx += 1
+  }
+  if next_parameter_idx != next_params.length() {
+    return None
   }
   let result_actions : Array[DaeResultAction] = []
   let mut result_changed = false
-  if next_results.length() == 0 && old_results.length() > 0 {
-    for _ in old_results {
-      result_actions.push(DaeRemoveResult)
-    }
-    result_changed = true
-  } else {
-    let mut result_idx = 0
-    while result_idx < old_results.length() {
-      if old_results[result_idx] == next_results[result_idx] {
+  let mut result_removed = false
+  let mut old_result_idx = 0
+  let mut next_result_idx = 0
+  while old_result_idx < old_results.length() {
+    let remaining_old = old_results.length() - old_result_idx
+    let remaining_next = next_results.length() - next_result_idx
+    let maps_to_next = next_result_idx < next_results.length() &&
+      (
+        old_results[old_result_idx] == next_results[next_result_idx] ||
+        remaining_old == remaining_next
+      )
+    if maps_to_next {
+      if old_results[old_result_idx] == next_results[next_result_idx] {
         result_actions.push(DaeKeepResult)
       } else {
-        result_actions.push(DaeRefineResult(next_results[result_idx]))
+        result_actions.push(DaeRefineResult(next_results[next_result_idx]))
         result_changed = true
       }
-      result_idx += 1
+      next_result_idx += 1
+    } else {
+      result_actions.push(DaeRemoveResult)
+      result_changed = true
+      result_removed = true
     }
+    old_result_idx += 1
+  }
+  if next_result_idx != next_results.length() {
+    return None
   }
   if !parameter_changed && !result_changed {
     return None
@@ -19514,19 +19535,43 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     local_map.push(local_idx)
     local_idx += 1
   }
+  if parameter_changed {
+    effects.parameter_changed[target_def] = true
+    effects.local_projection_changed[target_def] = true
+  }
+  if parameter_refined {
+    effects.parameter_type_refined[target_def] = true
+  }
+  if result_changed {
+    effects.result_changed[target_def] = true
+    effects.control_refinalization_required[target_def] = true
+  }
+  if result_removed {
+    effects.result_removed[target_def] = true
+  }
+  let invalidation_domains = effects.invalidation_domains.copy()
+  if parameter_changed && !invalidation_domains.contains(DaeInvalidateLocals) {
+    invalidation_domains.push(DaeInvalidateLocals)
+  }
+  let plan_effects = {
+    ..effects,
+    type_section_changed: true,
+    metadata_changed: true,
+    invalidation_domains,
+  }
   let before_dependencies = dae_boundary_dependency_graph_new(graph)
   let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
   let after_dependencies = dae_boundary_dependency_graph_new(candidate_graph)
   let invalidated_dependencies = dae_boundary_dependency_invalidations(
     before_dependencies,
     after_dependencies,
-    effects.structurally_touched,
+    plan_effects.structurally_touched,
     target_def,
-    effects=Some(effects),
+    effects=Some(plan_effects),
   )
   let target_epochs = graph.function_epochs[target_def]
   Some({
-    effects,
+    effects: plan_effects,
     target_def,
     target_abs,
     expected_module_epoch: graph.module_epoch,

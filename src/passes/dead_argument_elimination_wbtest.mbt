@@ -16926,6 +16926,78 @@ test "dae GC result refinement joins null-bottom explicit returns" {
 }
 
 ///|
+test "dae signature plan maps partial parameter and result projections" {
+  let current_source =
+    #|(module
+    #|  (func $target (param i32 f64) (result i32 f64)
+    #|    i32.const 1
+    #|    local.get 1)
+    #|  (func (export "run")
+    #|    i32.const 0
+    #|    f64.const 2
+    #|    call $target
+    #|    drop
+    #|    drop))
+  let candidate_source =
+    #|(module
+    #|  (func $target (param f64) (result f64)
+    #|    local.get 0)
+    #|  (func (export "run")
+    #|    f64.const 2
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(current_source)
+  let candidate_mod = pass_test_module_from_wat(candidate_source).without_name_sec()
+  let graph = dae_current_boundary_graph_new(mod_)
+  let candidate : DaePassResult = {
+    mod_out: candidate_mod,
+    touched: [true, true],
+    changed: true,
+    primary_def: 0,
+  }
+  let item = dae_work_item_new(
+    graph,
+    dae_boundary_dependency_graph_new(graph),
+    0,
+    DaeDroppedResultWork,
+  )
+  let effects = dae_commit_effects_for_work_item(
+    graph.snapshot.defined,
+    item,
+    candidate,
+  )
+  let plan = match
+    dae_build_signature_rewrite_plan_from_candidate(
+      dae_collect_original_boundary_snapshot(mod_),
+      mod_,
+      graph,
+      0,
+      candidate,
+      effects,
+    ) {
+    Some(plan) => plan
+    None => fail("expected partial signature projection plan")
+  }
+  assert_eq(plan.parameter_actions, [
+    DaeRemoveParameterReplayEffects,
+    DaeKeepParameter,
+  ])
+  assert_eq(plan.result_actions, [DaeRemoveResult, DaeKeepResult])
+  assert_true(plan.effects.parameter_changed[0])
+  assert_true(plan.effects.local_projection_changed[0])
+  assert_true(plan.effects.result_changed[0])
+  assert_true(plan.effects.result_removed[0])
+  assert_true(plan.effects.invalidation_domains.contains(DaeInvalidateLocals))
+  assert_eq(plan.caller_rewrites.length(), 1)
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  match @validate.validate_module(application.result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid partial signature plan: \{err}")
+  }
+}
+
+///|
 test "dae unreachable dropped result plan removes parameters and result together" {
   let source =
     #|(module
