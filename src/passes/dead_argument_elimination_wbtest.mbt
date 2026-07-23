@@ -14237,6 +14237,32 @@ test "dae resolves flattened function type indexes inside rec groups" {
 }
 
 ///|
+test "dae reuses simple function types inside flattened rec groups" {
+  let expected = @lib.TypeIdx::new(1U)
+  let params = [@lib.ValType::i32()]
+  let results = [@lib.ValType::i64()]
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::group([
+      @lib.SubType::comp_type(@lib.CompType::struct_([])),
+      @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+    ]),
+  ])
+  assert_eq(
+    dae_find_equivalent_simple_func_type(type_sec, params, results),
+    Some(expected),
+  )
+  assert_eq(
+    dae_find_first_matching_func_type_idx(type_sec, params, results),
+    Some(expected),
+  )
+  let lookup = dae_simple_func_type_lookup(type_sec)
+  assert_eq(
+    lookup.get(dae_simple_func_type_key(params, results)),
+    Some(expected),
+  )
+}
+
+///|
 test "dae appends function types after flattened rec-group members" {
   let grouped = @lib.RecType::group([
     @lib.SubType::comp_type(@lib.CompType::struct_([])),

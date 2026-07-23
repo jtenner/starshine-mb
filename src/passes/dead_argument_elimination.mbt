@@ -11824,6 +11824,20 @@ fn dae_simple_func_type_key(
 }
 
 ///|
+fn dae_simple_func_subtype_type(subtype : @lib.SubType) -> @lib.FuncType? {
+  if !subtype.super_types().is_empty() ||
+    subtype.describes_type() is Some(_) ||
+    subtype.descriptor_type() is Some(_) {
+    return None
+  }
+  match subtype.get_comptype() {
+    @lib.FuncCompType(params, results) =>
+      Some(@lib.FuncType::new(params, results))
+    _ => None
+  }
+}
+
+///|
 fn dae_simple_func_type_lookup(
   type_sec : @lib.TypeSec,
 ) -> @hashmap.HashMap[String, @lib.TypeIdx] {
@@ -11833,27 +11847,21 @@ fn dae_simple_func_type_lookup(
   )
   let mut flat_idx = 0
   for rec_type in rec_types {
-    match rec_type {
-      @lib.SingleRecType(subtype) => {
-        if subtype.super_types().is_empty() &&
-          subtype.describes_type() is None &&
-          subtype.descriptor_type() is None {
-          match subtype.get_comptype() {
-            @lib.FuncCompType(params, results) => {
-              let key = dae_simple_func_type_key(params, results)
-              if lookup.get(key) is None {
-                lookup.set(
-                  key,
-                  @lib.TypeIdx::new(flat_idx.reinterpret_as_uint()),
-                )
-              }
-            }
-            _ => ()
+    let group = match rec_type {
+      @lib.SingleRecType(subtype) => [subtype]
+      @lib.GroupRecType(group) => group
+    }
+    for subtype in group {
+      match dae_simple_func_subtype_type(subtype) {
+        Some(@lib.FuncType(params, results)) => {
+          let key = dae_simple_func_type_key(params, results)
+          if lookup.get(key) is None {
+            lookup.set(key, @lib.TypeIdx::new(flat_idx.reinterpret_as_uint()))
           }
         }
-        flat_idx += 1
+        None => ()
       }
-      @lib.GroupRecType(group) => flat_idx += group.length()
+      flat_idx += 1
     }
   }
   lookup
@@ -11868,22 +11876,19 @@ fn dae_find_equivalent_simple_func_type(
   let @lib.TypeSec(rec_types) = type_sec
   let mut flat_idx = 0
   for rec_type in rec_types {
-    match rec_type {
-      @lib.SingleRecType(subtype) => {
-        if subtype.super_types().is_empty() &&
-          subtype.describes_type() is None &&
-          subtype.descriptor_type() is None {
-          match subtype.get_comptype() {
-            @lib.FuncCompType(existing_params, existing_results) if existing_params ==
-              params &&
-              existing_results == results =>
-              return Some(@lib.TypeIdx::new(flat_idx.reinterpret_as_uint()))
-            _ => ()
-          }
-        }
-        flat_idx += 1
+    let group = match rec_type {
+      @lib.SingleRecType(subtype) => [subtype]
+      @lib.GroupRecType(group) => group
+    }
+    for subtype in group {
+      match dae_simple_func_subtype_type(subtype) {
+        Some(@lib.FuncType(existing_params, existing_results)) if existing_params ==
+          params &&
+          existing_results == results =>
+          return Some(@lib.TypeIdx::new(flat_idx.reinterpret_as_uint()))
+        _ => ()
       }
-      @lib.GroupRecType(group) => flat_idx += group.length()
+      flat_idx += 1
     }
   }
   None
@@ -36474,23 +36479,7 @@ fn dae_find_first_matching_func_type_idx(
   params : Array[@lib.ValType],
   results : Array[@lib.ValType],
 ) -> @lib.TypeIdx? {
-  let @lib.TypeSec(rec_types) = type_sec
-  let mut idx = 0
-  while idx < rec_types.length() {
-    match rec_types[idx] {
-      @lib.SingleRecType(subtype) =>
-        match subtype.get_comptype() {
-          @lib.FuncCompType(candidate_params, candidate_results) if candidate_params ==
-            params &&
-            candidate_results == results =>
-            return Some(@lib.TypeIdx::new(idx.reinterpret_as_uint()))
-          _ => ()
-        }
-      @lib.GroupRecType(_) => ()
-    }
-    idx += 1
-  }
-  None
+  dae_find_equivalent_simple_func_type(type_sec, params, results)
 }
 
 ///|
