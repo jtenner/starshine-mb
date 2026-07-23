@@ -19629,7 +19629,7 @@ test "DAEO post-component profitability proves a strict selected-function encodi
 }
 
 ///|
-test "DAEO post-component vacuum rotates an outer branch-only if into br_if" {
+test "DAEO shared nested roster rotates an outer branch-only if into br_if" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -19653,11 +19653,15 @@ test "DAEO post-component vacuum rotates an outer branch-only if into br_if" {
     #|    end
     #|    i32.const 7))
   let original = pass_test_module_from_wat(source)
-  let cleaned = run_hot_pipeline_apply_dae_post_component_cleanup(
-    original,
-    [0],
-    HotPipelineOptions::new(),
-  )
+  let cleaned = match
+    run_hot_pipeline_apply_dae_nested_cleanup(
+      original,
+      [true],
+      HotPipelineOptions::new(),
+    ) {
+    Ok(next) => next
+    Err(err) => fail("expected shared nested cleanup, got \{err}")
+  }
   let pretty = cleaned.pretty_print_defined_func(0U)
   assert_true(pretty.contains("br_if"), msg=pretty)
   assert_false(pretty.contains("if (Void)"), msg=pretty)

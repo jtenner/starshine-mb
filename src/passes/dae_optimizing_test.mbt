@@ -18744,6 +18744,16 @@ test "dae-optimizing removes a forwarding-only parameter component and preserves
     }),
     msg=trace.to_string(),
   )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:post-component-cleanup")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_true(
+    trace.contains("pass[dae-optimizing]:nested-pass name=precompute-propagate"),
+    msg=trace.to_string(),
+  )
 }
 
 ///|
@@ -18821,28 +18831,14 @@ test "dae-optimizing replays coalesce and vacuum on changed forwarding-component
   let optimized_a = optimized.pretty_print_defined_func(0U)
   assert_true(a_locals.length() < 16, msg=optimized_a)
   assert_false(optimized_a.contains("nop"), msg=optimized_a)
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:nested-cleanup-skip reason=large-touched-set",
-      )
+      line.contains("pass[dae-optimizing]:post-component-cleanup")
     }),
     msg=trace.to_string(),
   )
   assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:post-component-cleanup defs=[0] passes=[coalesce-locals, vacuum]",
-      )
-    }),
-    msg=trace.to_string(),
-  )
-  assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:post-component-cleanup-skip reason=small-local-set defs=[1, 2]",
-      )
-    }),
+    trace.contains("pass[dae-optimizing]:nested-pass name=precompute-propagate"),
     msg=trace.to_string(),
   )
 }
