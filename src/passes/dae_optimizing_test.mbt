@@ -2190,6 +2190,30 @@ test "dead-argument-elimination preserves external conversion nullability in GC 
 }
 
 ///|
+test "dead-argument-elimination infers concatenated string GC results" {
+  let source =
+    #|(module
+    #|  (func $f (result (ref null extern))
+    #|    string.const "star"
+    #|    string.const "shine"
+    #|    string.concat)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::stringref(),
+  ])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("string.concat"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected concatenated-string DAE result to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination narrows branchful select-condition GC results" {
   let source =
     #|(module

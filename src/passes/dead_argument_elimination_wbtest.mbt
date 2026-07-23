@@ -17347,6 +17347,36 @@ test "dae GC result slices infer string.const expressions" {
 }
 
 ///|
+test "dae GC result slices infer string.concat expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  let body = [
+    @lib.Instruction::string_const(b"star"),
+    @lib.Instruction::string_const(b"shine"),
+    @lib.Instruction::string_concat(),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, @lib.ValType::stringref())
+    _ => fail("expected string.concat result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement follows declared global.get types" {
   let source =
     #|(module

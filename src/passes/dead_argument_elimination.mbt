@@ -6633,6 +6633,7 @@ fn dae_instr_stack_effect(
     | @lib.ArrayGet(_)
     | @lib.ArrayGetS(_)
     | @lib.ArrayGetU(_)
+    | @lib.StringConcat
     | @lib.TableGrow(_) => Some((2, 1))
     @lib.Call(func_idx) | @lib.ReturnCall(func_idx) => {
       let slot = dae_func_idx_slot(func_idx)
@@ -13803,7 +13804,7 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
-    @lib.StringConst(_) => {
+    @lib.StringConst(_) | @lib.StringConcat => {
       let candidate = @lib.ValType::stringref()
       match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
         Some(refined) => Some((refined, None))
