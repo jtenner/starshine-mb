@@ -13145,6 +13145,42 @@ fn dae_exact_struct_default_ref_type(type_idx : @lib.TypeIdx) -> @lib.ValType {
 }
 
 ///|
+fn dae_gc_candidate_global_get_type(
+  mod_ : @lib.Module,
+  idx : @lib.GlobalIdx,
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let slot = dae_global_idx_slot(idx)
+  let mut imported_globals = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.GlobalExternType(@lib.GlobalType(vt, _))) => {
+            if imported_globals == slot {
+              return dae_refined_gc_candidate_ref_type(mod_, old_type, vt)
+            }
+            imported_globals += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let defined_slot = slot - imported_globals
+  if defined_slot < 0 {
+    return None
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) if defined_slot < globals.length() => {
+      let @lib.Global(@lib.GlobalType(vt, _), _) = globals[defined_slot]
+      dae_refined_gc_candidate_ref_type(mod_, old_type, vt)
+    }
+    _ => None
+  }
+}
+
+///|
 fn dae_gc_candidate_local_get_type(
   mod_ : @lib.Module,
   func_locals : @lib.FunctionLocals?,
@@ -13671,6 +13707,10 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
+    @lib.GlobalGet(idx) =>
+      dae_gc_candidate_global_get_type(mod_, idx, old_type).map(fn(candidate) {
+        (candidate, None)
+      })
     @lib.LocalGet(idx) =>
       dae_gc_candidate_local_get_type(mod_, func_locals, idx, old_type).map(fn(
         candidate_type,
