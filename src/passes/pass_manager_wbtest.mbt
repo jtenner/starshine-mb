@@ -23113,15 +23113,17 @@ test "dae optimizing payoff exact literal retains original ownership" {
       #|    call $target))
     ),
   )
-  let (rewritten, _, changed) = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
+  let application = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
     escaped,
     current,
     [1],
     [],
     HotPipelineOptions::new(),
   )
-  assert_false(changed)
-  assert_eq(rewritten, current)
+  assert_false(application.applied)
+  assert_false(application.changed)
+  assert_eq(application.mod_out, current)
+  assert_eq(application.effects.worth_decided, [false, false])
 }
 
 ///|

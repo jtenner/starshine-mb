@@ -62525,17 +62525,27 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
   payoff_defs : Array[Int],
   touched : Array[Bool],
   options : HotPipelineOptions,
-) -> (@lib.Module, Array[Bool], Bool) {
+) -> DaeCoreResultApplication {
+  let unchanged = fn() {
+    {
+      mod_out: mod_,
+      touched,
+      changed: false,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(dae_defined_func_count(mod_)),
+    }
+  }
   if payoff_defs.length() == 0 {
-    return (mod_, touched, false)
+    return unchanged()
   }
   let funcs = match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
-    None => return (mod_, touched, false)
+    None => return unchanged()
   }
   let caller_def = payoff_defs[0]
   if caller_def < 0 || caller_def >= funcs.length() {
-    return (mod_, touched, false)
+    return unchanged()
   }
   let imported = dae_imported_func_count(mod_)
   let defined = funcs.length()
@@ -62549,7 +62559,7 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
     body, imported, defined, callee_defs,
   )
   if callee_defs.length() == 0 {
-    return (mod_, touched, false)
+    return unchanged()
   }
   for callee_def in callee_defs {
     let application = dae_apply_exact_literal_family_once(
@@ -62559,10 +62569,10 @@ fn run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
       (options.trace)(
         "pass[dae-optimizing]:payoff-direct-callee-exact-literal caller_def=\{caller_def} callee_def=\{callee_def}",
       )
-      return (application.mod_out, application.touched, true)
+      return application
     }
   }
-  (mod_, touched, false)
+  unchanged()
 }
 
 ///|
@@ -69703,120 +69713,6 @@ fn run_hot_pipeline_dae_remove_dead_tees_and_compact_selected_locals(
 }
 
 ///|
-fn run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-  instrs : Array[@lib.Instruction],
-) -> (Array[@lib.Instruction], Int) {
-  let rewritten : Array[@lib.Instruction] = []
-  let mut rewrite_count = 0
-  for instr in instrs {
-    match instr {
-      @lib.Block(block_type, @lib.Expr(body)) => {
-        let (next_body, nested_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-          body,
-        )
-        rewritten.push(
-          @lib.Instruction::block(block_type, @lib.Expr::new(next_body)),
-        )
-        rewrite_count = rewrite_count + nested_count
-      }
-      @lib.Loop(block_type, @lib.Expr(body)) => {
-        let (next_body, nested_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-          body,
-        )
-        rewritten.push(
-          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
-        )
-        rewrite_count = rewrite_count + nested_count
-      }
-      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        let (next_body, nested_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-          body,
-        )
-        rewritten.push(
-          @lib.Instruction::try_table(
-            block_type,
-            catches,
-            @lib.Expr::new(next_body),
-          ),
-        )
-        rewrite_count = rewrite_count + nested_count
-      }
-      @lib.If(block_type, then_body, else_body) => {
-        let (next_then, then_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-          then_body,
-        )
-        rewrite_count = rewrite_count + then_count
-        let next_else = match else_body {
-          Some(body) => {
-            let (next_body, else_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-              body,
-            )
-            rewrite_count = rewrite_count + else_count
-            Some(next_body)
-          }
-          None => None
-        }
-        match (block_type, next_then) {
-          (@lib.VoidBlockType, [@lib.Br(label)]) if run_hot_pipeline_raw_vacuum_label_depth(
-              label,
-            ) >
-            0 => {
-            rewritten.push(
-              @lib.Instruction::br_if(
-                run_hot_pipeline_raw_vacuum_rebase_outer_label(label, 0),
-              ),
-            )
-            match next_else {
-              Some(body) => {
-                let rebased = run_hot_pipeline_raw_vacuum_rebase_outer_body(
-                  body, 0,
-                )
-                for else_instr in rebased {
-                  rewritten.push(else_instr)
-                }
-              }
-              None => ()
-            }
-            rewrite_count = rewrite_count + 1
-          }
-          _ =>
-            rewritten.push(
-              @lib.Instruction::if_(block_type, next_then, next_else),
-            )
-        }
-      }
-      _ => rewritten.push(instr)
-    }
-  }
-  (rewritten, rewrite_count)
-}
-
-///|
-fn run_hot_pipeline_dae_rotate_selected_branch_only_ifs(
-  mod_ : @lib.Module,
-  def_idx : Int,
-) -> (@lib.Module, Int) {
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return (mod_, 0)
-  }
-  let func = match funcs.get(def_idx) {
-    Some(func) => func
-    None => return (mod_, 0)
-  }
-  let @lib.Func(locals, @lib.Expr(body)) = func
-  let (next_body, rewrite_count) = run_hot_pipeline_dae_rotate_branch_only_if_instrs(
-    body,
-  )
-  if rewrite_count == 0 {
-    return (mod_, 0)
-  }
-  let next_funcs = funcs.copy()
-  next_funcs[def_idx] = @lib.Func::new(locals, @lib.Expr::new(next_body))
-  (mod_.with_code_sec(@lib.CodeSec::new(next_funcs)), rewrite_count)
-}
-
-///|
 fn run_hot_pipeline_dae_effects_own_worth_for_def(
   effects : DaeCommitEffects,
   def_idx : Int,
@@ -71639,12 +71535,13 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   for candidate in payoff_cleanup_candidates {
     payoff_final_reorder_defs.push(candidate.callee_def)
   }
-  let (payoff_literal_mod, payoff_literal_touched, payoff_literal_changed) = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
+  let payoff_literal = run_hot_pipeline_apply_dae_payoff_direct_callee_exact_literal(
     mod_, core_mod, payoff_final_reorder_defs, core_touched, options,
   )
-  core_mod = payoff_literal_mod
-  core_touched = payoff_literal_touched
-  if payoff_literal_changed {
+  core_mod = payoff_literal.mod_out
+  core_touched = payoff_literal.touched
+  core_effects = dae_commit_effects_merge(core_effects, payoff_literal.effects)
+  if payoff_literal.applied {
     let post_literal_direct_gc = dae_apply_direct_gc_batch_transaction(
       dae_collect_original_boundary_snapshot(mod_),
       core_mod,
@@ -71654,6 +71551,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     if post_literal_direct_gc.applied {
       core_mod = post_literal_direct_gc.mod_out
       core_touched = post_literal_direct_gc.touched
+      core_effects = dae_commit_effects_merge(
+        core_effects,
+        post_literal_direct_gc.effects,
+      )
       (options.trace)(
         "pass[dae-optimizing]:payoff-post-literal-direct-gc primary_def=\{post_literal_direct_gc.primary_def}",
       )
@@ -71711,71 +71612,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       None => ()
     }
   }
-  if payoff_cleanup_candidates.length() > 0 {
-    let cleanup_touched = Array::make(dae_defined_func_count(core_mod), false)
-    for candidate in payoff_cleanup_candidates {
-      cleanup_touched[candidate.callee_def] = true
-    }
-    for cleanup_round = 0; cleanup_round < 4; cleanup_round = cleanup_round + 1 {
-      for cleanup_pass in ["simplify-locals", "vacuum"] {
-        let descriptor = match
-          run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-          Ok(descriptor) => descriptor
-          Err(err) => return Err(err)
-        }
-        core_mod = match
-          run_hot_pipeline_apply_hot_pass_to_touched(
-            core_mod, descriptor, cleanup_touched, options,
-          ) {
-          Ok(next) => next
-          Err(err) =>
-            return Err(
-              "DAE dropped-result payoff-chain round=\{cleanup_round} \{cleanup_pass} cleanup: \{err}",
-            )
-        }
-      }
-    }
-    core_mod = match
-      run_hot_pipeline_apply_coalesce_locals_to_touched(
-        core_mod, cleanup_touched,
-      ) {
-      Ok(next) => next
-      Err(err) => return Err("DAE payoff coalesce-locals: \{err}")
-    }
-    for cleanup_pass in ["simplify-locals", "vacuum"] {
-      let descriptor = match
-        run_hot_pipeline_dae_nested_cleanup_descriptor(cleanup_pass) {
-        Ok(descriptor) => descriptor
-        Err(err) => return Err(err)
-      }
-      core_mod = match
-        run_hot_pipeline_apply_hot_pass_to_touched(
-          core_mod, descriptor, cleanup_touched, options,
-        ) {
-        Ok(next) => next
-        Err(err) =>
-          return Err(
-            "DAE dropped-result post-coalesce \{cleanup_pass} cleanup: \{err}",
-          )
-      }
-    }
-    let payoff_defs : Array[Int] = []
-    for candidate in payoff_cleanup_candidates {
-      payoff_defs.push(candidate.callee_def)
-    }
-    core_mod = match
-      run_hot_pipeline_apply_type_stable_reorder_locals_to_defs(
-        core_mod, payoff_defs,
-      ) {
-      Ok(next) => next
-      Err(err) => return Err("DAE payoff type-stable reorder-locals: \{err}")
-    }
-    for candidate in payoff_cleanup_candidates {
-      (options.trace)(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=\{candidate.wrapper_def} callee_def=\{candidate.callee_def} payoff=\{candidate.payoff} local_order=type-stable ordered_defs=\{payoff_defs.length()}",
-      )
-    }
-  }
+  // Payoff/result producers already publish exact worth and touched effects.
+  // The shared roster below is the sole nested cleanup owner; do not replay
+  // simplify/vacuum/coalesce/reorder in a payoff-private fixed-round loop.
   // Run the general changed-boundary fallback only after specialized DAEO
   // convergence owners have consumed their original fact neighborhoods. Feed
   // it the semantic worth set so body-only callers are replayed without a size

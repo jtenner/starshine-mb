@@ -18121,7 +18121,7 @@ fn dae_test_broad_dropped_result_payoff_chain_module() -> String {
 }
 
 ///|
-test "dae-optimizing converges payoff cleanup independent of module size" {
+test "dae-optimizing shared nested roster converges payoff cleanup independent of module size" {
   let source = dae_test_broad_dropped_result_payoff_chain_module()
   let plain = dae_test_run(source, pass_name="dead-argument-elimination")
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
@@ -18137,11 +18137,18 @@ test "dae-optimizing converges payoff cleanup independent of module size" {
   assert_true(
     trace.any(fn(line) {
       line.contains(
-        "pass[dae-optimizing]:payoff-dropped-result-chain wrapper_def=1 callee_def=0 payoff=166",
+        "pass[dae-optimizing]:nested-pass name=precompute-propagate",
       )
     }),
     msg=trace.to_string(),
   )
+  let mut nested_cleanup_count = 0
+  for line in trace {
+    if line.contains("pass[dae-optimizing]:nested-cleanup touched=") {
+      nested_cleanup_count = nested_cleanup_count + 1
+    }
+  }
+  @debug.assert_eq(nested_cleanup_count, 1)
 }
 
 ///|
