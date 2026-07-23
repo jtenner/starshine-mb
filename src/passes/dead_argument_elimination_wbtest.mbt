@@ -3666,78 +3666,45 @@ test "dae direct-caller scope application is transactional and count verified" {
 }
 
 ///|
-test "dae removed-param callee application centralizes cleanup and finalization" {
-  let original_type = @lib.TypeIdx::new(0U)
-  let callee = @lib.FuncIdx::new(1U)
-  let mod_ = @lib.Module::new()
-    .with_type_sec(
-      @lib.TypeSec::new([
-        @lib.RecType::new(
-          @lib.SubType::comp_type(
-            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
-          ),
-        ),
-      ]),
-    )
-    .with_func_sec(@lib.FuncSec::new([original_type, original_type]))
-    .with_code_sec(
-      @lib.CodeSec::new([
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([
-            @lib.Instruction::i32_const(@lib.I32(9)),
-            @lib.Instruction::call(callee),
-          ]),
-        ),
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
-        ),
-      ]),
-    )
-  let context = match dae_module_signature_context(mod_, 1, copy_funcs=false) {
-    Some(context) => context
-    None => fail("expected module signature context")
+test "dae scalar materialization plan centralizes cleanup and finalization" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 4
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
   }
-  let rewritten_funcs = context.funcs.copy()
-  rewritten_funcs[0] = @lib.Func::new(
-    @lib.Locals::empty(),
-    @lib.Expr::new([@lib.Instruction::call(callee)]),
-  )
-  let rewrite : DaeRemovedParamCalleeRewriteEvidence = {
-    kept_params: [],
-    locals: @lib.Locals::empty(),
-    body: [
-      @lib.Instruction::i32_const(@lib.I32(4)),
-      @lib.Instruction::i32_const(@lib.I32(0)),
-      @lib.Instruction::i32_add(),
-    ],
-  }
-  let result = dae_apply_removed_param_callee_rewrite(
+  let local_use = dae_local_use_for_callee(funcs[0], 1, 0, 1)
+  let result = dae_try_rewrite_candidate(
     mod_,
-    context,
-    rewritten_funcs,
-    rewrite,
-    [@lib.ValType::i32()],
+    0,
+    [true],
+    [Some(@lib.Instruction::i32_const(4))],
+    local_use,
+    1,
+    [1],
   )
   assert_true(result.changed)
-  assert_eq(result.primary_def, 1)
+  assert_eq(result.primary_def, 0)
   assert_eq(result.touched, [true, true])
   match result.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => {
-      assert_eq(funcs[0], rewritten_funcs[0])
-      assert_eq(
-        funcs[1],
-        @lib.Func::new(
-          @lib.Locals::empty(),
-          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(4))]),
-        ),
-      )
+      let @lib.Func(_, @lib.Expr(callee_body)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(caller_body)) = funcs[1]
+      assert_eq(callee_body, [@lib.Instruction::i32_const(4)])
+      assert_eq(caller_body, [@lib.Instruction::call(@lib.FuncIdx::new(0U))])
     }
     None => fail("expected finalized code section")
   }
   let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
-  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 1) {
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 0) {
     Some(@lib.FuncType(params, results)) => {
       assert_eq(params, [])
       assert_eq(results, [@lib.ValType::i32()])
@@ -17512,6 +17479,39 @@ test "dae immediate-suffix transaction rejects original escaped ownership" {
   )
   assert_false(result.changed)
   assert_eq(result.mod_out, current_mod)
+}
+
+///|
+test "dae direct immediate-suffix helper rejects an exposed boundary" {
+  let source =
+    #|(module
+    #|  (table 1 funcref)
+    #|  (elem (i32.const 0) func $target)
+    #|  (func $target (param i32 i32) (result i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    i32.add)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 5
+    #|    i32.const 7
+    #|    call $target))
+  let mod_ = pass_test_module_from_wat(source)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section")
+  }
+  let local_use = dae_local_use_for_callee(funcs[0], 2, 0, 2)
+  let result = dae_try_rewrite_verified_materialized_const_suffix_candidate(
+    mod_,
+    0,
+    [@lib.ValType::i32(), @lib.ValType::i32()],
+    [@lib.Instruction::i32_const(7)],
+    local_use,
+    1,
+    [1],
+  )
+  assert_false(result.changed)
+  assert_eq(result.mod_out, mod_)
 }
 
 ///|

@@ -17740,50 +17740,6 @@ fn dae_rewrite_materialized_const_suffix_calls_instrs(
 }
 
 ///|
-fn dae_apply_removed_param_candidate_after_caller_scope(
-  mod_ : @lib.Module,
-  def_idx : Int,
-  params : Array[@lib.ValType],
-  results : Array[@lib.ValType],
-  remove : Array[Bool],
-  const_params : Array[@lib.Instruction?],
-  local_use : DaeLocalUse,
-  localized_params : Array[Bool],
-  application : DaeDirectCallerScopeApplication,
-  direct_call_count : Int,
-) -> DaePassResult {
-  if !application.ok || application.calls_rewritten != direct_call_count {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_funcs = application.funcs
-  if def_idx < 0 || def_idx >= rewritten_funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let callee_rewrite = match
-    dae_removed_param_callee_rewrite_evidence(
-      rewritten_funcs[def_idx],
-      params,
-      remove,
-      const_params,
-      local_use,
-      localized_params,
-    ) {
-    Some(evidence) => evidence
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let context = match
-    dae_module_signature_context(mod_, def_idx, copy_funcs=false) {
-    Some(context) => context
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  dae_apply_removed_param_callee_rewrite(
-    mod_, context, rewritten_funcs, callee_rewrite, results,
-  )
-}
-
-///|
 fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -17799,53 +17755,17 @@ fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
     expected_suffix.any(fn(instr) { !dae_instr_is_materializable_const(instr) }) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let imported = dae_imported_func_count(mod_)
-  let def_idx = callee_abs - imported
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
-    Some(ft) => ft
-    None =>
-      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  let graph = dae_current_boundary_graph_new(mod_)
+  if callee_abs < 0 || callee_abs >= graph.snapshot.function_types.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let @lib.FuncType(current_params, results) = func_type
+  let current_params = match graph.snapshot.function_types[callee_abs] {
+    Some(@lib.FuncType(current_params, _)) => current_params
+    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   if current_params != params {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let funcs = match (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(_), Some(@lib.CodeSec(funcs)), Some(_)) => funcs
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let tail_call_boundary = dae_tail_call_boundary_evidence(funcs)
-  if tail_call_boundary.blocks_direct_call_rewrite {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewrite_caller = fn(caller_func, _) {
-    let @lib.Func(locals, @lib.Expr(body)) = caller_func
-    let (rewritten_body, calls_rewritten, ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
-      body, callee_abs, expected_suffix,
-    )
-    if !ok {
-      return {
-        func: caller_func,
-        calls_rewritten: 0,
-        changed: false,
-        ok: false,
-      }
-    }
-    if calls_rewritten > 0 {
-      {
-        func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
-        calls_rewritten,
-        changed: true,
-        ok: true,
-      }
-    } else {
-      { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
-    }
-  }
-  let application = dae_apply_direct_caller_scope_rewrite(
-    funcs, verified_callers, rewrite_caller,
-  )
   let suffix_start = params.length() - expected_suffix.length()
   let remove = Array::make(params.length(), false)
   let const_params : Array[@lib.Instruction?] = Array::make(
@@ -17858,18 +17778,29 @@ fn dae_try_rewrite_verified_materialized_const_suffix_candidate(
     const_params[suffix_start + suffix_idx] = Some(expected_suffix[suffix_idx])
     suffix_idx += 1
   }
-  dae_apply_removed_param_candidate_after_caller_scope(
-    mod_,
-    def_idx,
-    params,
-    results,
-    remove,
-    const_params,
-    local_use,
-    Array::make(params.length(), false),
-    application,
-    verified_calls,
-  )
+  match
+    dae_build_scalar_unused_param_rewrite_plan(
+      mod_,
+      dae_collect_original_boundary_snapshot(mod_),
+      graph,
+      callee_abs,
+      remove,
+      local_use,
+      verified_calls,
+      verified_callers,
+      materialized_params=Some(const_params),
+      verified_materialized_suffix=Some(expected_suffix),
+    ) {
+    Some(plan) => {
+      let application = dae_apply_rewrite_plan(mod_, graph, plan)
+      if application.applied {
+        application.result
+      } else {
+        { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+      }
+    }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
 }
 
 ///|
@@ -19718,7 +19649,7 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       Some(func_type) => func_type
       None => continue
     }
-    let @lib.FuncType(params, results) = func_type
+    let @lib.FuncType(params, _) = func_type
     if params.length() == 0 {
       continue
     }
@@ -19748,37 +19679,6 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       Some(@lib.RefNull(_) as value) => value
       _ => continue
     }
-    let rewrite_caller = fn(caller_func, _) {
-      let @lib.Func(locals, @lib.Expr(body)) = caller_func
-      let (rewritten_body, calls_rewritten, ok) = dae_rewrite_materialized_const_suffix_calls_instrs(
-        body,
-        callee_abs,
-        [expected],
-      )
-      if !ok {
-        return {
-          func: caller_func,
-          calls_rewritten: 0,
-          changed: false,
-          ok: false,
-        }
-      }
-      if calls_rewritten > 0 {
-        {
-          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_body)),
-          calls_rewritten,
-          changed: true,
-          ok: true,
-        }
-      } else {
-        { func: caller_func, calls_rewritten: 0, changed: false, ok: true }
-      }
-    }
-    let application = dae_apply_direct_caller_scope_rewrite(
-      funcs,
-      boundary_facts.direct_callers[callee_abs],
-      rewrite_caller,
-    )
     let remove = Array::make(params.length(), false)
     remove[final_param] = true
     let const_params : Array[@lib.Instruction?] = Array::make(
@@ -19786,45 +19686,36 @@ fn dae_try_rewrite_uniform_ref_null_callee_from_selected_callers_with_facts(
       None,
     )
     const_params[final_param] = Some(expected)
-    let result = match (original, graph) {
-      (Some(original), Some(graph)) =>
-        match
-          dae_build_scalar_unused_param_rewrite_plan(
-            mod_,
-            original,
-            graph,
-            callee_abs,
-            remove,
-            local_use,
-            boundary_facts.direct_calls[callee_abs],
-            boundary_facts.direct_callers[callee_abs],
-            materialized_params=Some(const_params),
-            verified_materialized_suffix=Some([expected]),
-          ) {
-          Some(plan) => {
-            let plan_application = dae_apply_rewrite_plan(mod_, graph, plan)
-            if plan_application.applied {
-              plan_application.result
-            } else {
-              { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-            }
-          }
-          None =>
-            { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-        }
+    let (plan_original, plan_graph) = match (original, graph) {
+      (Some(original), Some(graph)) => (original, graph)
       _ =>
-        dae_apply_removed_param_candidate_after_caller_scope(
-          mod_,
-          callee_def,
-          params,
-          results,
-          remove,
-          const_params,
-          local_use,
-          Array::make(params.length(), false),
-          application,
-          boundary_facts.direct_calls[callee_abs],
+        (
+          dae_collect_original_boundary_snapshot(mod_),
+          dae_current_boundary_graph_new(mod_),
         )
+    }
+    let result = match
+      dae_build_scalar_unused_param_rewrite_plan(
+        mod_,
+        plan_original,
+        plan_graph,
+        callee_abs,
+        remove,
+        local_use,
+        boundary_facts.direct_calls[callee_abs],
+        boundary_facts.direct_callers[callee_abs],
+        materialized_params=Some(const_params),
+        verified_materialized_suffix=Some([expected]),
+      ) {
+      Some(plan) => {
+        let plan_application = dae_apply_rewrite_plan(mod_, plan_graph, plan)
+        if plan_application.applied {
+          plan_application.result
+        } else {
+          { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+        }
+      }
+      None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
     }
     if result.changed {
       if result.primary_def < 0 || result.primary_def >= result.touched.length() {
@@ -21175,47 +21066,6 @@ fn dae_apply_dropped_result_callee_rewrite(
     perf~,
     type_update_timer_name~,
   )
-}
-
-///|
-fn dae_apply_removed_param_callee_rewrite(
-  mod_ : @lib.Module,
-  context : DaeModuleSignatureContext,
-  rewritten_funcs : Array[@lib.Func],
-  rewrite : DaeRemovedParamCalleeRewriteEvidence,
-  results : Array[@lib.ValType],
-) -> DaePassResult {
-  let def_idx = context.def_idx
-  if def_idx < 0 || def_idx >= rewritten_funcs.length() {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let rewritten_total_locals = rewrite.kept_params.length() +
-    rewrite.locals.length()
-  let rewritten_written_locals = dae_collect_written_locals(
-    rewrite.body,
-    rewritten_total_locals,
-  )
-  let new_body = dae_fold_const_eq_if_instrs_until_stable(
-    dae_simplify_rewritten_add_zero_instrs(
-      dae_simplify_rewritten_control_instrs(
-        dae_simplify_default_zero_high_guard_instrs(
-          rewrite.body,
-          rewrite.kept_params.length(),
-          rewritten_written_locals,
-        ),
-        true,
-      ),
-    ),
-  )
-  rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
-    @lib.Func::new(rewrite.locals, @lib.Expr::new(new_body)),
-  )
-  let plan = dae_module_code_finalization_plan(
-    rewrite.kept_params,
-    results,
-    DaeTouchModuleCodeChangedFuncs,
-  )
-  dae_apply_module_code_finalization(mod_, context, rewritten_funcs, plan)
 }
 
 ///|
