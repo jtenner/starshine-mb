@@ -16926,6 +16926,52 @@ test "dae GC result refinement joins null-bottom explicit returns" {
 }
 
 ///|
+test "dae dropped result builds a common signature rewrite plan" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run")
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let candidate = dae_try_remove_dropped_result_def_with_facts(
+    mod_,
+    0,
+    graph.snapshot.call_facts,
+  )
+  let item = dae_work_item_new(
+    graph,
+    dae_boundary_dependency_graph_new(graph),
+    0,
+    DaeDroppedResultWork,
+  )
+  let effects = dae_commit_effects_for_work_item(
+    graph.snapshot.defined,
+    item,
+    candidate,
+  )
+  let plan = match
+    dae_build_signature_rewrite_plan_from_candidate(
+      original, mod_, graph, 0, candidate, effects,
+    ) {
+    Some(plan) => plan
+    None => fail("expected dropped-result signature plan")
+  }
+  assert_eq(plan.parameter_actions, [])
+  assert_eq(plan.result_actions, [DaeRemoveResult])
+  assert_eq(plan.caller_rewrites.length(), 1)
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  match @validate.validate_module(application.result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid dropped-result signature plan: \{err}")
+  }
+}
+
+///|
 test "dae GC parameter and result refinement builds a combined signature plan" {
   let source =
     #|(module

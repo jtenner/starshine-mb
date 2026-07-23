@@ -4357,40 +4357,45 @@ fn dae_process_work_item(
             candidate,
           )
       }
-      let plan_application = if item.family == DaeGcParameterRefinementWork ||
-        item.family == DaeGcResultRefinementWork {
-        match
-          dae_build_signature_rewrite_plan_from_candidate(
-            original,
-            current,
-            graph,
-            item.target_def,
-            candidate,
-            producer_effects,
-          ) {
-          Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
-          None => {
-            dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
-            return DaeWorkNoChange(DaeNoStrictImprovement)
-          }
-        }
+      let requires_signature_plan = item.family == DaeGcParameterRefinementWork ||
+        item.family == DaeGcResultRefinementWork
+      let signature_plan = if requires_signature_plan ||
+        item.family == DaeDroppedResultWork {
+        dae_build_signature_rewrite_plan_from_candidate(
+          original,
+          current,
+          graph,
+          item.target_def,
+          candidate,
+          producer_effects,
+        )
       } else {
-        let plan = match
-          dae_build_family_rewrite_plan(
-            original,
-            current,
-            graph,
-            item.target_def,
-            candidate,
-            effects=Some(producer_effects),
-          ) {
-          Some(plan) => plan
-          None => {
+        None
+      }
+      let plan_application = match signature_plan {
+        Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
+        None => {
+          if requires_signature_plan {
             dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
             return DaeWorkNoChange(DaeNoStrictImprovement)
           }
+          let plan = match
+            dae_build_family_rewrite_plan(
+              original,
+              current,
+              graph,
+              item.target_def,
+              candidate,
+              effects=Some(producer_effects),
+            ) {
+            Some(plan) => plan
+            None => {
+              dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+              return DaeWorkNoChange(DaeNoStrictImprovement)
+            }
+          }
+          dae_apply_family_rewrite_plan(current, graph, plan)
         }
-        dae_apply_family_rewrite_plan(current, graph, plan)
       }
       if plan_application.applied {
         dae_diagnostics_record_commit_effects(
@@ -19379,7 +19384,10 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   let @lib.FuncType(old_params, old_results) = old_signature
   let @lib.FuncType(next_params, next_results) = replacement_signature
   if old_params.length() != next_params.length() ||
-    old_results.length() != next_results.length() {
+    (
+      old_results.length() != next_results.length() &&
+      next_results.length() != 0
+    ) {
     return None
   }
   let shared_facts : DaeBoundaryFacts = {
@@ -19405,15 +19413,22 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let result_actions : Array[DaeResultAction] = []
   let mut result_changed = false
-  let mut result_idx = 0
-  while result_idx < old_results.length() {
-    if old_results[result_idx] == next_results[result_idx] {
-      result_actions.push(DaeKeepResult)
-    } else {
-      result_actions.push(DaeRefineResult(next_results[result_idx]))
-      result_changed = true
+  if next_results.length() == 0 && old_results.length() > 0 {
+    for _ in old_results {
+      result_actions.push(DaeRemoveResult)
     }
-    result_idx += 1
+    result_changed = true
+  } else {
+    let mut result_idx = 0
+    while result_idx < old_results.length() {
+      if old_results[result_idx] == next_results[result_idx] {
+        result_actions.push(DaeKeepResult)
+      } else {
+        result_actions.push(DaeRefineResult(next_results[result_idx]))
+        result_changed = true
+      }
+      result_idx += 1
+    }
   }
   if !parameter_changed && !result_changed {
     return None
