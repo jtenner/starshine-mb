@@ -7151,6 +7151,33 @@ test "plain DAE initializes a removed written parameter from a uniform constant"
 }
 
 ///|
+test "dae-optimizing removes unused parameters from nested result carriers" {
+  let source =
+    #|(module
+    #|  (func $target (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    block (result i32)
+    #|      block (result i32)
+    #|        local.get 1
+    #|      end
+    #|    end
+    #|    local.set 2
+    #|    local.get 2)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 101
+    #|    i32.const 7
+    #|    call $target)
+    #|  (func (result i32)
+    #|    i32.const 102
+    #|    i32.const 8
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 1)
+  let @lib.Func(locals, _) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(locals.length(), 0)
+}
+
+///|
 test "dae-optimizing initializes a removed written parameter from a uniform constant" {
   let source =
     #|(module

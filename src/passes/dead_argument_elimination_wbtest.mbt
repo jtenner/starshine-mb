@@ -22273,6 +22273,63 @@ test "dae body-only transaction uses the current boundary after prior signature 
 }
 
 ///|
+test "dae scalar plan removes unused parameters from nested result carriers" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32 i32) (result i32)
+      #|    (local i32 i32 i32)
+      #|    block (result i32)
+      #|      block (result i32)
+      #|        local.get 1
+      #|      end
+      #|    end
+      #|    local.set 2
+      #|    local.get 2)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 101
+      #|    i32.const 7
+      #|    call $target)
+      #|  (func (result i32)
+      #|    i32.const 102
+      #|    i32.const 8
+      #|    call $target))
+    ),
+  )
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  assert_eq(dae_incoming_parameter_liveness(mod_, 0, 2), [false, true])
+  let @lib.Func(locals, _) = graph.snapshot.funcs[0]
+  let local_use = dae_local_use_for_callee(
+    graph.snapshot.funcs[0],
+    2 + locals.length(),
+    0,
+    2,
+  )
+  assert_eq([local_use.gets[0], local_use.gets[1]], [false, true])
+  let application = dae_try_rewrite_scalar_unused_param_candidate(
+    mod_,
+    original,
+    graph,
+    0,
+    [true, false],
+    local_use,
+    2,
+    [1, 2],
+  )
+  assert_true(application.applied)
+  match
+    dae_resolve_func_type(
+      application.result.mod_out,
+      dae_collect_func_type_indices(application.result.mod_out),
+      0,
+    ) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 1)
+    None => fail("expected rewritten target type")
+  }
+}
+
+///|
 test "dae core owns worth for written uniform parameter materialization" {
   let mod_ = pass_test_module_from_wat(
     (

@@ -2886,10 +2886,37 @@ fn dae_incoming_parameter_liveness(
   match dae_hot_param_entry_liveness(mod_, callee_abs, param_count) {
     Some(live) => {
       // HOT may return a longer array when locals exist; only parameters matter.
+      // Preserve a syntactic read of an unwritten parameter as authoritative
+      // incoming use. This fail-closed supplement covers nested result carriers
+      // that the current HOT projection can flatten away, while still allowing
+      // write-before-read parameters to be removed when HOT proves them dead.
+      let syntactic_use = match mod_.code_sec {
+        Some(@lib.CodeSec(funcs)) => {
+          let def_idx = callee_abs - dae_imported_func_count(mod_)
+          if def_idx >= 0 && def_idx < funcs.length() {
+            let @lib.Func(locals, _) = funcs[def_idx]
+            Some(
+              dae_local_use_for_callee(
+                funcs[def_idx],
+                param_count + locals.length(),
+                callee_abs,
+                param_count,
+              ),
+            )
+          } else {
+            None
+          }
+        }
+        None => None
+      }
       let out = Array::make(param_count, true)
       let mut idx = 0
       while idx < param_count && idx < live.length() {
-        out[idx] = live[idx]
+        let syntactic_live = match syntactic_use {
+          Some(usage) => usage.gets[idx] && !usage.writes[idx]
+          None => false
+        }
+        out[idx] = live[idx] || syntactic_live
         idx += 1
       }
       out
@@ -6294,7 +6321,16 @@ fn dae_scan_local_use_ignoring_instrs(
   dae_mark_self_forwarded_param_gets(instrs, callee_abs, param_count, ignored)
   let mut idx = 0
   while idx < instrs.length() {
-    if dae_instr_is_unreachable_root(instrs[idx]) {
+    let terminal_root_transfer = match instrs[idx] {
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef => true
+      _ => false
+    }
+    if dae_instr_is_unreachable_root(instrs[idx]) || terminal_root_transfer {
       break
     }
     if !ignored[idx] {
