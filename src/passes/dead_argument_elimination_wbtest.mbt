@@ -17217,6 +17217,31 @@ test "dae GC result slices infer array constructor expressions" {
 }
 
 ///|
+test "dae GC result slices infer string.const expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      [@lib.Instruction::string_const(b"starshine")],
+      0,
+      1,
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, @lib.ValType::stringref())
+    _ => fail("expected string.const result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module

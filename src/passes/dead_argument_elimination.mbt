@@ -13664,6 +13664,13 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
+    @lib.StringConst(_) => {
+      let candidate = @lib.ValType::stringref()
+      match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+        Some(refined) => Some((refined, None))
+        None => None
+      }
+    }
     @lib.LocalGet(idx) =>
       dae_gc_candidate_local_get_type(mod_, func_locals, idx, old_type).map(fn(
         candidate_type,
