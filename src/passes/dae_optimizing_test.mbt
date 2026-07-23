@@ -138,6 +138,8 @@ test "dae-optimizing emits canonical worklist diagnostics" {
       line.contains("candidates_applied=1") &&
       line.contains("parameters_removed=1") &&
       line.contains("candidate_requeues=1") &&
+      line.contains("nested_functions_touched=1") &&
+      line.contains("nested_passes_executed=41") &&
       line.contains("reason.candidate-produced=1") &&
       line.contains("reason.candidate-applied=1")
     }),

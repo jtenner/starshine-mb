@@ -84,8 +84,8 @@ priv struct DaeDiagnostics {
   mut validation_rollbacks : Int
   selected_only_rewrites : Int
   guard_based_skips : Int
-  nested_functions_touched : Int
-  nested_passes_executed : Int
+  mut nested_functions_touched : Int
+  mut nested_passes_executed : Int
 }
 
 ///|

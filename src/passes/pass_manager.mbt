@@ -70319,6 +70319,7 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   options : HotPipelineOptions,
   bypass_size_guards? : Bool = false,
   pass_names? : Array[String]? = None,
+  diagnostics? : DaeDiagnostics? = None,
 ) -> Result[@lib.Module, String] {
   let touched_count = dae_count_touched(touched)
   if touched_count == 0 {
@@ -70354,8 +70355,16 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
     Some(names) => names
     None => run_hot_pipeline_dae_nested_cleanup_passes()
   }
+  match diagnostics {
+    Some(diagnostics) => diagnostics.nested_functions_touched += touched_count
+    None => ()
+  }
   let mut current = mod_
   for pass_name in nested_passes {
+    match diagnostics {
+      Some(diagnostics) => diagnostics.nested_passes_executed += 1
+      None => ()
+    }
     let nested_pass_start_us = perf_start_timer_opt(
       options.perf,
       "detail:dae:nested:\{pass_name}",
@@ -71800,7 +71809,6 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     single_caller_throttle_consumed~,
     traps_never_happen=options.traps_never_happen,
   )
-  dae_trace_diagnostics(options.trace, "dae-optimizing", result.diagnostics)
   let mut core_effects = result.effects
   let mut throttle_consumed = result.single_caller_throttle_consumed ||
     dae_modules_form_single_caller_param_wave(mod_, result.mod_out)
@@ -72213,7 +72221,10 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   )
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(
-      core_mod, worth_optimizing_touched, options,
+      core_mod,
+      worth_optimizing_touched,
+      options,
+      diagnostics=Some(result.diagnostics),
     ) {
     Ok(next) => next
     Err(err) => return Err(err)
@@ -72271,11 +72282,15 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   }
   let recleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(
-      post_cleanup_mod, post_cleanup_touched, options,
+      post_cleanup_mod,
+      post_cleanup_touched,
+      options,
+      diagnostics=Some(result.diagnostics),
     ) {
     Ok(next) => next
     Err(err) => return Err(err)
   }
+  dae_trace_diagnostics(options.trace, "dae-optimizing", result.diagnostics)
   let post_cleanup_stripped = run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
     recleaned, post_cleanup_touched,
   )
