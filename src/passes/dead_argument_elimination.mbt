@@ -13145,6 +13145,32 @@ fn dae_exact_struct_default_ref_type(type_idx : @lib.TypeIdx) -> @lib.ValType {
 }
 
 ///|
+fn dae_gc_candidate_array_get_type(
+  mod_ : @lib.Module,
+  type_idx : @lib.TypeIdx,
+  old_type : @lib.ValType,
+) -> @lib.ValType? {
+  let type_sec = match mod_.type_sec {
+    Some(type_sec) => type_sec
+    None => return None
+  }
+  let field = match dae_type_sec_subtype(type_sec, type_idx) {
+    Some(subtype) =>
+      match subtype.get_comptype() {
+        @lib.ArrayCompType(field) => field
+        _ => return None
+      }
+    None => return None
+  }
+  let @lib.FieldType(storage_type, _) = field
+  match storage_type {
+    @lib.ValTypeStorageType(vt) =>
+      dae_refined_gc_candidate_ref_type(mod_, old_type, vt)
+    _ => None
+  }
+}
+
+///|
 fn dae_gc_candidate_struct_get_type(
   mod_ : @lib.Module,
   type_idx : @lib.TypeIdx,
@@ -13739,6 +13765,12 @@ fn dae_direct_gc_result_candidate_instr(
         None => None
       }
     }
+    @lib.ArrayGet(type_idx) =>
+      dae_gc_candidate_array_get_type(mod_, type_idx, old_type).map(fn(
+        candidate,
+      ) {
+        (candidate, None)
+      })
     @lib.StructGet(type_idx, field_idx) =>
       dae_gc_candidate_struct_get_type(mod_, type_idx, field_idx, old_type).map(fn(
           candidate,

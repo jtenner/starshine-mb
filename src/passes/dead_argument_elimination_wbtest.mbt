@@ -17317,6 +17317,57 @@ test "dae GC result refinement follows struct.get field types" {
 }
 
 ///|
+test "dae GC result slices follow array.get element types" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let holder_type = @lib.TypeIdx::new(2U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(leaf_type)),
+  )
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::array(
+            @lib.FieldType::new(
+              @lib.StorageType::val_type(leaf_ref),
+              @lib.Mut::var_(),
+            ),
+          ),
+        ),
+      ),
+    ]),
+  )
+  let body = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::array_get(holder_type),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      base_ref,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, leaf_ref)
+    _ => fail("expected array.get result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module
