@@ -22402,3 +22402,27 @@ test "dae body-only phase result commits with exact effects and diagnostics" {
     Err(err) => fail("body-only family transaction must validate, got \{err}")
   }
 }
+
+///|
+test "dae type pruning preserves function types used only by typed select" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $body (func))
+      #|  (type $selected (func (result i32)))
+      #|  (func (type $body)
+      #|    unreachable
+      #|    select (result (ref null $selected))
+      #|    drop))
+    ),
+  )
+  let pruned = dae_prune_unused_simple_func_types(mod_)
+  match pruned.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 2)
+    None => fail("expected preserved type section")
+  }
+  match @validate.validate_module(pruned) {
+    Ok(_) => ()
+    Err(err) => fail("typed-select type user must remain valid, got \{err}")
+  }
+}

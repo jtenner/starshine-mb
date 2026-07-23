@@ -11369,31 +11369,40 @@ fn dae_mark_used_global_type(gt : @lib.GlobalType, used : Array[Bool]) -> Unit {
 }
 
 ///|
+fn dae_mark_used_block_type(bt : @lib.BlockType, used : Array[Bool]) -> Unit {
+  match bt {
+    @lib.TypeIdxBlockType(type_idx) => dae_mark_used_type_idx(type_idx, used)
+    @lib.ValTypeBlockType(val_type) => dae_mark_used_val_type(val_type, used)
+    _ => ()
+  }
+}
+
+///|
 fn dae_collect_used_type_idx_instrs(
   instrs : Array[@lib.Instruction],
   used : Array[Bool],
 ) -> Unit {
   for instr in instrs {
     match instr {
-      @lib.Block(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body))
-      | @lib.Loop(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body))
-      | @lib.TryTable(@lib.TypeIdxBlockType(type_idx), _, @lib.Expr(body)) => {
-        dae_mark_used_type_idx(type_idx, used)
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        dae_mark_used_block_type(block_type, used)
         dae_collect_used_type_idx_instrs(body, used)
       }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Try(block_type, @lib.Expr(body), catches, _) => {
+        dae_mark_used_block_type(block_type, used)
         dae_collect_used_type_idx_instrs(body, used)
-      @lib.If(@lib.TypeIdxBlockType(type_idx), then_body, else_body) => {
-        dae_mark_used_type_idx(type_idx, used)
-        dae_collect_used_type_idx_instrs(then_body, used)
-        match else_body {
-          Some(body) => dae_collect_used_type_idx_instrs(body, used)
-          None => ()
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          dae_collect_used_type_idx_instrs(catch_body, used)
         }
       }
-      @lib.If(_, then_body, else_body) => {
+      @lib.If(block_type, then_body, else_body) => {
+        dae_mark_used_block_type(block_type, used)
         dae_collect_used_type_idx_instrs(then_body, used)
         match else_body {
           Some(body) => dae_collect_used_type_idx_instrs(body, used)
@@ -11404,6 +11413,11 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.ReturnCallIndirect(type_idx, _)
       | @lib.CallRef(type_idx)
       | @lib.ReturnCallRef(type_idx)
+      | @lib.ContNew(type_idx)
+      | @lib.Resume(type_idx, _)
+      | @lib.ResumeThrow(type_idx, _, _)
+      | @lib.ResumeThrowRef(type_idx, _)
+      | @lib.StackSwitch(type_idx, _)
       | @lib.StructNew(type_idx)
       | @lib.StructNewDefault(type_idx)
       | @lib.StructNewDesc(type_idx)
@@ -11420,14 +11434,32 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.ArrayFill(type_idx)
       | @lib.ArrayInitData(type_idx, _)
       | @lib.ArrayInitElem(type_idx, _)
-      | @lib.RefGetDesc(type_idx) => dae_mark_used_type_idx(type_idx, used)
-      @lib.StructGet(type_idx, _)
+      | @lib.RefGetDesc(type_idx)
+      | @lib.StructGet(type_idx, _)
       | @lib.StructGetS(type_idx, _)
       | @lib.StructGetU(type_idx, _)
       | @lib.StructAtomicGet(_, type_idx, _)
       | @lib.StructAtomicGetS(_, type_idx, _)
       | @lib.StructAtomicGetU(_, type_idx, _)
-      | @lib.StructSet(type_idx, _) => dae_mark_used_type_idx(type_idx, used)
+      | @lib.StructAtomicRmw(_, _, type_idx, _)
+      | @lib.StructAtomicCmpxchg(_, type_idx, _)
+      | @lib.StructSet(type_idx, _)
+      | @lib.ArrayAtomicGet(_, type_idx)
+      | @lib.ArrayAtomicGetS(_, type_idx)
+      | @lib.ArrayAtomicGetU(_, type_idx)
+      | @lib.ArrayAtomicRmw(_, _, type_idx)
+      | @lib.ArrayAtomicCmpxchg(_, type_idx)
+      | @lib.ArrayLoad(_, type_idx)
+      | @lib.ArrayStore(_, type_idx) => dae_mark_used_type_idx(type_idx, used)
+      @lib.ContBind(source_type, target_type)
+      | @lib.ArrayCopy(source_type, target_type) => {
+        dae_mark_used_type_idx(source_type, used)
+        dae_mark_used_type_idx(target_type, used)
+      }
+      @lib.Select(Some(types)) =>
+        for val_type in types {
+          dae_mark_used_val_type(val_type, used)
+        }
       @lib.RefNull(rt) => dae_mark_used_ref_type(rt, used)
       @lib.RefTest(_, _, ht)
       | @lib.RefCast(_, _, ht)
@@ -11437,6 +11469,11 @@ fn dae_collect_used_type_idx_instrs(
       | @lib.BrOnCastFail(_, _, source_ht, target_ht) => {
         dae_mark_used_heap_type(source_ht, used)
         dae_mark_used_heap_type(target_ht, used)
+      }
+      @lib.BrOnCastDescEq(_, source_type, target_type)
+      | @lib.BrOnCastDescEqFail(_, source_type, target_type) => {
+        dae_mark_used_ref_type(source_type, used)
+        dae_mark_used_ref_type(target_type, used)
       }
       _ => ()
     }
@@ -11528,6 +11565,8 @@ fn dae_rewrite_pruned_type_idx_instr(
     match block_type {
       @lib.TypeIdxBlockType(type_idx) =>
         @lib.BlockType::type_idx(dae_rewrite_pruned_type_idx(type_idx, remap))
+      @lib.ValTypeBlockType(val_type) =>
+        @lib.BlockType::val_type(dae_rewrite_pruned_val_type(val_type, remap))
       _ => block_type
     }
   }
@@ -11548,6 +11587,36 @@ fn dae_rewrite_pruned_type_idx_instr(
         catches,
         @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
       )
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      let rewritten_catches : Array[@lib.LegacyCatch] = []
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(tag_idx, @lib.Expr(catch_body)) =>
+            rewritten_catches.push(
+              @lib.LegacyCatch::tagged(
+                tag_idx,
+                @lib.Expr::new(
+                  dae_rewrite_pruned_type_idx_instrs(catch_body, remap),
+                ),
+              ),
+            )
+          @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            rewritten_catches.push(
+              @lib.LegacyCatch::all(
+                @lib.Expr::new(
+                  dae_rewrite_pruned_type_idx_instrs(catch_body, remap),
+                ),
+              ),
+            )
+        }
+      }
+      @lib.Instruction::try_(
+        rewrite_block_type(block_type),
+        @lib.Expr::new(dae_rewrite_pruned_type_idx_instrs(body, remap)),
+        rewritten_catches,
+        delegate~,
+      )
+    }
     @lib.If(block_type, then_body, else_body) =>
       @lib.Instruction::if_(
         rewrite_block_type(block_type),
@@ -11573,8 +11642,44 @@ fn dae_rewrite_pruned_type_idx_instr(
       @lib.Instruction::return_call_ref(
         dae_rewrite_pruned_type_idx(type_idx, remap),
       )
+    @lib.ContNew(type_idx) =>
+      @lib.Instruction::cont_new(dae_rewrite_pruned_type_idx(type_idx, remap))
+    @lib.ContBind(source_type, target_type) =>
+      @lib.Instruction::cont_bind(
+        dae_rewrite_pruned_type_idx(source_type, remap),
+        dae_rewrite_pruned_type_idx(target_type, remap),
+      )
+    @lib.Resume(type_idx, handlers) =>
+      @lib.Instruction::resume_(
+        dae_rewrite_pruned_type_idx(type_idx, remap),
+        handlers,
+      )
+    @lib.ResumeThrow(type_idx, tag, handlers) =>
+      @lib.Instruction::resume_throw(
+        dae_rewrite_pruned_type_idx(type_idx, remap),
+        tag,
+        handlers,
+      )
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      @lib.Instruction::resume_throw_ref(
+        dae_rewrite_pruned_type_idx(type_idx, remap),
+        handlers,
+      )
+    @lib.StackSwitch(type_idx, tag) =>
+      @lib.Instruction::stack_switch(
+        dae_rewrite_pruned_type_idx(type_idx, remap),
+        tag,
+      )
+    @lib.Select(Some(types)) =>
+      @lib.Instruction::select(
+        types=Some(types.map(fn(vt) { dae_rewrite_pruned_val_type(vt, remap) })),
+      )
     @lib.RefNull(rt) =>
       @lib.Instruction::ref_null_type(dae_rewrite_pruned_ref_type(rt, remap))
+    @lib.RefGetDesc(type_idx) =>
+      @lib.Instruction::ref_get_desc(
+        dae_rewrite_pruned_type_idx(type_idx, remap),
+      )
     @lib.RefTest(nullable, exact, ht) =>
       @lib.Instruction::ref_test_type(
         @lib.RefType::new(
@@ -11590,6 +11695,61 @@ fn dae_rewrite_pruned_type_idx_instr(
           dae_rewrite_pruned_heap_type(ht, remap),
           exact~,
         ),
+      )
+    @lib.RefTestDesc(nullable, ht) =>
+      @lib.Instruction::ref_test_desc(
+        nullable,
+        dae_rewrite_pruned_heap_type(ht, remap),
+      )
+    @lib.RefCastDescEq(nullable, exact, ht) =>
+      @lib.Instruction::ref_cast_desc_eq_type(
+        @lib.RefType::new(
+          nullable,
+          dae_rewrite_pruned_heap_type(ht, remap),
+          exact~,
+        ),
+      )
+    @lib.BrOnCast(
+      label,
+      @lib.CastOp(source_nullable, target_nullable, source_exact, target_exact),
+      source_type,
+      target_type
+    ) =>
+      @lib.Instruction::br_on_cast(
+        label,
+        source_nullable,
+        dae_rewrite_pruned_heap_type(source_type, remap),
+        target_nullable,
+        dae_rewrite_pruned_heap_type(target_type, remap),
+        source_exact~,
+        target_exact~,
+      )
+    @lib.BrOnCastFail(
+      label,
+      @lib.CastOp(source_nullable, target_nullable, source_exact, target_exact),
+      source_type,
+      target_type
+    ) =>
+      @lib.Instruction::br_on_cast_fail(
+        label,
+        source_nullable,
+        dae_rewrite_pruned_heap_type(source_type, remap),
+        target_nullable,
+        dae_rewrite_pruned_heap_type(target_type, remap),
+        source_exact~,
+        target_exact~,
+      )
+    @lib.BrOnCastDescEq(label, source_type, target_type) =>
+      @lib.Instruction::br_on_cast_desc_eq(
+        label,
+        dae_rewrite_pruned_ref_type(source_type, remap),
+        dae_rewrite_pruned_ref_type(target_type, remap),
+      )
+    @lib.BrOnCastDescEqFail(label, source_type, target_type) =>
+      @lib.Instruction::br_on_cast_desc_eq_fail(
+        label,
+        dae_rewrite_pruned_ref_type(source_type, remap),
+        dae_rewrite_pruned_ref_type(target_type, remap),
       )
     _ => instr
   }
@@ -12259,6 +12419,31 @@ fn dae_instrs_reference_type_slot(
           return true
         }
       }
+      @lib.Try(block_type, @lib.Expr(body), catches, _) => {
+        match block_type {
+          @lib.ValTypeBlockType(val_type) =>
+            if dae_val_type_references_slot(val_type, target_slot, -1) {
+              return true
+            }
+          @lib.TypeIdxBlockType(type_idx) =>
+            if dae_type_idx_references_slot(type_idx, target_slot, -1) {
+              return true
+            }
+          _ => ()
+        }
+        if dae_instrs_reference_type_slot(body, target_slot) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          if dae_instrs_reference_type_slot(catch_body, target_slot) {
+            return true
+          }
+        }
+      }
       @lib.If(block_type, then_body, else_body) => {
         match block_type {
           @lib.ValTypeBlockType(val_type) =>
@@ -12286,6 +12471,11 @@ fn dae_instrs_reference_type_slot(
       | @lib.ReturnCallIndirect(type_idx, _)
       | @lib.CallRef(type_idx)
       | @lib.ReturnCallRef(type_idx)
+      | @lib.ContNew(type_idx)
+      | @lib.Resume(type_idx, _)
+      | @lib.ResumeThrow(type_idx, _, _)
+      | @lib.ResumeThrowRef(type_idx, _)
+      | @lib.StackSwitch(type_idx, _)
       | @lib.StructNew(type_idx)
       | @lib.StructNewDefault(type_idx)
       | @lib.StructNewDesc(type_idx)
@@ -12309,11 +12499,21 @@ fn dae_instrs_reference_type_slot(
       | @lib.StructAtomicGet(_, type_idx, _)
       | @lib.StructAtomicGetS(_, type_idx, _)
       | @lib.StructAtomicGetU(_, type_idx, _)
-      | @lib.StructSet(type_idx, _) =>
+      | @lib.StructAtomicRmw(_, _, type_idx, _)
+      | @lib.StructAtomicCmpxchg(_, type_idx, _)
+      | @lib.StructSet(type_idx, _)
+      | @lib.ArrayAtomicGet(_, type_idx)
+      | @lib.ArrayAtomicGetS(_, type_idx)
+      | @lib.ArrayAtomicGetU(_, type_idx)
+      | @lib.ArrayAtomicRmw(_, _, type_idx)
+      | @lib.ArrayAtomicCmpxchg(_, type_idx)
+      | @lib.ArrayLoad(_, type_idx)
+      | @lib.ArrayStore(_, type_idx) =>
         if dae_type_idx_references_slot(type_idx, target_slot, -1) {
           return true
         }
-      @lib.ArrayCopy(source_type, target_type) =>
+      @lib.ContBind(source_type, target_type)
+      | @lib.ArrayCopy(source_type, target_type) =>
         if dae_type_idx_references_slot(source_type, target_slot, -1) ||
           dae_type_idx_references_slot(target_type, target_slot, -1) {
           return true
@@ -12339,6 +12539,12 @@ fn dae_instrs_reference_type_slot(
       | @lib.BrOnCastFail(_, _, source_type, target_type) =>
         if dae_heap_type_references_slot(source_type, target_slot, -1) ||
           dae_heap_type_references_slot(target_type, target_slot, -1) {
+          return true
+        }
+      @lib.BrOnCastDescEq(_, source_type, target_type)
+      | @lib.BrOnCastDescEqFail(_, source_type, target_type) =>
+        if dae_ref_type_references_slot(source_type, target_slot, -1) ||
+          dae_ref_type_references_slot(target_type, target_slot, -1) {
           return true
         }
       _ => ()
