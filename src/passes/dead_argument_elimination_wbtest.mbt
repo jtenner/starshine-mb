@@ -16877,6 +16877,55 @@ test "dae GC result refinement joins multiple explicit returns and fallthrough" 
 }
 
 ///|
+test "dae GC result refinement joins null-bottom explicit returns" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $leaf (sub $base (struct)))
+    #|  (func $target (result (ref null $base))
+    #|    (local $leaf (ref null $leaf))
+    #|    i32.const 1
+    #|    if
+    #|      ref.null none
+    #|      return
+    #|    end
+    #|    local.get $leaf)
+    #|  (func (export "run") (result i32)
+    #|    call $target
+    #|    ref.is_null))
+  let mod_ = pass_test_module_from_wat(source)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  match
+    dae_process_work_item(
+      dae_collect_original_boundary_snapshot(mod_),
+      mod_,
+      [],
+      false,
+      graph,
+      dependencies,
+      dae_work_item_new(graph, dependencies, 0, DaeGcResultRefinementWork),
+      dae_diagnostics_new(),
+    ) {
+    DaeWorkCommitted(application) => {
+      let expected = @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(1U))),
+      )
+      let type_indices = dae_collect_func_type_indices(application.mod_out)
+      match dae_resolve_func_type(application.mod_out, type_indices, 0) {
+        Some(@lib.FuncType([], [result])) => assert_eq(result, expected)
+        _ => fail("expected nullable leaf result refinement")
+      }
+      match @validate.validate_module(application.mod_out) {
+        Ok(_) => ()
+        Err(err) => fail("expected valid null-bottom result refinement: \{err}")
+      }
+    }
+    _ => fail("expected null-bottom explicit-return GC result work to commit")
+  }
+}
+
+///|
 test "dae GC result refinement joins abstract heap returns" {
   let source =
     #|(module

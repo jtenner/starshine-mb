@@ -13534,6 +13534,13 @@ fn dae_direct_gc_result_candidate_instr(
   match instr {
     @lib.StructNew(type_idx) | @lib.StructNewDefault(type_idx) =>
       Some((dae_exact_struct_default_ref_type(type_idx), None))
+    @lib.RefNull(ref_type) => {
+      let candidate = @lib.ValType::ref_type(ref_type)
+      match dae_refined_gc_candidate_ref_type(mod_, old_type, candidate) {
+        Some(_) => Some((candidate, None))
+        None => None
+      }
+    }
     @lib.LocalGet(idx) =>
       dae_gc_candidate_local_get_type(mod_, func_locals, idx, old_type).map(fn(
         candidate_type,
