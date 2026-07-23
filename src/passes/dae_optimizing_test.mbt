@@ -5,16 +5,35 @@ fn dae_test_func_type(mod_ : @lib.Module, def_idx : Int) -> @lib.FuncType {
     None => abort("missing func section")
   }
   match (mod_.type_sec, type_idx) {
-    (Some(@lib.TypeSec(rec_types)), @lib.TypeIdx(raw)) =>
-      match rec_types[raw.reinterpret_as_int()] {
-        @lib.SingleRecType(subtype) =>
-          match subtype.get_comptype() {
-            @lib.FuncCompType(params, results) =>
-              @lib.FuncType::new(params, results)
-            _ => abort("expected func type")
+    (Some(@lib.TypeSec(rec_types)), @lib.TypeIdx(raw)) => {
+      let target = raw.reinterpret_as_int()
+      let mut flattened = 0
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) => {
+            if flattened == target {
+              return match subtype.get_comptype() {
+                @lib.FuncCompType(params, results) =>
+                  @lib.FuncType::new(params, results)
+                _ => abort("expected func type")
+              }
+            }
+            flattened += 1
           }
-        @lib.GroupRecType(_) => abort("unexpected group type")
+          @lib.GroupRecType(subtypes) => {
+            if target >= flattened && target < flattened + subtypes.length() {
+              return match subtypes[target - flattened].get_comptype() {
+                @lib.FuncCompType(params, results) =>
+                  @lib.FuncType::new(params, results)
+                _ => abort("expected func type")
+              }
+            }
+            flattened += subtypes.length()
+          }
+        }
       }
+      abort("missing flattened func type")
+    }
     _ => abort("missing concrete type")
   }
 }
@@ -2126,6 +2145,79 @@ test "dead-argument-elimination narrows live GC results to exact helper allocati
     Ok(_) => ()
     Err(err) =>
       fail("expected DAE return-refinement output to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination narrows descriptor-bearing allocation results" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $box
+    #|      (descriptor $box_desc)
+    #|      (struct (field i32)))
+    #|    (type $box_desc
+    #|      (describes $box)
+    #|      (struct)))
+    #|  (global $desc (ref (exact $box_desc)) (struct.new $box_desc))
+    #|  (func $f (result (ref null $box))
+    #|    i32.const 9
+    #|    global.get $desc
+    #|    struct.new_desc $box)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("struct.new_desc"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected descriptor-bearing DAE result to validate, got \{err}")
+  }
+}
+
+///|
+test "dead-argument-elimination narrows default descriptor allocation results" {
+  let source =
+    #|(module
+    #|  (rec
+    #|    (type $box
+    #|      (descriptor $box_desc)
+    #|      (struct (field i32)))
+    #|    (type $box_desc
+    #|      (describes $box)
+    #|      (struct)))
+    #|  (global $desc (ref (exact $box_desc)) (struct.new $box_desc))
+    #|  (func $f (result (ref null $box))
+    #|    global.get $desc
+    #|    struct.new_default_desc $box)
+    #|  (func (export "run") (result i32)
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(
+      false,
+      @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+      exact=true,
+    ),
+  )
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [expected])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("struct.new_default_desc"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected default descriptor DAE result to validate, got \{err}")
   }
 }
 

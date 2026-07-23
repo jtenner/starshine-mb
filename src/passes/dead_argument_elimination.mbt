@@ -6453,19 +6453,26 @@ fn dae_instr_stack_effect(
     | @lib.LocalGet(_)
     | @lib.TableSize(_)
     | @lib.MemorySize(_) => Some((0, 1))
-    @lib.StructNew(type_idx) =>
+    @lib.StructNew(type_idx) | @lib.StructNewDesc(type_idx) as constructor =>
       match mod_.type_sec {
         Some(type_sec) =>
           match dae_type_sec_subtype(type_sec, type_idx) {
             Some(subtype) =>
               match subtype.get_comptype() {
-                @lib.StructCompType(fields) => Some((fields.length(), 1))
+                @lib.StructCompType(fields) => {
+                  let descriptor_count = match constructor {
+                    @lib.StructNewDesc(_) => 1
+                    _ => 0
+                  }
+                  Some((fields.length() + descriptor_count, 1))
+                }
                 _ => None
               }
             None => None
           }
         None => None
       }
+    @lib.StructNewDefaultDesc(_) => Some((1, 1))
     @lib.ArrayNew(_) => Some((2, 1))
     @lib.ArrayNewDefault(_) => Some((1, 1))
     @lib.ArrayNewFixed(_, @lib.U32(raw_len)) =>
@@ -13782,6 +13789,8 @@ fn dae_direct_gc_result_candidate_instr(
   match instr {
     @lib.StructNew(type_idx)
     | @lib.StructNewDefault(type_idx)
+    | @lib.StructNewDesc(type_idx)
+    | @lib.StructNewDefaultDesc(type_idx)
     | @lib.ArrayNew(type_idx)
     | @lib.ArrayNewDefault(type_idx)
     | @lib.ArrayNewFixed(type_idx, _)
