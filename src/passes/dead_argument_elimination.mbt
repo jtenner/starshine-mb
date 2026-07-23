@@ -4357,25 +4357,20 @@ fn dae_process_work_item(
             candidate,
           )
       }
-      let requires_signature_plan = item.family != DaeControlReconstructionWork &&
-        item.family != DaeTypeRepairRetryWork &&
-        item.family != DaeForwardingWork
-      let signature_plan = if requires_signature_plan {
-        dae_build_signature_rewrite_plan_from_candidate(
-          original,
-          current,
-          graph,
-          item.target_def,
-          candidate,
-          producer_effects,
-        )
-      } else {
-        None
-      }
+      let allows_family_fallback = item.family == DaeControlReconstructionWork ||
+        item.family == DaeTypeRepairRetryWork
+      let signature_plan = dae_build_signature_rewrite_plan_from_candidate(
+        original,
+        current,
+        graph,
+        item.target_def,
+        candidate,
+        producer_effects,
+      )
       let plan_application = match signature_plan {
         Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
         None => {
-          if requires_signature_plan {
+          if !allows_family_fallback {
             dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
             return DaeWorkNoChange(DaeNoStrictImprovement)
           }

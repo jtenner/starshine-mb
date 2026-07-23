@@ -16928,6 +16928,10 @@ test "dae GC result refinement work commits through dispatcher" {
         dae_diagnostics_new(),
       ) {
       DaeWorkCommitted(application) => {
+        assert_true(
+          application.effects.result_changed[0],
+          msg="expected dispatcher-owned result effect",
+        )
         let expected = @lib.ValType::ref_type(
           @lib.RefType::new(
             false,
