@@ -4357,7 +4357,8 @@ fn dae_process_work_item(
             candidate,
           )
       }
-      let plan_application = if item.family == DaeGcResultRefinementWork {
+      let plan_application = if item.family == DaeGcParameterRefinementWork ||
+        item.family == DaeGcResultRefinementWork {
         match
           dae_build_signature_rewrite_plan_from_candidate(
             original,
@@ -19377,7 +19378,8 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let @lib.FuncType(old_params, old_results) = old_signature
   let @lib.FuncType(next_params, next_results) = replacement_signature
-  if old_params != next_params || old_results.length() != next_results.length() {
+  if old_params.length() != next_params.length() ||
+    old_results.length() != next_results.length() {
     return None
   }
   let shared_facts : DaeBoundaryFacts = {
@@ -19390,8 +19392,16 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     return None
   }
   let parameter_actions : Array[DaeParameterAction] = []
-  for _ in old_params {
-    parameter_actions.push(DaeKeepParameter)
+  let mut parameter_changed = false
+  let mut parameter_idx = 0
+  while parameter_idx < old_params.length() {
+    if old_params[parameter_idx] == next_params[parameter_idx] {
+      parameter_actions.push(DaeKeepParameter)
+    } else {
+      parameter_actions.push(DaeRefineParameterType(next_params[parameter_idx]))
+      parameter_changed = true
+    }
+    parameter_idx += 1
   }
   let result_actions : Array[DaeResultAction] = []
   let mut result_changed = false
@@ -19405,7 +19415,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     }
     result_idx += 1
   }
-  if !result_changed {
+  if !parameter_changed && !result_changed {
     return None
   }
   let (expected_type_sec, expected_type_idxs, expected_funcs) = match
