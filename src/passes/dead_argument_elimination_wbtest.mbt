@@ -18299,11 +18299,7 @@ test "dae signature plan maps partial parameter and result projections" {
     0,
     DaeDroppedResultWork,
   )
-  let effects = dae_commit_effects_for_work_item(
-    graph.snapshot.defined,
-    item,
-    candidate,
-  )
+  let effects = dae_work_item_candidate_effects(mod_, graph, item, candidate)
   let plan = match
     dae_build_signature_rewrite_plan_from_candidate(
       dae_collect_original_boundary_snapshot(mod_),
@@ -18407,11 +18403,7 @@ test "dae dropped result builds a common signature rewrite plan" {
     0,
     DaeDroppedResultWork,
   )
-  let effects = dae_commit_effects_for_work_item(
-    graph.snapshot.defined,
-    item,
-    candidate,
-  )
+  let effects = dae_work_item_candidate_effects(mod_, graph, item, candidate)
   let plan = match
     dae_build_signature_rewrite_plan_from_candidate(
       original, mod_, graph, 0, candidate, effects,
@@ -18458,11 +18450,7 @@ test "dae GC parameter and result refinement builds a combined signature plan" {
     0,
     DaeGcParameterRefinementWork,
   )
-  let effects = dae_commit_effects_for_work_item(
-    graph.snapshot.defined,
-    item,
-    candidate,
-  )
+  let effects = dae_work_item_candidate_effects(mod_, graph, item, candidate)
   let plan = match
     dae_build_signature_rewrite_plan_from_candidate(
       original, mod_, graph, 0, candidate, effects,
@@ -18515,11 +18503,7 @@ test "dae GC result refinement builds a common signature rewrite plan" {
     0,
     DaeGcResultRefinementWork,
   )
-  let effects = dae_commit_effects_for_work_item(
-    graph.snapshot.defined,
-    item,
-    candidate,
-  )
+  let effects = dae_work_item_candidate_effects(mod_, graph, item, candidate)
   let plan = match
     dae_build_signature_rewrite_plan_from_candidate(
       original, mod_, graph, 0, candidate, effects,
@@ -22401,6 +22385,49 @@ test "dae body-only phase result commits with exact effects and diagnostics" {
     Ok(_) => ()
     Err(err) => fail("body-only family transaction must validate, got \{err}")
   }
+}
+
+///|
+test "dae work item effects derive exact body-only invalidations" {
+  let current = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func
+      #|    nop)
+      #|  (func))
+    ),
+  )
+  let candidate_mod = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten = funcs.copy()
+      let @lib.Func(locals, _) = rewritten[0]
+      rewritten[0] = @lib.Func::new(locals, @lib.Expr::new([]))
+      current.with_code_sec(@lib.CodeSec::new(rewritten))
+    }
+    None => fail("expected code section")
+  }
+  let graph = dae_current_boundary_graph_new(current)
+  let item = dae_work_item_new(
+    graph,
+    dae_boundary_dependency_graph_new(graph),
+    0,
+    DaeControlReconstructionWork,
+  )
+  let effects = dae_work_item_candidate_effects(current, graph, item, {
+    mod_out: candidate_mod,
+    touched: [true, false],
+    changed: true,
+    primary_def: 0,
+  })
+  assert_false(effects.type_section_changed)
+  assert_false(effects.metadata_changed)
+  assert_eq(effects.invalidation_domains, [
+    DaeInvalidateBody,
+    DaeInvalidateControl,
+    DaeInvalidateNestedCleanup,
+  ])
+  assert_eq(effects.worth_decided, [false, false])
+  assert_eq(effects.worth_optimizing, [false, false])
 }
 
 ///|
