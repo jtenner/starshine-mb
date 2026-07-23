@@ -3704,7 +3704,7 @@ fn typecheck_string_new_array(
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  Ok(st3.push1(ValType::externref()))
+  Ok(st3.push1(typecheck_nonnull_string_type()))
 }
 
 ///|
@@ -8964,7 +8964,7 @@ test "Typecheck StringNewWtf16Array" {
     state,
   )
   let final_state = assert_ok(result)
-  assert_stack(final_state, [ValType::externref()])
+  assert_stack(final_state, [typecheck_nonnull_string_type()])
 }
 
 ///|

@@ -2414,6 +2414,34 @@ test "dead-argument-elimination infers sliced string-view GC results" {
 }
 
 ///|
+test "dead-argument-elimination infers string array constructor GC results" {
+  let source =
+    #|(module
+    #|  (type $chars (array i16))
+    #|  (func $f
+    #|    (param (ref null $chars))
+    #|    (result (ref null extern))
+    #|    local.get 0
+    #|    i32.const 0
+    #|    i32.const 0
+    #|    string.new_wtf16_array)
+    #|  (func (export "run") (param (ref null $chars)) (result i32)
+    #|    local.get 0
+    #|    call $f
+    #|    ref.is_null))
+  let optimized = dae_test_run(source, pass_name="dead-argument-elimination")
+  @debug.assert_eq(dae_test_func_results(optimized, 0), [
+    @lib.ValType::stringref(),
+  ])
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("string.new_wtf16_array"), msg=target)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected string-array DAE result to validate, got \{err}")
+  }
+}
+
+///|
 test "dead-argument-elimination narrows branchful select-condition GC results" {
   let source =
     #|(module

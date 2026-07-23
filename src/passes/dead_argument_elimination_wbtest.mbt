@@ -17558,6 +17558,31 @@ test "dae GC result slices preserve inexact ref.get_desc results" {
 }
 
 ///|
+test "dae GC result evidence covers all string array constructors" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module)
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+  )
+  for
+    instr in [
+      @lib.Instruction::string_new_utf8_array(),
+      @lib.Instruction::string_new_wtf16_array(),
+      @lib.Instruction::string_new_lossy_utf8_array(),
+      @lib.Instruction::string_new_wtf8_array(),
+    ] {
+    match
+      dae_direct_gc_result_candidate_instr(mod_, [], None, instr, old_type) {
+      Some((candidate, None)) => assert_eq(candidate, @lib.ValType::stringref())
+      _ => fail("expected string array constructor result evidence")
+    }
+  }
+}
+
+///|
 test "dae GC result refinement follows declared global.get types" {
   let source =
     #|(module
