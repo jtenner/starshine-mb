@@ -12415,6 +12415,46 @@ fn dae_update_defined_func_type(
 }
 
 ///|
+fn dae_type_sec_resolve_member_reference(
+  type_sec : @lib.TypeSec,
+  owner : @lib.TypeIdx,
+  reference : @lib.TypeIdx,
+) -> @lib.TypeIdx? {
+  match reference {
+    @lib.TypeIdx(_) => Some(reference)
+    @lib.RecIdx(raw) => {
+      let (owner_entry, _) = match
+        dae_type_sec_rec_entry_location(type_sec, owner) {
+        Some(location) => location
+        None => return None
+      }
+      let @lib.TypeSec(rec_types) = type_sec
+      if owner_entry < 0 || owner_entry >= rec_types.length() {
+        return None
+      }
+      let mut group_base = 0
+      let mut entry_idx = 0
+      while entry_idx < owner_entry {
+        group_base += match rec_types[entry_idx] {
+          @lib.SingleRecType(_) => 1
+          @lib.GroupRecType(group) => group.length()
+        }
+        entry_idx += 1
+      }
+      let member_count = match rec_types[owner_entry] {
+        @lib.SingleRecType(_) => 1
+        @lib.GroupRecType(group) => group.length()
+      }
+      let member_idx = raw.reinterpret_as_int()
+      if member_idx < 0 || member_idx >= member_count {
+        return None
+      }
+      Some(@lib.TypeIdx::new((group_base + member_idx).reinterpret_as_uint()))
+    }
+  }
+}
+
+///|
 fn dae_type_idx_is_subtype_of_visit(
   mod_ : @lib.Module,
   candidate : @lib.TypeIdx,
@@ -12436,11 +12476,18 @@ fn dae_type_idx_is_subtype_of_visit(
     Some(type_sec) =>
       match dae_type_sec_subtype(type_sec, candidate) {
         Some(subtype) => {
-          for super_type in subtype.super_types() {
-            if dae_type_idx_is_subtype_of_visit(
-                mod_, super_type, target, visited,
+          for super_reference in subtype.super_types() {
+            match
+              dae_type_sec_resolve_member_reference(
+                type_sec, candidate, super_reference,
               ) {
-              return true
+              Some(super_type) =>
+                if dae_type_idx_is_subtype_of_visit(
+                    mod_, super_type, target, visited,
+                  ) {
+                  return true
+                }
+              None => ()
             }
           }
           false
@@ -12489,8 +12536,15 @@ fn dae_collect_type_ancestors_visit(
     Some(type_sec) =>
       match dae_type_sec_subtype(type_sec, type_idx) {
         Some(subtype) =>
-          for super_type in subtype.super_types() {
-            dae_collect_type_ancestors_visit(mod_, super_type, out, visited)
+          for super_reference in subtype.super_types() {
+            match
+              dae_type_sec_resolve_member_reference(
+                type_sec, type_idx, super_reference,
+              ) {
+              Some(super_type) =>
+                dae_collect_type_ancestors_visit(mod_, super_type, out, visited)
+              None => ()
+            }
           }
         None => ()
       }

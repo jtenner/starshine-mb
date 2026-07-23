@@ -4041,7 +4041,11 @@ test "dae GC subtype traversal uses flattened rec-group indexes" {
     @lib.TypeSec::new([
       @lib.RecType::group([
         @lib.SubType::new(false, [], @lib.CompType::struct_([])),
-        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+        @lib.SubType::new(
+          false,
+          [@lib.TypeIdx::rec(0U)],
+          @lib.CompType::struct_([]),
+        ),
       ]),
     ]),
   )
