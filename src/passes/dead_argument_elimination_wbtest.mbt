@@ -8523,14 +8523,14 @@ test "dae indirect GC result slice evidence centralizes call_ref and call_indire
       call_ref_body,
       0,
       1,
-      1,
+      2,
       callee_type,
       base_ref,
     ) {
     Some(evidence) => {
       assert_eq(evidence.candidate, expected_leaf_ref)
       assert_eq(evidence.param_count, 1)
-      assert_eq(evidence.stack_value_count, 1)
+      assert_eq(evidence.stack_value_count, 2)
     }
     None => fail("expected reusable call_ref GC result evidence")
   }
@@ -17044,6 +17044,41 @@ test "dae call_ref result slices preserve effectful argument producers" {
     ) {
     Some((candidate, None)) => assert_eq(candidate, expected)
     _ => fail("expected effect-preserving call_ref result evidence")
+  }
+}
+
+///|
+test "dae call_ref result slices recover multi-instruction arguments" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $producer (func (param i32) (result (ref null eq)))))
+    ),
+  )
+  let old_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+  )
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+  ]
+  match
+    dae_call_ref_gc_result_candidate_slice(
+      mod_,
+      [],
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected multi-instruction call_ref argument evidence")
   }
 }
 

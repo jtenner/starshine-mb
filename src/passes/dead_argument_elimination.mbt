@@ -14711,29 +14711,44 @@ fn dae_indirect_call_gc_result_slice_evidence(
     Some(result) => result
     None => return None
   }
-  if argument_end - start != param_count {
+  let (target_shape, target_cursor, _) = match
+    dae_find_value_slice(
+      body,
+      stack_value_end,
+      0,
+      mod_,
+      func_type_indices,
+      allow_stack_carried_void_effects=true,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  if target_shape.start != argument_end ||
+    target_cursor != argument_end ||
+    dae_operand_disposition_from_call_shape(body, target_shape).has_branch {
     return None
   }
-  let mut value_idx = start
-  while value_idx < stack_value_end {
-    if dae_instr_has_branch(body[value_idx]) {
-      return None
-    }
-    match
-      dae_stack_single_value_producer_evidence(
-        body[value_idx],
-        mod_,
-        func_type_indices,
-      ) {
-      Some(_) => ()
-      None => return None
-    }
-    value_idx += 1
+  let (argument_slices, argument_cursor) = match
+    dae_collect_callsite_value_slices(
+      body,
+      argument_end,
+      param_count,
+      0,
+      mod_,
+      func_type_indices,
+      allow_stack_carried_void_effects=true,
+    ) {
+    Some(evidence) => evidence
+    None => return None
+  }
+  if argument_cursor != start ||
+    argument_slices.any(fn(slice) { slice.has_branch }) {
+    return None
   }
   Some({
     candidate: candidate_type,
     param_count,
-    stack_value_count: stack_value_end - start,
+    stack_value_count: param_count + 1,
   })
 }
 
@@ -14749,29 +14764,40 @@ fn dae_call_ref_gc_result_candidate_slice(
   if start + 2 > end {
     return None
   }
-  let target_idx = end - 2
   match body[end - 1] {
-    @lib.CallRef(type_idx) =>
+    @lib.CallRef(type_idx) => {
+      let target_start = match
+        dae_find_value_slice(
+          body,
+          end - 1,
+          0,
+          mod_,
+          func_type_indices,
+          allow_stack_carried_void_effects=true,
+        ) {
+        Some((shape, _, _)) => shape.start
+        None => return None
+      }
       match
         dae_indirect_call_gc_result_slice_evidence(
           mod_,
           func_type_indices,
           body,
           start,
-          target_idx,
-          target_idx + 1,
+          target_start,
+          end - 1,
           type_idx,
           old_type,
         ) {
         Some(evidence) => {
-          if evidence.param_count != target_idx - start ||
-            evidence.stack_value_count != target_idx + 1 - start {
+          if evidence.stack_value_count != evidence.param_count + 1 {
             return None
           }
           Some((evidence.candidate, None))
         }
         None => None
       }
+    }
     _ => None
   }
 }
@@ -14790,21 +14816,31 @@ fn dae_call_indirect_gc_result_candidate_slice(
   }
   match body[end - 1] {
     @lib.CallIndirect(type_idx, _) => {
-      let table_idx = end - 2
+      let table_start = match
+        dae_find_value_slice(
+          body,
+          end - 1,
+          0,
+          mod_,
+          func_type_indices,
+          allow_stack_carried_void_effects=true,
+        ) {
+        Some((shape, _, _)) => shape.start
+        None => return None
+      }
       match
         dae_indirect_call_gc_result_slice_evidence(
           mod_,
           func_type_indices,
           body,
           start,
-          table_idx,
-          table_idx + 1,
+          table_start,
+          end - 1,
           type_idx,
           old_type,
         ) {
         Some(evidence) => {
-          if evidence.param_count != table_idx - start ||
-            evidence.stack_value_count != table_idx + 1 - start {
+          if evidence.stack_value_count != evidence.param_count + 1 {
             return None
           }
           Some((evidence.candidate, None))
