@@ -19383,7 +19383,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let @lib.FuncType(old_params, old_results) = old_signature
   let @lib.FuncType(next_params, next_results) = replacement_signature
-  if old_params.length() != next_params.length() ||
+  if (old_params.length() != next_params.length() && next_params.length() != 0) ||
     (
       old_results.length() != next_results.length() &&
       next_results.length() != 0
@@ -19401,15 +19401,24 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   }
   let parameter_actions : Array[DaeParameterAction] = []
   let mut parameter_changed = false
-  let mut parameter_idx = 0
-  while parameter_idx < old_params.length() {
-    if old_params[parameter_idx] == next_params[parameter_idx] {
-      parameter_actions.push(DaeKeepParameter)
-    } else {
-      parameter_actions.push(DaeRefineParameterType(next_params[parameter_idx]))
-      parameter_changed = true
+  if next_params.length() == 0 && old_params.length() > 0 {
+    for _ in old_params {
+      parameter_actions.push(DaeRemoveParameterReplayEffects)
     }
-    parameter_idx += 1
+    parameter_changed = true
+  } else {
+    let mut parameter_idx = 0
+    while parameter_idx < old_params.length() {
+      if old_params[parameter_idx] == next_params[parameter_idx] {
+        parameter_actions.push(DaeKeepParameter)
+      } else {
+        parameter_actions.push(
+          DaeRefineParameterType(next_params[parameter_idx]),
+        )
+        parameter_changed = true
+      }
+      parameter_idx += 1
+    }
   }
   let result_actions : Array[DaeResultAction] = []
   let mut result_changed = false
@@ -21093,6 +21102,19 @@ fn dae_specialized_result_commit_effects(
     effects.result_changed[facts.target_def] = true
     effects.result_removed[facts.target_def] = true
     effects.control_refinalization_required[facts.target_def] = true
+    let next_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+    match
+      dae_resolve_func_type(
+        candidate.mod_out,
+        next_type_indices,
+        facts.target_abs,
+      ) {
+      Some(@lib.FuncType(next_params, _)) if next_params != facts.context.params => {
+        effects.parameter_changed[facts.target_def] = true
+        effects.local_projection_changed[facts.target_def] = true
+      }
+      _ => ()
+    }
   }
   let repairs_bottom = facts.expected_results.length() == 1 &&
     dae_result_type_is_uninhabitable(facts.expected_results[0])
@@ -21131,19 +21153,33 @@ fn dae_apply_specialized_result_family_plan(
     return dae_rewrite_plan_rejection(current, DaeVisibleBoundary)
   }
   let effects = dae_specialized_result_commit_effects(facts, candidate)
-  let plan = match
-    dae_build_family_rewrite_plan(
+  match
+    dae_build_signature_rewrite_plan_from_candidate(
       facts.original,
       current,
       graph,
       facts.target_def,
       candidate,
-      effects=Some(effects),
+      effects,
     ) {
-    Some(plan) => plan
-    None => return dae_rewrite_plan_rejection(current, DaeNoStrictImprovement)
+    Some(plan) => dae_apply_rewrite_plan(current, graph, plan)
+    None => {
+      let plan = match
+        dae_build_family_rewrite_plan(
+          facts.original,
+          current,
+          graph,
+          facts.target_def,
+          candidate,
+          effects=Some(effects),
+        ) {
+        Some(plan) => plan
+        None =>
+          return dae_rewrite_plan_rejection(current, DaeNoStrictImprovement)
+      }
+      dae_apply_family_rewrite_plan(current, graph, plan)
+    }
   }
-  dae_apply_family_rewrite_plan(current, graph, plan)
 }
 
 ///|

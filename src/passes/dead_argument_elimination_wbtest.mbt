@@ -16926,6 +16926,55 @@ test "dae GC result refinement joins null-bottom explicit returns" {
 }
 
 ///|
+test "dae unreachable dropped result plan removes parameters and result together" {
+  let source =
+    #|(module
+    #|  (func $dead (param i32 f64) (result f64)
+    #|    i32.const 1
+    #|    drop
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    drop
+    #|    i32.const 0
+    #|    f64.const 42
+    #|    call $dead)
+    #|  (func (export "run")))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let facts = match dae_specialized_result_facts_new(original, graph, 0) {
+    Some(facts) => facts
+    None => fail("expected unreachable specialized result facts")
+  }
+  let candidate = dae_try_remove_unobserved_unreachable_function_with_facts(
+    mod_, facts,
+  )
+  let effects = dae_specialized_result_commit_effects(facts, candidate)
+  assert_true(effects.parameter_changed[0])
+  assert_true(effects.local_projection_changed[0])
+  let plan = match
+    dae_build_signature_rewrite_plan_from_candidate(
+      original, mod_, graph, 0, candidate, effects,
+    ) {
+    Some(plan) => plan
+    None => fail("expected unreachable parameter/result signature plan")
+  }
+  assert_eq(plan.parameter_actions, [
+    DaeRemoveParameterReplayEffects,
+    DaeRemoveParameterReplayEffects,
+  ])
+  assert_eq(plan.result_actions, [DaeRemoveResult])
+  let application = dae_apply_rewrite_plan(mod_, graph, plan)
+  assert_true(application.applied)
+  match @validate.validate_module(application.result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid unreachable signature plan: \{err}")
+  }
+}
+
+///|
 test "dae dropped result builds a common signature rewrite plan" {
   let source =
     #|(module
