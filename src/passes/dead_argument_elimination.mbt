@@ -13640,7 +13640,13 @@ fn dae_direct_gc_result_candidate_instr(
   old_type : @lib.ValType,
 ) -> (@lib.ValType, @lib.Instruction?)? {
   match instr {
-    @lib.StructNew(type_idx) | @lib.StructNewDefault(type_idx) =>
+    @lib.StructNew(type_idx)
+    | @lib.StructNewDefault(type_idx)
+    | @lib.ArrayNew(type_idx)
+    | @lib.ArrayNewDefault(type_idx)
+    | @lib.ArrayNewFixed(type_idx, _)
+    | @lib.ArrayNewData(type_idx, _)
+    | @lib.ArrayNewElem(type_idx, _) =>
       Some((dae_exact_struct_default_ref_type(type_idx), None))
     @lib.RefNull(ref_type) => {
       let candidate = @lib.ValType::ref_type(ref_type)

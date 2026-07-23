@@ -17183,6 +17183,40 @@ test "dae GC result slices infer ref.i31 expressions" {
 }
 
 ///|
+test "dae GC result slices infer array constructor expressions" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $base (sub (array (mut i32))))
+      #|  (type $leaf (sub $base (array (mut i32)))))
+    ),
+  )
+  let base_heap = @lib.HeapType::new(@lib.TypeIdx::new(0U))
+  let leaf_heap = @lib.HeapType::new(@lib.TypeIdx::new(1U))
+  let old_type = @lib.ValType::ref_type(@lib.RefType::new(true, base_heap))
+  let expected = @lib.ValType::ref_type(
+    @lib.RefType::new(false, leaf_heap, exact=true),
+  )
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::array_new_default(@lib.TypeIdx::new(1U)),
+  ]
+  match
+    dae_gc_result_candidate_slice(
+      mod_,
+      [],
+      None,
+      body,
+      0,
+      body.length(),
+      old_type,
+    ) {
+    Some((candidate, None)) => assert_eq(candidate, expected)
+    _ => fail("expected array constructor result evidence")
+  }
+}
+
+///|
 test "dae GC result refinement includes legacy try explicit returns" {
   let source =
     #|(module
