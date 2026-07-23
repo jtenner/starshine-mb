@@ -4096,6 +4096,67 @@ test "dae GC result evidence refines try_table fallthrough controls" {
 }
 
 ///|
+test "dae GC result evidence refines legacy try normal fallthrough" {
+  let base_type = @lib.TypeIdx::new(0U)
+  let leaf_type = @lib.TypeIdx::new(1U)
+  let base_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(base_type)),
+  )
+  let leaf_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(leaf_type), exact=true),
+  )
+  let mod_ = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(
+        @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::new(false, [base_type], @lib.CompType::struct_([])),
+      ),
+    ]),
+  )
+  let body = [@lib.Instruction::struct_new_default(leaf_type)]
+  let catches = [
+    @lib.LegacyCatch::all(@lib.Expr::new([@lib.Instruction::unreachable_()])),
+  ]
+  let instr = @lib.Instruction::try_(
+    @lib.BlockType::val_type(base_ref),
+    @lib.Expr::new(body),
+    catches,
+  )
+  match dae_direct_gc_result_candidate_instr(mod_, [], None, instr, base_ref) {
+    Some((candidate, Some(rewritten))) => {
+      assert_eq(candidate, leaf_ref)
+      assert_eq(
+        rewritten,
+        @lib.Instruction::try_(
+          @lib.BlockType::val_type(leaf_ref),
+          @lib.Expr::new(body),
+          catches,
+        ),
+      )
+    }
+    _ => fail("expected legacy try result refinement evidence")
+  }
+  let wider_catch = @lib.Instruction::try_(
+    @lib.BlockType::val_type(base_ref),
+    @lib.Expr::new(body),
+    [
+      @lib.LegacyCatch::all(
+        @lib.Expr::new([
+          @lib.Instruction::ref_null(@lib.HeapType::new(base_type)),
+        ]),
+      ),
+    ],
+  )
+  match
+    dae_direct_gc_result_candidate_instr(mod_, [], None, wider_catch, base_ref) {
+    None => ()
+    Some(_) => fail("legacy try fallthrough catches must fail closed")
+  }
+}
+
+///|
 test "dae control result GC evidence centralizes lane candidates and rewrites" {
   let base_type = @lib.TypeIdx::new(0U)
   let leaf_type = @lib.TypeIdx::new(1U)

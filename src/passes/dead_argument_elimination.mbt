@@ -14021,6 +14021,19 @@ fn dae_typed_call_gc_result_candidate(
 }
 
 ///|
+fn dae_legacy_catches_have_no_fallthrough(
+  catches : Array[@lib.LegacyCatch],
+) -> Bool {
+  catches.all(fn(catch_) {
+    match catch_ {
+      @lib.LegacyCatch(_, @lib.Expr(body))
+      | @lib.LegacyCatchAll(@lib.Expr(body)) =>
+        dae_body_has_no_fallthrough(body)
+    }
+  })
+}
+
+///|
 fn dae_direct_gc_result_candidate_instr(
   mod_ : @lib.Module,
   func_type_indices : Array[@lib.TypeIdx],
@@ -14150,6 +14163,37 @@ fn dae_direct_gc_result_candidate_instr(
       ) {
         (candidate, None)
       })
+    @lib.Try(block_type, @lib.Expr(body), catches, delegate) => {
+      if !dae_legacy_catches_have_no_fallthrough(catches) ||
+        dae_control_single_result_block_type_evidence(block_type, mod_) is None {
+        return None
+      }
+      match
+        dae_direct_gc_result_candidate_body(
+          mod_, func_type_indices, func_locals, body, old_type,
+        ) {
+        Some((candidate, rewritten_body_opt)) => {
+          let rewritten_body = match rewritten_body_opt {
+            Some(rewritten_body) => rewritten_body
+            None => body
+          }
+          Some(
+            (
+              candidate,
+              Some(
+                @lib.Instruction::try_(
+                  @lib.BlockType::val_type(candidate),
+                  @lib.Expr::new(rewritten_body),
+                  catches,
+                  delegate~,
+                ),
+              ),
+            ),
+          )
+        }
+        None => None
+      }
+    }
     @lib.Block(_, _) | @lib.Loop(_, _) | @lib.TryTable(_, _, _) =>
       dae_single_result_control_gc_candidate_instr_evidence(
         mod_, func_type_indices, func_locals, instr, old_type,
