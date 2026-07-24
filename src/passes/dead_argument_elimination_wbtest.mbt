@@ -14726,6 +14726,39 @@ fn dae_scalar_rewrite_plan_fixture(
 }
 
 ///|
+test "dae precomputed signature candidate commits through a work item outcome" {
+  let (mod_, original, graph, plan) = dae_scalar_rewrite_plan_fixture()
+  let candidate : DaePassResult = {
+    mod_out: plan.candidate,
+    touched: plan.touched_functions,
+    changed: true,
+    primary_def: plan.target_def,
+  }
+  match
+    dae_process_precomputed_signature_work_item(
+      original,
+      mod_,
+      [],
+      false,
+      graph,
+      dae_work_item_new(
+        graph,
+        dae_boundary_dependency_graph_new(graph),
+        0,
+        DaeUnusedParameterWork,
+      ),
+      candidate,
+      plan.effects,
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_true(application.applied)
+      assert_true(application.effects.parameter_changed[0])
+    }
+    _ => fail("expected committed signature work item")
+  }
+}
+
+///|
 test "dae scalar rewrite plan commits caller callee type and touched transaction" {
   let (mod_, _, graph, plan) = dae_scalar_rewrite_plan_fixture()
   assert_eq(

@@ -4327,6 +4327,73 @@ fn dae_process_precomputed_body_work_item(
 }
 
 ///|
+fn dae_work_family_for_commit_effects(
+  effects : DaeCommitEffects,
+  target_def : Int,
+) -> DaeWorkFamily {
+  if target_def >= 0 &&
+    target_def < effects.result_removed.length() &&
+    effects.result_removed[target_def] {
+    return DaeDroppedResultWork
+  }
+  if target_def >= 0 &&
+    target_def < effects.result_changed.length() &&
+    effects.result_changed[target_def] {
+    return DaeGcResultRefinementWork
+  }
+  if target_def >= 0 &&
+    target_def < effects.parameter_type_refined.length() &&
+    effects.parameter_type_refined[target_def] {
+    return DaeGcParameterRefinementWork
+  }
+  if effects.body_localized.any(fn(value) { value }) {
+    return DaeLocalizationRetryWork
+  }
+  if target_def >= 0 &&
+    target_def < effects.body_materialized.length() &&
+    effects.body_materialized[target_def] {
+    return DaeUniformActualWork
+  }
+  DaeUnusedParameterWork
+}
+
+///|
+fn dae_process_precomputed_signature_work_item(
+  original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  graph : DaeCurrentBoundaryGraph,
+  item : DaeWorkItem,
+  candidate : DaePassResult,
+  effects : DaeCommitEffects,
+) -> DaeWorkOutcome {
+  if !candidate.changed {
+    return DaeWorkNoChange(DaeNoStrictImprovement)
+  }
+  if !dae_work_item_epoch_is_current(graph, item) {
+    let dependencies = dae_boundary_dependency_graph_new(graph)
+    return DaeWorkRequeue([
+      dae_work_item_new(graph, dependencies, item.target_def, item.family),
+    ])
+  }
+  let application = dae_apply_family_result_transaction(
+    original,
+    current,
+    touched,
+    changed,
+    graph,
+    candidate,
+    effects=Some(effects),
+  )
+  if application.applied {
+    DaeWorkCommitted(application)
+  } else {
+    DaeWorkNoChange(DaeNoStrictImprovement)
+  }
+}
+
+///|
 fn dae_apply_body_only_family_result_transaction(
   _original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -45145,22 +45212,37 @@ fn dae_run_core(
       } else {
         -1
       }
-      if result.changed && producer_effects_report.length() == 0 {
+      if !result.changed {
         dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
         continue
       }
-      let application = dae_apply_family_result_transaction(
-        original_boundary_snapshot,
-        current,
-        touched,
-        changed,
-        current_boundary_graph,
-        result,
-        effects=producer_effects_report.get(0),
+      let producer_effects = match producer_effects_report.get(0) {
+        Some(value) => value
+        None => {
+          dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+          continue
+        }
+      }
+      let family = dae_work_family_for_commit_effects(
+        producer_effects,
+        result.primary_def,
       )
-      if !application.applied {
-        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
-        continue
+      let item = dae_work_item_new(
+        current_boundary_graph,
+        current_dependencies,
+        result.primary_def,
+        family,
+      )
+      let application = match
+        dae_process_precomputed_signature_work_item(
+          original_boundary_snapshot, current, touched, changed, current_boundary_graph,
+          item, result, producer_effects,
+        ) {
+        DaeWorkCommitted(value) => value
+        DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => {
+          dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+          continue
+        }
       }
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
       dae_diagnostics_record_applied_effects(diagnostics, application.effects)
