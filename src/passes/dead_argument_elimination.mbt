@@ -3759,7 +3759,7 @@ fn dae_boundary_dependency_invalidations(
   after : DaeBoundaryDependencyGraph,
   touched : Array[Bool],
   primary_def : Int,
-  effects? : DaeCommitEffects? = None,
+  effects : DaeCommitEffects,
 ) -> Array[Int] {
   let defined = if before.callers_by_def.length() >
     after.callers_by_def.length() {
@@ -3768,29 +3768,16 @@ fn dae_boundary_dependency_invalidations(
     after.callers_by_def.length()
   }
   let invalidated = Array::make(defined, false)
-  let producer_domains = match effects {
-    Some(value) if value.invalidation_domains.length() > 0 =>
-      Some(value.invalidation_domains)
-    _ => None
-  }
+  let producer_domains = effects.invalidation_domains
   let mut def_idx = 0
   while def_idx < defined {
     let is_touched = def_idx == primary_def ||
       (def_idx < touched.length() && touched[def_idx])
     if is_touched {
       invalidated[def_idx] = true
-      match producer_domains {
-        Some(domains) =>
-          for domain in domains {
-            dae_mark_dependency_domain(before, def_idx, domain, invalidated)
-            dae_mark_dependency_domain(after, def_idx, domain, invalidated)
-          }
-        None => {
-          dae_mark_dependency_row(before.callers_by_def, def_idx, invalidated)
-          dae_mark_dependency_row(before.callees_by_def, def_idx, invalidated)
-          dae_mark_dependency_row(after.callers_by_def, def_idx, invalidated)
-          dae_mark_dependency_row(after.callees_by_def, def_idx, invalidated)
-        }
+      for domain in producer_domains {
+        dae_mark_dependency_domain(before, def_idx, domain, invalidated)
+        dae_mark_dependency_domain(after, def_idx, domain, invalidated)
       }
     }
     def_idx += 1
@@ -21038,7 +21025,7 @@ fn dae_build_signature_rewrite_plan_from_candidate(
     after_dependencies,
     plan_effects.structurally_touched,
     target_def,
-    effects=Some(plan_effects),
+    plan_effects,
   )
   let target_epochs = graph.function_epochs[target_def]
   Some({
@@ -44767,7 +44754,7 @@ fn dae_run_computed_unread_param_dependency_worklist(
           after_dependencies,
           application.effects.structurally_touched,
           application.primary_def,
-          effects=Some(application.effects),
+          application.effects,
         )
         dependencies = after_dependencies
         current = application.mod_out
@@ -44870,7 +44857,7 @@ fn dae_run_effect_frontier_worklist(
           after_dependencies,
           application.effects.structurally_touched,
           application.primary_def,
-          effects=Some(application.effects),
+          application.effects,
         )
         dependencies = after_dependencies
         current = application.mod_out
@@ -45212,7 +45199,7 @@ fn dae_run_core(
         after_dependencies,
         application.touched,
         application.primary_def,
-        effects=Some(application.effects),
+        application.effects,
       )
       current_dependencies = after_dependencies
       current = application.mod_out

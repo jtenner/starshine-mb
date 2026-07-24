@@ -15359,14 +15359,29 @@ test "dae boundary dependency graph records callers callees and self edges" {
   )
   assert_eq(graph.callees_by_def, [[1, 2], [2], [2], []])
   assert_eq(graph.callers_by_def, [[], [0], [0, 1, 2], []])
+  let call_effects = {
+    ..dae_commit_effects_empty(4),
+    invalidation_domains: [DaeInvalidateCalls],
+  }
   assert_eq(
     dae_boundary_dependency_invalidations(
       graph,
       graph,
       [false, true, false, false],
       1,
+      call_effects,
     ),
     [0, 1, 2],
+  )
+  assert_eq(
+    dae_boundary_dependency_invalidations(
+      graph,
+      graph,
+      [false, true, false, false],
+      1,
+      dae_commit_effects_empty(4),
+    ),
+    [1],
   )
 }
 
@@ -15423,7 +15438,7 @@ test "dae dependency invalidation follows producer-owned result domains" {
       graph,
       [true, false, false, false],
       0,
-      effects=Some(effects),
+      effects,
     ),
     [0, 2, 3],
   )
@@ -15463,7 +15478,7 @@ test "dae dependency invalidation keeps metadata-only changes local" {
       graph,
       [false, true, false],
       1,
-      effects=Some(effects),
+      effects,
     ),
     [1],
   )
