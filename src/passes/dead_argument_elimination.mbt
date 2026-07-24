@@ -10078,6 +10078,100 @@ fn dae_classify_unused_parameter_actions(
 }
 
 ///|
+fn dae_classify_unused_parameter_actions_from_function_infos(
+  facts : DaeBoundaryFacts,
+  mod_ : @lib.Module,
+  def_idx : Int,
+  callee_abs : Int,
+  param_types : Array[@lib.ValType],
+  entry_live : Array[Bool],
+  direct_caller_defs : Array[Int],
+  function_infos : Array[DaeFunctionInfo],
+  traps_never_happen? : Bool = false,
+  allow_stack_carried_void_effects? : Bool = false,
+) -> Array[DaeParameterAction]? {
+  if entry_live.length() != param_types.length() ||
+    callee_abs < 0 ||
+    callee_abs >= function_infos.length() {
+    return None
+  }
+  let slices_by_param : Array[Array[DaeValueSlice]] = []
+  for _ in param_types {
+    slices_by_param.push([])
+  }
+  let mut matched_calls = 0
+  for callsite in function_infos[callee_abs].calls {
+    if callsite.callee_abs != callee_abs ||
+      callsite.path.length() == 0 ||
+      !direct_caller_defs.contains(callsite.caller_def) {
+      continue
+    }
+    if callsite.caller_def < 0 ||
+      callsite.caller_def >= facts.graph.snapshot.funcs.length() {
+      return None
+    }
+    let @lib.Func(_, @lib.Expr(body)) = facts.graph.snapshot.funcs[callsite.caller_def]
+    let (scope, call_idx, entry_stack_values) = match
+      dae_resolve_stable_callsite_scope(body, callsite.path, 0, 0, mod_) {
+      Some(resolved) => resolved
+      None => return None
+    }
+    let call_kind = match scope[call_idx] {
+      @lib.Call(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        DaeDirectCall
+      @lib.ReturnCall(func_idx) if dae_func_idx_slot(func_idx) == callee_abs =>
+        DaeDirectReturnCall
+      _ => return None
+    }
+    let epoch = dae_boundary_candidate_epoch(facts.graph, callsite.caller_def)
+    let evidence = match
+      dae_direct_call_operand_slices(
+        mod_,
+        scope,
+        call_idx,
+        callee_abs,
+        param_types,
+        call_kind,
+        facts.graph.snapshot.type_indices,
+        epoch,
+        entry_stack_values~,
+        allow_stack_carried_void_effects~,
+      ) {
+      Some(evidence) => evidence
+      None => return None
+    }
+    if evidence.slices.length() != param_types.length() {
+      return None
+    }
+    let mut param_idx = 0
+    while param_idx < param_types.length() {
+      slices_by_param[param_idx].push(evidence.slices[param_idx])
+      param_idx += 1
+    }
+    matched_calls += 1
+  }
+  if matched_calls == 0 && direct_caller_defs.length() > 0 {
+    return None
+  }
+  let actions : Array[DaeParameterAction] = []
+  let mut param_idx = 0
+  while param_idx < param_types.length() {
+    actions.push(
+      dae_classify_parameter_slot(
+        facts,
+        def_idx,
+        param_idx,
+        entry_live[param_idx],
+        slices_by_param[param_idx],
+        traps_never_happen~,
+      ),
+    )
+    param_idx += 1
+  }
+  Some(actions)
+}
+
+///|
 fn dae_callsite_operand_removal_plan(
   evidence : DaeCallsiteValueSliceEvidence,
   param_idx : Int,
@@ -20507,7 +20601,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       params.length(),
     )
     match
-      dae_classify_unused_parameter_actions(
+      dae_classify_unused_parameter_actions_from_function_infos(
         shared_facts,
         mod_,
         def_idx,
@@ -20515,6 +20609,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         params,
         entry_live,
         direct_caller_defs,
+        graph.snapshot.function_infos,
         traps_never_happen~,
         allow_stack_carried_void_effects~,
       ) {
