@@ -15775,7 +15775,7 @@ test "dae forwarded constant revisit admission is module-size independent" {
 ///|
 test "dae exact-uniform phase ownership is variant based, not module-size based" {
   for defined in [2, 1024, 1025, 4096] {
-    assert_true(
+    assert_false(
       dae_should_run_broad_uniform_parameter_flow(defined, optimize=false),
     )
     assert_false(
@@ -15788,6 +15788,20 @@ test "dae exact-uniform phase ownership is variant based, not module-size based"
       dae_should_run_reverse_exact_literal_phase(defined, optimize=true),
     )
   }
+}
+
+///|
+test "dae broad uniform candidate discovery reuses one module context" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    local.get 0)
+      #|  (func (param i64) (result i64)
+      #|    local.get 0))
+    ),
+  )
+  assert_eq(dae_collect_broad_uniform_candidate_defs(mod_), [0, 1])
 }
 
 ///|
@@ -22418,6 +22432,7 @@ test "dae dead-suffix parameter restoration commits through family transaction" 
     current,
     [],
     false,
+    candidate_defs=Some([false, true]),
   )
   assert_true(application.applied)
   assert_eq(application.primary_def, 1)

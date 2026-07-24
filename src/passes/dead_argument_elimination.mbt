@@ -27845,7 +27845,8 @@ fn dae_should_run_broad_uniform_parameter_flow(
   _defined : Int,
   optimize~ : Bool,
 ) -> Bool {
-  !optimize
+  let _ = optimize
+  false
 }
 
 ///|
@@ -40654,16 +40655,46 @@ fn dae_collect_post_revisit_exact_literal_candidates(
 }
 
 ///|
+priv struct DaeExactLiteralCandidateContext {
+  mod_ : @lib.Module
+  imported : Int
+  type_indices : Array[@lib.TypeIdx]
+  funcs : Array[@lib.Func]
+}
+
+///|
+fn dae_exact_literal_candidate_context_new(
+  mod_ : @lib.Module,
+) -> DaeExactLiteralCandidateContext? {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      Some({
+        mod_,
+        imported: dae_imported_func_count(mod_),
+        type_indices: dae_collect_func_type_indices(mod_),
+        funcs,
+      })
+    None => None
+  }
+}
+
+///|
 fn dae_exact_literal_candidate_is_single_param_identity(
   mod_ : @lib.Module,
   def_idx : Int,
+  context? : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return false
+  let context = match context {
+    Some(context) => context
+    None =>
+      match dae_exact_literal_candidate_context_new(mod_) {
+        Some(context) => context
+        None => return false
+      }
   }
+  let imported = context.imported
+  let type_indices = context.type_indices
+  let funcs = context.funcs
   if def_idx < 0 || def_idx >= funcs.length() {
     return false
   }
@@ -40681,13 +40712,19 @@ fn dae_exact_literal_candidate_is_single_param_identity(
 fn dae_exact_literal_candidate_is_single_param_call_sink(
   mod_ : @lib.Module,
   def_idx : Int,
+  context? : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return false
+  let context = match context {
+    Some(context) => context
+    None =>
+      match dae_exact_literal_candidate_context_new(mod_) {
+        Some(context) => context
+        None => return false
+      }
   }
+  let imported = context.imported
+  let type_indices = context.type_indices
+  let funcs = context.funcs
   if def_idx < 0 || def_idx >= funcs.length() {
     return false
   }
@@ -40717,13 +40754,19 @@ fn dae_exact_literal_candidate_is_single_param_call_sink(
 fn dae_exact_literal_candidate_is_single_param_pure_expression(
   mod_ : @lib.Module,
   def_idx : Int,
+  context? : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return false
+  let context = match context {
+    Some(context) => context
+    None =>
+      match dae_exact_literal_candidate_context_new(mod_) {
+        Some(context) => context
+        None => return false
+      }
   }
+  let imported = context.imported
+  let type_indices = context.type_indices
+  let funcs = context.funcs
   if def_idx < 0 || def_idx >= funcs.length() {
     return false
   }
@@ -40744,13 +40787,19 @@ fn dae_exact_literal_candidate_is_single_param_pure_expression(
 fn dae_exact_literal_candidate_has_scalar_constructor_shape(
   mod_ : @lib.Module,
   def_idx : Int,
+  context? : DaeExactLiteralCandidateContext? = None,
 ) -> Bool {
-  let imported = dae_imported_func_count(mod_)
-  let type_indices = dae_collect_func_type_indices(mod_)
-  let funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs
-    None => return false
+  let context = match context {
+    Some(context) => context
+    None =>
+      match dae_exact_literal_candidate_context_new(mod_) {
+        Some(context) => context
+        None => return false
+      }
   }
+  let imported = context.imported
+  let type_indices = context.type_indices
+  let funcs = context.funcs
   if def_idx < 0 || def_idx >= funcs.length() {
     return false
   }
@@ -43212,33 +43261,52 @@ fn dae_run_forwarded_param_scc_transaction(
 }
 
 ///|
+fn dae_collect_broad_uniform_candidate_defs(
+  candidate_source : @lib.Module,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let context = match
+    dae_exact_literal_candidate_context_new(candidate_source) {
+    Some(context) => context
+    None => return candidates
+  }
+  let mut candidate_def = 0
+  while candidate_def < context.funcs.length() {
+    if dae_exact_literal_candidate_is_single_param_identity(
+        candidate_source,
+        candidate_def,
+        context=Some(context),
+      ) ||
+      dae_exact_literal_candidate_is_single_param_call_sink(
+        candidate_source,
+        candidate_def,
+        context=Some(context),
+      ) ||
+      dae_exact_literal_candidate_is_single_param_pure_expression(
+        candidate_source,
+        candidate_def,
+        context=Some(context),
+      ) ||
+      dae_exact_literal_candidate_has_scalar_constructor_shape(
+        candidate_source,
+        candidate_def,
+        context=Some(context),
+      ) {
+      candidates.push(candidate_def)
+    }
+    candidate_def += 1
+  }
+  candidates
+}
+
+///|
 fn dae_run_broad_uniform_parameter_flow(
   current : @lib.Module,
   candidate_source : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
 ) -> DaeExactLiteralWorklistApplication {
-  let defined = dae_defined_func_count(current)
-  let candidates : Array[Int] = []
-  let source_defined = dae_defined_func_count(candidate_source)
-  let mut candidate_def = 0
-  while candidate_def < defined && candidate_def < source_defined {
-    if dae_exact_literal_candidate_is_single_param_identity(
-        candidate_source, candidate_def,
-      ) ||
-      dae_exact_literal_candidate_is_single_param_call_sink(
-        candidate_source, candidate_def,
-      ) ||
-      dae_exact_literal_candidate_is_single_param_pure_expression(
-        candidate_source, candidate_def,
-      ) ||
-      dae_exact_literal_candidate_has_scalar_constructor_shape(
-        candidate_source, candidate_def,
-      ) {
-      candidates.push(candidate_def)
-    }
-    candidate_def += 1
-  }
+  let candidates = dae_collect_broad_uniform_candidate_defs(candidate_source)
   dae_run_exact_literal_candidate_worklist_with_facts(
     current, touched, changed, candidates,
   )
@@ -44909,6 +44977,7 @@ fn dae_try_fold_selected_func246_builder_once(
 fn dae_restore_dead_suffix_self_operand_params(
   original : @lib.Module,
   current : @lib.Module,
+  candidate_defs? : Array[Bool]? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(original)
   let original_funcs = match original.code_sec {
@@ -44935,6 +45004,14 @@ fn dae_restore_dead_suffix_self_operand_params(
   let mut changed = false
   let mut def_idx = 0
   while def_idx < current_funcs.length() && def_idx < original_funcs.length() {
+    match candidate_defs {
+      Some(candidate_defs) if def_idx >= candidate_defs.length() ||
+        !candidate_defs[def_idx] => {
+        def_idx += 1
+        continue
+      }
+      _ => ()
+    }
     let callee_abs = imported + def_idx
     match dae_resolve_func_type(original, original_type_indices, callee_abs) {
       Some(@lib.FuncType(original_params, _)) if original_params.length() > 0 => {
@@ -44991,12 +45068,25 @@ fn dae_apply_dead_suffix_self_operand_restore_transaction(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
+  candidate_defs? : Array[Bool]? = None,
 ) -> DaeCoreResultApplication {
+  let candidate = dae_restore_dead_suffix_self_operand_params(
+    original_source,
+    current,
+    candidate_defs~,
+  )
+  if !candidate.changed {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+    }
+  }
   let original = dae_collect_original_boundary_snapshot(original_source)
   let graph = dae_current_boundary_graph_new(current)
-  let candidate = dae_restore_dead_suffix_self_operand_params(
-    original_source, current,
-  )
   let dependencies = dae_boundary_dependency_graph_new(graph)
   let mut producer_effects = dae_commit_effects_empty(graph.snapshot.defined)
   let mut def_idx = 0
@@ -45622,7 +45712,15 @@ fn dae_run_core(
     perf, "detail:dae:core:selected-lanes:reverse-exact-literal",
   )
   let restored_application = dae_apply_dead_suffix_self_operand_restore_transaction(
-    mod_, current, touched, changed,
+    mod_,
+    current,
+    touched,
+    changed,
+    candidate_defs=if touched.length() == original_defined {
+      Some(touched)
+    } else {
+      None
+    },
   )
   if restored_application.applied {
     current = restored_application.mod_out
