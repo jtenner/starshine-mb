@@ -45396,17 +45396,28 @@ fn dae_run_core(
       } else {
         None
       }
-      let reverse_application = dae_apply_family_result_transaction(
-        original_boundary_snapshot,
-        current,
-        touched,
-        changed,
-        reverse_graph,
-        reverse_result,
-        effects=reverse_effects,
-      )
-      if !reverse_application.applied {
-        break
+      let reverse_application = match reverse_effects {
+        Some(producer_effects) =>
+          match
+            dae_process_precomputed_signature_work_item(
+              original_boundary_snapshot,
+              current,
+              touched,
+              changed,
+              reverse_graph,
+              dae_work_item_new(
+                reverse_graph,
+                dae_boundary_dependency_graph_new(reverse_graph),
+                reverse_result.primary_def,
+                DaeUniformActualWork,
+              ),
+              reverse_result,
+              producer_effects,
+            ) {
+            DaeWorkCommitted(value) => value
+            _ => break
+          }
+        None => break
       }
       current = reverse_application.mod_out
       touched = reverse_application.touched
@@ -45468,17 +45479,28 @@ fn dae_run_core(
     } else {
       None
     }
-    let low_revisit_application = dae_apply_family_result_transaction(
-      original_boundary_snapshot,
-      current,
-      touched,
-      changed,
-      low_revisit_graph,
-      low_revisit_result,
-      effects=low_revisit_effects,
-    )
-    if !low_revisit_application.applied {
-      break
+    let low_revisit_application = match low_revisit_effects {
+      Some(producer_effects) =>
+        match
+          dae_process_precomputed_signature_work_item(
+            original_boundary_snapshot,
+            current,
+            touched,
+            changed,
+            low_revisit_graph,
+            dae_work_item_new(
+              low_revisit_graph,
+              dae_boundary_dependency_graph_new(low_revisit_graph),
+              low_revisit_result.primary_def,
+              DaeUniformActualWork,
+            ),
+            low_revisit_result,
+            producer_effects,
+          ) {
+          DaeWorkCommitted(value) => value
+          _ => break
+        }
+      None => break
     }
     current = low_revisit_application.mod_out
     touched = low_revisit_application.touched
@@ -45672,31 +45694,54 @@ fn dae_run_core(
       producer_effects_report=boundary_effects,
     )
     selected_scratch_defs[boundary_callee_def] = false
-    let boundary_application = dae_apply_family_result_transaction(
-      original_boundary_snapshot,
-      current,
-      touched,
-      changed,
-      boundary_graph,
-      boundary_result,
-      effects=boundary_effects.get(0),
-    )
-    if boundary_application.applied {
-      current = boundary_application.mod_out
-      touched = boundary_application.touched
-      changed = boundary_application.changed
-      effects = dae_commit_effects_merge(effects, boundary_application.effects)
-      dae_diagnostics_record_commit_effects(
-        diagnostics,
-        boundary_application.effects,
-      )
-      dae_diagnostics_record_applied_effects(
-        diagnostics,
-        boundary_application.effects,
-      )
-      trace(
-        "pass[dae-optimizing]:boundary-wrapper-callee-core primary_def=\{boundary_application.primary_def}",
-      )
+    let boundary_application = match boundary_effects.get(0) {
+      Some(producer_effects) =>
+        match
+          dae_process_precomputed_signature_work_item(
+            original_boundary_snapshot,
+            current,
+            touched,
+            changed,
+            boundary_graph,
+            dae_work_item_new(
+              boundary_graph,
+              dae_boundary_dependency_graph_new(boundary_graph),
+              boundary_result.primary_def,
+              dae_work_family_for_commit_effects(
+                producer_effects,
+                boundary_result.primary_def,
+              ),
+            ),
+            boundary_result,
+            producer_effects,
+          ) {
+          DaeWorkCommitted(value) => Some(value)
+          _ => None
+        }
+      None => None
+    }
+    match boundary_application {
+      Some(boundary_application) => {
+        current = boundary_application.mod_out
+        touched = boundary_application.touched
+        changed = boundary_application.changed
+        effects = dae_commit_effects_merge(
+          effects,
+          boundary_application.effects,
+        )
+        dae_diagnostics_record_commit_effects(
+          diagnostics,
+          boundary_application.effects,
+        )
+        dae_diagnostics_record_applied_effects(
+          diagnostics,
+          boundary_application.effects,
+        )
+        trace(
+          "pass[dae-optimizing]:boundary-wrapper-callee-core primary_def=\{boundary_application.primary_def}",
+        )
+      }
+      None => ()
     }
   }
   perf_stop_timer_opt(
