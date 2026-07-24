@@ -28703,6 +28703,7 @@ fn dae_run_core_once(
       params.length(),
     )
     let mut rewrite_mod = mod_
+    let mut has_rewrite_mod = false
     // Shared incoming-parameter live-in analysis ([O4Z-DAE-BOUNDARY]001).
     // Syntactic local.get scanning remains only for write/repair facts.
     let entry_live = dae_incoming_parameter_liveness(
@@ -28726,6 +28727,7 @@ fn dae_run_core_once(
       }
       if found_entry_dead_param {
         rewrite_mod = dae_strip_function_terminal_suffix_for_def(mod_, def_idx)
+        has_rewrite_mod = true
       }
     }
     let unused_params = dae_function_info_refresh_unused_params(
@@ -28813,7 +28815,7 @@ fn dae_run_core_once(
     if any && !skip_param_removal {
       let scalar_unused_only = const_params.all(fn(value) { value is None })
       if scalar_unused_only {
-        let callee_source = if rewrite_mod == mod_ {
+        let callee_source = if !has_rewrite_mod {
           None
         } else {
           match rewrite_mod.code_sec {
