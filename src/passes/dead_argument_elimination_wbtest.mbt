@@ -3079,7 +3079,11 @@ test "dae dead-suffix parameter cleanup owns repaired caller code" {
     ),
   )
   let result = dae_try_remove_dead_suffix_only_unreachable_params(
-    mod_, 1, 1, false,
+    mod_,
+    1,
+    1,
+    false,
+    current_calls_anywhere=2,
   )
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)
@@ -16098,6 +16102,66 @@ test "dae dropped-result work commits through dispatcher" {
 }
 
 ///|
+test "dae no-change work candidates skip effect reconstruction" {
+  let mod_ = pass_test_module_from_wat("(module (func))")
+  assert_false(
+    dae_should_scan_work_item_candidate_effects({
+      mod_out: mod_,
+      touched: [],
+      changed: false,
+      primary_def: -1,
+    }),
+  )
+  assert_true(
+    dae_should_scan_work_item_candidate_effects({
+      mod_out: mod_,
+      touched: [true],
+      changed: true,
+      primary_def: 0,
+    }),
+  )
+}
+
+///|
+test "dae core work-item helper reuses current dependency graph" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run")
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let current = dae_current_boundary_graph_new(mod_)
+  let dependencies = dae_boundary_dependency_graph_new(current)
+  match
+    dae_try_process_core_work_item(
+      original,
+      mod_,
+      current,
+      0,
+      DaeDroppedResultWork,
+      dependencies=Some(dependencies),
+      apply_followups=false,
+    ) {
+    Some(application) => {
+      assert_eq(application.primary_def, 0)
+      let effects_report : Array[DaeCommitEffects] = []
+      let committed_report : Array[DaeCoreResultApplication] = []
+      let result = dae_core_pass_result_from_work_application(
+        application,
+        effects_report,
+        committed_application_report=committed_report,
+      )
+      assert_true(result.changed)
+      assert_eq(committed_report.length(), 1)
+    }
+    None => fail("expected cached-dependency work item to commit")
+  }
+}
+
+///|
 test "dae GC parameter refinement work commits through dispatcher" {
   let source =
     #|(module
@@ -16945,6 +17009,12 @@ test "dae specialized result effects publish exact result invalidations" {
     1,
     1,
     caller_defs=Some([1]),
+    boundary_facts=Some({
+      original,
+      graph,
+      incoming_param_live_by_def: [],
+      incoming_param_live_body_epochs: [],
+    }),
   )
   assert_true(candidate.changed)
   let effects = dae_specialized_result_commit_effects(facts, candidate)
@@ -18551,10 +18621,35 @@ test "dae dropped result builds a common signature rewrite plan" {
   let mod_ = pass_test_module_from_wat(source)
   let original = dae_collect_original_boundary_snapshot(mod_)
   let graph = dae_current_boundary_graph_new(mod_)
+  let dropped_candidate = match
+    dae_dropped_result_candidate_from_current_call_facts(
+      graph.snapshot.call_facts,
+      0,
+    ) {
+    Some(candidate) => candidate
+    None => fail("expected dropped-result candidate facts")
+  }
+  assert_true(
+    dae_dropped_result_candidate_passes_cached_precheck(
+      {
+        original,
+        graph,
+        incoming_param_live_by_def: [],
+        incoming_param_live_body_epochs: [],
+      },
+      dropped_candidate,
+    ),
+  )
   let candidate = dae_try_remove_dropped_result_def_with_facts(
     mod_,
     0,
     graph.snapshot.call_facts,
+    boundary_facts=Some({
+      original,
+      graph,
+      incoming_param_live_by_def: [],
+      incoming_param_live_body_epochs: [],
+    }),
   )
   let item = dae_work_item_new(
     graph,

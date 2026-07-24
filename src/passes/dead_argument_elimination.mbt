@@ -2201,6 +2201,12 @@ priv struct DaeDroppedResultRemovalLegalityEvidence {
 }
 
 ///|
+priv struct DaeDroppedResultCachedPrecheck {
+  result_removal_legality : DaeDroppedResultRemovalLegalityEvidence
+  self_call_count : Int
+}
+
+///|
 priv struct DaeDroppedResultCalleeRewriteEvidence {
   param_count : Int
   result_count : Int
@@ -4493,6 +4499,13 @@ fn dae_invalidation_domains_for_work_family(
 }
 
 ///|
+fn dae_should_scan_work_item_candidate_effects(
+  candidate : DaePassResult,
+) -> Bool {
+  candidate.changed
+}
+
+///|
 fn dae_work_item_candidate_effects(
   current : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
@@ -4501,6 +4514,9 @@ fn dae_work_item_candidate_effects(
 ) -> DaeCommitEffects {
   let defined = graph.snapshot.defined
   let effects = dae_commit_effects_empty(defined)
+  if !dae_should_scan_work_item_candidate_effects(candidate) {
+    return effects
+  }
   let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
   let after_funcs = candidate_graph.snapshot.funcs
   let mut any_body_changed = false
@@ -4922,6 +4938,12 @@ fn dae_process_work_item(
         current,
         item.target_def,
         graph.snapshot.call_facts,
+        boundary_facts=Some({
+          original,
+          graph,
+          incoming_param_live_by_def: [],
+          incoming_param_live_body_epochs: [],
+        }),
       )
       Some(
         (
@@ -4951,6 +4973,12 @@ fn dae_process_work_item(
     None => {
       dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
       DaeWorkDeferred(DaeNoStrictImprovement)
+    }
+    Some((candidate, _)) if !dae_should_scan_work_item_candidate_effects(
+        candidate,
+      ) => {
+      dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+      DaeWorkNoChange(DaeNoStrictImprovement)
     }
     Some((candidate, producer_effects)) => {
       let allows_family_fallback = item.family == DaeControlReconstructionWork ||
@@ -22477,8 +22505,13 @@ fn dae_dropped_result_module_context(
   caller_defs? : Array[Int]? = None,
   perf? : HotPerfSession? = None,
   timer_prefix? : String = "",
+  boundary_facts? : DaeBoundaryFacts? = None,
+  cached_precheck? : DaeDroppedResultCachedPrecheck? = None,
 ) -> DaeDroppedResultModuleContext? {
-  let imported = dae_imported_func_count(mod_)
+  let imported = match boundary_facts {
+    Some(facts) => facts.graph.snapshot.imported
+    None => dae_imported_func_count(mod_)
+  }
   let def_idx = callee_abs - imported
   let type_indices_timer_name = "\{timer_prefix}:type-indices"
   let type_indices_start_us = if timer_prefix.length() > 0 {
@@ -22486,7 +22519,10 @@ fn dae_dropped_result_module_context(
   } else {
     0UL
   }
-  let type_indices = dae_collect_func_type_indices(mod_)
+  let type_indices = match boundary_facts {
+    Some(facts) => facts.graph.snapshot.type_indices
+    None => dae_collect_func_type_indices(mod_)
+  }
   if timer_prefix.length() > 0 {
     perf_stop_timer_opt(perf, type_indices_timer_name, type_indices_start_us)
   }
@@ -22530,22 +22566,29 @@ fn dae_dropped_result_module_context(
   } else {
     0UL
   }
-  let scoped_result_removal_legality = dae_dropped_result_removal_legality_evidence(
-    signature.funcs,
-    scope,
-    callee_abs,
-    def_idx,
-    results,
-  )
-  let original = dae_collect_original_boundary_snapshot(mod_)
-  let original_exposure_blocks = callee_abs < 0 ||
-    callee_abs >= original.exposure.length() ||
-    dae_function_exposure_blocks_boundary(original.exposure[callee_abs])
-  let result_removal_legality = if results.length() > 0 &&
-    original_exposure_blocks {
-    { ..scoped_result_removal_legality, blocks_result_removal: true }
-  } else {
-    scoped_result_removal_legality
+  let result_removal_legality = match cached_precheck {
+    Some(precheck) => precheck.result_removal_legality
+    None => {
+      let scoped = dae_dropped_result_removal_legality_evidence(
+        signature.funcs,
+        scope,
+        callee_abs,
+        def_idx,
+        results,
+      )
+      let original = match boundary_facts {
+        Some(facts) => facts.original
+        None => dae_collect_original_boundary_snapshot(mod_)
+      }
+      let original_exposure_blocks = callee_abs < 0 ||
+        callee_abs >= original.exposure.length() ||
+        dae_function_exposure_blocks_boundary(original.exposure[callee_abs])
+      if results.length() > 0 && original_exposure_blocks {
+        { ..scoped, blocks_result_removal: true }
+      } else {
+        scoped
+      }
+    }
   }
   if timer_prefix.length() > 0 {
     perf_stop_timer_opt(
@@ -23201,6 +23244,8 @@ fn dae_try_remove_dropped_results(
   dropped_call_count : Int,
   perf? : HotPerfSession? = None,
   caller_defs? : Array[Int]? = None,
+  boundary_facts? : DaeBoundaryFacts? = None,
+  cached_precheck? : DaeDroppedResultCachedPrecheck? = None,
 ) -> DaePassResult {
   if direct_call_count == 0 || dropped_call_count != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -23212,6 +23257,8 @@ fn dae_try_remove_dropped_results(
       caller_defs~,
       perf~,
       timer_prefix="detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+      boundary_facts~,
+      cached_precheck~,
     ) {
     Some(context) => context
     None =>
@@ -23233,7 +23280,10 @@ fn dae_try_remove_dropped_results(
   let self_call_count_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:self-call-count",
   )
-  let self_call_count = dae_count_self_calls(funcs[def_idx], callee_abs)
+  let self_call_count = match cached_precheck {
+    Some(precheck) => precheck.self_call_count
+    None => dae_count_self_calls(funcs[def_idx], callee_abs)
+  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:self-call-count",
     self_call_count_start_us,
@@ -24602,6 +24652,7 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   callee_abs : Int,
   original_call_count : Int,
   allow_unreachable_only_cleanup : Bool,
+  current_calls_anywhere? : Int = -1,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
@@ -24615,6 +24666,33 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   if params.length() == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let source_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if def_idx < 0 || def_idx >= source_funcs.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let observed_current_calls_anywhere = if current_calls_anywhere >= 0 {
+    current_calls_anywhere
+  } else {
+    dae_count_module_calls_anywhere_to(source_funcs, callee_abs)
+  }
+  if observed_current_calls_anywhere == 0 && original_call_count == 0 {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  if observed_current_calls_anywhere == 0 &&
+    dae_func_is_unreachable_only(source_funcs[def_idx]) &&
+    !allow_unreachable_only_cleanup {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
+    source_funcs[def_idx],
+  )
+  if !dae_func_is_unreachable_only(simplified) {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
   let signature = match
     dae_module_signature_context(mod_, def_idx, copy_funcs=true) {
     Some(signature) => signature
@@ -24623,23 +24701,6 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   }
   let funcs = signature.funcs.copy()
   let type_sec = signature.type_sec
-  let current_calls_anywhere = dae_count_module_calls_anywhere_to(
-    funcs, callee_abs,
-  )
-  if current_calls_anywhere == 0 && original_call_count == 0 {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  if current_calls_anywhere == 0 &&
-    dae_func_is_unreachable_only(funcs[def_idx]) &&
-    !allow_unreachable_only_cleanup {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
-  let simplified = dae_simplify_to_unreachable_when_prefix_unobservable(
-    funcs[def_idx],
-  )
-  if !dae_func_is_unreachable_only(simplified) {
-    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-  }
   let full_scope = dae_dropped_result_scope_from_optional(funcs.length(), None)
   let repair_plan = dae_dropped_result_repair_plan(
     full_scope,
@@ -27714,9 +27775,14 @@ fn dae_try_process_core_work_item(
   graph : DaeCurrentBoundaryGraph,
   target_def : Int,
   family : DaeWorkFamily,
+  dependencies? : DaeBoundaryDependencyGraph? = None,
+  apply_followups? : Bool = true,
 ) -> DaeCoreResultApplication? {
-  let dependencies = dae_boundary_dependency_graph_new(graph)
-  let item = dae_work_item_new(graph, dependencies, target_def, family)
+  let active_dependencies = match dependencies {
+    Some(dependencies) => dependencies
+    None => dae_boundary_dependency_graph_new(graph)
+  }
+  let item = dae_work_item_new(graph, active_dependencies, target_def, family)
   let diagnostics = dae_diagnostics_new()
   match
     dae_process_work_item(
@@ -27725,12 +27791,18 @@ fn dae_try_process_core_work_item(
       [],
       false,
       graph,
-      dependencies,
+      active_dependencies,
       item,
       diagnostics,
     ) {
     DaeWorkCommitted(application) =>
-      Some(dae_apply_commit_followups(original, application, item, diagnostics))
+      Some(
+        if apply_followups {
+          dae_apply_commit_followups(original, application, item, diagnostics)
+        } else {
+          application
+        },
+      )
     _ => None
   }
 }
@@ -27739,7 +27811,13 @@ fn dae_try_process_core_work_item(
 fn dae_core_pass_result_from_work_application(
   application : DaeCoreResultApplication,
   producer_effects_report : Array[DaeCommitEffects],
+  committed_application_report? : Array[DaeCoreResultApplication] = [],
 ) -> DaePassResult {
+  if committed_application_report.length() == 0 {
+    committed_application_report.push(application)
+  } else {
+    committed_application_report[0] = application
+  }
   if producer_effects_report.length() == 0 {
     producer_effects_report.push(application.effects)
   } else {
@@ -27819,7 +27897,9 @@ fn dae_run_core_once(
   max_def_exclusive? : Int = -1,
   start_def_inclusive? : Int = 0,
   boundary_facts_override? : DaeCallBoundaryFacts? = None,
+  dependencies? : DaeBoundaryDependencyGraph? = None,
   producer_effects_report? : Array[DaeCommitEffects] = [],
+  committed_application_report? : Array[DaeCoreResultApplication] = [],
   traps_never_happen? : Bool = false,
 ) -> DaePassResult {
   let original_param_counts = original.param_counts
@@ -27869,6 +27949,10 @@ fn dae_run_core_once(
   let boundary_facts = dae_boundary_facts_for_epoch(
     current_graph, expected_call_epoch, boundary_facts_override,
   )
+  let active_dependencies = match dependencies {
+    Some(dependencies) => dependencies
+    None => dae_boundary_dependency_graph_new(current_graph)
+  }
   let shared_boundary_facts : DaeBoundaryFacts = {
     original,
     graph: current_graph,
@@ -28093,7 +28177,13 @@ fn dae_run_core_once(
         original_escaped_block_self_result ||
         original_dropped_only_result_side_caller_prune
       let dead_suffix_params = dae_try_remove_dead_suffix_only_unreachable_params(
-        mod_, callee_abs, original_call_count, allow_unreachable_only_param_cleanup,
+        mod_,
+        callee_abs,
+        original_call_count,
+        allow_unreachable_only_param_cleanup,
+        current_calls_anywhere=dae_original_int_fact_at(
+          current_call_counts_anywhere, def_idx,
+        ),
       )
       if dead_suffix_params.changed {
         dae_record_dead_suffix_parameter_candidate_effects(
@@ -28440,10 +28530,14 @@ fn dae_run_core_once(
           current_graph,
           def_idx,
           DaeGcParameterRefinementWork,
+          dependencies=Some(active_dependencies),
+          apply_followups=false,
         ) {
         Some(application) =>
           return dae_core_pass_result_from_work_application(
-            application, producer_effects_report,
+            application,
+            producer_effects_report,
+            committed_application_report~,
           )
         None => ()
       }
@@ -28458,10 +28552,14 @@ fn dae_run_core_once(
           current_graph,
           def_idx,
           DaeGcResultRefinementWork,
+          dependencies=Some(active_dependencies),
+          apply_followups=false,
         ) {
         Some(application) =>
           return dae_core_pass_result_from_work_application(
-            application, producer_effects_report,
+            application,
+            producer_effects_report,
+            committed_application_report~,
           )
         None => ()
       }
@@ -28477,10 +28575,14 @@ fn dae_run_core_once(
             current_graph,
             def_idx,
             DaeDroppedResultWork,
+            dependencies=Some(active_dependencies),
+            apply_followups=false,
           ) {
           Some(application) =>
             return dae_core_pass_result_from_work_application(
-              application, producer_effects_report,
+              application,
+              producer_effects_report,
+              committed_application_report~,
             )
           None => ()
         }
@@ -28496,10 +28598,14 @@ fn dae_run_core_once(
             current_graph,
             def_idx,
             DaeDroppedResultWork,
+            dependencies=Some(active_dependencies),
+            apply_followups=false,
           ) {
           Some(application) =>
             return dae_core_pass_result_from_work_application(
-              application, producer_effects_report,
+              application,
+              producer_effects_report,
+              committed_application_report~,
             )
           None => ()
         }
@@ -28513,10 +28619,14 @@ fn dae_run_core_once(
             current_graph,
             def_idx,
             DaeDroppedResultWork,
+            dependencies=Some(active_dependencies),
+            apply_followups=false,
           ) {
           Some(application) =>
             return dae_core_pass_result_from_work_application(
-              application, producer_effects_report,
+              application,
+              producer_effects_report,
+              committed_application_report~,
             )
           None => ()
         }
@@ -28707,10 +28817,14 @@ fn dae_run_core_once(
           current_graph,
           def_idx,
           DaeDroppedResultWork,
+          dependencies=Some(active_dependencies),
+          apply_followups=false,
         ) {
         Some(application) =>
           return dae_core_pass_result_from_work_application(
-            application, producer_effects_report,
+            application,
+            producer_effects_report,
+            committed_application_report~,
           )
         None => ()
       }
@@ -39416,11 +39530,73 @@ fn dae_order_selected_candidates_caller_first(
 }
 
 ///|
+fn dae_dropped_result_candidate_cached_precheck(
+  facts : DaeBoundaryFacts,
+  candidate : DaeDroppedResultCandidate,
+) -> DaeDroppedResultCachedPrecheck? {
+  if !candidate.owned_dropped_result_candidate ||
+    candidate.direct_call_count == 0 ||
+    candidate.dropped_call_count != candidate.direct_call_count {
+    return None
+  }
+  let graph = facts.graph
+  let callee_abs = candidate.callee_abs
+  let def_idx = callee_abs - graph.snapshot.imported
+  if def_idx < 0 ||
+    def_idx >= graph.snapshot.defined ||
+    def_idx >= graph.snapshot.funcs.length() ||
+    callee_abs < 0 ||
+    callee_abs >= graph.snapshot.function_types.length() {
+    return None
+  }
+  let results = match graph.snapshot.function_types[callee_abs] {
+    Some(@lib.FuncType(_, results)) => results
+    None => return None
+  }
+  if results.length() != 1 ||
+    callee_abs >= facts.original.exposure.length() ||
+    dae_function_exposure_blocks_boundary(facts.original.exposure[callee_abs]) {
+    return None
+  }
+  let scope = dae_dropped_result_scope_from_optional(
+    graph.snapshot.funcs.length(),
+    Some(candidate.direct_callers),
+  )
+  let result_removal_legality = dae_dropped_result_removal_legality_evidence(
+    graph.snapshot.funcs,
+    scope,
+    callee_abs,
+    def_idx,
+    results,
+  )
+  if dae_dropped_result_removal_legality_blocks(result_removal_legality) {
+    return None
+  }
+  let self_call_count = dae_count_self_calls(
+    graph.snapshot.funcs[def_idx],
+    callee_abs,
+  )
+  if self_call_count == candidate.direct_call_count {
+    return None
+  }
+  Some({ result_removal_legality, self_call_count })
+}
+
+///|
+fn dae_dropped_result_candidate_passes_cached_precheck(
+  facts : DaeBoundaryFacts,
+  candidate : DaeDroppedResultCandidate,
+) -> Bool {
+  dae_dropped_result_candidate_cached_precheck(facts, candidate).is_some()
+}
+
+///|
 fn dae_try_remove_dropped_result_def_with_facts(
   mod_ : @lib.Module,
   def_idx : Int,
   call_facts : DaeCurrentCallFacts,
   perf? : HotPerfSession? = None,
+  boundary_facts? : DaeBoundaryFacts? = None,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
@@ -39435,9 +39611,20 @@ fn dae_try_remove_dropped_result_def_with_facts(
     Some(candidate) if candidate.owned_dropped_result_candidate => candidate
     _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let boundary_facts = dae_boundary_facts_new(mod_)
-  if !dae_can_remove_function_result(boundary_facts, callee_abs) {
+  let active_boundary_facts = match boundary_facts {
+    Some(boundary_facts) => boundary_facts
+    None => dae_boundary_facts_new(mod_)
+  }
+  if !dae_can_remove_function_result(active_boundary_facts, callee_abs) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let cached_precheck = match
+    dae_dropped_result_candidate_cached_precheck(
+      active_boundary_facts, candidate,
+    ) {
+    Some(precheck) => precheck
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let result = dae_try_remove_dropped_results(
     mod_,
@@ -39446,6 +39633,8 @@ fn dae_try_remove_dropped_result_def_with_facts(
     candidate.dropped_call_count,
     perf~,
     caller_defs=Some(candidate.direct_callers),
+    boundary_facts=Some(active_boundary_facts),
+    cached_precheck=Some(cached_precheck),
   )
   if result.changed {
     let touched = if result.touched.length() == defined {
@@ -45272,6 +45461,7 @@ fn dae_run_core(
       let call_epoch = current_boundary_graph.call_epoch
       let boundary_facts = current_boundary_graph.snapshot.boundary_facts
       let producer_effects_report : Array[DaeCommitEffects] = []
+      let committed_application_report : Array[DaeCoreResultApplication] = []
       let result = dae_run_core_once(
         current,
         no_already_rewritten_defs,
@@ -45284,7 +45474,9 @@ fn dae_run_core(
         max_def_exclusive=def_idx + 1,
         start_def_inclusive=def_idx,
         boundary_facts_override=Some(boundary_facts),
+        dependencies=Some(current_dependencies),
         producer_effects_report~,
+        committed_application_report~,
         traps_never_happen~,
       )
       let before_primary_param_count = if result.primary_def >= 0 {
@@ -45322,16 +45514,20 @@ fn dae_run_core(
         result.primary_def,
         family,
       )
-      let application = match
-        dae_process_precomputed_signature_work_item(
-          original_boundary_snapshot, current, touched, changed, current_boundary_graph,
-          item, result, producer_effects,
-        ) {
-        DaeWorkCommitted(value) => value
-        DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => {
-          dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
-          continue
-        }
+      let application = match committed_application_report.get(0) {
+        Some(application) => application
+        None =>
+          match
+            dae_process_precomputed_signature_work_item(
+              original_boundary_snapshot, current, touched, changed, current_boundary_graph,
+              item, result, producer_effects,
+            ) {
+            DaeWorkCommitted(value) => value
+            DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => {
+              dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+              continue
+            }
+          }
       }
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
       dae_diagnostics_record_applied_effects(diagnostics, application.effects)
