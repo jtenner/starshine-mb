@@ -70692,137 +70692,8 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       )
     None => ()
   }
-  let mut forwarded_scc_seeds = core_touched.copy()
-  let forwarded_cycle_preferred_defs : Array[Int] = []
-  match broad_adjacent.candidate {
-    Some(candidate) => {
-      forwarded_scc_seeds[candidate.first_def] = true
-      forwarded_scc_seeds[candidate.second_def] = true
-      forwarded_cycle_preferred_defs.push(candidate.first_def)
-      forwarded_cycle_preferred_defs.push(candidate.second_def)
-    }
-    None => ()
-  }
-  let processed_forwarded_cycle_defs : Array[Int] = []
-  let post_component_cleanup_defs : Array[Int] = []
-  while true {
-    let forwarded_cycle_batches = dae_collect_forwarded_param_cycle_batches(
-      core_mod,
-      forwarded_scc_seeds,
-      preferred_defs=forwarded_cycle_preferred_defs,
-      excluded_defs=processed_forwarded_cycle_defs,
-      limit=forwarded_scc_seeds.length(),
-    )
-    forwarded_cycle_preferred_defs.clear()
-    if forwarded_cycle_batches.length() == 0 {
-      break
-    }
-    let scc_cleanup_touched = Array::make(forwarded_scc_seeds.length(), false)
-    for forwarded_cycle_defs in forwarded_cycle_batches {
-      for def_idx in forwarded_cycle_defs {
-        if !processed_forwarded_cycle_defs.contains(def_idx) {
-          processed_forwarded_cycle_defs.push(def_idx)
-        }
-        forwarded_scc_seeds[def_idx] = true
-        scc_cleanup_touched[def_idx] = true
-      }
-    }
-    // Forwarding producers do not own a private precompute phase. Their exact
-    // touched/worth effects feed the shared nested roster below.
-    ignore(scc_cleanup_touched)
-    for forwarded_cycle_defs in forwarded_cycle_batches {
-      (options.trace)(
-        "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=\{forwarded_cycle_defs.to_string()}",
-      )
-      match
-        dae_run_forwarded_param_dead_callee_convergence(
-          core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
-        ) {
-        Some(application) => {
-          core_mod = application.mod_out
-          core_touched = application.touched
-          forwarded_scc_seeds = application.touched.copy()
-          (options.trace)(
-            "pass[dae-optimizing]:forwarded-param-dead-callee-convergence sink_defs=\{application.sink_defs.to_string()} cycle_defs=\{application.cycle_defs.to_string()}",
-          )
-        }
-        None => ()
-      }
-      let component_graph = dae_current_boundary_graph_new(core_mod)
-      let component_dependencies = dae_boundary_dependency_graph_new(
-        component_graph,
-      )
-      let component_original = dae_collect_original_boundary_snapshot(core_mod)
-      match
-        dae_run_forwarded_param_component_transaction_with_graph(
-          component_original, core_mod, forwarded_scc_seeds, forwarded_cycle_defs,
-          component_graph, component_dependencies,
-        ) {
-        Some(application) => {
-          let candidate = application.candidate
-          core_mod = candidate.mod_out
-          core_touched = candidate.touched
-          forwarded_scc_seeds = candidate.touched.copy()
-          core_effects = dae_commit_effects_merge(
-            core_effects,
-            application.effects,
-          )
-          for def_idx in candidate.defs {
-            if !post_component_cleanup_defs.contains(def_idx) {
-              post_component_cleanup_defs.push(def_idx)
-            }
-          }
-          (options.trace)(
-            "pass[dae-optimizing]:forwarded-param-component-transaction defs=\{candidate.defs.to_string()} params=\{candidate.param_count}",
-          )
-        }
-        None => ()
-      }
-    }
-  }
-  // Component commits already publish producer-owned worth. The shared
-  // Binaryen-shaped touched roster below is the sole nested cleanup owner;
-  // do not run the former component-private coalesce/vacuum mini-roster.
-  ignore(post_component_cleanup_defs)
-  let scc_before = core_mod
-  let scc_graph = dae_current_boundary_graph_new(scc_before)
-  let scc_dependencies = dae_boundary_dependency_graph_new(scc_graph)
-  match dae_run_forwarded_param_scc_transaction(core_mod, forwarded_scc_seeds) {
-    Some(application) => {
-      core_mod = application.mod_out
-      core_touched = application.touched
-      let candidate : DaePassResult = {
-        mod_out: application.mod_out,
-        touched: application.touched,
-        changed: true,
-        primary_def: if application.defs.length() > 0 {
-          application.defs[0]
-        } else {
-          -1
-        },
-      }
-      for def_idx in application.defs {
-        core_effects = dae_commit_effects_merge(
-          core_effects,
-          dae_work_item_candidate_effects(
-            scc_before,
-            scc_graph,
-            dae_work_item_new(
-              scc_graph,
-              scc_dependencies,
-              def_idx,
-              DaeUnusedParameterWork,
-            ),
-            candidate,
-          ),
-        )
-      }
-      (options.trace)(
-        "pass[dae-optimizing]:forwarded-param-scc-transaction defs=\{application.defs.to_string()} params=\{application.param_count}",
-      )
-    }
-    None => ()
-  }
+  // Forwarding SCC/component work is owned by the epoch-bearing effect
+  // frontier after the shared nested roster; do not run a pre-roster phase loop.
   let broad_uniform = dae_run_broad_uniform_parameter_flow(
     core_mod,
     mod_,
@@ -70988,12 +70859,6 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     "detail:dae:prune-unused-simple-func-types",
     prune_start_us,
   )
-  if !broad_cleanup_changed {
-    run_hot_pipeline_dae_report_single_caller_throttle(
-      single_caller_throttle_report, throttle_consumed,
-    )
-    return Ok(pruned)
-  }
   // Final cleanup may expose another owned boundary, but convergence must stay
   // on the producer-owned dependency frontier. Do not recursively replay the
   // whole DAEO pipeline. Drain all represented boundary families for the exact
@@ -71005,6 +70870,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     broad_cleanup_touched, worth_optimizing_touched,
   )
   frontier_seed = dae_merge_touched(frontier_seed, post_cleanup_touched)
+  let forwarding_graph = dae_current_boundary_graph_new(converged)
+  let forwarding_dependencies = dae_boundary_dependency_graph_new(
+    forwarding_graph,
+  )
+  for members in forwarding_dependencies.forwarding_component_members {
+    if members.length() < 2 {
+      continue
+    }
+    for def_idx in members {
+      if def_idx >= 0 && def_idx < frontier_seed.length() {
+        frontier_seed[def_idx] = true
+      }
+    }
+  }
   let mut convergence_wave = 0
   while true {
     (options.trace)(

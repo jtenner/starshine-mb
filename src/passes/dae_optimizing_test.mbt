@@ -18753,11 +18753,16 @@ test "dae-optimizing removes a forwarding-only parameter component and preserves
   let run = optimized.pretty_print_defined_func(3U)
   assert_true(run.contains("call (Func 0)"), msg=run)
   assert_true(run.contains("drop"), msg="\{run}\ntrace=\{trace}")
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("forwarded-param-component-transaction")
+    }),
+    msg=trace.to_string(),
+  )
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:forwarded-param-component-transaction defs=[0, 1, 2] params=3",
-      )
+      line.contains("pass[dae-optimizing]:effect-frontier-commit") &&
+      line.contains("family=2")
     }),
     msg=trace.to_string(),
   )
@@ -19007,13 +19012,16 @@ test "dae-optimizing removes a constant-anchored forwarded-parameter cycle trans
     #|    local.get 0
     #|    call $a))
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  @debug.assert_eq(
+    dae_test_func_params(optimized, 1).length(),
+    0,
+    msg=trace.to_string(),
+  )
   @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 0)
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:forwarded-param-scc-transaction defs=[1, 2] params=2",
-      )
+      line.contains("pass[dae-optimizing]:effect-frontier-commit") &&
+      line.contains("family=2")
     }),
     msg=trace.to_string(),
   )
@@ -19039,8 +19047,12 @@ test "dae-optimizing rejects a conflicting forwarded-parameter cycle transaction
     #|    drop
     #|    local.get 0
     #|    call $a))
-  let optimized = dae_test_run(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 2).length(), 1)
+  let (optimized, trace) = dae_test_run_with_perf_trace(source)
+  @debug.assert_eq(
+    dae_test_func_params(optimized, 2).length(),
+    1,
+    msg=trace.to_string(),
+  )
   @debug.assert_eq(dae_test_func_params(optimized, 3).length(), 1)
 }
 
@@ -19083,21 +19095,16 @@ test "dae-optimizing removes an exact unanchored forwarding-only cycle" {
     #|  (func (export "run") (result i32)
     #|    i32.const 3))
   let (optimized, trace) = dae_test_run_with_perf_trace(source)
-  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(
+    dae_test_func_params(optimized, 0).length(),
+    0,
+    msg=trace.to_string(),
+  )
   @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
   assert_true(
     trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:forwarded-param-cycle-precompute defs=[0, 1]",
-      )
-    }),
-    msg=trace.to_string(),
-  )
-  assert_true(
-    trace.any(fn(line) {
-      line.contains(
-        "pass[dae-optimizing]:forwarded-param-component-transaction defs=[0, 1] params=2",
-      )
+      line.contains("pass[dae-optimizing]:effect-frontier-commit") &&
+      line.contains("family=2")
     }),
     msg=trace.to_string(),
   )

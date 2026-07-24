@@ -4629,8 +4629,54 @@ fn dae_process_work_item(
         })
       }
       None => {
-        dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
-        return DaeWorkNoChange(DaeNoStrictImprovement)
+        let component_touched = Array::make(graph.snapshot.defined, false)
+        for def_idx in item.component_members {
+          if def_idx >= 0 && def_idx < component_touched.length() {
+            component_touched[def_idx] = true
+          }
+        }
+        match
+          dae_run_forwarded_param_scc_transaction(current, component_touched) {
+          Some(candidate) => {
+            let result : DaePassResult = {
+              mod_out: candidate.mod_out,
+              touched: candidate.touched,
+              changed: true,
+              primary_def: item.target_def,
+            }
+            let mut effects = dae_commit_effects_empty(graph.snapshot.defined)
+            for def_idx in candidate.defs {
+              effects = dae_commit_effects_merge(
+                effects,
+                dae_work_item_candidate_effects(
+                  current,
+                  graph,
+                  dae_work_item_new(
+                    graph,
+                    dependencies,
+                    def_idx,
+                    DaeUnusedParameterWork,
+                  ),
+                  result,
+                ),
+              )
+            }
+            dae_diagnostics_record_commit_effects(diagnostics, effects)
+            dae_diagnostics_record_applied_effects(diagnostics, effects)
+            return DaeWorkCommitted({
+              mod_out: candidate.mod_out,
+              touched: dae_merge_touched(touched, candidate.touched),
+              changed: true,
+              applied: true,
+              primary_def: item.target_def,
+              effects,
+            })
+          }
+          None => {
+            dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+            return DaeWorkNoChange(DaeNoStrictImprovement)
+          }
+        }
       }
     }
   }
@@ -40981,12 +41027,12 @@ fn dae_solve_parameter_flow(
           }
         }
       } else {
-        dae_parameter_flow_record(
-          facts,
-          def_idx,
-          param_idx,
-          DaeParameterBlocked,
-        )
+        let blocked_state = if flags[2] && constant[0] is Some(_) {
+          DaeParameterConflict
+        } else {
+          DaeParameterBlocked
+        }
+        dae_parameter_flow_record(facts, def_idx, param_idx, blocked_state)
       }
       param_idx += 1
     }
@@ -42379,6 +42425,17 @@ fn dae_run_forwarded_param_component_transaction_with_graph(
     graph.snapshot.type_indices,
     boundary_facts,
   )
+  let flow = dae_solve_parameter_flow(graph, dependencies, seed_defs=cycle_defs)
+  for node in nodes {
+    let node_def = node.callee_abs - graph.snapshot.imported
+    match dae_parameter_flow_state_at(flow, node_def, node.param_idx) {
+      DaeParameterConflict => return None
+      DaeParameterUnseen
+      | DaeParameterForwardedOnly
+      | DaeParameterUniform(_)
+      | DaeParameterBlocked => ()
+    }
+  }
   let plan = match
     dae_build_forwarded_param_component_rewrite_plan(
       current,
@@ -44655,6 +44712,7 @@ fn dae_run_effect_frontier_worklist(
     ]
   } else {
     [
+      DaeForwardingWork,
       DaeGcResultRefinementWork,
       DaeDroppedResultWork,
       DaeControlReconstructionWork,
