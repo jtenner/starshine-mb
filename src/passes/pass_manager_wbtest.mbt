@@ -1482,6 +1482,34 @@ test "simplify-locals-nostructure lowered cleanup directizes ref.func local call
 }
 
 ///|
+test "dae frontier seeds callees removed by shared cleanup" {
+  let before = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target)
+      #|  (func $caller
+      #|    call $target))
+    ),
+  )
+  let after = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target)
+      #|  (func $caller
+      #|    nop))
+    ),
+  )
+  let before_graph = dae_current_boundary_graph_new(before)
+  let after_graph = dae_current_boundary_graph_new(after)
+  let expanded = run_hot_pipeline_dae_expand_frontier_seed_callees(
+    [false, true],
+    dae_boundary_dependency_graph_new(before_graph),
+    dae_boundary_dependency_graph_new(after_graph),
+  )
+  assert_eq(expanded, [true, true])
+}
+
+///|
 test "dae dropped-result definition helper respects precomputed dropped-call facts" {
   let mod_ = pass_test_module_from_wat(
     (

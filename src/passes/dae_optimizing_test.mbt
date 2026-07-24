@@ -14298,6 +14298,26 @@ test "dae-optimizing keeps non-adjacent self-call operands in dead suffixes" {
 }
 
 ///|
+test "dae-optimizing removes terminal-unreachable dropped-self operands" {
+  let source =
+    #|(module
+    #|  (func $target (param i32 i32) (result i64)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    i32.const 7
+    #|    call $target
+    #|    drop
+    #|    unreachable))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 0).length(), 0)
+  @debug.assert_eq(dae_test_func_results(optimized, 0).length(), 1)
+  let @lib.Func(_, @lib.Expr(body)) = dae_test_defined_func(optimized, 0)
+  @debug.assert_eq(body, [@lib.Instruction::unreachable_()])
+}
+
+///|
 test "dae-optimizing finishes dead-suffix parameter cycles after callers vanish" {
   let source =
     #|(module

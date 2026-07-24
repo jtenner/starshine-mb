@@ -3035,7 +3035,7 @@ test "dae dropped result unreachable callee rewrite centralizes application" {
   )
   assert_true(result.changed)
   assert_eq(result.primary_def, 1)
-  assert_eq(result.touched, [false, true])
+  assert_eq(result.touched, [true, true])
   match result.mod_out.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let @lib.Func(_, @lib.Expr(caller_body)) = funcs[0]
@@ -3053,6 +3053,53 @@ test "dae dropped result unreachable callee rewrite centralizes application" {
       assert_eq(results, [])
     }
     None => fail("expected rewritten callee type")
+  }
+}
+
+///|
+test "dae dead-suffix parameter cleanup owns repaired caller code" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad
+      #|    unreachable
+      #|    i32.const 1
+      #|    i32.const 2
+      #|    call $target
+      #|    drop)
+      #|  (func $target (param i32 i32) (result i64)
+      #|    block
+      #|      unreachable
+      #|    end
+      #|    local.get 0
+      #|    i32.const 7
+      #|    call $target
+      #|    drop
+      #|    i64.const 277))
+    ),
+  )
+  let result = dae_try_remove_dead_suffix_only_unreachable_params(
+    mod_, 1, 1, false,
+  )
+  assert_true(result.changed)
+  assert_eq(result.primary_def, 1)
+  assert_eq(result.touched, [true, true])
+  let rewritten_type_indices = dae_collect_func_type_indices(result.mod_out)
+  match dae_resolve_func_type(result.mod_out, rewritten_type_indices, 1) {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params, [])
+      assert_eq(results, [@lib.ValType::i64()])
+    }
+    None => fail("expected rewritten dead-suffix target type")
+  }
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let @lib.Func(_, @lib.Expr(pad_body)) = funcs[0]
+      let @lib.Func(_, @lib.Expr(target_body)) = funcs[1]
+      assert_eq(pad_body, [@lib.Instruction::unreachable_()])
+      assert_eq(target_body, [@lib.Instruction::unreachable_()])
+    }
+    None => fail("expected rewritten dead-suffix code section")
   }
 }
 
@@ -14617,6 +14664,26 @@ test "dae current call facts record direct tail callees inside structured bodies
 }
 
 ///|
+test "dae current call facts stop after structured no-fallthrough roots" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32))
+      #|  (func
+      #|    block
+      #|      unreachable
+      #|    end
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let analysis = dae_collect_current_function_analysis(mod_, 2)
+  assert_eq(analysis.call_facts.direct_calls, [0, 0])
+  assert_eq(analysis.function_infos[0].calls.length(), 1)
+  assert_false(analysis.function_infos[0].calls[0].active)
+}
+
+///|
 test "dae stable callsites ignore inactive conflicting uniform actuals" {
   let mod_ = pass_test_module_from_wat(
     (
@@ -21767,6 +21834,23 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
     Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
     None => fail("expected private uncalled target type")
   }
+  let optimizing_uncalled_result = dae_run_core(
+    uncalled_mod,
+    fn(_) { () },
+    optimize=true,
+  )
+  let optimizing_uncalled_types = dae_collect_func_type_indices(
+    optimizing_uncalled_result.mod_out,
+  )
+  match
+    dae_resolve_func_type(
+      optimizing_uncalled_result.mod_out,
+      optimizing_uncalled_types,
+      1,
+    ) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    None => fail("expected optimizing private uncalled target type")
+  }
 
   // An ordinary private function does not enter that family merely because it
   // has no incoming calls.
@@ -21794,14 +21878,14 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
     None => fail("expected ordinary private uncalled target type")
   }
 
-  // Inactive direct calls still belong to Binaryen's syntactic incoming-call
-  // boundary. Zero reachable calls must not be mistaken for zero calls anywhere.
+  // Inactive direct calls have no operands to replay. They do not block the
+  // private terminal-unreachable zero-call family.
   let inactive_call_mod = pass_test_module_from_wat(
     (
       #|(module
       #|  (func $pad)
       #|  (func $target (param i32)
-      #|    nop)
+      #|    unreachable)
       #|  (func
       #|    unreachable
       #|    i32.const 1
@@ -21811,7 +21895,7 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
   let inactive_call_facts = dae_boundary_facts_new(inactive_call_mod)
   assert_eq(
     dae_classify_parameter_slot(inactive_call_facts, 1, 0, false, []),
-    DaeKeepParameter,
+    DaeRemovePureParameter,
   )
   let inactive_call_result = dae_run_core(inactive_call_mod, fn(_) { () })
   let inactive_call_types = dae_collect_func_type_indices(
@@ -21819,8 +21903,53 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
   )
   match
     dae_resolve_func_type(inactive_call_result.mod_out, inactive_call_types, 1) {
-    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 1)
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
     None => fail("expected inactive-call target type")
+  }
+
+  // The unobserved recursive variant must commit the same signature/body
+  // product through the generic work-item plan rather than fail consistency.
+  let recursive_unobserved_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target (param i32)
+      #|    block
+      #|      unreachable
+      #|    end
+      #|    local.get 0
+      #|    call $target
+      #|    unreachable)
+      #|  (func
+      #|    block
+      #|      unreachable
+      #|    end
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  let recursive_unobserved_result = dae_run_core(
+    recursive_unobserved_mod,
+    fn(_) { () },
+    optimize=true,
+  )
+  let recursive_unobserved_types = dae_collect_func_type_indices(
+    recursive_unobserved_result.mod_out,
+  )
+  match
+    dae_resolve_func_type(
+      recursive_unobserved_result.mod_out,
+      recursive_unobserved_types,
+      0,
+    ) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    None => fail("expected recursive unobserved target type")
+  }
+  match recursive_unobserved_result.mod_out.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == 2 => {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[0]
+      assert_eq(body, [@lib.Instruction::unreachable_()])
+    }
+    _ => fail("expected recursive unobserved target body")
   }
 
   let effect_mod = pass_test_module_from_wat(

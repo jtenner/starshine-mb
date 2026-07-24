@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-23
+last_reviewed: 2026-07-24
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination.cpp
@@ -386,6 +386,14 @@ The same original-boundary setup now collects dead-suffix escaped-result call fa
 ## Current Starshine multi-result operand-sequence proof surface
 
 `DaeMultiResultOperandSequenceEvidence` and `dae_multi_result_operand_sequence_evidence(...)` now separate shared flat multi-result suffix recovery from candidate-specific recognition. The helper carries terminal-return bounds, per-slot operand starts, selected value instruction indices, and specialized-slot markers after skipping trivially dropped prefixes and accepting ordinary single-value fallback slots. `dae_try_refine_multi_result_single_if_operand_body(...)` and `dae_try_refine_multi_result_select_operand_body(...)` are the two production consumers; `if`/select candidate discovery, GC refinement, and body rewrite application remain separate. The red-first whitebox contract covers mixed specialized/fallback slots and rejects an all-fallback sequence. Fresh direct and optimizing compare counts are unchanged, so this is evidence-ownership consolidation rather than a new scheduling or parity claim.
+
+## Cleanup-deleted dependency and unobserved-boundary ownership, 2026-07-24
+
+The shared DAE/DAEO lifecycle now keeps exact ownership when dead-suffix repair or nested cleanup deletes the last represented dependency edge. The DAEO effect frontier seeds callees from the union of pre-cleanup and post-cleanup dependency graphs, so a newly uncalled private target is reconsidered even when the shared nested roster removed its final caller. Current call analysis also records calls after a structured root that cannot fall through as inactive rather than reachable evidence.
+
+Private zero-reachable-call parameter removal is intentionally narrow: ordinary returning functions remain unchanged, while private functions whose represented execution is terminally unreachable may remove dead parameters in both plain DAE and DAEO. Dead-suffix parameter cleanup copies the source signature functions before repair, reports every actually changed function through `DaeTouchModuleCodeChangedFuncs`, and publishes exact producer effects for inactive caller cleanup. The generic `DaeRewritePlan` therefore validates and commits the producer-owned candidate instead of rejecting it because caller cleanup changed the code snapshot during construction. Dropped-result unreachable-callee finalization uses the same exact changed-function touched policy.
+
+Red-first and focused coverage includes inactive-call zero-call classification, ordinary-returning fail-closed behavior, dropped self-call preservation, recursive unobserved cleanup, repaired-caller touched ownership, cleanup-deleted frontier edges, and terminal-unreachable dropped-self operands. The bounded closure suites pass DAE whitebox `395/395`, public DAEO `342/342`, and pass-manager whitebox `306/306`. Replaying all prior random-all residuals produces zero individually positive canonical-size cases: plain DAE has `1310` remaining raw mismatches with aggregate delta `-59,506` bytes, and DAEO has `548` remaining raw mismatches with aggregate delta `-147,322` bytes; all replay validation/property/generator/command failure counts are zero.
 
 ## Porting takeaway
 

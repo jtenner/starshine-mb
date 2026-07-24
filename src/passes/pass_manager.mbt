@@ -69099,6 +69099,36 @@ fn run_hot_pipeline_dae_worth_optimizing_touched(
 }
 
 ///|
+fn run_hot_pipeline_dae_expand_frontier_seed_callees(
+  seed_defs : Array[Bool],
+  before_dependencies : DaeBoundaryDependencyGraph,
+  after_dependencies : DaeBoundaryDependencyGraph,
+) -> Array[Bool] {
+  let expanded = seed_defs.copy()
+  let initial_seed = seed_defs.copy()
+  for def_idx = 0; def_idx < initial_seed.length(); def_idx = def_idx + 1 {
+    if !initial_seed[def_idx] {
+      continue
+    }
+    if def_idx < before_dependencies.callees_by_def.length() {
+      for callee_def in before_dependencies.callees_by_def[def_idx] {
+        if callee_def >= 0 && callee_def < expanded.length() {
+          expanded[callee_def] = true
+        }
+      }
+    }
+    if def_idx < after_dependencies.callees_by_def.length() {
+      for callee_def in after_dependencies.callees_by_def[def_idx] {
+        if callee_def >= 0 && callee_def < expanded.length() {
+          expanded[callee_def] = true
+        }
+      }
+    }
+  }
+  expanded
+}
+
+///|
 fn run_hot_pipeline_dae_strip_touched_terminal_returns(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -70634,6 +70664,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     core_touched,
     producer_effects=Some(core_effects),
   )
+  let pre_cleanup_dependencies = dae_boundary_dependency_graph_new(
+    dae_current_boundary_graph_new(core_mod),
+  )
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(
       core_mod,
@@ -70676,20 +70709,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let forwarding_dependencies = dae_boundary_dependency_graph_new(
     forwarding_graph,
   )
-  let initial_frontier_seed = frontier_seed.copy()
-  for def_idx = 0
-      def_idx < initial_frontier_seed.length()
-      def_idx = def_idx + 1 {
-    if !initial_frontier_seed[def_idx] ||
-      def_idx >= forwarding_dependencies.callees_by_def.length() {
-      continue
-    }
-    for callee_def in forwarding_dependencies.callees_by_def[def_idx] {
-      if callee_def >= 0 && callee_def < frontier_seed.length() {
-        frontier_seed[callee_def] = true
-      }
-    }
-  }
+  frontier_seed = run_hot_pipeline_dae_expand_frontier_seed_callees(
+    frontier_seed, pre_cleanup_dependencies, forwarding_dependencies,
+  )
   for members in forwarding_dependencies.forwarding_component_members {
     if members.length() < 2 {
       continue

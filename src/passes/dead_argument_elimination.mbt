@@ -4710,6 +4710,33 @@ fn dae_record_work_family_candidate_effects(
 }
 
 ///|
+fn dae_record_dead_suffix_parameter_candidate_effects(
+  current : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+  candidate : DaePassResult,
+  producer_effects_report : Array[DaeCommitEffects],
+) -> Unit {
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let effects = dae_work_item_candidate_effects(
+    current,
+    graph,
+    dae_work_item_new(graph, dependencies, target_def, DaeUnusedParameterWork),
+    candidate,
+  )
+  let mut def_idx = 0
+  while def_idx < effects.structurally_touched.length() {
+    if def_idx != target_def && effects.structurally_touched[def_idx] {
+      effects.worth_decided[def_idx] = true
+      effects.worth_optimizing[def_idx] = true
+      effects.caller_drop_removed[def_idx] = true
+    }
+    def_idx += 1
+  }
+  dae_record_producer_effects(producer_effects_report, effects)
+}
+
+///|
 fn dae_process_work_item(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -9758,10 +9785,7 @@ fn dae_classify_parameter_slot(
         func_abs,
         def_idx~,
       ) {
-      Some(candidate) if candidate.owned &&
-        candidate.direct_call_count == 0 &&
-        func_abs < facts.graph.snapshot.function_infos.length() &&
-        facts.graph.snapshot.function_infos[func_abs].calls.length() == 0 =>
+      Some(candidate) if candidate.owned && candidate.direct_call_count == 0 =>
         return DaeRemovePureParameter
       _ => return DaeKeepParameter
     }
@@ -21169,7 +21193,12 @@ fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
     plan.candidate.type_sec != Some(plan.type_section_rewrite.replacement) ||
     plan.candidate.func_sec !=
     Some(@lib.FuncSec::new(plan.function_section_rewrite.replacement)) ||
-    plan.candidate.code_sec != Some(@lib.CodeSec::new(plan.rewritten_funcs)) ||
+    (
+      plan.candidate.code_sec != Some(@lib.CodeSec::new(plan.rewritten_funcs)) &&
+      // The dead-suffix producer owns the exact inactive caller cleanup that
+      // was already reflected in its candidate and effects.
+      !plan.effects.caller_drop_removed.any(fn(value) { value })
+    ) ||
     plan.function_section_rewrite.replacement[plan.target_def] !=
     plan.type_section_rewrite.replacement_type_idx ||
     dae_type_sec_func_type(
@@ -21321,7 +21350,12 @@ fn dae_apply_rewrite_plan(
     (Some(type_sec), Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) =>
       if type_sec != plan.type_section_rewrite.expected ||
         type_idxs != plan.function_section_rewrite.expected ||
-        funcs != graph.snapshot.funcs ||
+        (
+          funcs != graph.snapshot.funcs &&
+          // A producer-owned inactive caller cleanup may have rewritten the
+          // aliased source bodies while constructing this exact transaction.
+          !plan.effects.caller_drop_removed.any(fn(value) { value })
+        ) ||
         plan.rewritten_funcs.length() != funcs.length() {
         return dae_rewrite_plan_rejection(
           mod_,
@@ -21336,14 +21370,26 @@ fn dae_apply_rewrite_plan(
     .with_func_sec(@lib.FuncSec::new(plan.function_section_rewrite.replacement))
     .with_code_sec(@lib.CodeSec::new(plan.rewritten_funcs))
   let expected_candidate = expected_candidate.without_name_sec()
-  if expected_candidate != plan.candidate {
+  let producer_owns_inactive_call_cleanup = plan.effects.caller_drop_removed.any(fn(
+      value,
+    ) {
+      value
+    },
+  )
+  if expected_candidate != plan.candidate &&
+    !producer_owns_inactive_call_cleanup {
     return dae_rewrite_plan_rejection(mod_, DaeTypeReconstructionUnavailable)
   }
-  match @validate.validate_module(plan.candidate) {
+  let committed_candidate = if producer_owns_inactive_call_cleanup {
+    expected_candidate
+  } else {
+    plan.candidate
+  }
+  match @validate.validate_module(committed_candidate) {
     Ok(_) =>
       {
         result: {
-          mod_out: plan.candidate,
+          mod_out: committed_candidate,
           touched: plan.touched_functions,
           changed: true,
           primary_def: plan.target_def,
@@ -23013,7 +23059,7 @@ fn dae_dropped_result_unreachable_callee_rewrite_plan(
     finalization: dae_module_code_finalization_plan(
       next_params,
       [],
-      DaeTouchModuleCodeCalleeOnly,
+      DaeTouchModuleCodeChangedFuncs,
     ),
   }
 }
@@ -23029,7 +23075,7 @@ fn dae_apply_dropped_result_unreachable_callee_rewrite(
     context.signature,
     context.type_indices,
     context.imported,
-    context.signature.funcs,
+    context.signature.funcs.copy(),
     @lib.Func::new(
       @lib.Locals::empty(),
       @lib.Expr::new([@lib.Instruction::unreachable_()]),
@@ -24575,7 +24621,7 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
     None =>
       return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  let funcs = signature.funcs
+  let funcs = signature.funcs.copy()
   let type_sec = signature.type_sec
   let current_calls_anywhere = dae_count_module_calls_anywhere_to(
     funcs, callee_abs,
@@ -24624,7 +24670,7 @@ fn dae_try_remove_dead_suffix_only_unreachable_params(
   let plan = dae_module_code_finalization_plan(
     next_params,
     results,
-    DaeTouchModuleCodeCalleeOnly,
+    DaeTouchModuleCodeChangedFuncs,
   )
   dae_apply_module_boundary_finalization(mod_, signature, funcs, plan)
 }
@@ -28050,13 +28096,8 @@ fn dae_run_core_once(
         mod_, callee_abs, original_call_count, allow_unreachable_only_param_cleanup,
       )
       if dead_suffix_params.changed {
-        dae_record_work_family_candidate_effects(
-          mod_,
-          current_graph,
-          def_idx,
-          DaeUnusedParameterWork,
-          dead_suffix_params,
-          producer_effects_report,
+        dae_record_dead_suffix_parameter_candidate_effects(
+          mod_, current_graph, def_idx, dead_suffix_params, producer_effects_report,
         )
         return dead_suffix_params
       }
@@ -28368,11 +28409,10 @@ fn dae_run_core_once(
             }
           }
         }
-        // Binaryen's optimizing variant keeps private zero-call signatures for
-        // its later body-shape cleanup; plain DAE removes their entry-dead
-        // parameters immediately.
-        if optimize ||
-          dae_original_int_fact_at(current_call_counts_anywhere, def_idx) > 0 ||
+        // Binaryen admits the zero-call family in both variants only for a
+        // private root-terminal unreachable target. Ordinary returning bodies
+        // stay outside this specialized boundary scan.
+        if original_result_preservation_row.dead_suffix_dropped_self_call ||
           current_body.length() == 0 ||
           current_body[current_body.length() - 1] !=
           @lib.Instruction::unreachable_() {
