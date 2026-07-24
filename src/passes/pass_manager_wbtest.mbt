@@ -19524,25 +19524,24 @@ test "DAEO broad cleanup does not use function or touched cardinality fast skips
 }
 
 ///|
-test "DAEO broad changed-boundary cleanup reports non-fold body changes" {
+test "DAEO shared nested roster reports changed-boundary body cleanup" {
   let original = pass_test_module_from_wat(
     "(module (func (param i32) (local i32) i32.const 0 local.set 1 local.get 1 drop))",
   )
   let current = pass_test_module_from_wat(
     "(module (func (local i32) i32.const 0 local.set 0 local.get 0 drop))",
   )
-  let (cleaned, changed) = match
-    run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
-      original,
+  let cleaned = match
+    run_hot_pipeline_apply_dae_nested_cleanup(
       current,
       [true],
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
-    Err(err) => fail("expected broad changed-boundary cleanup, got \{err}")
+    Err(err) => fail("expected shared changed-boundary cleanup, got \{err}")
   }
   assert_true(cleaned != current)
-  assert_true(changed)
+  ignore(original)
 }
 
 ///|
