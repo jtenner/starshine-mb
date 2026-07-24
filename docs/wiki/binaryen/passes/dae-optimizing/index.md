@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-24
 sources:
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
   - ../dead-argument-elimination/completion-matrix.md

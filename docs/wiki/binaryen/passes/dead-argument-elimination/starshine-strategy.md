@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-24
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -30,7 +30,7 @@ For first-slice implementation order and validation details, use [`./starshine-p
 
 ## Current status
 
-Starshine has a **locally release-complete module-pass surface** for the supported Binaryen-v131 plain `dead-argument-elimination` / upstream `dae` boundary family. The authoritative final evidence is in [`completion-matrix.md`](./completion-matrix.md); unsupported proposal surfaces continue to fail closed.
+Starshine has a **behavior- and lifecycle-complete module-pass surface** for the represented Binaryen-v131 plain `dead-argument-elimination` / upstream `dae` boundary family. The authoritative current evidence is in [`completion-matrix.md`](./completion-matrix.md); unsupported proposal surfaces continue to fail closed. Release completion is blocked only by the dense-call artifact-scale performance item `[O4Z-DAE-PERF]001`.
 
 The important local naming split is now:
 
@@ -117,15 +117,13 @@ The practical design should be a shared module-boundary core plus a scheduling f
    - current intent is to support both descriptive and upstream spellings for plain and optimizing DAE;
    - keep registry tests and pass catalogs aligned with that decision.
 
-## Release closure, 2026-07-21
+## Current closure, 2026-07-24
 
-Plain DAE is locally release-complete for the Binaryen-v131 supported surface. The final current binary is SHA-256 `100397722893a76c76a3d3eed486e38c60df932b4b73da36574d35d17112520f`; focused/public/pass/full totals are `253/253`, `347/347`, `6217/6217`, and `9696/9696`, and the full CI-profile wasm-gc gate passes.
+Plain DAE represented behavior and lifecycle ownership are closed through `676b90f68c2993899c1f5432a2d4253dead50774`. Native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e` passes DAE whitebox `395/395`, public DAEO `342/342`, pass-manager `306/306`, full Moon `9908/9908`, and the full CI-profile wasm-gc gate.
 
-The retained predecessor artifact exposed a real fail-closed bug not sampled by the generated matrices: cached unread evidence could remove a mixed-type parameter that the exact body still read, and the local map could alias the old `i64` slot onto an existing `i32` local. Exact body usage now rejects that plan unless the read has a proved constant replacement or typed local projection. The formerly invalid 1,300-second artifact run now completes validly in about 85 seconds. Three productive outputs are byte-identical at `2,991,169` bytes, SHA-256 `f7bbacf174d6b1edacddc3f60abef4a107b385b14f86fc5373d7c3e6ac025c72`; three idempotent runs are byte-identical. Productive/idempotent medians are `85.329s` / `64.277s`.
+The final explicit-v131 plain matrix is regular `100000/100000` exact; dedicated `5000` normalized plus `5000` smaller residuals totaling `-18,750` canonical bytes; random-all `8471` normalized plus `219` cleanup-normalized and `1310` residuals totaling `-59,506`; and wasm-smith `9951` normalized plus `2` cleanup-normalized and `3` smaller residuals across `9956` comparable cases with only `44` Binaryen-only failures. No plain residual is larger. The `105` equal-size random-all cases each remove exactly one redundant local.
 
-Binaryen-v131 canonical re-encoding gives Starshine `3,077,218` bytes versus Binaryen `3,086,888`, a `-9,670`-byte Starshine result. Canonical body payload is net `-9,755`: `677 / +2,607` positive bodies, `377 / -12,362` negative bodies, and `5,631` equal. This plain result is the key ownership separator for DAEO's remaining canonical-positive artifact family: the boundary algorithm already wins; the optimizing-only gap belongs to the shared nested local-cleanup roster.
-
-The final explicit-v131 matrix reproduces the established release counts: regular `100000/100000` exact; dedicated `5000` exact + `5000` classified smaller/equal-size fewer-local wins; wasm-smith `9956/9956` exact comparable with only the known `44` Binaryen failures; random-all `8521` exact + `62` cleanup-normalized + `1417` classified wins. There are zero Starshine validation, generator, property, or command failures and no new or unclassified family.
+Focused case-515 plain DAE has a seven-run median of `20.351ms`, below the repository's one-second representative target. Release completion nevertheless remains blocked by a new dense-call artifact-scale probe: a `3,597,499`-byte, `5,374`-definition module with roughly `251,000` rendered direct calls exceeds the `1500`-second Starshine bound, while Binaryen v131 `--dae` completes in `0.356s`. Historical retained-artifact validity/idempotence and `-9,670` canonical delta remain useful checkpoints, but they do not close this current performance blocker.
 
 ## Scanner consolidation inventory and refactor plan, 2026-07-07
 

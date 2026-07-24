@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-24
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -121,6 +121,27 @@ After replacing the remaining `1024` exact-uniform phase split with pass-semanti
 | DAEO random-all | `10000 / 9109` | `8620` | `62` | `427` | `891` |
 
 There are zero Starshine validation, generator, property, or command failures. Dedicated and random-all residual profile families are unchanged representation/cleanup families already covered by the July 20-21 source, size, and effect-preservation classifications: plain DAE performs stronger parameter removal in constant, unused, effectful, localization, convergence, and tail fixtures; DAEO residuals remain computed-effects, table-effects, touched-caller, structured-locals, and shared precompute-local-fact cleanup. The one plain wasm-smith residual preserves `memory.size`, the evaluated `f64.const`, and terminal `unreachable` while removing a redundant typed block; canonical output is `77` bytes versus Binaryen's `82`, so it is classified as a measured Starshine cleanup win rather than a parity gap. The `1250` dedicated plain failures are Binaryen-v131 failures on the two GC refinement leaves; wasm-smith and random-all command failures are likewise oracle/tool failures and are recorded separately from compared cases. The focused self-recursive-result, effectful forwarding-component, and one-wave written-forwarding regressions remain green. `moon info` completed with warnings only and the serial repository-wide `moon test` passed `9829/9829`. Artifact, performance, source-fixture, and remaining implementation-lifecycle work still prevent declaring the reopened roadmap closed.
+
+## July 24, 2026 lifecycle-closeout renewal
+
+Commit `676b90f68c2993899c1f5432a2d4253dead50774` and native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e` drove a fresh official-Binaryen-v131 matrix. Every GenValid lane used `--jobs auto`, persistent cache, `--no-reduce-mismatches`, and both `drop-consts` and `unreachable-control-debris`; random-all explicitly used `--gen-valid-profile random-all-profiles`.
+
+| variant / lane | requested / compared | normalized | cleanup-normalized | raw residuals | canonical residual delta | failures |
+|---|---:|---:|---:|---:|---:|---:|
+| plain regular | `100000 / 100000` | `100000` | `0` | `0` | `0` | `0` |
+| plain dedicated | `10000 / 10000` | `5000` | `0` | `5000` | `-18,750` | `0` |
+| plain random-all | `10000 / 10000` | `8471` | `219` | `1310` | `-59,506` | `0` |
+| plain wasm-smith | `10000 / 9956` | `9951` | `2` | `3` | `-38` | `44` Binaryen-only |
+| DAEO regular | `100000 / 100000` | `100000` | `0` | `0` | `0` | `0` |
+| DAEO dedicated | `10000 / 10000` | `6954` | `0` | `3046` | `-37,910` | `0` |
+| DAEO random-all | `10000 / 10000` | `9253` | `59` | `688` | `-633,486` | `0` |
+| DAEO wasm-smith | `10000 / 9956` | `9951` | `2` | `3` | `-58` | `44` Binaryen-only |
+
+No residual is canonically larger. Plain random-all has `1205` smaller outputs and `105` equal-size outputs; every equal-size case removes exactly one redundant local declaration and one rendered instruction line. DAEO random-all's `185` `coverage-forced-portable` residuals total `-629,255` bytes and each enters the guarded non-effectful, non-escaping, constant-safe pre-unreachable cleanup before newly unobserved private boundaries are collapsed. The six wasm-smith residuals are three shared inputs where Starshine removes unused parameters and obsolete recursive function-type structure from private uncalled unreachable functions. All other residual profile families are the exact source-backed constant, unused-parameter, effect-replay/localization, GC, result, forwarding, touched-caller, and nested-cleanup transactions covered by focused tests. There are zero Starshine validation, property, generator, or command failures.
+
+Lifecycle replay of prior DAEO random-all case `515` records one core candidate produced/applied, one shared nested cleanup invocation with `41` scheduled passes, one empty effect-frontier wave, four nested touched functions, and zero stale retries or validation rollbacks. The final output is `410` canonical bytes versus Binaryen's `4,572`, so the former `+1,388` size loss is now a `-4,162` guarded cleanup win. Bounded suites are DAE whitebox `395/395`, public DAEO `342/342`, pass-manager `306/306`, and full Moon `9908/9908`.
+
+Focused pass-local medians on case `515` are `20.351ms` plain and `31.380ms` DAEO versus Binaryen's `3.546ms` and `5.431ms`; both Starshine medians satisfy the repository's sub-second target. A separate artifact-scale stress probe remains open: plain DAE exceeded the `1500`-second bound on a `3,597,499`-byte, `5,374`-definition, roughly `251,000`-call input constructed by Binaryen-v131 `-Oz`, while Binaryen `--dae` completed in `0.356s`. This is recorded as a dense-call performance blocker, not a semantic or generated-parity failure. Local classification data is `.tmp/dae-release-final-classification-676b90f68-20260724.json`.
 
 ## Historical blockers and superseded checkpoints
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-24
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
@@ -33,10 +33,10 @@ related:
 
 - `dead-argument-elimination` is an upstream Binaryen boundary pass.
 - The public upstream CLI alias is `dae`.
-- It has an active-partial Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. The July 21–22 deterministic and four-lane results remain regression baselines, not current release closure, while the reopened lifecycle work remains active.
+- It has an active Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. Represented Binaryen-v131 behavior, common lifecycle ownership, validity, residual classification, and exact-once DAEO scheduling are closed through `676b90f68`; release remains blocked only by the dense-call artifact-scale performance item `[O4Z-DAE-PERF]001`.
 - The current repo no-DWARF default optimize path uses the related later pass `dae-optimizing`, not this plain variant.
 - The two passes share the same core engine in upstream `version_131`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun. The `version_130...version_131` source comparison leaves `DeadArgumentElimination.cpp` and its helper owners unchanged; v131 updates the expected unreachable local write from `local.tee` to `local.set` in `dae-gc.wast` and `dae2.wast`.
-- [`source-case-map.md`](./source-case-map.md) maps every represented Binaryen-v131 source fixture to current focused coverage and identifies the missing TNH option path. [`completion-matrix.md`](./completion-matrix.md) remains the detailed release ledger, and [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates plus remaining optional phase/profitability budgets.
+- [`source-case-map.md`](./source-case-map.md) maps every represented Binaryen-v131 source fixture to current focused coverage, including TNH behavior. [`completion-matrix.md`](./completion-matrix.md) remains the detailed release ledger, and [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates plus the current generated size evidence.
 - The 2026-07-21 artifact closeout fixes a real mixed-type local-projection bug: a removed slot that the exact body still reads must have constant replacement evidence or a typed local projection. Plain DAE now validates and is byte-idempotent at `2,991,169` bytes, SHA-256 `f7bbacf174d6b1edacddc3f60abef4a107b385b14f86fc5373d7c3e6ac025c72`, with `85.329s` productive and `64.277s` idempotent medians; canonical Starshine is `9,670` bytes smaller than Binaryen v131.
 
 ## Why it matters
@@ -46,7 +46,7 @@ related:
 - This pass teaches the part that is easiest to blur together:
   - the core boundary rewrite algorithm itself,
   - versus the extra scheduler behavior that the optimizing suffix adds.
-- `agent-todo.md` now tracks the plain DAE profile/direct-pass work inside `[O4Z-AUDIT-DAE]`, while this dossier remains the durable place to explain the non-optimizing pass separately from `dae-optimizing`.
+- `agent-todo.md` tracks only the remaining DAE-owned dense-call performance blocker under `[O4Z-DAE-PERF]001`, while this dossier remains the durable place to explain the non-optimizing pass separately from `dae-optimizing`.
 
 ## Beginner summary
 

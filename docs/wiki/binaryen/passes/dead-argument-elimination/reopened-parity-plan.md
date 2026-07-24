@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-24
 sources:
   - ./completion-matrix.md
   - ./de-artifacting-inventory.md
@@ -28,11 +28,11 @@ The repository currently labels the active release line as `v0.1.1`, while the r
 
 ## Audit verdict
 
-The July 21 closeout was valid as an evidence checkpoint, but premature as a claim of implementation parity.
+The July 21 closeout was a valid evidence checkpoint but premature as an implementation-parity claim. The lifecycle work requested by this reopen is now complete through `676b90f68c2993899c1f5432a2d4253dead50774`: represented boundary-changing families use epoch-bearing outcomes, producer-owned effects, exact touched accounting, validation/rollback, and domain invalidation; DAEO has one shared nested roster and one effect frontier; cleanup-deleted dependency edges remain visible through pre/post graph seeding.
 
-The direct four-lane matrices, retained-artifact validity, idempotence, removal of production `FuncNNN` gates, exact slot-48 placement, and measured pass-local medians remain valuable. They do not close the implementation while the completion matrix still marks most behavior families `generic-partial` or `mixed`, and while the implementation dossier explicitly says that constant materialization, scratch localization, GC refinement, result removal, control reconstruction, type repair, specialized family extraction, and production-wide diagnostic/worklist plumbing remain outside the common transaction lifecycle.
+Fresh official-Binaryen-v131 regular, dedicated, random-all, and wasm-smith matrices are complete for both variants on native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e`. There are zero Starshine semantic, validation, property, generator, or command failures and zero individual positive canonical-size residuals. Exact-once case-515 tracing records one core commit, one shared nested-roster invocation, one empty effect-frontier wave, and zero rollbacks.
 
-This reopen is therefore not a rollback to artifact-specific code and not a demand for byte-identical output. The target remains Binaryen-v131 behavior parity, with source-backed Starshine improvements accepted only when they are valid, semantically equivalent, measured, deterministic, and covered by explicit reopening criteria.
+The reopen remains active only for performance signoff. A new dense-call artifact-scale probe (`3,597,499` bytes, `5,374` defined functions, roughly `251,000` direct calls) exceeds the `1500`-second Starshine plain-DAE bound, while Binaryen v131 completes in `0.356s`. Focused medians remain below one second, so this is a specific artifact-scale setup/worklist complexity blocker rather than a behavior, validity, lifecycle, or residual-classification gap. Close the plan after that gap is fixed or explicitly accepted by release review.
 
 ## Binaryen-v131 reference lifecycle
 

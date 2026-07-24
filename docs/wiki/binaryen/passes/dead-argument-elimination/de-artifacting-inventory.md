@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-19
+last_reviewed: 2026-07-24
 sources:
   - ../../../../../src/passes/dead_argument_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -109,6 +109,12 @@ DAEO remains byte-identical at `2,991,168` bytes, SHA-256 `2a510c274cbf83958c2d9
 The renewed direct DAEO comparison is raw Starshine `2,991,168` versus Binaryen `3,062,068` (`-70,900`). After Binaryen-v131 canonical re-encoding, Starshine is `3,077,203` and Binaryen is `3,072,885` (`+4,318`): type `+90`, function `+9`, code `+4,219`, custom `0`. The canonical body ledger is `802 / +15,626` larger, `267 / -11,435` smaller, and `5,616` equal, net `+4,191`. The leading current positive definitions are `4254 +1,574`, `4256 +1,194`, `367 +502`, `4311 +470`, `6648/6650 +445`, `296 +443`, `5725 +368`, `3252 +319`, and `4255 +286`. They correlate with the shared nested local-layout/remap gap: DAEO has `126` extra-local bodies totaling `2,538` locals and `1,054` function type-index differences. Plain DAE is already canonically `9,670` bytes smaller, while Binaryen's optimizing suffix gains about `14KB` and Starshine's shared suffix gains only `15` bytes. Therefore the remaining gross-positive/remap family belongs to the shared `simplify-locals` / `coalesce-locals` / local-ordering scheduler implementations, not DAE boundary semantics; it remains visible under the neighboring-pass owner and must not be described as a DAE win.
 
 Public `optimize`, `shrink`, and `-O4z` on the representative small fixture each execute DAEO exactly once after late RSE/vacuum and immediately before `inlining-optimizing`; all three emit the same externally valid 37-byte module. A targeted large late-prefix replay `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing` completes in `28.258s`, validates externally, and emits `2,950,277` bytes, SHA-256 `83b10590ed50fa139b83233698f9a34e9c58b2ca64d16eb32ee673803b034db3`. The full large `-O4z` command does not reach DAEO within 1,800 seconds; its trace is still inside the earlier `simplify-locals-nostructure` slot at function 459, so that wall-time blocker is explicitly non-DAE-owned.
+
+## 2026-07-24 current endpoint
+
+Current generated evidence supersedes the historical canonical-positive random-all classification. Native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e` completes both variants' regular/dedicated/random-all/wasm-smith lanes with no positive canonical-size residual. Plain residual deltas are `-18,750`, `-59,506`, and `-38`; DAEO residual deltas are `-37,910`, `-633,486`, and `-58`. Plain's `105` equal-size random-all residuals each remove one redundant local. DAEO's current `185` `coverage-forced-portable` residuals are guarded cleanup wins totaling `-629,255` bytes. The old `+4,318` retained-artifact ledger remains historical shared-local-cleanup evidence, not a current generated DAE blocker.
+
+No definition, index window, touched-count, body-size, module-size, or payoff threshold owns current DAE/DAEO semantics. Cleanup-deleted dependency edges are preserved by pre/post graph seeding, and case `515` proves one shared nested roster plus one empty effect-frontier wave. The only active DAE release blocker is not an admission artifact: a new dense-call performance probe exceeds `1500s` in plain DAE versus Binaryen's `0.356s`, tracked under `[O4Z-DAE-PERF]001`.
 
 ## Closure rule
 
