@@ -21580,14 +21580,22 @@ fn dae_try_rewrite_candidate(
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
   allow_stack_carried_void_effects? : Bool = false,
+  original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
 ) -> DaePassResult {
-  let original = dae_collect_original_boundary_snapshot(mod_)
-  let graph = dae_current_boundary_graph_new(mod_)
+  let active_original = match original {
+    Some(original) => original
+    None => dae_collect_original_boundary_snapshot(mod_)
+  }
+  let active_graph = match graph {
+    Some(graph) => graph
+    None => dae_current_boundary_graph_new(mod_)
+  }
   match
     dae_build_scalar_unused_param_rewrite_plan(
       mod_,
-      original,
-      graph,
+      active_original,
+      active_graph,
       callee_abs,
       remove,
       local_use,
@@ -21596,7 +21604,7 @@ fn dae_try_rewrite_candidate(
       materialized_params=Some(const_params),
       allow_stack_carried_void_effects~,
     ) {
-    Some(plan) => dae_apply_rewrite_plan(mod_, graph, plan).result
+    Some(plan) => dae_apply_rewrite_plan(mod_, active_graph, plan).result
     None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
 }
@@ -28853,6 +28861,8 @@ fn dae_run_core_once(
         local_use,
         direct_calls[callee_abs],
         direct_callers[callee_abs],
+        original=Some(original),
+        graph=Some(current_graph),
       )
       if result.changed {
         dae_record_work_family_candidate_effects(
