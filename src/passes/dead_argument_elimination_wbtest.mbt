@@ -21768,6 +21768,35 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
     None => fail("expected private uncalled target type")
   }
 
+  // Inactive direct calls still belong to Binaryen's syntactic incoming-call
+  // boundary. Zero reachable calls must not be mistaken for zero calls anywhere.
+  let inactive_call_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    nop)
+      #|  (func
+      #|    unreachable
+      #|    i32.const 1
+      #|    call $target))
+    ),
+  )
+  let inactive_call_facts = dae_boundary_facts_new(inactive_call_mod)
+  assert_eq(
+    dae_classify_parameter_slot(inactive_call_facts, 1, 0, false, []),
+    DaeKeepParameter,
+  )
+  let inactive_call_result = dae_run_core(inactive_call_mod, fn(_) { () })
+  let inactive_call_types = dae_collect_func_type_indices(
+    inactive_call_result.mod_out,
+  )
+  match
+    dae_resolve_func_type(inactive_call_result.mod_out, inactive_call_types, 1) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 1)
+    None => fail("expected inactive-call target type")
+  }
+
   let effect_mod = pass_test_module_from_wat(
     (
       #|(module

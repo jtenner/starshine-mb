@@ -9758,7 +9758,10 @@ fn dae_classify_parameter_slot(
         func_abs,
         def_idx~,
       ) {
-      Some(candidate) if candidate.owned && candidate.direct_call_count == 0 =>
+      Some(candidate) if candidate.owned &&
+        candidate.direct_call_count == 0 &&
+        func_abs < facts.graph.snapshot.function_infos.length() &&
+        facts.graph.snapshot.function_infos[func_abs].calls.length() == 0 =>
         return DaeRemovePureParameter
       _ => return DaeKeepParameter
     }
@@ -28368,7 +28371,8 @@ fn dae_run_core_once(
         // Binaryen's optimizing variant keeps private zero-call signatures for
         // its later body-shape cleanup; plain DAE removes their entry-dead
         // parameters immediately.
-        if optimize {
+        if optimize ||
+          dae_original_int_fact_at(current_call_counts_anywhere, def_idx) > 0 {
           def_idx += 1
           continue
         }
