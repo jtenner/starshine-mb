@@ -21746,6 +21746,28 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
     DaeKeepParameter,
   )
 
+  // A private target with no direct calls has no operands to replay; once the
+  // parameter is entry-dead, Binaryen removes it as a pure slot.
+  let uncalled_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    nop))
+    ),
+  )
+  let uncalled_facts = dae_boundary_facts_new(uncalled_mod)
+  assert_eq(
+    dae_classify_parameter_slot(uncalled_facts, 1, 0, false, []),
+    DaeRemovePureParameter,
+  )
+  let uncalled_result = dae_run_core(uncalled_mod, fn(_) { () })
+  let uncalled_types = dae_collect_func_type_indices(uncalled_result.mod_out)
+  match dae_resolve_func_type(uncalled_result.mod_out, uncalled_types, 1) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
+    None => fail("expected private uncalled target type")
+  }
+
   let effect_mod = pass_test_module_from_wat(
     (
       #|(module

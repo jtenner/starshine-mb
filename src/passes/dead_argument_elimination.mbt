@@ -9748,7 +9748,20 @@ fn dae_classify_parameter_slot(
     return DaeKeepParameter
   }
   if callsite_param_slices.length() == 0 {
-    return DaeKeepParameter
+    // A private, uncalled function has no actual operands whose effects need
+    // replaying. Binaryen removes an entry-dead parameter in that case, while
+    // an empty slice set for a function that does have calls remains invalid
+    // evidence and must fail closed.
+    match
+      dae_call_boundary_candidate(
+        facts.graph.snapshot.boundary_facts,
+        func_abs,
+        def_idx~,
+      ) {
+      Some(candidate) if candidate.owned && candidate.direct_call_count == 0 =>
+        return DaeRemovePureParameter
+      _ => return DaeKeepParameter
+    }
   }
   let mut all_pure = true
   let mut any_localize = false
@@ -28352,8 +28365,13 @@ fn dae_run_core_once(
             }
           }
         }
-        def_idx += 1
-        continue
+        // Binaryen's optimizing variant keeps private zero-call signatures for
+        // its later body-shape cleanup; plain DAE removes their entry-dead
+        // parameters immediately.
+        if optimize {
+          def_idx += 1
+          continue
+        }
       }
     }
     let func_type = match
