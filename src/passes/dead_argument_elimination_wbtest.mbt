@@ -22419,6 +22419,47 @@ test "dae body-only phase result commits with exact effects and diagnostics" {
 }
 
 ///|
+test "dae precomputed body cleanup commits through a work item outcome" {
+  let current = pass_test_module_from_wat("(module (func nop))")
+  let candidate = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let rewritten = funcs.copy()
+      let @lib.Func(locals, _) = rewritten[0]
+      rewritten[0] = @lib.Func::new(locals, @lib.Expr::new([]))
+      {
+        mod_out: current.with_code_sec(@lib.CodeSec::new(rewritten)),
+        touched: [true],
+        changed: true,
+        primary_def: 0,
+      }
+    }
+    None => fail("expected code section")
+  }
+  let graph = dae_current_boundary_graph_new(current)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  let diagnostics = dae_diagnostics_new()
+  match
+    dae_process_precomputed_body_work_item(
+      dae_collect_original_boundary_snapshot(current),
+      current,
+      [],
+      false,
+      graph,
+      dae_work_item_new(graph, dependencies, 0, DaeBodyCleanupWork),
+      candidate,
+      diagnostics,
+    ) {
+    DaeWorkCommitted(application) => {
+      assert_true(application.applied)
+      assert_eq(application.effects.invalidation_domains, [DaeInvalidateBody])
+      assert_eq(diagnostics.candidates_produced, 1)
+      assert_eq(diagnostics.candidates_applied, 1)
+    }
+    _ => fail("expected committed body cleanup work item")
+  }
+}
+
+///|
 test "dae work item effects derive exact body-only invalidations" {
   let current = pass_test_module_from_wat(
     (

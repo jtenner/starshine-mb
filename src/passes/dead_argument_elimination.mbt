@@ -1946,6 +1946,7 @@ priv enum DaeWorkFamily {
   DaeControlReconstructionWork
   DaeTypeRepairRetryWork
   DaePostCleanupBoundaryRevisitWork
+  DaeBodyCleanupWork
 } derive(Eq, Debug)
 
 ///|
@@ -3818,6 +3819,7 @@ fn dae_work_family_slot(family : DaeWorkFamily) -> Int {
     DaeControlReconstructionWork => 7
     DaeTypeRepairRetryWork => 8
     DaePostCleanupBoundaryRevisitWork => 9
+    DaeBodyCleanupWork => 10
   }
 }
 
@@ -4285,6 +4287,59 @@ fn dae_commit_effects_body_only_cleanup(
 }
 
 ///|
+fn dae_process_precomputed_body_work_item(
+  _original : DaeOriginalBoundarySnapshot,
+  current : @lib.Module,
+  touched : Array[Bool],
+  changed : Bool,
+  graph : DaeCurrentBoundaryGraph,
+  item : DaeWorkItem,
+  candidate : DaePassResult,
+  diagnostics : DaeDiagnostics,
+) -> DaeWorkOutcome {
+  if !candidate.changed {
+    return DaeWorkNoChange(DaeNoStrictImprovement)
+  }
+  diagnostics.boundaries_analyzed += 1
+  if item.family != DaeBodyCleanupWork {
+    dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+    return DaeWorkNoChange(DaeNoStrictImprovement)
+  }
+  if !dae_work_item_epoch_is_current(graph, item) {
+    dae_diagnostics_record_reason(diagnostics, DaeStaleCandidateFacts)
+    diagnostics.candidate_stale_retries += 1
+    diagnostics.candidate_requeues += 1
+    let dependencies = dae_boundary_dependency_graph_new(graph)
+    return DaeWorkRequeue([
+      dae_work_item_new(
+        graph,
+        dependencies,
+        item.target_def,
+        DaeBodyCleanupWork,
+      ),
+    ])
+  }
+  let effects = dae_commit_effects_body_only_cleanup(current, candidate)
+  let application = dae_apply_family_result_transaction(
+    dae_collect_original_boundary_snapshot(current),
+    current,
+    touched,
+    changed,
+    graph,
+    candidate,
+    effects=Some(effects),
+    body_only_transaction=true,
+  )
+  if !application.applied {
+    dae_diagnostics_record_reason(diagnostics, DaeNoStrictImprovement)
+    return DaeWorkNoChange(DaeNoStrictImprovement)
+  }
+  dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+  dae_diagnostics_record_applied_effects(diagnostics, application.effects)
+  DaeWorkCommitted(application)
+}
+
+///|
 fn dae_apply_body_only_family_result_transaction(
   _original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -4294,23 +4349,34 @@ fn dae_apply_body_only_family_result_transaction(
   diagnostics : DaeDiagnostics,
 ) -> DaeCoreResultApplication {
   let graph = dae_current_boundary_graph_new(current)
-  let current_boundary = dae_collect_original_boundary_snapshot(current)
-  let effects = dae_commit_effects_body_only_cleanup(current, candidate)
-  let application = dae_apply_family_result_transaction(
-    current_boundary,
-    current,
-    touched,
-    changed,
-    graph,
-    candidate,
-    effects=Some(effects),
-    body_only_transaction=true,
-  )
-  if application.applied {
-    dae_diagnostics_record_commit_effects(diagnostics, application.effects)
-    dae_diagnostics_record_applied_effects(diagnostics, application.effects)
+  let dependencies = dae_boundary_dependency_graph_new(graph)
+  match
+    dae_process_precomputed_body_work_item(
+      _original,
+      current,
+      touched,
+      changed,
+      graph,
+      dae_work_item_new(
+        graph,
+        dependencies,
+        candidate.primary_def,
+        DaeBodyCleanupWork,
+      ),
+      candidate,
+      diagnostics,
+    ) {
+    DaeWorkCommitted(application) => application
+    DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) =>
+      {
+        mod_out: current,
+        touched,
+        changed,
+        applied: false,
+        primary_def: -1,
+        effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+      }
   }
-  application
 }
 
 ///|
@@ -4347,6 +4413,13 @@ fn dae_invalidation_domains_for_work_family(
       [
         DaeInvalidateBody,
         DaeInvalidateControl,
+        DaeInvalidateMetadata,
+        DaeInvalidateNestedCleanup,
+      ]
+    DaeBodyCleanupWork =>
+      [
+        DaeInvalidateBody,
+        DaeInvalidateLocals,
         DaeInvalidateMetadata,
         DaeInvalidateNestedCleanup,
       ]
@@ -4456,7 +4529,8 @@ fn dae_work_item_candidate_effects(
       }
       DaeForwardingWork
       | DaeControlReconstructionWork
-      | DaeTypeRepairRetryWork => ()
+      | DaeTypeRepairRetryWork
+      | DaeBodyCleanupWork => ()
     }
     if item.family == DaeUniformActualWork && parameter_changed {
       effects.body_materialized[target] = true
@@ -4788,7 +4862,7 @@ fn dae_process_work_item(
         ),
       )
     }
-    DaeForwardingWork => None
+    DaeForwardingWork | DaeBodyCleanupWork => None
   }
   match produced {
     None => {
@@ -4900,7 +4974,7 @@ fn dae_boundary_worklist_families(
   let family_queued : Array[Array[Bool]] = []
   let mut def_idx = 0
   while def_idx < graph.snapshot.defined {
-    family_queued.push(Array::make(10, false))
+    family_queued.push(Array::make(11, false))
     def_idx += 1
   }
   let mut component_id = 0
