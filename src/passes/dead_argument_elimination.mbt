@@ -20029,90 +20029,150 @@ fn dae_try_apply_dropped_result_batch(
 
 ///|
 fn dae_apply_dropped_result_batch_transaction(
-  original : DaeOriginalBoundarySnapshot,
+  _original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
 ) -> DaeCoreResultApplication {
-  let mut current_mod = current
-  let mut merged_touched = touched
-  let mut merged_changed = changed
-  let mut merged_effects = dae_commit_effects_empty(
-    dae_current_boundary_graph_new(current).snapshot.defined,
-  )
+  let graph = dae_current_boundary_graph_new(current)
+  let defined = graph.snapshot.defined
+  let candidate = dae_try_apply_dropped_result_batch(current)
+  if !candidate.changed {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(defined),
+    }
+  }
+  let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
+  if candidate_graph.snapshot.defined != defined ||
+    candidate.touched.length() != defined {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(defined),
+    }
+  }
+  let effects = dae_commit_effects_empty(defined)
   let mut first_def = -1
-  let mut applied = false
-  let initial_defined = merged_effects.structurally_touched.length()
-  for def_idx = 0; def_idx < initial_defined; def_idx = def_idx + 1 {
-    let graph = dae_current_boundary_graph_new(current_mod)
-    if def_idx >= graph.snapshot.defined {
-      continue
+  let mut candidate_count = 0
+  let mut def_idx = 0
+  while def_idx < defined {
+    if candidate.touched[def_idx] {
+      effects.structurally_touched[def_idx] = true
     }
-    let active = Array::make(graph.snapshot.defined, false)
-    active[def_idx] = true
-    let candidate = dae_try_apply_dropped_result_batch(
-      current_mod,
-      active_defs=Some(active),
-    )
-    if !candidate.changed {
-      continue
-    }
-    let candidate_effects = dae_commit_effects_empty(graph.snapshot.defined)
-    let mut touched_def = 0
-    while touched_def < candidate.touched.length() &&
-          touched_def < graph.snapshot.defined {
-      if candidate.touched[touched_def] {
-        candidate_effects.structurally_touched[touched_def] = true
-        candidate_effects.worth_decided[touched_def] = true
-        candidate_effects.worth_optimizing[touched_def] = true
-        if touched_def != def_idx {
-          candidate_effects.caller_drop_removed[touched_def] = true
+    let callee_abs = graph.snapshot.imported + def_idx
+    let before_signature = graph.snapshot.function_types[callee_abs]
+    let after_signature = candidate_graph.snapshot.function_types[callee_abs]
+    match (before_signature, after_signature) {
+      (
+        Some(@lib.FuncType(before_params, before_results)),
+        Some(@lib.FuncType(after_params, after_results)),
+      ) if before_results != after_results => {
+        if before_params != after_params {
+          return {
+            mod_out: current,
+            touched,
+            changed,
+            applied: false,
+            primary_def: -1,
+            effects: dae_commit_effects_empty(defined),
+          }
+        }
+        effects.result_changed[def_idx] = true
+        effects.result_removed[def_idx] = after_results.length() <
+          before_results.length()
+        effects.control_refinalization_required[def_idx] = true
+        effects.worth_decided[def_idx] = true
+        effects.worth_optimizing[def_idx] = true
+        candidate_count += 1
+        if first_def < 0 {
+          first_def = def_idx
         }
       }
-      touched_def += 1
+      _ => ()
     }
-    let candidate_effects = {
-      ..candidate_effects,
-      type_section_changed: true,
-      metadata_changed: true,
-      invalidation_domains: dae_invalidation_domains_for_work_family(
-        DaeDroppedResultWork,
-      ),
-      decision_reasons: [DaeCandidateProduced],
-    }
-    let item = dae_work_item_new(
-      graph,
-      dae_boundary_dependency_graph_new(graph),
-      def_idx,
-      dae_work_family_for_commit_effects(candidate_effects, def_idx),
-    )
-    let application = match
-      dae_process_precomputed_signature_work_item(
-        original, current_mod, merged_touched, merged_changed, graph, item, candidate,
-        candidate_effects,
-      ) {
-      DaeWorkCommitted(value) => value
-      DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => continue
-    }
-    current_mod = application.mod_out
-    merged_touched = application.touched
-    merged_changed = application.changed
-    merged_effects = dae_commit_effects_merge(
-      merged_effects,
-      application.effects,
-    )
-    if first_def < 0 {
-      first_def = def_idx
-    }
-    applied = true
+    def_idx += 1
   }
-  {
-    mod_out: current_mod,
-    touched: merged_touched,
-    changed: merged_changed,
-    applied,
-    primary_def: first_def,
-    effects: merged_effects,
+  if candidate_count == 0 {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(defined),
+    }
+  }
+  def_idx = 0
+  while def_idx < defined {
+    if candidate.touched[def_idx] && !effects.result_changed[def_idx] {
+      effects.worth_decided[def_idx] = true
+      effects.worth_optimizing[def_idx] = true
+      effects.caller_drop_removed[def_idx] = true
+    }
+    def_idx += 1
+  }
+  let decision_reasons : Array[DaeDecisionReason] = []
+  let mut reason_idx = 0
+  while reason_idx < candidate_count {
+    decision_reasons.push(DaeCandidateProduced)
+    reason_idx += 1
+  }
+  let before_type_count = match current.type_sec {
+    Some(type_sec) => dae_type_sec_flattened_length(type_sec)
+    None => 0
+  }
+  let after_type_count = match candidate.mod_out.type_sec {
+    Some(type_sec) => dae_type_sec_flattened_length(type_sec)
+    None => 0
+  }
+  let finalized_effects = {
+    ..effects,
+    candidates_produced: candidate_count,
+    candidates_applied: candidate_count,
+    type_entries_reused: if after_type_count == before_type_count {
+      candidate_count
+    } else {
+      0
+    },
+    type_entries_appended: if after_type_count > before_type_count {
+      after_type_count - before_type_count
+    } else {
+      0
+    },
+    type_section_changed: current.type_sec != candidate.mod_out.type_sec,
+    metadata_changed: current.name_sec != candidate.mod_out.name_sec,
+    invalidation_domains: dae_invalidation_domains_for_work_family(
+      DaeDroppedResultWork,
+    ),
+    decision_reasons,
+  }
+  match @validate.validate_module(candidate.mod_out) {
+    Ok(_) =>
+      {
+        mod_out: candidate.mod_out,
+        touched: dae_merge_touched(touched, candidate.touched),
+        changed: changed || candidate.changed,
+        applied: true,
+        primary_def: first_def,
+        effects: finalized_effects,
+      }
+    Err(_) =>
+      {
+        mod_out: current,
+        touched,
+        changed,
+        applied: false,
+        primary_def: -1,
+        effects: dae_commit_effects_empty(defined),
+      }
   }
 }
 
@@ -45369,6 +45429,22 @@ fn dae_run_core(
   let original_dead_suffix_mutual_calls = original_boundary_snapshot.dead_suffix_mutual_calls
   let original_dead_suffix_calls_from_param_operand_self_result_callers = original_boundary_snapshot.dead_suffix_calls_from_param_operand_self_result_callers
   perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
+  if !optimize && original_defined >= 1024 {
+    let application = dae_apply_dropped_result_batch_transaction(
+      original_boundary_snapshot, current, touched, changed,
+    )
+    if application.applied {
+      current = application.mod_out
+      touched = application.touched
+      changed = application.changed
+      effects = dae_commit_effects_merge(effects, application.effects)
+      dae_diagnostics_record_commit_effects(diagnostics, application.effects)
+      dae_diagnostics_record_applied_effects(diagnostics, application.effects)
+      trace(
+        "pass[dae]:dropped-result-batch first_def=\{application.primary_def}",
+      )
+    }
+  }
   if optimize {
     let unread_batch_start_us = perf_start_timer_opt(
       perf, "detail:dae:core:unread-param-batch",
