@@ -46138,7 +46138,7 @@ fn dae_run_nested_cleanup(
   touched : Array[Bool],
   trace : (String) -> Unit,
   optimize : Bool,
-  traps_never_happen : Bool,
+  _traps_never_happen : Bool,
 ) -> @lib.Module {
   if !optimize || dae_count_touched(touched) == 0 {
     return mod_
@@ -46151,8 +46151,7 @@ fn dae_run_nested_cleanup(
   )
   if folded_changed {
     trace("pass[dae-optimizing]:nested-cleanup exact-ref-is-null-fold")
-    let rerun = dae_run_core(folded, trace, optimize=true, traps_never_happen~)
-    return rerun.mod_out
+    return folded
   }
   // The active hot-pipeline runner is whole-module; Binaryen's helper is
   // touched-function filtered. Until the filtered scheduler is available, keep

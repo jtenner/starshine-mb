@@ -22484,3 +22484,32 @@ test "dae type pruning preserves function types used only by typed select" {
     Err(err) => fail("typed-select type user must remain valid, got \{err}")
   }
 }
+
+///|
+test "DAEO direct cleanup does not recursively reenter the DAE core" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (type $s (struct))
+      #|  (func $target (param (ref null $s)) (result i32)
+      #|    local.get 0
+      #|    ref.is_null)
+      #|  (func (export "run") (result i32)
+      #|    struct.new $s
+      #|    call $target))
+    ),
+  )
+  let trace : Array[String] = []
+  let optimized = dae_run_module_pass(
+    mod_,
+    optimize=true,
+    trace=Some(fn(line) { trace.push(line) }),
+  )
+  assert_eq(dae_wb_param_count(optimized, 0), 1)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("i32.const I32(0)"), msg=target)
+  assert_true(
+    trace.contains("pass[dae-optimizing]:nested-cleanup exact-ref-is-null-fold"),
+    msg=trace.to_string(),
+  )
+}
