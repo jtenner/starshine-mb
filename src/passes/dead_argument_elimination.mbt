@@ -19742,23 +19742,23 @@ fn dae_apply_unread_param_batch_transaction(
       ),
       decision_reasons: [DaeCandidateProduced],
     }
-    let plan = match
-      dae_build_signature_rewrite_plan_from_candidate(
-        original, current_mod, graph, def_idx, candidate, candidate_effects,
-      ) {
-      Some(plan) => plan
-      None => continue
-    }
-    let application = dae_apply_rewrite_plan(current_mod, graph, plan)
-    if !application.applied {
-      continue
-    }
-    current_mod = application.result.mod_out
-    merged_touched = dae_merge_touched(
-      merged_touched,
-      application.result.touched,
+    let item = dae_work_item_new(
+      graph,
+      dae_boundary_dependency_graph_new(graph),
+      def_idx,
+      dae_work_family_for_commit_effects(candidate_effects, def_idx),
     )
-    merged_changed = merged_changed || application.result.changed
+    let application = match
+      dae_process_precomputed_signature_work_item(
+        original, current_mod, merged_touched, merged_changed, graph, item, candidate,
+        candidate_effects,
+      ) {
+      DaeWorkCommitted(value) => value
+      DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => continue
+    }
+    current_mod = application.mod_out
+    merged_touched = application.touched
+    merged_changed = application.changed
     merged_effects = dae_commit_effects_merge(
       merged_effects,
       application.effects,
@@ -20010,23 +20010,23 @@ fn dae_apply_dropped_result_batch_transaction(
       ),
       decision_reasons: [DaeCandidateProduced],
     }
-    let plan = match
-      dae_build_signature_rewrite_plan_from_candidate(
-        original, current_mod, graph, def_idx, candidate, candidate_effects,
-      ) {
-      Some(plan) => plan
-      None => continue
-    }
-    let application = dae_apply_rewrite_plan(current_mod, graph, plan)
-    if !application.applied {
-      continue
-    }
-    current_mod = application.result.mod_out
-    merged_touched = dae_merge_touched(
-      merged_touched,
-      application.result.touched,
+    let item = dae_work_item_new(
+      graph,
+      dae_boundary_dependency_graph_new(graph),
+      def_idx,
+      dae_work_family_for_commit_effects(candidate_effects, def_idx),
     )
-    merged_changed = merged_changed || application.result.changed
+    let application = match
+      dae_process_precomputed_signature_work_item(
+        original, current_mod, merged_touched, merged_changed, graph, item, candidate,
+        candidate_effects,
+      ) {
+      DaeWorkCommitted(value) => value
+      DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => continue
+    }
+    current_mod = application.mod_out
+    merged_touched = application.touched
+    merged_changed = application.changed
     merged_effects = dae_commit_effects_merge(
       merged_effects,
       application.effects,
@@ -20110,23 +20110,23 @@ fn dae_apply_direct_gc_batch_transaction(
       ],
       decision_reasons: [DaeCandidateProduced],
     }
-    let plan = match
-      dae_build_signature_rewrite_plan_from_candidate(
-        original, current_mod, graph, def_idx, candidate, candidate_effects,
-      ) {
-      Some(plan) => plan
-      None => continue
-    }
-    let application = dae_apply_rewrite_plan(current_mod, graph, plan)
-    if !application.applied {
-      continue
-    }
-    current_mod = application.result.mod_out
-    merged_touched = dae_merge_touched(
-      merged_touched,
-      application.result.touched,
+    let item = dae_work_item_new(
+      graph,
+      dae_boundary_dependency_graph_new(graph),
+      def_idx,
+      dae_work_family_for_commit_effects(candidate_effects, def_idx),
     )
-    merged_changed = merged_changed || application.result.changed
+    let application = match
+      dae_process_precomputed_signature_work_item(
+        original, current_mod, merged_touched, merged_changed, graph, item, candidate,
+        candidate_effects,
+      ) {
+      DaeWorkCommitted(value) => value
+      DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) => continue
+    }
+    current_mod = application.mod_out
+    merged_touched = application.touched
+    merged_changed = application.changed
     merged_effects = dae_commit_effects_merge(
       merged_effects,
       application.effects,
