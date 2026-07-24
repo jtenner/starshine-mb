@@ -44712,6 +44712,7 @@ fn dae_run_effect_frontier_worklist(
     ]
   } else {
     [
+      DaeUniformActualWork,
       DaeForwardingWork,
       DaeGcResultRefinementWork,
       DaeDroppedResultWork,

@@ -70637,7 +70637,7 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     traps_never_happen=options.traps_never_happen,
   )
   let mut core_effects = result.effects
-  let mut throttle_consumed = result.single_caller_throttle_consumed ||
+  let throttle_consumed = result.single_caller_throttle_consumed ||
     dae_modules_form_single_caller_param_wave(mod_, result.mod_out)
   perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
   let (core_repaired, core_repair_changed) = dae_cleanup_dropped_unreachable_debris_touched(
@@ -70793,62 +70793,12 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     Err(err) => return Err(err)
   }
   let broad_cleanup_touched = worth_optimizing_touched
-  let broad_cleanup_changed = cleaned != core_mod
-  let mut post_cleanup_mod = cleaned
-  let mut post_cleanup_touched : Array[Bool] = []
-  if run_hot_pipeline_dae_has_exact_nonnull_param_i32_zero_body(
-      cleaned, core_touched,
-    ) ||
-    run_hot_pipeline_dae_has_touched_nop_body_with_params(cleaned, core_touched) ||
-    broad_cleanup_changed {
-    let post_cleanup_core_start_us = perf_start_timer_opt(
-      options.perf,
-      "detail:dae:post-cleanup-core",
-    )
-    let boundary_revisit = if throttle_consumed {
-      { mod_out: cleaned, touched: [], changed: false, primary_def: -1 }
-    } else {
-      dae_run_post_cleanup_boundary_revisit_worklist(cleaned, core_touched)
-    }
-    let post_cleanup = dae_run_core(
-      boundary_revisit.mod_out,
-      options.trace,
-      optimize=broad_cleanup_changed,
-      perf=options.perf,
-      single_caller_throttle_consumed=throttle_consumed,
-      traps_never_happen=options.traps_never_happen,
-    )
-    throttle_consumed = post_cleanup.single_caller_throttle_consumed
-    dae_trace_diagnostics(
-      options.trace,
-      "dae-optimizing-post-cleanup",
-      post_cleanup.diagnostics,
-    )
-    perf_stop_timer_opt(
-      options.perf,
-      "detail:dae:post-cleanup-core",
-      post_cleanup_core_start_us,
-    )
-    post_cleanup_mod = post_cleanup.mod_out
-    post_cleanup_touched = dae_merge_touched(
-      boundary_revisit.touched,
-      post_cleanup.touched,
-    )
-  }
-  let recleaned = match
-    run_hot_pipeline_apply_dae_nested_cleanup(
-      post_cleanup_mod,
-      post_cleanup_touched,
-      options,
-      diagnostics=Some(result.diagnostics),
-    ) {
-    Ok(next) => next
-    Err(err) => return Err(err)
-  }
+  // Shared nested cleanup feeds all newly exposed boundaries to the common
+  // epoch-bearing effect frontier below. Do not recursively invoke dae_run_core
+  // or apply a post-roster DAE-private body cleanup phase.
+  let post_cleanup_touched : Array[Bool] = []
   dae_trace_diagnostics(options.trace, "dae-optimizing", result.diagnostics)
-  let post_cleanup_stripped = run_hot_pipeline_dae_strip_dropped_struct_defaults_touched(
-    recleaned, post_cleanup_touched,
-  )
+  let post_cleanup_stripped = cleaned
   let prune_start_us = perf_start_timer_opt(
     options.perf,
     "detail:dae:prune-unused-simple-func-types",
@@ -70874,6 +70824,20 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   let forwarding_dependencies = dae_boundary_dependency_graph_new(
     forwarding_graph,
   )
+  let initial_frontier_seed = frontier_seed.copy()
+  for def_idx = 0
+      def_idx < initial_frontier_seed.length()
+      def_idx = def_idx + 1 {
+    if !initial_frontier_seed[def_idx] ||
+      def_idx >= forwarding_dependencies.callees_by_def.length() {
+      continue
+    }
+    for callee_def in forwarding_dependencies.callees_by_def[def_idx] {
+      if callee_def >= 0 && callee_def < frontier_seed.length() {
+        frontier_seed[callee_def] = true
+      }
+    }
+  }
   for members in forwarding_dependencies.forwarding_component_members {
     if members.length() < 2 {
       continue
