@@ -4367,6 +4367,7 @@ fn dae_process_precomputed_signature_work_item(
   item : DaeWorkItem,
   candidate : DaePassResult,
   effects : DaeCommitEffects,
+  allow_signature_restoration? : Bool = false,
 ) -> DaeWorkOutcome {
   if !candidate.changed {
     return DaeWorkNoChange(DaeNoStrictImprovement)
@@ -4385,6 +4386,7 @@ fn dae_process_precomputed_signature_work_item(
     graph,
     candidate,
     effects=Some(effects),
+    allow_signature_restoration~,
   )
   if application.applied {
     DaeWorkCommitted(application)
@@ -44763,16 +44765,38 @@ fn dae_apply_dead_suffix_self_operand_restore_transaction(
     }
     def_idx += 1
   }
-  dae_apply_family_result_transaction(
-    original,
-    current,
-    touched,
-    changed,
-    graph,
-    candidate,
-    effects=Some(producer_effects),
-    allow_signature_restoration=true,
-  )
+  let mut target_def = -1
+  def_idx = 0
+  while def_idx < candidate.touched.length() {
+    if candidate.touched[def_idx] {
+      target_def = def_idx
+      break
+    }
+    def_idx += 1
+  }
+  match
+    dae_process_precomputed_signature_work_item(
+      original,
+      current,
+      touched,
+      changed,
+      graph,
+      dae_work_item_new(graph, dependencies, target_def, DaeUnusedParameterWork),
+      candidate,
+      producer_effects,
+      allow_signature_restoration=true,
+    ) {
+    DaeWorkCommitted(application) => application
+    DaeWorkNoChange(_) | DaeWorkDeferred(_) | DaeWorkRequeue(_) =>
+      {
+        mod_out: current,
+        touched,
+        changed,
+        applied: false,
+        primary_def: -1,
+        effects: dae_commit_effects_empty(graph.snapshot.defined),
+      }
+  }
 }
 
 ///|
