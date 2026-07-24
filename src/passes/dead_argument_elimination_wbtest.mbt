@@ -21746,14 +21746,14 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
     DaeKeepParameter,
   )
 
-  // A private target with no direct calls has no operands to replay; once the
-  // parameter is entry-dead, Binaryen removes it as a pure slot.
+  // Binaryen's zero-call family removes entry-dead parameters from private
+  // terminal-unreachable functions without requiring operands to replay.
   let uncalled_mod = pass_test_module_from_wat(
     (
       #|(module
       #|  (func $pad)
       #|  (func $target (param i32)
-      #|    nop))
+      #|    unreachable))
     ),
   )
   let uncalled_facts = dae_boundary_facts_new(uncalled_mod)
@@ -21766,6 +21766,32 @@ test "dae classify parameter slot keep remove-pure replay and localize" {
   match dae_resolve_func_type(uncalled_result.mod_out, uncalled_types, 1) {
     Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 0)
     None => fail("expected private uncalled target type")
+  }
+
+  // An ordinary private function does not enter that family merely because it
+  // has no incoming calls.
+  let ordinary_uncalled_mod = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $pad)
+      #|  (func $target (param i32)
+      #|    nop))
+    ),
+  )
+  let ordinary_uncalled_result = dae_run_core(ordinary_uncalled_mod, fn(_) {
+    ()
+  })
+  let ordinary_uncalled_types = dae_collect_func_type_indices(
+    ordinary_uncalled_result.mod_out,
+  )
+  match
+    dae_resolve_func_type(
+      ordinary_uncalled_result.mod_out,
+      ordinary_uncalled_types,
+      1,
+    ) {
+    Some(@lib.FuncType(params, _)) => assert_eq(params.length(), 1)
+    None => fail("expected ordinary private uncalled target type")
   }
 
   // Inactive direct calls still belong to Binaryen's syntactic incoming-call

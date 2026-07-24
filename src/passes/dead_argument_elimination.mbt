@@ -28372,7 +28372,10 @@ fn dae_run_core_once(
         // its later body-shape cleanup; plain DAE removes their entry-dead
         // parameters immediately.
         if optimize ||
-          dae_original_int_fact_at(current_call_counts_anywhere, def_idx) > 0 {
+          dae_original_int_fact_at(current_call_counts_anywhere, def_idx) > 0 ||
+          current_body.length() == 0 ||
+          current_body[current_body.length() - 1] !=
+          @lib.Instruction::unreachable_() {
           def_idx += 1
           continue
         }
