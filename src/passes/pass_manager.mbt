@@ -70920,24 +70920,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
       frontier.touched,
       producer_effects=Some(frontier.effects),
     )
-    let (frontier_broad, _) = match
-      run_hot_pipeline_apply_dae_broad_changed_boundary_cleanup(
-        converged, repaired, frontier_worth, options,
-      ) {
-      Ok(next) => next
-      Err(err) => {
-        (options.trace)(
-          "pass[dae-optimizing]:effect-frontier-result wave=\{convergence_wave} accepted=false reason=cleanup-error err=\{err}",
-        )
-        run_hot_pipeline_dae_report_single_caller_throttle(
-          single_caller_throttle_report, throttle_consumed,
-        )
-        return Ok(converged)
-      }
-    }
     let frontier_cleaned = match
       run_hot_pipeline_apply_dae_nested_cleanup(
-        frontier_broad, frontier_worth, options,
+        repaired, frontier_worth, options,
       ) {
       Ok(next) => next
       Err(err) => {

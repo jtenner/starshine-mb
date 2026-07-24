@@ -18768,7 +18768,8 @@ test "dae-optimizing removes a forwarding-only parameter component and preserves
   )
   assert_false(
     trace.any(fn(line) {
-      line.contains("pass[dae-optimizing]:post-component-cleanup")
+      line.contains("pass[dae-optimizing]:post-component-cleanup") ||
+      line.contains("broad-changed-boundary-local-cleanup")
     }),
     msg=trace.to_string(),
   )
