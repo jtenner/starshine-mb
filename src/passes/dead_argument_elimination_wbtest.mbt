@@ -18295,6 +18295,19 @@ test "dae GC result refinement joins null-bottom explicit returns" {
 }
 
 ///|
+test "dae result projection keeps exact duplicate lanes before refining" {
+  let actions = match
+    dae_build_result_projection_actions(
+      [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::f64()],
+      [@lib.ValType::i32(), @lib.ValType::f64()],
+    ) {
+    Some(actions) => actions
+    None => fail("expected lane-aware result projection")
+  }
+  assert_eq(actions, [DaeKeepResult, DaeRemoveResult, DaeKeepResult])
+}
+
+///|
 test "dae signature plan maps partial parameter and result projections" {
   let current_source =
     #|(module

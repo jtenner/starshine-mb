@@ -20785,6 +20785,58 @@ fn dae_build_scalar_unused_param_rewrite_plan(
 }
 
 ///|
+fn dae_build_result_projection_actions(
+  old_results : Array[@lib.ValType],
+  next_results : Array[@lib.ValType],
+) -> Array[DaeResultAction]? {
+  if next_results.length() > old_results.length() {
+    return None
+  }
+  let actions : Array[DaeResultAction] = []
+  let mut old_idx = 0
+  let mut next_idx = 0
+  while old_idx < old_results.length() {
+    if next_idx < next_results.length() &&
+      old_results[old_idx] == next_results[next_idx] {
+      actions.push(DaeKeepResult)
+      old_idx += 1
+      next_idx += 1
+      continue
+    }
+    let mut exact_later = false
+    if next_idx < next_results.length() {
+      let mut probe = old_idx + 1
+      while probe < old_results.length() {
+        if old_results[probe] == next_results[next_idx] {
+          exact_later = true
+          break
+        }
+        probe += 1
+      }
+    }
+    if exact_later {
+      actions.push(DaeRemoveResult)
+      old_idx += 1
+      continue
+    }
+    let remaining_old = old_results.length() - old_idx
+    let remaining_next = next_results.length() - next_idx
+    if next_idx < next_results.length() && remaining_old == remaining_next {
+      actions.push(DaeRefineResult(next_results[next_idx]))
+      old_idx += 1
+      next_idx += 1
+      continue
+    }
+    actions.push(DaeRemoveResult)
+    old_idx += 1
+  }
+  if next_idx != next_results.length() {
+    return None
+  }
+  Some(actions)
+}
+
+///|
 fn dae_build_signature_rewrite_plan_from_candidate(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -20862,36 +20914,22 @@ fn dae_build_signature_rewrite_plan_from_candidate(
   if next_parameter_idx != next_params.length() {
     return None
   }
-  let result_actions : Array[DaeResultAction] = []
+  let result_actions = match
+    dae_build_result_projection_actions(old_results, next_results) {
+    Some(actions) => actions
+    None => return None
+  }
   let mut result_changed = false
   let mut result_removed = false
-  let mut old_result_idx = 0
-  let mut next_result_idx = 0
-  while old_result_idx < old_results.length() {
-    let remaining_old = old_results.length() - old_result_idx
-    let remaining_next = next_results.length() - next_result_idx
-    let maps_to_next = next_result_idx < next_results.length() &&
-      (
-        old_results[old_result_idx] == next_results[next_result_idx] ||
-        remaining_old == remaining_next
-      )
-    if maps_to_next {
-      if old_results[old_result_idx] == next_results[next_result_idx] {
-        result_actions.push(DaeKeepResult)
-      } else {
-        result_actions.push(DaeRefineResult(next_results[next_result_idx]))
+  for action in result_actions {
+    match action {
+      DaeKeepResult => ()
+      DaeRefineResult(_) => result_changed = true
+      DaeRemoveResult => {
         result_changed = true
+        result_removed = true
       }
-      next_result_idx += 1
-    } else {
-      result_actions.push(DaeRemoveResult)
-      result_changed = true
-      result_removed = true
     }
-    old_result_idx += 1
-  }
-  if next_result_idx != next_results.length() {
-    return None
   }
   if !parameter_changed && !result_changed {
     return None
