@@ -24156,6 +24156,24 @@ fn dae_count_active_direct_calls_to(
 }
 
 ///|
+fn dae_self_call_counts_from_function_info(
+  info : DaeFunctionInfo,
+  caller_def : Int,
+) -> (Int, Int) {
+  let mut active = 0
+  let mut anywhere = 0
+  for callsite in info.calls {
+    if callsite.caller_def == caller_def {
+      anywhere += 1
+      if callsite.active {
+        active += 1
+      }
+    }
+  }
+  (active, anywhere)
+}
+
+///|
 fn dae_count_self_calls(func : @lib.Func, callee_abs : Int) -> Int {
   let @lib.Func(_, @lib.Expr(body)) = func
   dae_count_active_direct_calls_to(body, callee_abs)
@@ -28515,11 +28533,18 @@ fn dae_run_core_once(
       def_idx += 1
       continue
     }
-    let self_calls = dae_count_self_calls(funcs[def_idx], callee_abs)
-    let self_calls_anywhere = dae_count_self_calls_anywhere(
-      funcs[def_idx],
-      callee_abs,
-    )
+    let (self_calls, self_calls_anywhere) = if callee_abs >= 0 &&
+      callee_abs < function_infos.length() {
+      dae_self_call_counts_from_function_info(
+        function_infos[callee_abs],
+        def_idx,
+      )
+    } else {
+      (
+        dae_count_self_calls(funcs[def_idx], callee_abs),
+        dae_count_self_calls_anywhere(funcs[def_idx], callee_abs),
+      )
+    }
     let skip_original_large_result_cleanup = dae_should_skip_original_large_result_unreachable_cleanup(
       original_large_unreachable_prefixes, def_idx, mod_, type_indices, callee_abs,
     )

@@ -22781,6 +22781,28 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae function call facts own active and anywhere self-call counts" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target
+      #|    call $target
+      #|    unreachable
+      #|    call $target))
+    ),
+  )
+  let graph = dae_current_boundary_graph_new(mod_)
+  let counts = dae_self_call_counts_from_function_info(
+    graph.snapshot.function_infos[0],
+    0,
+  )
+  assert_eq(counts, (1, 2))
+  let func = graph.snapshot.funcs[0]
+  assert_eq(counts.0, dae_count_self_calls(func, 0))
+  assert_eq(counts.1, dae_count_self_calls_anywhere(func, 0))
+}
+
+///|
 test "dae plain low exact literals wait for a current scalar code snapshot" {
   assert_false(
     dae_should_collect_low_exact_literal_candidates(false, false, false),
