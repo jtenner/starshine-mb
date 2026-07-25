@@ -20752,6 +20752,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
   callee_source? : @lib.Func? = None,
+  entry_live? : Array[Bool]? = None,
   materialized_params? : Array[@lib.Instruction?]? = None,
   verified_materialized_suffix? : Array[@lib.Instruction]? = None,
   traps_never_happen? : Bool = false,
@@ -20812,11 +20813,11 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   let classified = if materialized_suffix.length() > 0 {
     Array::make(params.length(), DaeKeepParameter)
   } else {
-    let entry_live = dae_incoming_parameter_liveness(
-      mod_,
-      callee_abs,
-      params.length(),
-    )
+    let active_entry_live = match entry_live {
+      Some(entry_live) if entry_live.length() == params.length() => entry_live
+      Some(_) => return None
+      None => dae_incoming_parameter_liveness(mod_, callee_abs, params.length())
+    }
     match
       dae_classify_unused_parameter_actions_from_function_infos(
         shared_facts,
@@ -20824,7 +20825,7 @@ fn dae_build_scalar_unused_param_rewrite_plan(
         def_idx,
         callee_abs,
         params,
-        entry_live,
+        active_entry_live,
         direct_caller_defs,
         graph.snapshot.function_infos,
         traps_never_happen~,
@@ -21892,6 +21893,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
   direct_call_count : Int,
   direct_caller_defs : Array[Int],
   callee_source? : @lib.Func? = None,
+  entry_live? : Array[Bool]? = None,
   traps_never_happen? : Bool = false,
   allow_stack_carried_void_effects? : Bool = false,
 ) -> DaeRewritePlanApplication {
@@ -21906,6 +21908,7 @@ fn dae_try_rewrite_scalar_unused_param_candidate(
       direct_call_count,
       direct_caller_defs,
       callee_source~,
+      entry_live~,
       traps_never_happen~,
       allow_stack_carried_void_effects~,
     ) {
@@ -21926,6 +21929,7 @@ fn dae_try_rewrite_candidate(
   allow_stack_carried_void_effects? : Bool = false,
   original? : DaeOriginalBoundarySnapshot? = None,
   graph? : DaeCurrentBoundaryGraph? = None,
+  entry_live? : Array[Bool]? = None,
 ) -> DaePassResult {
   let active_original = match original {
     Some(original) => original
@@ -21945,6 +21949,7 @@ fn dae_try_rewrite_candidate(
       local_use,
       direct_call_count,
       direct_caller_defs,
+      entry_live~,
       materialized_params=Some(const_params),
       allow_stack_carried_void_effects~,
     ) {
@@ -29204,6 +29209,7 @@ fn dae_run_core_once(
           direct_calls[callee_abs],
           direct_callers[callee_abs],
           callee_source~,
+          entry_live=Some(entry_live),
           traps_never_happen~,
         )
         if planned.applied {
@@ -29225,6 +29231,7 @@ fn dae_run_core_once(
         direct_callers[callee_abs],
         original=Some(original),
         graph=Some(current_graph),
+        entry_live=Some(entry_live),
       )
       if result.changed {
         dae_record_work_family_candidate_effects(
