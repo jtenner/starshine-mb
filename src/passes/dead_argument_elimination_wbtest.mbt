@@ -16793,6 +16793,23 @@ test "dae unread parameter batch transaction reports each signature plan effect"
 }
 
 ///|
+test "dae dropped result batch facts reuse authoritative original and current snapshots" {
+  let source =
+    #|(module
+    #|  (func $target (result i32)
+    #|    i32.const 7)
+    #|  (func (export "run")
+    #|    call $target
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let facts = dae_boundary_facts_from_snapshots(original, graph)
+  assert_true(dae_can_remove_function_result(facts, 0))
+  assert_false(dae_can_remove_function_result(facts, 1))
+}
+
+///|
 test "dae dropped result batch transaction is definition-count independent" {
   let source =
     #|(module

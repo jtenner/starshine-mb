@@ -2975,6 +2975,19 @@ fn dae_collect_incoming_param_live_body_epochs(
 }
 
 ///|
+fn dae_boundary_facts_from_snapshots(
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
+) -> DaeBoundaryFacts {
+  {
+    original,
+    graph,
+    incoming_param_live_by_def: [],
+    incoming_param_live_body_epochs: [],
+  }
+}
+
+///|
 fn dae_boundary_facts_new(mod_ : @lib.Module) -> DaeBoundaryFacts {
   let original = dae_collect_original_boundary_snapshot(mod_)
   let graph = dae_current_boundary_graph_new(mod_)
@@ -19996,9 +20009,11 @@ fn dae_apply_unread_param_batch_transaction(
 ///|
 fn dae_try_apply_dropped_result_batch(
   mod_ : @lib.Module,
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
   active_defs? : Array[Bool]? = None,
 ) -> DaePassResult {
-  let snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let snapshot = graph.snapshot
   let imported = snapshot.imported
   let defined = snapshot.defined
   // Definition-count-independent batch candidate construction. Exact
@@ -20030,7 +20045,7 @@ fn dae_try_apply_dropped_result_batch(
       },
     )
   }
-  let boundary_facts = dae_boundary_facts_new(mod_)
+  let boundary_facts = dae_boundary_facts_from_snapshots(original, graph)
   let plans : Array[DaeDroppedResultBatchPlan] = []
   for def_idx = 0; def_idx < defined; def_idx = def_idx + 1 {
     match active_defs {
@@ -20174,14 +20189,14 @@ fn dae_try_apply_dropped_result_batch(
 
 ///|
 fn dae_apply_dropped_result_batch_transaction(
-  _original : DaeOriginalBoundarySnapshot,
+  original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
 ) -> DaeCoreResultApplication {
   let graph = dae_current_boundary_graph_new(current)
   let defined = graph.snapshot.defined
-  let candidate = dae_try_apply_dropped_result_batch(current)
+  let candidate = dae_try_apply_dropped_result_batch(current, original, graph)
   if !candidate.changed {
     return {
       mod_out: current,
