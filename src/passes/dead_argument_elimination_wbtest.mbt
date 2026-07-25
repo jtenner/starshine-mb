@@ -15766,9 +15766,14 @@ test "dae computed unread dependency worklist admission is module-size independe
 }
 
 ///|
-test "dae forwarded constant revisit admission is module-size independent" {
+test "dae forwarded constant revisit is optimizing-only and module-size independent" {
   for defined in [2, 4096, 4097, 8192] {
-    assert_true(dae_should_run_forwarded_constant_revisit(defined))
+    assert_false(
+      dae_should_run_forwarded_constant_revisit(defined, optimize=false),
+    )
+    assert_true(
+      dae_should_run_forwarded_constant_revisit(defined, optimize=true),
+    )
   }
 }
 

@@ -28046,8 +28046,11 @@ fn dae_should_run_computed_unread_dependency_worklist(
 }
 
 ///|
-fn dae_should_run_forwarded_constant_revisit(_defined : Int) -> Bool {
-  true
+fn dae_should_run_forwarded_constant_revisit(
+  _defined : Int,
+  optimize~ : Bool,
+) -> Bool {
+  optimize
 }
 
 ///|
@@ -46027,7 +46030,7 @@ fn dae_run_core(
   // than a module-size admission threshold. Each wave still commits at most one
   // validated candidate, preserving the existing source-order frontier.
   let mut low_revisit_iter = 0
-  while dae_should_run_forwarded_constant_revisit(original_defined) {
+  while dae_should_run_forwarded_constant_revisit(original_defined, optimize~) {
     let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
       current,
       original_param_counts,
