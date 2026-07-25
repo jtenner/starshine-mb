@@ -4529,6 +4529,84 @@ fn dae_body_only_candidate_requires_transaction(
 }
 
 ///|
+fn dae_body_only_candidate_preserves_nonbody_sections(
+  current : @lib.Module,
+  candidate : @lib.Module,
+) -> Bool {
+  current.custom_secs == candidate.custom_secs &&
+  current.raw_name_sec_payload == candidate.raw_name_sec_payload &&
+  current.type_sec == candidate.type_sec &&
+  current.import_sec == candidate.import_sec &&
+  current.func_annotation_sec == candidate.func_annotation_sec &&
+  current.func_sec == candidate.func_sec &&
+  current.table_sec == candidate.table_sec &&
+  current.mem_sec == candidate.mem_sec &&
+  current.tag_sec == candidate.tag_sec &&
+  current.stringrefs_sec == candidate.stringrefs_sec &&
+  current.global_sec == candidate.global_sec &&
+  current.export_sec == candidate.export_sec &&
+  current.start_sec == candidate.start_sec &&
+  current.elem_sec == candidate.elem_sec &&
+  current.data_cnt_sec == candidate.data_cnt_sec &&
+  current.data_sec == candidate.data_sec
+}
+
+///|
+fn dae_body_only_boundary_graph_new(
+  mod_ : @lib.Module,
+) -> DaeCurrentBoundaryGraph {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let total = imported + defined
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let function_types : Array[@lib.FuncType?] = []
+  let mut func_abs = 0
+  while func_abs < total {
+    function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
+    func_abs += 1
+  }
+  let escaped = Array::make(total, false)
+  let call_facts : DaeCurrentCallFacts = {
+    direct_calls: Array::make(total, 0),
+    tail_calls: Array::make(total, false),
+    direct_callers: dae_make_direct_callers(total),
+    dropped_calls: Array::make(total, 0),
+    escaped,
+  }
+  let snapshot : DaeModuleBoundarySnapshot = {
+    imported,
+    defined,
+    total,
+    type_indices,
+    function_types,
+    funcs: match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => []
+    },
+    call_facts,
+    boundary_facts: dae_call_boundary_facts_from_current(call_facts),
+    function_infos: dae_make_function_infos(total, escaped),
+  }
+  {
+    mod_,
+    snapshot,
+    topology: {
+      direct_return_callers: dae_make_direct_callers(total),
+      direct_return_callees_by_caller: dae_make_direct_callers(total),
+      has_outgoing_call_indirect: Array::make(total, false),
+      has_outgoing_call_ref: Array::make(total, false),
+      has_outgoing_return_call: Array::make(total, false),
+      has_outgoing_return_call_indirect: Array::make(total, false),
+      has_outgoing_return_call_ref: Array::make(total, false),
+    },
+    function_epochs: dae_make_function_epochs(defined, 0, 0),
+    module_epoch: 0,
+    call_epoch: 0,
+    type_epoch: 0,
+  }
+}
+
+///|
 fn dae_apply_body_only_family_result_transaction(
   _original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -4547,7 +4625,20 @@ fn dae_apply_body_only_family_result_transaction(
       effects: dae_commit_effects_empty(dae_defined_func_count(current)),
     }
   }
-  let graph = dae_current_boundary_graph_new(current)
+  if !dae_body_only_candidate_preserves_nonbody_sections(
+      current,
+      candidate.mod_out,
+    ) {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+    }
+  }
+  let graph = dae_body_only_boundary_graph_new(current)
   match
     dae_process_precomputed_body_work_item(
       _original,

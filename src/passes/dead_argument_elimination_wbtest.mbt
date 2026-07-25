@@ -23020,6 +23020,18 @@ test "dae body-only phase result commits with exact effects and diagnostics" {
     }
     None => fail("expected code section")
   }
+  assert_true(
+    dae_body_only_candidate_preserves_nonbody_sections(
+      current,
+      candidate.mod_out,
+    ),
+  )
+  assert_false(
+    dae_body_only_candidate_preserves_nonbody_sections(
+      current,
+      candidate.mod_out.with_func_sec(@lib.FuncSec::new([])),
+    ),
+  )
   let diagnostics = dae_diagnostics_new()
   let application = dae_apply_body_only_family_result_transaction(
     dae_collect_original_boundary_snapshot(current),
