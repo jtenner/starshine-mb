@@ -28059,6 +28059,11 @@ fn dae_should_run_low_wrapper_callee_phase(optimize~ : Bool) -> Bool {
 }
 
 ///|
+fn dae_should_run_fact_dropped_result_revisit(optimize~ : Bool) -> Bool {
+  optimize
+}
+
+///|
 fn dae_should_collect_phase_local_uniform_constants(
   _defined : Int,
   optimize~ : Bool,
@@ -46389,7 +46394,7 @@ fn dae_run_core(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
   let mut fact_dropped_result_wave = 0
-  while true {
+  while dae_should_run_fact_dropped_result_revisit(optimize~) {
     let fact_dropped_result_call_facts_start_us = perf_start_timer_opt(
       perf, "detail:dae:core:selected-lanes:dropped-results:call-facts",
     )
