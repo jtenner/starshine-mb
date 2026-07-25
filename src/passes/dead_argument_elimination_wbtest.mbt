@@ -14598,6 +14598,29 @@ test "dae hot entry liveness distinguishes forwarded and overwritten incoming va
 }
 
 ///|
+test "dae fast entry liveness handles straight-line calls before overwrite" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $side)
+      #|  (func $target (param i32)
+      #|    call $side
+      #|    i32.const 4
+      #|    local.set 0
+      #|    local.get 0
+      #|    drop)
+      #|  (func (export "run")
+      #|    i32.const 7
+      #|    call $target))
+    ),
+  )
+  assert_eq(dae_fast_param_entry_liveness(mod_, 1, 1), Some([false]))
+  assert_eq(dae_hot_param_entry_liveness(mod_, 1, 1), Some([false]))
+  let optimized = dae_run_module_pass(mod_)
+  assert_eq(dae_wb_param_count(optimized, 1), 0)
+}
+
+///|
 test "dae hot entry liveness follows try-table exceptional exits" {
   let mod_ = pass_test_module_from_wat(
     (

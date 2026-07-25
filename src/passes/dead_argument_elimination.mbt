@@ -2891,7 +2891,12 @@ fn dae_incoming_parameter_liveness(
   if param_count <= 0 {
     return []
   }
-  match dae_hot_param_entry_liveness(mod_, callee_abs, param_count) {
+  let analyzed_live = match
+    dae_fast_param_entry_liveness(mod_, callee_abs, param_count) {
+    Some(live) => Some(live)
+    None => dae_hot_param_entry_liveness(mod_, callee_abs, param_count)
+  }
+  match analyzed_live {
     Some(live) => {
       // HOT may return a longer array when locals exist; only parameters matter.
       // Preserve a syntactic read of an unwritten parameter as authoritative
@@ -6829,6 +6834,35 @@ fn dae_instr_supports_hot_param_entry_liveness(
       })
     _ => true
   }
+}
+
+///|
+fn dae_fast_param_entry_liveness(
+  mod_ : @lib.Module,
+  callee_abs : Int,
+  param_count : Int,
+) -> Array[Bool]? {
+  if callee_abs < 0 || param_count < 0 {
+    return None
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return None
+  }
+  let def_idx = callee_abs - dae_imported_func_count(mod_)
+  if def_idx < 0 || def_idx >= funcs.length() {
+    return None
+  }
+  let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+  if !body.all(fn(instr) {
+      dae_instr_supports_param_entry_liveness(instr) &&
+      dae_instr_supports_hot_param_entry_liveness(instr)
+    }) {
+    return None
+  }
+  let live = Array::make(param_count, false)
+  dae_scan_param_entry_liveness_instrs(body, live, callee_abs, param_count)
+  Some(live)
 }
 
 ///|
