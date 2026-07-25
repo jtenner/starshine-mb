@@ -20757,6 +20757,15 @@ fn dae_rewrite_calls_from_stable_callsites(
 }
 
 ///|
+fn dae_should_collect_low_exact_literal_candidates(
+  optimize : Bool,
+  restored_application_applied : Bool,
+  scalar_plan_code_snapshot_current : Bool,
+) -> Bool {
+  optimize || restored_application_applied || scalar_plan_code_snapshot_current
+}
+
+///|
 fn dae_scalar_plan_code_snapshot_is_current(
   mod_ : @lib.Module,
   graph : DaeCurrentBoundaryGraph,
@@ -46579,12 +46588,20 @@ fn dae_run_core(
   // once from one current caller-fact snapshot, then revalidate and apply each
   // candidate against the evolving module. Signature and operand rewrites do
   // not change direct-call edges, so the snapshot remains valid for this batch.
-  let low_exact_literal_call_facts = dae_collect_current_call_facts(
-    current, original_total,
-  )
-  let low_exact_literal_candidates = dae_collect_post_revisit_exact_literal_candidates(
-    current, low_exact_literal_call_facts, original_defined,
-  )
+  let low_exact_literal_candidates = if dae_should_collect_low_exact_literal_candidates(
+      optimize,
+      restored_application.applied,
+      scalar_plan_code_snapshot_current,
+    ) {
+    let low_exact_literal_call_facts = dae_collect_current_call_facts(
+      current, original_total,
+    )
+    dae_collect_post_revisit_exact_literal_candidates(
+      current, low_exact_literal_call_facts, original_defined,
+    )
+  } else {
+    []
+  }
   let low_exact_literal_application = if !optimize &&
     !restored_application.applied {
     dae_run_exact_literal_candidate_worklist_with_facts(

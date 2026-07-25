@@ -22781,6 +22781,22 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae plain low exact literals wait for a current scalar code snapshot" {
+  assert_false(
+    dae_should_collect_low_exact_literal_candidates(false, false, false),
+  )
+  assert_true(
+    dae_should_collect_low_exact_literal_candidates(false, false, true),
+  )
+  assert_true(
+    dae_should_collect_low_exact_literal_candidates(false, true, false),
+  )
+  assert_true(
+    dae_should_collect_low_exact_literal_candidates(true, false, false),
+  )
+}
+
+///|
 test "dae scalar planning requires the graph code snapshot to match current code" {
   let current = pass_test_module_from_wat("(module (func nop))")
   let graph = dae_current_boundary_graph_new(current)
