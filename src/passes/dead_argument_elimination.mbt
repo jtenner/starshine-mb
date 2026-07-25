@@ -29037,7 +29037,9 @@ fn dae_try_rewrite_reverse_exact_literal_once(
 ) -> DaePassResult {
   let original_dead_suffix_undropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.undropped_calls
   let original_dead_suffix_dropped_escaped_result_calls = original_dead_suffix_escaped_result_call_facts.dropped_calls
-  let boundary_snapshot = dae_collect_module_boundary_snapshot(mod_)
+  let rewrite_original = dae_collect_original_boundary_snapshot(mod_)
+  let rewrite_graph = dae_current_boundary_graph_new(mod_)
+  let boundary_snapshot = rewrite_graph.snapshot
   let imported = boundary_snapshot.imported
   let defined = boundary_snapshot.defined
   let boundary_facts = boundary_snapshot.boundary_facts
@@ -29184,6 +29186,8 @@ fn dae_try_rewrite_reverse_exact_literal_once(
         local_use,
         boundary_candidate.direct_call_count,
         boundary_candidate.direct_callers,
+        original=Some(rewrite_original),
+        graph=Some(rewrite_graph),
       )
       if result.changed {
         return result
