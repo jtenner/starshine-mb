@@ -40152,6 +40152,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
   original_snapshot? : DaeOriginalBoundarySnapshot? = None,
+  boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
   producer_effects_report? : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let defined = dae_defined_func_count(current)
@@ -40159,7 +40160,10 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
     Some(snapshot) => snapshot
     None => dae_collect_original_boundary_snapshot(original)
   }
-  let boundary_snapshot = dae_collect_module_boundary_snapshot(current)
+  let owned_boundary_snapshot = match boundary_snapshot {
+    Some(snapshot) => snapshot
+    None => dae_collect_module_boundary_snapshot(current)
+  }
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
@@ -40173,10 +40177,10 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   let mut def_idx = 0
   while def_idx < defined && def_idx < selected_defs.length() {
     if selected_defs[def_idx] {
-      let callee_abs = boundary_snapshot.imported + def_idx
+      let callee_abs = owned_boundary_snapshot.imported + def_idx
       let callers = if callee_abs <
-        boundary_snapshot.call_facts.direct_callers.length() {
-        boundary_snapshot.call_facts.direct_callers[callee_abs]
+        owned_boundary_snapshot.call_facts.direct_callers.length() {
+        owned_boundary_snapshot.call_facts.direct_callers[callee_abs]
       } else {
         []
       }
@@ -40187,7 +40191,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
           caller_def < current_funcs.length() &&
           original_funcs[caller_def] != current_funcs[caller_def] {
           let candidate = dae_try_rewrite_global_suffix_candidate_once(
-            current, def_idx, boundary_snapshot, trace,
+            current, def_idx, owned_boundary_snapshot, trace,
           )
           if candidate.changed {
             let graph = dae_current_boundary_graph_new(current)
@@ -40222,6 +40226,7 @@ fn dae_apply_selected_func323_global_suffix_transaction(
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
   original_snapshot? : DaeOriginalBoundarySnapshot? = None,
+  boundary_snapshot? : DaeModuleBoundarySnapshot? = None,
 ) -> DaeCoreResultApplication {
   let effects_report : Array[DaeCommitEffects] = []
   let result = dae_try_rewrite_selected_func323_global_suffix_once(
@@ -40230,6 +40235,7 @@ fn dae_apply_selected_func323_global_suffix_transaction(
     selected_defs,
     trace,
     original_snapshot~,
+    boundary_snapshot~,
     producer_effects_report=effects_report,
   )
   match effects_report.get(0) {
@@ -46702,6 +46708,7 @@ fn dae_run_core(
     }
   }
   perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
+  let mut current_boundary_graph_stale = false
   if dae_should_run_computed_unread_dependency_worklist(
       original_defined,
       optimize~,
@@ -46715,6 +46722,9 @@ fn dae_run_core(
       trace,
     )
     current = computed_application.mod_out
+    if computed_application.effects.candidates_applied > 0 {
+      current_boundary_graph_stale = true
+    }
     touched = computed_application.touched
     changed = computed_application.changed
     effects = dae_commit_effects_merge(effects, computed_application.effects)
@@ -46738,6 +46748,7 @@ fn dae_run_core(
   )
   if restored_application.applied {
     current = restored_application.mod_out
+    current_boundary_graph_stale = true
     touched = restored_application.touched
     changed = restored_application.changed
     effects = dae_commit_effects_merge(effects, restored_application.effects)
@@ -46753,6 +46764,9 @@ fn dae_run_core(
       current, mod_, touched, changed,
     )
     current = broad_uniform.mod_out
+    if broad_uniform.productive_defs.length() > 0 {
+      current_boundary_graph_stale = true
+    }
     touched = broad_uniform.touched
     changed = broad_uniform.changed
     effects = dae_commit_effects_merge(effects, broad_uniform.effects)
@@ -46817,6 +46831,7 @@ fn dae_run_core(
         None => break
       }
       current = reverse_application.mod_out
+      current_boundary_graph_stale = true
       touched = reverse_application.touched
       changed = reverse_application.changed
       effects = dae_commit_effects_merge(effects, reverse_application.effects)
@@ -46900,6 +46915,7 @@ fn dae_run_core(
       None => break
     }
     current = low_revisit_application.mod_out
+    current_boundary_graph_stale = true
     touched = low_revisit_application.touched
     changed = low_revisit_application.changed
     effects = dae_commit_effects_merge(effects, low_revisit_application.effects)
@@ -46946,6 +46962,9 @@ fn dae_run_core(
     )
   }
   current = low_exact_literal_application.mod_out
+  if low_exact_literal_application.productive_defs.length() > 0 {
+    current_boundary_graph_stale = true
+  }
   touched = low_exact_literal_application.touched
   changed = low_exact_literal_application.changed
   effects = dae_commit_effects_merge(
@@ -46972,6 +46991,7 @@ fn dae_run_core(
   )
   if low_exact_null_if_application.applied {
     current = low_exact_null_if_application.mod_out
+    current_boundary_graph_stale = true
     touched = low_exact_null_if_application.touched
     changed = low_exact_null_if_application.changed
     effects = dae_commit_effects_merge(
@@ -46991,6 +47011,7 @@ fn dae_run_core(
   )
   if low_exact_terminal_application.applied {
     current = low_exact_terminal_application.mod_out
+    current_boundary_graph_stale = true
     touched = low_exact_terminal_application.touched
     changed = low_exact_terminal_application.changed
     effects = dae_commit_effects_merge(
@@ -47008,6 +47029,9 @@ fn dae_run_core(
     low_exact_literal_application.productive_defs,
   )
   current = low_exact_result_application.mod_out
+  if low_exact_result_application.productive_defs.length() > 0 {
+    current_boundary_graph_stale = true
+  }
   touched = low_exact_result_application.touched
   changed = low_exact_result_application.changed
   effects = dae_commit_effects_merge(
@@ -47052,6 +47076,7 @@ fn dae_run_core(
       )
       if global_application.productive_defs.length() > 0 {
         current = global_application.mod_out
+        current_boundary_graph_stale = true
         touched = global_application.touched
         changed = global_application.changed
         effects = dae_commit_effects_merge(effects, global_application.effects)
@@ -47164,6 +47189,7 @@ fn dae_run_core(
     match boundary_application {
       Some(boundary_application) => {
         current = boundary_application.mod_out
+        current_boundary_graph_stale = true
         dae_current_boundary_graph_refresh(boundary_graph, current)
         boundary_dependencies_opt = Some(
           dae_boundary_dependency_graph_new(boundary_graph),
@@ -47228,6 +47254,7 @@ fn dae_run_core(
       break
     }
     current = fact_dropped_result.mod_out
+    current_boundary_graph_stale = true
     touched = fact_dropped_result.touched
     changed = fact_dropped_result.changed
     effects = dae_commit_effects_merge(effects, fact_dropped_result.effects)
@@ -47271,6 +47298,7 @@ fn dae_run_core(
       break
     }
     current = const_local_application.mod_out
+    current_boundary_graph_stale = true
     late_shapes_changed = true
     touched = const_local_application.touched
     changed = const_local_application.changed
@@ -47289,6 +47317,7 @@ fn dae_run_core(
   )
   if pair_if_application.applied {
     current = pair_if_application.mod_out
+    current_boundary_graph_stale = true
     late_shapes_changed = true
     touched = pair_if_application.touched
     changed = pair_if_application.changed
@@ -47309,6 +47338,7 @@ fn dae_run_core(
   )
   if terminal_args311_application.applied {
     current = terminal_args311_application.mod_out
+    current_boundary_graph_stale = true
     late_shapes_changed = true
     touched = terminal_args311_application.touched
     changed = terminal_args311_application.changed
@@ -47332,6 +47362,7 @@ fn dae_run_core(
   )
   if terminal_args313_application.applied {
     current = terminal_args313_application.mod_out
+    current_boundary_graph_stale = true
     late_shapes_changed = true
     touched = terminal_args313_application.touched
     changed = terminal_args313_application.changed
@@ -47356,11 +47387,17 @@ fn dae_run_core(
       global_suffix_candidates,
       trace,
       original_snapshot=Some(original_boundary_snapshot),
+      boundary_snapshot=if !current_boundary_graph_stale {
+        Some(current_boundary_graph.snapshot)
+      } else {
+        None
+      },
     )
     if !global_suffix_application.applied {
       break
     }
     current = global_suffix_application.mod_out
+    current_boundary_graph_stale = true
     late_shapes_changed = true
     touched = global_suffix_application.touched
     changed = global_suffix_application.changed
