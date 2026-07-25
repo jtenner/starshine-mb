@@ -19662,6 +19662,9 @@ test "dae selected global suffix uses signature plan and rejects original exposu
     current,
     [false, true, false],
     fn(_) { () },
+    original_snapshot=Some(
+      dae_collect_original_boundary_snapshot(owned_original),
+    ),
     producer_effects_report=effects_report,
   )
   assert_true(committed.changed)

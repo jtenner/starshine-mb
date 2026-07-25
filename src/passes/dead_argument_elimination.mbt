@@ -40060,12 +40060,15 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
   current : @lib.Module,
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
+  original_snapshot? : DaeOriginalBoundarySnapshot? = None,
   producer_effects_report? : Array[DaeCommitEffects] = [],
 ) -> DaePassResult {
   let defined = dae_defined_func_count(current)
-  let original_snapshot = dae_collect_original_boundary_snapshot(original)
-  let graph = dae_current_boundary_graph_new(current)
-  let boundary_snapshot = graph.snapshot
+  let owned_original_snapshot = match original_snapshot {
+    Some(snapshot) => snapshot
+    None => dae_collect_original_boundary_snapshot(original)
+  }
+  let boundary_snapshot = dae_collect_module_boundary_snapshot(current)
   let original_funcs = match original.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs
     None =>
@@ -40096,11 +40099,12 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
             current, def_idx, boundary_snapshot, trace,
           )
           if candidate.changed {
+            let graph = dae_current_boundary_graph_new(current)
             let producer_effects = dae_global_suffix_commit_effects(
               graph, candidate,
             )
             let application = dae_apply_global_suffix_signature_plan(
-              original_snapshot, current, graph, candidate, producer_effects,
+              owned_original_snapshot, current, graph, candidate, producer_effects,
             )
             if application.applied {
               dae_record_producer_effects(
@@ -40126,6 +40130,7 @@ fn dae_apply_selected_func323_global_suffix_transaction(
   changed : Bool,
   selected_defs : Array[Bool],
   trace : (String) -> Unit,
+  original_snapshot? : DaeOriginalBoundarySnapshot? = None,
 ) -> DaeCoreResultApplication {
   let effects_report : Array[DaeCommitEffects] = []
   let result = dae_try_rewrite_selected_func323_global_suffix_once(
@@ -40133,6 +40138,7 @@ fn dae_apply_selected_func323_global_suffix_transaction(
     current,
     selected_defs,
     trace,
+    original_snapshot~,
     producer_effects_report=effects_report,
   )
   match effects_report.get(0) {
@@ -47252,7 +47258,13 @@ fn dae_run_core(
   )
   while true {
     let global_suffix_application = dae_apply_selected_func323_global_suffix_transaction(
-      mod_, current, touched, changed, global_suffix_candidates, trace,
+      mod_,
+      current,
+      touched,
+      changed,
+      global_suffix_candidates,
+      trace,
+      original_snapshot=Some(original_boundary_snapshot),
     )
     if !global_suffix_application.applied {
       break
