@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ./completion-matrix.md
   - ./de-artifacting-inventory.md
@@ -28,11 +28,11 @@ The repository currently labels the active release line as `v0.1.1`, while the r
 
 ## Audit verdict
 
-The July 21 closeout was a valid evidence checkpoint but premature as an implementation-parity claim. The lifecycle work requested by this reopen is now complete through `676b90f68c2993899c1f5432a2d4253dead50774`: represented boundary-changing families use epoch-bearing outcomes, producer-owned effects, exact touched accounting, validation/rollback, and domain invalidation; DAEO has one shared nested roster and one effect frontier; cleanup-deleted dependency edges remain visible through pre/post graph seeding.
+The July 21 closeout was a valid evidence checkpoint but premature as an implementation-parity claim. The lifecycle work requested by this reopen is complete through the final evidence base `b49c3b7db8015c5cd5250a4cb59e4d8663d683c0`: represented boundary-changing families use epoch-bearing outcomes, producer-owned effects, exact touched accounting, validation/rollback, and domain invalidation; DAEO has one shared nested roster and one effect frontier; cleanup-deleted dependency edges remain visible through pre/post graph seeding.
 
-Fresh official-Binaryen-v131 regular, dedicated, random-all, and wasm-smith matrices are complete for both variants on native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e`. There are zero Starshine semantic, validation, property, generator, or command failures and zero individual positive canonical-size residuals. Exact-once case-515 tracing records one core commit, one shared nested-roster invocation, one empty effect-frontier wave, and zero rollbacks.
+Fresh official-Binaryen-v131 regular, dedicated, random-all, and wasm-smith matrices are complete for both variants on native SHA-256 `9bb2de779cdd5a2cdaca6332e896c8b8789e9b967243b0a5c1951943f9e1a600`. There are zero Starshine semantic, validation, property, generator, or command failures and zero individual positive canonical-size residuals. Exact-once case-515 tracing records one core commit, one shared `41`-pass nested-roster invocation, one empty effect-frontier wave, and zero rollbacks.
 
-The reopen remains active only for performance signoff. On the dense-call artifact-scale probe (`3,597,499` bytes, `5,374` defined functions, roughly `251,000` direct calls), cached lifecycle facts and single-owned commit handling reduced Starshine plain DAE from `>1500s` to `1.928s`; the valid output remains byte-identical across the clean optimization runs. The plain canonical fixed loop now solely owns exact-uniform work, so the forwarded-constant compatibility revisit is optimizing-only; a same-session native A/B measured `83.614s -> 79.939s` with byte-identical output. Binaryen v131 completes in `0.356s`. Focused medians remain below one second, so the remaining fixed-loop/selected-lane cost is a specific artifact-scale performance blocker rather than a behavior, validity, lifecycle, or residual-classification gap. Close the plan after that gap is fixed or explicitly accepted by release review.
+Release review explicitly accepted the remaining artifact-scale performance gap on July 25, 2026. On the dense-call probe (`3,597,499` bytes, `5,374` defined functions, roughly `251,000` direct calls), lifecycle-fact reuse and single-owned commit handling reduced Starshine plain DAE from `>1500s` to a seven-run `1.893s` median with byte-identical valid output; Binaryen v131's median is `0.356s`. Further local experiments around raw traversal, micro-gates, scratch pooling, narrower validation, and retained complete graphs were neutral or regressive, leaving only broader fused-analysis/indexed-cleanup redesigns with materially higher correctness and GC-lifetime risk. Focused case-515 medians are `8.339ms` plain and `22.790ms` DAEO. The reopen is therefore closed: no behavior, validity, lifecycle, residual-classification, size, or accepted-performance blocker remains.
 
 ## Binaryen-v131 reference lifecycle
 

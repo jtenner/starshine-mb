@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ../../../raw/research/1654-2026-07-19-daeo-stable-callsite-uniform-actuals.md
   - ../dead-argument-elimination/completion-matrix.md
@@ -220,6 +220,7 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 
 ## Current durable takeaways
 
+- Final v0.1.1 signoff closed represented Binaryen-v131 behavior, lifecycle ownership, exact-once nested convergence, four-lane residual classification, validity, and reviewed performance on July 25, 2026. Native SHA-256 `9bb2de779cdd5a2cdaca6332e896c8b8789e9b967243b0a5c1951943f9e1a600` has zero Starshine failures and zero larger residuals across the required matrix; renewed case `515` executes one shared `41`-pass roster and one empty frontier wave; the dense-call plain-core median is explicitly accepted at `1.893s` after improving from `>1500s`. No DAE/DAEO-owned v0.1.1 release blocker remains.
 - `dae-optimizing` is a **module / boundary** pass, not a function-local cleanup pass.
 - The pass only rewrites boundaries it can still reason about through **direct calls**.
 - Exported functions and `ref.func`-escaped functions are treated as having unseen calls, so Binaryen refuses signature-changing rewrites there.

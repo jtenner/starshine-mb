@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_argument_elimination.mbt
@@ -33,7 +33,7 @@ related:
 
 - `dead-argument-elimination` is an upstream Binaryen boundary pass.
 - The public upstream CLI alias is `dae`.
-- It has an active Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. Represented Binaryen-v131 behavior, common lifecycle ownership, validity, residual classification, and exact-once DAEO scheduling are closed through `676b90f68`; release remains blocked only by the dense-call artifact-scale performance item `[O4Z-DAE-PERF]001`.
+- It has an active Starshine implementation in [`../../../../../src/passes/dead_argument_elimination.mbt`](../../../../../src/passes/dead_argument_elimination.mbt), wired under both `dead-argument-elimination` and `dae`. Represented Binaryen-v131 behavior, common lifecycle ownership, validity, residual classification, exact-once DAEO scheduling, and reviewed performance are closed through the final evidence base `b49c3b7db`; no DAE-owned release blocker remains.
 - The current repo no-DWARF default optimize path uses the related later pass `dae-optimizing`, not this plain variant.
 - The two passes share the same core engine in upstream `version_131`; `dae-optimizing` is the plain DAE algorithm plus one extra nested cleanup rerun. The `version_130...version_131` source comparison leaves `DeadArgumentElimination.cpp` and its helper owners unchanged; v131 updates the expected unreachable local write from `local.tee` to `local.set` in `dae-gc.wast` and `dae2.wast`.
 - [`source-case-map.md`](./source-case-map.md) maps every represented Binaryen-v131 source fixture to current focused coverage, including TNH behavior. [`completion-matrix.md`](./completion-matrix.md) remains the detailed release ledger, and [`de-artifacting-inventory.md`](./de-artifacting-inventory.md) records removed gates plus the current generated size evidence.
@@ -46,7 +46,7 @@ related:
 - This pass teaches the part that is easiest to blur together:
   - the core boundary rewrite algorithm itself,
   - versus the extra scheduler behavior that the optimizing suffix adds.
-- `agent-todo.md` tracks only the remaining DAE-owned dense-call performance blocker under `[O4Z-DAE-PERF]001`, while this dossier remains the durable place to explain the non-optimizing pass separately from `dae-optimizing`.
+- `agent-todo.md` no longer carries a DAE-owned v0.1.1 blocker. This dossier remains the durable place to explain the non-optimizing pass separately from `dae-optimizing` and to record reopening criteria.
 
 ## Beginner summary
 

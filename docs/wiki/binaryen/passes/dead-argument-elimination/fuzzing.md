@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ../../../tooling/pass-fuzz-compare.md
   - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -141,7 +141,28 @@ No residual is canonically larger. Plain random-all has `1205` smaller outputs a
 
 Lifecycle replay of prior DAEO random-all case `515` records one core candidate produced/applied, one shared nested cleanup invocation with `41` scheduled passes, one empty effect-frontier wave, four nested touched functions, and zero stale retries or validation rollbacks. The final output is `410` canonical bytes versus Binaryen's `4,572`, so the former `+1,388` size loss is now a `-4,162` guarded cleanup win. Bounded suites are DAE whitebox `395/395`, public DAEO `342/342`, pass-manager `306/306`, and full Moon `9908/9908`.
 
-Focused pass-local medians on case `515` are `20.351ms` plain and `31.380ms` DAEO versus Binaryen's `3.546ms` and `5.431ms`; both Starshine medians satisfy the repository's sub-second target. A separate artifact-scale stress probe remains open: plain DAE exceeded the `1500`-second bound on a `3,597,499`-byte, `5,374`-definition, roughly `251,000`-call input constructed by Binaryen-v131 `-Oz`, while Binaryen `--dae` completed in `0.356s`. This is recorded as a dense-call performance blocker, not a semantic or generated-parity failure. Local classification data is `.tmp/dae-release-final-classification-676b90f68-20260724.json`.
+Focused case-515 medians at that checkpoint were `20.351ms` plain and `31.380ms` DAEO versus Binaryen's `3.546ms` and `5.431ms`; both Starshine medians satisfied the repository's sub-second target. The then-open artifact-scale stress probe and local classification data remain historical context in `.tmp/dae-release-final-classification-676b90f68-20260724.json`.
+
+## July 25, 2026 final release signoff
+
+Final native SHA-256 `9bb2de779cdd5a2cdaca6332e896c8b8789e9b967243b0a5c1951943f9e1a600` renewed the required official-Binaryen-v131 four-lane matrix for both variants. All lanes used `--jobs auto`, persistent cache, `--no-reduce-mismatches`, and both cleanup normalizers. Regular, dedicated, and wasm-smith used seed `0x5eed`; random-all used the required seed `0x5555` and explicit `random-all-profiles`.
+
+| variant / lane | requested / compared | normalized | cleanup-normalized | residuals | canonical residual delta | failures |
+|---|---:|---:|---:|---:|---:|---:|
+| plain regular | `100000 / 100000` | `100000` | `0` | `0` | `0` | `0` |
+| plain dedicated | `10000 / 10000` | `5000` | `0` | `5000` | `-18,750` | `0` |
+| plain random-all | `10000 / 10000` | `8521` | `215` | `1264` | `-55,694` | `0` |
+| plain wasm-smith | `10000 / 9956` | `9951` | `2` | `3` | `-38` | `44` Binaryen-only |
+| DAEO regular | `100000 / 100000` | `100000` | `0` | `0` | `0` | `0` |
+| DAEO dedicated | `10000 / 10000` | `6954` | `0` | `3046` | `-37,910` | `0` |
+| DAEO random-all | `10000 / 10000` | `9295` | `62` | `643` | `-602,750` | `0` |
+| DAEO wasm-smith | `10000 / 9956` | `9951` | `2` | `3` | `-58` | `44` Binaryen-only |
+
+There are zero Starshine validation, property, generator, or command failures and zero larger residuals. Plain random-all has `1157` smaller and `107` equal-size residuals; each equal-size case removes one local declaration and one rendered WAT line. DAEO random-all has `643` smaller residuals. The unchanged Binaryen-only wasm-smith failures classify as `39` zero-sized recursion groups, one invalid tag index, one table-index failure, and three bad-section-size failures per variant. Residual profile families repeat the source-backed Starshine cleanup wins from the July 24 review; no new unknown/risky or true-semantic family appears.
+
+Renewed case-515 tracing reports one candidate produced/applied, one parameter and one result removed, three callsites rewritten, four nested touched functions, one shared `41`-pass roster, one empty effect-frontier wave, zero stale retries, and zero validation rollbacks. Seven-run whole-command medians after warmup are Starshine `8.339ms` plain / `22.790ms` DAEO and Binaryen `3.570ms` plain / `5.381ms` DAEO.
+
+The dense-call artifact-scale input has a final seven-run Starshine median of `1.893s` versus Binaryen's `0.356s`; Starshine output remains byte-identical and valid at SHA-256 `fa73c6aac3c93ac9c97bd261ce24403c4b7cfb8fbdb417f4ed74e1488caf11a9`. Release review explicitly accepted the gap after the reduction from `>1500s`, because further material gains require a broader higher-risk analysis/cleanup redesign and repeated local experiments were neutral or regressive. Final artifacts are under `.tmp/dae-release-final-{plain,daeo}-*-b49c3b7db-20260725/`.
 
 ## Historical blockers and superseded checkpoints
 

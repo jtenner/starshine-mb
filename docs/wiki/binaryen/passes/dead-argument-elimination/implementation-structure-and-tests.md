@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ./index.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination.cpp
@@ -393,7 +393,7 @@ The shared DAE/DAEO lifecycle now keeps exact ownership when dead-suffix repair 
 
 Private zero-reachable-call parameter removal is intentionally narrow: ordinary returning functions remain unchanged, while private functions whose represented execution is terminally unreachable may remove dead parameters in both plain DAE and DAEO. Dead-suffix parameter cleanup copies the source signature functions before repair, reports every actually changed function through `DaeTouchModuleCodeChangedFuncs`, and publishes exact producer effects for inactive caller cleanup. The generic `DaeRewritePlan` therefore validates and commits the producer-owned candidate instead of rejecting it because caller cleanup changed the code snapshot during construction. Dropped-result unreachable-callee finalization uses the same exact changed-function touched policy.
 
-Red-first and focused coverage includes inactive-call zero-call classification, ordinary-returning fail-closed behavior, dropped self-call preservation, recursive unobserved cleanup, repaired-caller touched ownership, cleanup-deleted frontier edges, and terminal-unreachable dropped-self operands. The bounded closure suites pass DAE whitebox `395/395`, public DAEO `342/342`, and pass-manager whitebox `306/306`. The final current random-all lanes have zero individually positive canonical-size cases: plain DAE has `1310` raw residuals with aggregate delta `-59,506` bytes, and DAEO has `688` raw residuals with aggregate delta `-633,486` bytes; all validation/property/generator/Starshine-command failure counts are zero. Case `515` executes the shared nested roster exactly once and leaves one empty effect-frontier wave. Behavior and lifecycle are closed, but a separate dense-call artifact-scale plain-DAE run exceeds the `1500`-second bound and remains a performance blocker.
+Red-first and focused coverage includes inactive-call zero-call classification, ordinary-returning fail-closed behavior, dropped self-call preservation, recursive unobserved cleanup, repaired-caller touched ownership, cleanup-deleted frontier edges, and terminal-unreachable dropped-self operands. The final closure suites pass DAE whitebox `414/414`, public DAEO `342/342`, pass-manager whitebox `306/306`, pass package `6441/6441`, and full Moon `9927/9927`. The final random-all lanes have zero individually positive canonical-size cases: plain DAE has `1264` raw residuals with aggregate delta `-55,694` bytes, and DAEO has `643` raw residuals with aggregate delta `-602,750` bytes; all validation/property/generator/Starshine-command failure counts are zero. Case `515` executes the shared `41`-pass nested roster exactly once and leaves one empty effect-frontier wave. Behavior, lifecycle, evidence, and reviewed performance are closed; the dense-call artifact improved from `>1500s` to a seven-run `1.893s` median and the remaining gap was explicitly accepted by release review.
 
 ## Porting takeaway
 

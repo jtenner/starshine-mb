@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ./index.md
   - ../../../../../src/passes/optimize.mbt
@@ -30,7 +30,7 @@ For first-slice implementation order and validation details, use [`./starshine-p
 
 ## Current status
 
-Starshine has a **behavior- and lifecycle-complete module-pass surface** for the represented Binaryen-v131 plain `dead-argument-elimination` / upstream `dae` boundary family. The authoritative current evidence is in [`completion-matrix.md`](./completion-matrix.md); unsupported proposal surfaces continue to fail closed. Release completion is blocked only by the dense-call artifact-scale performance item `[O4Z-DAE-PERF]001`.
+Starshine has a **behavior-, lifecycle-, and release-signoff-complete module-pass surface** for the represented Binaryen-v131 plain `dead-argument-elimination` / upstream `dae` boundary family. The authoritative current evidence is in [`completion-matrix.md`](./completion-matrix.md); unsupported proposal surfaces continue to fail closed. Release review accepted the remaining dense-call performance gap on July 25, 2026, so no DAE-owned release blocker remains.
 
 The important local naming split is now:
 
@@ -117,13 +117,13 @@ The practical design should be a shared module-boundary core plus a scheduling f
    - current intent is to support both descriptive and upstream spellings for plain and optimizing DAE;
    - keep registry tests and pass catalogs aligned with that decision.
 
-## Current closure, 2026-07-24
+## Current closure, 2026-07-25
 
-Plain DAE represented behavior and lifecycle ownership are closed through `676b90f68c2993899c1f5432a2d4253dead50774`. Native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e` passes DAE whitebox `395/395`, public DAEO `342/342`, pass-manager `306/306`, full Moon `9908/9908`, and the full CI-profile wasm-gc gate.
+Plain DAE represented behavior, lifecycle ownership, final generated evidence, and reviewed performance are closed through the final evidence base `b49c3b7db8015c5cd5250a4cb59e4d8663d683c0`. Native SHA-256 `9bb2de779cdd5a2cdaca6332e896c8b8789e9b967243b0a5c1951943f9e1a600` passes DAE whitebox `414/414`, public DAEO `342/342`, pass-manager `306/306`, pass package `6441/6441`, full Moon `9927/9927`, and the full CI-profile wasm-gc gate.
 
-The final explicit-v131 plain matrix is regular `100000/100000` exact; dedicated `5000` normalized plus `5000` smaller residuals totaling `-18,750` canonical bytes; random-all `8471` normalized plus `219` cleanup-normalized and `1310` residuals totaling `-59,506`; and wasm-smith `9951` normalized plus `2` cleanup-normalized and `3` smaller residuals across `9956` comparable cases with only `44` Binaryen-only failures. No plain residual is larger. The `105` equal-size random-all cases each remove exactly one redundant local.
+The final explicit-v131 plain matrix is regular `100000/100000` exact; dedicated `5000` normalized plus `5000` smaller residuals totaling `-18,750` canonical bytes; random-all `8521` normalized plus `215` cleanup-normalized and `1264` residuals totaling `-55,694`; and wasm-smith `9951` normalized plus `2` cleanup-normalized and `3` smaller residuals across `9956` comparable cases with only `44` Binaryen-only failures. No plain residual is larger. The `107` equal-size random-all cases each remove exactly one redundant local and one rendered WAT line.
 
-Focused case-515 plain DAE has a seven-run median of `20.351ms`, below the repository's one-second representative target. Release completion nevertheless remains blocked by a new dense-call artifact-scale probe: a `3,597,499`-byte, `5,374`-definition module with roughly `251,000` rendered direct calls exceeds the `1500`-second Starshine bound, while Binaryen v131 `--dae` completes in `0.356s`. Historical retained-artifact validity/idempotence and `-9,670` canonical delta remain useful checkpoints, but they do not close this current performance blocker.
+Focused case-515 plain DAE has a seven-run whole-command median of `8.339ms`, below the repository's one-second representative target. The dense-call artifact-scale probe is a `3,597,499`-byte, `5,374`-definition module with roughly `251,000` rendered direct calls. Starshine improved from `>1500s` to a seven-run `1.893s` median while preserving byte-identical valid output; Binaryen v131's median is `0.356s`. Release review explicitly accepted that remaining gap because repeated local experiments were neutral or regressive and further material gains require a higher-risk architectural redesign. Historical retained-artifact validity/idempotence and the `-9,670` canonical delta remain useful checkpoints, but no DAE-owned release blocker remains.
 
 ## Scanner consolidation inventory and refactor plan, 2026-07-07
 

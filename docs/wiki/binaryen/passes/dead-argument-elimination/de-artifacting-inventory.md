@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 sources:
   - ../../../../../src/passes/dead_argument_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -110,11 +110,11 @@ The renewed direct DAEO comparison is raw Starshine `2,991,168` versus Binaryen 
 
 Public `optimize`, `shrink`, and `-O4z` on the representative small fixture each execute DAEO exactly once after late RSE/vacuum and immediately before `inlining-optimizing`; all three emit the same externally valid 37-byte module. A targeted large late-prefix replay `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing` completes in `28.258s`, validates externally, and emits `2,950,277` bytes, SHA-256 `83b10590ed50fa139b83233698f9a34e9c58b2ca64d16eb32ee673803b034db3`. The full large `-O4z` command does not reach DAEO within 1,800 seconds; its trace is still inside the earlier `simplify-locals-nostructure` slot at function 459, so that wall-time blocker is explicitly non-DAE-owned.
 
-## 2026-07-24 current endpoint
+## 2026-07-25 final endpoint
 
-Current generated evidence supersedes the historical canonical-positive random-all classification. Native SHA-256 `e6d703492f7008bd3265569e8620cfb6514cd1604e533e4bf497ed03bf8c066e` completes both variants' regular/dedicated/random-all/wasm-smith lanes with no positive canonical-size residual. Plain residual deltas are `-18,750`, `-59,506`, and `-38`; DAEO residual deltas are `-37,910`, `-633,486`, and `-58`. Plain's `105` equal-size random-all residuals each remove one redundant local. DAEO's current `185` `coverage-forced-portable` residuals are guarded cleanup wins totaling `-629,255` bytes. The old `+4,318` retained-artifact ledger remains historical shared-local-cleanup evidence, not a current generated DAE blocker.
+Final generated evidence supersedes the historical canonical-positive random-all classification. Native SHA-256 `9bb2de779cdd5a2cdaca6332e896c8b8789e9b967243b0a5c1951943f9e1a600` completes both variants' regular/dedicated/random-all/wasm-smith lanes with no positive canonical-size residual. Plain residual deltas are `-18,750`, `-55,694`, and `-38`; DAEO residual deltas are `-37,910`, `-602,750`, and `-58`. Plain's `107` equal-size random-all residuals each remove one redundant local and one rendered WAT line. DAEO random-all's `174` `coverage-forced-portable` residuals remain guarded cleanup wins. The old `+4,318` retained-artifact ledger remains historical shared-local-cleanup evidence, not a current generated DAE blocker.
 
-No definition, index window, touched-count, body-size, module-size, or payoff threshold owns current DAE/DAEO semantics. Cleanup-deleted dependency edges are preserved by pre/post graph seeding, and case `515` proves one shared nested roster plus one empty effect-frontier wave. The only active DAE release blocker is not an admission artifact: cached lifecycle facts and single-owned commit handling reduced the dense-call plain-DAE probe from `>1500s` to `1.928s` with byte-identical valid output, but Binaryen remains `0.356s`; the remaining fixed-loop/selected-lane cost is tracked under `[O4Z-DAE-PERF]001`.
+No definition, index window, touched-count, body-size, module-size, or payoff threshold owns current DAE/DAEO semantics. Cleanup-deleted dependency edges are preserved by pre/post graph seeding, and case `515` proves one shared `41`-pass nested roster plus one empty effect-frontier wave. Release review accepted the dense-call plain-DAE seven-run `1.893s` median after the reduction from `>1500s`; output remains byte-identical and valid while Binaryen's median is `0.356s`. The remaining gap is a documented performance tradeoff rather than an admission artifact or release blocker.
 
 ## Closure rule
 
