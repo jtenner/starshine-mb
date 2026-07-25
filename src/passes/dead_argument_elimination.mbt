@@ -20723,6 +20723,25 @@ fn dae_rewrite_calls_from_stable_callsites(
 }
 
 ///|
+fn dae_scalar_rewrite_changed_defs(
+  target_def : Int,
+  caller_changed_defs : Array[Bool],
+) -> Array[Int] {
+  let changed_defs : Array[Int] = []
+  if target_def >= 0 && target_def < caller_changed_defs.length() {
+    changed_defs.push(target_def)
+  }
+  let mut def_idx = 0
+  while def_idx < caller_changed_defs.length() {
+    if caller_changed_defs[def_idx] && def_idx != target_def {
+      changed_defs.push(def_idx)
+    }
+    def_idx += 1
+  }
+  changed_defs
+}
+
+///|
 fn dae_build_scalar_unused_param_rewrite_plan(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
@@ -21066,17 +21085,17 @@ fn dae_build_scalar_unused_param_rewrite_plan(
   )
   let rewritten_funcs = caller_application.funcs
   rewritten_funcs[def_idx] = callee_rewrite
-  let mut cleanup_idx = 0
-  while cleanup_idx < rewritten_funcs.length() {
-    if graph.snapshot.funcs[cleanup_idx] != rewritten_funcs[cleanup_idx] {
-      let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[cleanup_idx]
-      let (cleaned_body, _) = dae_trim_instrs_after_unreachable_tail(body)
-      rewritten_funcs[cleanup_idx] = @lib.Func::new(
-        locals,
-        @lib.Expr::new(cleaned_body),
-      )
-    }
-    cleanup_idx += 1
+  let structurally_changed_defs = dae_scalar_rewrite_changed_defs(
+    def_idx,
+    caller_application.changed_defs,
+  )
+  for cleanup_idx in structurally_changed_defs {
+    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[cleanup_idx]
+    let (cleaned_body, _) = dae_trim_instrs_after_unreachable_tail(body)
+    rewritten_funcs[cleanup_idx] = @lib.Func::new(
+      locals,
+      @lib.Expr::new(cleaned_body),
+    )
   }
   callee_rewrite = rewritten_funcs[def_idx]
   let context = match
@@ -21148,18 +21167,11 @@ fn dae_build_scalar_unused_param_rewrite_plan(
     }
   }
   let touched = Array::make(graph.snapshot.defined, false)
-  let invalidated_dependencies : Array[Int] = [def_idx]
-  let mut touched_idx = 0
-  while touched_idx < rewritten_funcs.length() {
-    if graph.snapshot.funcs[touched_idx] != rewritten_funcs[touched_idx] {
-      touched[touched_idx] = true
-      if !invalidated_dependencies.contains(touched_idx) {
-        invalidated_dependencies.push(touched_idx)
-      }
-    }
-    touched_idx += 1
+  let invalidated_dependencies : Array[Int] = []
+  for touched_idx in structurally_changed_defs {
+    touched[touched_idx] = true
+    invalidated_dependencies.push(touched_idx)
   }
-  touched[def_idx] = true
   let target_epochs = graph.function_epochs[def_idx]
   let candidate_with_sections = mod_
     .with_type_sec(next_type_sec)
