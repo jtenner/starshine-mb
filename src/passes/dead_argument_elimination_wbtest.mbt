@@ -22828,6 +22828,13 @@ test "dae function call facts own active and anywhere self-call counts" {
 }
 
 ///|
+test "dae stale scalar tail waits only for remaining dropped-result work" {
+  assert_true(dae_should_skip_stale_scalar_result_tail(false, false))
+  assert_false(dae_should_skip_stale_scalar_result_tail(true, false))
+  assert_false(dae_should_skip_stale_scalar_result_tail(false, true))
+}
+
+///|
 test "dae plain low exact literals wait for a current scalar code snapshot" {
   assert_false(
     dae_should_collect_low_exact_literal_candidates(false, false, false),

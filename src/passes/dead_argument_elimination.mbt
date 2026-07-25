@@ -20007,6 +20007,49 @@ fn dae_apply_unread_param_batch_transaction(
 }
 
 ///|
+fn dae_current_graph_has_dropped_result_candidate(
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
+) -> Bool {
+  let snapshot = graph.snapshot
+  let facts = dae_boundary_facts_from_snapshots(original, graph)
+  let mut def_idx = 0
+  while def_idx < snapshot.defined {
+    let callee_abs = snapshot.imported + def_idx
+    let candidate = match
+      dae_dropped_result_candidate_from_boundary_facts(
+        snapshot.boundary_facts,
+        callee_abs,
+      ) {
+      Some(candidate) => candidate
+      None => {
+        def_idx += 1
+        continue
+      }
+    }
+    let self_calls = if callee_abs >= 0 &&
+      callee_abs < snapshot.function_infos.length() {
+      dae_self_call_counts_from_function_info(
+        snapshot.function_infos[callee_abs],
+        def_idx,
+      ).0
+    } else {
+      dae_count_self_calls(snapshot.funcs[def_idx], callee_abs)
+    }
+    if candidate.owned &&
+      candidate.direct_call_count != self_calls &&
+      dae_can_remove_function_result(facts, callee_abs) {
+      match snapshot.function_types[callee_abs] {
+        Some(@lib.FuncType(_, results)) if results.length() == 1 => return true
+        _ => ()
+      }
+    }
+    def_idx += 1
+  }
+  false
+}
+
+///|
 fn dae_try_apply_dropped_result_batch(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
@@ -20769,6 +20812,14 @@ fn dae_rewrite_calls_from_stable_callsites(
     calls_rewritten += result.calls_rewritten
   }
   { instrs: current, calls_rewritten, ok: true }
+}
+
+///|
+fn dae_should_skip_stale_scalar_result_tail(
+  scalar_plan_code_snapshot_current : Bool,
+  has_current_dropped_result_candidate : Bool,
+) -> Bool {
+  !scalar_plan_code_snapshot_current && !has_current_dropped_result_candidate
 }
 
 ///|
@@ -28434,6 +28485,7 @@ fn dae_run_core_once(
   producer_effects_report? : Array[DaeCommitEffects] = [],
   committed_application_report? : Array[DaeCoreResultApplication] = [],
   scalar_plan_code_snapshot_current? : Bool = true,
+  has_current_dropped_result_candidate? : Bool = true,
   traps_never_happen? : Bool = false,
 ) -> DaePassResult {
   let original_param_counts = original.param_counts
@@ -29108,6 +29160,13 @@ fn dae_run_core_once(
           )
         None => ()
       }
+    }
+    if params.length() > 0 &&
+      dae_should_skip_stale_scalar_result_tail(
+        scalar_plan_code_snapshot_current, has_current_dropped_result_candidate,
+      ) {
+      def_idx += 1
+      continue
     }
     if params.length() == 0 {
       let preserve_original_result = original_result_preservation_for_def
@@ -46257,6 +46316,9 @@ fn dae_run_core(
   let mut scalar_plan_code_snapshot_current = dae_scalar_plan_code_snapshot_is_current(
     current, current_boundary_graph,
   )
+  let mut has_current_dropped_result_candidate = dae_current_graph_has_dropped_result_candidate(
+    original_boundary_snapshot, current_boundary_graph,
+  )
   let mut current_call_counts_anywhere = match current.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       dae_collect_module_call_counts_anywhere(
@@ -46304,6 +46366,7 @@ fn dae_run_core(
         producer_effects_report~,
         committed_application_report~,
         scalar_plan_code_snapshot_current~,
+        has_current_dropped_result_candidate~,
         traps_never_happen~,
       )
       let before_primary_param_count = if result.primary_def >= 0 {
@@ -46388,6 +46451,9 @@ fn dae_run_core(
       scalar_plan_code_snapshot_current = dae_scalar_plan_code_snapshot_is_current(
         application.mod_out,
         current_boundary_graph,
+      )
+      has_current_dropped_result_candidate = dae_current_graph_has_dropped_result_candidate(
+        original_boundary_snapshot, current_boundary_graph,
       )
       let after_dependencies = dae_boundary_dependency_graph_new(
         current_boundary_graph,
