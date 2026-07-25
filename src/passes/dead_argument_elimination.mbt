@@ -1629,6 +1629,17 @@ priv struct DaeCoreResultApplication {
 }
 
 ///|
+priv struct DaeDroppedResultBatchApplication {
+  mod_out : @lib.Module
+  touched : Array[Bool]
+  changed : Bool
+  applied : Bool
+  primary_def : Int
+  effects : DaeCommitEffects
+  post_topology : DaeCurrentTopologyExtras?
+}
+
+///|
 priv struct DaeEffectFrontierRunResult {
   mod_out : @lib.Module
   touched : Array[Bool]
@@ -2632,14 +2643,35 @@ fn dae_make_function_epochs(
 }
 
 ///|
+fn dae_current_topology_extras_shape_matches(
+  topology : DaeCurrentTopologyExtras,
+  total : Int,
+) -> Bool {
+  topology.direct_return_callers.length() == total &&
+  topology.direct_return_callees_by_caller.length() == total &&
+  topology.has_outgoing_call_indirect.length() == total &&
+  topology.has_outgoing_call_ref.length() == total &&
+  topology.has_outgoing_return_call.length() == total &&
+  topology.has_outgoing_return_call_indirect.length() == total &&
+  topology.has_outgoing_return_call_ref.length() == total
+}
+
+///|
 fn dae_current_boundary_graph_new(
   mod_ : @lib.Module,
+  topology? : DaeCurrentTopologyExtras? = None,
 ) -> DaeCurrentBoundaryGraph {
   let snapshot = dae_collect_module_boundary_snapshot(mod_)
   {
     mod_,
     snapshot,
-    topology: dae_collect_current_topology_extras(mod_, snapshot),
+    topology: match topology {
+      Some(value) if dae_current_topology_extras_shape_matches(
+          value,
+          snapshot.total,
+        ) => value
+      _ => dae_collect_current_topology_extras(mod_, snapshot)
+    },
     function_epochs: dae_make_function_epochs(snapshot.defined, 0, 0),
     module_epoch: 0,
     call_epoch: 0,
@@ -20242,6 +20274,7 @@ fn dae_try_apply_dropped_result_batch(
   original : DaeOriginalBoundarySnapshot,
   graph : DaeCurrentBoundaryGraph,
   active_defs? : Array[Bool]? = None,
+  topology_preserved_report? : Array[Bool] = [],
 ) -> DaePassResult {
   let snapshot = graph.snapshot
   let imported = snapshot.imported
@@ -20320,6 +20353,7 @@ fn dae_try_apply_dropped_result_batch(
   let touched = Array::make(defined, false)
   let mut first_def = -1
   let mut applied = 0
+  let mut topology_changed = false
   for plan in plans {
     let scope = dae_dropped_result_scope_from_optional(
       rewritten_funcs.length(),
@@ -20360,15 +20394,16 @@ fn dae_try_apply_dropped_result_batch(
     if rewritten_call_count != plan.direct_call_count {
       continue
     }
-    dae_repair_dead_suffix_calls_in_no_param_scope_except(
-      rewritten_funcs,
-      current_type_indices,
-      type_sec,
-      imported,
-      plan.callee_abs,
-      plan.def_idx,
-      scope,
-    )
+    topology_changed = dae_repair_dead_suffix_calls_in_no_param_scope_except(
+        rewritten_funcs,
+        current_type_indices,
+        type_sec,
+        imported,
+        plan.callee_abs,
+        plan.def_idx,
+        scope,
+      ) ||
+      topology_changed
     let @lib.Func(callee_locals, @lib.Expr(callee_body)) = rewritten_funcs[plan.def_idx]
     let next_body = callee_body.copy()
     next_body.push(@lib.Instruction::drop())
@@ -20405,6 +20440,7 @@ fn dae_try_apply_dropped_result_batch(
   if applied == 0 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  topology_preserved_report.push(!topology_changed)
   {
     mod_out: mod_
     .with_type_sec(type_sec)
@@ -20423,10 +20459,17 @@ fn dae_apply_dropped_result_batch_transaction(
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-) -> DaeCoreResultApplication {
+  retain_post_topology? : Bool = false,
+) -> DaeDroppedResultBatchApplication {
   let graph = dae_current_boundary_graph_new(current)
   let defined = graph.snapshot.defined
-  let candidate = dae_try_apply_dropped_result_batch(current, original, graph)
+  let topology_preserved_report : Array[Bool] = []
+  let candidate = dae_try_apply_dropped_result_batch(
+    current,
+    original,
+    graph,
+    topology_preserved_report~,
+  )
   if !candidate.changed {
     return {
       mod_out: current,
@@ -20435,6 +20478,7 @@ fn dae_apply_dropped_result_batch_transaction(
       applied: false,
       primary_def: -1,
       effects: dae_commit_effects_empty(defined),
+      post_topology: None,
     }
   }
   let candidate_defined = dae_defined_func_count(candidate.mod_out)
@@ -20446,6 +20490,7 @@ fn dae_apply_dropped_result_batch_transaction(
       applied: false,
       primary_def: -1,
       effects: dae_commit_effects_empty(defined),
+      post_topology: None,
     }
   }
   let candidate_type_indices = dae_collect_func_type_indices(candidate.mod_out)
@@ -20479,6 +20524,7 @@ fn dae_apply_dropped_result_batch_transaction(
             applied: false,
             primary_def: -1,
             effects: dae_commit_effects_empty(defined),
+            post_topology: None,
           }
         }
         effects.result_changed[def_idx] = true
@@ -20504,6 +20550,7 @@ fn dae_apply_dropped_result_batch_transaction(
       applied: false,
       primary_def: -1,
       effects: dae_commit_effects_empty(defined),
+      post_topology: None,
     }
   }
   def_idx = 0
@@ -20559,6 +20606,12 @@ fn dae_apply_dropped_result_batch_transaction(
         applied: true,
         primary_def: first_def,
         effects: finalized_effects,
+        post_topology: if retain_post_topology &&
+          topology_preserved_report.get(0) == Some(true) {
+          Some(graph.topology)
+        } else {
+          None
+        },
       }
     Err(_) =>
       {
@@ -20568,6 +20621,7 @@ fn dae_apply_dropped_result_batch_transaction(
         applied: false,
         primary_def: -1,
         effects: dae_commit_effects_empty(defined),
+        post_topology: None,
       }
   }
 }
@@ -23708,14 +23762,16 @@ fn dae_apply_dropped_result_repair_plan(
         plan.scope,
       )
     DaeRepairDeadSuffixNoParamCallers =>
-      dae_repair_dead_suffix_calls_in_no_param_scope_except(
-        funcs,
-        type_indices,
-        type_sec,
-        imported,
-        plan.callee_abs,
-        plan.skip_def,
-        plan.scope,
+      ignore(
+        dae_repair_dead_suffix_calls_in_no_param_scope_except(
+          funcs,
+          type_indices,
+          type_sec,
+          imported,
+          plan.callee_abs,
+          plan.skip_def,
+          plan.scope,
+        ),
       )
   }
   if dae_dropped_result_repair_plan_removes_call_drops(plan) &&
@@ -24342,9 +24398,9 @@ fn dae_repair_dead_suffix_calls_in_no_param_func_except(
   callee_abs : Int,
   skip_def : Int,
   func_idx : Int,
-) -> Unit {
+) -> Bool {
   if func_idx == skip_def || func_idx < 0 || func_idx >= funcs.length() {
-    return
+    return false
   }
   let abs_idx = imported + func_idx
   let has_no_params = if abs_idx >= 0 && abs_idx < type_indices.length() {
@@ -24356,12 +24412,14 @@ fn dae_repair_dead_suffix_calls_in_no_param_func_except(
     false
   }
   if has_no_params {
-    let (repaired, _) = dae_repair_dead_suffix_calls_func(
+    let (repaired, repair_changed) = dae_repair_dead_suffix_calls_func(
       funcs[func_idx],
       callee_abs,
     )
     funcs[func_idx] = repaired
+    return repair_changed
   }
+  false
 }
 
 ///|
@@ -24373,12 +24431,15 @@ fn dae_repair_dead_suffix_calls_in_no_param_scope_except(
   callee_abs : Int,
   skip_def : Int,
   scope : DaeDroppedResultScope,
-) -> Unit {
+) -> Bool {
+  let mut changed = false
   for func_idx in scope.caller_defs {
-    dae_repair_dead_suffix_calls_in_no_param_func_except(
-      funcs, type_indices, type_sec, imported, callee_abs, skip_def, func_idx,
-    )
+    changed = dae_repair_dead_suffix_calls_in_no_param_func_except(
+        funcs, type_indices, type_sec, imported, callee_abs, skip_def, func_idx,
+      ) ||
+      changed
   }
+  changed
 }
 
 ///|
@@ -46358,14 +46419,20 @@ fn dae_run_core(
   let original_dead_suffix_mutual_calls = original_boundary_snapshot.dead_suffix_mutual_calls
   let original_dead_suffix_calls_from_param_operand_self_result_callers = original_boundary_snapshot.dead_suffix_calls_from_param_operand_self_result_callers
   perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
+  let mut dropped_result_post_topology : DaeCurrentTopologyExtras? = None
   if !optimize && original_defined >= 1024 {
     let application = dae_apply_dropped_result_batch_transaction(
-      original_boundary_snapshot, current, touched, changed,
+      original_boundary_snapshot,
+      current,
+      touched,
+      changed,
+      retain_post_topology=true,
     )
     if application.applied {
       current = application.mod_out
       touched = application.touched
       changed = application.changed
+      dropped_result_post_topology = application.post_topology
       effects = dae_commit_effects_merge(effects, application.effects)
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
       dae_diagnostics_record_applied_effects(diagnostics, application.effects)
@@ -46510,7 +46577,10 @@ fn dae_run_core(
       perf, "detail:dae:core:direct-gc-batch", direct_gc_batch_start_us,
     )
   }
-  let current_boundary_graph = dae_current_boundary_graph_new(current)
+  let current_boundary_graph = dae_current_boundary_graph_new(
+    current,
+    topology=dropped_result_post_topology,
+  )
   let fixed_loop_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:fixed-loop",
   )

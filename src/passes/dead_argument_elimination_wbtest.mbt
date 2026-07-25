@@ -16893,8 +16893,13 @@ test "dae dropped result batch transaction is definition-count independent" {
     mod_,
     [],
     false,
+    retain_post_topology=true,
   )
   assert_true(application.applied)
+  match application.post_topology {
+    Some(_) => ()
+    None => fail("expected topology-preserving dropped-result batch evidence")
+  }
   let type_indices = dae_collect_func_type_indices(application.mod_out)
   match dae_resolve_func_type(application.mod_out, type_indices, 0) {
     Some(@lib.FuncType([], results)) => assert_eq(results.length(), 0)
