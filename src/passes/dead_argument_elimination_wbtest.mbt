@@ -19588,6 +19588,24 @@ test "dae direct immediate-suffix helper rejects an exposed boundary" {
 }
 
 ///|
+test "dae global suffix candidates come from touched caller callees" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $target)
+      #|  (func $other)
+      #|  (func call $target))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, true,
+    ]),
+    [true, false, false],
+  )
+}
+
+///|
 test "dae selected global suffix uses signature plan and rejects original exposure" {
   let original_source =
     #|(module

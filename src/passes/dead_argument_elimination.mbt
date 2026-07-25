@@ -30444,6 +30444,35 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 }
 
 ///|
+fn dae_collect_direct_callee_defs_from_selected_callers(
+  mod_ : @lib.Module,
+  selected_callers : Array[Bool],
+) -> Array[Bool] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return []
+  }
+  let imported = dae_imported_func_count(mod_)
+  let defined = funcs.length()
+  let selected = Array::make(defined, false)
+  let mut caller_def = 0
+  while caller_def < defined && caller_def < selected_callers.length() {
+    if selected_callers[caller_def] {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      let callees : Array[Int] = []
+      dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
+      for callee_def in callees {
+        if callee_def >= 0 && callee_def < defined {
+          selected[callee_def] = true
+        }
+      }
+    }
+    caller_def += 1
+  }
+  selected
+}
+
+///|
 fn dae_collect_changed_direct_callee_defs(
   before : @lib.Module,
   current : @lib.Module,
@@ -47529,9 +47558,8 @@ fn dae_run_core(
       "pass[dae-optimizing]:changed-terminal-call-args-b primary_def=\{terminal_args313_application.primary_def}",
     )
   }
-  let global_suffix_candidates = Array::make(
-    dae_defined_func_count(current),
-    true,
+  let global_suffix_candidates = dae_collect_direct_callee_defs_from_selected_callers(
+    current, touched,
   )
   while true {
     let global_suffix_application = dae_apply_selected_func323_global_suffix_transaction(
