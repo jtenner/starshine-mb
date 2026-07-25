@@ -3880,16 +3880,40 @@ fn dae_work_item_new(
 }
 
 ///|
-fn dae_body_cleanup_work_item_new(
+fn dae_boundary_dependency_graph_empty() -> DaeBoundaryDependencyGraph {
+  {
+    callers_by_def: [],
+    callees_by_def: [],
+    return_callers_by_def: [],
+    parameter_forwarding_edges: [],
+    parameter_forwarders_by_def: [],
+    uniform_value_forwarders_by_def: [],
+    result_forwarders_by_def: [],
+    result_dependencies_by_def: [],
+    result_observers_by_def: [],
+    tail_result_dependencies_by_def: [],
+    type_dependencies_by_def: [],
+    body_use_dependencies_by_def: [],
+    nested_cleanup_dependencies_by_def: [],
+    component_by_def: [],
+    component_members: [],
+    forwarding_component_by_def: [],
+    forwarding_component_members: [],
+  }
+}
+
+///|
+fn dae_nonforwarding_work_item_new(
   graph : DaeCurrentBoundaryGraph,
   target_def : Int,
+  family : DaeWorkFamily,
 ) -> DaeWorkItem {
   let epoch = dae_boundary_candidate_epoch(graph, target_def)
   {
     target_def,
     component_id: -1,
     component_members: [],
-    family: DaeBodyCleanupWork,
+    family,
     uniform_values: [],
     allow_immutable_global_get: false,
     allow_immediate_i32_suffix_fallback: false,
@@ -3899,6 +3923,14 @@ fn dae_body_cleanup_work_item_new(
     expected_signature_epoch: epoch.signature_epoch,
     expected_body_epoch: epoch.body_epoch,
   }
+}
+
+///|
+fn dae_body_cleanup_work_item_new(
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+) -> DaeWorkItem {
+  dae_nonforwarding_work_item_new(graph, target_def, DaeBodyCleanupWork)
 }
 
 ///|
@@ -28381,11 +28413,19 @@ fn dae_try_process_core_work_item(
   dependencies? : DaeBoundaryDependencyGraph? = None,
   apply_followups? : Bool = true,
 ) -> DaeCoreResultApplication? {
-  let active_dependencies = match dependencies {
-    Some(dependencies) => dependencies
-    None => dae_boundary_dependency_graph_new(graph)
+  let active_dependencies = if family == DaeForwardingWork {
+    match dependencies {
+      Some(dependencies) => dependencies
+      None => dae_boundary_dependency_graph_new(graph)
+    }
+  } else {
+    dae_boundary_dependency_graph_empty()
   }
-  let item = dae_work_item_new(graph, active_dependencies, target_def, family)
+  let item = if family == DaeForwardingWork {
+    dae_work_item_new(graph, active_dependencies, target_def, family)
+  } else {
+    dae_nonforwarding_work_item_new(graph, target_def, family)
+  }
   let diagnostics = dae_diagnostics_new()
   match
     dae_process_work_item(
@@ -46358,9 +46398,7 @@ fn dae_run_core(
   // termination follows from an empty queue rather than an iteration budget.
   let no_already_rewritten_defs : Array[Bool] = []
   let core_worklist = dae_boundary_worklist_all(original_defined)
-  let mut current_dependencies = dae_boundary_dependency_graph_new(
-    current_boundary_graph,
-  )
+  let mut current_dependencies = dae_boundary_dependency_graph_empty()
   let mut scalar_plan_code_snapshot_current = dae_scalar_plan_code_snapshot_is_current(
     current, current_boundary_graph,
   )
@@ -46392,7 +46430,6 @@ fn dae_run_core(
         None => break
       }
       diagnostics.boundaries_analyzed += 1
-      let before_dependencies = current_dependencies
       let before_call_facts = current_boundary_graph.snapshot.call_facts
       let call_epoch = current_boundary_graph.call_epoch
       let boundary_facts = current_boundary_graph.snapshot.boundary_facts
@@ -46492,6 +46529,9 @@ fn dae_run_core(
           }
         }
       }
+      let before_dependencies = dae_boundary_dependency_graph_new(
+        current_boundary_graph,
+      )
       dae_current_boundary_graph_refresh(
         current_boundary_graph,
         application.mod_out,

@@ -16793,6 +16793,19 @@ test "dae unread parameter batch transaction reports each signature plan effect"
 }
 
 ///|
+test "dae synchronous nonforwarding work starts without dependency components" {
+  let dependencies = dae_boundary_dependency_graph_empty()
+  assert_eq(dependencies.component_by_def, [])
+  assert_eq(dependencies.result_observers_by_def, [])
+  let source =
+    #|(module (func))
+  let graph = dae_current_boundary_graph_new(pass_test_module_from_wat(source))
+  let item = dae_nonforwarding_work_item_new(graph, 0, DaeDroppedResultWork)
+  assert_eq(item.component_id, -1)
+  assert_eq(item.component_members, [])
+}
+
+///|
 test "dae body cleanup work items do not construct dependency components" {
   let source =
     #|(module (func))
