@@ -22758,6 +22758,35 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae raw cleanup preflight skips call-only bodies and admits nested drops" {
+  assert_false(
+    dae_instrs_may_have_raw_cleanup_candidate(
+      [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      ],
+      None,
+      false,
+    ),
+  )
+  assert_true(
+    dae_instrs_may_have_raw_cleanup_candidate(
+      [
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ],
+      None,
+      false,
+    ),
+  )
+}
+
+///|
 test "dae unreachable-debris cleanup admits only root-transfer bodies" {
   assert_false(
     dae_instrs_may_have_unreachable_debris([

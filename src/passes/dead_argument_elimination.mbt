@@ -32484,6 +32484,130 @@ fn dae_strip_trailing_dropped_unreachable_before_unreachable(
 }
 
 ///|
+fn dae_instrs_may_have_raw_cleanup_candidate(
+  instrs : Array[@lib.Instruction],
+  type_sec : @lib.TypeSec?,
+  allow_live_local_copy_cleanup : Bool,
+) -> Bool {
+  let mut idx = 0
+  while idx < instrs.length() {
+    let instr = instrs[idx]
+    if instr == @lib.Instruction::return_() ||
+      instr == @lib.Instruction::drop() ||
+      dae_instr_is_unreachable_root(instr) {
+      return true
+    }
+    if idx > 0 {
+      match dae_redundant_access_cleanup_evidence(instrs[idx - 1], instr) {
+        Some(_) => return true
+        None => ()
+      }
+    }
+    match dae_dropped_local_tee_suffix_cleanup_evidence(instrs, idx) {
+      Some(_) => return true
+      None => ()
+    }
+    if idx + 1 < instrs.length() {
+      if dae_instr_integer_zero_compare_replacement(instr, instrs[idx + 1])
+        is Some(_) ||
+        dae_instr_is_integer_right_constant_identity(instr, instrs[idx + 1]) {
+        return true
+      }
+    }
+    if idx > 0 && idx + 1 < instrs.length() {
+      let previous = instrs[idx - 1]
+      let next = instrs[idx + 1]
+      if dae_instr_self_comparison_replacement(previous, instr, next) is Some(_) ||
+        dae_instr_self_integer_binary_replacement(previous, instr, next)
+        is Some(_) ||
+        (
+          dae_instr_is_stack_neutral_value_leaf(instr) &&
+          dae_instr_integer_zero_compare_replacement(previous, next) is Some(_)
+        ) ||
+        (
+          dae_instr_is_stack_neutral_value_leaf(instr) &&
+          dae_instr_is_integer_left_constant_identity(previous, next)
+        ) {
+        return true
+      }
+    }
+    if allow_live_local_copy_cleanup {
+      match instr {
+        @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) => return true
+        _ => ()
+      }
+    } else {
+      match dae_live_local_copy_cleanup_evidence(instrs, idx, None) {
+        Some(evidence) if dae_live_local_copy_cleanup_evidence_is_consistent(
+            evidence,
+          ) => return true
+        _ => ()
+      }
+    }
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body))
+      | @lib.Loop(block_type, @lib.Expr(body))
+      | @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        if dae_instrs_may_have_raw_cleanup_candidate(
+            body, type_sec, allow_live_local_copy_cleanup,
+          ) {
+          return true
+        }
+        match
+          dae_empty_zero_result_control_cleanup_evidence(
+            block_type,
+            type_sec,
+            body.length(),
+          ) {
+          Some(evidence) if dae_empty_zero_result_control_cleanup_allows_drop(
+              evidence,
+            ) => return true
+          _ => ()
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        if dae_instrs_may_have_raw_cleanup_candidate(
+            then_body, type_sec, allow_live_local_copy_cleanup,
+          ) {
+          return true
+        }
+        let else_length = match else_body {
+          Some(body) => {
+            if dae_instrs_may_have_raw_cleanup_candidate(
+                body, type_sec, allow_live_local_copy_cleanup,
+              ) {
+              return true
+            }
+            body.length()
+          }
+          None => 0
+        }
+        match
+          dae_empty_zero_result_if_cleanup_evidence(
+            block_type,
+            type_sec,
+            then_body.length(),
+            else_length,
+          ) {
+          Some(evidence) if dae_empty_zero_result_control_cleanup_allows_drop(
+              evidence,
+            ) => return true
+          _ => ()
+        }
+        if idx >= 2 &&
+          instrs[idx - 1] == @lib.Instruction::i32_eqz() &&
+          instrs[idx - 2] == @lib.Instruction::i32_eqz() {
+          return true
+        }
+      }
+      _ => ()
+    }
+    idx += 1
+  }
+  false
+}
+
+///|
 fn dae_strip_nops_and_dropped_pure_leaf_instrs(
   instrs : Array[@lib.Instruction],
   type_sec : @lib.TypeSec?,
@@ -32792,11 +32916,20 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
   let mut def_idx = 0
   while def_idx < funcs.length() {
     let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let allow_live_local_copy_cleanup = def_idx < touched_defs.length() &&
+      touched_defs[def_idx]
+    if !dae_instrs_may_have_raw_cleanup_candidate(
+        body,
+        mod_.type_sec,
+        allow_live_local_copy_cleanup,
+      ) {
+      def_idx += 1
+      continue
+    }
     let rewritten = dae_strip_nops_and_dropped_pure_leaf_instrs(
       body,
       mod_.type_sec,
-      allow_live_local_copy_cleanup=def_idx < touched_defs.length() &&
-        touched_defs[def_idx],
+      allow_live_local_copy_cleanup~,
     )
     if rewritten != body {
       let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten))
