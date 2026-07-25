@@ -16793,6 +16793,12 @@ test "dae unread parameter batch transaction reports each signature plan effect"
 }
 
 ///|
+test "dae synchronous body-only plans rely on epochs rather than call rescans" {
+  assert_false(dae_family_plan_requires_call_identity_validation(true))
+  assert_true(dae_family_plan_requires_call_identity_validation(false))
+}
+
+///|
 test "dae body cleanup transactions retain the pass original snapshot" {
   let original_mod = pass_test_module_from_wat(
     (

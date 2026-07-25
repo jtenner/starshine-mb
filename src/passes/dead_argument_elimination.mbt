@@ -2091,6 +2091,7 @@ priv struct DaeFamilyRewritePlan {
   expected_type_epoch : Int
   expected_functions : Array[DaeComponentMemberExpectation]
   expected_call_identities : Array[DaeDirectCallIdentity]
+  validate_call_identities : Bool
   source : @lib.Module
   candidate : DaePassResult
 }
@@ -3918,6 +3919,13 @@ fn dae_family_fallback_candidate_is_body_only(
 }
 
 ///|
+fn dae_family_plan_requires_call_identity_validation(
+  body_only_transaction : Bool,
+) -> Bool {
+  !body_only_transaction
+}
+
+///|
 fn dae_build_family_rewrite_plan(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -3925,6 +3933,7 @@ fn dae_build_family_rewrite_plan(
   target_def : Int,
   candidate : DaePassResult,
   effects? : DaeCommitEffects? = None,
+  body_only_transaction? : Bool = false,
 ) -> DaeFamilyRewritePlan? {
   if target_def < 0 ||
     target_def >= graph.snapshot.defined ||
@@ -3937,6 +3946,9 @@ fn dae_build_family_rewrite_plan(
     return None
   }
   let next_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let validate_call_identities = dae_family_plan_requires_call_identity_validation(
+    body_only_transaction,
+  )
   let expected_functions : Array[DaeComponentMemberExpectation] = []
   let expected_call_identities : Array[DaeDirectCallIdentity] = []
   let shared_facts : DaeBoundaryFacts = {
@@ -3969,10 +3981,11 @@ fn dae_build_family_rewrite_plan(
         return None
       }
       let epochs = graph.function_epochs[def_idx]
-      let (direct_calls, return_calls) = dae_count_component_target_call_kinds(
-        graph.snapshot.funcs,
-        func_abs,
-      )
+      let (direct_calls, return_calls) = if validate_call_identities {
+        dae_count_component_target_call_kinds(graph.snapshot.funcs, func_abs)
+      } else {
+        (0, 0)
+      }
       expected_functions.push({
         def_idx,
         signature_epoch: epochs.signature_epoch,
@@ -3980,9 +3993,14 @@ fn dae_build_family_rewrite_plan(
         direct_calls,
         return_calls,
       })
-      for
-        identity in dae_collect_target_call_identities(graph.snapshot, func_abs) {
-        expected_call_identities.push(identity)
+      if validate_call_identities {
+        for
+          identity in dae_collect_target_call_identities(
+            graph.snapshot,
+            func_abs,
+          ) {
+          expected_call_identities.push(identity)
+        }
       }
     }
     def_idx += 1
@@ -4013,6 +4031,7 @@ fn dae_build_family_rewrite_plan(
     expected_type_epoch: graph.type_epoch,
     expected_functions,
     expected_call_identities,
+    validate_call_identities,
     source: current,
     candidate,
   })
@@ -4043,20 +4062,24 @@ fn dae_apply_family_rewrite_plan(
       epochs.body_epoch != expected.body_epoch {
       return dae_rewrite_plan_rejection(current, DaeStaleCandidateFacts)
     }
-    let func_abs = graph.snapshot.imported + expected.def_idx
-    let (direct_calls, return_calls) = dae_count_component_target_call_kinds(
-      graph.snapshot.funcs,
-      func_abs,
-    )
-    if direct_calls != expected.direct_calls ||
-      return_calls != expected.return_calls {
-      return dae_rewrite_plan_rejection(current, DaeCallCountChanged)
-    }
-    for identity in dae_collect_target_call_identities(graph.snapshot, func_abs) {
-      actual_call_identities.push(identity)
+    if plan.validate_call_identities {
+      let func_abs = graph.snapshot.imported + expected.def_idx
+      let (direct_calls, return_calls) = dae_count_component_target_call_kinds(
+        graph.snapshot.funcs,
+        func_abs,
+      )
+      if direct_calls != expected.direct_calls ||
+        return_calls != expected.return_calls {
+        return dae_rewrite_plan_rejection(current, DaeCallCountChanged)
+      }
+      for
+        identity in dae_collect_target_call_identities(graph.snapshot, func_abs) {
+        actual_call_identities.push(identity)
+      }
     }
   }
-  if actual_call_identities != plan.expected_call_identities {
+  if plan.validate_call_identities &&
+    actual_call_identities != plan.expected_call_identities {
     return dae_rewrite_plan_rejection(current, DaeCallCountChanged)
   }
   if plan.candidate.primary_def != plan.target_def ||
@@ -4217,6 +4240,7 @@ fn dae_apply_family_result_transaction(
       target_def,
       normalized_candidate,
       effects~,
+      body_only_transaction~,
     ) {
     Some(plan) => plan
     None =>
