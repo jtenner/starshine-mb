@@ -22781,6 +22781,24 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae scalar planning requires the graph code snapshot to match current code" {
+  let current = pass_test_module_from_wat("(module (func nop))")
+  let graph = dae_current_boundary_graph_new(current)
+  assert_true(dae_scalar_plan_code_snapshot_is_current(current, graph))
+  let funcs = match current.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => abort("expected code section")
+  }
+  let @lib.Func(locals, _) = funcs[0]
+  funcs[0] = @lib.Func::new(
+    locals,
+    @lib.Expr::new([@lib.Instruction::unreachable_()]),
+  )
+  let changed = current.with_code_sec(@lib.CodeSec::new(funcs))
+  assert_false(dae_scalar_plan_code_snapshot_is_current(changed, graph))
+}
+
+///|
 test "dae raw cleanup preflight skips call-only bodies and admits nested drops" {
   assert_false(
     dae_instrs_may_have_raw_cleanup_candidate(

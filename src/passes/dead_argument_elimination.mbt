@@ -20757,6 +20757,17 @@ fn dae_rewrite_calls_from_stable_callsites(
 }
 
 ///|
+fn dae_scalar_plan_code_snapshot_is_current(
+  mod_ : @lib.Module,
+  graph : DaeCurrentBoundaryGraph,
+) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs == graph.snapshot.funcs
+    None => graph.snapshot.funcs.length() == 0
+  }
+}
+
+///|
 fn dae_scalar_rewrite_changed_defs(
   target_def : Int,
   caller_changed_defs : Array[Bool],
@@ -28370,6 +28381,7 @@ fn dae_run_core_once(
   dependencies? : DaeBoundaryDependencyGraph? = None,
   producer_effects_report? : Array[DaeCommitEffects] = [],
   committed_application_report? : Array[DaeCoreResultApplication] = [],
+  scalar_plan_code_snapshot_current? : Bool = true,
   traps_never_happen? : Bool = false,
 ) -> DaePassResult {
   let original_param_counts = original.param_counts
@@ -29222,6 +29234,10 @@ fn dae_run_core_once(
     }
     let preserve_current_result = original_result_preservation_for_def
     if any && !skip_param_removal {
+      if !scalar_plan_code_snapshot_current {
+        def_idx += 1
+        continue
+      }
       let scalar_unused_only = const_params.all(fn(value) { value is None })
       if scalar_unused_only {
         let callee_source = if !has_rewrite_mod {
@@ -46175,6 +46191,9 @@ fn dae_run_core(
   let mut current_dependencies = dae_boundary_dependency_graph_new(
     current_boundary_graph,
   )
+  let mut scalar_plan_code_snapshot_current = dae_scalar_plan_code_snapshot_is_current(
+    current, current_boundary_graph,
+  )
   let mut current_call_counts_anywhere = match current.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       dae_collect_module_call_counts_anywhere(
@@ -46221,6 +46240,7 @@ fn dae_run_core(
         dependencies=Some(current_dependencies),
         producer_effects_report~,
         committed_application_report~,
+        scalar_plan_code_snapshot_current~,
         traps_never_happen~,
       )
       let before_primary_param_count = if result.primary_def >= 0 {
@@ -46301,6 +46321,10 @@ fn dae_run_core(
       dae_current_boundary_graph_refresh(
         current_boundary_graph,
         application.mod_out,
+      )
+      scalar_plan_code_snapshot_current = dae_scalar_plan_code_snapshot_is_current(
+        application.mod_out,
+        current_boundary_graph,
       )
       let after_dependencies = dae_boundary_dependency_graph_new(
         current_boundary_graph,
