@@ -21378,7 +21378,45 @@ fn dae_build_signature_rewrite_plan_from_candidate(
 }
 
 ///|
+fn dae_rewrite_plan_candidate_caller_boundaries_match(
+  plan : DaeRewritePlan,
+) -> Bool {
+  if plan.effects.caller_drop_removed.any(fn(value) { value }) {
+    return true
+  }
+  let candidate_funcs = match plan.candidate.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return false
+  }
+  for rewrite in plan.caller_rewrites {
+    if rewrite.def_idx < 0 ||
+      rewrite.def_idx >= candidate_funcs.length() ||
+      rewrite.def_idx >= plan.rewritten_funcs.length() {
+      return false
+    }
+    let @lib.Func(candidate_locals, @lib.Expr(candidate_body)) = candidate_funcs[rewrite.def_idx]
+    let @lib.Func(rewritten_locals, @lib.Expr(rewritten_body)) = plan.rewritten_funcs[rewrite.def_idx]
+    if candidate_locals.length() != rewritten_locals.length() ||
+      candidate_body.length() != rewritten_body.length() {
+      return false
+    }
+    if candidate_body.length() > 0 &&
+      (
+        candidate_body[0] != rewritten_body[0] ||
+        candidate_body[candidate_body.length() - 1] !=
+        rewritten_body[rewritten_body.length() - 1]
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn dae_rewrite_plan_is_consistent(plan : DaeRewritePlan) -> Bool {
+  if !dae_rewrite_plan_candidate_caller_boundaries_match(plan) {
+    return false
+  }
   let @lib.FuncType(old_params, old_results) = plan.old_signature
   let @lib.FuncType(next_params, next_results) = plan.replacement_signature
   if plan.parameter_actions.length() != old_params.length() ||
