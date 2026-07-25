@@ -16793,6 +16793,27 @@ test "dae unread parameter batch transaction reports each signature plan effect"
 }
 
 ///|
+test "dae body cleanup transactions retain the pass original snapshot" {
+  let original_mod = pass_test_module_from_wat(
+    (
+      #|(module (func (result i32) i32.const 7)),
+    ),
+  )
+  let current_mod = pass_test_module_from_wat(
+    (
+      #|(module (func (export "visible") (result i32) i32.const 7)),
+    ),
+  )
+  let original = dae_collect_original_boundary_snapshot(original_mod)
+  let selected = dae_body_cleanup_transaction_original_snapshot(
+    original, current_mod,
+  )
+  assert_eq(selected.exposure.length(), original.exposure.length())
+  assert_false(selected.exposure[0].exported)
+  assert_false(selected.exposure[0].ref_func_module)
+}
+
+///|
 test "dae dropped result batch facts reuse authoritative original and current snapshots" {
   let source =
     #|(module

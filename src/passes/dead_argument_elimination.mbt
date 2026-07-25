@@ -4298,8 +4298,16 @@ fn dae_commit_effects_body_only_cleanup(
 }
 
 ///|
+fn dae_body_cleanup_transaction_original_snapshot(
+  original : DaeOriginalBoundarySnapshot,
+  _current : @lib.Module,
+) -> DaeOriginalBoundarySnapshot {
+  original
+}
+
+///|
 fn dae_process_precomputed_body_work_item(
-  _original : DaeOriginalBoundarySnapshot,
+  original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
@@ -4332,7 +4340,7 @@ fn dae_process_precomputed_body_work_item(
   }
   let effects = dae_commit_effects_body_only_cleanup(current, candidate)
   let application = dae_apply_family_result_transaction(
-    dae_collect_original_boundary_snapshot(current),
+    dae_body_cleanup_transaction_original_snapshot(original, current),
     current,
     touched,
     changed,
