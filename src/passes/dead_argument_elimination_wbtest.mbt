@@ -16793,6 +16793,18 @@ test "dae unread parameter batch transaction reports each signature plan effect"
 }
 
 ///|
+test "dae body cleanup work items do not construct dependency components" {
+  let source =
+    #|(module (func))
+  let mod_ = pass_test_module_from_wat(source)
+  let graph = dae_current_boundary_graph_new(mod_)
+  let item = dae_body_cleanup_work_item_new(graph, 0)
+  assert_eq(item.family, DaeBodyCleanupWork)
+  assert_eq(item.component_id, -1)
+  assert_eq(item.component_members, [])
+}
+
+///|
 test "dae synchronous body-only plans rely on epochs rather than call rescans" {
   assert_false(dae_family_plan_requires_call_identity_validation(true))
   assert_true(dae_family_plan_requires_call_identity_validation(false))

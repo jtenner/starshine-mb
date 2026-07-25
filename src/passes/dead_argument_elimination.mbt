@@ -3880,6 +3880,28 @@ fn dae_work_item_new(
 }
 
 ///|
+fn dae_body_cleanup_work_item_new(
+  graph : DaeCurrentBoundaryGraph,
+  target_def : Int,
+) -> DaeWorkItem {
+  let epoch = dae_boundary_candidate_epoch(graph, target_def)
+  {
+    target_def,
+    component_id: -1,
+    component_members: [],
+    family: DaeBodyCleanupWork,
+    uniform_values: [],
+    allow_immutable_global_get: false,
+    allow_immediate_i32_suffix_fallback: false,
+    expected_module_epoch: epoch.module_epoch,
+    expected_call_epoch: epoch.call_epoch,
+    expected_type_epoch: epoch.type_epoch,
+    expected_signature_epoch: epoch.signature_epoch,
+    expected_body_epoch: epoch.body_epoch,
+  }
+}
+
+///|
 fn dae_work_item_epoch_is_current(
   graph : DaeCurrentBoundaryGraph,
   item : DaeWorkItem,
@@ -4478,7 +4500,6 @@ fn dae_apply_body_only_family_result_transaction(
     }
   }
   let graph = dae_current_boundary_graph_new(current)
-  let dependencies = dae_boundary_dependency_graph_new(graph)
   match
     dae_process_precomputed_body_work_item(
       _original,
@@ -4486,12 +4507,7 @@ fn dae_apply_body_only_family_result_transaction(
       touched,
       changed,
       graph,
-      dae_work_item_new(
-        graph,
-        dependencies,
-        candidate.primary_def,
-        DaeBodyCleanupWork,
-      ),
+      dae_body_cleanup_work_item_new(graph, candidate.primary_def),
       candidate,
       diagnostics,
     ) {
