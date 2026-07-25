@@ -22781,6 +22781,14 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae unobserved-shape simplification scans only callable signatures" {
+  assert_false(dae_should_scan_unobserved_shape(0, 0, 1))
+  assert_false(dae_should_scan_unobserved_shape(1, 0, 0))
+  assert_true(dae_should_scan_unobserved_shape(1, 0, 1))
+  assert_true(dae_should_scan_unobserved_shape(0, 1, 1))
+}
+
+///|
 test "dae function call facts own active and anywhere self-call counts" {
   let mod_ = pass_test_module_from_wat(
     (

@@ -28393,6 +28393,16 @@ fn dae_should_collect_phase_local_uniform_constants(
 }
 
 ///|
+fn dae_should_scan_unobserved_shape(
+  current_param_count : Int,
+  current_result_count : Int,
+  current_calls_anywhere : Int,
+) -> Bool {
+  (current_param_count > 0 || current_result_count > 0) &&
+  current_calls_anywhere > 0
+}
+
+///|
 fn dae_run_core_once(
   mod_ : @lib.Module,
   already_rewritten_defs : Array[Bool],
@@ -28571,18 +28581,22 @@ fn dae_run_core_once(
       None => (0, 0)
     }
     let @lib.Func(_, @lib.Expr(current_body)) = funcs[def_idx]
-    let current_simplified_unreachable_only = dae_func_is_unreachable_only(
-      dae_simplify_to_unreachable_when_prefix_unobservable(funcs[def_idx]),
+    let current_calls_anywhere = dae_original_int_fact_at(
+      current_call_counts_anywhere, def_idx,
     )
-    let unobserved_shape_candidate = (
-        current_param_count > 0 || current_result_count > 0
+    let unobserved_shape_candidate = if dae_should_scan_unobserved_shape(
+        current_param_count, current_result_count, current_calls_anywhere,
+      ) {
+      dae_func_is_unreachable_only(
+        dae_simplify_to_unreachable_when_prefix_unobservable(funcs[def_idx]),
       ) &&
-      current_simplified_unreachable_only &&
-      dae_original_int_fact_at(current_call_counts_anywhere, def_idx) > 0 &&
       (
         current_result_count == 0 ||
         dae_dead_suffix_has_undropped_direct_call_to(current_body, callee_abs)
       )
+    } else {
+      false
+    }
     if unobserved_shape_candidate &&
       boundary_candidate.direct_call_count == self_calls &&
       !skip_original_large_result_cleanup &&
