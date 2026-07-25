@@ -220,6 +220,7 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
   - [x] Identify repeated full-module/call-graph scans whose complexity dominates dense-call inputs.
   - [x] Cache current call counts, dependency graphs, boundary facts, dropped-result prechecks, and committed applications without changing producer ownership or invalidation semantics; keep followups on the outer dependency frontier.
   - [x] Make the forwarded-constant revisit optimizing-only after the plain canonical fixed loop became the sole exact-uniform owner; a same-session native A/B improved `83.614s -> 79.939s` with byte-identical output.
+  - [x] Reuse the fixed-loop epoch/dependency graph in the plain post-revisit exact-literal worklist when no intervening producer committed; a same-session native A/B improved `65.833s -> 62.265s`.
   - [ ] Reduce the remaining `59.233s` fixed-loop/selected-lane cost to an explicitly accepted release bound, then renew the focused lifecycle trace, generated four-lane matrix, and repository gates.
 - **Invariants:** no `FuncNNN`, module-size, call-count, or body-size semantic bypass; no skipped validation; no hidden truncation of work; exact existing outputs and residual classifications must remain stable unless a new measured Starshine win is proved.
 - **Exit criteria:** accepted artifact-scale pass-local timing with valid output, preserved focused sub-second medians, and no generated semantic/size regression.

@@ -41098,6 +41098,8 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   allow_immutable_global_get? : Bool = false,
   allow_immediate_i32_suffix_fallback? : Bool = false,
   original? : DaeOriginalBoundarySnapshot? = None,
+  graph? : DaeCurrentBoundaryGraph? = None,
+  dependencies? : DaeBoundaryDependencyGraph? = None,
 ) -> DaeExactLiteralWorklistApplication {
   let mut mod_out = current
   let mut touched_out = touched
@@ -41111,31 +41113,42 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
     Some(original) => original
     None => dae_collect_original_boundary_snapshot(current)
   }
-  let graph = dae_current_boundary_graph_new(current)
-  let mut dependencies = dae_boundary_dependency_graph_new(graph)
+  let active_graph = match graph {
+    Some(graph) => graph
+    None => dae_current_boundary_graph_new(current)
+  }
+  let mut active_dependencies = match dependencies {
+    Some(dependencies) => dependencies
+    None => dae_boundary_dependency_graph_new(active_graph)
+  }
   let mut flow = if allow_immutable_global_get {
     { facts: [] }
   } else {
-    dae_solve_parameter_flow(graph, dependencies, seed_defs=candidate_defs)
+    dae_solve_parameter_flow(
+      active_graph,
+      active_dependencies,
+      seed_defs=candidate_defs,
+    )
   }
   let diagnostics = dae_diagnostics_new()
   for candidate_def in candidate_defs {
     let item = {
       ..dae_work_item_new(
-        graph,
-        dependencies,
+        active_graph,
+        active_dependencies,
         candidate_def,
         DaeUniformActualWork,
       ),
       uniform_values: dae_parameter_flow_uniform_values_for_def(
-        graph, flow, candidate_def,
+        active_graph, flow, candidate_def,
       ),
       allow_immutable_global_get,
       allow_immediate_i32_suffix_fallback,
     }
     match
       dae_process_work_item(
-        original, mod_out, touched_out, changed_out, graph, dependencies, item, diagnostics,
+        original, mod_out, touched_out, changed_out, active_graph, active_dependencies,
+        item, diagnostics,
       ) {
       DaeWorkCommitted(application) => {
         mod_out = application.mod_out
@@ -41143,12 +41156,12 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
         changed_out = application.changed
         productive_defs.push(application.primary_def)
         effects = dae_commit_effects_merge(effects, application.effects)
-        dae_current_boundary_graph_refresh(graph, mod_out)
-        dependencies = dae_boundary_dependency_graph_new(graph)
+        dae_current_boundary_graph_refresh(active_graph, mod_out)
+        active_dependencies = dae_boundary_dependency_graph_new(active_graph)
         if !allow_immutable_global_get {
           flow = dae_solve_parameter_flow(
-            graph,
-            dependencies,
+            active_graph,
+            active_dependencies,
             seed_defs=candidate_defs,
           )
         }
@@ -46142,9 +46155,22 @@ fn dae_run_core(
   let low_exact_literal_candidates = dae_collect_post_revisit_exact_literal_candidates(
     current, low_exact_literal_call_facts, original_defined,
   )
-  let low_exact_literal_application = dae_run_exact_literal_candidate_worklist_with_facts(
-    current, touched, changed, low_exact_literal_candidates,
-  )
+  let low_exact_literal_application = if !optimize &&
+    !restored_application.applied {
+    dae_run_exact_literal_candidate_worklist_with_facts(
+      current,
+      touched,
+      changed,
+      low_exact_literal_candidates,
+      original=Some(dae_collect_original_boundary_snapshot(current)),
+      graph=Some(current_boundary_graph),
+      dependencies=Some(current_dependencies),
+    )
+  } else {
+    dae_run_exact_literal_candidate_worklist_with_facts(
+      current, touched, changed, low_exact_literal_candidates,
+    )
+  }
   current = low_exact_literal_application.mod_out
   touched = low_exact_literal_application.touched
   changed = low_exact_literal_application.changed
