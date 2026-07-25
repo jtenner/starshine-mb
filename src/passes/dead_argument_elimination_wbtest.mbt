@@ -22758,6 +22758,19 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae unreachable-debris cleanup admits only root-transfer bodies" {
+  assert_false(
+    dae_instrs_may_have_unreachable_debris([
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  assert_true(
+    dae_instrs_may_have_unreachable_debris([@lib.Instruction::unreachable_()]),
+  )
+}
+
+///|
 test "dae body-only phase rejects unchanged candidates before transaction setup" {
   assert_false(dae_should_run_changed_direct_callee_uniform_frontier(false))
   assert_true(dae_should_run_changed_direct_callee_uniform_frontier(true))

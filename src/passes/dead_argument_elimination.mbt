@@ -47228,6 +47228,53 @@ fn dae_trim_instrs_after_unreachable_tail(
 }
 
 ///|
+fn dae_instrs_may_have_unreachable_debris(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if dae_instr_is_unreachable_root(instr) {
+      return true
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if dae_instrs_may_have_unreachable_debris(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if dae_instrs_may_have_unreachable_debris(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if dae_instrs_may_have_unreachable_debris(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if dae_instrs_may_have_unreachable_debris(body) {
+          return true
+        }
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(_, @lib.Expr(catch_body))
+            | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+              if dae_instrs_may_have_unreachable_debris(catch_body) {
+                return true
+              }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn dae_cleanup_dropped_unreachable_debris_touched(
   mod_ : @lib.Module,
   touched : Array[Bool],
@@ -47275,6 +47322,9 @@ fn dae_cleanup_dropped_unreachable_debris(
   let mut changed = false
   for idx = 0; idx < funcs.length(); idx = idx + 1 {
     let @lib.Func(locals, @lib.Expr(instrs)) = funcs[idx]
+    if !dae_instrs_may_have_unreachable_debris(instrs) {
+      continue
+    }
     let (debris_instrs, debris_changed) = pass_raw_remove_dropped_unreachable_debris(
       instrs,
     )
