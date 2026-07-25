@@ -29706,6 +29706,13 @@ fn dae_collect_changed_direct_callee_defs(
 }
 
 ///|
+fn dae_should_run_changed_direct_callee_uniform_frontier(
+  phase_changed : Bool,
+) -> Bool {
+  phase_changed
+}
+
+///|
 fn dae_run_changed_direct_callee_uniform_frontier(
   before : @lib.Module,
   current : @lib.Module,
@@ -46403,6 +46410,7 @@ fn dae_run_core(
     perf, "detail:dae:core:selected-lanes:late-shapes",
   )
   let late_shapes_input = current
+  let mut late_shapes_changed = false
   let const_local_candidates = dae_collect_single_const_local_call_candidates(
     mod_,
   )
@@ -46419,6 +46427,7 @@ fn dae_run_core(
       break
     }
     current = const_local_application.mod_out
+    late_shapes_changed = true
     touched = const_local_application.touched
     changed = const_local_application.changed
     effects = dae_commit_effects_merge(effects, const_local_application.effects)
@@ -46436,6 +46445,7 @@ fn dae_run_core(
   )
   if pair_if_application.applied {
     current = pair_if_application.mod_out
+    late_shapes_changed = true
     touched = pair_if_application.touched
     changed = pair_if_application.changed
     effects = dae_commit_effects_merge(effects, pair_if_application.effects)
@@ -46455,6 +46465,7 @@ fn dae_run_core(
   )
   if terminal_args311_application.applied {
     current = terminal_args311_application.mod_out
+    late_shapes_changed = true
     touched = terminal_args311_application.touched
     changed = terminal_args311_application.changed
     effects = dae_commit_effects_merge(
@@ -46477,6 +46488,7 @@ fn dae_run_core(
   )
   if terminal_args313_application.applied {
     current = terminal_args313_application.mod_out
+    late_shapes_changed = true
     touched = terminal_args313_application.touched
     changed = terminal_args313_application.changed
     effects = dae_commit_effects_merge(
@@ -46499,6 +46511,7 @@ fn dae_run_core(
       break
     }
     current = global_suffix_application.mod_out
+    late_shapes_changed = true
     touched = global_suffix_application.touched
     changed = global_suffix_application.changed
     effects = dae_commit_effects_merge(
@@ -46520,9 +46533,21 @@ fn dae_run_core(
   // Shape cleanup can expose uniform operands only at direct callees of bodies
   // changed by this phase. Seed that exact invalidation frontier instead of
   // rescanning/admitting every module definition.
-  let post_shape_uniform = dae_run_changed_direct_callee_uniform_frontier(
-    late_shapes_input, current, touched, changed,
-  )
+  let post_shape_uniform = if dae_should_run_changed_direct_callee_uniform_frontier(
+      late_shapes_changed,
+    ) {
+    dae_run_changed_direct_callee_uniform_frontier(
+      late_shapes_input, current, touched, changed,
+    )
+  } else {
+    {
+      mod_out: current,
+      touched,
+      changed,
+      productive_defs: [],
+      effects: dae_commit_effects_empty(original_defined),
+    }
+  }
   current = post_shape_uniform.mod_out
   touched = post_shape_uniform.touched
   changed = post_shape_uniform.changed

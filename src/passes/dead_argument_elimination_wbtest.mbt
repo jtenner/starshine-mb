@@ -22748,6 +22748,8 @@ test "dae core owns worth for written uniform parameter materialization" {
 
 ///|
 test "dae body-only phase rejects unchanged candidates before transaction setup" {
+  assert_false(dae_should_run_changed_direct_callee_uniform_frontier(false))
+  assert_true(dae_should_run_changed_direct_callee_uniform_frontier(true))
   let current = pass_test_module_from_wat("(module (func))")
   let candidate : DaePassResult = {
     mod_out: current,
