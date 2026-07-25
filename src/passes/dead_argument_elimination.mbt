@@ -2589,6 +2589,22 @@ fn dae_collect_module_boundary_snapshot(
 }
 
 ///|
+fn dae_collect_defined_function_types(
+  mod_ : @lib.Module,
+  imported : Int,
+  defined : Int,
+  type_indices : Array[@lib.TypeIdx],
+) -> Array[@lib.FuncType?] {
+  let out : Array[@lib.FuncType?] = []
+  let mut def_idx = 0
+  while def_idx < defined {
+    out.push(dae_resolve_func_type(mod_, type_indices, imported + def_idx))
+    def_idx += 1
+  }
+  out
+}
+
+///|
 fn dae_current_call_facts_equal(
   left : DaeCurrentCallFacts,
   right : DaeCurrentCallFacts,
@@ -20330,9 +20346,8 @@ fn dae_apply_dropped_result_batch_transaction(
       effects: dae_commit_effects_empty(defined),
     }
   }
-  let candidate_graph = dae_current_boundary_graph_new(candidate.mod_out)
-  if candidate_graph.snapshot.defined != defined ||
-    candidate.touched.length() != defined {
+  let candidate_defined = dae_defined_func_count(candidate.mod_out)
+  if candidate_defined != defined || candidate.touched.length() != defined {
     return {
       mod_out: current,
       touched,
@@ -20342,6 +20357,13 @@ fn dae_apply_dropped_result_batch_transaction(
       effects: dae_commit_effects_empty(defined),
     }
   }
+  let candidate_type_indices = dae_collect_func_type_indices(candidate.mod_out)
+  let candidate_function_types = dae_collect_defined_function_types(
+    candidate.mod_out,
+    graph.snapshot.imported,
+    defined,
+    candidate_type_indices,
+  )
   let effects = dae_commit_effects_empty(defined)
   let mut first_def = -1
   let mut candidate_count = 0
@@ -20352,7 +20374,7 @@ fn dae_apply_dropped_result_batch_transaction(
     }
     let callee_abs = graph.snapshot.imported + def_idx
     let before_signature = graph.snapshot.function_types[callee_abs]
-    let after_signature = candidate_graph.snapshot.function_types[callee_abs]
+    let after_signature = candidate_function_types[def_idx]
     match (before_signature, after_signature) {
       (
         Some(@lib.FuncType(before_params, before_results)),

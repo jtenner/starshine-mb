@@ -16845,6 +16845,22 @@ test "dae body cleanup transactions retain the pass original snapshot" {
 }
 
 ///|
+test "dae dropped result batch compares candidate signatures without a graph rebuild" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module (func (result i32) i32.const 7)),
+    ),
+  )
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let signatures = dae_collect_defined_function_types(mod_, 0, 1, type_indices)
+  match signatures[0] {
+    Some(@lib.FuncType([], results)) =>
+      assert_eq(results, [@lib.ValType::i32()])
+    _ => fail("expected one current result signature")
+  }
+}
+
+///|
 test "dae dropped result batch facts reuse authoritative original and current snapshots" {
   let source =
     #|(module
