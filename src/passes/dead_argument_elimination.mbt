@@ -1636,7 +1636,7 @@ priv struct DaeDroppedResultBatchApplication {
   applied : Bool
   primary_def : Int
   effects : DaeCommitEffects
-  post_topology : DaeCurrentTopologyExtras?
+  post_graph : DaeCurrentBoundaryGraph?
 }
 
 ///|
@@ -20454,12 +20454,92 @@ fn dae_try_apply_dropped_result_batch(
 }
 
 ///|
+fn dae_current_boundary_graph_adopt_dropped_result_batch(
+  graph : DaeCurrentBoundaryGraph,
+  mod_ : @lib.Module,
+  effects : DaeCommitEffects,
+) -> Bool {
+  let imported = graph.snapshot.imported
+  let defined = graph.snapshot.defined
+  if dae_imported_func_count(mod_) != imported ||
+    dae_defined_func_count(mod_) != defined ||
+    effects.result_removed.length() != defined {
+    return false
+  }
+  let type_indices = dae_collect_func_type_indices(mod_)
+  let function_types : Array[@lib.FuncType?] = []
+  let mut func_abs = 0
+  while func_abs < graph.snapshot.total {
+    function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
+    func_abs += 1
+  }
+  let function_infos = graph.snapshot.function_infos.copy()
+  let direct_calls = graph.snapshot.call_facts.direct_calls.copy()
+  let tail_calls = graph.snapshot.call_facts.tail_calls.copy()
+  let direct_callers = graph.snapshot.call_facts.direct_callers.copy()
+  let dropped_calls = graph.snapshot.call_facts.dropped_calls.copy()
+  let escaped = graph.snapshot.call_facts.escaped.copy()
+  let mut def_idx = 0
+  while def_idx < defined {
+    if effects.result_removed[def_idx] {
+      let callee_abs = imported + def_idx
+      if callee_abs < 0 || callee_abs >= function_infos.length() {
+        return false
+      }
+      let previous = function_infos[callee_abs]
+      let calls : Array[DaeStableCallsite] = []
+      for callsite in previous.calls {
+        calls.push({ ..callsite, dropped: false })
+      }
+      function_infos[callee_abs] = {
+        stale: previous.stale,
+        unused_params: previous.unused_params,
+        calls,
+        dropped_calls: [],
+        has_tail_calls: previous.has_tail_calls,
+        tail_callees: previous.tail_callees,
+        has_unseen_calls: previous.has_unseen_calls,
+      }
+      dropped_calls[callee_abs] = 0
+    }
+    def_idx += 1
+  }
+  let call_facts : DaeCurrentCallFacts = {
+    direct_calls,
+    tail_calls,
+    direct_callers,
+    dropped_calls,
+    escaped,
+  }
+  graph.mod_ = mod_
+  graph.snapshot = {
+    imported,
+    defined,
+    total: graph.snapshot.total,
+    type_indices,
+    function_types,
+    funcs: match mod_.code_sec {
+      Some(@lib.CodeSec(funcs)) => funcs
+      None => return false
+    },
+    call_facts,
+    boundary_facts: dae_call_boundary_facts_from_current(call_facts),
+    function_infos,
+  }
+  graph.function_epochs = dae_make_function_epochs(defined, 0, 0)
+  graph.module_epoch = 0
+  graph.call_epoch = 0
+  graph.type_epoch = 0
+  true
+}
+
+///|
 fn dae_apply_dropped_result_batch_transaction(
   original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
   touched : Array[Bool],
   changed : Bool,
-  retain_post_topology? : Bool = false,
+  retain_post_graph? : Bool = false,
 ) -> DaeDroppedResultBatchApplication {
   let graph = dae_current_boundary_graph_new(current)
   let defined = graph.snapshot.defined
@@ -20478,7 +20558,7 @@ fn dae_apply_dropped_result_batch_transaction(
       applied: false,
       primary_def: -1,
       effects: dae_commit_effects_empty(defined),
-      post_topology: None,
+      post_graph: None,
     }
   }
   let candidate_defined = dae_defined_func_count(candidate.mod_out)
@@ -20490,7 +20570,7 @@ fn dae_apply_dropped_result_batch_transaction(
       applied: false,
       primary_def: -1,
       effects: dae_commit_effects_empty(defined),
-      post_topology: None,
+      post_graph: None,
     }
   }
   let candidate_type_indices = dae_collect_func_type_indices(candidate.mod_out)
@@ -20524,7 +20604,7 @@ fn dae_apply_dropped_result_batch_transaction(
             applied: false,
             primary_def: -1,
             effects: dae_commit_effects_empty(defined),
-            post_topology: None,
+            post_graph: None,
           }
         }
         effects.result_changed[def_idx] = true
@@ -20550,7 +20630,7 @@ fn dae_apply_dropped_result_batch_transaction(
       applied: false,
       primary_def: -1,
       effects: dae_commit_effects_empty(defined),
-      post_topology: None,
+      post_graph: None,
     }
   }
   def_idx = 0
@@ -20606,9 +20686,14 @@ fn dae_apply_dropped_result_batch_transaction(
         applied: true,
         primary_def: first_def,
         effects: finalized_effects,
-        post_topology: if retain_post_topology &&
-          topology_preserved_report.get(0) == Some(true) {
-          Some(graph.topology)
+        post_graph: if retain_post_graph &&
+          topology_preserved_report.get(0) == Some(true) &&
+          dae_current_boundary_graph_adopt_dropped_result_batch(
+            graph,
+            candidate.mod_out,
+            finalized_effects,
+          ) {
+          Some(graph)
         } else {
           None
         },
@@ -20621,7 +20706,7 @@ fn dae_apply_dropped_result_batch_transaction(
         applied: false,
         primary_def: -1,
         effects: dae_commit_effects_empty(defined),
-        post_topology: None,
+        post_graph: None,
       }
   }
 }
@@ -46419,20 +46504,20 @@ fn dae_run_core(
   let original_dead_suffix_mutual_calls = original_boundary_snapshot.dead_suffix_mutual_calls
   let original_dead_suffix_calls_from_param_operand_self_result_callers = original_boundary_snapshot.dead_suffix_calls_from_param_operand_self_result_callers
   perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
-  let mut dropped_result_post_topology : DaeCurrentTopologyExtras? = None
+  let mut dropped_result_post_graph : DaeCurrentBoundaryGraph? = None
   if !optimize && original_defined >= 1024 {
     let application = dae_apply_dropped_result_batch_transaction(
       original_boundary_snapshot,
       current,
       touched,
       changed,
-      retain_post_topology=true,
+      retain_post_graph=true,
     )
     if application.applied {
       current = application.mod_out
       touched = application.touched
       changed = application.changed
-      dropped_result_post_topology = application.post_topology
+      dropped_result_post_graph = application.post_graph
       effects = dae_commit_effects_merge(effects, application.effects)
       dae_diagnostics_record_commit_effects(diagnostics, application.effects)
       dae_diagnostics_record_applied_effects(diagnostics, application.effects)
@@ -46577,10 +46662,10 @@ fn dae_run_core(
       perf, "detail:dae:core:direct-gc-batch", direct_gc_batch_start_us,
     )
   }
-  let current_boundary_graph = dae_current_boundary_graph_new(
-    current,
-    topology=dropped_result_post_topology,
-  )
+  let current_boundary_graph = match dropped_result_post_graph {
+    Some(graph) => graph
+    None => dae_current_boundary_graph_new(current)
+  }
   let fixed_loop_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:fixed-loop",
   )

@@ -16893,12 +16893,15 @@ test "dae dropped result batch transaction is definition-count independent" {
     mod_,
     [],
     false,
-    retain_post_topology=true,
+    retain_post_graph=true,
   )
   assert_true(application.applied)
-  match application.post_topology {
-    Some(_) => ()
-    None => fail("expected topology-preserving dropped-result batch evidence")
+  match application.post_graph {
+    Some(graph) => {
+      assert_eq(graph.mod_, application.mod_out)
+      assert_eq(graph.snapshot.call_facts.dropped_calls[0], 0)
+    }
+    None => fail("expected authoritative incremental post-batch graph")
   }
   let type_indices = dae_collect_func_type_indices(application.mod_out)
   match dae_resolve_func_type(application.mod_out, type_indices, 0) {
