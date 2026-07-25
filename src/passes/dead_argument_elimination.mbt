@@ -20542,6 +20542,187 @@ fn dae_rewrite_plan_rejection(
 }
 
 ///|
+fn dae_rewrite_call_at_stable_path(
+  instrs : Array[@lib.Instruction],
+  path : Array[Int],
+  path_idx : Int,
+  callee_abs : Int,
+  remove : Array[Bool],
+  entry_stack_values : Int,
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  localization : DaeCallsiteLocalizationContext,
+  traps_never_happen? : Bool = false,
+  allow_stack_carried_void_effects? : Bool = false,
+) -> DaeRewriteResult {
+  if path_idx < 0 || path_idx >= path.length() {
+    return { instrs: [], calls_rewritten: 0, ok: false }
+  }
+  let instr_idx = path[path_idx]
+  if instr_idx < 0 || instr_idx >= instrs.length() {
+    return { instrs: [], calls_rewritten: 0, ok: false }
+  }
+  if path_idx + 1 == path.length() {
+    match
+      dae_target_callsite_evidence(
+        instrs[instr_idx],
+        callee_abs,
+        DaeTargetDirectOrReturnCall,
+      ) {
+      Some(_) => ()
+      None => return { instrs: [], calls_rewritten: 0, ok: false }
+    }
+    let evidence = match
+      dae_rewrite_callsite_with_localization_at(
+        instrs,
+        instr_idx,
+        remove,
+        localization.param_types,
+        entry_stack_values,
+        localization.first_scratch_local,
+        mod_,
+        func_type_indices,
+        existing_scratch_local_types=localization.scratch_local_types,
+        allow_stack_carried_void_effects~,
+        traps_never_happen~,
+      ) {
+      Some(evidence) => evidence
+      None => return { instrs: [], calls_rewritten: 0, ok: false }
+    }
+    localization.scratch_local_types.clear()
+    localization.scratch_local_types.append(evidence.scratch_local_types)
+    let mut param_idx = 0
+    while param_idx < evidence.localized_params.length() &&
+          param_idx < localization.localized_params.length() {
+      localization.localized_params[param_idx] = localization.localized_params[param_idx] ||
+        evidence.localized_params[param_idx]
+      param_idx += 1
+    }
+    return { instrs: evidence.instrs, calls_rewritten: 1, ok: true }
+  }
+  if path_idx + 2 >= path.length() {
+    return { instrs: [], calls_rewritten: 0, ok: false }
+  }
+  let child_kind = path[path_idx + 1]
+  let children = match
+    dae_nested_control_children_evidence(instrs[instr_idx], mod_) {
+    Some(children) => children
+    None => return { instrs: [], calls_rewritten: 0, ok: false }
+  }
+  let child_body = match child_kind {
+    0 | 1 | 2 | 4 => children.primary_body
+    3 =>
+      match children.secondary_body {
+        Some(body) => body
+        None => return { instrs: [], calls_rewritten: 0, ok: false }
+      }
+    _ => return { instrs: [], calls_rewritten: 0, ok: false }
+  }
+  let child_result = dae_rewrite_call_at_stable_path(
+    child_body,
+    path,
+    path_idx + 2,
+    callee_abs,
+    remove,
+    children.entry_stack_values,
+    mod_,
+    func_type_indices,
+    localization,
+    traps_never_happen~,
+    allow_stack_carried_void_effects~,
+  )
+  if !child_result.ok {
+    return child_result
+  }
+  let rewritten_primary = if child_kind == 3 {
+    children.primary_body
+  } else {
+    child_result.instrs
+  }
+  let rewritten_secondary = if child_kind == 3 {
+    Some(child_result.instrs)
+  } else {
+    children.secondary_body
+  }
+  let rewritten_instr = match
+    dae_rebuild_nested_control_children(
+      instrs[instr_idx],
+      children,
+      rewritten_primary,
+      rewritten_secondary,
+    ) {
+    Some(instr) => instr
+    None => return { instrs: [], calls_rewritten: 0, ok: false }
+  }
+  let rewritten = instrs.copy()
+  rewritten[instr_idx] = rewritten_instr
+  { instrs: rewritten, calls_rewritten: child_result.calls_rewritten, ok: true }
+}
+
+///|
+fn dae_rewrite_calls_from_stable_callsites(
+  body : Array[@lib.Instruction],
+  callee_abs : Int,
+  remove : Array[Bool],
+  mod_ : @lib.Module,
+  func_type_indices : Array[@lib.TypeIdx],
+  info : DaeFunctionInfo,
+  caller_def : Int,
+  localization : DaeCallsiteLocalizationContext,
+  traps_never_happen? : Bool = false,
+  allow_stack_carried_void_effects? : Bool = false,
+) -> DaeRewriteResult {
+  let initial_scratch = localization.scratch_local_types.copy()
+  let initial_localized = localization.localized_params.copy()
+  let mut current = body
+  let mut calls_rewritten = 0
+  let mut callsite_idx = info.calls.length()
+  while callsite_idx > 0 {
+    callsite_idx -= 1
+    let callsite = info.calls[callsite_idx]
+    if callsite.callee_abs != callee_abs ||
+      callsite.caller_def != caller_def ||
+      !callsite.active ||
+      callsite.path.length() == 0 {
+      continue
+    }
+    let result = dae_rewrite_call_at_stable_path(
+      current,
+      callsite.path,
+      0,
+      callee_abs,
+      remove,
+      0,
+      mod_,
+      func_type_indices,
+      localization,
+      traps_never_happen~,
+      allow_stack_carried_void_effects~,
+    )
+    if !result.ok {
+      localization.scratch_local_types.clear()
+      localization.scratch_local_types.append(initial_scratch)
+      localization.localized_params.clear()
+      localization.localized_params.append(initial_localized)
+      return dae_rewrite_calls_instrs(
+        body,
+        callee_abs,
+        remove,
+        0,
+        mod_,
+        func_type_indices,
+        localization=Some(localization),
+        traps_never_happen~,
+        allow_stack_carried_void_effects~,
+      )
+    }
+    current = result.instrs
+    calls_rewritten += result.calls_rewritten
+  }
+  { instrs: current, calls_rewritten, ok: true }
+}
+
+///|
 fn dae_build_scalar_unused_param_rewrite_plan(
   mod_ : @lib.Module,
   original : DaeOriginalBoundarySnapshot,
@@ -20764,14 +20945,15 @@ fn dae_build_scalar_unused_param_rewrite_plan(
       scratch_local_types: [],
       localized_params,
     }
-    let result = dae_rewrite_calls_instrs(
+    let result = dae_rewrite_calls_from_stable_callsites(
       body,
       callee_abs,
       remove,
-      0,
       mod_,
       graph.snapshot.type_indices,
-      localization=Some(localization),
+      graph.snapshot.function_infos[callee_abs],
+      caller_def,
+      localization,
       traps_never_happen~,
       allow_stack_carried_void_effects~,
     )
