@@ -15774,6 +15774,8 @@ test "dae forwarded constant revisit is optimizing-only and module-size independ
     assert_true(
       dae_should_run_forwarded_constant_revisit(defined, optimize=true),
     )
+    assert_false(dae_should_run_low_wrapper_callee_phase(optimize=false))
+    assert_true(dae_should_run_low_wrapper_callee_phase(optimize=true))
   }
 }
 

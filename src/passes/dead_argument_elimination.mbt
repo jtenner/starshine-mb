@@ -28054,6 +28054,11 @@ fn dae_should_run_forwarded_constant_revisit(
 }
 
 ///|
+fn dae_should_run_low_wrapper_callee_phase(optimize~ : Bool) -> Bool {
+  optimize
+}
+
+///|
 fn dae_should_collect_phase_local_uniform_constants(
   _defined : Int,
   optimize~ : Bool,
@@ -46271,14 +46276,34 @@ fn dae_run_core(
   )
   // Keep the phase-local forwarding seed, but derive targets from exact current
   // wrapper shape rather than a fixed wrapper-definition list.
-  let boundary_callee_order = dae_collect_shifted_forward_wrapper_callee_order(
-    current, 0, original_defined,
-  )
-  let boundary_graph = dae_current_boundary_graph_new(current)
-  let mut boundary_dependencies = dae_boundary_dependency_graph_new(
-    boundary_graph,
-  )
+  let boundary_callee_order = if dae_should_run_low_wrapper_callee_phase(
+      optimize~,
+    ) {
+    dae_collect_shifted_forward_wrapper_callee_order(
+      current, 0, original_defined,
+    )
+  } else {
+    []
+  }
+  let mut boundary_graph_opt : DaeCurrentBoundaryGraph? = None
+  let mut boundary_dependencies_opt : DaeBoundaryDependencyGraph? = None
   for boundary_callee_def in boundary_callee_order {
+    let boundary_graph = match boundary_graph_opt {
+      Some(graph) => graph
+      None => {
+        let graph = dae_current_boundary_graph_new(current)
+        boundary_graph_opt = Some(graph)
+        graph
+      }
+    }
+    let boundary_dependencies = match boundary_dependencies_opt {
+      Some(dependencies) => dependencies
+      None => {
+        let dependencies = dae_boundary_dependency_graph_new(boundary_graph)
+        boundary_dependencies_opt = Some(dependencies)
+        dependencies
+      }
+    }
     if boundary_callee_def < 0 ||
       boundary_callee_def >= selected_scratch_defs.length() {
       continue
@@ -46324,8 +46349,8 @@ fn dae_run_core(
       Some(boundary_application) => {
         current = boundary_application.mod_out
         dae_current_boundary_graph_refresh(boundary_graph, current)
-        boundary_dependencies = dae_boundary_dependency_graph_new(
-          boundary_graph,
+        boundary_dependencies_opt = Some(
+          dae_boundary_dependency_graph_new(boundary_graph),
         )
         touched = boundary_application.touched
         changed = boundary_application.changed
