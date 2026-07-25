@@ -46243,18 +46243,21 @@ fn dae_run_core(
   let boundary_callee_order = dae_collect_shifted_forward_wrapper_callee_order(
     current, 0, original_defined,
   )
+  let boundary_graph = dae_current_boundary_graph_new(current)
+  let mut boundary_dependencies = dae_boundary_dependency_graph_new(
+    boundary_graph,
+  )
   for boundary_callee_def in boundary_callee_order {
     if boundary_callee_def < 0 ||
       boundary_callee_def >= selected_scratch_defs.length() {
       continue
     }
     selected_scratch_defs[boundary_callee_def] = true
-    let boundary_graph = dae_current_boundary_graph_new(current)
     let boundary_effects : Array[DaeCommitEffects] = []
     let boundary_result = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
       current,
       selected_scratch_defs,
-      dae_collect_current_call_facts(current, original_total),
+      boundary_graph.snapshot.call_facts,
       original=Some(original_boundary_snapshot),
       graph=Some(boundary_graph),
       producer_effects_report=boundary_effects,
@@ -46271,7 +46274,7 @@ fn dae_run_core(
             boundary_graph,
             dae_work_item_new(
               boundary_graph,
-              dae_boundary_dependency_graph_new(boundary_graph),
+              boundary_dependencies,
               boundary_result.primary_def,
               dae_work_family_for_commit_effects(
                 producer_effects,
@@ -46289,6 +46292,10 @@ fn dae_run_core(
     match boundary_application {
       Some(boundary_application) => {
         current = boundary_application.mod_out
+        dae_current_boundary_graph_refresh(boundary_graph, current)
+        boundary_dependencies = dae_boundary_dependency_graph_new(
+          boundary_graph,
+        )
         touched = boundary_application.touched
         changed = boundary_application.changed
         effects = dae_commit_effects_merge(
