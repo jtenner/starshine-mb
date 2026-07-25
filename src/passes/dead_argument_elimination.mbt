@@ -28064,6 +28064,11 @@ fn dae_should_run_fact_dropped_result_revisit(optimize~ : Bool) -> Bool {
 }
 
 ///|
+fn dae_candidate_worklist_requires_facts(candidate_defs : Array[Int]) -> Bool {
+  candidate_defs.length() > 0
+}
+
+///|
 fn dae_should_collect_phase_local_uniform_constants(
   _defined : Int,
   optimize~ : Bool,
@@ -41099,6 +41104,9 @@ fn dae_run_exact_literal_candidate_worklist_with_facts(
   let mut changed_out = changed
   let productive_defs : Array[Int] = []
   let mut effects = dae_commit_effects_empty(dae_defined_func_count(current))
+  if !dae_candidate_worklist_requires_facts(candidate_defs) {
+    return { mod_out: current, touched, changed, productive_defs, effects }
+  }
   let original = match original {
     Some(original) => original
     None => dae_collect_original_boundary_snapshot(current)
@@ -43809,6 +43817,9 @@ fn dae_run_direct_gc_result_refinement_dependency_closure(
   let mut mod_out = current
   let mut touched_out = touched
   let mut changed_out = changed
+  if !dae_candidate_worklist_requires_facts(seed_defs) {
+    return { mod_out: current, touched, changed, productive_defs, effects }
+  }
   let original = dae_collect_original_boundary_snapshot(current)
   let graph = dae_current_boundary_graph_new(current)
   let mut dependencies = dae_boundary_dependency_graph_new(graph)

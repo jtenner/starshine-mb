@@ -15778,6 +15778,8 @@ test "dae forwarded constant revisit is optimizing-only and module-size independ
     assert_true(dae_should_run_low_wrapper_callee_phase(optimize=true))
     assert_false(dae_should_run_fact_dropped_result_revisit(optimize=false))
     assert_true(dae_should_run_fact_dropped_result_revisit(optimize=true))
+    assert_false(dae_candidate_worklist_requires_facts([]))
+    assert_true(dae_candidate_worklist_requires_facts([0]))
   }
 }
 
