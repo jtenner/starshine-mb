@@ -22747,6 +22747,18 @@ test "dae core owns worth for written uniform parameter materialization" {
 }
 
 ///|
+test "dae body-only phase rejects unchanged candidates before transaction setup" {
+  let current = pass_test_module_from_wat("(module (func))")
+  let candidate : DaePassResult = {
+    mod_out: current,
+    touched: [],
+    changed: false,
+    primary_def: -1,
+  }
+  assert_false(dae_body_only_candidate_requires_transaction(candidate))
+}
+
+///|
 test "dae body-only phase result commits with exact effects and diagnostics" {
   let current = pass_test_module_from_wat(
     (

@@ -4402,6 +4402,13 @@ fn dae_process_precomputed_signature_work_item(
 }
 
 ///|
+fn dae_body_only_candidate_requires_transaction(
+  candidate : DaePassResult,
+) -> Bool {
+  candidate.changed
+}
+
+///|
 fn dae_apply_body_only_family_result_transaction(
   _original : DaeOriginalBoundarySnapshot,
   current : @lib.Module,
@@ -4410,6 +4417,16 @@ fn dae_apply_body_only_family_result_transaction(
   candidate : DaePassResult,
   diagnostics : DaeDiagnostics,
 ) -> DaeCoreResultApplication {
+  if !dae_body_only_candidate_requires_transaction(candidate) {
+    return {
+      mod_out: current,
+      touched,
+      changed,
+      applied: false,
+      primary_def: -1,
+      effects: dae_commit_effects_empty(dae_defined_func_count(current)),
+    }
+  }
   let graph = dae_current_boundary_graph_new(current)
   let dependencies = dae_boundary_dependency_graph_new(graph)
   match
