@@ -46591,6 +46591,7 @@ fn dae_run_core(
     perf, "detail:dae:core:post-raw-selected-lanes",
   )
   let changed_terminal_cleanup_input = current
+  let mut changed_terminal_phase_changed = false
   let changed_terminal_candidates = dae_collect_terminal_callers_of_changed_boundaries(
     mod_, current,
   )
@@ -46605,6 +46606,7 @@ fn dae_run_core(
       break
     }
     current = const_if_application.mod_out
+    changed_terminal_phase_changed = true
     touched = const_if_application.touched
     changed = const_if_application.changed
     effects = dae_commit_effects_merge(effects, const_if_application.effects)
@@ -46624,6 +46626,7 @@ fn dae_run_core(
       break
     }
     current = terminal_local_application.mod_out
+    changed_terminal_phase_changed = true
     touched = terminal_local_application.touched
     changed = terminal_local_application.changed
     effects = dae_commit_effects_merge(
@@ -46643,6 +46646,7 @@ fn dae_run_core(
   )
   if default_wrapper_application.applied {
     current = default_wrapper_application.mod_out
+    changed_terminal_phase_changed = true
     touched = default_wrapper_application.touched
     changed = default_wrapper_application.changed
     effects = dae_commit_effects_merge(
@@ -46653,9 +46657,21 @@ fn dae_run_core(
       "pass[dae-optimizing]:changed-terminal-default-wrappers primary_def=\{default_wrapper_application.primary_def}",
     )
   }
-  let changed_terminal_uniform = dae_run_changed_direct_callee_uniform_frontier(
-    changed_terminal_cleanup_input, current, touched, changed,
-  )
+  let changed_terminal_uniform = if dae_should_run_changed_direct_callee_uniform_frontier(
+      changed_terminal_phase_changed,
+    ) {
+    dae_run_changed_direct_callee_uniform_frontier(
+      changed_terminal_cleanup_input, current, touched, changed,
+    )
+  } else {
+    {
+      mod_out: current,
+      touched,
+      changed,
+      productive_defs: [],
+      effects: dae_commit_effects_empty(original_defined),
+    }
+  }
   current = changed_terminal_uniform.mod_out
   touched = changed_terminal_uniform.touched
   changed = changed_terminal_uniform.changed
