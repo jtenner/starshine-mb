@@ -54,6 +54,9 @@ const WORKFLOW_PATTERNS = [
   ['if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then', "guarded install check"],
   ['cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"', "versioned wasm-tools install command"],
   ['echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"', "cargo bin path export"],
+  ["--package jtenner/starshine/cmd", "unambiguous Moon package selector"],
+  ["--file fuzz_harness_wbtest.mbt", "unambiguous Moon test file selector"],
+  ["--filter \"*differential_validate_wasm agrees with installed wasm-tools and binaryen validators*\"", "unambiguous Moon test filter"],
 ] as const;
 
 // Parse smoke-test options; defaults keep CI-style native binary and a repo

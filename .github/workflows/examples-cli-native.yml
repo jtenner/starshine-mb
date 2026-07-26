@@ -92,6 +92,6 @@ jobs:
       - name: Run native fuzz harness differential test
         run: |
           moon test --target native \
-            -p jtenner/starshine/cmd \
-            -f fuzz_harness_wbtest.mbt \
-            -F "*differential_validate_wasm agrees with installed wasm-tools and binaryen validators*"
+            --package jtenner/starshine/cmd \
+            --file fuzz_harness_wbtest.mbt \
+            --filter "*differential_validate_wasm agrees with installed wasm-tools and binaryen validators*"
