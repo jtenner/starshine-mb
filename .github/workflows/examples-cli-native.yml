@@ -19,7 +19,7 @@ on:
       - ".github/workflows/examples-cli-native.yml"
   push:
     branches:
-      - main
+      - master
     paths:
       - "examples/**"
       - "scripts/**"

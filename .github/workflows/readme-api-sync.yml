@@ -10,7 +10,7 @@ on:
       - "src/**/pkg.generated.mbti"
   push:
     branches:
-      - main
+      - master
     paths:
       - "README.mbt.md"
       - "scripts/**"

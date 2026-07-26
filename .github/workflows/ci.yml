@@ -1,0 +1,173 @@
+name: "Required CI"
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: required-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  WASM_TOOLS_VERSION: "1.251.0"
+  BINARYEN_VERSION: "131"
+  BINARYEN_DIR: ${{ github.workspace }}/.tmp/binaryen-version_131
+
+jobs:
+  format-and-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
+      - name: Verify required workflow contract
+        run: bun scripts/test/ci-workflow-contract.ts
+
+      - name: Refresh interfaces and enforce formatting
+        run: |
+          moon info
+          moon fmt
+          git diff --exit-code
+
+      - name: Run full MoonBit test suite
+        run: moon test
+
+  release-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
+      - name: Cache wasm-tools cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/wasm-tools
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-wasm-tools-${{ env.WASM_TOOLS_VERSION }}
+
+      - name: Install wasm-tools
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then
+            cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
+          fi
+
+      - name: Build native and wasm-gc release CLIs
+        run: |
+          moon build --target native --release src/cmd
+          moon build --target wasm-gc --release src/cmd
+
+      - name: Validate and roundtrip the wasm-gc release artifact
+        run: |
+          set -euo pipefail
+          artifact=_build/wasm-gc/release/build/cmd/cmd.wasm
+          native=_build/native/release/build/cmd/cmd.exe
+          wasm-tools validate --features all "$artifact"
+          mkdir -p .tmp/ci-roundtrip
+          "$native" "$artifact" -o .tmp/ci-roundtrip/roundtrip-1.wasm
+          "$native" .tmp/ci-roundtrip/roundtrip-1.wasm -o .tmp/ci-roundtrip/roundtrip-2.wasm
+          wasm-tools validate --features all .tmp/ci-roundtrip/roundtrip-1.wasm
+          wasm-tools validate --features all .tmp/ci-roundtrip/roundtrip-2.wasm
+          cmp .tmp/ci-roundtrip/roundtrip-1.wasm .tmp/ci-roundtrip/roundtrip-2.wasm
+
+      - name: Run deterministic binary roundtrip fuzz smoke
+        run: |
+          bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc
+
+  dae-differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
+      - name: Cache wasm-tools cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/wasm-tools
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-wasm-tools-${{ env.WASM_TOOLS_VERSION }}
+
+      - name: Install wasm-tools and Binaryen
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then
+            cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
+          fi
+          mkdir -p .tmp
+          curl -fsSL \
+            "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            -o .tmp/binaryen.tar.gz
+          tar -xzf .tmp/binaryen.tar.gz -C .tmp
+          "$BINARYEN_DIR/bin/wasm-opt" --version
+
+      - name: Run retained-versus-fresh DAE boundary tests
+        run: |
+          moon test --package jtenner/starshine/passes \
+            --file dead_argument_elimination_wbtest.mbt \
+            --filter '*retained dropped-result graph*'
+          moon test --package jtenner/starshine/passes \
+            --file dead_argument_elimination_wbtest.mbt \
+            --filter '*complete dead-suffix call removal reports topology change*'
+
+      - name: Build fresh native release CLI
+        run: moon build --target native --release src/cmd
+
+      - name: Run bounded deterministic DAE GenValid comparison
+        run: |
+          bun fuzz compare-pass \
+            --count 10000 \
+            --seed 0x5eed \
+            --pass dead-argument-elimination \
+            --normalize drop-consts \
+            --normalize unreachable-control-debris \
+            --out-dir .tmp/ci-dae-genvalid \
+            --jobs auto \
+            --starshine-bin _build/native/release/build/cmd/cmd.exe \
+            --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" \
+            --max-failures 1 \
+            --no-reduce-mismatches

@@ -17198,6 +17198,76 @@ test "dae retained dropped-result graph rebases nested imported and tail-call pa
 }
 
 ///|
+fn dae_test_generated_retained_graph_source(case_idx : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (func $dropped (result i32)
+      #|    i32.const 7)
+      #|  (func $scalar (param i32 i32) (result i32)
+      #|    local.get 1)
+      #|  (func (export "run")
+      #|,
+    ),
+  )
+  let prefix_count = 1 + case_idx % 5
+  let sibling_count = 2 + case_idx % 4
+  let mut prefix = 0
+  while prefix < prefix_count {
+    out.write_string("    call $dropped\n    drop\n")
+    prefix += 1
+  }
+  let mut sibling = 0
+  while sibling < sibling_count {
+    out.write_string("    i32.const 10\n    i32.const 11\n")
+    out.write_string("    call $scalar\n    drop\n")
+    sibling += 1
+  }
+  out.write_string("    block\n")
+  prefix = 0
+  while prefix < 1 + case_idx % 3 {
+    out.write_string("      call $dropped\n      drop\n")
+    prefix += 1
+  }
+  out.write_string("      i32.const 20\n      i32.const 21\n")
+  out.write_string("      call $scalar\n      drop\n    end)\n")
+  out.write_string(
+    (
+      #|  (func (export "other")
+      #|    call $dropped
+      #|    drop
+      #|    i32.const 30
+      #|    i32.const 31
+      #|    call $scalar
+      #|    drop)
+      #|  (func (export "observe") (result i32)
+      #|    i32.const 40
+      #|    i32.const 41
+      #|    call $scalar)
+      #|  (func (export "tail") (result i32)
+      #|    i32.const 50
+      #|    i32.const 51
+      #|    return_call $scalar))
+      #|,
+    ),
+  )
+  out.to_string()
+}
+
+///|
+test "dae retained dropped-result graph matches fresh across generated path shifts" {
+  let mut case_idx = 0
+  while case_idx < 16 {
+    dae_test_assert_dropped_result_scalar_differential(
+      dae_test_generated_retained_graph_source(case_idx),
+      1,
+    )
+    case_idx += 1
+  }
+}
+
+///|
 test "dae complete dead-suffix call removal reports topology change" {
   let source =
     #|(module
