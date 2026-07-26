@@ -58859,6 +58859,11 @@ fn run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
   original_func : @lib.Func?,
   mod_ : @lib.Module,
 ) -> @lib.Func {
+  let func = if descriptor_name == "remove-unused-brs" {
+    remove_unused_brs_refinalize_lowered_null_blocks(func)
+  } else {
+    func
+  }
   let cleaned = run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     func, descriptor_name, original_func, mod_,
   )

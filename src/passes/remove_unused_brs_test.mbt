@@ -1894,6 +1894,30 @@ test "remove-unused-brs focused GenValid parity leaves optimize their owned shap
 }
 
 ///|
+test "remove-unused-brs refinalizes null-only function-reference branch blocks" {
+  let source =
+    #|(module
+    #|  (func
+    #|    (local funcref)
+    #|    (block (result funcref)
+    #|      (ref.null func)
+    #|      (i32.const 1)
+    #|      (br_if 0))
+    #|    local.tee 0
+    #|    drop
+    #|    local.get 0
+    #|    drop))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nullfuncref block refinalization, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("NoFunc"), msg=pretty)
+  assert_false(pretty.contains("AbsHeapType Func"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs refinalizes single-payload branch blocks" {
   let source =
     #|(module

@@ -59,7 +59,16 @@ Fresh native Starshine SHA-256 `6a7c5b980eb20b7763a4916bc2259b937237b58c6ff6f936
 - `.tmp/pass-fuzz-remove-unused-brs-multivalue-drop-1000-flat`: all `1000` cases are measured Starshine wins, uniformly `-12` canonical bytes, with zero failures.
 - `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-multivalue-flat`: `5655/10000` normalized matches and `4345` residuals, zero failures, and aggregate residual delta `-81681` bytes. All `3125` size-different residuals are now smaller Starshine outputs; the remaining `1220` are equal-sized constant-branch and multi-function reference-typing/output-shape gaps.
 
-The multivalue-drop `+1` blocker is therefore closed as a measured, source-backed Starshine win rather than forced into Binaryen's four-scratch-local shape. The equal-sized typing residuals and smaller compound families still require targeted classification. This development aggregate is not a substitute for the final fresh four-lane matrix.
+The multivalue-drop `+1` blocker is therefore closed as a measured, source-backed Starshine win rather than forced into Binaryen's four-scratch-local shape.
+
+The final dedicated typing slice refinalizes only exact lowered two-instruction null branch blocks: `(ref.null <hierarchy>); br 0`. It rewrites both the block result and `ref.null` immediate to the hierarchy bottom (`nofunc`, `noextern`, `noexn`, `nocont`, or `none`). Requiring an exact two-instruction body intentionally excludes selector-drop prefixes originating from `br_table`, matching Binaryen's distinction while avoiding the earlier invalid HOT-only narrowing.
+
+Fresh native Starshine SHA-256 `c64e283735f273181846a112538b926f1e281a4bc39a7c7a87ccd6b8fe5f28ed` evidence:
+
+- `.tmp/pass-fuzz-remove-unused-brs-constant-br-if-1000-null-refine`: `1000/1000` exact, zero failures.
+- `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-null-refine-v2`: `6875/10000` exact and `3125` residuals, zero failures, aggregate residual delta `-81681` bytes. Constant-br-if, multi-function, result-refinalize, selectify, single-target-br-table, and wrapper-cleanup leaves are all exact. The only residual leaves are control, cleanup, switch, GC, and multivalue-drop; every residual is canonically smaller by `12..51` bytes.
+
+Representative inspection ties the smaller residuals to deterministic, source-backed Starshine behaviors already covered by focused tests: unread `local.tee` elimination, void self-branch block removal, exact wrapper cleanup, literal multivalue flattening, and narrower safe result typing. The dedicated aggregate therefore has no remaining unclassified parity gap, validation failure, or size loss. It remains development evidence rather than the final fresh regular/random-all/wasm-smith renewal.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

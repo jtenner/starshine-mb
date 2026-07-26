@@ -9584,10 +9584,11 @@ fn remove_unused_brs_try_refinalize_single_result_block(
     if results.length() != 1 {
       return false
     }
+    let value_type = results[0]
     match candidate {
-      Some(existing) => existing == results[0]
+      Some(existing) => existing == value_type
       None => {
-        candidate = Some(results[0])
+        candidate = Some(value_type)
         true
       }
     }
@@ -10562,6 +10563,111 @@ fn remove_unused_brs_visit_region(
       changed
   }
   changed
+}
+
+///|
+fn remove_unused_brs_null_bottom_ref_type(
+  ref_type : @lib.RefType,
+) -> @lib.RefType? {
+  let heap_type = match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType | @lib.NoFuncAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_func())
+    @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType | @lib.NoExternAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_extern())
+    @lib.AbsHeapTypeHeapType(@lib.ExnAbsHeapType | @lib.NoExnAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_exn())
+    @lib.AbsHeapTypeHeapType(@lib.ContAbsHeapType | @lib.NoContAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_cont())
+    @lib.AbsHeapTypeHeapType(_) => @lib.HeapType::abs(@lib.AbsHeapType::none())
+    _ => return None
+  }
+  Some(@lib.RefType::new(true, heap_type))
+}
+
+///|
+fn remove_unused_brs_refinalize_lowered_null_block_instr(
+  instr : @lib.Instruction,
+) -> @lib.Instruction {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let body = remove_unused_brs_refinalize_lowered_null_block_body(body)
+      match block_type {
+        @lib.ValTypeBlockType(@lib.RefTypeValType(current_ref)) if body.length() ==
+          2 =>
+          match (body[body.length() - 2], body[body.length() - 1]) {
+            (@lib.RefNull(ref_type), @lib.Br(@lib.LabelIdx(0U))) =>
+              match remove_unused_brs_null_bottom_ref_type(ref_type) {
+                Some(bottom_ref) if bottom_ref != current_ref => {
+                  let rewritten = body.copy()
+                  rewritten[rewritten.length() - 2] = @lib.Instruction::ref_null_type(
+                    bottom_ref,
+                  )
+                  return @lib.Instruction::block(
+                    @lib.BlockType::val_type(@lib.ValType::ref_type(bottom_ref)),
+                    @lib.Expr::new(rewritten),
+                  )
+                }
+                _ => ()
+              }
+            _ => ()
+          }
+        _ => ()
+      }
+      @lib.Instruction::block(block_type, @lib.Expr::new(body))
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(
+          remove_unused_brs_refinalize_lowered_null_block_body(body),
+        ),
+      )
+    @lib.If(block_type, then_body, else_body) =>
+      @lib.Instruction::if_(
+        block_type,
+        remove_unused_brs_refinalize_lowered_null_block_body(then_body),
+        match else_body {
+          Some(body) =>
+            Some(remove_unused_brs_refinalize_lowered_null_block_body(body))
+          None => None
+        },
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(
+          remove_unused_brs_refinalize_lowered_null_block_body(body),
+        ),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn remove_unused_brs_refinalize_lowered_null_block_body(
+  body : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in body {
+    rewritten.push(remove_unused_brs_refinalize_lowered_null_block_instr(instr))
+  }
+  rewritten
+}
+
+///|
+fn remove_unused_brs_refinalize_lowered_null_blocks(
+  func : @lib.Func,
+) -> @lib.Func {
+  match func {
+    @lib.Func(locals, @lib.Expr(body)) =>
+      @lib.Func::new(
+        locals,
+        @lib.Expr::new(
+          remove_unused_brs_refinalize_lowered_null_block_body(body),
+        ),
+      )
+  }
 }
 
 ///|
