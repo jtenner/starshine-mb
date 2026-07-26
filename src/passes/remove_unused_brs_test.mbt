@@ -1848,6 +1848,7 @@ test "remove-unused-brs focused GenValid parity leaves optimize their owned shap
     ("remove-unused-brs-constant-br-if", "br_if"),
     ("remove-unused-brs-single-target-br-table", "br_table"),
     ("remove-unused-brs-multi-function", "br_table"),
+    ("remove-unused-brs-wrapper-cleanup", "unreachable"),
     ("remove-unused-brs-selectify", "(if"),
   ]
   for i = 0; i < cases.length(); i = i + 1 {
@@ -6574,4 +6575,54 @@ test "remove-unused-brs preserves leading root nops while trimming trailing noop
       ),
     ],
   )
+}
+
+///|
+test "remove-unused-brs prunes nested suffixes after proven nonfallthrough roots" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result i32) i32.const 19 return unreachable)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected nested dead-suffix cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(19)"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves nested suffixes reachable through br_if" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block local.get 0 br_if 0 unreachable)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected conditional nested suffix preservation, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves return payload effects while pruning its filler" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block (result i32) (return (block (result i32) i32.const 5 drop i32.const 19)) unreachable)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected effectful return-payload cleanup, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(5)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(19)"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
 }

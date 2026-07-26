@@ -191,6 +191,138 @@ test "cfg build maps drop operand result-if arms to join continuation" {
 }
 
 ///|
+test "cfg region root reachability rejects suffixes after outward branches" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([
+              @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              @lib.Instruction::unreachable_(),
+            ]),
+          ),
+          @lib.Instruction::nop(),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let cfg = cfg_build(func)
+  let outer = hot_root_get(func, 0)
+  let outer_body = hot_region_body_ref(func, outer)
+  let inner = hot_region_get(func, outer_body, 0)
+  let inner_body = hot_region_body_ref(func, inner)
+
+  assert_false(cfg_region_root_can_reach_next(func, cfg, inner_body, 0))
+  assert_false(
+    cfg_region_root_can_reach_next(func, cfg, outer_body, 0),
+    msg="the outward branch skips the outer block's following root",
+  )
+}
+
+///|
+test "cfg region root reachability follows branches through their own block label" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::block(
+            @lib.BlockType::void_(),
+            @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(0U))]),
+          ),
+          @lib.Instruction::nop(),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let cfg = cfg_build(func)
+  let outer = hot_root_get(func, 0)
+  let outer_body = hot_region_body_ref(func, outer)
+
+  assert_true(cfg_region_root_can_reach_next(func, cfg, outer_body, 0))
+}
+
+///|
+test "cfg region root reachability preserves conditional fallthrough suffixes" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let cfg = cfg_build(func)
+  let block = hot_root_get(func, 0)
+  let body = hot_region_body_ref(func, block)
+
+  assert_true(cfg_region_root_can_reach_next(func, cfg, body, 0))
+}
+
+///|
+test "cfg region root reachability distinguishes one and two nonfallthrough if arms" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            Some([@lib.Instruction::return_()]),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+      @lib.Instruction::block(
+        @lib.BlockType::void_(),
+        @lib.Expr::new([
+          @lib.Instruction::i32_const(@lib.I32(0)),
+          @lib.Instruction::if_(
+            @lib.BlockType::void_(),
+            [@lib.Instruction::return_()],
+            Some([@lib.Instruction::nop()]),
+          ),
+          @lib.Instruction::unreachable_(),
+        ]),
+      ),
+    ]),
+    HotLocals::new(),
+  )
+  let cfg = cfg_build(func)
+  let both_exit = hot_root_get(func, 0)
+  let one_exits = hot_root_get(func, 1)
+
+  assert_false(
+    cfg_region_root_can_reach_next(
+      func,
+      cfg,
+      hot_region_body_ref(func, both_exit),
+      0,
+    ),
+  )
+  assert_true(
+    cfg_region_root_can_reach_next(
+      func,
+      cfg,
+      hot_region_body_ref(func, one_exits),
+      0,
+    ),
+  )
+}
+
+///|
 test "cfg build places condition local writes in drop operand result-if predecessor" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[

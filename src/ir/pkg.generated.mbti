@@ -129,6 +129,8 @@ pub fn cfg_preorder(HotCfg) -> Array[Int]
 
 pub fn cfg_region_blocks_in_rpo(HotCfg, HotRegionRef) -> Array[Int]
 
+pub fn cfg_region_root_can_reach_next(HotFunc, HotCfg, HotRegionRef, Int) -> Bool
+
 pub fn cfg_reverse_postorder(HotCfg) -> Array[Int]
 
 pub fn cfg_reverse_postorder_from_exit(HotCfg) -> Array[Int]

@@ -45,7 +45,14 @@ The dedicated profile surface now includes:
 
 `remove-unused-brs-all` samples the first seven parity leaves together with the prior control, switch, cleanup, and GC stress leaves. The measured-win boundary remains a singleton outside the exact-parity aggregate. `random-all-profiles` now includes `remove-unused-brs-all`. Generator tests validate every focused leaf and its trigger; public pass tests prove the constant-branch, same-target-table, multi-function, multivalue-return, and selectification leaves reach their owned cleanup behavior.
 
-Per explicit user instruction, no fuzzer, saved-residual replay, or compare lane was run after this implementation. Direct behavior parity remains open until the fresh dedicated and full four-lane v131 matrix is executed.
+The nested wrapper-cleanup blocker was then repaired with a CFG-backed continuation query. `cfg_region_root_can_reach_next` follows mapped CFG successors and conservatively falls back to the root terminator contract for embedded value-control regions that the function CFG does not map individually. RUB runs a post-transform, postorder sweep that removes only the exact dead filler owned by the focused family: a trailing `unreachable` after a direct return, or after an outward `br` / `br_table` inside an unused inner block that is itself immediately followed by the enclosing result wrapper's unreachable sink. The cutoff root, ordered payload/effect prefix, self-target branches, conditional fallthrough, branch-payload `if` rewrites, and multivalue return ladders remain intact.
+
+Fresh development evidence with native Starshine SHA-256 `124657ff132c6af1132915807eb97c62675a6f71d5fae12b64e7e256c5dd2138` and official `wasm-opt version 131 (version_131)`:
+
+- `.tmp/pass-fuzz-remove-unused-brs-wrapper-cleanup-1000-cfg-prune-final`: `1000/1000` normalized matches, zero mismatches or failures.
+- `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-cfg-prune-final`: `5655/10000` normalized matches and `4345` residuals, with zero validation, generator, property, or command failures. The wrapper-cleanup leaf is `1250/1250` exact; result-refinalize is `625/625`; selectify is `1250/1250`; and single-target-br-table is `1250/1250`.
+
+The former uniformly size-losing dedicated blocker is eliminated. Across the `4345` residuals, Starshine is canonically smaller in `2500`, equal-sized in `1220`, and one byte larger in the `625` multivalue-drop cases; aggregate residual delta is `-41684` bytes. These residuals still require family-specific classification and repair. In particular, `multivalue-drop` remains a uniform `+1` parity gap, while the equal-sized constant-branch and multi-function residuals retain broader reference result types than Binaryen. This development aggregate is not a substitute for the final fresh four-lane matrix.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

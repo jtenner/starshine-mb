@@ -42,7 +42,7 @@ related:
 
 ## Binaryen v131 renewal status
 
-The required post-repair matrix completed on 2026-07-26 and **did not renew direct parity**. The first red-first repair makes all `181` formerly open random-all cases match while preserving the `689` measured smaller Starshine cleanups. The next deterministic slice repairs the dominant dedicated admission bug by allowing safe multivalue-return roots with local writes, while retaining nested multivalue-carrier and call/memory stack-hazard guards. Eight focused GenValid leaves and an expanded aggregate now isolate the dedicated behavior families. No post-change compare lane has been run by explicit user request; fresh four-lane v131 renewal and scheduler reconciliation remain open.
+The required post-repair matrix completed on 2026-07-26 and **did not renew direct parity**. Subsequent red-first repairs close the `181` old random-all gaps, admit safe multivalue-return roots, and replace the rejected broad nested suffix experiment with an exact CFG-backed wrapper cleanup. Fresh focused evidence is `1000/1000` exact for `remove-unused-brs-wrapper-cleanup`; the development aggregate is now `5655/10000` exact, including fully green wrapper, result-refinalize, selectify, and single-target-table leaves, with zero failures. The previous uniformly size-losing blocker is gone: residual aggregate canonical delta is `-41684` bytes. Direct parity remains open for the one-byte multivalue-drop family, equal-size reference-typing gaps, classification of smaller compound residuals, the final four-lane v131 renewal, and scheduler reconciliation.
 
 ## Role
 

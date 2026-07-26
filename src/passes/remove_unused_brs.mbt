@@ -2852,6 +2852,221 @@ fn remove_unused_brs_prune_dead_suffix_after_nonfallthrough(
 }
 
 ///|
+fn remove_unused_brs_block_is_direct_result_wrapper_before_unreachable(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Bool {
+  for parent_id = 0
+      parent_id < @ir.hot_node_count(func)
+      parent_id = parent_id + 1 {
+    if !@ir.hot_node_is_live(func, parent_id) ||
+      @ir.hot_node_result_arity(func, parent_id) == 0 {
+      continue
+    }
+    match @ir.hot_node_get(func, parent_id).op {
+      @ir.HotOp::Block => ()
+      _ => continue
+    }
+    let body_ref = @ir.hot_region_body_ref(func, parent_id)
+    let root_count = @ir.hot_region_root_count(func, body_ref)
+    for idx = 0; idx < root_count - 1; idx = idx + 1 {
+      if @ir.hot_region_get(func, body_ref, idx) != block_id {
+        continue
+      }
+      let suffix = @ir.hot_region_get(func, body_ref, idx + 1)
+      if suffix >= 0 && @ir.hot_node_is_live(func, suffix) {
+        match @ir.hot_node_get(func, suffix).op {
+          @ir.HotOp::Unreachable => return true
+          _ => ()
+        }
+      }
+    }
+  }
+  false
+}
+
+///|
+fn remove_unused_brs_prune_one_nested_dead_suffix_node(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cfg : @ir.HotCfg,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      remove_unused_brs_prune_one_nested_dead_suffix(
+        ctx,
+        func,
+        cfg,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      if remove_unused_brs_prune_one_nested_dead_suffix_node(
+          ctx,
+          func,
+          cfg,
+          @ir.hot_child_get(func, node_id, 0),
+        ) {
+        return true
+      }
+      if remove_unused_brs_prune_one_nested_dead_suffix(
+          ctx,
+          func,
+          cfg,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          remove_unused_brs_prune_one_nested_dead_suffix(
+            ctx, func, cfg, else_ref,
+          )
+        None => false
+      }
+    }
+    @ir.HotOp::Try => {
+      if remove_unused_brs_prune_one_nested_dead_suffix(
+          ctx,
+          func,
+          cfg,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          remove_unused_brs_prune_one_nested_dead_suffix(
+            ctx, func, cfg, catch_ref,
+          )
+        None => false
+      }
+    }
+    @ir.HotOp::TryTable => {
+      if remove_unused_brs_prune_one_nested_dead_suffix(
+          ctx,
+          func,
+          cfg,
+          @ir.hot_region_body_ref(func, node_id),
+        ) {
+        return true
+      }
+      remove_unused_brs_prune_one_nested_dead_suffix(
+        ctx,
+        func,
+        cfg,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    }
+    _ => {
+      for child in @ir.hot_child_span(func, node_id) {
+        if remove_unused_brs_prune_one_nested_dead_suffix_node(
+            ctx, func, cfg, child,
+          ) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn remove_unused_brs_prune_one_nested_dead_suffix(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  cfg : @ir.HotCfg,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  // Run postorder so ordinary RUB rewrites and inner structured cleanup retain
+  // their original inputs. Only the suffix is removed; the cutoff control root
+  // and its branch payload remain intact.
+  let roots : Array[Int] = []
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    roots.push(@ir.hot_region_get(func, region_ref, idx))
+  }
+  for node_id in roots {
+    if remove_unused_brs_prune_one_nested_dead_suffix_node(
+        ctx, func, cfg, node_id,
+      ) {
+      return true
+    }
+  }
+  if region_ref == @ir.HotRegionRef::root() {
+    return false
+  }
+  // Start with the exact lowering filler emitted by the known wrapper family:
+  // a direct nonfallthrough root followed by one unreachable placeholder in an
+  // ordinary block body. Earlier roots are preserved as ordered branch-payload
+  // or effect prefixes. Broader structured suffixes remain conservative until
+  // they have separate regressions.
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if @ir.hot_region_holder_block_root(func, region_ref) is None ||
+    root_count < 2 {
+    return false
+  }
+  let cutoff_idx = root_count - 2
+  let cutoff = @ir.hot_region_get(func, region_ref, cutoff_idx)
+  let suffix = @ir.hot_region_get(func, region_ref, root_count - 1)
+  if cutoff < 0 ||
+    suffix < 0 ||
+    !@ir.hot_node_is_live(func, cutoff) ||
+    !@ir.hot_node_is_live(func, suffix) {
+    return false
+  }
+  match @ir.hot_node_get(func, suffix).op {
+    @ir.HotOp::Unreachable => ()
+    _ => return false
+  }
+  let holder = @ir.hot_region_holder_block_root(func, region_ref).unwrap()
+  let holder_label = @ir.hot_control_node_label(func, holder)
+  let is_direct_result_wrapper = remove_unused_brs_block_is_direct_result_wrapper_before_unreachable(
+    func, holder,
+  )
+  let eligible_cutoff = match @ir.hot_node_get(func, cutoff).op {
+    @ir.HotOp::Return => cutoff_idx == 0
+    @ir.HotOp::Br =>
+      if !is_direct_result_wrapper {
+        false
+      } else {
+        match @ir.hot_branch_target(func, cutoff) {
+          Some(target) => target != holder_label
+          None => false
+        }
+      }
+    @ir.HotOp::BrTable => {
+      if !is_direct_result_wrapper {
+        return false
+      }
+      let targets = @ir.hot_branch_table_targets_for_node(func, cutoff)
+      if targets.length() == 0 {
+        false
+      } else {
+        let mut all_outward = true
+        for target in targets {
+          if target == holder_label {
+            all_outward = false
+            break
+          }
+        }
+        all_outward
+      }
+    }
+    _ => false
+  }
+  if !eligible_cutoff ||
+    @ir.cfg_region_root_can_reach_next(func, cfg, region_ref, cutoff_idx) {
+    return false
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, root_count - 1, 1, [])
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+  true
+}
+
+///|
 fn remove_unused_brs_region_roots(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -10524,6 +10739,16 @@ fn remove_unused_brs_run(
     changed = remove_unused_brs_trim_trailing_nops(
         ctx,
         func,
+        @ir.HotRegionRef::root(),
+      ) ||
+      changed
+    // Run the narrow nested-filler cleanup after this cycle's ordinary RUB
+    // rewrites. It may expose another wrapper simplification for the next cycle.
+    let cfg = pass_require_cfg(ctx, func)
+    changed = remove_unused_brs_prune_one_nested_dead_suffix(
+        ctx,
+        func,
+        cfg,
         @ir.HotRegionRef::root(),
       ) ||
       changed

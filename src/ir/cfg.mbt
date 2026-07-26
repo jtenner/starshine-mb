@@ -905,6 +905,70 @@ pub fn cfg_successors(cfg : HotCfg, block_id : BlockId) -> Array[CfgEdge] {
 }
 
 ///|
+/// Reports whether execution beginning at one structured-region root can reach
+/// the following root in the same region. This is stronger than inspecting the
+/// root opcode: structured controls may complete through their own labels, and
+/// exception or loop edges may still reach the continuation.
+pub fn cfg_region_root_can_reach_next(
+  func : HotFunc,
+  cfg : HotCfg,
+  region_ref : HotRegionRef,
+  slot : Int,
+) -> Bool {
+  let fallback = fn() {
+    if slot < 0 || slot + 1 >= hot_region_root_count(func, region_ref) {
+      return false
+    }
+    let root_id = hot_region_get(func, region_ref, slot)
+    if root_id < 0 || !hot_node_is_live(func, root_id) {
+      return true
+    }
+    let edge_kinds = cfg_terminator_edge_kinds(hot_query_op(func, root_id))
+    if edge_kinds.length() == 0 {
+      return true
+    }
+    for kind in edge_kinds {
+      if kind == CfgEdgeKind::FallthroughEdge {
+        return true
+      }
+    }
+    false
+  }
+  let start = match cfg_block_for_region_root(cfg, region_ref, slot) {
+    Some(block) => block
+    None => return fallback()
+  }
+  let target = match cfg_block_for_region_root(cfg, region_ref, slot + 1) {
+    Some(block) => block
+    None => return fallback()
+  }
+  if start == target {
+    return true
+  }
+  let seen = Array::make(cfg_block_count(cfg), false)
+  let worklist = [start]
+  while worklist.length() > 0 {
+    let current = worklist.pop().unwrap()
+    if current == target {
+      return true
+    }
+    if current < 0 || current >= seen.length() || seen[current] {
+      continue
+    }
+    seen[current] = true
+    for edge in cfg_successor_edges(cfg, current) {
+      if edge.block == target {
+        return true
+      }
+      if edge.block >= 0 && edge.block < seen.length() && !seen[edge.block] {
+        worklist.push(edge.block)
+      }
+    }
+  }
+  false
+}
+
+///|
 pub fn cfg_predecessors(cfg : HotCfg, block_id : BlockId) -> Array[CfgEdge] {
   cfg_predecessor_edges(cfg, block_id).copy()
 }
