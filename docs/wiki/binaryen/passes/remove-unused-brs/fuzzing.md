@@ -68,7 +68,18 @@ Fresh native Starshine SHA-256 `c64e283735f273181846a112538b926f1e281a4bc39a7c7a
 - `.tmp/pass-fuzz-remove-unused-brs-constant-br-if-1000-null-refine`: `1000/1000` exact, zero failures.
 - `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-null-refine-v2`: `6875/10000` exact and `3125` residuals, zero failures, aggregate residual delta `-81681` bytes. Constant-br-if, multi-function, result-refinalize, selectify, single-target-br-table, and wrapper-cleanup leaves are all exact. The only residual leaves are control, cleanup, switch, GC, and multivalue-drop; every residual is canonically smaller by `12..51` bytes.
 
-Representative inspection ties the smaller residuals to deterministic, source-backed Starshine behaviors already covered by focused tests: unread `local.tee` elimination, void self-branch block removal, exact wrapper cleanup, literal multivalue flattening, and narrower safe result typing. The dedicated aggregate therefore has no remaining unclassified parity gap, validation failure, or size loss. It remains development evidence rather than the final fresh regular/random-all/wasm-smith renewal.
+Representative inspection ties the smaller residuals to deterministic, source-backed Starshine behaviors already covered by focused tests: unread `local.tee` elimination, void self-branch block removal, exact wrapper cleanup, literal multivalue flattening, and narrower safe result typing. The dedicated aggregate therefore has no remaining unclassified parity gap, validation failure, or size loss.
+
+## Final 2026-07-26 v131 renewal
+
+All lanes use native Starshine SHA-256 `c64e283735f273181846a112538b926f1e281a4bc39a7c7a87ccd6b8fe5f28ed`, official `wasm-opt version 131 (version_131)`, and the `drop-consts` plus `unreachable-control-debris` normalizers.
+
+- Regular: `.tmp/pass-fuzz-remove-unused-brs-regular-100000-final-renewal`, `100000/100000`, `14604` direct plus `85396` cleanup-normalized, zero mismatches or failures.
+- Dedicated: `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-null-refine-v2`, `6875/10000` direct plus `3125` classified measured Starshine wins totaling `-81681` canonical bytes, zero failures.
+- Random-all: `.tmp/pass-fuzz-remove-unused-brs-random-all-10000-final-renewal`, `7028` direct plus `1683` cleanup-normalized and `1289` measured wins, zero failures. Residuals are `625` `remove-unused-brs-control` cleanups (`-20..-34`), `625` `ssa-nomerge-smoke` unread-tee removals (`-2`), and `39` `local-subtyping-unreachable-tail` terminal-return removals (`-1`).
+- wasm-smith: `.tmp/pass-fuzz-remove-unused-brs-wasm-smith-10000-final-renewal`, `9956` comparable cases with `9954` direct plus `2` cleanup-normalized, zero mismatches or Starshine failures. The `44` Binaryen-only failures are `39` empty recursion groups, `3` bad section sizes, `1` invalid tag index, and `1` table index out of range.
+
+Runtime execution remained off, so this matrix is differential/validation evidence rather than exhaustive runtime execution. No true semantic mismatch is known. Direct Binaryen-v131 behavior parity is renewed; only the separately tracked extra scheduled RUB slot remains open.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

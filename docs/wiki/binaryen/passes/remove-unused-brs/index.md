@@ -42,7 +42,7 @@ related:
 
 ## Binaryen v131 renewal status
 
-The required post-repair matrix completed on 2026-07-26 and **did not renew direct parity**. Subsequent red-first repairs close the old random gaps, admit safe multivalue-return roots, replace broad nested suffix pruning with exact CFG-backed wrapper cleanup, flatten dropped literal multivalues, and match Binaryen's null-only `br_if` result typing without narrowing selector-prefixed `br_table` blocks. The development aggregate is `6875/10000` exact; all `3125` residuals are source-backed smaller Starshine cleanups totaling `-81681` bytes, with zero failures. Direct parity now awaits old-random replay, the final four-lane v131 renewal, and scheduler reconciliation.
+Direct Binaryen-v131 behavior parity was renewed on 2026-07-26 after red-first repairs closed the old random gaps, admitted safe multivalue-return roots, added exact CFG-backed wrapper cleanup, flattened dropped literal multivalues, and matched null-only `br_if` result typing without narrowing selector-prefixed `br_table` blocks. The final regular lane is cleanup-normalized green at `100000/100000`; dedicated and random-all retain only measured smaller Starshine cleanups; wasm-smith is green for all `9956` comparable cases with `44` Binaryen-only failures. The separately tracked extra scheduled RUB slot remains open.
 
 ## Role
 

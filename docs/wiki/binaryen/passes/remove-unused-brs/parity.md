@@ -34,7 +34,8 @@ related:
 - The next deterministic slice identifies the dominant dedicated owner: multivalue-return functions were rejected wholesale whenever ordinary root local writes coexisted with multiple function results. The guard now distinguishes safe root multivalue results from nested multivalue carriers and call/memory stack hazards. Typed carried `br_if`, same-target `br_table`, multi-function, result-refinalization, multivalue-drop, wrapper, selectification, and measured-win GenValid leaves isolate the behavior families.
 - The nested wrapper-cleanup blocker is now repaired without the rejected broad suffix pruning. A shared CFG query proves whether one region root can reach the next, including an opcode-contract fallback for embedded value controls absent from the top-level CFG. RUB applies only the exact outward-branch/result-wrapper filler cleanup after ordinary rewrites. Focused wrapper evidence is `1000/1000` exact, and the wrapper leaf in the fresh aggregate is `1250/1250` exact.
 - The uniform multivalue-drop `+1` family is repaired as a stronger Starshine lowering. Exact unused literal multivalue blocks consumed only by result drops flatten without Binaryen's four-scratch-local shell. Focused evidence is `1000/1000` measured wins, uniformly `-12` bytes.
-- Exact null-only direct-branch blocks now refinalize at lowered form, updating both block type and `ref.null` immediate to the hierarchy bottom. The exact two-instruction requirement matches Binaryen's `br_if` result while preserving its broader `br_table` selector-prefix result. The development aggregate is now `6875/10000` exact; all remaining `3125` residuals are source-backed smaller Starshine cleanups totaling `-81681` bytes. No dedicated parity gap, size loss, or failure remains.
+- Exact null-only direct-branch blocks now refinalize at lowered form, updating both block type and `ref.null` immediate to the hierarchy bottom. The exact two-instruction requirement matches Binaryen's `br_if` result while preserving its broader `br_table` selector-prefix result. The dedicated aggregate is `6875/10000` exact; all remaining `3125` residuals are source-backed smaller Starshine cleanups totaling `-81681` bytes.
+- Final v131 renewal is complete: regular `100000/100000` is cleanup-normalized green; dedicated has only the classified wins above; random-all has `7028` direct, `1683` cleanup-normalized, and `1289` measured wins; wasm-smith has `9954` direct plus `2` cleanup-normalized across `9956` comparable cases, with `44` Binaryen-only failures. There are zero Starshine validation, generator, property, command, or residual mismatch failures. Direct behavior parity is renewed.
 - Note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md) closed the direct DAEO-prefix runtime/validity owner: the current artifact moved from `580.178s` and invalid Func `3397` output to valid deterministic `3.239s` / `3.068s` repeats through rollback-capable batch validation and narrow safety guards. Regular `10000` compare had zero mismatches/failures; the dedicated `115`-mismatch family was runtime-all-equal; finite direct convergence reached a byte-identical fixed point after three productive applications. That evidence remains a correctness result, not a current direct-parity closeout.
 - Binaryen's `RemoveUnusedBrs` is phase-driven and Starshine now mirrors a meaningful subset of that structure.
 - The current tree already covers much more than dead tail stripping:
@@ -250,10 +251,9 @@ related:
 
 The 2026-07-26 renewal supersedes the older declaration-only first-residual wording. Current direct repair order is:
 
-1. Keep all focused parity leaves exact-green and preserve the source-backed smaller control, cleanup, switch, GC, and multivalue-drop families.
-2. Replay the old random-all residual corpus to confirm the `181` repaired gaps and `689` measured wins remain stable.
-3. Run the final fresh regular, dedicated, random-all, and wasm-smith v131 lanes.
-4. Reconcile the extra scheduled RUB slot separately, then close direct parity only if the final matrix remains clean.
+1. Keep all focused parity leaves exact-green and preserve the source-backed smaller dedicated and random-all cleanup families.
+2. Reconcile the extra scheduled RUB slot separately; direct pass behavior is closed.
+3. Reopen only for a true semantic mismatch, validation failure, loss of a measured win, or a newly size-losing/unclassified family.
 
 The older artifact/history queue below remains useful provenance but is no longer the first direct-parity owner:
 
