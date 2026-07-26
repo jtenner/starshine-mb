@@ -85,7 +85,7 @@ if (process.argv[2] === "run" && process.argv[3] === "src/cmd") {
       i += 1;
       continue;
     }
-    if (["--target", "native", "--optimize", "--global-effects", "--flatten", "--vacuum"].includes(token)) {
+    if (["--target", "native", "--optimize", "--optimize-instructions", "--flatten", "--vacuum"].includes(token)) {
       continue;
     }
     if (token.endsWith(".wat") || token.endsWith(".json")) {
@@ -193,7 +193,7 @@ process.exit(0);
     "info",
     "fmt",
     "check --target native",
-    "test --target native",
+    `test --target native --jobs ${Math.max(1, os.availableParallelism())}`,
     "run --target native src/fuzz -- all ci --seed 0x5eed",
   ].join("\n");
   const actualValidate = fs.readFileSync(logPath, "utf8").trim();

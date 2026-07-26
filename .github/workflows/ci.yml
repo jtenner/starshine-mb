@@ -37,6 +37,9 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
+      - name: Resolve MoonBit registry dependencies
+        run: moon update
+
       - name: Verify required workflow contract
         run: bun scripts/test/ci-workflow-contract.ts
 
@@ -66,8 +69,11 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
+      - name: Resolve MoonBit registry dependencies
+        run: moon update
+
       - name: Cache wasm-tools cargo artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/wasm-tools
@@ -122,8 +128,11 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
+      - name: Resolve MoonBit registry dependencies
+        run: moon update
+
       - name: Cache wasm-tools cargo artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/wasm-tools

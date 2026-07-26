@@ -56,6 +56,9 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
+      - name: Resolve MoonBit registry dependencies
+        run: moon update
+
       - name: Verify native CI wasm-tools workflow contract
         run: |
           bun examples workflow-contract
@@ -66,7 +69,7 @@ jobs:
           sudo apt-get install -y binaryen
 
       - name: Cache wasm-tools cargo install artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/wasm-tools

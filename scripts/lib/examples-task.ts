@@ -34,7 +34,7 @@ const SMOKE_CASES: SmokeCase[] = [
     name: "advanced-features",
     expected: ["table_dispatch.wasm", "simd_lane_mix.wasm"],
     args: [
-      "--global-effects",
+      "--optimize-instructions",
       "--flatten",
       "--vacuum",
       "examples/modules/table_dispatch.wat",
@@ -48,7 +48,7 @@ const SMOKE_CASES: SmokeCase[] = [
 const WORKFLOW_PATTERNS = [
   ["WASM_TOOLS_VERSION:", "WASM_TOOLS_VERSION env declaration"],
   ["name: Cache wasm-tools cargo install artifacts", "wasm-tools cache step name"],
-  ["uses: actions/cache@v4", "actions/cache usage"],
+  ["uses: actions/cache@v5", "actions/cache usage"],
   ["~/.cargo/bin/wasm-tools", "cached wasm-tools binary path"],
   ['key: ${{ runner.os }}-cargo-wasm-tools-${{ env.WASM_TOOLS_VERSION }}', "cache key tied to WASM_TOOLS_VERSION"],
   ['if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then', "guarded install check"],

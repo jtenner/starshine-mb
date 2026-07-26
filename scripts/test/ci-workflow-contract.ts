@@ -56,15 +56,38 @@ export function runCiWorkflowContractTest(): void {
   for (const [fragment, label] of requiredFragments) {
     requireText(workflow, fragment, label);
   }
+  const moonUpdateCount = workflow.split("moon update").length - 1;
+  if (moonUpdateCount < 3) {
+    fail(`required CI workflow must resolve MoonBit registry dependencies in every job; found ${moonUpdateCount} moon update step(s)`);
+  }
+
+  const nodeWorkflow = fs.readFileSync(path.join(workflowDir, "node-wasm-tests.yml"), "utf8");
+  requireText(
+    nodeWorkflow,
+    "bun scripts/test/node-package-static-contract.ts",
+    "clean-checkout Node package static contract",
+  );
 
   const staleMainTriggers: string[] = [];
+  const missingMoonUpdates: string[] = [];
+  const staleNodePrefixes: string[] = [];
   for (const entry of fs.readdirSync(workflowDir)) {
     if (!entry.endsWith(".yml") && !entry.endsWith(".yaml")) continue;
     const contents = fs.readFileSync(path.join(workflowDir, entry), "utf8");
     if (/^\s*- main\s*$/m.test(contents)) staleMainTriggers.push(entry);
+    if (contents.includes("cli.moonbitlang.com") && !contents.includes("moon update")) {
+      missingMoonUpdates.push(entry);
+    }
+    if (contents.includes("npm --prefix tests/node")) staleNodePrefixes.push(entry);
   }
   if (staleMainTriggers.length > 0) {
     fail(`workflow push triggers still name main instead of master: ${staleMainTriggers.join(", ")}`);
+  }
+  if (missingMoonUpdates.length > 0) {
+    fail(`workflows install MoonBit without resolving registry dependencies: ${missingMoonUpdates.join(", ")}`);
+  }
+  if (staleNodePrefixes.length > 0) {
+    fail(`workflows reference the removed tests/node package: ${staleNodePrefixes.join(", ")}`);
   }
 }
 
