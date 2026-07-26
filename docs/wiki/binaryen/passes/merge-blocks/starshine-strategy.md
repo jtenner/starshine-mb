@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -20,12 +20,13 @@ related:
 
 # Starshine Strategy For `merge-blocks`
 
-Current Starshine `merge-blocks` is a HOT-region cleanup pass. It is not a direct AST port of Binaryen, but it deliberately has two analogous operations:
+Current Starshine `merge-blocks` is primarily a HOT-region cleanup pass, with one narrow raw-boundary repair for a stack-form encoding that HOT lifting otherwise preserves. It is not a direct AST port of Binaryen, but it deliberately has three analogous operations:
 
-1. **region-root flattening** for a branch-free nested `Block`; and
-2. **expression-child prefix lifting** for an eligible block-valued operand.
+1. **region-root and branch-free loop/block-wrapper flattening**;
+2. **expression-child prefix lifting** for eligible block-valued operands; and
+3. **flat direct-call prefix reordering** for one exact two-argument `global.set` family before HOT lifting.
 
-The second operation is important: the local pass does not only flatten region roots. It can lift prefixes from the `if` condition, `drop`, `i32.store`, and `throw` fixtures covered in the direct test file.
+The second operation covers the `if` condition, `drop`, `i32.store`, and `throw` fixtures. The third closes the binary stack-form equivalent when the prefix can cross an earlier pure or disjoint `memory.grow` operand, while trapping and state-dependent cases remain ordered.
 
 ## Region-root flattening
 
@@ -61,13 +62,17 @@ The HOT helper requires more than Binaryen's AST-level shape:
 - at least two body roots;
 - one-result tail whose result type matches the block's result type;
 - no branch in the lifted prefix;
-- no effect-order violation: either the prefix or all earlier sibling operands must be pure.
+- no effect-order violation: pure operands reorder freely; local/global conflicts, hard control/call/throw barriers, trap-versus-write pairs, and overlapping memory/table categories do not; disjoint represented categories may reorder.
 
-These guards make the local rewrite safe for the present HOT representation. They also mean a matching WAT outline is not evidence that every upstream `MergeBlocks.cpp` case is implemented.
+These guards make the local rewrite safe for the present HOT representation. Regular memory atomics remain conservative because their acquire/release ordering is not represented at the boundary. A matching WAT outline is therefore not evidence that every upstream `MergeBlocks.cpp` case is implemented.
+
+## Flat stack-form direct calls
+
+`run_hot_pipeline_raw_merge_blocks_flat_call_prefix(...)` handles only flat functions and exact two-argument direct calls shaped as an earlier value, a context-free value feeding `global.set`, a one-instruction tail value, and the call. It moves the `global.set` pair before the earlier value only when the earlier value slice has no branch, trap/unknown operation, global access, call, or exception boundary. `memory.grow` is admitted as a nontrapping disjoint memory-state operation. Structured functions, local/global-dependent prefix producers, loads, atomics, and unknown effects fall through unchanged to the HOT pipeline.
 
 ## Upstream relationship
 
-Current Binaryen has generic non-control expression-child extraction alongside special drop/if/throw visitors. Starshine uses one HOT helper for its supported `drop`, `if`, store, and `throw` fixtures, so the local routing is not a literal visitor-for-visitor port. The representations differ:
+Current Binaryen has generic non-control expression-child extraction alongside special drop/if/throw visitors. Starshine uses one HOT helper for its supported `drop`, `if`, store, and `throw` fixtures plus the narrow raw stack-form bridge, so the local routing is not a literal visitor-for-visitor port. The representations differ:
 
 | Topic | Binaryen | Starshine |
 | --- | --- | --- |
@@ -83,22 +88,18 @@ Do not describe the local `i32.store` family as full parity or as a dedicated up
 
 | File | Lines | Role |
 | --- | --- | --- |
-| `src/passes/merge_blocks.mbt` | `293-334` | Candidate legality for a block-valued expression child. |
-| `src/passes/merge_blocks.mbt` | `336-414` | Prefix lift, ordered-child replacement, and HOT effect gate. |
-| `src/passes/merge_blocks.mbt` | `415-490` | Recursive branch detection for prefixes. |
-| `src/passes/merge_blocks.mbt` | `492-583` | Region-root flattening and traversal. |
-| `src/passes/merge_blocks_test.mbt` | `2138-2166` | Live-label boundary. |
-| `src/passes/merge_blocks_test.mbt` | `2168-2295` | `if` condition, `drop`, store, and `throw` expression-child cases. |
+| `src/passes/merge_blocks.mbt` | `293-402` | Child legality and category-aware effect-order proof. |
+| `src/passes/merge_blocks.mbt` | `404-490` | Prefix lift and ordered-child replacement. |
+| `src/passes/merge_blocks.mbt` | `492-577` | Recursive branch detection for prefixes. |
+| `src/passes/merge_blocks.mbt` | `579-737` | Region-root flattening, branch-free loop/block-wrapper removal, and traversal. |
+| `src/passes/pass_manager.mbt` | `25580-25780` | Prefiltered narrow raw flat-call prefix bridge. |
+| `src/passes/merge_blocks_test.mbt` | `132-157`, `2322-2569` | Loop-wrapper, call-operand, raw stack-form, trapping-load, local-dependency, and repeated-call coverage. |
 
-## Existing validation evidence
+## Current validation evidence
 
-The 2026-05-06 direct revalidation ran `moon info`, `moon fmt`, `moon test`, mixed-generator `pass-fuzz-compare` for `--merge-blocks`, and debug-artifact `self-optimize-compare` for `--merge-blocks`.
+The 2026-07-26 final signoff passed `moon info`, `moon fmt`, focused `merge_blocks_test.mbt` (`55/55`), `src/validate` (`1719/1719`), `src/passes` (`6445/6445`), native and wasm-gc full tests (`9933/9933`), direct wasm-gc check, README/API sync, the full CI fuzz suite including `86820` binary roundtrips, and a native release build.
 
-- `moon test`: `2798` passed, `0` failed.
-- `.tmp/pass-fuzz-merge-blocks`: `9975/10000` comparable cases, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures in wasm-smith lanes.
-- Debug artifact: normalized WAT equality and canonical function equality; Starshine pass runtime `214.434 ms` versus Binaryen `1526.350 ms`.
-
-This is historical validation, not a substitute for a new pass signoff after behavior changes. See [research note 0514](./index.md).
+Using native SHA-256 `ae55a599bde483c6eb05347d85a1a5ef9d2c21c8b47dc100277763b82a0108ca` and explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`, regular GenValid was exact `100000/100000`, `merge-blocks-all` exact `10000/10000`, random-all exact `10000/10000`, and wasm-smith exact for all `9956` comparable cases. The 44 excluded wasm-smith cases are classified Binaryen-v131 parser/tool failures. See [`./fuzzing.md`](./fuzzing.md).
 
 ## Sources
 

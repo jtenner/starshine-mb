@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-25
 sources:
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks-atomics.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
 related:
   - ./index.md
@@ -75,6 +78,8 @@ The generic path is deliberately narrow:
 
 The relevant source test is `EffectAnalyzer::orderedBefore(...)`, not a casual “both sides look pure” rule. The rewrite must preserve WebAssembly's left-to-right operand evaluation order.
 
+Binaryen v131 makes the atomic-ordering part of that proof explicit. Shared accesses may move **before** a release store but not **after** it; they may move **after** an acquire load but not **before** it; and sequentially consistent operations prevent shared-access reordering in either direction. The v131 atomic fixture exercises both the allowed release-store direction and the disallowed acquire-load direction.
+
 ## Special visitor routes
 
 `visitDrop(...)`, `visitIf(...)`, and `visitThrow(...)` are still important source surfaces:
@@ -117,4 +122,4 @@ This is useful correspondence, not blanket parity evidence. Starshine's single H
 - Binaryen current owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
 - Binaryen current-main [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp)
 - Binaryen current-main [`merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast)
-- Binaryen `version_130` [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MergeBlocks.cpp)
+- Binaryen `version_131` [`MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp) and [`effects.h`](https://github.com/WebAssembly/binaryen/blob/version_131/src/ir/effects.h)

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp
   - ./index.md
@@ -27,7 +27,7 @@ Use this page to map current upstream owner/test evidence to the active Starshin
 Primary owner:
 
 - current main [`src/passes/MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp)
-- release anchor [`version_130/src/passes/MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MergeBlocks.cpp)
+- release anchor [`version_131/src/passes/MergeBlocks.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/MergeBlocks.cpp)
 
 | Current source unit | Role |
 | --- | --- |
@@ -47,7 +47,7 @@ The special visitors and generic visitor are complementary: `drop`, `if`, and `t
 Focused fixture:
 
 - current main [`test/lit/passes/merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/merge-blocks.wast)
-- release anchor [`version_130/test/lit/passes/merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/merge-blocks.wast)
+- release anchors [`version_131/test/lit/passes/merge-blocks.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks.wast), [`merge-blocks-atomics.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks-atomics.wast), and [`merge-blocks-eh.wast`](https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/merge-blocks-eh.wast)
 
 The reviewed fixture covers:
 
@@ -71,10 +71,12 @@ Primary owner:
 | `20-87` | candidates / type helpers | Fast candidate scan, region-root collection, and typed block parameter resolution. |
 | `88-154` | loop scan | Reject a candidate body containing a loop. |
 | `155-292` | unreachable repair / control traversal | Maintain writeback-safe dead-value shape, then recurse through regions. |
-| `293-334` | child eligibility | Require a dead label, no params/loops, at least two roots, one-result tail, and matching result type. |
-| `336-414` | child-prefix lifting | Replace a child block with its tail and splice legal prefixes before the parent expression. |
-| `415-490` | branch scanners | Reject lift candidates whose prefixes contain branches. |
-| `492-603` | root flatten / run | Region-root splice, traversal order, mutation marking. |
+| `293-348` | child eligibility | Require a dead label, no params/loops, at least two roots, one-result tail, and matching result type. |
+| `350-402` | effect ordering | Permit pure/disjoint categories while rejecting control, call, throw, trap/write, local/global, memory, and table conflicts. |
+| `404-490` | child-prefix lifting | Replace a child block with its tail and splice legal prefixes before the parent expression. |
+| `492-577` | branch scanners | Reject lift candidates whose prefixes contain branches. |
+| `579-758` | root/wrapper flatten and run | Region-root splice, branch-free loop/block removal, traversal order, mutation marking. |
+| `src/passes/pass_manager.mbt:25600-25750` | raw flat-call bridge | Repair the exact two-argument stack-form `global.set` prefix family before HOT lifting. |
 
 ## Local direct tests
 
@@ -84,14 +86,13 @@ Primary proof file:
 
 | Lines | Test family |
 | --- | --- |
-| `38-2137` | Region-root flattening; loop/live-label, typed-carrier, multivalue, reference, and `unreachable` stability. |
-| `2138-2166` | A live-label block retains its prefix boundary. |
-| `2168-2198` | Condition-prefix lift. |
-| `2200-2232` | `drop`-operand prefix lift. |
-| `2234-2266` | Store-operand lift without reordering effects. |
-| `2268-2295` | `throw`-operand prefix lift. |
+| `38-2319` | Region-root flattening; loop/live-label, typed-carrier, multivalue, reference, `unreachable`, and expression-child stability. |
+| `132-157` | Branch-free untyped loop/block-wrapper removal. |
+| `2322-2354` | Effectful prefix crossing a pure earlier call operand. |
+| `2356-2569` | Direct flat stack-form call fixture: pure and `memory.grow` positives; trapping-load and local-dependency negatives; repeated eligible calls. |
+| `2571+` | Disjoint memory/global HOT case plus throw and remaining expression families. |
 
-The four expression tests establish a targeted correspondence, not an exhaustive operand-family signoff.
+These tests establish the represented direct-call and effect-order families; regular acquire/release memory-atomic ordering remains outside the boundary representation.
 
 ## Registry, dispatch, and integration evidence
 
@@ -99,14 +100,14 @@ The four expression tests establish a targeted correspondence, not an exhaustive
 | --- | --- |
 | `src/passes/optimize.mbt:256-259` | Active hot-pass registry entry. |
 | `src/passes/optimize.mbt:322-323`, `340-341` | Repeated late preset slots. |
-| `src/passes/pass_manager.mbt:9002` | `merge_blocks_run(ctx, func)` dispatcher arm. |
+| `src/passes/pass_manager.mbt:25580-25780`, dispatcher pipeline | Prefiltered raw flat-call bridge followed by `merge_blocks_run(ctx, func)`. |
 | `src/passes/registry_test.mbt:64`, `189-190`, `206-207`, `214-215` | Active category, descriptor, and preset tests. |
 | `src/passes/optimize_test.mbt:382-403`, `407-428`, `469-512` | Repeated slot and `simplify-locals` handoff coverage. |
 | `src/cmd/cmd_wbtest.mbt:1959-1993` | Direct `--merge-blocks` CLI coverage. |
 
 ## Binaryen–Starshine boundary
 
-Both implementations have expression-child prefix extraction, but their safety proofs are not interchangeable. Binaryen works in an expression AST and refinalizes. Starshine edits HOT child arrays and regions, imposes a hard live-label bailout, rejects branch prefixes and loop-containing candidates, and relies on HOT writeback validation. A future parity claim needs source-family review plus dedicated comparison evidence, not just matching these tests.
+Both implementations have expression-child prefix extraction, but their safety proofs are not interchangeable. Binaryen works in an expression AST and refinalizes. Starshine edits HOT child arrays and regions, imposes hard label/type/branch/effect gates, uses one exact raw stack-form bridge, and relies on HOT writeback validation. The 2026-07-26 represented-surface parity claim is backed by the dedicated aggregate and four-lane explicit-v131 matrix, not tests alone.
 
 ## Validation guidance
 
@@ -120,9 +121,11 @@ For a behavior change:
 
 Do not use a stale `target/native/...` artifact as current signoff evidence; see [`../../../AGENTS.md`](../../../AGENTS.md) and [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
 
-## 2026-07-21 correctness hardening
+## Correctness hardening and closeout
 
-The HOT unreachable-root repair now moves only effect-free, nontrapping values before an `unreachable`. An effectful root in the ambiguous post-terminator root suffix makes block flattening fail closed, because it may be source-level dead code that originally followed the trap. `merge_blocks_test.mbt` covers a dead call that previously became live before `unreachable`.
+The 2026-07-21 HOT unreachable-root repair moves only effect-free, nontrapping values before an `unreachable`; ambiguous effectful roots fail closed. The 2026-07-26 closeout additionally removes safe branch-free untyped loop/block wrappers, admits only proved-disjoint HOT effect motion, and repairs the exact flat two-argument direct-call encoding family. Red-first tests cover each positive and negative boundary.
+
+Final validation: focused `55/55`, `src/validate` `1719/1719`, `src/passes` `6445/6445`, native and wasm-gc full Moon `9933/9933`, direct wasm-gc check, README/API sync, and the full CI fuzz suite including `86820` binary roundtrips; native SHA-256 `ae55a599bde483c6eb05347d85a1a5ef9d2c21c8b47dc100277763b82a0108ca`, regular `100000/100000`, dedicated `10000/10000`, random-all `10000/10000`, and wasm-smith `9956/9956` comparable matches with 44 classified Binaryen-only failures.
 
 ## Sources
 
