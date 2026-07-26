@@ -774,6 +774,10 @@ pub enum GenValidProfile {
   MergeBlocksEffectProfile
   MergeBlocksEhAtomicProfile
   MergeBlocksAllProfile
+  MemoryPackingActiveProfile
+  MemoryPackingPassiveProfile
+  MemoryPackingLegacyEhProfile
+  MemoryPackingAllProfile
   CodeFoldingIfArmsProfile
   CodeFoldingBlockExitsProfile
   CodeFoldingReturnsProfile
@@ -1045,6 +1049,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     MergeBlocksEffectProfile => "merge-blocks-effect-order"
     MergeBlocksEhAtomicProfile => "merge-blocks-eh-atomic"
     MergeBlocksAllProfile => "merge-blocks-all"
+    MemoryPackingActiveProfile => "memory-packing-active"
+    MemoryPackingPassiveProfile => "memory-packing-passive"
+    MemoryPackingLegacyEhProfile => "memory-packing-legacy-eh"
+    MemoryPackingAllProfile => "memory-packing-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
     CodeFoldingReturnsProfile => "code-folding-returns"
@@ -1174,6 +1182,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
     | MergeBlocksAllProfile
+    | MemoryPackingAllProfile
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
@@ -1323,6 +1332,12 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MergeBlocksExpressionProfile, 3),
         GenValidProfileMember::new(MergeBlocksEffectProfile, 2),
         GenValidProfileMember::new(MergeBlocksEhAtomicProfile, 2),
+      ]
+    MemoryPackingAllProfile =>
+      [
+        GenValidProfileMember::new(MemoryPackingActiveProfile, 3),
+        GenValidProfileMember::new(MemoryPackingPassiveProfile, 3),
+        GenValidProfileMember::new(MemoryPackingLegacyEhProfile, 2),
       ]
     CodeFoldingAllProfile =>
       [
@@ -1535,6 +1550,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
         GenValidProfileMember::new(MergeBlocksAllProfile, 1),
+        GenValidProfileMember::new(MemoryPackingAllProfile, 1),
         GenValidProfileMember::new(PrecomputeAllProfile, 1),
         GenValidProfileMember::new(DaeAllProfile, 1),
         GenValidProfileMember::new(DaeOptimizingProfile, 1),
@@ -1733,6 +1749,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MergeBlocksEffectProfile,
     MergeBlocksEhAtomicProfile,
     MergeBlocksAllProfile,
+    MemoryPackingActiveProfile,
+    MemoryPackingPassiveProfile,
+    MemoryPackingLegacyEhProfile,
+    MemoryPackingAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
     CodeFoldingReturnsProfile,
@@ -1920,6 +1940,9 @@ pub fn gen_valid_profile_by_name(
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
     "merge-blocks" | "merge-blocks-closeout" | "merge-blocks-all-profiles" =>
       Ok(MergeBlocksAllProfile)
+    "memory-packing"
+    | "memory-packing-closeout"
+    | "memory-packing-all-profiles" => Ok(MemoryPackingAllProfile)
     "code-folding" | "code-folding-closeout" | "code-folding-all-profiles" =>
       Ok(CodeFoldingAllProfile)
     "tuple-optimization" => Ok(TupleOptimizationAllProfile)
@@ -4422,6 +4445,12 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_merge_blocks_profile_config(profile)
     MergeBlocksAllProfile =>
       gen_valid_merge_blocks_profile_config(MergeBlocksStructuralProfile)
+    MemoryPackingActiveProfile
+    | MemoryPackingPassiveProfile
+    | MemoryPackingLegacyEhProfile =>
+      gen_valid_memory_packing_profile_config(profile)
+    MemoryPackingAllProfile =>
+      gen_valid_memory_packing_profile_config(MemoryPackingActiveProfile)
     CodeFoldingIfArmsProfile
     | CodeFoldingBlockExitsProfile
     | CodeFoldingReturnsProfile
@@ -5805,6 +5834,202 @@ fn gen_valid_coalesce_locals_profile_config(
       allow_heap_store_optimization_body_generator: false,
       allow_heap2local_body_generator: false,
     },
+  }
+}
+
+///|
+fn gen_valid_memory_packing_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let profile_tag = match profile {
+    MemoryPackingActiveProfile => 75
+    MemoryPackingPassiveProfile => 76
+    MemoryPackingLegacyEhProfile => 77
+    _ => 75
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == MemoryPackingActiveProfile {
+      0
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: if profile == MemoryPackingActiveProfile {
+      0
+    } else {
+      1
+    },
+    max_tables: 0,
+    max_mems: 1,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 1,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: profile_tag,
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: true,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: true,
+      allow_ref_types: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: profile == MemoryPackingLegacyEhProfile,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_memory_packing_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(MemoryPackingActiveProfile) ||
+  config == GenValidConfig::for_profile(MemoryPackingPassiveProfile) ||
+  config == GenValidConfig::for_profile(MemoryPackingLegacyEhProfile)
+}
+
+///|
+pub fn gen_valid_memory_packing_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    MemoryPackingActiveProfile => Some("memory-packing:active-zero-ranges")
+    MemoryPackingPassiveProfile => Some("memory-packing:passive-user-rewrite")
+    MemoryPackingLegacyEhProfile => Some("memory-packing:legacy-eh-users")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_memory_packing_payload() -> Bytes {
+  let bytes = Array::make(66, (0).to_byte())
+  bytes[0] = 0x41
+  bytes[65] = 0x42
+  Bytes::from_array(bytes)
+}
+
+///|
+fn gen_valid_memory_packing_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_memory_packing_memory() -> MemSec {
+  MemSec::new([MemType::new(Limits::i32(1U, None))])
+}
+
+///|
+fn gen_valid_memory_packing_init_instrs(dest : Int) -> Array[Instruction] {
+  [
+    Instruction::i32_const(I32(dest)),
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_const(I32(66)),
+    Instruction::memory_init(DataIdx::new(0U), MemIdx::new(0U)),
+  ]
+}
+
+///|
+fn gen_valid_memory_packing_active_module(seed : UInt64) -> Module {
+  let offset = ((seed >> 8) % 1024UL).to_int()
+  Module::new()
+  .with_mem_sec(gen_valid_memory_packing_memory())
+  .with_data_sec(
+    DataSec::new([
+      Data::new(
+        DataMode::active(
+          MemIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(offset))]),
+        ),
+        gen_valid_memory_packing_payload(),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_memory_packing_passive_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_memory_packing_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_mem_sec(gen_valid_memory_packing_memory())
+  .with_data_cnt_sec(DataCntSec::new(U32(1U)))
+  .with_data_sec(
+    DataSec::new([
+      Data::new(DataMode::passive(), gen_valid_memory_packing_payload()),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new(gen_valid_memory_packing_init_instrs(0)),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_memory_packing_legacy_eh_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_memory_packing_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_mem_sec(gen_valid_memory_packing_memory())
+  .with_data_cnt_sec(DataCntSec::new(U32(1U)))
+  .with_data_sec(
+    DataSec::new([
+      Data::new(DataMode::passive(), gen_valid_memory_packing_payload()),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::try_(
+            BlockType::void_(),
+            Expr::new(gen_valid_memory_packing_init_instrs(0)),
+            [
+              LegacyCatch::all(
+                Expr::new(gen_valid_memory_packing_init_instrs(64)),
+              ),
+            ],
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_memory_packing_profile_module(ctx : GenValidContext) -> Module {
+  if ctx.config == GenValidConfig::for_profile(MemoryPackingPassiveProfile) {
+    gen_valid_memory_packing_passive_module()
+  } else if ctx.config ==
+    GenValidConfig::for_profile(MemoryPackingLegacyEhProfile) {
+    gen_valid_memory_packing_legacy_eh_module()
+  } else {
+    gen_valid_memory_packing_active_module(ctx.root_seed)
   }
 }
 
@@ -28482,6 +28707,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_memory_packing_profile_config(config) {
+    return gen_valid_memory_packing_profile_module(ctx)
+  }
   if gen_valid_is_merge_blocks_profile_config(config) {
     return gen_valid_merge_blocks_profile_module(config)
   }

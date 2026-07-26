@@ -32,6 +32,7 @@ using @validate {
   gen_valid_module_with_config,
   gen_valid_inlining_optimizing_profile_case_label,
   gen_valid_merge_blocks_profile_case_label,
+  gen_valid_memory_packing_profile_case_label,
   gen_valid_merge_locals_profile_case_label,
   gen_valid_oi_trigger_profile_case_label,
   gen_valid_tuple_optimization_trigger_profile_case_label,

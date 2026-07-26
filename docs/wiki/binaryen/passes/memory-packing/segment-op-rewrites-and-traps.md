@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -121,7 +121,7 @@ So it must emit something like:
 (memory.init $seg.part1 ... 4)
 ```
 
-That is the central passive-segment idea.
+That is the central passive-segment idea. It is only profitable above Binaryen's referrer-sensitive threshold: passive metadata contributes `2`, each `memory.init` contributes `19` for an interior split and `9` at an edge, and each `data.drop` contributes `3` to an interior split. Starshine matches those thresholds; a smaller valid zero run is deliberately retained rather than expanded into larger runtime code.
 
 ## Why `memory.fill` is safe for zero runs
 
@@ -205,6 +205,8 @@ So a zero-size transformed init often becomes:
 - then maybe the rewritten drops later
 
 This is why several official tests focus on zero-size cases specifically.
+
+The local rewrite and user-discovery walkers also traverse decoded legacy `try` protected bodies and every typed/catch-all handler. Segment indices and replacement sequences are rewritten inside those regions without changing the try block type, catch ordering, tags, catch-all shape, or delegate target.
 
 ## Startup-trapping active segments: the "keep the top byte" rule
 

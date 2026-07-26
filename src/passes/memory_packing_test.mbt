@@ -24,6 +24,14 @@ fn mp_test_active_data_segments(
 }
 
 ///|
+fn mp_test_zero_run_payload(run : Int) -> Bytes {
+  let bytes = Array::make(run + 2, (0).to_byte())
+  bytes[0] = 0x41
+  bytes[run + 1] = 0x42
+  Bytes::from_array(bytes)
+}
+
+///|
 fn mp_test_data_segments(mod_ : @lib.Module) -> Array[@lib.Data] {
   match mod_.data_sec {
     Some(@lib.DataSec(datas)) => datas
@@ -85,6 +93,20 @@ fn mp_test_instr_has_memory_init(instr : @lib.Instruction) -> Bool {
       let @lib.Expr(instrs) = body
       mp_test_instrs_have_memory_init(instrs)
     }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if mp_test_instrs_have_memory_init(body) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        if mp_test_instrs_have_memory_init(catch_body) {
+          return true
+        }
+      }
+      false
+    }
     @lib.If(_, then_body, else_body) => {
       if mp_test_instrs_have_memory_init(then_body) {
         return true
@@ -115,6 +137,20 @@ fn mp_test_instr_has_memory_fill(instr : @lib.Instruction) -> Bool {
     @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) => {
       let @lib.Expr(instrs) = body
       mp_test_instrs_have_memory_fill(instrs)
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if mp_test_instrs_have_memory_fill(body) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        if mp_test_instrs_have_memory_fill(catch_body) {
+          return true
+        }
+      }
+      false
     }
     @lib.If(_, then_body, else_body) => {
       if mp_test_instrs_have_memory_fill(then_body) {
@@ -1136,6 +1172,48 @@ test "memory-packing preserves zero-size active memory.init trapping operands" {
 }
 
 ///|
+test "memory-packing keeps passive interior zero runs below Binaryen overhead" {
+  let input = @lib.Module::new()
+    .with_type_sec(mp_test_void_type_sec())
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::passive(),
+          b"A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B",
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_const(@lib.I32(18)),
+            @lib.Instruction::memory_init(
+              @lib.DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = memory_packing_run_module_pass(input)
+  @debug.assert_eq(mp_test_data_segments(optimized).length(), 1)
+  assert_false(
+    mp_test_instrs_have_memory_fill(mp_test_first_func_body(optimized)),
+    msg="expected Binaryen's passive overhead threshold to retain the zero run",
+  )
+}
+
+///|
 test "memory-packing splits passive zero ranges and inserts memory.fill" {
   let input = @lib.Module::new()
     .with_mem_sec(
@@ -1522,6 +1600,59 @@ test "memory-packing does not split passive segments with GC data users" {
   @debug.assert_eq(mp_test_data_segments(optimized).length(), 1)
   if mp_test_instrs_have_memory_fill(mp_test_first_func_body(optimized)) {
     fail("expected GC data-user segment to stay unsplit")
+  }
+}
+
+///|
+test "memory-packing rewrites passive users throughout decoded legacy try regions" {
+  let passive = mp_test_zero_run_payload(64)
+  let memory_init = fn(dest : Int) {
+    [
+      @lib.Instruction::i32_const(@lib.I32(dest)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(66)),
+      @lib.Instruction::memory_init(@lib.DataIdx::new(0U), @lib.MemIdx::new(0U)),
+    ]
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(mp_test_void_type_sec())
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), passive)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::try_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(memory_init(0)),
+              [@lib.LegacyCatch::all(@lib.Expr::new(memory_init(64)))],
+            ),
+          ]),
+        ),
+      ]),
+    )
+
+  mp_test_expect_valid(input, "legacy try memory-packing input")
+  let optimized = memory_packing_run_module_pass(input)
+  mp_test_expect_valid(optimized, "legacy try memory-packing output")
+  assert_true(
+    mp_test_instrs_have_memory_fill(mp_test_first_func_body(optimized)),
+    msg="expected split replacements in protected and catch bodies, got \{mp_test_first_func_body(optimized)}",
+  )
+  assert_true(
+    mp_test_data_segments(optimized).length() > 1,
+    msg="expected the live passive segment to split around its zero range",
+  )
+  match mp_test_first_func_body(optimized) {
+    [@lib.Try(_, _, [@lib.LegacyCatchAll(_)], None)] => ()
+    other => fail("expected legacy try shape to be preserved, got \{other}")
   }
 }
 

@@ -50,6 +50,7 @@ using @lib {
   type Instruction,
   type LabelIdx,
   type LaneIdx,
+  type LegacyCatch,
   type Limits,
   type LocalIdx,
   type Locals,

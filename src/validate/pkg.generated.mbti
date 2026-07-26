@@ -68,6 +68,8 @@ pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFact
 
 pub fn gen_valid_inlining_optimizing_profile_case_label(GenValidProfile, UInt64) -> String?
 
+pub fn gen_valid_memory_packing_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_merge_blocks_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_merge_locals_profile_case_label(GenValidProfile, UInt64) -> String?
@@ -1261,6 +1263,10 @@ pub enum GenValidProfile {
   MergeBlocksEffectProfile
   MergeBlocksEhAtomicProfile
   MergeBlocksAllProfile
+  MemoryPackingActiveProfile
+  MemoryPackingPassiveProfile
+  MemoryPackingLegacyEhProfile
+  MemoryPackingAllProfile
   CodeFoldingIfArmsProfile
   CodeFoldingBlockExitsProfile
   CodeFoldingReturnsProfile

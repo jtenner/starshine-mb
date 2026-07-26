@@ -64,7 +64,7 @@ test "legacy EH audit: shared structured walker rewrites protected and catch bod
 }
 
 ///|
-test "legacy EH audit: TryTable-only module passes fail closed before partial analysis" {
+test "legacy EH audit: remaining TryTable-only module passes fail closed before partial analysis" {
   let mod_ = legacy_eh_test_module()
   assert_true(pass_module_has_legacy_try(mod_))
   @debug.assert_eq(coalesce_locals_run_module_pass(mod_), mod_)
@@ -74,7 +74,6 @@ test "legacy EH audit: TryTable-only module passes fail closed before partial an
   @debug.assert_eq(inlining_run_module_pass(mod_), mod_)
   @debug.assert_eq(inline_main_run_module_pass(mod_), mod_)
   @debug.assert_eq(local_subtyping_run_module_pass(mod_), mod_)
-  @debug.assert_eq(memory_packing_run_module_pass(mod_), mod_)
   @debug.assert_eq(string_gathering_run_module_pass(mod_), mod_)
   let sgo = sgo_run_core(mod_, fn(_) { () })
   @debug.assert_eq(sgo.mod_out, mod_)

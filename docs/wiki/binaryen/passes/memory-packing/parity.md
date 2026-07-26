@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -24,7 +24,7 @@ related:
 ## Durable conclusions
 
 - Binaryen `version_129` `memory-packing` is a module-level segment-plus-segment-op rewrite pass, not just an active-segment splitter.
-- Current Starshine covers the core active and passive segment-user rewrite families plus Binaryen v131 source-order overlap semantics: conservative dead passive cleanup, passive zero-range splitting, `memory.init` replacement with `memory.fill`, split-passive `data.drop` expansion, active segment-op cleanup, lowered active/split-passive `memory.init` operand side-effect preservation, data-name repair, `__llvm*` no-split handling, source-order trampling cleanup, imported all-active-segments in-bounds admission, active-only scan elision, and a fast path for common one-kept-range active segments.
+- Current Starshine covers the core active and passive segment-user rewrite families plus Binaryen v131 source-order overlap semantics: conservative dead passive cleanup, Binaryen-accurate passive metadata/referrer profitability and edge thresholds, passive zero-range splitting, `memory.init` replacement with `memory.fill`, split-passive `data.drop` expansion, active segment-op cleanup, lowered active/split-passive `memory.init` operand side-effect preservation, decoded legacy-`try` protected/catch traversal, data-name repair, `__llvm*` no-split handling, source-order trampling cleanup, imported all-active-segments in-bounds admission, active-only scan elision, and a fast path for common one-kept-range active segments.
 - The saved generated-artifact `-O4z` slot `3` is already green, which shows the local subset is useful and exercised by that artifact.
 - The 2026-05-07 saved dead-passive normalization family from `.tmp/recheck-memory-packing/` is now retired on current head.
 - Focused tests now cover the released v131 overlap path in addition to imported-memory `zeroFilledMemory`, TNH trap elision, GC data-user conservatism, segment-count limiting, split-name suffixes, constant out-of-range passive source traps, and operand side-effect/trap preservation for lowered active/split-passive `memory.init` paths.
@@ -44,7 +44,7 @@ The current Starshine subset covers:
 - source-order overlap cleanup, with imported overlap gated by an all-active-segments in-bounds proof
 - conservative removal of passive segments with no non-`data.drop` referrers
 - passive data-index remapping after active or passive segment count changes
-- passive segment splitting around profitable zero ranges for constant-source `memory.init` users
+- passive segment splitting around profitable zero ranges for constant-source `memory.init` users, using Binaryen's `2 + 19 * memory.init + 3 * data.drop` interior threshold and `9 * memory.init` edge threshold
 - replacement of split-passive zero slices with `memory.fill`
 - temporary i32 locals for dynamic split-passive `memory.init` destinations
 - split-passive `data.drop` expansion plus lazy drop-state globals for fill-first replacements
@@ -64,6 +64,7 @@ The current Starshine subset covers:
 - many active segment legality checks use sorted spans instead of pairwise overlap scans
 - common leading/trailing-zero active segments use a fast single-kept-range path while preserving traps
 - lowered active and split-passive `memory.init` paths preserve destination/source/size evaluation before `nop` / `unreachable` replacement when the pass rewrites constant-source/size users
+- decoded legacy `try` protected bodies and every typed/catch-all handler participate in data-user discovery, split admission, and instruction rewriting while block type, catches, tags, order, and delegate are preserved
 
 ## Binaryen v131 closeout
 
@@ -76,18 +77,18 @@ The current Starshine subset covers:
 - preserves high memory64 startup traps rather than truncating offsets to 32 bits; and
 - exposes `--zero-filled-memory` through the public CLI and repro-note forwarding path.
 
-Focused tests pass `37/37`; command-layer tests pass `107/107`; full `moon test` passes `9439/9439`.
+The 2026-07-26 post-correctness-repair renewal supersedes the earlier direct matrix. Red-first work removed the decoded legacy-`try` whole-module no-op, traverses and rewrites protected plus catch bodies, added end-to-end operand extraction coverage for the five corrected stack deltas, and aligned passive profitability with Binaryen's metadata/referrer cost formula after the new dedicated profile exposed the old fixed-threshold gap. Focused suites pass `39/39` public, `3/3` white-box, and `2/2` dedicated GenValid tests.
 
-Explicit Binaryen v131 evidence uses `_build/native/release/build/cmd/cmd.exe` and `.tmp/binaryen-version-131-bin/bin/wasm-opt`:
+Explicit Binaryen v131 evidence uses native SHA-256 `d1da69250cf22c0b93f2180e82e742bc6936e80152b8dd53289a241383db2750` and official `wasm-opt version 131 (version_131)` SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`:
 
-- regular GenValid `.tmp/mp-v131-regular-10000`: `10000/10000` normalized, zero failures or mismatches;
-- explicit wasm-smith `.tmp/mp-v131-wasm-smith-10000`: `9955` direct normalized matches, one unrelated `drop(unreachable)` output-shape residual, `44` Binaryen/tool command failures, and zero validation/property failures;
-- broad random-all `.tmp/mp-v131-random-all-10000`: `10000/10000` normalized, zero failures or mismatches;
-- exact defined-overlap fixture `.tmp/mp-v131-defined-overlap-compare`: canonical equality at `33` bytes, pass-local `0.017ms` Starshine versus `0.088ms` Binaryen;
-- exact imported nonzero-trampler fixture `.tmp/mp-v131-imported-overlap-compare`: canonical equality at `46` bytes, pass-local `0.020ms` Starshine versus `0.102ms` Binaryen; and
-- rebuilt O4z slot `.tmp/mp-v131-o4z-slot/direct`: exact canonical and normalized equality at `4,954,978` bytes, pass-local `101.821ms` Starshine versus `61.168ms` Binaryen (`1.66x`, inside the repo `2x` target), with whole-command `776.671ms` versus `520.314ms`.
+- regular GenValid `.tmp/pass-fuzz-memory-packing-regular-100000-postrepair`: `100000/100000` normalized, zero failures or mismatches;
+- dedicated `memory-packing-all` `.tmp/pass-fuzz-memory-packing-dedicated-10000-postrepair`: `10000/10000` normalized, selecting `3750` active, `3750` passive, and `2500` legacy-EH cases;
+- random-all `.tmp/pass-fuzz-memory-packing-random-all-10000-postrepair`: `10000/10000` normalized, including `249` active, `236` passive, and `151` legacy-EH dedicated leaves;
+- explicit wasm-smith `.tmp/pass-fuzz-memory-packing-wasm-smith-10000-postrepair`: `9955` normalized matches across `9956` comparable cases, the known pass-independent case-9332 unreachable-drop shell, `44` Binaryen-only command failures, and zero validation/generator/property failures;
+- exact defined/imported overlap fixtures remain canonical equal; and
+- the rebuilt O4z slot remains exact at `4,954,978` bytes with pass-local `101.821ms` Starshine versus `61.168ms` Binaryen (`1.66x`, inside the repository `2x` target).
 
-The sole wasm-smith residual has no data section and differs only because Starshine retains one extra unreachable `drop`; it is agent-classified as generic representation drift outside `memory-packing`, not a pass semantic mismatch.
+The sole wasm-smith residual has no data section and differs only because Starshine retains one extra unreachable `drop`; it is agent-classified as generic representation drift outside `memory-packing`, not a pass semantic mismatch. No represented `memory-packing` transform-family or semantic gap remains in the renewed matrix.
 
 ## Historical gap
 
@@ -97,14 +98,14 @@ The earlier option-surface conclusion was correct for the 2026-06-07 snapshot: l
 
 This became a concrete released v131 parity gap and is now closed. Starshine's implementation follows the full source-order, checked bounds, fixed page-size, and memory64 proof rather than broadly permitting imported overlap. Existing v130 closeout evidence remains historical; the current signoff is the explicit-v131 closeout above.
 
-## Current evidence
+## Historical evidence trail
 
 The 2026-04-22 source review did not change the upstream-teaching verdict.
-The 2026-05-07 current-head follow-up sharpened the direct-status note: the narrow saved dead-passive normalization blocker from `[MP]001` was closed, and direct compare evidence was semantically green on all successfully compared cases.
+The 2026-05-07 current-head follow-up sharpened the then-current direct-status note: the narrow saved dead-passive normalization blocker from `[MP]001` was closed, and direct compare evidence was semantically green on all successfully compared cases.
 
-The 2026-06-03 `[O4Z-AUDIT-MP]` refresh keeps that status and adds current direct evidence after pass-local performance work:
+The 2026-06-03 `[O4Z-AUDIT-MP]` refresh recorded the following pre-closeout status and direct evidence after pass-local performance work:
 
-- `memory-packing` is still best described as artifact-green plus incomplete upstream coverage
+- at that time, `memory-packing` was best described as artifact-green plus incomplete upstream coverage
 - post-change `--count 1000 --seed 0x5eed` direct compare: `998 / 1000` compared, `998` normalized matches, `0` mismatches, `2` Binaryen/tool command failures
 - post-change `--count 10000 --seed 0x5eed` direct compare without command-failure keep-going: `6759 / 10000` compared, `6759` normalized matches, `0` mismatches, `20` Binaryen/tool command failures before the harness command-failure cap
 - post-change `--count 10000 --seed 0x5eed --keep-going-after-command-failures` direct compare: `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, `25` Binaryen/tool command failures

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -282,7 +282,7 @@ For Binaryen `version_129` / `version_130`, this blocks optimization:
 - the zero byte is semantically observable as a later startup write; and
 - the pass therefore gives up on the module-level optimization.
 
-Binaryen v131 has one released imported-memory exception. If `zeroFilledMemory` is enabled, the sole memory is imported, and the overlapping segments are provably within its declared initial allocation, Binaryen zeroes the earlier trampled payload in its working data before applying ordinary packing. This does **not** say overlap is generally safe; it preserves the source-order overwrite explicitly. Starshine still takes the released-style bailout for every overlap. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
+Binaryen v131 has one released imported-memory exception. If `zeroFilledMemory` is enabled, the sole memory is imported, and every active segment is provably within its declared initial allocation, Binaryen zeroes earlier trampled payload bytes before applying ordinary packing. This does **not** say overlap is generally safe; it preserves source-order overwrite semantics explicitly. Starshine now matches that released rule for defined memory and for the guarded imported-memory case, while still bailing out on unsupported or unproved overlap. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
 
 ## Negative family 2: dynamic active offset when multiple active segments exist
 

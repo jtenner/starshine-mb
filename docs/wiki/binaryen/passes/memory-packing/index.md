@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/commit/db30c15
@@ -31,7 +31,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct parity is **closed for the released behavior surface**. Starshine now neutralizes earlier bytes trampled by later active segments in source order, admits overlapping imported-memory segments only when `zero_filled_memory` is enabled and every active segment is provably within the declared minimum, and uses overflow-safe page-count bounds for memory32 and memory64, including maximal memory64 and ranges ending exactly at `2^64`. `[V131-MP]001` is complete with focused fixtures, explicit-v131 compare lanes, CLI option routing, and an exact O4z slot replay.
+Direct parity is **closed for the released represented behavior surface**. The 2026-07-26 post-repair renewal adds decoded legacy-`try` protected/catch traversal, Binaryen's passive metadata/referrer profitability formula, five-family operand extraction regressions, and the dedicated `memory-packing-all` profile. Starshine also neutralizes earlier bytes trampled by later active segments in source order, admits overlapping imported-memory segments only when `zero_filled_memory` is enabled and every active segment is provably within the declared minimum, and uses overflow-safe page-count bounds for memory32 and memory64, including maximal memory64 and ranges ending exactly at `2^64`. Fresh v131 evidence is exact for regular `100000`, dedicated `10000`, and random-all `10000`; wasm-smith retains only the known pass-independent case-9332 unreachable-drop shell across `9956` comparable cases plus 44 Binaryen-only failures.
 
 ## Role
 
@@ -91,7 +91,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
 - Preserving trap behavior is mandatory unless `trapsNeverHappen` is allowed.
 - GC awareness exists here already, but mostly as a conservative boundary:
   - `array.new_data` and `array.init_data` users inhibit splitting today
-- V131 is the current released oracle and includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Starshine now implements that released rule; existing v130 signoff remains historical, while the current closeout is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md). See [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
+- V131 is the current released oracle and includes the 2026-07-10 imported-memory overlap exception: with `zeroFilledMemory`, one imported memory, and a checked in-allocation proof, it neutralizes earlier trampled bytes before packing. Starshine implements that rule plus Binaryen's passive profitability thresholds and legacy-EH user traversal; existing v130 and pre-repair v131 signoff remain historical, while the current closeout is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md). See [Binaryen commit `db30c15`](https://github.com/WebAssembly/binaryen/commit/db30c15).
 
 ## Biggest beginner correction
 

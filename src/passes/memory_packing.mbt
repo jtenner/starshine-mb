@@ -643,6 +643,15 @@ fn mp_collect_data_usage_instr(
         None => ()
       }
     }
+    @lib.Try(_, body, catches, _) => {
+      mp_collect_data_usage_expr(body, usages)
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+        }
+        mp_collect_data_usage_expr(catch_body, usages)
+      }
+    }
     @lib.TryTable(_, _, body) => mp_collect_data_usage_expr(body, usages)
     @lib.ArrayNewData(_, idx)
     | @lib.ArrayInitData(_, idx)
@@ -728,6 +737,8 @@ priv struct MpPassiveUserScan {
   has_memory_init : Bool
   all_memory_init_const : Bool
   has_array_data : Bool
+  memory_init_count : Int
+  data_drop_count : Int
 }
 
 ///|
@@ -735,8 +746,16 @@ fn MpPassiveUserScan::new(
   has_memory_init? : Bool = false,
   all_memory_init_const? : Bool = true,
   has_array_data? : Bool = false,
+  memory_init_count? : Int = 0,
+  data_drop_count? : Int = 0,
 ) -> MpPassiveUserScan {
-  { has_memory_init, all_memory_init_const, has_array_data }
+  {
+    has_memory_init,
+    all_memory_init_const,
+    has_array_data,
+    memory_init_count,
+    data_drop_count,
+  }
 }
 
 ///|
@@ -748,6 +767,8 @@ fn mp_passive_scan_merge(
     has_memory_init=lhs.has_memory_init || rhs.has_memory_init,
     all_memory_init_const=lhs.all_memory_init_const && rhs.all_memory_init_const,
     has_array_data=lhs.has_array_data || rhs.has_array_data,
+    memory_init_count=lhs.memory_init_count + rhs.memory_init_count,
+    data_drop_count=lhs.data_drop_count + rhs.data_drop_count,
   )
 }
 
@@ -950,9 +971,17 @@ fn mp_passive_user_scan_instrs(
           MpPassiveUserScan::new(
             has_memory_init=true,
             all_memory_init_const=has_const_source_size,
+            memory_init_count=1,
           ),
         )
       }
+      @lib.DataDrop(idx) =>
+        if mp_data_idx_slot(idx) == target {
+          scan = mp_passive_scan_merge(
+            scan,
+            MpPassiveUserScan::new(data_drop_count=1),
+          )
+        }
       @lib.ArrayNewData(_, idx) =>
         if mp_data_idx_slot(idx) == target {
           scan = mp_passive_scan_merge(
@@ -973,6 +1002,21 @@ fn mp_passive_user_scan_instrs(
           scan,
           mp_passive_user_scan_instrs(body_instrs, target),
         )
+      }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        scan = mp_passive_scan_merge(
+          scan,
+          mp_passive_user_scan_instrs(body, target),
+        )
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, body) | @lib.LegacyCatchAll(body) => body
+          }
+          scan = mp_passive_scan_merge(
+            scan,
+            mp_passive_user_scan_instrs(catch_body, target),
+          )
+        }
       }
       @lib.If(_, then_body, else_body) => {
         scan = mp_passive_scan_merge(
@@ -1012,20 +1056,56 @@ fn mp_passive_user_scan(mod_ : @lib.Module, target : Int) -> MpPassiveUserScan {
 }
 
 ///|
-fn mp_passive_can_split(mod_ : @lib.Module, target : Int) -> Bool {
-  let scan = mp_passive_user_scan(mod_, target)
+fn mp_passive_can_split(scan : MpPassiveUserScan) -> Bool {
   scan.has_memory_init && scan.all_memory_init_const && !scan.has_array_data
+}
+
+///|
+fn mp_merge_small_passive_edge_zero_ranges(
+  ranges : Array[MpRange],
+  edge_threshold : Int,
+) -> Array[MpRange] {
+  let merged = ranges.copy()
+  if merged.length() >= 2 {
+    let last_idx = merged.length() - 1
+    let last = merged[last_idx]
+    if last.is_zero && last.end_ - last.start <= edge_threshold {
+      let previous = merged[last_idx - 1]
+      merged[last_idx - 1] = MpRange::new(
+        previous.is_zero,
+        previous.start,
+        last.end_,
+      )
+      ignore(merged.pop())
+    }
+  }
+  if merged.length() >= 2 {
+    let first = merged[0]
+    if first.is_zero && first.end_ - first.start <= edge_threshold {
+      let second = merged[1]
+      merged[1] = MpRange::new(second.is_zero, first.start, second.end_)
+      ignore(merged.remove(0))
+    }
+  }
+  merged
 }
 
 ///|
 fn mp_passive_split_parts(
   bytes : Bytes,
   first_new_idx : Int,
+  scan : MpPassiveUserScan,
 ) -> (Array[MpSplitPart], Bool, Bool) {
   if bytes.length() == 0 {
     return ([], false, false)
   }
-  let ranges = mp_merge_small_zero_ranges(mp_collect_ranges(bytes), 8)
+  let threshold = 2 + scan.memory_init_count * 19 + scan.data_drop_count * 3
+  let edge_threshold = scan.memory_init_count * 9
+  let edge_merged = mp_merge_small_passive_edge_zero_ranges(
+    mp_collect_ranges(bytes),
+    edge_threshold,
+  )
+  let ranges = mp_merge_small_zero_ranges(edge_merged, threshold)
   let parts : Array[MpSplitPart] = []
   let mut omitted_zero = false
   for range in ranges {
@@ -1344,6 +1424,7 @@ fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
     @lib.Unreachable => Some((0, 1))
     @lib.Block(block_type, _)
     | @lib.Loop(block_type, _)
+    | @lib.Try(block_type, _, _, _)
     | @lib.TryTable(block_type, _, _) =>
       match mp_block_type_result_count(block_type) {
         Some(results) => Some((0, results))
@@ -1832,6 +1913,38 @@ fn mp_rewrite_instrs_full(
             mp_rewrite_expr_full(body, plans, locals, param_count, global_idx),
           ),
         )
+      @lib.Try(block_type, body, catches, delegate) => {
+        let rewritten_catches : Array[@lib.LegacyCatch] = []
+        for catch_ in catches {
+          match catch_ {
+            @lib.LegacyCatch(tag_idx, catch_body) =>
+              rewritten_catches.push(
+                @lib.LegacyCatch::tagged(
+                  tag_idx,
+                  mp_rewrite_expr_full(
+                    catch_body, plans, locals, param_count, global_idx,
+                  ),
+                ),
+              )
+            @lib.LegacyCatchAll(catch_body) =>
+              rewritten_catches.push(
+                @lib.LegacyCatch::all(
+                  mp_rewrite_expr_full(
+                    catch_body, plans, locals, param_count, global_idx,
+                  ),
+                ),
+              )
+          }
+        }
+        out.push(
+          @lib.Instruction::try_(
+            block_type,
+            mp_rewrite_expr_full(body, plans, locals, param_count, global_idx),
+            rewritten_catches,
+            delegate~,
+          ),
+        )
+      }
       @lib.TryTable(block_type, catches, body) =>
         out.push(
           @lib.Instruction::try_table(
@@ -1986,9 +2099,6 @@ pub fn memory_packing_run_module_pass(
   traps_never_happen? : Bool = false,
   zero_filled_memory? : Bool = false,
 ) -> @lib.Module {
-  if pass_module_has_legacy_try(mod_) {
-    return mod_
-  }
   let datas = match mod_.data_sec {
     Some(@lib.DataSec(datas)) => datas
     None => return mod_
@@ -2083,49 +2193,70 @@ pub fn memory_packing_run_module_pass(
             false,
             bytes.length(),
           )
-        } else if mp_passive_can_split(mod_, idx) {
-          let (parts, omitted_zero, fill_first) = mp_passive_split_parts(
-            bytes,
-            rewritten.length(),
-          )
-          if omitted_zero &&
-            !mp_data_segment_limit_exceeded(
+        } else {
+          let passive_scan = mp_passive_user_scan(mod_, idx)
+          if mp_passive_can_split(passive_scan) {
+            let (parts, omitted_zero, fill_first) = mp_passive_split_parts(
+              bytes,
               rewritten.length(),
-              parts.length(),
-              datas.length() - idx - 1,
-            ) {
-            changed = true
-            data_remap[idx] = if parts.is_empty() {
-              -1
-            } else {
-              parts[0].data_idx
-            }
-            plans[idx] = MpSegmentPlan::new(
-              data_remap[idx],
-              parts,
-              false,
-              true,
-              fill_first,
-              bytes.length(),
+              passive_scan,
             )
-            if fill_first {
-              need_drop_state = true
-            }
-            let first_new_idx = rewritten.length()
-            for part in plans[idx].split_parts {
-              rewritten.push(
-                @lib.Data::new(
-                  @lib.DataMode::passive(),
-                  mp_slice_bytes(bytes, part.start, part.end_),
-                ),
+            if omitted_zero &&
+              !mp_data_segment_limit_exceeded(
+                rewritten.length(),
+                parts.length(),
+                datas.length() - idx - 1,
+              ) {
+              changed = true
+              data_remap[idx] = if parts.is_empty() {
+                -1
+              } else {
+                parts[0].data_idx
+              }
+              plans[idx] = MpSegmentPlan::new(
+                data_remap[idx],
+                parts,
+                false,
+                true,
+                fill_first,
+                bytes.length(),
+              )
+              if fill_first {
+                need_drop_state = true
+              }
+              let first_new_idx = rewritten.length()
+              for part in plans[idx].split_parts {
+                rewritten.push(
+                  @lib.Data::new(
+                    @lib.DataMode::passive(),
+                    mp_slice_bytes(bytes, part.start, part.end_),
+                  ),
+                )
+              }
+              mp_append_data_name_entries(
+                data_name_entries,
+                mp_data_name_for_idx(mod_, idx),
+                first_new_idx,
+                parts.length(),
+              )
+            } else {
+              data_remap[idx] = rewritten.length()
+              plans[idx] = MpSegmentPlan::new(
+                data_remap[idx],
+                [],
+                false,
+                false,
+                false,
+                bytes.length(),
+              )
+              rewritten.push(data)
+              mp_append_data_name_entries(
+                data_name_entries,
+                mp_data_name_for_idx(mod_, idx),
+                data_remap[idx],
+                1,
               )
             }
-            mp_append_data_name_entries(
-              data_name_entries,
-              mp_data_name_for_idx(mod_, idx),
-              first_new_idx,
-              parts.length(),
-            )
           } else {
             data_remap[idx] = rewritten.length()
             plans[idx] = MpSegmentPlan::new(
@@ -2144,23 +2275,6 @@ pub fn memory_packing_run_module_pass(
               1,
             )
           }
-        } else {
-          data_remap[idx] = rewritten.length()
-          plans[idx] = MpSegmentPlan::new(
-            data_remap[idx],
-            [],
-            false,
-            false,
-            false,
-            bytes.length(),
-          )
-          rewritten.push(data)
-          mp_append_data_name_entries(
-            data_name_entries,
-            mp_data_name_for_idx(mod_, idx),
-            data_remap[idx],
-            1,
-          )
         }
       }
     }

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md
@@ -164,6 +164,8 @@ Important source-backed details:
 
 So data-segment-count limits are a real validity boundary.
 
+Starshine's 2026-07-26 renewal also aligned this phase's exact passive cost approximation: interior zero runs use `2 + 19 * memory.init referrers + 3 * data.drop referrers`, while leading/trailing zero runs use `9 * memory.init referrers`. The dedicated profile caught the previous fixed-threshold over-optimization before closeout.
+
 ## Phase 7: passive replacement planning with `createReplacements(...)`
 
 This is the heart of the passive story.
@@ -183,7 +185,7 @@ Beginner takeaway:
 
 ## Phase 8: applying those plans with `replaceSegmentOps(...)`
 
-Finally, Binaryen walks function code again and substitutes the planned replacement expressions into the real bodies.
+Finally, Binaryen walks function code again and substitutes the planned replacement expressions into the real bodies. Starshine's matching raw walker now covers blocks, loops, if arms, `try_table`, and decoded legacy `try` protected plus typed/catch-all handler bodies while preserving catch order, tags, block type, and delegate.
 
 This is the last phase that makes the earlier planning observable in module code.
 
@@ -304,4 +306,4 @@ That phase structure is the most important thing this page pins down.
 
 ## Freshness note
 
-The 2026-04-22 no-drift check remains useful historical provenance. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10, and that behavior is released in `version_131`; v130 remains only the baseline for the existing local closeout evidence. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
+The 2026-04-22 no-drift check remains useful historical provenance. Merged PR #8882 added the narrow imported-memory overlap path on 2026-07-10, and that behavior is released in `version_131`; v130 is only a historical evidence baseline, while the current local closeout uses an explicit verified v131 oracle. Use [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md) for exact source/commit provenance and keep release versus trunk claims distinct.
