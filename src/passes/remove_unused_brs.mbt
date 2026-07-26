@@ -789,7 +789,9 @@ fn remove_unused_brs_region_has_result_local_set_stack_hazard(
         }
       }
     }
-    if has_local_set && (result_arity > 1 || has_stack_effect) {
+    let nested_multivalue_carrier = region_ref != @ir.HotRegionRef::root() &&
+      result_arity > 1
+    if has_local_set && (nested_multivalue_carrier || has_stack_effect) {
       return true
     }
   }

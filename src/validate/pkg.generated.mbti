@@ -1320,6 +1320,14 @@ pub enum GenValidProfile {
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
   RemoveUnusedBrsCleanupProfile
+  RemoveUnusedBrsConstantBrIfProfile
+  RemoveUnusedBrsSingleTargetBrTableProfile
+  RemoveUnusedBrsMultiFunctionProfile
+  RemoveUnusedBrsResultRefinalizeProfile
+  RemoveUnusedBrsMultivalueDropProfile
+  RemoveUnusedBrsWrapperCleanupProfile
+  RemoveUnusedBrsSelectifyProfile
+  RemoveUnusedBrsWinBoundaryProfile
   RemoveUnusedBrsAllProfile
   DuplicateImportEliminationFunctionsProfile
   DuplicateImportEliminationNonfunctionProfile

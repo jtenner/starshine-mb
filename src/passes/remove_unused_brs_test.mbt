@@ -1733,6 +1733,165 @@ test "remove-unused-brs selectifies equal i31 arms and refinalizes the result" {
 }
 
 ///|
+test "remove-unused-brs optimizes carried branches in multivalue-return functions" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (func (type $pair) (result i32 i64)
+    #|    (local i64)
+    #|    (local.set 0 (i64.const 9))
+    #|    (drop
+    #|      (block (result i32)
+    #|        (i32.const 7)
+    #|        (br_if 0 (i32.const 0))))
+    #|    (i32.const 1)
+    #|    (i64.const 2)))
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multivalue-return RUB success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg="\{pretty}\n\{trace}")
+  assert_false(
+    trace.any(fn(line) { line.contains("result-local-set-stack-hazard-noop") }),
+    msg="\{pretty}\n\{trace}",
+  )
+}
+
+///|
+test "remove-unused-brs folds typed carried branches in multivalue-return functions" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (func (type $pair) (result i32 i64)
+    #|    (local i64)
+    #|    (local.set 0 (i64.const 9))
+    #|    (drop
+    #|      (block (result i64)
+    #|        (i64.const 11)
+    #|        (br_if 0 (i32.const 0))))
+    #|    (drop
+    #|      (block (result f32)
+    #|        (f32.const 12)
+    #|        (br_if 0 (i32.const 1))))
+    #|    (drop
+    #|      (block (result v128)
+    #|        (v128.const i32x4 0 0 0 0)
+    #|        (br_if 0 (i32.const 0))))
+    #|    (drop
+    #|      (block (result funcref)
+    #|        (ref.null func)
+    #|        (br_if 0 (i32.const 0))))
+    #|    (drop
+    #|      (block (result i64)
+    #|        (i64.const 13)
+    #|        (br_table 0 0 (i32.const 2))))
+    #|    (drop
+    #|      (block (result funcref)
+    #|        (ref.null func)
+    #|        (br_table 0 0 (i32.const 1))))
+    #|    (i32.const 1)
+    #|    (i64.const 2)))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed carried branch folding, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("br_table"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs lowers dropped multivalue values without a scratch block" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (func (type $pair) (result i32 i64)
+    #|    (local i64)
+    #|    (local.set 0 (i64.const 9))
+    #|    (block (type $pair) (result i32 i64)
+    #|      (i32.const 200)
+    #|      (i64.const 178))
+    #|    drop
+    #|    drop
+    #|    (i32.const 1)
+    #|    (i64.const 2)))
+  let encoded = match @binary.encode_module(pass_test_module_from_wat(source)) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected multivalue fixture encode, got \{err}")
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected multivalue fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(decoded, HotPipelineOptions::new(), ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped multivalue lowering, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(block I32 (i32.const I32(200))"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs focused GenValid parity leaves optimize their owned shapes" {
+  let cases = [
+    ("remove-unused-brs-constant-br-if", "br_if"),
+    ("remove-unused-brs-single-target-br-table", "br_table"),
+    ("remove-unused-brs-multi-function", "br_table"),
+    ("remove-unused-brs-selectify", "(if"),
+  ]
+  for i = 0; i < cases.length(); i = i + 1 {
+    let (profile_name, forbidden) = cases[i]
+    let profile = match @validate.gen_valid_profile_by_name(profile_name) {
+      Ok(value) => value
+      Err(err) => fail(err)
+    }
+    let generated = match
+      @validate.gen_valid_module_result_from_seed(
+        0x52554250UL + i.to_uint64(),
+        @validate.GenValidConfig::for_profile(profile),
+      ) {
+      Ok(value) => value
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    let optimized = match
+      run_hot_pipeline(generated.wasm_module, HotPipelineOptions::new(), [
+        "remove-unused-brs",
+      ]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("profile \{profile_name}: \{err}")
+    }
+    let pretty = StringBuilder::new()
+    match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        for func_idx = 0; func_idx < funcs.length(); func_idx = func_idx + 1 {
+          pretty.write_string(
+            optimized.pretty_print_func(
+              @lib.FuncIdx::new(func_idx.reinterpret_as_uint()),
+            ),
+          )
+        }
+      None => fail("profile \{profile_name} emitted no code section")
+    }
+    let pretty = pretty.to_string()
+    assert_false(
+      pretty.contains(forbidden),
+      msg="profile \{profile_name} retained \{forbidden}:\n\{pretty}",
+    )
+  }
+}
+
+///|
 test "remove-unused-brs refinalizes single-payload branch blocks" {
   let source =
     #|(module

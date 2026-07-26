@@ -831,6 +831,14 @@ pub enum GenValidProfile {
   RemoveUnusedBrsSwitchProfile
   RemoveUnusedBrsGcProfile
   RemoveUnusedBrsCleanupProfile
+  RemoveUnusedBrsConstantBrIfProfile
+  RemoveUnusedBrsSingleTargetBrTableProfile
+  RemoveUnusedBrsMultiFunctionProfile
+  RemoveUnusedBrsResultRefinalizeProfile
+  RemoveUnusedBrsMultivalueDropProfile
+  RemoveUnusedBrsWrapperCleanupProfile
+  RemoveUnusedBrsSelectifyProfile
+  RemoveUnusedBrsWinBoundaryProfile
   RemoveUnusedBrsAllProfile
   DuplicateImportEliminationFunctionsProfile
   DuplicateImportEliminationNonfunctionProfile
@@ -1115,6 +1123,16 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RemoveUnusedBrsSwitchProfile => "remove-unused-brs-switch"
     RemoveUnusedBrsGcProfile => "remove-unused-brs-gc"
     RemoveUnusedBrsCleanupProfile => "remove-unused-brs-cleanup"
+    RemoveUnusedBrsConstantBrIfProfile => "remove-unused-brs-constant-br-if"
+    RemoveUnusedBrsSingleTargetBrTableProfile =>
+      "remove-unused-brs-single-target-br-table"
+    RemoveUnusedBrsMultiFunctionProfile => "remove-unused-brs-multi-function"
+    RemoveUnusedBrsResultRefinalizeProfile =>
+      "remove-unused-brs-result-refinalize"
+    RemoveUnusedBrsMultivalueDropProfile => "remove-unused-brs-multivalue-drop"
+    RemoveUnusedBrsWrapperCleanupProfile => "remove-unused-brs-wrapper-cleanup"
+    RemoveUnusedBrsSelectifyProfile => "remove-unused-brs-selectify"
+    RemoveUnusedBrsWinBoundaryProfile => "remove-unused-brs-win-boundary"
     RemoveUnusedBrsAllProfile => "remove-unused-brs-all"
     DuplicateImportEliminationFunctionsProfile =>
       "duplicate-import-elimination-functions"
@@ -1421,9 +1439,17 @@ pub fn gen_valid_profile_members(
       ]
     RemoveUnusedBrsAllProfile =>
       [
-        GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
-        GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsConstantBrIfProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsSingleTargetBrTableProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsMultiFunctionProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsResultRefinalizeProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsMultivalueDropProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsWrapperCleanupProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsSelectifyProfile, 2),
+        GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 1),
         GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsGcProfile, 1),
       ]
     DuplicateImportEliminationAllProfile =>
       [
@@ -1558,6 +1584,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(LocalSubtypingAllProfile, 1),
         GenValidProfileMember::new(CoalesceLocalsAllProfile, 1),
         GenValidProfileMember::new(MergeLocalsAllProfile, 1),
+        GenValidProfileMember::new(RemoveUnusedBrsAllProfile, 1),
         GenValidProfileMember::new(DuplicateImportEliminationAllProfile, 1),
         GenValidProfileMember::new(SsaNomergeSmokeProfile, 1),
         GenValidProfileMember::new(SsaNomergeParityProfile, 1),
@@ -1806,6 +1833,14 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RemoveUnusedBrsSwitchProfile,
     RemoveUnusedBrsGcProfile,
     RemoveUnusedBrsCleanupProfile,
+    RemoveUnusedBrsConstantBrIfProfile,
+    RemoveUnusedBrsSingleTargetBrTableProfile,
+    RemoveUnusedBrsMultiFunctionProfile,
+    RemoveUnusedBrsResultRefinalizeProfile,
+    RemoveUnusedBrsMultivalueDropProfile,
+    RemoveUnusedBrsWrapperCleanupProfile,
+    RemoveUnusedBrsSelectifyProfile,
+    RemoveUnusedBrsWinBoundaryProfile,
     RemoveUnusedBrsAllProfile,
     DuplicateImportEliminationFunctionsProfile,
     DuplicateImportEliminationNonfunctionProfile,
@@ -4521,7 +4556,15 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
     RemoveUnusedBrsControlProfile
     | RemoveUnusedBrsSwitchProfile
     | RemoveUnusedBrsGcProfile
-    | RemoveUnusedBrsCleanupProfile =>
+    | RemoveUnusedBrsCleanupProfile
+    | RemoveUnusedBrsConstantBrIfProfile
+    | RemoveUnusedBrsSingleTargetBrTableProfile
+    | RemoveUnusedBrsMultiFunctionProfile
+    | RemoveUnusedBrsResultRefinalizeProfile
+    | RemoveUnusedBrsMultivalueDropProfile
+    | RemoveUnusedBrsWrapperCleanupProfile
+    | RemoveUnusedBrsSelectifyProfile
+    | RemoveUnusedBrsWinBoundaryProfile =>
       gen_valid_remove_unused_brs_profile_config(profile)
     RemoveUnusedBrsAllProfile =>
       gen_valid_remove_unused_brs_profile_config(RemoveUnusedBrsControlProfile)
@@ -6845,6 +6888,47 @@ fn gen_valid_remove_unused_brs_profile_config(
         max_locals: 8,
         max_body_statements: 14,
       }
+    RemoveUnusedBrsConstantBrIfProfile
+    | RemoveUnusedBrsSingleTargetBrTableProfile
+    | RemoveUnusedBrsMultiFunctionProfile
+    | RemoveUnusedBrsResultRefinalizeProfile
+    | RemoveUnusedBrsMultivalueDropProfile
+    | RemoveUnusedBrsWrapperCleanupProfile
+    | RemoveUnusedBrsSelectifyProfile
+    | RemoveUnusedBrsWinBoundaryProfile =>
+      config = GenValidConfig::{
+        ..config,
+        max_defined_funcs: if profile == RemoveUnusedBrsMultiFunctionProfile {
+          3
+        } else {
+          2
+        },
+        max_results: 2,
+        max_locals: 8,
+        max_body_statements: 0,
+        max_body_depth: match profile {
+          RemoveUnusedBrsConstantBrIfProfile => 11
+          RemoveUnusedBrsSingleTargetBrTableProfile => 12
+          RemoveUnusedBrsMultiFunctionProfile => 13
+          RemoveUnusedBrsResultRefinalizeProfile => 14
+          RemoveUnusedBrsMultivalueDropProfile => 15
+          RemoveUnusedBrsWrapperCleanupProfile => 16
+          RemoveUnusedBrsSelectifyProfile => 17
+          RemoveUnusedBrsWinBoundaryProfile => 18
+          _ => 10
+        },
+        features: GenValidFeatureToggles::{
+          ..config.features,
+          allow_ref_types: profile == RemoveUnusedBrsResultRefinalizeProfile ||
+          profile == RemoveUnusedBrsSelectifyProfile ||
+          profile == RemoveUnusedBrsConstantBrIfProfile ||
+          profile == RemoveUnusedBrsSingleTargetBrTableProfile,
+          allow_subtyping_topology: profile ==
+          RemoveUnusedBrsResultRefinalizeProfile ||
+          profile == RemoveUnusedBrsSelectifyProfile,
+          allow_typed_body_generator: false,
+        },
+      }
     _ => ()
   }
   config
@@ -7249,12 +7333,29 @@ fn gen_valid_is_ssa_nomerge_family_config(config : GenValidConfig) -> Bool {
 }
 
 ///|
+fn gen_valid_is_remove_unused_brs_focused_config(
+  config : GenValidConfig,
+) -> Bool {
+  config == GenValidConfig::for_profile(RemoveUnusedBrsConstantBrIfProfile) ||
+  config ==
+  GenValidConfig::for_profile(RemoveUnusedBrsSingleTargetBrTableProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsMultiFunctionProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsResultRefinalizeProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsMultivalueDropProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsWrapperCleanupProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsSelectifyProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsWinBoundaryProfile)
+}
+
+///|
 fn gen_valid_is_remove_unused_brs_family_config(
   config : GenValidConfig,
 ) -> Bool {
   config == GenValidConfig::for_profile(RemoveUnusedBrsControlProfile) ||
   config == GenValidConfig::for_profile(RemoveUnusedBrsSwitchProfile) ||
-  config == GenValidConfig::for_profile(RemoveUnusedBrsCleanupProfile)
+  config == GenValidConfig::for_profile(RemoveUnusedBrsGcProfile) ||
+  config == GenValidConfig::for_profile(RemoveUnusedBrsCleanupProfile) ||
+  gen_valid_is_remove_unused_brs_focused_config(config)
 }
 
 ///|
@@ -12510,6 +12611,39 @@ fn gen_valid_append_typed_body_generator_slice(
     return
   }
   gen_valid_typed_stmt(out, ctx, env, env.depth_left)
+}
+
+///|
+fn gen_valid_append_remove_unused_brs_br_if_case(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  vt : ValType,
+) -> Unit {
+  let body = [
+    gen_const_instr(ctx, vt),
+    Instruction::i32_const(
+      I32(if ctx.random_bool_from(BodyStream) { 1 } else { 0 }),
+    ),
+    Instruction::br_if(LabelIdx::new(0U)),
+  ]
+  out.push(Instruction::block(BlockType::val_type(vt), Expr::new(body)))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_remove_unused_brs_br_table_case(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  vt : ValType,
+) -> Unit {
+  let body = [
+    gen_const_instr(ctx, vt),
+    Instruction::i32_const(I32(ctx.random_int_from(BodyStream, 4))),
+    Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+    Instruction::unreachable_(),
+  ]
+  out.push(Instruction::block(BlockType::val_type(vt), Expr::new(body)))
+  out.push(Instruction::drop())
 }
 
 ///|
@@ -22631,6 +22765,223 @@ fn gen_valid_code_pushing_profile_module(config : GenValidConfig) -> Module {
 }
 
 ///|
+fn gen_valid_remove_unused_brs_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  for
+    profile in [
+      RemoveUnusedBrsConstantBrIfProfile,
+      RemoveUnusedBrsSingleTargetBrTableProfile,
+      RemoveUnusedBrsMultiFunctionProfile,
+      RemoveUnusedBrsResultRefinalizeProfile,
+      RemoveUnusedBrsMultivalueDropProfile,
+      RemoveUnusedBrsWrapperCleanupProfile,
+      RemoveUnusedBrsSelectifyProfile,
+      RemoveUnusedBrsWinBoundaryProfile,
+    ] {
+    if config == GenValidConfig::for_profile(profile) {
+      return profile
+    }
+  }
+  RemoveUnusedBrsConstantBrIfProfile
+}
+
+///|
+fn gen_valid_remove_unused_brs_pair_type() -> RecType {
+  RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+  )
+}
+
+///|
+fn gen_valid_remove_unused_brs_profile_body(
+  ctx : GenValidContext,
+  kind : GenValidProfile,
+) -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  match kind {
+    RemoveUnusedBrsConstantBrIfProfile =>
+      for
+        vt in [
+          ValType::i32(),
+          ValType::i64(),
+          ValType::f32(),
+          ValType::f64(),
+          ValType::v128(),
+          ValType::funcref(),
+        ] {
+        gen_valid_append_remove_unused_brs_br_if_case(out, ctx, vt)
+      }
+    RemoveUnusedBrsSingleTargetBrTableProfile =>
+      for
+        vt in [
+          ValType::i32(),
+          ValType::i64(),
+          ValType::f32(),
+          ValType::f64(),
+          ValType::v128(),
+          ValType::funcref(),
+        ] {
+        gen_valid_append_remove_unused_brs_br_table_case(out, ctx, vt)
+      }
+    RemoveUnusedBrsResultRefinalizeProfile => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(
+        Instruction::if_(
+          BlockType::val_type(ValType::anyref()),
+          [Instruction::i32_const(I32(3)), Instruction::ref_i31()],
+          Some([Instruction::i32_const(I32(5)), Instruction::ref_i31()]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(
+        Instruction::block(
+          BlockType::val_type(ValType::anyref()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::ref_i31(),
+            Instruction::br(LabelIdx::new(0U)),
+            Instruction::i32_const(I32(9)),
+            Instruction::ref_i31(),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+    }
+    RemoveUnusedBrsMultivalueDropProfile => {
+      out.push(
+        Instruction::block(
+          BlockType::type_idx(TypeIdx::new(1U)),
+          Expr::new([
+            Instruction::i32_const(I32(11)),
+            Instruction::i64_const(I64(13L)),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(Instruction::drop())
+    }
+    RemoveUnusedBrsWrapperCleanupProfile => {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(0U))]),
+        ),
+      )
+      out.push(
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(17)),
+            Instruction::br(LabelIdx::new(0U)),
+            Instruction::unreachable_(),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::i32_const(I32(19)),
+                Instruction::br(LabelIdx::new(1U)),
+                Instruction::unreachable_(),
+              ]),
+            ),
+            Instruction::unreachable_(),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+    }
+    RemoveUnusedBrsSelectifyProfile => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(
+        Instruction::if_(
+          BlockType::val_type(ValType::i32()),
+          [Instruction::i32_const(I32(23))],
+          Some([Instruction::i32_const(I32(29))]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(
+        Instruction::if_(
+          BlockType::val_type(ValType::anyref()),
+          [Instruction::i32_const(I32(31)), Instruction::ref_i31()],
+          Some([Instruction::i32_const(I32(37)), Instruction::ref_i31()]),
+        ),
+      )
+      out.push(Instruction::drop())
+    }
+    RemoveUnusedBrsWinBoundaryProfile => {
+      out.push(Instruction::i32_const(I32(41)))
+      out.push(Instruction::local_tee(LocalIdx::new(0U)))
+      out.push(Instruction::drop())
+    }
+    _ => ()
+  }
+  out
+}
+
+///|
+fn gen_valid_remove_unused_brs_profile_module(ctx : GenValidContext) -> Module {
+  let kind = gen_valid_remove_unused_brs_profile_kind(ctx.config)
+  let void_type = gen_valid_precompute_void_func_type()
+  let pair_type = gen_valid_remove_unused_brs_pair_type()
+  if kind == RemoveUnusedBrsMultiFunctionProfile {
+    let first_body = gen_valid_remove_unused_brs_profile_body(
+      ctx,
+      RemoveUnusedBrsConstantBrIfProfile,
+    )
+    let second_body : Array[Instruction] = [
+      Instruction::i64_const(I64(43L)),
+      Instruction::local_set(LocalIdx::new(0U)),
+    ]
+    for
+      instr in gen_valid_remove_unused_brs_profile_body(
+        ctx,
+        RemoveUnusedBrsSingleTargetBrTableProfile,
+      ) {
+      second_body.push(instr)
+    }
+    second_body.push(Instruction::i32_const(I32(47)))
+    second_body.push(Instruction::i64_const(I64(53L)))
+    return Module::new()
+      .with_type_sec(TypeSec::new([void_type, pair_type]))
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(Locals::new([]), Expr::new(first_body)),
+          Func::new(
+            Locals::from_types([ValType::i64()]),
+            Expr::new(second_body),
+          ),
+        ]),
+      )
+  }
+  let locals = if kind == RemoveUnusedBrsWinBoundaryProfile {
+    Locals::from_types([ValType::i32()])
+  } else {
+    Locals::new([])
+  }
+  Module::new()
+  .with_type_sec(TypeSec::new([void_type, pair_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        locals,
+        Expr::new(gen_valid_remove_unused_brs_profile_body(ctx, kind)),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_tuple_optimization_profile_kind(
   config : GenValidConfig,
 ) -> GenValidProfile {
@@ -28787,6 +29138,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_code_pushing_profile_config(config) {
     return gen_valid_code_pushing_profile_module(config)
+  }
+  if gen_valid_is_remove_unused_brs_focused_config(config) {
+    return gen_valid_remove_unused_brs_profile_module(ctx)
   }
   if gen_valid_is_tuple_optimization_profile_config(config) {
     return gen_valid_tuple_optimization_profile_module(config)

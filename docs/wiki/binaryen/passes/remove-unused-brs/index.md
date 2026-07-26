@@ -42,7 +42,7 @@ related:
 
 ## Binaryen v131 renewal status
 
-The required post-repair matrix completed on 2026-07-26 and **did not renew direct parity**. Regular `100000` and wasm-smith are cleanup-normalized green with no Starshine failures. A first red-first repair slice now makes all `181` formerly open random-all selectification, result-refinalization, and scratch-wrapper cases match when replaying the original `870` residuals, while preserving the `689` measured smaller Starshine cleanups. The dedicated aggregate remains `10000/10000` size-losing mismatches, although aggregate canonical loss improves from `+538137` to `+496291` bytes. Dedicated repair, a fresh four-lane v131 renewal, and scheduler reconciliation remain open because Starshine still has one extra RUB slot.
+The required post-repair matrix completed on 2026-07-26 and **did not renew direct parity**. The first red-first repair makes all `181` formerly open random-all cases match while preserving the `689` measured smaller Starshine cleanups. The next deterministic slice repairs the dominant dedicated admission bug by allowing safe multivalue-return roots with local writes, while retaining nested multivalue-carrier and call/memory stack-hazard guards. Eight focused GenValid leaves and an expanded aggregate now isolate the dedicated behavior families. No post-change compare lane has been run by explicit user request; fresh four-lane v131 renewal and scheduler reconciliation remain open.
 
 ## Role
 

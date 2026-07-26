@@ -26,7 +26,26 @@ Native Starshine SHA-256 `6f40622612e9b417d1bea7b18d9cba8fbae0b61ce4c7c52e424b8d
 - `.tmp/pass-fuzz-remove-unused-brs-random-all-870-replay-tdd-final` replays every residual from the original random-all lane: `181/870` now match and the remaining `689` are exactly the already classified smaller Starshine unread-tee and terminal-return wins. There are zero validation, generator, property, or command failures.
 - `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-replay-tdd-final` remains `10000/10000` mismatches with zero failures. The canonical delta improves from `+538137` to `+496291` bytes; every output remains larger by `9..136` bytes. This is progress, not signoff.
 
-The original matrix plus these replays verify that the first repair slice retires the known random-all parity gaps without regressing the measured Starshine wins. Direct behavior parity is still open because the dedicated aggregate remains uniformly size-losing; complete that repair and rerun all four fresh v131 lanes before closing `[AUDIT-CORRECTNESS]001` for RUB.
+The original matrix plus these replays verify that the first repair slice retires the known random-all parity gaps without regressing the measured Starshine wins.
+
+## 2026-07-26 dedicated implementation and profile expansion
+
+The next red-first slice identifies the dominant dedicated fingerprint as a whole-function admission bug: multivalue-return functions with ordinary root `local.set` traffic were rejected by `result-local-set-stack-hazard-noop`, leaving their constant carried branches, same-target switches, value `if`s, and wrappers untouched. Root multivalue results are now admitted; nested multivalue carriers and root call/memory stack hazards remain conservatively blocked and retain deterministic tests.
+
+The dedicated profile surface now includes:
+
+- `remove-unused-brs-constant-br-if`
+- `remove-unused-brs-single-target-br-table`
+- `remove-unused-brs-multi-function`
+- `remove-unused-brs-result-refinalize`
+- `remove-unused-brs-multivalue-drop`
+- `remove-unused-brs-wrapper-cleanup`
+- `remove-unused-brs-selectify`
+- `remove-unused-brs-win-boundary`
+
+`remove-unused-brs-all` samples the first seven parity leaves together with the prior control, switch, cleanup, and GC stress leaves. The measured-win boundary remains a singleton outside the exact-parity aggregate. `random-all-profiles` now includes `remove-unused-brs-all`. Generator tests validate every focused leaf and its trigger; public pass tests prove the constant-branch, same-target-table, multi-function, multivalue-return, and selectification leaves reach their owned cleanup behavior.
+
+Per explicit user instruction, no fuzzer, saved-residual replay, or compare lane was run after this implementation. Direct behavior parity remains open until the fresh dedicated and full four-lane v131 matrix is executed.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

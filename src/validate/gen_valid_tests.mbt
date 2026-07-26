@@ -16818,28 +16818,26 @@ test "remove-unused-brs aggregate gen-valid profile resolves focused leaves" {
       @debug.assert_eq(profile, RemoveUnusedBrsAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 3)
-      assert_true(
-        members.contains(
-          GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 3),
-        ),
-      )
-      assert_true(
-        members.contains(
-          GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 2),
-        ),
-      )
-      assert_true(
-        members.contains(
+      @debug.assert_eq(members.length(), 11)
+      for
+        expected in [
+          GenValidProfileMember::new(RemoveUnusedBrsConstantBrIfProfile, 2),
+          GenValidProfileMember::new(
+            RemoveUnusedBrsSingleTargetBrTableProfile,
+            2,
+          ),
+          GenValidProfileMember::new(RemoveUnusedBrsMultiFunctionProfile, 2),
+          GenValidProfileMember::new(RemoveUnusedBrsResultRefinalizeProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsMultivalueDropProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsWrapperCleanupProfile, 2),
+          GenValidProfileMember::new(RemoveUnusedBrsSelectifyProfile, 2),
+          GenValidProfileMember::new(RemoveUnusedBrsControlProfile, 1),
+          GenValidProfileMember::new(RemoveUnusedBrsSwitchProfile, 1),
           GenValidProfileMember::new(RemoveUnusedBrsCleanupProfile, 1),
-        ),
-      )
-      assert_false(
-        members.contains(
           GenValidProfileMember::new(RemoveUnusedBrsGcProfile, 1),
-        ),
-        msg="GC singleton currently covers accepted boundary-heavy shapes and is not in the closeout aggregate",
-      )
+        ] {
+        assert_true(members.contains(expected))
+      }
     }
     Err(msg) => fail(msg)
   }
@@ -16870,10 +16868,26 @@ test "remove-unused-brs aggregate profile samples every current focused family" 
     }
     index += 1
   }
-  assert_true(seen.contains(RemoveUnusedBrsControlProfile))
-  assert_true(seen.contains(RemoveUnusedBrsSwitchProfile))
-  assert_true(seen.contains(RemoveUnusedBrsCleanupProfile))
-  assert_false(seen.contains(RemoveUnusedBrsGcProfile))
+  for
+    expected in [
+      RemoveUnusedBrsConstantBrIfProfile,
+      RemoveUnusedBrsSingleTargetBrTableProfile,
+      RemoveUnusedBrsMultiFunctionProfile,
+      RemoveUnusedBrsResultRefinalizeProfile,
+      RemoveUnusedBrsMultivalueDropProfile,
+      RemoveUnusedBrsWrapperCleanupProfile,
+      RemoveUnusedBrsSelectifyProfile,
+      RemoveUnusedBrsControlProfile,
+      RemoveUnusedBrsSwitchProfile,
+      RemoveUnusedBrsCleanupProfile,
+      RemoveUnusedBrsGcProfile,
+    ] {
+    assert_true(
+      seen.contains(expected),
+      msg="aggregate did not sample \{gen_valid_profile_name(expected)}",
+    )
+  }
+  assert_false(seen.contains(RemoveUnusedBrsWinBoundaryProfile))
 }
 
 ///|
