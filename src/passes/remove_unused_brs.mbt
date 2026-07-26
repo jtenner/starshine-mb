@@ -1786,7 +1786,13 @@ fn remove_unused_brs_node_is_reorder_safe(
     _ => ()
   }
   let node = @ir.hot_node_get(func, node_id)
-  if @ir.hot_may_trap(func, node_id) ||
+  // The coarse heap effect class is conservative, but ref.i31 is an exact
+  // nontrapping pure wrapper and is safe to speculate into a select arm.
+  let exact_ref_i31 = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefI31) => true
+    _ => false
+  }
+  if (!exact_ref_i31 && @ir.hot_may_trap(func, node_id)) ||
     remove_unused_brs_exact_numeric_may_trap(func, node_id) {
     cache[node_id] = 0
     return false
@@ -1810,6 +1816,11 @@ fn remove_unused_brs_node_is_reorder_safe(
     @ir.HotOp::If =>
       if @ir.hot_node_result_arity(func, node_id) != 1 {
         return false
+      }
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) => ()
+        _ => return false
       }
     @ir.HotOp::Simd =>
       // RUB-S: exact v128 constants are side-effect-free payload values and may
@@ -1954,9 +1965,13 @@ fn remove_unused_brs_selectify_cost(func : @ir.HotFunc, node_id : Int) -> Int {
     @ir.HotOp::Convert =>
       remove_unused_brs_selectify_convert_base_cost(func, node_id)
     @ir.HotOp::RefTest | @ir.HotOp::RefTestDesc => 5
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::RefI31) => 1
+        _ => 8
+      }
     @ir.HotOp::RefCast
     | @ir.HotOp::RefCastDescEq
-    | @ir.HotOp::Heap
     | @ir.HotOp::Atomic
     | @ir.HotOp::Throw
     | @ir.HotOp::ThrowRef => 8
@@ -2208,6 +2223,24 @@ fn remove_unused_brs_condition_is_select_safe_over_value_arms(
     | @ir.HotOp::Select
     | @ir.HotOp::TupleMake
     | @ir.HotOp::TupleExtract => {
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        if !remove_unused_brs_condition_is_select_safe_over_value_arms(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+            arm_reads,
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::Heap => {
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.Instruction::StructGet(_, _))
+        | Some(@lib.Instruction::StructGetS(_, _))
+        | Some(@lib.Instruction::StructGetU(_, _)) => ()
+        _ => return false
+      }
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         if !remove_unused_brs_condition_is_select_safe_over_value_arms(
             func,
@@ -5499,9 +5532,24 @@ fn remove_unused_brs_match_value_if_to_select(
       }
     }
   }
+  let then_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, then_root),
+  )
+  let else_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, else_root),
+  )
+  let select_result_type = if then_results.length() == 1 &&
+    else_results.length() == 1 &&
+    then_results[0] == else_results[0] {
+    then_results[0]
+  } else {
+    result_type
+  }
   Some({
     replacement: remove_unused_brs_build_select(
-      func, result_type, then_root, else_root, condition,
+      func, select_result_type, then_root, else_root, condition,
     ),
     then_holder: then_ref.holder,
     else_holder: else_ref.holder,
@@ -9291,6 +9339,118 @@ fn remove_unused_brs_visit_generic_children(
 }
 
 ///|
+fn remove_unused_brs_try_refinalize_single_result_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Bool {
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, block_id) != 1 {
+    return false
+  }
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  if label_id < 0 {
+    return false
+  }
+  let mut candidate : @lib.ValType? = None
+  let admit_value = fn(value_id : Int) -> Bool {
+    if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+      return false
+    }
+    let results = @ir.hot_type_results(func, @ir.hot_node_type(func, value_id))
+    if results.length() != 1 {
+      return false
+    }
+    match candidate {
+      Some(existing) => existing == results[0]
+      None => {
+        candidate = Some(results[0])
+        true
+      }
+    }
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match @ir.hot_branch_target(func, node_id) {
+      Some(target) if target == label_id =>
+        match node.op {
+          @ir.HotOp::Br =>
+            if node.child_count != 1 ||
+              !admit_value(@ir.hot_child_get(func, node_id, 0)) {
+              return false
+            }
+          _ => return false
+        }
+      _ => ()
+    }
+    match node.op {
+      @ir.HotOp::BrTable => {
+        if @ir.hot_branch_table_default_target(func, node.imm0) == label_id {
+          return false
+        }
+        for target in @ir.hot_branch_table_targets(func, node.imm0) {
+          if target == label_id {
+            return false
+          }
+        }
+      }
+      @ir.HotOp::TryTable => {
+        let info = @ir.hot_catch_info_get(func, node.imm1)
+        for catch_ in info.catches {
+          let target = match catch_ {
+            @ir.HotCatchArm::CatchArm(_, target)
+            | @ir.HotCatchArm::CatchRefArm(_, target)
+            | @ir.HotCatchArm::CatchAllArm(target)
+            | @ir.HotCatchArm::CatchAllRefArm(target) => target
+          }
+          if target == label_id {
+            return false
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, body_count - 1)
+  let tail_is_nonfallthrough = @ir.cfg_terminator_edge_kinds(
+      @ir.hot_node_get(func, tail_id).op,
+    ).length() >
+    0
+  if !tail_is_nonfallthrough && !admit_value(tail_id) {
+    return false
+  }
+  let refined = match candidate {
+    Some(refined) => refined
+    None => return false
+  }
+  let current = @ir.hot_type_results(func, @ir.hot_node_type(func, block_id))[0]
+  if refined == current {
+    return false
+  }
+  @ir.hot_control_result_type_set(
+    func,
+    block_id,
+    @ir.hot_type_intern_block_result(func, @lib.BlockType::val_type(refined)),
+  )
+  remove_unused_brs_mark_mutated(ctx, func, "refinalize-single-result-block")
+  true
+}
+
+///|
 fn remove_unused_brs_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -9395,6 +9555,12 @@ fn remove_unused_brs_visit_node(
         remove_unused_brs_region_has_removable_tail_target(func, body_ref) {
         changed = remove_unused_brs_try_remove_region_tail(
             ctx, func, body_ref, reorder_cache,
+          ) ||
+          changed
+      }
+      if @ir.hot_node_is_live(func, node_id) {
+        changed = remove_unused_brs_try_refinalize_single_result_block(
+            ctx, func, node_id,
           ) ||
           changed
       }

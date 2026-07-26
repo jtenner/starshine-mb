@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-07-26
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ../../release-horizon-and-oracles.md
@@ -42,7 +42,7 @@ related:
 
 ## Binaryen v131 renewal status
 
-The owner file is unchanged from v130, so direct behavior is not automatically reopened. V131 updates the multivalue expected surface through shared typing/finalization behavior, and `[V131-SPOT]001` requires a focused probe before the v130 closeout is treated as renewed. The separate Starshine scheduler reconciliation remains open regardless of that direct-pass verdict.
+The required post-repair matrix completed on 2026-07-26 and **did not renew direct parity**. Regular `100000` and wasm-smith are cleanup-normalized green with no Starshine failures. A first red-first repair slice now makes all `181` formerly open random-all selectification, result-refinalization, and scratch-wrapper cases match when replaying the original `870` residuals, while preserving the `689` measured smaller Starshine cleanups. The dedicated aggregate remains `10000/10000` size-losing mismatches, although aggregate canonical loss improves from `+538137` to `+496291` bytes. Dedicated repair, a fresh four-lane v131 renewal, and scheduler reconciliation remain open because Starshine still has one extra RUB slot.
 
 ## Role
 

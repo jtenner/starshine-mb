@@ -1636,6 +1636,130 @@ test "remove-unused-brs rewrites pure value if into select" {
 }
 
 ///|
+test "remove-unused-brs selectifies pure ref arms before struct.get conditions" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (func (param $box (ref $box)) (result (ref null $box))
+    #|    (if (result (ref null $box))
+    #|      (i32.eqz (struct.get $box 0 (local.get $box)))
+    #|      (then (ref.null $box))
+    #|      (else (local.get $box)))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct.get-conditioned ref select success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps selectified struct.get ref values direct under calls" {
+  let source =
+    #|(module
+    #|  (type $box (struct (field i32)))
+    #|  (global $box-global (ref $box) (struct.new $box (i32.const 0)))
+    #|  (func $is-null (param (ref null $box)) (result i32)
+    #|    (ref.is_null (local.get 0)))
+    #|  (func $choose (param $unused i32) (param $box (ref $box)) (result i32)
+    #|    (drop (local.get $unused))
+    #|    (call $is-null
+    #|      (if (result (ref null $box))
+    #|        (i32.eqz (struct.get $box 0 (local.get $box)))
+    #|        (then (ref.null $box))
+    #|        (else (local.get $box)))))
+    #|  (func (export "run") (result i32)
+    #|    (call $choose (i32.const 0) (global.get $box-global))))
+  let encoded = match @binary.encode_module(pass_test_module_from_wat(source)) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected struct.get select fixture encode, got \{err}")
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected struct.get select fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(decoded, HotPipelineOptions::new(), ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected direct struct.get-conditioned call select, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(block"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs selectifies equal i31 arms and refinalizes the result" {
+  let source =
+    #|(module
+    #|  (func
+    #|    (drop
+    #|      (if (result anyref)
+    #|        (i32.const 1)
+    #|        (then (ref.i31 (i32.const 0)))
+    #|        (else (ref.i31 (i32.const 1)))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected i31 result refinalization success, got \{err}")
+  }
+
+  let instrs = try! remove_unused_brs_test_defined_func_instrs(optimized, 0)
+  assert_false(
+    instrs.any(fn(instr) {
+      match instr {
+        @lib.If(_, _, _) => true
+        _ => false
+      }
+    }),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  assert_true(
+    instrs.any(fn(instr) {
+      match instr {
+        @lib.Select(Some([result_type])) =>
+          result_type == @lib.ValType::i31ref()
+        _ => false
+      }
+    }),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+}
+
+///|
+test "remove-unused-brs refinalizes single-payload branch blocks" {
+  let source =
+    #|(module
+    #|  (func
+    #|    (drop
+    #|      (block (result anyref)
+    #|        (br 0 (ref.i31 (i32.const 0)))
+    #|        (ref.i31 (i32.const 1))))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected branch-block result refinalization, got \{err}")
+  }
+
+  let instrs = try! remove_unused_brs_test_defined_func_instrs(optimized, 0)
+  assert_true(
+    instrs.any(fn(instr) {
+      match instr {
+        @lib.Block(@lib.ValTypeBlockType(result_type), _) =>
+          result_type == @lib.ValType::i31ref()
+        _ => false
+      }
+    }),
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+}
+
+///|
 test "remove-unused-brs does not speculate a trapping value arm" {
   let optimized = match
     pass_test_run_pipeline(

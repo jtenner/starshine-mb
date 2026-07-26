@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md
   - ./index.md
@@ -29,7 +29,9 @@ related:
 
 ## Durable Conclusions
 
-- Note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md) closed the direct DAEO-prefix runtime/validity owner: the current artifact moved from `580.178s` and invalid Func `3397` output to valid deterministic `3.239s` / `3.068s` repeats through rollback-capable batch validation and narrow safety guards. Regular `10000` compare had zero mismatches/failures; the dedicated `115`-mismatch accepted family was runtime-all-equal; finite direct convergence reached a byte-identical fixed point after three productive applications.
+- The 2026-07-26 post-repair Binaryen-v131 matrix verifies ordinary and wasm-smith safety but **reopens direct parity**. Regular `100000` is fully cleanup-normalized and wasm-smith has no residual mismatch across `9956` comparable cases, but all `10000` dedicated `remove-unused-brs-all` cases differ and every Starshine canonical output is larger by `18..140` bytes. Random-all left `870` residuals: `689` measured smaller Starshine dead-write or terminal-return cleanups and `181` unproven or size-losing missed selectification, result-refinalization, and scratch-local-cleanup families. The dedicated result supersedes the earlier approved-substitute classification: validity, absent side effects, and runtime equivalence do not justify retaining an output shape that is uniformly larger and less simplified than Binaryen.
+- The first red-first repair slice on 2026-07-26 retires all `181` formerly open random-all cases when replaying the complete original residual set. It admits exact `struct.get` conditions over pure reference arms, treats exact `ref.i31` as a pure low-cost select arm, uses matching arm types for generated selects, refinalizes compatible single-result branch blocks, and removes otherwise empty one-result lowering wrappers only under the RUB-specific lower option. `.tmp/pass-fuzz-remove-unused-brs-random-all-870-replay-tdd-final` is `181` matches plus the preserved `689` measured Starshine wins with zero failures. Dedicated replay remains `10000/10000` mismatches, although aggregate canonical loss improves from `+538137` to `+496291` bytes and the range narrows to `9..136` bytes. Direct parity therefore remains open.
+- Note [`1647`](../../../raw/research/1647-2026-07-17-remove-unused-brs-batch-writeback-and-validity.md) closed the direct DAEO-prefix runtime/validity owner: the current artifact moved from `580.178s` and invalid Func `3397` output to valid deterministic `3.239s` / `3.068s` repeats through rollback-capable batch validation and narrow safety guards. Regular `10000` compare had zero mismatches/failures; the dedicated `115`-mismatch family was runtime-all-equal; finite direct convergence reached a byte-identical fixed point after three productive applications. That evidence remains a correctness result, not a current direct-parity closeout.
 - Binaryen's `RemoveUnusedBrs` is phase-driven and Starshine now mirrors a meaningful subset of that structure.
 - The current tree already covers much more than dead tail stripping:
   - tail `br` / `return` elimination
@@ -242,7 +244,14 @@ related:
 
 ## Current Open Gap
 
-The active backlog now says the next work should be reduced in this order:
+The 2026-07-26 renewal supersedes the older declaration-only first-residual wording. Current direct repair order is:
+
+1. Continue reducing the dedicated aggregate's shared size-losing family: scratch locals around dropped multivalue/select and ordered-local-write shapes, missed dead block/suffix cleanup, and remaining control folding. Every one of the `10000` replayed dedicated cases is still larger than Binaryen, so this cannot remain an approved representation difference.
+2. Keep the repaired random-all families closed: the complete old residual replay now matches all `181` former selectification, refinalization, and scratch-wrapper gaps.
+3. Preserve the `689` measured smaller random-all cleanups: unread `local.tee` deletion and redundant terminal-`return` removal are Starshine wins, not targets for Binaryen-shape regression.
+4. Rerun the fresh regular, dedicated, random-all, and wasm-smith v131 lanes after dedicated repair, then reconcile the extra scheduled RUB slot separately.
+
+The older artifact/history queue below remains useful provenance but is no longer the first direct-parity owner:
 
 - The generated `_build/wasm/debug/build/cmd/cmd.wasm` ordered `-O4z` audit from `2026-04-18` no longer leaves an open hard corruption slot for RUB on Binaryen-produced predecessor states:
   - slot `14` is retired by [`0102`](../late-pipeline-dispatch.md)

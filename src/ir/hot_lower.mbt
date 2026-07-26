@@ -19,6 +19,7 @@ pub struct HotLowerOptions {
   preserve_trailing_nops : Bool
   preserve_typed_loop_const_prefix_spills : Bool
   preserve_flat_ir_spills : Bool
+  flatten_unused_result_blocks : Bool
 }
 
 ///|
@@ -29,6 +30,7 @@ pub fn HotLowerOptions::new(
   preserve_trailing_nops? : Bool = false,
   preserve_typed_loop_const_prefix_spills? : Bool = false,
   preserve_flat_ir_spills? : Bool = false,
+  flatten_unused_result_blocks? : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
@@ -37,6 +39,7 @@ pub fn HotLowerOptions::new(
     preserve_trailing_nops,
     preserve_typed_loop_const_prefix_spills,
     preserve_flat_ir_spills,
+    flatten_unused_result_blocks,
   }
 }
 
@@ -2040,6 +2043,44 @@ fn hot_lower_impl_emit_transparent_param_block(
 }
 
 ///|
+fn hot_lower_impl_transparent_unused_result_block_root(
+  func : HotFunc,
+  block_id : NodeId,
+) -> NodeId? {
+  let block = hot_node_get(func, block_id)
+  if block.op != HotOp::Block ||
+    hot_node_result_arity(func, block_id) != 1 ||
+    hot_lower_impl_control_param_types(func, block_id).length() != 0 {
+    return None
+  }
+  let label_id = hot_control_node_label(func, block_id)
+  if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
+    return None
+  }
+  let mut value_root = HOT_NONE_NODE
+  for slot = 0; slot < block.child_count; slot = slot + 1 {
+    let root_id = hot_child_get(func, block_id, slot)
+    if hot_node_result_arity(func, root_id) == 1 {
+      if value_root != HOT_NONE_NODE {
+        return None
+      }
+      value_root = root_id
+      continue
+    }
+    if !hot_root_is_strict_no_work_block_chain(func, root_id, fn(root_label) {
+        hot_lower_impl_label_is_used(func, root_label)
+      }) {
+      return None
+    }
+  }
+  if value_root == HOT_NONE_NODE {
+    None
+  } else {
+    Some(value_root)
+  }
+}
+
+///|
 fn hot_lower_impl_emit_root(
   func : HotFunc,
   id : NodeId,
@@ -2062,6 +2103,21 @@ fn hot_lower_impl_emit_root(
   let param_types = hot_lower_impl_control_param_types(func, id)
   if hot_query_op(func, id) == HotOp::Block &&
     !hot_lower_impl_label_is_used(func, label_id) {
+    if options.flatten_unused_result_blocks && param_types.length() == 0 {
+      match hot_lower_impl_transparent_unused_result_block_root(func, id) {
+        Some(value_root) => {
+          hot_lower_impl_emit_root(
+            func, value_root, use_def, label_frames, label_stack_head, stack, out,
+            extra_locals, options,
+          )
+          let top_idx = stack.length() - 1
+          let top = stack[top_idx]
+          stack[top_idx] = { node_id: id, val_type: top.val_type }
+          return
+        }
+        None => ()
+      }
+    }
     if param_types.length() == 1 {
       hot_lower_impl_emit_transparent_param_block(
         func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
