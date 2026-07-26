@@ -52,7 +52,14 @@ Fresh development evidence with native Starshine SHA-256 `124657ff132c6af1132915
 - `.tmp/pass-fuzz-remove-unused-brs-wrapper-cleanup-1000-cfg-prune-final`: `1000/1000` normalized matches, zero mismatches or failures.
 - `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-cfg-prune-final`: `5655/10000` normalized matches and `4345` residuals, with zero validation, generator, property, or command failures. The wrapper-cleanup leaf is `1250/1250` exact; result-refinalize is `625/625`; selectify is `1250/1250`; and single-target-br-table is `1250/1250`.
 
-The former uniformly size-losing dedicated blocker is eliminated. Across the `4345` residuals, Starshine is canonically smaller in `2500`, equal-sized in `1220`, and one byte larger in the `625` multivalue-drop cases; aggregate residual delta is `-41684` bytes. These residuals still require family-specific classification and repair. In particular, `multivalue-drop` remains a uniform `+1` parity gap, while the equal-sized constant-branch and multi-function residuals retain broader reference result types than Binaryen. This development aggregate is not a substitute for the final fresh four-lane matrix.
+The former uniformly size-losing dedicated blocker is eliminated. The next lowering slice admits exact type-indexed literal multivalue blocks consumed only by their result drops, then flattens them under RUB's existing opt-in lowering. Raw admission recognizes the adjacent type-indexed-block/two-drop floor, while the HOT proof requires an unused label, zero block parameters, literal result roots matching the result arity, and no users other than the corresponding drops.
+
+Fresh native Starshine SHA-256 `6a7c5b980eb20b7763a4916bc2259b937237b58c6ff6f9361d2697d76a3d786c` evidence:
+
+- `.tmp/pass-fuzz-remove-unused-brs-multivalue-drop-1000-flat`: all `1000` cases are measured Starshine wins, uniformly `-12` canonical bytes, with zero failures.
+- `.tmp/pass-fuzz-remove-unused-brs-dedicated-10000-multivalue-flat`: `5655/10000` normalized matches and `4345` residuals, zero failures, and aggregate residual delta `-81681` bytes. All `3125` size-different residuals are now smaller Starshine outputs; the remaining `1220` are equal-sized constant-branch and multi-function reference-typing/output-shape gaps.
+
+The multivalue-drop `+1` blocker is therefore closed as a measured, source-backed Starshine win rather than forced into Binaryen's four-scratch-local shape. The equal-sized typing residuals and smaller compound families still require targeted classification. This development aggregate is not a substitute for the final fresh four-lane matrix.
 
 Recommended smoke lane: run the ordinary GenValid compare-pass lane for this pass:
 

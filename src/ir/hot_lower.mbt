@@ -2043,13 +2043,14 @@ fn hot_lower_impl_emit_transparent_param_block(
 }
 
 ///|
-fn hot_lower_impl_transparent_unused_result_block_root(
+fn hot_lower_impl_transparent_unused_result_block_roots(
   func : HotFunc,
   block_id : NodeId,
-) -> NodeId? {
+) -> Array[NodeId]? {
   let block = hot_node_get(func, block_id)
+  let result_arity = hot_node_result_arity(func, block_id)
   if block.op != HotOp::Block ||
-    hot_node_result_arity(func, block_id) != 1 ||
+    result_arity == 0 ||
     hot_lower_impl_control_param_types(func, block_id).length() != 0 {
     return None
   }
@@ -2057,14 +2058,23 @@ fn hot_lower_impl_transparent_unused_result_block_root(
   if label_id < 0 || hot_lower_impl_label_is_used(func, label_id) {
     return None
   }
-  let mut value_root = HOT_NONE_NODE
+  let value_roots : Array[NodeId] = []
+  let mut seen_arity = 0
   for slot = 0; slot < block.child_count; slot = slot + 1 {
     let root_id = hot_child_get(func, block_id, slot)
-    if hot_node_result_arity(func, root_id) == 1 {
-      if value_root != HOT_NONE_NODE {
-        return None
+    let root_arity = hot_node_result_arity(func, root_id)
+    if root_arity > 0 {
+      // The original single-result path remains permissive. Multi-result block
+      // flattening starts with independent literal roots, the exact dropped
+      // multivalue family owned by remove-unused-brs.
+      if result_arity > 1 {
+        match hot_query_op(func, root_id) {
+          HotOp::Const | HotOp::RefNull => ()
+          _ => return None
+        }
       }
-      value_root = root_id
+      value_roots.push(root_id)
+      seen_arity += root_arity
       continue
     }
     if !hot_root_is_strict_no_work_block_chain(func, root_id, fn(root_label) {
@@ -2073,10 +2083,10 @@ fn hot_lower_impl_transparent_unused_result_block_root(
       return None
     }
   }
-  if value_root == HOT_NONE_NODE {
+  if value_roots.length() == 0 || seen_arity != result_arity {
     None
   } else {
-    Some(value_root)
+    Some(value_roots)
   }
 }
 
@@ -2104,15 +2114,24 @@ fn hot_lower_impl_emit_root(
   if hot_query_op(func, id) == HotOp::Block &&
     !hot_lower_impl_label_is_used(func, label_id) {
     if options.flatten_unused_result_blocks && param_types.length() == 0 {
-      match hot_lower_impl_transparent_unused_result_block_root(func, id) {
-        Some(value_root) => {
-          hot_lower_impl_emit_root(
-            func, value_root, use_def, label_frames, label_stack_head, stack, out,
-            extra_locals, options,
-          )
-          let top_idx = stack.length() - 1
-          let top = stack[top_idx]
-          stack[top_idx] = { node_id: id, val_type: top.val_type }
+      match hot_lower_impl_transparent_unused_result_block_roots(func, id) {
+        Some(value_roots) => {
+          for value_root in value_roots {
+            hot_lower_impl_emit_root(
+              func, value_root, use_def, label_frames, label_stack_head, stack, out,
+              extra_locals, options,
+            )
+          }
+          let result_arity = hot_node_result_arity(func, id)
+          if stack.length() < result_arity {
+            abort("transparent unused result block did not emit all results")
+          }
+          for stack_idx = stack.length() - result_arity
+              stack_idx < stack.length()
+              stack_idx = stack_idx + 1 {
+            let value = stack[stack_idx]
+            stack[stack_idx] = { node_id: id, val_type: value.val_type }
+          }
           return
         }
         None => ()

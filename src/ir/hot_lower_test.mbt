@@ -4716,3 +4716,29 @@ test "hot lower elides a nonthrowing synthetic catch-all bridge" {
     Err(err) => fail(@validate.validation_error_message(err))
   }
 }
+
+///|
+test "hot lower flattens unused literal multivalue result blocks when requested" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (func
+    #|    (block (type $pair) (result i32 i64)
+    #|      (i32.const 11)
+    #|      (i64.const 13))
+    #|    drop
+    #|    drop))
+  let fixture = ir_test_build_hot_from_wat(source)
+  let func = fixture.hot_func
+  let lowered = hot_lower_func_with_options(
+    func,
+    HotLowerOptions::new(flatten_unused_result_blocks=true),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = lowered
+  assert_false(
+    body.any(fn(instr) { instr is @lib.Block(_, _) }),
+    msg="expected flattened multivalue body, got \{body}",
+  )
+  assert_true(body.contains(@lib.Instruction::i32_const(@lib.I32(11))))
+  assert_true(body.contains(@lib.Instruction::i64_const(@lib.I64(13L))))
+}

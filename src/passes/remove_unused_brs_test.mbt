@@ -1849,6 +1849,7 @@ test "remove-unused-brs focused GenValid parity leaves optimize their owned shap
     ("remove-unused-brs-single-target-br-table", "br_table"),
     ("remove-unused-brs-multi-function", "br_table"),
     ("remove-unused-brs-wrapper-cleanup", "unreachable"),
+    ("remove-unused-brs-multivalue-drop", "(block"),
     ("remove-unused-brs-selectify", "(if"),
   ]
   for i = 0; i < cases.length(); i = i + 1 {

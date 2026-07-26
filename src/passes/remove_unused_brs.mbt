@@ -10565,6 +10565,75 @@ fn remove_unused_brs_visit_region(
 }
 
 ///|
+fn remove_unused_brs_has_literal_multivalue_drop_lowering(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let scan = remove_unused_brs_compute_cycle_scan(func)
+  for block_id = 0; block_id < @ir.hot_node_count(func); block_id = block_id + 1 {
+    if !@ir.hot_node_is_live(func, block_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, block_id).op {
+      @ir.HotOp::Block => ()
+      _ => continue
+    }
+    let result_arity = @ir.hot_node_result_arity(func, block_id)
+    if result_arity <= 1 {
+      continue
+    }
+    let label_id = @ir.hot_control_node_label(func, block_id)
+    if label_id < 0 ||
+      label_id >= scan.label_refs.length() ||
+      scan.label_refs[label_id] != 0 {
+      continue
+    }
+    match @ir.hot_type_get(func, @ir.hot_node_type(func, block_id)) {
+      @ir.HotTypeInfo::BlockResultResolved(_, params, _) if params.length() == 0 =>
+        ()
+      _ => continue
+    }
+    let body_ref = @ir.hot_region_body_ref(func, block_id)
+    let mut seen_arity = 0
+    let mut literal_roots = true
+    for idx = 0; idx < @ir.hot_region_root_count(func, body_ref); idx = idx + 1 {
+      let root_id = @ir.hot_region_get(func, body_ref, idx)
+      if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+        literal_roots = false
+        break
+      }
+      match @ir.hot_node_get(func, root_id).op {
+        @ir.HotOp::Const | @ir.HotOp::RefNull => ()
+        _ => {
+          literal_roots = false
+          break
+        }
+      }
+      seen_arity += @ir.hot_node_result_arity(func, root_id)
+    }
+    if !literal_roots || seen_arity != result_arity {
+      continue
+    }
+    let mut drop_uses = 0
+    for user_id = 0; user_id < @ir.hot_node_count(func); user_id = user_id + 1 {
+      if !@ir.hot_node_is_live(func, user_id) {
+        continue
+      }
+      match @ir.hot_node_get(func, user_id).op {
+        @ir.HotOp::Drop if @ir.hot_child_count(func, user_id) == 1 &&
+          @ir.hot_child_get(func, user_id, 0) == block_id => drop_uses += 1
+        _ => ()
+      }
+    }
+    if drop_uses == result_arity &&
+      pass_node_use_count(ctx, func, block_id) == drop_uses {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -10754,7 +10823,8 @@ fn remove_unused_brs_run(
       changed
     any_changed = any_changed || changed
   }
-  if any_changed {
+  if any_changed ||
+    remove_unused_brs_has_literal_multivalue_drop_lowering(ctx, func) {
     HotPassResult::changed()
   } else {
     HotPassResult::unchanged()

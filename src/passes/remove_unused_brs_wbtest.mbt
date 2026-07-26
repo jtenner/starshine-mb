@@ -32,6 +32,37 @@ fn remove_unused_brs_wbtest_dump(func : @ir.HotFunc) -> String {
 }
 
 ///|
+test "remove-unused-brs admits literal multivalue blocks consumed only by drops for lowering" {
+  let source =
+    #|(module
+    #|  (type $pair (func (result i32 i64)))
+    #|  (func
+    #|    (block (type $pair) (result i32 i64)
+    #|      (i32.const 11)
+    #|      (i64.const 13))
+    #|    drop
+    #|    drop))
+  let fixture = @ir.ir_test_build_hot_from_wat(source)
+  let func = fixture.hot_func
+  let ctx = remove_unused_brs_wbtest_ctx()
+
+  assert_true(
+    remove_unused_brs_has_literal_multivalue_drop_lowering(ctx, func),
+    msg="expected exact dropped literal multivalue shape:\n\{remove_unused_brs_wbtest_dump(func)}",
+  )
+  let result = remove_unused_brs_run(ctx, func)
+  assert_true(result.changed)
+  let @lib.Func(_, @lib.Expr(body)) = @ir.hot_lower_func_with_options(
+    func,
+    @ir.HotLowerOptions::new(flatten_unused_result_blocks=true),
+  )
+  assert_false(
+    body.any(fn(instr) { instr is @lib.Block(_, _) }),
+    msg="expected RUB lowering to flatten dropped literal multivalue block: \{body}",
+  )
+}
+
+///|
 test "remove-unused-brs nested cleanup admits outward branch wrappers" {
   let source =
     #|(module

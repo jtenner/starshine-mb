@@ -2140,6 +2140,16 @@ fn run_hot_pipeline_instr_has_remove_unused_brs_candidate(
   if run_hot_pipeline_raw_remove_unused_brs_has_try_table_catch_shell(instrs) {
     return true
   }
+  // A type-indexed result block followed by at least two drops may be a fully
+  // dropped multivalue result. Admit it so RUB's opt-in lowering can flatten
+  // exact literal-result blocks; the HOT proof remains authoritative.
+  for idx = 0; idx + 2 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1], instrs[idx + 2]) {
+      (@lib.Block(@lib.TypeIdxBlockType(_), _), @lib.Drop, @lib.Drop) =>
+        return true
+      _ => ()
+    }
+  }
   for instr in instrs {
     match instr {
       @lib.Nop
