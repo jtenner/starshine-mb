@@ -19905,20 +19905,202 @@ test "dae direct immediate-suffix helper rejects an exposed boundary" {
 }
 
 ///|
-test "dae global suffix candidates come from touched caller callees" {
+test "dae global suffix candidates mark repeated nested and imported calls" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
-      #|  (func $target)
-      #|  (func $other)
-      #|  (func call $target))
+      #|  (import "env" "imp" (func $imp))
+      #|  (func $first)
+      #|  (func $middle)
+      #|  (func $last)
+      #|  (func
+      #|    call $imp
+      #|    call $first
+      #|    call $first
+      #|    block
+      #|      call $middle
+      #|    end
+      #|    loop
+      #|      call $last
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      call $middle
+      #|    else
+      #|      call $first
+      #|    end
+      #|    block $exit
+      #|      try_table (catch_all $exit)
+      #|        call $last
+      #|      end
+      #|    end)
+      #|  (func
+      #|    return_call $last)
+      #|  (func))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, false, true, false, false,
+    ]),
+    [true, true, true, false, false, false],
+  )
+}
+
+///|
+test "dae global suffix candidates mark one maximum-index defined callee" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $unused)
+      #|  (func call $last)
+      #|  (func $last))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, true, false,
+    ]),
+    [false, false, true],
+  )
+}
+
+///|
+test "dae global suffix candidates include selected return-call targets" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $first)
+      #|  (func $last)
+      #|  (func return_call $last))
     ),
   )
   assert_eq(
     dae_collect_direct_callee_defs_from_selected_callers(mod_, [
       false, false, true,
     ]),
-    [true, false, false],
+    [false, true, false],
+  )
+}
+
+///|
+test "dae global suffix candidates honor unselected empty and truncated callers" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $first)
+      #|  (func $last)
+      #|  (func call $first call $last)
+      #|  (func))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, false, false,
+    ]),
+    [false, false, false, false],
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, true,
+    ]),
+    [true, true, false, false],
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, false, true,
+    ]),
+    [false, false, false, false],
+  )
+}
+
+///|
+fn dae_test_sparse_callee_benchmark_module(caller_count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func)\n  (func)\n  (func)\n  (func)\n")
+  let mut caller = 0
+  while caller < caller_count {
+    out.write_string("  (func\n")
+    let mut repetition = 0
+    while repetition < 16 {
+      out.write_string("    call 0\n    call 0\n")
+      out.write_string("    block call 1 end\n")
+      out.write_string("    loop call 2 end\n")
+      out.write_string("    i32.const 0 if call 3 else call 0 end\n")
+      repetition += 1
+    }
+    out.write_string("  )\n")
+    caller += 1
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+#skip("manual sparse-callee allocation benchmark; bounded behavior is covered above")
+test "dae sparse callee discovery benchmark" {
+  let caller_count = 128
+  let mod_ = pass_test_module_from_wat(
+    dae_test_sparse_callee_benchmark_module(caller_count),
+  )
+  let defined = caller_count + 4
+  let sparse = Array::make(defined, false)
+  let dense = Array::make(defined, false)
+  let mut def_idx = 4
+  while def_idx < defined {
+    dense[def_idx] = true
+    if (def_idx - 4) % 8 == 0 {
+      sparse[def_idx] = true
+    }
+    def_idx += 1
+  }
+  let expected = Array::make(defined, false)
+  expected[0] = true
+  expected[1] = true
+  expected[2] = true
+  expected[3] = true
+  let mut iteration = 0
+  while iteration < 100 {
+    assert_eq(
+      dae_collect_direct_callee_defs_from_selected_callers(mod_, sparse),
+      expected,
+    )
+    assert_eq(
+      dae_collect_direct_callee_defs_from_selected_callers(mod_, dense),
+      expected,
+    )
+    iteration += 1
+  }
+}
+
+///|
+test "dae global suffix candidates ignore malformed out-of-range targets" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func)
+      #|  (func))
+    ),
+  )
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section")
+  }
+  let @lib.Func(locals, _) = funcs[1]
+  funcs[1] = @lib.Func::new(
+    locals,
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(99U)),
+      @lib.Instruction::return_call(@lib.FuncIdx::new(100U)),
+    ]),
+  )
+  let malformed = mod_.with_code_sec(@lib.CodeSec::new(funcs))
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(malformed, [
+      false, true,
+    ]),
+    [false, false],
   )
 }
 

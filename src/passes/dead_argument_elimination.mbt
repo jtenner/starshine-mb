@@ -30583,6 +30583,75 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 }
 
 ///|
+fn dae_mark_direct_callee_defs_anywhere_instr(
+  instr : @lib.Instruction,
+  imported : Int,
+  defined : Int,
+  selected_callees : Array[Bool],
+) -> Unit {
+  match instr {
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) => {
+      let slot = dae_func_idx_slot(func_idx)
+      let def_idx = slot - imported
+      if slot >= imported &&
+        def_idx >= 0 &&
+        def_idx < defined &&
+        def_idx < selected_callees.length() &&
+        !selected_callees[def_idx] {
+        selected_callees[def_idx] = true
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_mark_direct_callee_defs_anywhere(
+        body, imported, defined, selected_callees,
+      )
+    @lib.If(_, then_body, Some(else_body)) => {
+      dae_mark_direct_callee_defs_anywhere(
+        then_body, imported, defined, selected_callees,
+      )
+      dae_mark_direct_callee_defs_anywhere(
+        else_body, imported, defined, selected_callees,
+      )
+    }
+    @lib.If(_, then_body, None) =>
+      dae_mark_direct_callee_defs_anywhere(
+        then_body, imported, defined, selected_callees,
+      )
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      dae_mark_direct_callee_defs_anywhere(
+        body, imported, defined, selected_callees,
+      )
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            dae_mark_direct_callee_defs_anywhere(
+              catch_body, imported, defined, selected_callees,
+            )
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn dae_mark_direct_callee_defs_anywhere(
+  instrs : Array[@lib.Instruction],
+  imported : Int,
+  defined : Int,
+  selected_callees : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    dae_mark_direct_callee_defs_anywhere_instr(
+      instr, imported, defined, selected_callees,
+    )
+  }
+}
+
+///|
 fn dae_collect_direct_callee_defs_from_selected_callers(
   mod_ : @lib.Module,
   selected_callers : Array[Bool],
@@ -30598,13 +30667,7 @@ fn dae_collect_direct_callee_defs_from_selected_callers(
   while caller_def < defined && caller_def < selected_callers.length() {
     if selected_callers[caller_def] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let callees : Array[Int] = []
-      dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
-      for callee_def in callees {
-        if callee_def >= 0 && callee_def < defined {
-          selected[callee_def] = true
-        }
-      }
+      dae_mark_direct_callee_defs_anywhere(body, imported, defined, selected)
     }
     caller_def += 1
   }
