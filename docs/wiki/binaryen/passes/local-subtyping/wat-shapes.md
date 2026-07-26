@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ./index.md
 related:
@@ -29,6 +29,17 @@ Binaryen asks:
 - does refinalization expose another refinement round?
 
 The examples below are conceptual. They show the important local declaration and expression-type behavior, not exact pretty-printer output.
+
+## v131 audit additions
+
+The July 26, 2026 source and executable renewal adds direct tests and generated families for four shapes that earlier profiles underrepresented:
+
+- sibling concrete assignments find their nearest declared concrete parent;
+- i31 plus struct assignments narrow to non-null `eqref`;
+- distinct concrete function assignments narrow to non-null `funcref`;
+- `ref.null` uses the hierarchy bottom (`none`, `nofunc`, `noextern`, `noexn`, or `nocont`) so exact assignments retain the narrowest nullable exact LUB.
+
+The official i31-valued if and direct-branch block ReFinalize shapes are also represented explicitly. See [`fuzzing.md`](./fuzzing.md) for the seven-family aggregate and final v131 matrix.
 
 ## Shape 1: assigned values narrow a wide local
 

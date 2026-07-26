@@ -1,149 +1,55 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-07-18
+status: strong
+last_reviewed: 2026-07-26
 sources:
   - ./index.md
-related:
-  - ./index.md
-  - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
-  - ./wat-shapes.md
-  - ./starshine-strategy.md
-  - ../optimize-casts/index.md
-  - ../coalesce-locals/index.md
+  - ../../../../../src/passes/local_subtyping.mbt
+  - ../../../../../src/passes/local_subtyping_test.mbt
 ---
 
-# `local-subtyping`: LUBs, gets, dominance, and iteration
+# `local-subtyping`: LUBs, dominance, and iteration
 
-This page exists because `local-subtyping` is easy to misread in two opposite ways:
+## Assignment LUBs
 
-1. “It is a broad local-flow optimizer that infers from every use and inserts helper locals.”
-2. “It is a tiny set/tee-only pass with no get or refinalization surface.”
+A local declaration must accept every value written by `local.set` and `local.tee`. Starshine now folds assignment types pairwise and chooses the narrowest common supertype that remains below the declared type.
 
-Both are wrong for Binaryen `version_129`.
+Important cases:
 
-## Corrected mental model
+- child plus child -> child;
+- sibling concrete types -> nearest declared concrete parent;
+- i31 plus struct -> `eq`;
+- unrelated concrete function types -> `func`;
+- exact function plus `nofunc` null bottom -> nullable exact function;
+- any nullable input makes the result nullable.
 
-A safe mental model is:
+Typed nulls use their bottom heap families for LUB reasoning: internal nulls use `none`, function nulls `nofunc`, continuation nulls `nocont`, extern nulls `noextern`, and exception nulls `noexn`.
 
-- scan reference-typed locals,
-- remember their sets/tees and gets,
-- compute a LUB from assigned value types,
-- use gets to prove or reject non-nullability,
-- rewrite body-local declarations,
-- retag gets and tees,
-- refinalize and repeat when a rewrite exposes more precise assigned-value types.
+## Gets and structural dominance
 
-So the two key ideas are still:
+Gets do not contribute candidate types. They determine whether a nullable declaration may become non-null.
 
-- **least upper bounds** for declarations;
-- **structural dominance** for non-nullability.
+A non-null rewrite is admitted only when every relevant get is structurally dominated by a write under the pass's represented block/loop/if/branch/return/tail-call/throw/try-table analysis. Unsupported or ref-catch flow falls back to nullable.
 
-But now include a third idea:
+## Iteration
 
-- **iteration after refinalization**.
+Narrowing one local can sharpen a later assignment through:
 
-## What feeds the LUB
+- `local.get`;
+- an adjacent select LUB;
+- a call-ref target and result;
+- a refinalized i31-valued if or block.
 
-The LUB candidate is fed by assigned values:
+The module pass therefore rebuilds and reanalyzes until stable, bounded by the number of reference body locals plus one.
 
-- `local.set` value types;
-- `local.tee` value/result types through the assignment site.
+## Exactness and bottoms
 
-It is not fed by `local.get` consumer contexts alone.
+Exact reference targets accept their matching exact value and the compatible bottom family. This is essential for Binaryen's unreachable incompatible-set test: `ref.func $f` plus `ref.null func` has nullable exact `$f` as its LUB, not broad `funcref`.
 
-That distinction keeps the pass conservative: a call that wants `(ref $A)` does not by itself prove an `anyref` local always contains `$A`.
+## Safety
 
-## What gets are used for
-
-The 2026-04-22 pages were too strong when they said there was no `local.get` handling.
-
-The owner file records get sites so it can answer two questions:
-
-1. If we make the declaration non-null, are all relevant gets dominated by non-null-producing assignments?
-2. After the declaration changes, which `local.get` expression types can be retagged to the new type, and which must remain nullable?
-
-So gets are **not** LUB evidence, but they are still part of correctness.
-
-## Why Binaryen uses a LUB
-
-A local declaration must have one type that covers every assigned value.
-
-Examples:
-
-- all assignments are `(ref null $Child)` → candidate can be `(ref null $Child)`;
-- assignments are `(ref null $Left)` and `(ref null $Right)` with common parent `$Parent` → candidate is `(ref null $Parent)`;
-- assignments have no useful common subtype below the old declaration → no narrowing.
-
-That is why the pass does not pick the narrowest leaf it sees or the last assigned type.
-
-## Why dominance matters only for non-nullability
-
-A nullable-to-non-null change is special because a local's default value and some control paths may still permit null.
-
-Binaryen asks `LocalStructuralDominance` for non-dominated get indices. If any get is not proven safe, the declaration falls back to the nullable version and the unsafe gets keep nullable expression types.
-
-This is stricter than textual order. Loops, blocks, catches, and other structured control matter.
-
-## Why repeated refinement matters
-
-Changing one local declaration can change the inferred type of expressions that assign to another local. Binaryen therefore reruns the analysis after refinalization while changes continue.
-
-Starshine now handles the focused official-lit repeated-refinement surfaces that have landed in the recursive LS audit: a dependent `local.get` assignment chain, the adjacent-local-get select/LUB shape, and represented zero-param adjacent-local-get `call_ref` / bottom-call-ref shapes. It still does not claim arbitrary expression retagging or EH handler-flow refinalization beyond those protected slices.
-
-## Parameters and body locals
-
-Parameter handling is split:
-
-- the scanner can see params today, and the source has a TODO to ignore them;
-- the declaration rewrite loop starts at the body-local base, so params are not changed.
-
-The correct porting rule is: preserve the parameter ABI and do not rewrite params unless a deliberate future design says otherwise.
-
-## Nondefaultable and tuple-like locals
-
-The checked owner file does not use the old dossier's `TypeUpdating::canHandleAsLocal(...)` gate. The visible behavior is still conservative:
-
-- relevant locals are reference-typed;
-- nondefaultable candidates must be safe non-null references or become nullable;
-- tuple/non-reference shapes stay out of the transformation surface.
-
-The official tests include nondefaultable preservation so this boundary is user-visible.
-
-## Easy-to-miss truths
-
-If you only remember a few things from this page, remember these:
-
-1. LUB candidates come from assignments.
-2. Gets are recorded for dominance and type repair.
-3. Non-null declarations require dominance over gets.
-4. Parameters are not rewritten even though the scanner has a TODO about params.
-5. Repeated refinement after refinalization is part of the pass.
-6. The old `LocalUpdater` / copy-local story remains an overread, but the old set-only correction was also too narrow.
-
-## 2026-07-21 heap-hierarchy correction
-
-Starshine's abstract-heap helper now matches the validator hierarchy: function and extern references are not subtypes of `any`; `none` includes the `i31` and string bottoms; `nocont <: cont`; and `string <: extern`. The concrete function-shape helper likewise no longer treats function types as internal `any` references. A white-box test cross-checks these easy-to-confuse edges.
-
-## Porting checklist
-
-A Starshine parity expansion should preserve:
-
-- reference-local relevance filtering;
-- set/tee-fed LUB computation;
-- get-aware dominance and get-type repair;
-- `local.tee` retagging;
-- parameter-preserving rewrite scope;
-- non-null fallback to nullable when dominance fails;
-- repeated refinalize/reanalyze loop;
-- explicit tests for repeated refinement and nondefaultable preservation.
-
-## Sources
-
-- [research note 0447](./index.md)
-- [research note 0362](./index.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
-- Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>
-- Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LocalSubtyping.cpp>
-- Binaryen current-main lit test: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/local-subtyping.wast>
+- parameters stay signature-owned;
+- tuples and numeric/vector locals are outside the pass;
+- legacy `try` fails closed;
+- control-result refinalization is shape-gated;
+- historical validator-rejected Binaryen non-null outputs remain nullable in Starshine.

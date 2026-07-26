@@ -1,47 +1,48 @@
 ---
 kind: workflow
-status: working
-last_reviewed: 2026-07-18
+status: supported
+last_reviewed: 2026-07-26
 sources:
-  - ../../../tooling/pass-fuzz-compare.md
-  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/validate/gen_valid.mbt
   - ../../../../../src/validate/gen_valid_tests.mbt
-  - ./index.md
+  - ../../../../../src/passes/local_subtyping.mbt
+  - ../../../../../src/passes/local_subtyping_test.mbt
+  - ../../../tooling/pass-fuzz-compare.md
 ---
 
-# `local-subtyping` Fuzzing Profile
+# `local-subtyping` fuzzing
 
-Recommended ordinary GenValid smoke lane for this pass:
+## Dedicated family aggregate
+
+Use `local-subtyping-all` for development and closeout. The aggregate records `selected_profile` and samples seven behavior families:
+
+| Leaf | Weight | Covered behavior |
+| --- | ---: | --- |
+| `local-subtyping-straight-line` | 2 | dominating `local.set`, `local.tee`, and reads |
+| `local-subtyping-structured` | 2 | dominated reads in branch-free block, loop, and if regions |
+| `local-subtyping-unreachable-tail` | 1 | return plus syntactic unreachable-tail reads |
+| `local-subtyping-lubs` | 2 | mixed i31/struct abstract LUB narrowing |
+| `local-subtyping-iteration` | 2 | three-local repeated declaration refinement |
+| `local-subtyping-null-bottom` | 1 | typed-null bottom plus exact concrete assignment LUB |
+| `local-subtyping-control-refinalize` | 1 | i31-valued if and direct-branch block result refinalization |
+
+Aliases `local-subtyping`, `local-subtyping-closeout`, `local-subtyping-all-profiles`, `ls`, and `ls-closeout` resolve to the aggregate.
+
+## Final v131 matrix
+
+All final lanes used seed and count shown below, `--jobs auto`, native Starshine SHA-256 `06641af9e76f29298ad0b892b5cf2519dd35470c05c1065799d98657845e57ff`, and explicit official `.tmp/binaryen-version-131/bin/wasm-opt` reporting `wasm-opt version 131 (version_131)` with SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
+
+- Regular GenValid: `.tmp/pass-fuzz-local-subtyping-v131-closeout-regular-100000`; requested/compared `100000/100000`, normalized `100000`, zero mismatches or failures; Binaryen cache `10318` hits / `89682` misses.
+- Explicit wasm-smith: `.tmp/pass-fuzz-local-subtyping-v131-closeout-wasm-smith-10000`; requested `10000`, compared `9956`, normalized `9955`, one raw mismatch, zero validation/generator/property failures, and `44` Binaryen-only command failures. Failure classes are `39` empty recursion groups, `3` bad section sizes, `1` invalid tag index, and `1` table index out of range. Case `009332` is pass-independent `drop(unreachable)` cleanup debris.
+- Cleanup-classification replay: `.tmp/pass-fuzz-local-subtyping-v131-closeout-wasm-smith-10000-cleanup`; the same `9956` comparable cases produce `9955` normalized plus `1` cleanup-normalized match and zero mismatches; all Binaryen artifacts/failures were cache hits.
+- Dedicated family aggregate: `.tmp/pass-fuzz-local-subtyping-v131-closeout-profile-10000`; requested/compared `10000/10000`, normalized `10000`, zero failures. Selected counts: straight-line `1865`, structured `1817`, unreachable-tail `890`, LUBs `1854`, iteration `1789`, null-bottom `886`, and control-refinalize `899`.
+- Random all-profiles: `.tmp/pass-fuzz-local-subtyping-audit-random-all-10000-v2`; requested/compared `10000/10000`, normalized `10000`, zero failures; Binaryen cache `9456` hits / `544` misses. The lane selected every local-subtyping leaf, including `64` control-refinalize, `138` LUB, `150` iteration, and `66` null-bottom cases.
+
+## Commands
 
 ```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe
+bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping-v131-closeout-regular-100000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures --no-reduce-mismatches
+bun scripts/pass-fuzz-compare.ts --wasm-smith --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping-v131-closeout-wasm-smith-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures --no-reduce-mismatches
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --gen-valid-profile local-subtyping-all --out-dir .tmp/pass-fuzz-local-subtyping-v131-closeout-profile-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures --no-reduce-mismatches
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5555 --pass local-subtyping --gen-valid-profile random-all-profiles --out-dir .tmp/pass-fuzz-local-subtyping-audit-random-all-10000-v2 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures --no-reduce-mismatches
 ```
-
-Dedicated GenValid profile: `local-subtyping-all`.
-
-`local-subtyping-all` is a small aggregate dedicated profile for LS closeout and development smokes. It deterministically samples three leaf profiles:
-
-- `local-subtyping-straight-line` (weight 3): emits a nullable `anyref` body local, non-null `struct.new_default` writes through `local.set` and `local.tee`, and dominated straight-line `local.get` reads that should let `local-subtyping` narrow the body-local declaration.
-- `local-subtyping-structured` (weight 2): emits the same nullable body local and non-null write, then reads it inside branch-free `block`, `loop`, and `if` regions plus an outer dominated get. This exercises the source-backed structured dominance subsets without catch/ref EH, branch-carried post-state, direct-return validator-boundary, or broad join propagation.
-- `local-subtyping-unreachable-tail` (weight 1): emits a dominating non-null write, a dominated read, a root `return`, and a later syntactic read in unreachable tail code. This makes the root return/unreachable-tail subset visible in generated closeout lanes without widening to direct block-return validator-boundary cases or tail-call/table setup.
-
-Aliases: `local-subtyping`, `local-subtyping-closeout`, `local-subtyping-all-profiles`, `ls`, and `ls-closeout` resolve to `local-subtyping-all`.
-
-Ordinary dedicated-profile lane for final LS closeout:
-
-```sh
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --gen-valid-profile local-subtyping-all --out-dir .tmp/pass-fuzz-local-subtyping-genvalid-all-10000 --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
-```
-
-The compare manifest records `selected_profile` for aggregate cases; report selected counts for `local-subtyping-straight-line`, `local-subtyping-structured`, and `local-subtyping-unreachable-tail` separately when using this lane.
-
-Current closeout-scale evidence after the ref-catch raw-assignment fix:
-
-- Regular GenValid lane `.tmp/pass-fuzz-local-subtyping-genvalid-100000-20260704-refcatch` used seed `0x5eed`, requested/compared `100000/100000`, normalized `100000`, had zero cleanup-normalized matches, mismatches, validation failures, generator failures, property failures, or command failures, and used Binaryen cache `100000` hits / `0` misses.
-- Explicit wasm-smith lane `.tmp/pass-fuzz-local-subtyping-wasm-smith-10000-20260704-refcatch` used seed `0x5eed`, requested `10000`, compared `9956`, normalized `9955`, had zero validation/generator/property failures, `44` Binaryen/tool command failures, and one raw mismatch. The command failures classified as Binaryen rec-group-zero `39`, invalid tag index `1`, table index out of range `1`, and bad section size `3`. The sole raw mismatch, `case-009332-wasm-smith`, is agent-classified as pass-independent unreachable-control cleanup debris: Binaryen removes `drop(unreachable)` before a final `unreachable`, while Starshine leaves it. It is not an LS semantic mismatch or Starshine win.
-- Cleanup-normalized wasm-smith replay `.tmp/pass-fuzz-local-subtyping-wasm-smith-10000-20260704-refcatch-unreachable-normalized` used the same seed and added `--normalize unreachable-control-debris`; it requested `10000`, compared `9956`, normalized `9955`, cleanup-normalized the one debris case, had zero mismatches, zero validation/generator/property failures, and the same `44` Binaryen/tool command failures. Treat the debris case as a precise shared cleanup/normalizer blocker with LS reopening criteria: reopen under LS only if a reduced case shows the drift depends on LS local narrowing, get/tee retagging, dominance, assignment LUBs, refinalization, or ref-catch flow.
-- Dedicated LS profile lane `.tmp/pass-fuzz-local-subtyping-genvalid-all-10000-20260704-refcatch` used seed `0x5eed`, requested/compared `10000/10000`, normalized `10000`, had zero compare-normalized matches, mismatches, validation failures, generator failures, property failures, or command failures, and used Binaryen cache `10000` hits / `0` misses. Selected profiles were `local-subtyping-straight-line=5030`, `local-subtyping-structured=3296`, and `local-subtyping-unreachable-tail=1674`.
-- Broad random-all-profiles lane `.tmp/pass-fuzz-local-subtyping-random-all-profiles-10000-20260704-refcatch` used seed `0x5555`, requested/compared `10000/10000`, normalized `10000`, had zero compare-normalized matches, mismatches, validation failures, generator failures, property failures, or command failures, and used Binaryen cache `10000` hits / `0` misses. Selected profiles were `coverage-forced-portable=1446`, `binaryen-oracle-portable=1423`, `pass-fuzz-stress=1425`, `heap2local-array=1400`, `local-subtyping-straight-line=714`, `local-subtyping-structured=466`, `local-subtyping-unreachable-tail=219`, `ssa-nomerge-smoke=1447`, and `ssa-nomerge-parity=1460`.
-- Ordered GC/local neighborhood attempt `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-20260703` ran `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` at seed `0x5eed`, but timed out after 3600s before summary emission. The partial manifest had `200` cases, `18` matches, and `182` mismatches. A sampled mismatch shows downstream local declaration/count drift after the multi-pass neighborhood rather than direct LS narrowing behavior.
-- Cleanup-normalized ordered GC/local neighborhood lane `.tmp/pass-fuzz-local-subtyping-gc-local-neighborhood-10000-local-cleanup-20260704` reran the same pass sequence with `--normalize local-cleanup-debris`, requested/compared `10000/10000`, normalized `634`, cleanup-normalized `9366`, and had zero mismatches, zero validation/generator/property/command failures, and Binaryen cache `209` hits / `9791` misses. Agent classification: the raw ordered-neighborhood timeout is now a precise local-cleanup representation residual, not an LS semantic mismatch and not a Starshine win. Reopen under LS only if a reduced case depends on LS-owned narrowing, dominance, get/tee retagging, refinalization, or `heap2local` / `optimize-casts` reference-local interaction.

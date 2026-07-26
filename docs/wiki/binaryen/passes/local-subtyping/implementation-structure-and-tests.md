@@ -1,146 +1,62 @@
 ---
 kind: concept
-status: supported
-last_reviewed: 2026-07-18
+status: strong
+last_reviewed: 2026-07-26
 sources:
   - ./index.md
   - ../../../../../src/passes/local_subtyping.mbt
   - ../../../../../src/passes/local_subtyping_test.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../src/lib/types.mbt
-  - ../../../../../src/validate/typecheck.mbt
-  - ../../../../../src/ir/hot_core.mbt
-related:
-  - ./index.md
-  - ./binaryen-strategy.md
-  - ./lubs-and-dominance.md
-  - ./wat-shapes.md
-  - ./starshine-strategy.md
-  - ./starshine-port-readiness-and-validation.md
-  - ../optimize-casts/index.md
-  - ../coalesce-locals/index.md
-  - ../local-cse/index.md
+  - ../../../../../src/passes/local_subtyping_wbtest.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/validate/gen_valid_tests.mbt
 ---
 
-# `local-subtyping`: implementation structure and tests
+# `local-subtyping`: implementation and tests
 
-This page is the source-map companion for the `local-subtyping` dossier. It explains which upstream files own the pass, which Starshine files implement the active subset, and which tests prove the current contract.
+## Upstream v131 map
 
-## Correction status
-
-Use the retained [research note 0362](./index.md), direct `version_129` source URLs below, and the later current-main recheck as the strongest tagged-source correction for the Binaryen side.
-Use [research note 0507](./index.md) as the current Starshine source correction.
-
-The older wiki reading was wrong in one important way: Starshine `local-subtyping` is already active.
-The current implementation is still narrower than Binaryen, but it is not future-only.
-
-## Upstream owner map
-
-| File | Role |
+| Source | Contract |
 | --- | --- |
-| `src/passes/LocalSubtyping.cpp` | Binaryen owner file. Defines the full upstream contract: reference-local scan, set/get collection, LUB candidate selection, dominance-gated non-nullability, body-local rewrite, get/tee retagging, and iterative refinalization.
-| `src/passes/pass.cpp` | Registers the Binaryen pass and places it before `coalesce-locals` in the GC/local cleanup neighborhood.
-| `src/passes/opt-utils.h` | Shows where the default function optimization helper can rerun the local-cleanup neighborhood after inlining-style rewrites.
-| `src/ir/lubs.h` and `src/ir/lubs.cpp` | Provide the `LUBFinder` used to compute one common target type from the values assigned to a local.
-| `src/ir/local-structural-dominance.h` | Provides the non-null dominance proof and non-dominating-get list used to decide whether gets may take the non-null declaration type.
-| `test/lit/passes/local-subtyping.wast` | Dedicated Binaryen proof surface for narrowing, non-null dominance, loops, tees, repeated refinement, named-type LUBs, parameter preservation, tuple/nondefaultable preservation, and local-cleanup interactions.
+| `src/passes/LocalSubtyping.cpp` | GC-gated function-parallel scan, set/get collection, LUBs, structural dominance, declaration rewrite, get/tee repair, repeated ReFinalize |
+| `src/ir/local-structural-dominance.h` | identifies reference locals with non-dominated gets |
+| `test/lit/passes/local-subtyping.wast` | control refinalization, parameters, zero assignments, multiple LUBs, iteration, select/call-ref, nondefaultable locals, unreachable writes, non-null dominance, named/unnamed blocks, and ref-catch result boundaries |
 
-## Starshine owner map
-
-| File | Role |
-| --- | --- |
-| `src/passes/local_subtyping.mbt` | Active owner file. Implements the current subset: helper subtype checks, write-site collection, conservative raw assignment collection for ref-catch functions, candidate narrowing, adjacent-local-get select/LUB annotation repair, zero-param adjacent-local-get call_ref immediate repair, bottom-call-ref unreachable value replacement, raw-unreachable-before-write nullable fallback, body-local rewrite, bounded iterative rewrite/re-lift for dependent local-get, select/LUB, and call_ref assignments, and module rebuild. |
-| `src/passes/local_subtyping_test.mbt` | Direct Starshine tests for registry status, write-site narrowing, the current non-null dominance subsets, iterative local-get assignment refinement, iterative select/LUB refinalization, iterative call_ref and bottom-call-ref refinalization, ref-catch skipped-write nullable exact narrowing, tee-parent retag-representation validation, and the raw-unreachable-before-write nullable boundary. |
-| `src/validate/gen_valid.mbt` and `src/validate/gen_valid_tests.mbt` | Dedicated `local-subtyping-all` GenValid profile and tests. The aggregate samples straight-line, branch-free structured, and root return/unreachable-tail LS trigger modules for required closeout lanes. |
-| `src/cmd/cmd_wbtest.mbt` | CLI integration test proving `--local-subtyping` runs on wasm input and writes the rewritten module. |
-| `src/passes/registry_test.mbt` | Registry category proof that `local-subtyping` is a module pass. |
-| `src/passes/optimize.mbt` | Registry entry and preset inclusion for `local-subtyping`. |
-| `src/passes/pass_manager.mbt` | Active hot-pass dispatcher entry. |
-| `src/passes/optimize_test.mbt` | Optimize-preset slot proof for the `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood. |
+The July 26, 2026 refresh used official Binaryen v131 and the hashes recorded in [`index.md`](./index.md).
 
 ## Starshine phase map
 
-A faithful read-along of `src/passes/local_subtyping.mbt` should follow these phases:
-
-1. **Summary and pass registration context**
-   - The pass summary describes narrowing reference-typed body locals to the most specific safe supertype of their writes.
-2. **Module context and imported-function count**
-   - The implementation lifts each function with a `HotModuleContext` and computes the imported-function offset so `FuncIdx` values stay aligned.
-3. **Heap subtype helpers**
-   - The helper set checks exact heap equality, abstract heap relationships, subtype-parent chains, and reference exactness / nullability rules.
-4. **Assignment collection**
-   - `local.set` and `local.tee` sites feed assignment result types when the child expression produces exactly one value.
-5. **Candidate narrowing**
-   - The pass chooses the most specific safe common reference subtype from the collected write-site values.
-6. **Dominance pre-scan**
-   - The pass admits non-null candidates only when a raw scan proves all gets follow a dominating write in the straight-line root, branch-free `block` bodies, branch-free block writes that dominate later outer gets, terminal `br` / `br_table` block bodies whose gets are already dominated before the branch, branch-free `loop` bodies entered after prior writes, the source-backed loop tail-`br_if` backedge subset, branch-free nested `if` arms inside those dominated regions, branch-free root `if` arms, conditional-`return` branches, direct `return_call` / `return_call_indirect` / `return_call_ref` arms, and direct `throw` / `throw_ref` arms that skip the later write/get path, root/block terminal `return`/direct `return_call` / `return_call_indirect` / `return_call_ref`, root non-final `return`/`return_call`/`return_call_indirect`/`return_call_ref` tails before already-dominated unreachable-tail gets, if-arm nested block terminal `return`/`throw`, and root/block terminal `throw`/`throw_ref` after dominated gets, or `try_table` body dominated gets, including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and source-backed non-final body `return`/`throw`/`throw_ref`/tail-call tails whose later gets are already dominated. Writes inside a nested loop, if arm, branch-terminated block, `try_table` body, or after a raw `unreachable` are not propagated to the outer or later initialization state; branch-free block writes are propagated because local Binaryen v130 narrows that shape. Focused fallback tests pin local Binaryen v130/Starshine validation boundary behavior where loop writes, all-arm `if` writes, block writes with branch flow before a later outside get, `br_if` paths that can skip a later block write, `try_table` body writes before a later outside get, direct block-return flow, and raw-unreachable-before-write tee/get shapes narrow only to nullable child for a later outside get.
-7. **Body-local rewrite**
-   - Only body locals are rewritten; parameters are preserved. A local Binaryen v130 probe of a nullable parameter written with a non-null child value kept the parameter signature nullable, and Starshine now has a direct guard for that boundary.
-8. **Expression refinalization repair**
-   - Before HOT assignment collection, the pass repairs the source-backed adjacent-local-get `select`/LUB shape when local declarations make a sharper reference LUB available. It also repairs represented zero-param adjacent-local-get `call_ref` shapes by rewriting the type immediate to the narrowed target function type, or by replacing a bottom `nofunc` target with a `(ref none)` unreachable value block. These cover the focused Binaryen `multiple-iterations-refinalize` select, call_ref, and bottom-call-ref cases without claiming broader expression retagging.
-9. **Iterative refinalization-equivalent loop**
-   - After any declaration, select-annotation, or call_ref rewrite, the pass rebuilds the module and re-lifts functions on the next iteration. This lets assignment collection see sharper `local.get`, select, and call_ref result types from already-narrowed declarations, matching the Binaryen `multiple-iterations` local-get chain plus the focused select/LUB and call_ref shapes without adding emitted get/tee type metadata.
-10. **Module rebuild**
-   - If nothing changed, the input module is returned unchanged; otherwise the code section is rebuilt with rewritten functions.
-
-## Official lit-test map
-
-The active Starshine tests are small but meaningful.
-
-| Test / file | What it proves |
+| Phase | Owner |
 | --- | --- |
-| `src/passes/local_subtyping_test.mbt:78-86` | `local-subtyping` is registered as an active module pass. |
-| `src/passes/local_subtyping_test.mbt:89-107` | A body local narrows to an assigned child heap type. |
-| `src/passes/local_subtyping_test.mbt:111-130` | Mixed sibling assignments keep the common supertype. |
-| `src/passes/local_subtyping_test.mbt` iterative fixtures | `local-subtyping iterates after local.get assignment refinalization` proves a dependent local assigned from `local.get` narrows after an earlier local declaration rewrite and module re-lift; `local-subtyping iterates after select LUB refinalization` proves the source-backed untyped select/LUB shape rewrites to a non-null `(ref func)` result and narrows the dependent local; `local-subtyping iterates after call_ref result refinalization` and `local-subtyping replaces bottom call_ref refinalization with unreachable value` prove the represented zero-param call_ref and bottom-call-ref refinalization shapes. |
-| `src/passes/local_subtyping_test.mbt` local.tee fixtures | `local.tee` assignment evidence feeds narrowing, a non-null tee assignment/use validates after non-null declaration narrowing, a tee-parent shape validates without emitted retag repair, and the raw-unreachable-before-write tee/get shape stays nullable to avoid the nondefaultable-local validation/tooling boundary, including a WAT-parsed exact nullable function-local guard. |
-| `src/passes/local_subtyping_test.mbt` ref-catch fixtures | `catch_ref` and `catch_all_ref` skipped-write result-flow modules narrow to nullable exact-child locals through the raw assignment collector and validate without HOT lifting the ref-catch body. |
-| `src/passes/local_subtyping_test.mbt` parameter fixture | A source-backed nullable-parameter write/get guard proves the pass preserves signature params and rewrites only body locals. |
-| `src/passes/local_subtyping_test.mbt` dominance fixtures | Straight-line, branch-free block/loop, loop tail-`br_if` backedge, terminal `br` / `br_table` dominated-get, branch-free block-write post-state, nested branch-free block-if, branch-free root-if, conditional-return/direct-return_call/direct-return_call_indirect/direct-return_call_ref/direct-throw/direct-throw_ref skip, root/block terminal-return/return_call/return_call_indirect/return_call_ref, root non-final return/tail-call unreachable-tail-get, if-arm nested block terminal-return/throw, root/block terminal-throw/throw_ref, try_table body dominated-get including terminal body `return`/`throw`/`throw_ref`/`return_call`/`return_call_indirect`/`return_call_ref` and non-final body `return`/`throw`/`throw_ref`/tail-call tails with already-dominated tail gets, source-backed nullable loop/if/branch-flow/try-table-body/branch-skipped-write post-state, and direct block-return validator-boundary tests cover non-null positives and nullable fallbacks. |
-| `src/validate/validate.mbt` nondefaultable-local boundary fixture | `validate_module rejects direct block-return non-defaultable unreachable-tail local get` locks the reduced Binaryen non-null output as currently invalid under Starshine validation, matching the 2026-07-04 `wasm-tools` rejection. |
-| `src/validate/gen_valid_tests.mbt` local-subtyping profile fixtures | Profile resolution, aggregate leaf sampling, and validating module generation for `local-subtyping-straight-line`, `local-subtyping-structured`, and `local-subtyping-unreachable-tail`. |
-| `src/cmd/cmd_wbtest.mbt:4376-4439` | The CLI path accepts `--local-subtyping` and writes an optimized wasm module. |
-| `src/passes/optimize_test.mbt:491-495` | The pass is intentionally absent from the stale `reorder-locals` gating test; that test is about neighboring local-passes not yet being scheduled in a different slot. |
-| `src/passes/optimize_test.mbt:561-568` | The optimize preset includes `local-subtyping` immediately after `optimize-casts` in the late GC/local cleanup neighborhood. |
-| `src/passes/registry_test.mbt:78-82` | Registry category is `module_pass`. |
-| `src/passes/optimize.mbt:284-285, 296-312` | Registry and preset wiring exist in the main optimize registry. |
-| `src/passes/pass_manager.mbt:8937-8940` | The active dispatcher has a `local-subtyping` case. |
+| module legacy-try guard and bounded fixed point | `local_subtyping_run_module_pass` |
+| heap/reference subtyping | `ls_abs_heap_is_subtype`, `ls_heap_is_subtype`, `ls_ref_is_subtype` |
+| pairwise and concrete-parent LUBs | `ls_ref_pair_lub`, `ls_ref_concrete_super_lub`, `ls_candidate_local_type` |
+| raw typed-null and producer typing | `ls_ref_null_normalized_type`, `ls_raw_ref_producer_type` |
+| raw/HOT assignment selection | `ls_collect_raw_assignments`, `ls_collect_assignments`, `ls_count_ref_body_local_writes_expr` |
+| control-result refinalization | `ls_refine_control_results_expr` and shape-gated helpers |
+| select/call-ref repair | `ls_refine_selects_expr` |
+| non-null structural proof | `ls_non_null_dominated_linear_locals` |
+| declaration rewrite | `ls_rewrite_func` |
 
-## What this page is *not*
+## Test inventory
 
-This page is not a claim of full Binaryen parity.
-The 2026-07-04 behavior-family matrix plus follow-up slices reduced the remaining owner/test-map gaps to precise residuals:
+`src/passes/local_subtyping_test.mbt` covers:
 
-- the direct block-return nondefaultable-local unreachable-tail validator/tooling boundary, refreshed as a reduced Binaryen non-null output rejected by `wasm-tools` and locked by `src/validate/validate.mbt` boundary coverage;
-- the raw-unreachable-before-write nondefaultable-local tee/get validator/tooling boundary, now refreshed as a reduced Binaryen non-null output rejected by `wasm-tools` while rebuilt Starshine keeps nullable exact output valid.
+- registry activation;
+- child, concrete-parent, abstract-eq, and function-family LUBs;
+- typed-null/exact-bottom and unreachable incompatible assignments;
+- local.set/local.tee, parameter preservation, and no-default boundaries;
+- repeated local-get, select, and call-ref refinement;
+- straight-line, block, loop, if, branch, return, tail-call, throw, and try-table dominance;
+- catch_ref/catch_all_ref conservative narrowing;
+- historical validator boundaries and final module validation.
 
-The concrete `catch_ref` / `catch_all_ref` skipped-write local-flow residual is implemented by the raw assignment collector; it should be reopened only for reduced ref-catch cases outside that subset, such as broad catch-payload result joins.
+`src/passes/local_subtyping_wbtest.mbt` covers:
 
-Broad get/tee expression retagging is now classified as representation-satisfied for emitted Starshine lib instructions unless Starshine later adds emitted local expression type metadata or lowers a stale typed HOT graph.
+- ref-local write prefiltering;
+- raw unreachable assignment typing and exact-bottom LUBs;
+- official i31 control-result refinalization;
+- validator-aligned abstract heap relationships.
 
-The earlier broad structural-control list is now either implemented/protected in `local_subtyping_test.mbt`, source/probe-backed as nullable fallback behavior, or routed to downstream cleanup owners. Those remaining residuals belong on the strategy and validation pages, not as hidden owner/test-map uncertainty.
+`src/validate/gen_valid_tests.mbt` proves profile resolution, all seven aggregate members, deterministic aggregate sampling, external validation, and a visible trigger for every leaf.
 
-## Sources
-
-- [research note 1436](./index.md)
-- [research note 1431](./index.md)
-- [research note 0507](./index.md)
-- [research note 0447](./index.md)
-- [research note 0362](./index.md)
-- [research note 0261](./index.md)
-- [research note 1432](./index.md)
-- [research note 1433](./index.md)
-- [research note 1434](./index.md)
-- [research note 1435](./index.md)
-- [research note 1438](./index.md)
-- [research note 1439](./index.md)
-- [research note 1440](./index.md)
-- Binaryen `version_129` owner: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
-- Binaryen `version_129` lit test: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>
-- Binaryen current-main owner: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LocalSubtyping.cpp>
-- Binaryen current-main lit test: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/local-subtyping.wast>
-- Starshine current source files listed above
+Registry, dispatcher, preset, and CLI behavior remain covered in their existing owner tests.
