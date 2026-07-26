@@ -15982,7 +15982,8 @@ test "heap2local array and ref gen-valid profiles emit direct Binaryen families"
 test "local-subtyping gen-valid profiles resolve and expose replayable aggregate" {
   let expected = [
     "local-subtyping-straight-line", "local-subtyping-structured", "local-subtyping-unreachable-tail",
-    "local-subtyping-all",
+    "local-subtyping-lubs", "local-subtyping-iteration", "local-subtyping-null-bottom",
+    "local-subtyping-control-refinalize", "local-subtyping-all",
   ]
   let names = gen_valid_profile_names()
   for name in expected {
@@ -15993,10 +15994,17 @@ test "local-subtyping gen-valid profiles resolve and expose replayable aggregate
       @debug.assert_eq(profile, LocalSubtypingAllProfile)
       assert_true(gen_valid_profile_is_composite(profile))
       let members = gen_valid_profile_members(profile)
-      @debug.assert_eq(members.length(), 3)
+      @debug.assert_eq(members.length(), 7)
       @debug.assert_eq(members[0].profile, LocalSubtypingStraightLineProfile)
       @debug.assert_eq(members[1].profile, LocalSubtypingStructuredProfile)
       @debug.assert_eq(members[2].profile, LocalSubtypingUnreachableTailProfile)
+      @debug.assert_eq(members[3].profile, LocalSubtypingLubsProfile)
+      @debug.assert_eq(members[4].profile, LocalSubtypingIterationProfile)
+      @debug.assert_eq(members[5].profile, LocalSubtypingNullBottomProfile)
+      @debug.assert_eq(
+        members[6].profile,
+        LocalSubtypingControlRefinalizeProfile,
+      )
     }
     Err(msg) => fail(msg)
   }
@@ -16010,7 +16018,7 @@ test "local-subtyping gen-valid profiles resolve and expose replayable aggregate
 test "local-subtyping aggregate profile samples straight-line and structured families" {
   let seen : Array[GenValidProfile] = []
   let mut index = 1
-  while index <= 48 {
+  while index <= 96 {
     let leaf = gen_valid_profile_leaf_for_case(
       LocalSubtypingAllProfile,
       0x5eedUL,
@@ -16024,12 +16032,18 @@ test "local-subtyping aggregate profile samples straight-line and structured fam
   assert_true(seen.contains(LocalSubtypingStraightLineProfile))
   assert_true(seen.contains(LocalSubtypingStructuredProfile))
   assert_true(seen.contains(LocalSubtypingUnreachableTailProfile))
+  assert_true(seen.contains(LocalSubtypingLubsProfile))
+  assert_true(seen.contains(LocalSubtypingIterationProfile))
+  assert_true(seen.contains(LocalSubtypingNullBottomProfile))
+  assert_true(seen.contains(LocalSubtypingControlRefinalizeProfile))
 }
 
 ///|
 test "local-subtyping gen-valid leaves emit validating local refinement triggers" {
   let expected = [
     "local-subtyping-straight-line", "local-subtyping-structured", "local-subtyping-unreachable-tail",
+    "local-subtyping-lubs", "local-subtyping-iteration", "local-subtyping-null-bottom",
+    "local-subtyping-control-refinalize",
   ]
   for name in expected {
     let profile = match gen_valid_profile_by_name(name) {
@@ -16065,6 +16079,26 @@ test "local-subtyping gen-valid leaves emit validating local refinement triggers
       assert_true(
         pretty.contains("return"),
         msg="profile \{name} did not emit a return/unreachable-tail trigger:\n\{pretty}",
+      )
+    } else if name == "local-subtyping-lubs" {
+      assert_true(
+        pretty.contains("ref.i31"),
+        msg="profile \{name} did not emit a mixed abstract LUB trigger:\n\{pretty}",
+      )
+    } else if name == "local-subtyping-iteration" {
+      assert_true(
+        pretty.contains("Local 2"),
+        msg="profile \{name} did not emit a three-local refinement chain:\n\{pretty}",
+      )
+    } else if name == "local-subtyping-null-bottom" {
+      assert_true(
+        pretty.contains("ref.null"),
+        msg="profile \{name} did not emit a typed-null LUB trigger:\n\{pretty}",
+      )
+    } else if name == "local-subtyping-control-refinalize" {
+      assert_true(
+        pretty.contains("br (Label 0)") && pretty.contains("ref.i31"),
+        msg="profile \{name} did not emit control-result refinalization:\n\{pretty}",
       )
     }
   }

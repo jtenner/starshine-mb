@@ -1293,6 +1293,10 @@ pub enum GenValidProfile {
   LocalSubtypingStraightLineProfile
   LocalSubtypingStructuredProfile
   LocalSubtypingUnreachableTailProfile
+  LocalSubtypingLubsProfile
+  LocalSubtypingIterationProfile
+  LocalSubtypingNullBottomProfile
+  LocalSubtypingControlRefinalizeProfile
   LocalSubtypingAllProfile
   CoalesceLocalsStraightLineProfile
   CoalesceLocalsStructuredProfile

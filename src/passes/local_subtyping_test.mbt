@@ -3123,6 +3123,112 @@ test "local-subtyping keeps nullable after all if arms write before outside get"
 }
 
 ///|
+test "local-subtyping narrows sibling writes to their concrete common parent" {
+  let source =
+    #|(module
+    #|  (type $base (sub (struct)))
+    #|  (type $left (sub $base (struct)))
+    #|  (type $right (sub $base (struct)))
+    #|  (func
+    #|    (local anyref)
+    #|    (local.set 0 (ref.null $left))
+    #|    (local.set 0 (ref.null $right))))
+  let optimized = match pass_test_run_pipeline(source, ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected sibling-LUB pipeline success, got \{err}")
+  }
+  @debug.assert_eq(
+    ls_test_first_body_local(optimized),
+    @lib.ValType::ref_type(
+      @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+    ),
+  )
+}
+
+///|
+test "local-subtyping narrows mixed i31 and struct writes to non-null eq" {
+  let source =
+    #|(module
+    #|  (type $s (sub (struct)))
+    #|  (func
+    #|    (local anyref)
+    #|    (local.set 0 (ref.i31 (i32.const 1)))
+    #|    (local.set 0 (struct.new_default $s))))
+  let optimized = match pass_test_run_pipeline(source, ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected abstract-LUB pipeline success, got \{err}")
+  }
+  @debug.assert_eq(
+    ls_test_first_body_local(optimized),
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected eq-LUB module to validate, got \{err}")
+  }
+}
+
+///|
+test "local-subtyping narrows distinct function writes to non-null func" {
+  let source =
+    #|(module
+    #|  (type $i32f (func (result i32)))
+    #|  (type $i64f (func (result i64)))
+    #|  (import "env" "i32" (func $i32 (type $i32f)))
+    #|  (import "env" "i64" (func $i64 (type $i64f)))
+    #|  (elem declare func $i32 $i64)
+    #|  (func
+    #|    (local funcref)
+    #|    (local.set 0 (ref.func $i32))
+    #|    (local.set 0 (ref.func $i64))))
+  let optimized = match pass_test_run_pipeline(source, ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected function-LUB pipeline success, got \{err}")
+  }
+  @debug.assert_eq(
+    ls_test_first_body_local(optimized),
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected function-LUB module to validate, got \{err}")
+  }
+}
+
+///|
+test "local-subtyping keeps incompatible unreachable writes in the LUB" {
+  let source =
+    #|(module
+    #|  (type $f (func (result i32)))
+    #|  (elem declare func $f)
+    #|  (func $f (type $f) (result i32)
+    #|    (local funcref)
+    #|    (local.set 0 (ref.func $f))
+    #|    unreachable
+    #|    (drop (local.tee 0 (ref.null func)))
+    #|    (local.set 0 (ref.null func))
+    #|    unreachable))
+  let optimized = match pass_test_run_pipeline(source, ["local-subtyping"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unreachable-write pipeline success, got \{err}")
+  }
+  @debug.assert_eq(
+    ls_test_first_body_local(optimized),
+    @lib.ValType::ref_type(
+      @lib.RefType::new(
+        true,
+        @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+        exact=true,
+      ),
+    ),
+  )
+}
+
+///|
 test "local-subtyping keeps nullable fallback for get inside if before write" {
   let base_nullable = @lib.ValType::ref_type(
     @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),

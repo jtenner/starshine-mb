@@ -162,7 +162,32 @@ fn ls_ref_is_subtype(
     return false
   }
   if target.is_exact() {
-    return source.is_exact() && source.get_heap_type() == target.get_heap_type()
+    if source.is_exact() && source.get_heap_type() == target.get_heap_type() {
+      return true
+    }
+    let target_idx = match target.get_heap_type() {
+      @lib.HeapType(type_idx) => type_idx
+      _ => return false
+    }
+    let target_comp = match
+      @ir.hot_module_resolve_subtype(module_ctx, target_idx) {
+      Some(subtype) => subtype.get_comptype()
+      None => return false
+    }
+    return match (source.get_heap_type(), target_comp) {
+      (
+        @lib.AbsHeapTypeHeapType(@lib.NoneAbsHeapType),
+        @lib.StructCompType(_)
+        | @lib.ArrayCompType(_),
+      )
+      | (
+        @lib.AbsHeapTypeHeapType(@lib.NoFuncAbsHeapType),
+        @lib.FuncCompType(_, _),
+      )
+      | (@lib.AbsHeapTypeHeapType(@lib.NoContAbsHeapType), @lib.ContCompType(_)) =>
+        true
+      _ => false
+    }
   }
   ls_heap_is_subtype(
     module_ctx,
@@ -269,6 +294,60 @@ fn ls_expr_writes_ref_body_local(
 }
 
 ///|
+fn ls_count_ref_body_local_writes_instrs(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+        count += ls_count_ref_body_local_writes_expr(
+          body, param_count, ref_body_locals,
+        )
+      @lib.If(_, then_body, else_body) => {
+        count += ls_count_ref_body_local_writes_instrs(
+          then_body, param_count, ref_body_locals,
+        )
+        match else_body {
+          Some(body) =>
+            count += ls_count_ref_body_local_writes_instrs(
+              body, param_count, ref_body_locals,
+            )
+          None => ()
+        }
+      }
+      @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+        if ls_write_targets_ref_body_local(idx, param_count, ref_body_locals) {
+          count += 1
+        }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn ls_count_ref_body_local_writes_expr(
+  expr : @lib.Expr,
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Int {
+  let @lib.Expr(instrs) = expr
+  ls_count_ref_body_local_writes_instrs(instrs, param_count, ref_body_locals)
+}
+
+///|
+fn ls_assignment_count(assignments : Array[Array[@lib.ValType]]) -> Int {
+  let mut count = 0
+  for local_assignments in assignments {
+    count += local_assignments.length()
+  }
+  count
+}
+
+///|
 fn ls_catches_include_ref_flow(catches : Array[@lib.Catch]) -> Bool {
   for catch_ in catches {
     match catch_ {
@@ -350,58 +429,87 @@ fn ls_ref_abs_lub_candidate(
 }
 
 ///|
+fn ls_ref_concrete_super_lub(
+  module_ctx : @ir.HotModuleContext,
+  source_idx : @lib.TypeIdx,
+  right : @lib.RefType,
+  nullable : Bool,
+  fuel : Int,
+) -> @lib.RefType? {
+  if fuel <= 0 {
+    return None
+  }
+  let supers = match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+    Some(@lib.SubType(_, supers, _, _)) => supers
+    Some(@lib.CompTypeSubType(_, _)) | None => return None
+  }
+  for super_idx in supers {
+    let candidate = @lib.RefType::new(
+      nullable,
+      @lib.HeapType::new(super_idx),
+      exact=false,
+    )
+    if ls_ref_is_subtype(module_ctx, right, candidate) {
+      return Some(candidate)
+    }
+    match
+      ls_ref_concrete_super_lub(
+        module_ctx,
+        super_idx,
+        right,
+        nullable,
+        fuel - 1,
+      ) {
+      Some(common) => return Some(common)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
 fn ls_ref_pair_lub(
   module_ctx : @ir.HotModuleContext,
   left : @lib.RefType,
   right : @lib.RefType,
 ) -> @lib.RefType? {
   let nullable = left.is_nullable() || right.is_nullable()
-  if ls_ref_is_subtype(module_ctx, left, right) {
-    return Some(ls_ref_with_nullable(right, nullable))
+  let nullable_left = ls_ref_with_nullable(left, nullable)
+  let nullable_right = ls_ref_with_nullable(right, nullable)
+  if ls_ref_is_subtype(module_ctx, left, nullable_right) {
+    return Some(nullable_right)
   }
-  if ls_ref_is_subtype(module_ctx, right, left) {
-    return Some(ls_ref_with_nullable(left, nullable))
+  if ls_ref_is_subtype(module_ctx, right, nullable_left) {
+    return Some(nullable_left)
   }
-  match
-    ls_ref_abs_lub_candidate(
-      module_ctx,
-      left,
-      right,
-      nullable,
-      @lib.AbsHeapType::func(),
-    ) {
-    Some(candidate) => return Some(candidate)
-    None => ()
+  match left.get_heap_type() {
+    @lib.HeapType(left_idx) =>
+      match
+        ls_ref_concrete_super_lub(module_ctx, left_idx, right, nullable, 512) {
+        Some(common) => return Some(common)
+        None => ()
+      }
+    _ => ()
   }
-  match
-    ls_ref_abs_lub_candidate(
-      module_ctx,
-      left,
-      right,
-      nullable,
-      @lib.AbsHeapType::extern_(),
-    ) {
-    Some(candidate) => return Some(candidate)
-    None => ()
-  }
-  match
-    ls_ref_abs_lub_candidate(
-      module_ctx,
-      left,
-      right,
-      nullable,
-      @lib.AbsHeapType::eq(),
-    ) {
-    Some(candidate) => return Some(candidate)
-    None => ()
-  }
-  ls_ref_abs_lub_candidate(
-    module_ctx,
-    left,
-    right,
-    nullable,
+  let abstract_candidates = [
+    @lib.AbsHeapType::i31(),
+    @lib.AbsHeapType::struct_(),
+    @lib.AbsHeapType::array(),
+    @lib.AbsHeapType::string_(),
+    @lib.AbsHeapType::func(),
+    @lib.AbsHeapType::cont(),
+    @lib.AbsHeapType::exn(),
+    @lib.AbsHeapType::extern_(),
+    @lib.AbsHeapType::eq(),
     @lib.AbsHeapType::any(),
-  )
+  ]
+  for abs in abstract_candidates {
+    match ls_ref_abs_lub_candidate(module_ctx, left, right, nullable, abs) {
+      Some(candidate) => return Some(candidate)
+      None => ()
+    }
+  }
+  None
 }
 
 ///|
@@ -460,56 +568,41 @@ fn ls_candidate_local_type(
   if assigned.is_empty() {
     return None
   }
-  let ref_candidates : Array[@lib.RefType] = []
+  let mut best : @lib.RefType? = None
   for vt in assigned {
-    match ls_as_ref(vt) {
-      Some(ref_type) => ref_candidates.push(ref_type)
+    let assigned_ref = match ls_as_ref(vt) {
+      Some(ref_type) => ref_type
       None => return None
     }
+    best = match best {
+      None => Some(assigned_ref)
+      Some(best_ref) => ls_ref_pair_lub(module_ctx, best_ref, assigned_ref)
+    }
+    if best is None {
+      return None
+    }
   }
-  let mut best : @lib.RefType? = None
-  for candidate in ref_candidates {
-    let candidate_nullable = if allow_non_null {
-      candidate.is_nullable()
+  let best_ref = match best {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let candidate = @lib.RefType::new(
+    if allow_non_null {
+      best_ref.is_nullable()
     } else {
-      declared_ref.is_nullable() || candidate.is_nullable()
-    }
-    let local_candidate = @lib.RefType::new(
-      candidate_nullable,
-      candidate.get_heap_type(),
-      exact=candidate.is_exact(),
-    )
-    if !ls_ref_is_subtype(module_ctx, local_candidate, declared_ref) {
-      continue
-    }
-    let mut accepts_all = true
-    for assigned_ref in ref_candidates {
-      if !ls_ref_is_subtype(module_ctx, assigned_ref, local_candidate) {
-        accepts_all = false
-        break
-      }
-    }
-    if !accepts_all {
-      continue
-    }
-    match best {
-      None => best = Some(local_candidate)
-      Some(best_ref) =>
-        if ls_ref_is_subtype(module_ctx, local_candidate, best_ref) {
-          best = Some(local_candidate)
-        }
-    }
+      declared_ref.is_nullable() || best_ref.is_nullable()
+    },
+    best_ref.get_heap_type(),
+    exact=best_ref.is_exact(),
+  )
+  if !ls_ref_is_subtype(module_ctx, candidate, declared_ref) {
+    return None
   }
-  match best {
-    Some(best_ref) => {
-      let vt = @lib.ValType::ref_type(best_ref)
-      if vt == declared {
-        None
-      } else {
-        Some(vt)
-      }
-    }
-    None => None
+  let result = @lib.ValType::ref_type(candidate)
+  if result == declared {
+    None
+  } else {
+    Some(result)
   }
 }
 
@@ -554,6 +647,320 @@ fn ls_select_declared_type(types : Array[@lib.ValType]?) -> @lib.ValType? {
   match types {
     Some([single]) => Some(single)
     _ => None
+  }
+}
+
+///|
+fn ls_label_idx_raw(idx : @lib.LabelIdx) -> Int {
+  let @lib.LabelIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn ls_refined_control_type(
+  declared : @lib.ValType,
+  candidates : Array[@lib.ValType],
+  module_ctx : @ir.HotModuleContext,
+) -> @lib.ValType? {
+  let declared_ref = match ls_as_ref(declared) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let mut best : @lib.RefType? = None
+  for candidate in candidates {
+    let candidate_ref = match ls_as_ref(candidate) {
+      Some(ref_type) => ref_type
+      None => return None
+    }
+    best = match best {
+      None => Some(candidate_ref)
+      Some(best_ref) => ls_ref_pair_lub(module_ctx, best_ref, candidate_ref)
+    }
+    if best is None {
+      return None
+    }
+  }
+  let best_ref = match best {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  if !ls_ref_is_subtype(module_ctx, best_ref, declared_ref) {
+    return None
+  }
+  let result = @lib.ValType::ref_type(best_ref)
+  if result == declared {
+    None
+  } else {
+    Some(result)
+  }
+}
+
+///|
+fn ls_control_value_stack_apply(
+  instr : @lib.Instruction,
+  stack : Array[@lib.ValType?],
+  param_types : Array[@lib.ValType],
+  body_locals : @lib.Locals,
+  module_ctx : @ir.HotModuleContext,
+) -> Unit {
+  match instr {
+    @lib.I32Const(_) => stack.push(Some(@lib.ValType::i32()))
+    @lib.I64Const(_) => stack.push(Some(@lib.ValType::i64()))
+    @lib.F32Const(_) => stack.push(Some(@lib.ValType::f32()))
+    @lib.F64Const(_) => stack.push(Some(@lib.ValType::f64()))
+    @lib.LocalGet(idx) =>
+      stack.push(ls_local_declared_type(idx, param_types, body_locals))
+    @lib.RefI31 => {
+      ignore(ls_raw_stack_pop(stack))
+      stack.push(
+        Some(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+            ),
+          ),
+        ),
+      )
+    }
+    @lib.Drop => ignore(ls_raw_stack_pop(stack))
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.TryTable(block_type, _, _) => {
+      stack.clear()
+      match ls_block_type_results(block_type, module_ctx) {
+        Some(results) => ls_raw_stack_push_result_types(stack, results)
+        None => stack.push(None)
+      }
+    }
+    @lib.If(block_type, _, _) => {
+      ignore(ls_raw_stack_pop(stack))
+      stack.clear()
+      match ls_block_type_results(block_type, module_ctx) {
+        Some(results) => ls_raw_stack_push_result_types(stack, results)
+        None => stack.push(None)
+      }
+    }
+    _ =>
+      match ls_raw_ref_producer_type(instr, module_ctx) {
+        Some(vt) => {
+          stack.clear()
+          stack.push(Some(vt))
+        }
+        None => stack.clear()
+      }
+  }
+}
+
+///|
+fn ls_control_result_candidates(
+  instrs : Array[@lib.Instruction],
+  param_types : Array[@lib.ValType],
+  body_locals : @lib.Locals,
+  module_ctx : @ir.HotModuleContext,
+  collect_direct_branches : Bool,
+) -> Array[@lib.ValType] {
+  let candidates : Array[@lib.ValType] = []
+  let stack : Array[@lib.ValType?] = []
+  let mut falls_through = true
+  for instr in instrs {
+    match instr {
+      @lib.Br(label_idx) => {
+        if collect_direct_branches && ls_label_idx_raw(label_idx) == 0 {
+          match stack.last() {
+            Some(Some(vt)) => candidates.push(vt)
+            _ => ()
+          }
+        }
+        stack.clear()
+        falls_through = false
+      }
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable => {
+        stack.clear()
+        falls_through = false
+      }
+      _ => {
+        ls_control_value_stack_apply(
+          instr, stack, param_types, body_locals, module_ctx,
+        )
+        falls_through = true
+      }
+    }
+  }
+  if falls_through {
+    match stack.last() {
+      Some(Some(vt)) => candidates.push(vt)
+      _ => ()
+    }
+  }
+  candidates
+}
+
+///|
+fn ls_control_refinalization_shape_supported(
+  instrs : Array[@lib.Instruction],
+  allow_direct_branch : Bool,
+) -> Bool {
+  if instrs.is_empty() {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.I32Const(_) | @lib.RefI31 => ()
+      @lib.Br(label_idx) =>
+        if !allow_direct_branch || ls_label_idx_raw(label_idx) != 0 {
+          return false
+        }
+      _ => return false
+    }
+  }
+  true
+}
+
+///|
+fn ls_refine_control_results_instrs(
+  instrs : Array[@lib.Instruction],
+  param_types : Array[@lib.ValType],
+  body_locals : @lib.Locals,
+  module_ctx : @ir.HotModuleContext,
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = Array::new(capacity=instrs.length())
+  let mut changed = false
+  for instr in instrs {
+    let next = match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = ls_refine_control_results_instrs(
+          body, param_types, body_locals, module_ctx,
+        )
+        let next_type = if ls_instrs_include_ref_catch_flow(next_body) ||
+          !ls_control_refinalization_shape_supported(next_body, true) {
+          None
+        } else {
+          match block_type {
+            @lib.ValTypeBlockType(declared) =>
+              ls_refined_control_type(
+                declared,
+                ls_control_result_candidates(
+                  next_body, param_types, body_locals, module_ctx, true,
+                ),
+                module_ctx,
+              )
+            _ => None
+          }
+        }
+        if body_changed || next_type is Some(_) {
+          changed = true
+          @lib.Instruction::block(
+            match next_type {
+              Some(vt) => @lib.BlockType::val_type(vt)
+              None => block_type
+            },
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = ls_refine_control_results_instrs(
+          body, param_types, body_locals, module_ctx,
+        )
+        if body_changed {
+          changed = true
+          @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+        } else {
+          instr
+        }
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = ls_refine_control_results_instrs(
+          body, param_types, body_locals, module_ctx,
+        )
+        if body_changed {
+          changed = true
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(next_body),
+          )
+        } else {
+          instr
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = ls_refine_control_results_instrs(
+          then_body, param_types, body_locals, module_ctx,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (next, next_changed) = ls_refine_control_results_instrs(
+              body, param_types, body_locals, module_ctx,
+            )
+            (Some(next), next_changed)
+          }
+          None => (None, false)
+        }
+        let next_type = match (block_type, next_else) {
+          (@lib.ValTypeBlockType(declared), Some(else_instrs)) =>
+            if ls_control_refinalization_shape_supported(next_then, false) &&
+              ls_control_refinalization_shape_supported(else_instrs, false) {
+              let candidates = ls_control_result_candidates(
+                next_then, param_types, body_locals, module_ctx, false,
+              )
+              let else_candidates = ls_control_result_candidates(
+                else_instrs, param_types, body_locals, module_ctx, false,
+              )
+              for candidate in else_candidates {
+                candidates.push(candidate)
+              }
+              ls_refined_control_type(declared, candidates, module_ctx)
+            } else {
+              None
+            }
+          _ => None
+        }
+        if then_changed || else_changed || next_type is Some(_) {
+          changed = true
+          @lib.Instruction::if_(
+            match next_type {
+              Some(vt) => @lib.BlockType::val_type(vt)
+              None => block_type
+            },
+            next_then,
+            next_else,
+          )
+        } else {
+          instr
+        }
+      }
+      _ => instr
+    }
+    rewritten.push(next)
+  }
+  (rewritten, changed)
+}
+
+///|
+fn ls_refine_control_results_expr(
+  expr : @lib.Expr,
+  param_types : Array[@lib.ValType],
+  body_locals : @lib.Locals,
+  module_ctx : @ir.HotModuleContext,
+) -> (@lib.Expr, Bool) {
+  let @lib.Expr(instrs) = expr
+  let (next, changed) = ls_refine_control_results_instrs(
+    instrs, param_types, body_locals, module_ctx,
+  )
+  if changed {
+    (@lib.Expr::new(next), true)
+  } else {
+    (expr, false)
   }
 }
 
@@ -754,6 +1161,17 @@ fn ls_refine_selects_instrs(
           instr
         }
       }
+      @lib.RefNull(ref_type) =>
+        match ls_ref_null_normalized_type(ref_type) {
+          @lib.RefTypeValType(next_ref_type) =>
+            if next_ref_type == ref_type {
+              instr
+            } else {
+              changed = true
+              @lib.Instruction::ref_null_type(next_ref_type)
+            }
+          _ => instr
+        }
       _ => instr
     }
     match next_instr {
@@ -920,9 +1338,39 @@ fn ls_block_type_results(
 }
 
 ///|
-fn ls_raw_ref_producer_type(instr : @lib.Instruction) -> @lib.ValType? {
+fn ls_ref_null_normalized_type(ref_type : @lib.RefType) -> @lib.ValType {
+  let heap_type = match ref_type.get_heap_type() {
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType | @lib.NoFuncAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_func())
+    @lib.AbsHeapTypeHeapType(@lib.ExternAbsHeapType | @lib.NoExternAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_extern())
+    @lib.AbsHeapTypeHeapType(@lib.ExnAbsHeapType | @lib.NoExnAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_exn())
+    @lib.AbsHeapTypeHeapType(@lib.ContAbsHeapType | @lib.NoContAbsHeapType) =>
+      @lib.HeapType::abs(@lib.AbsHeapType::no_cont())
+    @lib.AbsHeapTypeHeapType(_) => @lib.HeapType::abs(@lib.AbsHeapType::none())
+    other => other
+  }
+  @lib.ValType::ref_type(@lib.RefType::new(true, heap_type))
+}
+
+///|
+fn ls_raw_ref_producer_type(
+  instr : @lib.Instruction,
+  module_ctx : @ir.HotModuleContext,
+) -> @lib.ValType? {
   match instr {
-    @lib.RefNull(ref_type) => Some(@lib.ValType::ref_type(ref_type))
+    @lib.RefNull(ref_type) => Some(ls_ref_null_normalized_type(ref_type))
+    @lib.RefFunc(func_idx) =>
+      match @ir.hot_module_resolve_func_type_idx(module_ctx, func_idx) {
+        Some(type_idx) =>
+          Some(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+            ),
+          )
+        None => None
+      }
     @lib.StructNew(type_idx)
     | @lib.StructNewDefault(type_idx)
     | @lib.StructNewDesc(type_idx)
@@ -954,6 +1402,7 @@ fn ls_record_raw_assignment(
   param_types : Array[@lib.ValType],
   body_locals : @lib.Locals,
   ref_body_locals : Array[Bool],
+  unknown_falls_back : Bool,
 ) -> Unit {
   let local_raw = ls_local_idx_raw(target_idx)
   let body_idx = local_raw - param_types.length()
@@ -967,9 +1416,11 @@ fn ls_record_raw_assignment(
   match assigned_type {
     Some(vt) => locals[local_raw].push(vt)
     None =>
-      match ls_local_declared_type(target_idx, param_types, body_locals) {
-        Some(vt) => locals[local_raw].push(vt)
-        None => ()
+      if unknown_falls_back {
+        match ls_local_declared_type(target_idx, param_types, body_locals) {
+          Some(vt) => locals[local_raw].push(vt)
+          None => ()
+        }
       }
   }
 }
@@ -982,6 +1433,7 @@ fn ls_collect_raw_assignments_instrs(
   ref_body_locals : Array[Bool],
   module_ctx : @ir.HotModuleContext,
   locals : Array[Array[@lib.ValType]],
+  unknown_falls_back : Bool,
 ) -> Unit {
   let stack : Array[@lib.ValType?] = []
   for instr in instrs {
@@ -1002,11 +1454,13 @@ fn ls_collect_raw_assignments_instrs(
           param_types,
           body_locals,
           ref_body_locals,
+          unknown_falls_back,
         )
       @lib.LocalTee(idx) => {
         let assigned_type = ls_raw_stack_pop(stack)
         ls_record_raw_assignment(
           locals, idx, assigned_type, param_types, body_locals, ref_body_locals,
+          unknown_falls_back,
         )
         stack.push(assigned_type)
       }
@@ -1050,7 +1504,7 @@ fn ls_collect_raw_assignments_instrs(
       @lib.Block(block_type, @lib.Expr(body))
       | @lib.Loop(block_type, @lib.Expr(body)) => {
         ls_collect_raw_assignments_instrs(
-          body, param_types, body_locals, ref_body_locals, module_ctx, locals,
+          body, param_types, body_locals, ref_body_locals, module_ctx, locals, unknown_falls_back,
         )
         stack.clear()
         match ls_block_type_results(block_type, module_ctx) {
@@ -1060,7 +1514,7 @@ fn ls_collect_raw_assignments_instrs(
       }
       @lib.TryTable(block_type, _, @lib.Expr(body)) => {
         ls_collect_raw_assignments_instrs(
-          body, param_types, body_locals, ref_body_locals, module_ctx, locals,
+          body, param_types, body_locals, ref_body_locals, module_ctx, locals, unknown_falls_back,
         )
         stack.clear()
         match ls_block_type_results(block_type, module_ctx) {
@@ -1072,11 +1526,13 @@ fn ls_collect_raw_assignments_instrs(
         ignore(ls_raw_stack_pop(stack))
         ls_collect_raw_assignments_instrs(
           then_body, param_types, body_locals, ref_body_locals, module_ctx, locals,
+          unknown_falls_back,
         )
         match else_body {
           Some(body) =>
             ls_collect_raw_assignments_instrs(
               body, param_types, body_locals, ref_body_locals, module_ctx, locals,
+              unknown_falls_back,
             )
           None => ()
         }
@@ -1087,7 +1543,7 @@ fn ls_collect_raw_assignments_instrs(
         }
       }
       _ =>
-        match ls_raw_ref_producer_type(instr) {
+        match ls_raw_ref_producer_type(instr, module_ctx) {
           Some(vt) => {
             stack.clear()
             stack.push(Some(vt))
@@ -1105,13 +1561,14 @@ fn ls_collect_raw_assignments(
   body_locals : @lib.Locals,
   ref_body_locals : Array[Bool],
   module_ctx : @ir.HotModuleContext,
+  unknown_falls_back? : Bool = true,
 ) -> Array[Array[@lib.ValType]] {
   let locals = ls_raw_assignment_slots(
     param_types.length() + body_locals.length(),
   )
   let @lib.Expr(instrs) = body
   ls_collect_raw_assignments_instrs(
-    instrs, param_types, body_locals, ref_body_locals, module_ctx, locals,
+    instrs, param_types, body_locals, ref_body_locals, module_ctx, locals, unknown_falls_back,
   )
   locals
 }
@@ -1329,6 +1786,24 @@ fn ls_non_null_dominated_linear_locals(
 }
 
 ///|
+fn ls_ref_null_assignment_type(
+  func : @ir.HotFunc,
+  child : @ir.NodeId,
+  fallback : @lib.ValType,
+) -> @lib.ValType {
+  let child_node = @ir.hot_node_get(func, child)
+  match child_node.op {
+    @ir.HotOp::RefNull => ()
+    _ => return fallback
+  }
+  match @ir.hot_const_get(func, child_node.imm0) {
+    @ir.HotConstPayload::RefNullConst(ref_type) =>
+      ls_ref_null_normalized_type(ref_type)
+    _ => fallback
+  }
+}
+
+///|
 fn ls_collect_assignments(func : @ir.HotFunc) -> Array[Array[@lib.ValType]] {
   let locals : Array[Array[@lib.ValType]] = []
   for i = 0; i < @ir.hot_local_count(func); i = i + 1 {
@@ -1351,7 +1826,9 @@ fn ls_collect_assignments(func : @ir.HotFunc) -> Array[Array[@lib.ValType]] {
         let child = @ir.hot_child_get(func, node_id, 0)
         let results = @ir.hot_type_results(func, @ir.hot_node_type(func, child))
         if results.length() == 1 {
-          locals[node.imm0].push(results[0])
+          locals[node.imm0].push(
+            ls_ref_null_assignment_type(func, child, results[0]),
+          )
         }
       }
       _ => ()
@@ -1367,27 +1844,44 @@ fn ls_rewrite_func(
   mod_ : @lib.Module,
   module_ctx : @ir.HotModuleContext,
 ) -> (@lib.Func, Bool) {
-  let @lib.Func(body_locals, body) = func
-  let ref_body_locals = match ls_ref_body_local_mask(body_locals) {
-    Some(mask) => mask
-    None => return (func, false)
-  }
+  let @lib.Func(body_locals, original_body) = func
   let (raw_param_count, param_types) = match
     @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
     Some(@lib.FuncType(params, _)) => (params.length(), params)
     None => (-1, [])
   }
+  let (body, control_changed) = if raw_param_count >= 0 {
+    ls_refine_control_results_expr(
+      original_body, param_types, body_locals, module_ctx,
+    )
+  } else {
+    (original_body, false)
+  }
+  let ref_body_locals = match ls_ref_body_local_mask(body_locals) {
+    Some(mask) => mask
+    None =>
+      return if control_changed {
+        (@lib.Func::new(body_locals, body), true)
+      } else {
+        (func, false)
+      }
+  }
   if raw_param_count >= 0 &&
     !ls_expr_writes_ref_body_local(body, raw_param_count, ref_body_locals) {
-    return (func, false)
+    return if control_changed {
+      (@lib.Func::new(body_locals, body), true)
+    } else {
+      (func, false)
+    }
   }
   let has_ref_catch_flow = raw_param_count >= 0 &&
     ls_expr_includes_ref_catch_flow(body)
-  let (refined_body, body_changed) = if raw_param_count >= 0 {
+  let (refined_body, select_changed) = if raw_param_count >= 0 {
     ls_refine_selects_expr(body, param_types, body_locals, module_ctx)
   } else {
     (body, false)
   }
+  let body_changed = control_changed || select_changed
   let (assignments, param_count, non_null_safe) = if has_ref_catch_flow {
     let fallback : Array[Bool] = []
     for body_idx = 0; body_idx < body_locals.length(); body_idx = body_idx + 1 {
@@ -1402,12 +1896,42 @@ fn ls_rewrite_func(
       fallback,
     )
   } else {
-    let hot_func = @ir.hot_lift_func_with_context(mod_, func_idx, module_ctx)
-    let assignments = ls_collect_assignments(hot_func)
-    let param_count = if raw_param_count >= 0 {
-      raw_param_count
+    let (assignments, param_count) = if raw_param_count >= 0 {
+      let raw_assignments = ls_collect_raw_assignments(
+        refined_body,
+        param_types,
+        body_locals,
+        ref_body_locals,
+        module_ctx,
+        unknown_falls_back=false,
+      )
+      let write_count = ls_count_ref_body_local_writes_expr(
+        refined_body, raw_param_count, ref_body_locals,
+      )
+      if ls_assignment_count(raw_assignments) == write_count {
+        (raw_assignments, raw_param_count)
+      } else {
+        let hot_func = @ir.hot_lift_func_with_context(
+          mod_, func_idx, module_ctx,
+        )
+        let assignments = ls_collect_assignments(hot_func)
+        let limit = if assignments.length() < raw_assignments.length() {
+          assignments.length()
+        } else {
+          raw_assignments.length()
+        }
+        for local_idx = 0; local_idx < limit; local_idx = local_idx + 1 {
+          if !raw_assignments[local_idx].is_empty() &&
+            raw_assignments[local_idx].length() >=
+            assignments[local_idx].length() {
+            ignore(assignments.set(local_idx, raw_assignments[local_idx]))
+          }
+        }
+        (assignments, raw_param_count)
+      }
     } else {
-      @ir.hot_local_param_count(hot_func)
+      let hot_func = @ir.hot_lift_func_with_context(mod_, func_idx, module_ctx)
+      (ls_collect_assignments(hot_func), @ir.hot_local_param_count(hot_func))
     }
     let non_null_safe = if raw_param_count >= 0 {
       ls_non_null_dominated_linear_locals(

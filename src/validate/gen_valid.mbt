@@ -806,6 +806,10 @@ pub enum GenValidProfile {
   LocalSubtypingStraightLineProfile
   LocalSubtypingStructuredProfile
   LocalSubtypingUnreachableTailProfile
+  LocalSubtypingLubsProfile
+  LocalSubtypingIterationProfile
+  LocalSubtypingNullBottomProfile
+  LocalSubtypingControlRefinalizeProfile
   LocalSubtypingAllProfile
   CoalesceLocalsStraightLineProfile
   CoalesceLocalsStructuredProfile
@@ -1081,6 +1085,11 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     LocalSubtypingStraightLineProfile => "local-subtyping-straight-line"
     LocalSubtypingStructuredProfile => "local-subtyping-structured"
     LocalSubtypingUnreachableTailProfile => "local-subtyping-unreachable-tail"
+    LocalSubtypingLubsProfile => "local-subtyping-lubs"
+    LocalSubtypingIterationProfile => "local-subtyping-iteration"
+    LocalSubtypingNullBottomProfile => "local-subtyping-null-bottom"
+    LocalSubtypingControlRefinalizeProfile =>
+      "local-subtyping-control-refinalize"
     LocalSubtypingAllProfile => "local-subtyping-all"
     CoalesceLocalsStraightLineProfile => "coalesce-locals-straight-line"
     CoalesceLocalsStructuredProfile => "coalesce-locals-structured"
@@ -1371,9 +1380,13 @@ pub fn gen_valid_profile_members(
       ]
     LocalSubtypingAllProfile =>
       [
-        GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 3),
+        GenValidProfileMember::new(LocalSubtypingStraightLineProfile, 2),
         GenValidProfileMember::new(LocalSubtypingStructuredProfile, 2),
         GenValidProfileMember::new(LocalSubtypingUnreachableTailProfile, 1),
+        GenValidProfileMember::new(LocalSubtypingLubsProfile, 2),
+        GenValidProfileMember::new(LocalSubtypingIterationProfile, 2),
+        GenValidProfileMember::new(LocalSubtypingNullBottomProfile, 1),
+        GenValidProfileMember::new(LocalSubtypingControlRefinalizeProfile, 1),
       ]
     CoalesceLocalsAllProfile =>
       [
@@ -1752,6 +1765,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     LocalSubtypingStraightLineProfile,
     LocalSubtypingStructuredProfile,
     LocalSubtypingUnreachableTailProfile,
+    LocalSubtypingLubsProfile,
+    LocalSubtypingIterationProfile,
+    LocalSubtypingNullBottomProfile,
+    LocalSubtypingControlRefinalizeProfile,
     LocalSubtypingAllProfile,
     CoalesceLocalsStraightLineProfile,
     CoalesceLocalsStructuredProfile,
@@ -4444,7 +4461,11 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_heap2local_profile_config(Heap2LocalAllProfile)
     LocalSubtypingStraightLineProfile
     | LocalSubtypingStructuredProfile
-    | LocalSubtypingUnreachableTailProfile =>
+    | LocalSubtypingUnreachableTailProfile
+    | LocalSubtypingLubsProfile
+    | LocalSubtypingIterationProfile
+    | LocalSubtypingNullBottomProfile
+    | LocalSubtypingControlRefinalizeProfile =>
       gen_valid_local_subtyping_profile_config(profile)
     LocalSubtypingAllProfile =>
       gen_valid_local_subtyping_profile_config(
@@ -5674,9 +5695,19 @@ fn gen_valid_heap2local_profile_config(
 
 ///|
 fn gen_valid_local_subtyping_profile_config(
-  _profile : GenValidProfile,
+  profile : GenValidProfile,
 ) -> GenValidConfig {
   let base = GenValidConfig::coverage_forced_default()
+  let profile_depth = match profile {
+    LocalSubtypingStraightLineProfile => 1
+    LocalSubtypingStructuredProfile => 2
+    LocalSubtypingUnreachableTailProfile => 3
+    LocalSubtypingLubsProfile => 4
+    LocalSubtypingIterationProfile => 5
+    LocalSubtypingNullBottomProfile => 6
+    LocalSubtypingControlRefinalizeProfile => 7
+    _ => 1
+  }
   GenValidConfig::{
     ..base,
     max_type_defs: 6,
@@ -5692,7 +5723,7 @@ fn gen_valid_local_subtyping_profile_config(
     max_results: 0,
     max_locals: 0,
     max_body_statements: 0,
-    max_body_depth: 3,
+    max_body_depth: profile_depth,
     features: GenValidFeatureToggles::{
       ..base.features,
       allow_imports: false,
@@ -7005,7 +7036,11 @@ fn gen_valid_is_remove_unused_brs_family_config(
 fn gen_valid_is_local_subtyping_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(LocalSubtypingStraightLineProfile) ||
   config == GenValidConfig::for_profile(LocalSubtypingStructuredProfile) ||
-  config == GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile)
+  config == GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile) ||
+  config == GenValidConfig::for_profile(LocalSubtypingLubsProfile) ||
+  config == GenValidConfig::for_profile(LocalSubtypingIterationProfile) ||
+  config == GenValidConfig::for_profile(LocalSubtypingNullBottomProfile) ||
+  config == GenValidConfig::for_profile(LocalSubtypingControlRefinalizeProfile)
 }
 
 ///|
@@ -16333,41 +16368,92 @@ fn gen_valid_append_local_subtyping_body_slice(
     Some(idx) => idx
     None => return
   }
-  gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
-  if ctx.config ==
-    GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile) {
-    gen_valid_local_subtyping_append_get_drop(out, local_idx)
-    out.push(Instruction::return_())
+  if ctx.config == GenValidConfig::for_profile(LocalSubtypingLubsProfile) {
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::ref_i31())
+    out.push(Instruction::local_set(local_idx))
+    gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
     gen_valid_local_subtyping_append_get_drop(out, local_idx)
   } else if ctx.config ==
-    GenValidConfig::for_profile(LocalSubtypingStructuredProfile) {
-    out.push(
-      Instruction::block(
-        BlockType::void_(),
-        Expr::new([Instruction::local_get(local_idx), Instruction::drop()]),
-      ),
-    )
-    out.push(
-      Instruction::loop_(
-        BlockType::void_(),
-        Expr::new([Instruction::local_get(local_idx), Instruction::drop()]),
-      ),
-    )
+    GenValidConfig::for_profile(LocalSubtypingIterationProfile) {
+    let LocalIdx(first_raw) = local_idx
+    let second = LocalIdx::new(first_raw + 1U)
+    let third = LocalIdx::new(first_raw + 2U)
+    gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
+    out.push(Instruction::local_get(local_idx))
+    out.push(Instruction::local_set(second))
+    out.push(Instruction::local_get(second))
+    out.push(Instruction::local_set(third))
+    gen_valid_local_subtyping_append_get_drop(out, third)
+  } else if ctx.config ==
+    GenValidConfig::for_profile(LocalSubtypingNullBottomProfile) {
+    gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::any())))
+    out.push(Instruction::local_set(local_idx))
+    gen_valid_local_subtyping_append_get_drop(out, local_idx)
+  } else if ctx.config ==
+    GenValidConfig::for_profile(LocalSubtypingControlRefinalizeProfile) {
+    gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
     out.push(Instruction::i32_const(I32(1)))
     out.push(
       Instruction::if_(
-        BlockType::void_(),
-        [Instruction::local_get(local_idx), Instruction::drop()],
-        Some([Instruction::local_get(local_idx), Instruction::drop()]),
+        BlockType::val_type(ValType::anyref()),
+        [Instruction::i32_const(I32(0)), Instruction::ref_i31()],
+        Some([Instruction::i32_const(I32(1)), Instruction::ref_i31()]),
       ),
     )
-    gen_valid_local_subtyping_append_get_drop(out, local_idx)
-  } else {
-    gen_valid_local_subtyping_append_get_drop(out, local_idx)
-    out.push(Instruction::struct_new_default(type_idx))
-    out.push(Instruction::local_tee(local_idx))
+    out.push(Instruction::drop())
+    out.push(
+      Instruction::block(
+        BlockType::val_type(ValType::anyref()),
+        Expr::new([
+          Instruction::i32_const(I32(0)),
+          Instruction::ref_i31(),
+          Instruction::br(LabelIdx::new(0U)),
+          Instruction::i32_const(I32(1)),
+          Instruction::ref_i31(),
+        ]),
+      ),
+    )
     out.push(Instruction::drop())
     gen_valid_local_subtyping_append_get_drop(out, local_idx)
+  } else {
+    gen_valid_local_subtyping_seed_local(out, local_idx, type_idx)
+    if ctx.config ==
+      GenValidConfig::for_profile(LocalSubtypingUnreachableTailProfile) {
+      gen_valid_local_subtyping_append_get_drop(out, local_idx)
+      out.push(Instruction::return_())
+      gen_valid_local_subtyping_append_get_drop(out, local_idx)
+    } else if ctx.config ==
+      GenValidConfig::for_profile(LocalSubtypingStructuredProfile) {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::local_get(local_idx), Instruction::drop()]),
+        ),
+      )
+      out.push(
+        Instruction::loop_(
+          BlockType::void_(),
+          Expr::new([Instruction::local_get(local_idx), Instruction::drop()]),
+        ),
+      )
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(
+        Instruction::if_(
+          BlockType::void_(),
+          [Instruction::local_get(local_idx), Instruction::drop()],
+          Some([Instruction::local_get(local_idx), Instruction::drop()]),
+        ),
+      )
+      gen_valid_local_subtyping_append_get_drop(out, local_idx)
+    } else {
+      gen_valid_local_subtyping_append_get_drop(out, local_idx)
+      out.push(Instruction::struct_new_default(type_idx))
+      out.push(Instruction::local_tee(local_idx))
+      out.push(Instruction::drop())
+      gen_valid_local_subtyping_append_get_drop(out, local_idx)
+    }
   }
 }
 
@@ -17909,7 +17995,15 @@ fn gen_valid_build_func(
       }
     } else if gen_valid_is_local_subtyping_family_config(ctx.config) ||
       gen_valid_is_optimize_casts_family_config(ctx.config) {
-      locals.push(ValType::anyref())
+      let local_count = if ctx.config ==
+        GenValidConfig::for_profile(LocalSubtypingIterationProfile) {
+        3
+      } else {
+        1
+      }
+      for _ in 0..<local_count {
+        locals.push(ValType::anyref())
+      }
     } else {
       for vt in gc_type_plan.concrete_ref_types {
         locals.push(vt)
