@@ -339,6 +339,68 @@ fn merge_blocks_can_lift_block_child(
 }
 
 ///|
+fn merge_blocks_effects_have(
+  mask : @ir.EffectMask,
+  bit : @ir.EffectMask,
+) -> Bool {
+  (mask & bit) != 0U
+}
+
+///|
+fn merge_blocks_effects_can_reorder(
+  first : @ir.EffectMask,
+  second : @ir.EffectMask,
+) -> Bool {
+  if @ir.effects_is_pure(first) || @ir.effects_is_pure(second) {
+    return true
+  }
+  let hard_barriers = @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_THROW
+  if (first & hard_barriers) != 0U || (second & hard_barriers) != 0U {
+    return false
+  }
+  let global_writes = @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  if (
+      merge_blocks_effects_have(first, @ir.EFFECT_MASK_TRAP) &&
+      (second & global_writes) != 0U
+    ) ||
+    (
+      merge_blocks_effects_have(second, @ir.EFFECT_MASK_TRAP) &&
+      (first & global_writes) != 0U
+    ) {
+    return false
+  }
+  if merge_blocks_effects_have(first, @ir.EFFECT_MASK_LOCAL_STATE) &&
+    merge_blocks_effects_have(second, @ir.EFFECT_MASK_LOCAL_STATE) {
+    return false
+  }
+  if merge_blocks_effects_have(first, @ir.EFFECT_MASK_GLOBAL_STATE) &&
+    merge_blocks_effects_have(second, @ir.EFFECT_MASK_GLOBAL_STATE) {
+    return false
+  }
+  let first_memory = first &
+    (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
+  let second_memory = second &
+    (@ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_MEMORY_WRITE)
+  if first_memory != 0U && second_memory != 0U {
+    // The boundary IR does not retain regular atomic ordering, so keep even
+    // read/read memory pairs ordered instead of accidentally crossing seqcst.
+    return false
+  }
+  let first_table = first &
+    (@ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE)
+  let second_table = second &
+    (@ir.EFFECT_MASK_TABLE_READ | @ir.EFFECT_MASK_TABLE_WRITE)
+  if first_table != 0U && second_table != 0U {
+    return false
+  }
+  true
+}
+
+///|
 fn merge_blocks_lift_expression_block_children(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -391,10 +453,7 @@ fn merge_blocks_lift_expression_block_children(
         }
       }
       if !prefix_has_branch &&
-        (
-          @ir.effects_is_pure(prefix_effects) ||
-          @ir.effects_is_pure(previous_effects)
-        ) {
+        merge_blocks_effects_can_reorder(previous_effects, prefix_effects) {
         for prefix_id in prefix {
           lifted_prefixes.push(prefix_id)
         }
@@ -579,6 +638,59 @@ fn merge_blocks_flatten_region_root_block(
 }
 
 ///|
+fn merge_blocks_flatten_branch_free_loop_block_body(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_used : @bitset.BitSet,
+  flattened_roots : Array[Int],
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  let loop_id = @ir.hot_region_get(func, region_ref, idx)
+  if loop_id < 0 || !@ir.hot_node_is_live(func, loop_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => return false
+  }
+  if pass_label_is_used(@ir.hot_control_node_label(func, loop_id), label_used) ||
+    merge_blocks_block_has_params(func, loop_id, module_ctx) ||
+    @ir.hot_type_results(func, @ir.hot_node_type(func, loop_id)).length() > 0 {
+    return false
+  }
+  let loop_body_ref = @ir.hot_region_body_ref(func, loop_id)
+  if @ir.hot_region_root_count(func, loop_body_ref) != 1 {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, loop_body_ref, 0)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if pass_label_is_used(@ir.hot_control_node_label(func, block_id), label_used) ||
+    merge_blocks_block_has_params(func, block_id, module_ctx) ||
+    @ir.hot_type_results(func, @ir.hot_node_type(func, block_id)).length() > 0 {
+    return false
+  }
+  let block_body_ref = @ir.hot_region_body_ref(func, block_id)
+  if merge_blocks_region_contains_loop(func, block_body_ref) {
+    return false
+  }
+  merge_blocks_collect_region_roots(func, block_body_ref, flattened_roots)
+  if !merge_blocks_rewrite_dead_unreachable_suffix_roots(func, flattened_roots) {
+    return false
+  }
+  ignore(@ir.hot_region_splice(func, region_ref, idx, 1, flattened_roots))
+  @ir.hot_region_replace_body(func, block_body_ref, [])
+  @ir.hot_region_replace_body(func, loop_body_ref, [])
+  true
+}
+
+///|
 fn merge_blocks_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -591,6 +703,12 @@ fn merge_blocks_visit_region(
   let mut changed = false
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
+    if merge_blocks_flatten_branch_free_loop_block_body(
+        func, region_ref, idx, label_used, flattened_roots, module_ctx,
+      ) {
+      changed = true
+      continue
+    }
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       changed = merge_blocks_visit_control_node(

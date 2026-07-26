@@ -768,6 +768,11 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  MergeBlocksStructuralProfile
+  MergeBlocksExpressionProfile
+  MergeBlocksEffectProfile
+  MergeBlocksEhAtomicProfile
+  MergeBlocksAllProfile
   CodeFoldingIfArmsProfile
   CodeFoldingBlockExitsProfile
   CodeFoldingReturnsProfile
@@ -1029,6 +1034,11 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     CodePushingMultiSetGlobalGetWindowProfile =>
       "code-pushing-multi-set-global-get-window"
     CodePushingAllProfile => "code-pushing-all"
+    MergeBlocksStructuralProfile => "merge-blocks-structural"
+    MergeBlocksExpressionProfile => "merge-blocks-expression"
+    MergeBlocksEffectProfile => "merge-blocks-effect-order"
+    MergeBlocksEhAtomicProfile => "merge-blocks-eh-atomic"
+    MergeBlocksAllProfile => "merge-blocks-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
     CodeFoldingReturnsProfile => "code-folding-returns"
@@ -1152,6 +1162,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PrecomputeAllProfile
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
+    | MergeBlocksAllProfile
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
@@ -1293,6 +1304,13 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CodePushingMultiSetDropWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetLocalGetWindowProfile, 1),
         GenValidProfileMember::new(CodePushingMultiSetGlobalGetWindowProfile, 1),
+      ]
+    MergeBlocksAllProfile =>
+      [
+        GenValidProfileMember::new(MergeBlocksStructuralProfile, 3),
+        GenValidProfileMember::new(MergeBlocksExpressionProfile, 3),
+        GenValidProfileMember::new(MergeBlocksEffectProfile, 2),
+        GenValidProfileMember::new(MergeBlocksEhAtomicProfile, 2),
       ]
     CodeFoldingAllProfile =>
       [
@@ -1500,6 +1518,7 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(CoverageForcedPortableProfile, 1),
         GenValidProfileMember::new(BinaryenOraclePortableProfile, 1),
         GenValidProfileMember::new(PassFuzzStressProfile, 1),
+        GenValidProfileMember::new(MergeBlocksAllProfile, 1),
         GenValidProfileMember::new(PrecomputeAllProfile, 1),
         GenValidProfileMember::new(DaeAllProfile, 1),
         GenValidProfileMember::new(DaeOptimizingProfile, 1),
@@ -1692,6 +1711,11 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     CodePushingMultiSetLocalGetWindowProfile,
     CodePushingMultiSetGlobalGetWindowProfile,
     CodePushingAllProfile,
+    MergeBlocksStructuralProfile,
+    MergeBlocksExpressionProfile,
+    MergeBlocksEffectProfile,
+    MergeBlocksEhAtomicProfile,
+    MergeBlocksAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
     CodeFoldingReturnsProfile,
@@ -1873,6 +1897,8 @@ pub fn gen_valid_profile_by_name(
     "code-pushing" => Ok(CodePushingAllProfile)
     "code-pushing-closeout" => Ok(CodePushingAllProfile)
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
+    "merge-blocks" | "merge-blocks-closeout" | "merge-blocks-all-profiles" =>
+      Ok(MergeBlocksAllProfile)
     "code-folding" | "code-folding-closeout" | "code-folding-all-profiles" =>
       Ok(CodeFoldingAllProfile)
     "tuple-optimization" => Ok(TupleOptimizationAllProfile)
@@ -4367,6 +4393,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_code_pushing_profile_config(profile)
     CodePushingAllProfile =>
       gen_valid_code_pushing_profile_config(CodePushingIfArmProfile)
+    MergeBlocksStructuralProfile
+    | MergeBlocksExpressionProfile
+    | MergeBlocksEffectProfile
+    | MergeBlocksEhAtomicProfile =>
+      gen_valid_merge_blocks_profile_config(profile)
+    MergeBlocksAllProfile =>
+      gen_valid_merge_blocks_profile_config(MergeBlocksStructuralProfile)
     CodeFoldingIfArmsProfile
     | CodeFoldingBlockExitsProfile
     | CodeFoldingReturnsProfile
@@ -5730,6 +5763,311 @@ fn gen_valid_coalesce_locals_profile_config(
       allow_heap_store_optimization_body_generator: false,
       allow_heap2local_body_generator: false,
     },
+  }
+}
+
+///|
+fn gen_valid_merge_blocks_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let profile_tag = match profile {
+    MergeBlocksStructuralProfile => 71
+    MergeBlocksExpressionProfile => 72
+    MergeBlocksEffectProfile => 73
+    MergeBlocksEhAtomicProfile => 74
+    _ => 71
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: if profile == MergeBlocksExpressionProfile ||
+      profile == MergeBlocksEhAtomicProfile {
+      2
+    } else {
+      1
+    },
+    max_imports: 0,
+    max_defined_funcs: 1,
+    max_tables: 0,
+    max_mems: if profile == MergeBlocksExpressionProfile ||
+      profile == MergeBlocksEffectProfile ||
+      profile == MergeBlocksEhAtomicProfile {
+      1
+    } else {
+      0
+    },
+    max_globals: if profile == MergeBlocksEffectProfile {
+      1
+    } else {
+      0
+    },
+    max_tags: if profile == MergeBlocksExpressionProfile ||
+      profile == MergeBlocksEhAtomicProfile {
+      1
+    } else {
+      0
+    },
+    max_elems: 0,
+    max_datas: 0,
+    max_params: 0,
+    max_results: 0,
+    max_locals: 0,
+    max_body_statements: profile_tag,
+    max_body_depth: 5,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: profile != MergeBlocksStructuralProfile,
+      allow_globals: profile == MergeBlocksEffectProfile,
+      allow_tags: profile == MergeBlocksExpressionProfile ||
+      profile == MergeBlocksEhAtomicProfile,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: profile == MergeBlocksEhAtomicProfile,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: true,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: profile == MergeBlocksEhAtomicProfile,
+      allow_shared_memories: profile == MergeBlocksEhAtomicProfile,
+      allow_memory64: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_merge_blocks_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(MergeBlocksStructuralProfile) ||
+  config == GenValidConfig::for_profile(MergeBlocksExpressionProfile) ||
+  config == GenValidConfig::for_profile(MergeBlocksEffectProfile) ||
+  config == GenValidConfig::for_profile(MergeBlocksEhAtomicProfile)
+}
+
+///|
+pub fn gen_valid_merge_blocks_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    MergeBlocksStructuralProfile => Some("merge-blocks:structural")
+    MergeBlocksExpressionProfile => Some("merge-blocks:expression-children")
+    MergeBlocksEffectProfile => Some("merge-blocks:effect-order")
+    MergeBlocksEhAtomicProfile => Some("merge-blocks:eh-atomic-boundaries")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_merge_blocks_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_merge_blocks_structural_opportunity() -> Instruction {
+  Instruction::block(
+    BlockType::void_(),
+    Expr::new([
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([Instruction::i32_const(I32(7)), Instruction::drop()]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_blocks_structural_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_merge_blocks_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          gen_valid_merge_blocks_structural_opportunity(),
+          Instruction::loop_(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::block(
+                BlockType::void_(),
+                Expr::new([Instruction::i32_const(I32(8)), Instruction::drop()]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_blocks_expression_module() -> Module {
+  let tag_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, gen_valid_merge_blocks_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          gen_valid_merge_blocks_structural_opportunity(),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(9)),
+            ]),
+          ),
+          Instruction::drop(),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(2)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(1)),
+            ]),
+          ),
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::nop()],
+            Some([Instruction::nop()]),
+          ),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(3)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(0)),
+            ]),
+          ),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(4)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(11)),
+            ]),
+          ),
+          Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(5)),
+              Instruction::drop(),
+              Instruction::i32_const(I32(13)),
+            ]),
+          ),
+          Instruction::throw_(TagIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_blocks_effect_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_merge_blocks_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), true),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          gen_valid_merge_blocks_structural_opportunity(),
+          Instruction::global_get(GlobalIdx::new(0U)),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::global_set(GlobalIdx::new(0U)),
+              Instruction::i32_const(I32(7)),
+            ]),
+          ),
+          Instruction::i32_store(MemArg::new(2U, None, 0UL)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_blocks_eh_atomic_module() -> Module {
+  let tag_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  Module::new()
+  .with_type_sec(TypeSec::new([tag_type, gen_valid_merge_blocks_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(1U)]))
+  .with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)), shared=true)]),
+  )
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          gen_valid_merge_blocks_structural_opportunity(),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::void_(),
+                [Catch::new(TagIdx::new(0U), LabelIdx::new(0U))],
+                Expr::new([
+                  Instruction::block(
+                    BlockType::void_(),
+                    Expr::new([
+                      Instruction::atomic_fence(),
+                      Instruction::i32_const(I32(0)),
+                      Instruction::i32_atomic_load(MemArg::new(2U, None, 0UL)),
+                      Instruction::drop(),
+                    ]),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_merge_blocks_profile_module(config : GenValidConfig) -> Module {
+  if config == GenValidConfig::for_profile(MergeBlocksExpressionProfile) {
+    gen_valid_merge_blocks_expression_module()
+  } else if config == GenValidConfig::for_profile(MergeBlocksEffectProfile) {
+    gen_valid_merge_blocks_effect_module()
+  } else if config == GenValidConfig::for_profile(MergeBlocksEhAtomicProfile) {
+    gen_valid_merge_blocks_eh_atomic_module()
+  } else {
+    gen_valid_merge_blocks_structural_module()
   }
 }
 
@@ -27981,6 +28319,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_merge_blocks_profile_config(config) {
+    return gen_valid_merge_blocks_profile_module(config)
+  }
   if gen_valid_is_code_folding_profile_config(config) {
     return gen_valid_code_folding_profile_module(config)
   }

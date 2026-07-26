@@ -68,6 +68,8 @@ pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFact
 
 pub fn gen_valid_inlining_optimizing_profile_case_label(GenValidProfile, UInt64) -> String?
 
+pub fn gen_valid_merge_blocks_profile_case_label(GenValidProfile, UInt64) -> String?
+
 pub fn gen_valid_merge_locals_profile_case_label(GenValidProfile, UInt64) -> String?
 
 pub fn gen_valid_merge_ssa_func_facts(GenValidSsaFuncFacts, GenValidSsaFuncFacts) -> GenValidSsaFuncFacts
@@ -1253,6 +1255,11 @@ pub enum GenValidProfile {
   CodePushingMultiSetLocalGetWindowProfile
   CodePushingMultiSetGlobalGetWindowProfile
   CodePushingAllProfile
+  MergeBlocksStructuralProfile
+  MergeBlocksExpressionProfile
+  MergeBlocksEffectProfile
+  MergeBlocksEhAtomicProfile
+  MergeBlocksAllProfile
   CodeFoldingIfArmsProfile
   CodeFoldingBlockExitsProfile
   CodeFoldingReturnsProfile

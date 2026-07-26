@@ -129,6 +129,32 @@ test "merge-blocks preserves loop wrapper blocks with continue targets" {
 }
 
 ///|
+test "merge-blocks removes branch-free untyped loops with explicit block bodies like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (loop (block (drop (i32.const 7))))))",
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks branch-free loop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(loop"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "merge-blocks flattens inner blocks inside loops without dropping continue targets" {
   let optimized = match
     pass_test_run_pipeline("(module (func (loop $l (block (nop)) (br $l))))", [
@@ -2290,6 +2316,290 @@ test "merge-blocks moves block prefixes out of store operands without reordering
   assert_true(pretty.contains("i32.store"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
   assert_true(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "merge-blocks moves effectful block prefixes across pure earlier call operands like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (type $r (func (result i32)))
+        #|   (type $p (func (param i32 i32) (result i32)))
+        #|   (global $g (mut i32) (i32.const 0))
+        #|   (func $pick (type $p) (param i32 i32) (result i32) (local.get 1))
+        #|   (func (type $r) (result i32)
+        #|     (call $pick
+        #|       (i32.add (i32.const 1) (i32.const 2))
+        #|       (block (result i32)
+        #|         (global.set $g (i32.const 99))
+        #|         (i32.const 7)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks pure-call-operand success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("(call"), msg=pretty)
+}
+
+///|
+test "merge-blocks lifts flat stack call operand prefixes reconstructed as blocks like Binaryen" {
+  let result_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let pick_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([result_type, pick_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), true),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::i32_const(@lib.I32(99)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::memory_grow(@lib.MemIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(100)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::i32_load(@lib.MemArg::new(2U, None, 0UL)),
+            @lib.Instruction::i32_const(@lib.I32(101)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::new([@lib.LocalRun::new(1U, @lib.ValType::i32())]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(10)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_const(@lib.I32(2)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::i32_const(@lib.I32(102)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(11)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32(3)),
+            @lib.Instruction::i32_const(@lib.I32(4)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::i32_const(@lib.I32(103)),
+            @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::i32_const(@lib.I32(12)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(mod_, HotPipelineOptions::new(), ["merge-blocks"]) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected merge-blocks flat-stack call success, got \{err}")
+  }
+  let funcs = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected merge-blocks flat-stack code section")
+  }
+  let pure_body = match funcs[1] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match pure_body {
+    [
+      @lib.I32Const(@lib.I32(99)),
+      @lib.GlobalSet(@lib.GlobalIdx(0U)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Add,
+      @lib.I32Const(@lib.I32(7)),
+      @lib.Call(@lib.FuncIdx(0U)),
+    ] => ()
+    _ =>
+      fail(
+        "expected global.set before the pure first operand, got \{pure_body}",
+      )
+  }
+  let memory_grow_body = match funcs[2] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match memory_grow_body {
+    [
+      @lib.I32Const(@lib.I32(100)),
+      @lib.GlobalSet(@lib.GlobalIdx(0U)),
+      @lib.I32Const(@lib.I32(0)),
+      @lib.MemoryGrow(@lib.MemIdx(0U)),
+      @lib.I32Const(@lib.I32(8)),
+      @lib.Call(@lib.FuncIdx(0U)),
+    ] => ()
+    _ =>
+      fail(
+        "expected global.set before the disjoint memory.grow operand, got \{memory_grow_body}",
+      )
+  }
+  let trapping_load_body = match funcs[3] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match trapping_load_body {
+    [
+      @lib.I32Const(@lib.I32(0)),
+      @lib.I32Load(_),
+      @lib.I32Const(@lib.I32(101)),
+      @lib.GlobalSet(@lib.GlobalIdx(0U)),
+      @lib.I32Const(@lib.I32(9)),
+      @lib.Call(@lib.FuncIdx(0U)),
+    ] => ()
+    _ =>
+      fail(
+        "expected trapping load to remain before global.set, got \{trapping_load_body}",
+      )
+  }
+  let local_conflict_body = match funcs[4] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match local_conflict_body {
+    [
+      @lib.I32Const(@lib.I32(1)),
+      @lib.LocalTee(@lib.LocalIdx(0U)),
+      @lib.LocalGet(@lib.LocalIdx(0U)),
+      @lib.GlobalSet(@lib.GlobalIdx(0U)),
+      @lib.I32Const(@lib.I32(10)),
+      @lib.Call(@lib.FuncIdx(0U)),
+    ] => ()
+    _ =>
+      fail(
+        "expected local-dependent prefix to remain after the earlier local write, got \{local_conflict_body}",
+      )
+  }
+  let repeated_body = match funcs[5] {
+    @lib.Func(_, @lib.Expr(body)) => body
+  }
+  match repeated_body {
+    [
+      @lib.I32Const(@lib.I32(102)),
+      @lib.GlobalSet(@lib.GlobalIdx(0U)),
+      @lib.I32Const(@lib.I32(1)),
+      @lib.I32Const(@lib.I32(2)),
+      @lib.I32Add,
+      @lib.I32Const(@lib.I32(11)),
+      @lib.Call(@lib.FuncIdx(0U)),
+      @lib.Drop,
+      @lib.I32Const(@lib.I32(103)),
+      @lib.GlobalSet(@lib.GlobalIdx(0U)),
+      @lib.I32Const(@lib.I32(3)),
+      @lib.I32Const(@lib.I32(4)),
+      @lib.I32Add,
+      @lib.I32Const(@lib.I32(12)),
+      @lib.Call(@lib.FuncIdx(0U)),
+    ] => ()
+    _ =>
+      fail(
+        "expected every eligible flat call prefix to move in one pass, got \{repeated_body}",
+      )
+  }
+}
+
+///|
+test "merge-blocks moves global writes across disjoint earlier memory effects like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (type $r (func (result i32)))
+        #|   (type $p (func (param i32 i32) (result i32)))
+        #|   (memory 1)
+        #|   (global $g (mut i32) (i32.const 0))
+        #|   (func $pick (type $p) (param i32 i32) (result i32) (local.get 1))
+        #|   (func (type $r) (result i32)
+        #|     (call $pick
+        #|       (memory.grow (i32.const 0))
+        #|       (block (result i32)
+        #|         (global.set $g (i32.const 100))
+        #|         (i32.const 8)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks disjoint-effect success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("(call"), msg=pretty)
 }
 
 ///|

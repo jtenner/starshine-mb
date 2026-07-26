@@ -25581,6 +25581,198 @@ fn RawOiCoarseNoopSkipFact::proves_accepted_raw_boundary(
 }
 
 ///|
+fn run_hot_pipeline_raw_merge_blocks_leaf(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_context_free_leaf(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_has_structured_control(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for instr in body {
+    match instr {
+      @lib.Block(_, _)
+      | @lib.Loop(_, _)
+      | @lib.If(_, _, _)
+      | @lib.Try(_, _, _, _)
+      | @lib.TryTable(_, _, _) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_has_flat_call_prefix_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  for call_idx = 4; call_idx < body.length(); call_idx = call_idx + 1 {
+    match body[call_idx] {
+      @lib.Call(_) => ()
+      _ => continue
+    }
+    if !run_hot_pipeline_raw_merge_blocks_context_free_leaf(body[call_idx - 3]) ||
+      !run_hot_pipeline_raw_merge_blocks_leaf(body[call_idx - 1]) {
+      continue
+    }
+    match body[call_idx - 2] {
+      @lib.GlobalSet(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_prior_global_conflict(
+  body : Array[@lib.Instruction],
+  slices : Array[DaeValueSlice],
+  end_arg : Int,
+) -> Bool {
+  for arg_idx = 0; arg_idx < end_arg; arg_idx = arg_idx + 1 {
+    let slice = slices[arg_idx]
+    if slice.has_branch ||
+      slice.has_escaping_branch ||
+      slice.produces_unreachable {
+      return true
+    }
+    for idx = slice.start; idx < slice.end; idx = idx + 1 {
+      match body[idx] {
+        @lib.MemoryGrow(_) => ()
+        @lib.GlobalGet(_)
+        | @lib.GlobalSet(_)
+        | @lib.Call(_)
+        | @lib.CallIndirect(_, _)
+        | @lib.CallRef(_)
+        | @lib.ReturnCall(_)
+        | @lib.ReturnCallIndirect(_, _)
+        | @lib.ReturnCallRef(_)
+        | @lib.Throw(_)
+        | @lib.ThrowRef
+        | @lib.Rethrow(_) => return true
+        instr =>
+          if dae_instruction_observability_evidence(instr).may_trap_or_unknown {
+            return true
+          }
+      }
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "merge-blocks" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  if run_hot_pipeline_raw_merge_blocks_has_structured_control(body) ||
+    !run_hot_pipeline_raw_merge_blocks_has_flat_call_prefix_candidate(body) {
+    return None
+  }
+  let func_type_indices = dae_collect_func_type_indices(mod_)
+  let mut current = body
+  let mut changed = false
+  for call_idx = 0; call_idx < current.length(); call_idx = call_idx + 1 {
+    let callee_abs = match current[call_idx] {
+      @lib.Call(callee) => dae_func_idx_slot(callee)
+      _ => continue
+    }
+    let param_count = match
+      dae_resolve_func_type(mod_, func_type_indices, callee_abs) {
+      Some(@lib.FuncType(params, _)) => params.length()
+      None => continue
+    }
+    if param_count != 2 || call_idx < 4 {
+      continue
+    }
+    let prefix_start = call_idx - 3
+    let tail_idx = call_idx - 1
+    if !run_hot_pipeline_raw_merge_blocks_context_free_leaf(
+        current[prefix_start],
+      ) ||
+      !run_hot_pipeline_raw_merge_blocks_leaf(current[tail_idx]) {
+      continue
+    }
+    match current[prefix_start + 1] {
+      @lib.GlobalSet(_) => ()
+      _ => continue
+    }
+    let arg0_shape = match
+      dae_find_value_slice(current, prefix_start, 0, mod_, func_type_indices) {
+      Some((shape, _, _)) => shape
+      None => continue
+    }
+    let arg0 = dae_value_slice_from_call_shape(current, arg0_shape)
+    if arg0.end != prefix_start ||
+      run_hot_pipeline_raw_merge_blocks_prior_global_conflict(
+        current,
+        [arg0],
+        1,
+      ) {
+      continue
+    }
+    let insertion = arg0.start
+    if insertion < 0 || insertion >= prefix_start {
+      continue
+    }
+    let rewritten : Array[@lib.Instruction] = []
+    for idx = 0; idx < insertion; idx = idx + 1 {
+      rewritten.push(current[idx])
+    }
+    rewritten.push(current[prefix_start])
+    rewritten.push(current[prefix_start + 1])
+    for idx = insertion; idx < prefix_start; idx = idx + 1 {
+      rewritten.push(current[idx])
+    }
+    for idx = tail_idx; idx < current.length(); idx = idx + 1 {
+      rewritten.push(current[idx])
+    }
+    current = rewritten
+    changed = true
+  }
+  if !changed {
+    return None
+  }
+  Some({
+    reason: "flat-call-prefix-merge-blocks",
+    func: @lib.Func::new(locals, @lib.Expr::new(current)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_size_cleanup_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -58941,6 +59133,13 @@ fn run_hot_pipeline_func(
   match
     run_hot_pipeline_raw_optimize_instructions_skip(
       mod_, func_idx, module_state, descriptor, options,
+    ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_merge_blocks_flat_call_prefix(
+      mod_, func_idx, descriptor,
     ) {
     Some(result) => return Ok(result)
     None => ()
