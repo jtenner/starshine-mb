@@ -1286,6 +1286,418 @@ fn rume_mark_elem_funcs(
 }
 
 ///|
+fn rume_direct_call_signature(
+  analysis : RumeCallTableAnalysis,
+  func_idx : @lib.FuncIdx,
+) -> @lib.FuncType? {
+  analysis.env.get_functype_by_funcidx(func_idx)
+}
+
+///|
+fn rume_single_result_block_operand_count(
+  analysis : RumeCallTableAnalysis,
+  block_type : @lib.BlockType,
+  condition_count : Int,
+) -> Int? {
+  match block_type {
+    @lib.VoidBlockType => None
+    @lib.ValTypeBlockType(_) => Some(condition_count)
+    @lib.TypeIdxBlockType(type_idx) =>
+      match analysis.env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, results)) if results.length() == 1 =>
+          Some(params.length() + condition_count)
+        _ => None
+      }
+  }
+}
+
+///|
+fn rume_single_result_operand_count(
+  analysis : RumeCallTableAnalysis,
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.StringConst(_)
+    | @lib.LocalGet(_)
+    | @lib.GlobalGet(_)
+    | @lib.MemorySize(_)
+    | @lib.TableSize(_)
+    | @lib.StructNewDefault(_) => Some(0)
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.RefIsNull
+    | @lib.RefAsNonNull
+    | @lib.RefGetDesc(_)
+    | @lib.RefCast(_, _, _)
+    | @lib.RefTest(_, _, _)
+    | @lib.RefTestDesc(_, _)
+    | @lib.AnyConvertExtern
+    | @lib.ExternConvertAny
+    | @lib.RefI31
+    | @lib.I31GetS
+    | @lib.I31GetU
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
+    | @lib.F32Sqrt
+    | @lib.F64Abs
+    | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
+    | @lib.F64Sqrt
+    | @lib.I32WrapI64
+    | @lib.I32TruncF32S
+    | @lib.I32TruncF32U
+    | @lib.I32TruncF64S
+    | @lib.I32TruncF64U
+    | @lib.I64ExtendI32S
+    | @lib.I64ExtendI32U
+    | @lib.I64TruncF32S
+    | @lib.I64TruncF32U
+    | @lib.I64TruncF64S
+    | @lib.I64TruncF64U
+    | @lib.F32ConvertI32S
+    | @lib.F32ConvertI32U
+    | @lib.F32ConvertI64S
+    | @lib.F32ConvertI64U
+    | @lib.F32DemoteF64
+    | @lib.F64ConvertI32S
+    | @lib.F64ConvertI32U
+    | @lib.F64ConvertI64S
+    | @lib.F64ConvertI64U
+    | @lib.F64PromoteF32
+    | @lib.I32ReinterpretF32
+    | @lib.I64ReinterpretF64
+    | @lib.F32ReinterpretI32
+    | @lib.F64ReinterpretI64
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
+    | @lib.I32TruncSatF32S
+    | @lib.I32TruncSatF32U
+    | @lib.I32TruncSatF64S
+    | @lib.I32TruncSatF64U
+    | @lib.I64TruncSatF32S
+    | @lib.I64TruncSatF32U
+    | @lib.I64TruncSatF64S
+    | @lib.I64TruncSatF64U
+    | @lib.I32Load(_)
+    | @lib.I64Load(_)
+    | @lib.F32Load(_)
+    | @lib.F64Load(_)
+    | @lib.I32Load8S(_)
+    | @lib.I32Load8U(_)
+    | @lib.I32Load16S(_)
+    | @lib.I32Load16U(_)
+    | @lib.I64Load8S(_)
+    | @lib.I64Load8U(_)
+    | @lib.I64Load16S(_)
+    | @lib.I64Load16U(_)
+    | @lib.I64Load32S(_)
+    | @lib.I64Load32U(_)
+    | @lib.StructGet(_, _)
+    | @lib.StructGetS(_, _)
+    | @lib.StructGetU(_, _)
+    | @lib.ArrayLen
+    | @lib.LocalTee(_)
+    | @lib.MemoryGrow(_)
+    | @lib.TableGet(_) => Some(1)
+    @lib.I32Eq
+    | @lib.I32Ne
+    | @lib.I32LtS
+    | @lib.I32LtU
+    | @lib.I32GtS
+    | @lib.I32GtU
+    | @lib.I32LeS
+    | @lib.I32LeU
+    | @lib.I32GeS
+    | @lib.I32GeU
+    | @lib.I64Eq
+    | @lib.I64Ne
+    | @lib.I64LtS
+    | @lib.I64LtU
+    | @lib.I64GtS
+    | @lib.I64GtU
+    | @lib.I64LeS
+    | @lib.I64LeU
+    | @lib.I64GeS
+    | @lib.I64GeU
+    | @lib.F32Eq
+    | @lib.F32Ne
+    | @lib.F32Lt
+    | @lib.F32Gt
+    | @lib.F32Le
+    | @lib.F32Ge
+    | @lib.F64Eq
+    | @lib.F64Ne
+    | @lib.F64Lt
+    | @lib.F64Gt
+    | @lib.F64Le
+    | @lib.F64Ge
+    | @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I32DivS
+    | @lib.I32DivU
+    | @lib.I32RemS
+    | @lib.I32RemU
+    | @lib.I32And
+    | @lib.I32Or
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.I64DivS
+    | @lib.I64DivU
+    | @lib.I64RemS
+    | @lib.I64RemU
+    | @lib.I64And
+    | @lib.I64Or
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign
+    | @lib.RefEq
+    | @lib.ArrayGet(_)
+    | @lib.ArrayGetS(_)
+    | @lib.ArrayGetU(_)
+    | @lib.RefCastDescEq(_, _, _)
+    | @lib.TableGrow(_) => Some(2)
+    @lib.Select(_) => Some(3)
+    @lib.ArrayNew(_) => Some(2)
+    @lib.ArrayNewDefault(_) => Some(1)
+    @lib.ArrayNewFixed(_, @lib.U32(raw_len)) => {
+      let count = raw_len.reinterpret_as_int()
+      if count < 0 {
+        None
+      } else {
+        Some(count)
+      }
+    }
+    @lib.ArrayNewData(_, _) | @lib.ArrayNewElem(_, _) => Some(2)
+    @lib.Call(func_idx) =>
+      match rume_direct_call_signature(analysis, func_idx) {
+        Some(@lib.FuncType(params, results)) if results.length() == 1 =>
+          Some(params.length())
+        _ => None
+      }
+    @lib.CallIndirect(type_idx, _) | @lib.CallRef(type_idx) =>
+      match analysis.env.resolve_functype(type_idx) {
+        Some(@lib.FuncType(params, results)) if results.length() == 1 =>
+          Some(params.length() + 1)
+        _ => None
+      }
+    @lib.Block(block_type, _)
+    | @lib.Loop(block_type, _)
+    | @lib.Try(block_type, _, _, _)
+    | @lib.TryTable(block_type, _, _) =>
+      rume_single_result_block_operand_count(analysis, block_type, 0)
+    @lib.If(block_type, _, _) =>
+      rume_single_result_block_operand_count(analysis, block_type, 1)
+    _ => None
+  }
+}
+
+///|
+fn rume_single_value_expr_start(
+  analysis : RumeCallTableAnalysis,
+  instrs : Array[@lib.Instruction],
+  end_inclusive : Int,
+) -> Int {
+  let mut needed = 1
+  let mut idx = end_inclusive
+  while idx >= 0 {
+    let operands = match
+      rume_single_result_operand_count(analysis, instrs[idx]) {
+      Some(count) => count
+      None => return -1
+    }
+    needed -= 1
+    if needed < 0 {
+      return -1
+    }
+    needed += operands
+    if needed == 0 {
+      return idx
+    }
+    idx -= 1
+  }
+  -1
+}
+
+///|
+fn rume_elem_is_exact_ref_func_payload(
+  mod_ : @lib.Module,
+  elem_idx : @lib.ElemIdx,
+  expected_size : Int,
+) -> Bool {
+  if expected_size < 0 {
+    return false
+  }
+  let @lib.ElemIdx(raw_idx) = elem_idx
+  let slot = raw_idx.reinterpret_as_int()
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      match elems.get(slot) {
+        Some(@lib.Elem(_, @lib.FuncsElemKind(funcs))) =>
+          funcs.length() == expected_size
+        Some(@lib.Elem(_, @lib.FuncExprsElemKind(exprs)))
+        | Some(@lib.Elem(_, @lib.TypedExprsElemKind(_, exprs))) => {
+          if exprs.length() != expected_size {
+            return false
+          }
+          for expr in exprs {
+            if !(expr is @lib.Expr([@lib.RefFunc(_)])) {
+              return false
+            }
+          }
+          true
+        }
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn rume_configure_all_elem_operand(
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  instrs : Array[@lib.Instruction],
+  call_index : Int,
+  func_idx : @lib.FuncIdx,
+) -> @lib.ElemIdx? {
+  let param_count = match rume_direct_call_signature(analysis, func_idx) {
+    Some(@lib.FuncType(params, _)) => params.length()
+    None => return None
+  }
+  if param_count < 2 || call_index <= 0 {
+    return None
+  }
+  let mut target_end = call_index - 1
+  let mut later_operand = param_count - 1
+  while later_operand > 1 {
+    let start = rume_single_value_expr_start(analysis, instrs, target_end)
+    if start < 0 {
+      return None
+    }
+    target_end = start - 1
+    later_operand -= 1
+  }
+  if target_end < 0 {
+    return None
+  }
+  let target_start = rume_single_value_expr_start(analysis, instrs, target_end)
+  if target_start < 0 {
+    return None
+  }
+  let elem_idx = match instrs[target_end] {
+    @lib.ArrayNewElem(_, elem_idx) => elem_idx
+    _ => return None
+  }
+  let size_end = target_end - 1
+  let size_start = rume_single_value_expr_start(analysis, instrs, size_end)
+  if size_start != size_end {
+    return None
+  }
+  let size = match instrs[size_end] {
+    @lib.I32Const(@lib.I32(value)) => value
+    _ => return None
+  }
+  let offset_end = size_start - 1
+  let offset_start = rume_single_value_expr_start(analysis, instrs, offset_end)
+  if offset_start != offset_end || offset_start != target_start {
+    return None
+  }
+  match instrs[offset_end] {
+    @lib.I32Const(@lib.I32(0)) => ()
+    _ => return None
+  }
+  if rume_elem_is_exact_ref_func_payload(mod_, elem_idx, size) {
+    Some(elem_idx)
+  } else {
+    None
+  }
+}
+
+///|
+fn rume_process_direct_call(
+  func_idx : @lib.FuncIdx,
+  mod_ : @lib.Module,
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  previous : @lib.Instruction?,
+  func_locals : @lib.FunctionLocals?,
+  instrs : Array[@lib.Instruction],
+  call_index : Int,
+) -> Unit {
+  rume_mark_func(queue, used_funcs, func_idx)
+  if analysis.closed_world &&
+    rume_func_bitset_contains(analysis.call_without_effects_funcs, func_idx) {
+    match previous {
+      Some(@lib.RefFunc(target)) => rume_mark_func(queue, used_funcs, target)
+      _ =>
+        match rume_call_ref_type_from_operand(mod_, previous, func_locals) {
+          Some(call_type) =>
+            rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
+          None => rume_use_all_referenced_funcs(analysis, queue, used_funcs)
+        }
+    }
+  }
+  if rume_func_bitset_contains(analysis.configure_all_funcs, func_idx) {
+    match
+      rume_configure_all_elem_operand(
+        mod_, analysis, instrs, call_index, func_idx,
+      ) {
+      Some(elem_idx) => rume_mark_elem_funcs(mod_, elem_idx, queue, used_funcs)
+      None => ()
+    }
+  }
+}
+
+///|
 fn rume_scan_expr(
   expr : @lib.Expr,
   mod_ : @lib.Module,
@@ -1305,36 +1717,15 @@ fn rume_scan_expr(
 ) -> Unit {
   let @lib.Expr(instrs) = expr
   let mut previous : @lib.Instruction? = None
-  let mut recent_elem_operands : Array[@lib.ElemIdx] = []
+  let mut instr_index = 0
   for instr in instrs {
-    match instr {
-      @lib.ArrayNewElem(_, elem_idx) => recent_elem_operands.push(elem_idx)
-      _ => ()
-    }
     rume_scan_instruction(
-      instr,
-      mod_,
-      analysis,
-      table_imports,
-      queue,
-      used_funcs,
-      used_globals,
-      used_tables,
-      used_mems,
-      used_tags,
-      used_elems,
-      used_datas,
-      decl_only_elems,
-      func_to_declaring_elems,
-      previous~,
-      func_locals~,
-      recent_elem_operands~,
+      instr, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
+      used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+      previous, func_locals, instrs, instr_index,
     )
     previous = Some(instr)
-    match instr {
-      @lib.Call(_) | @lib.ReturnCall(_) | @lib.Drop => recent_elem_operands = []
-      _ => ()
-    }
+    instr_index += 1
   }
 }
 
@@ -1354,9 +1745,10 @@ fn rume_scan_instruction(
   used_datas : @bitset.BitSet,
   decl_only_elems : @bitset.BitSet,
   func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
-  previous? : @lib.Instruction? = None,
-  func_locals? : @lib.FunctionLocals? = None,
-  recent_elem_operands? : Array[@lib.ElemIdx] = [],
+  previous : @lib.Instruction?,
+  func_locals : @lib.FunctionLocals?,
+  direct_call_instrs : Array[@lib.Instruction],
+  direct_call_index : Int,
 ) -> Unit {
   match instr {
     @lib.Block(_, body) | @lib.Loop(_, body) =>
@@ -1417,28 +1809,11 @@ fn rume_scan_instruction(
         None => ()
       }
     }
-    @lib.Call(func_idx) => {
-      rume_mark_func(queue, used_funcs, func_idx)
-      if analysis.closed_world &&
-        rume_func_bitset_contains(analysis.call_without_effects_funcs, func_idx) {
-        match previous {
-          Some(@lib.RefFunc(target)) =>
-            rume_mark_func(queue, used_funcs, target)
-          _ =>
-            match rume_call_ref_type_from_operand(mod_, previous, func_locals) {
-              Some(call_type) =>
-                rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
-              None => rume_use_all_referenced_funcs(analysis, queue, used_funcs)
-            }
-        }
-      }
-      if rume_func_bitset_contains(analysis.configure_all_funcs, func_idx) {
-        for elem_idx in recent_elem_operands {
-          rume_mark_elem_funcs(mod_, elem_idx, queue, used_funcs)
-        }
-      }
-    }
-    @lib.ReturnCall(func_idx) => rume_mark_func(queue, used_funcs, func_idx)
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
+      rume_process_direct_call(
+        func_idx, mod_, analysis, queue, used_funcs, previous, func_locals, direct_call_instrs,
+        direct_call_index,
+      )
     @lib.RefFunc(func_idx) =>
       rume_mark_ref_func(
         analysis, queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
@@ -1576,7 +1951,19 @@ fn rume_scan_instruction(
     @lib.ArrayNewData(_, data_idx) | @lib.ArrayInitData(_, data_idx) =>
       rume_mark_data(queue, used_datas, data_idx)
     @lib.ArrayNewElem(_, elem_idx) | @lib.ArrayInitElem(_, elem_idx) =>
-      rume_mark_elem(queue, used_elems, elem_idx)
+      if analysis.closed_world {
+        rume_reference_elem_payload(
+          mod_,
+          used_funcs,
+          analysis.referenced_funcs,
+          used_elems,
+          queue,
+          used_globals,
+          elem_idx,
+        )
+      } else {
+        rume_mark_elem(queue, used_elems, elem_idx)
+      }
     @lib.I32Load(memarg)
     | @lib.I64Load(memarg)
     | @lib.F32Load(memarg)

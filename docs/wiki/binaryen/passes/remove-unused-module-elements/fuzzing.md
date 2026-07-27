@@ -21,26 +21,45 @@ Use a freshly built native CLI and an explicit official Binaryen v131 oracle. On
 
 ## Dedicated aggregate
 
-RUME now has a dedicated `rume-all` / `remove-unused-module-elements` GenValid aggregate with three deterministic families:
+RUME's `rume-all` / `remove-unused-module-elements` aggregate now has seven deterministic families:
 
 | Leaf profile | Weight | Case label | Main obligation |
 | --- | ---: | --- | --- |
-| `rume-dead-graph` | 4 | `rume:dead-module-graph` | whole-module dead graph removal and surviving-index repair |
-| `rume-table-trap` | 3 | `rume:indirect-call-trap-retention` | table default, overlap, wrong-type/null writes, and indirect-call trap preservation |
-| `rume-legacy-eh` | 3 | `rume:legacy-eh-remap` | decoded legacy `try` body/catch reachability and remapping |
+| `rume-dead-graph` | 3 | `rume:dead-module-graph` | whole-module dead graph removal and surviving-index repair |
+| `rume-table-trap` | 2 | `rume:indirect-call-trap-retention` | table default, overlap, wrong-type/null writes, and indirect-call trap preservation |
+| `rume-legacy-eh` | 2 | `rume:legacy-eh-remap` | decoded legacy `try` body/catch reachability and remapping |
+| `rume-special-imports` | 3 | `rume:special-import-liveness` | ordinary/tail `call.without.effects` and ordinary/tail `configureAll` callable upgrades |
+| `rume-callable-references` | 2 | `rume:callable-reference-liveness` | `call_ref`, table initializer, declarative references, and `binaryen.js.called` annotations |
+| `rume-continuations-descriptors` | 2 | `rume:continuation-descriptor-liveness` | `cont.new` callable type edges plus descriptor-bearing recursive types and trapping initializers |
+| `rume-index-remap-stress` | 3 | `rume:index-remap-stress` | sparse surviving functions/globals and high-to-low index repair |
 
-The profile is intentionally separate from `random-all-profiles`; adding it to that aggregate would perturb the established random profile-selection corpus rather than merely add RUME coverage.
+Focused generator tests validate every leaf's feature floor. A pass-level generated test additionally runs the four new high-risk leaves through closed-world RUME and rejects any result in which a callable body becomes exactly `unreachable`.
 
-## 2026-07-27 explicit-v131 matrix
+The aggregate remains separate from `random-all-profiles`; widening that established selector would perturb unrelated corpus selection.
 
-| Lane | Command shape | Out-dir | Result |
-| --- | --- | --- | --- |
-| Dedicated RUME GenValid | `--count 10000 --seed 0x5eed --gen-valid-profile rume-all` | `.tmp/pass-fuzz-rume-audit-genvalid-rume-all-10000-final` | `10000/10000` normalized matches; zero validation, property, generator, or command failures |
-| Regular GenValid | `--count 100000 --seed 0x5eed` | `.tmp/pass-fuzz-rume-audit-genvalid-100000-final` | `100000/100000` normalized matches; zero failures |
-| Random all-profiles | `--count 10000 --seed 0x5555 --gen-valid-profile random-all-profiles` | `.tmp/pass-fuzz-rume-audit-random-all-10000-final` | `9375` normalized matches and `625` inspected representation differences; zero validation/property/command failures |
-| Explicit wasm-smith | `--wasm-smith --count 10000 --seed 0x5eed` | `.tmp/pass-fuzz-rume-audit-wasm-smith-10000-final` | `9956` comparable, `9955` normalized matches, one known Starshine win, and `44` Binaryen/tool failures |
+## Renewed 2026-07-27 explicit-v131 matrix
 
-All commands used `--pass remove-unused-module-elements --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt`.
+Current-master native SHA-256: `f4ea93419d8bb8c98d3e09c28a823b30a119ee436ee775c65d95b0386018545b`.
+
+| Lane | Command shape | Out-dir | Result | Cache |
+| --- | --- | --- | --- | --- |
+| Dedicated RUME GenValid | `--count 10000 --seed 0x5eed --gen-valid-profile rume-all` | `.tmp/pass-fuzz-rume-rume-all-current-master` | `10000/10000` normalized; zero failures or mismatches | Binaryen `10000` hits / `0` misses |
+| Regular GenValid | `--count 100000 --seed 0x5eed` | `.tmp/pass-fuzz-rume-regular-current-master` | `100000/100000` normalized; zero failures or mismatches | Binaryen `100000` hits / `0` misses |
+| Random all-profiles | `--count 10000 --seed 0x5555 --gen-valid-profile random-all-profiles` | `.tmp/pass-fuzz-rume-random-all-current-master` | `9375` normalized plus `625` classified one-byte non-RUME residuals; zero validation/property/command failures | Binaryen `10000` hits / `0` misses |
+| Explicit wasm-smith | `--wasm-smith --count 10000 --seed 0x5eed` | `.tmp/pass-fuzz-rume-wasm-smith-current-master` | `9956` comparable, `9955` normalized, one known Starshine win, `44` Binaryen/tool failures, zero Starshine failures | wasm-smith `10000/0`; Binaryen `9956` hits / `0` misses; failure cache `44` hits / `0` misses |
+
+All commands used `--pass remove-unused-module-elements --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin .tmp/binaryen-version-131-bin/bin/wasm-opt --max-failures 2000 --keep-going-after-command-failures`.
+
+The expanded aggregate selected every leaf: `rume-special-imports` `1784`, `rume-index-remap-stress` `1744`, `rume-dead-graph` `1764`, `rume-legacy-eh` `1203`, `rume-table-trap` `1190`, `rume-callable-references` `1183`, and `rume-continuations-descriptors` `1132`.
+
+Each new high-risk singleton also ran independently for `10000/10000` exact normalized matches with zero failures or mismatches:
+
+- `.tmp/pass-fuzz-rume-rume-special-imports-current-master`
+- `.tmp/pass-fuzz-rume-rume-callable-references-current-master`
+- `.tmp/pass-fuzz-rume-rume-continuations-descriptors-current-master`
+- `.tmp/pass-fuzz-rume-rume-index-remap-stress-current-master`
+
+Each singleton used `10000` Binaryen cache hits and `0` misses.
 
 ## Random-all classification
 
@@ -66,12 +85,20 @@ This remains an intentional correctness-and-size win. The `44` other cases are B
 
 ## Focused and repository validation
 
-- `src/passes/remove_unused_module_elements_test.mbt`: `43/43`
-- `src/validate/gen_valid_rume_tests.mbt`: `2/2`
-- full post-remote-merge `moon test`: `10002/10002`
+- Red confirmation in a detached pre-fix worktree: `44/52` passed, with eight expected failures in the new tail/special-import/configureAll regressions.
+- Repaired focused RUME: `52/52`.
+- Dedicated generator tests: `3/3`.
+- Current-master native full `moon test`: `10012/10012`.
+- Retained-versus-fresh DAE boundary tests: `3/3`; topology-change guard: `1/1`.
+- Current-master native and wasm-gc release CLI builds plus external wasm validation: green.
+- Stable two-step no-pass release-artifact roundtrip: byte-identical and externally valid.
+- Current-master deterministic wasm-gc binary-roundtrip smoke: `2944` attempts, green.
+- Bounded DAE comparison against Binaryen v131: `10000/10000` normalized with zero validation, property, generator, command, or mismatch failures.
+- README/API sync: green.
+- CI-profile fuzz suites at deterministic seed `0x5eed`: all individual suites green, including `5000` valid modules, `2650` invalid AST cases, `400` invalid binaries, `400` static invalid texts, `384` dynamic invalid texts, `390` invalid spec seeds, `86820` deterministic binary roundtrips, and `4096` command-harness cases.
 
-The focused suite covers ordinary and non-function mode, imports/definitions, all module-element kinds, active/passive/declarative segments, declaration-only `ref.func`, table defaults/overlaps/traps/TNH, legacy EH, `call_ref`, `binaryen.js.called`, exact and typed `call.without.effects`, `configureAll` element operands, continuations and handler tags, descriptor-trapping initializers, recursive types, and index rewrites.
+The aggregate `bun validate full --profile ci --target wasm-gc` wrapper reproduced the repository's known child-process no-return-code failure at its initial `moon info`. The aggregate wasm-gc `all` fuzz command likewise aborted without preserving its diagnostic after accumulated suites; running every suite serially, both with a fresh default seed and with CI seed `0x5eed`, passed. These wrapper failures are tooling/process aggregation failures, not RUME validation failures.
 
 ## Practical rule
 
-Use the dedicated aggregate for RUME-owned closeout. Use random-all and wasm-smith as broad compatibility lanes, but classify their residuals by the owning transform instead of treating every canonical-byte difference as a RUME semantic mismatch.
+Use the expanded dedicated aggregate for RUME-owned closeout and report selected-leaf counts. In addition to canonical comparison, keep the pass-level callable-body invariant test green so liveness-strength regressions cannot hide behind valid bytes. Use random-all and wasm-smith as broad compatibility lanes, but classify residuals by the owning transform instead of treating every canonical-byte difference as a RUME semantic mismatch.

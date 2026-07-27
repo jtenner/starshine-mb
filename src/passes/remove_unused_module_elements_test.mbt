@@ -2596,6 +2596,135 @@ test "remove-unused-module-elements closed world call.without.effects calls only
 }
 
 ///|
+test "remove-unused-module-elements closed world tail call.without.effects calls its exact ref.func operand" {
+  let input =
+    #|(module
+    #|  (type $callee (func))
+    #|  (type $accept-ref (func (param funcref)))
+    #|  (import "binaryen-intrinsics" "call.without.effects"
+    #|    (func $special (type $accept-ref)))
+    #|  (func $keep (type $callee) (nop))
+    #|  (func $drop (type $callee) (nop))
+    #|  (elem declare func $keep $drop)
+    #|  (func (export "root")
+    #|    (drop (ref.func $drop))
+    #|    (return_call $special (ref.func $keep))))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected tail call.without.effects RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, keep_body), @lib.Func(_, drop_body), _])) => {
+      @debug.assert_eq(keep_body, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(
+        drop_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    _ =>
+      fail(
+        "expected exact tail intrinsic target, reference-only target, and root",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements closed world tail call.without.effects uses typed local operand" {
+  let input =
+    #|(module
+    #|  (type $a (func))
+    #|  (type $b (func (param i32)))
+    #|  (type $accept-ref (func (param funcref)))
+    #|  (import "binaryen-intrinsics" "call.without.effects"
+    #|    (func $special (type $accept-ref)))
+    #|  (func $keep-a (type $a) (nop))
+    #|  (func $keep-a-2 (type $a) (nop))
+    #|  (func $drop-b (type $b) (nop))
+    #|  (elem declare func $keep-a $keep-a-2 $drop-b)
+    #|  (func (export "root") (param (ref null $a))
+    #|    (drop (ref.func $keep-a))
+    #|    (drop (ref.func $keep-a-2))
+    #|    (drop (ref.func $drop-b))
+    #|    (return_call $special (local.get 0))))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected typed-local tail intrinsic RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, first_a), @lib.Func(_, second_a), @lib.Func(_, b_body), _]
+      )
+    ) => {
+      @debug.assert_eq(first_a, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(second_a, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(
+        b_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    _ =>
+      fail(
+        "expected typed-local callable A targets, reference-only B target, and root",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements closed world tail call.without.effects uses typed global operand" {
+  let input =
+    #|(module
+    #|  (type $a (func))
+    #|  (type $b (func (param i32)))
+    #|  (type $accept-ref (func (param funcref)))
+    #|  (import "binaryen-intrinsics" "call.without.effects"
+    #|    (func $special (type $accept-ref)))
+    #|  (func $keep-a (type $a) (nop))
+    #|  (func $drop-b (type $b) (nop))
+    #|  (elem declare func $keep-a $drop-b)
+    #|  (global $target (ref null $a) (ref.null $a))
+    #|  (func (export "root")
+    #|    (drop (ref.func $keep-a))
+    #|    (drop (ref.func $drop-b))
+    #|    (return_call $special (global.get $target))))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected typed-global tail intrinsic RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, a_body), @lib.Func(_, b_body), _])) => {
+      @debug.assert_eq(a_body, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(
+        b_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    _ =>
+      fail(
+        "expected typed-global callable A target, reference-only B target, and root",
+      )
+  }
+}
+
+///|
 test "remove-unused-module-elements closed world call.without.effects limits unknown refs by operand type" {
   let input =
     #|(module
@@ -2641,7 +2770,7 @@ test "remove-unused-module-elements closed world call.without.effects limits unk
 }
 
 ///|
-test "remove-unused-module-elements configureAll keeps only functions from its elem operand" {
+test "remove-unused-module-elements configureAll rejects underspecified intrinsic shape" {
   let input = match
     @binary.decode_module(
       Bytes::from_array([
@@ -2666,8 +2795,368 @@ test "remove-unused-module-elements configureAll keeps only functions from its e
     Err(err) => fail("expected configureAll RUME success, got \{err}")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
-    None => fail("expected start and configured function")
+    Some(@lib.CodeSec([_, @lib.Func(_, target_body)])) =>
+      @debug.assert_eq(
+        target_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    _ =>
+      fail(
+        "expected start plus reference-only target for rejected configureAll shape",
+      )
+  }
+}
+
+///|
+fn rume_test_configure_all_module(
+  tail : Bool,
+  target_offset : Int,
+  target_size : Int,
+  include_unrelated : Bool,
+  later_call : Bool,
+  multiple_array_operands? : Bool = false,
+) -> @lib.Module {
+  let void_type_idx = @lib.TypeIdx::new(0U)
+  let array_type_idx = @lib.TypeIdx::new(1U)
+  let configure_type_idx = @lib.TypeIdx::new(2U)
+  let i32_type_idx = @lib.TypeIdx::new(3U)
+  let array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(array_type_idx)),
+  )
+  let types = @lib.TypeSec::new([
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::array(
+          @lib.FieldType::new(
+            @lib.StorageType::val_type(@lib.ValType::funcref()),
+            @lib.Mut::var_(),
+          ),
+        ),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func(
+          if multiple_array_operands {
+            [array_ref, array_ref, array_ref, array_ref]
+          } else {
+            [
+              @lib.ValType::externref(),
+              array_ref,
+              @lib.ValType::i32(),
+              @lib.ValType::i32(),
+            ]
+          },
+          [],
+        ),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+    ),
+  ])
+  let imports = if later_call {
+    [
+      @lib.Import::new(
+        @lib.Name::from_string("wasm:js-prototypes"),
+        @lib.Name::from_string("configureAll"),
+        @lib.ExternType::func(configure_type_idx),
+      ),
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("later"),
+        @lib.ExternType::func(i32_type_idx),
+      ),
+    ]
+  } else {
+    [
+      @lib.Import::new(
+        @lib.Name::from_string("wasm:js-prototypes"),
+        @lib.Name::from_string("configureAll"),
+        @lib.ExternType::func(configure_type_idx),
+      ),
+    ]
+  }
+  let import_count = imports.length()
+  let unrelated_func = @lib.FuncIdx::new(import_count.reinterpret_as_uint())
+  let configured_func = @lib.FuncIdx::new(
+    (import_count + 1).reinterpret_as_uint(),
+  )
+  let root_func = @lib.FuncIdx::new((import_count + 2).reinterpret_as_uint())
+  let body : Array[@lib.Instruction] = []
+  if include_unrelated {
+    body.push(@lib.Instruction::i32_const(@lib.I32::new(0)))
+    body.push(@lib.Instruction::i32_const(@lib.I32::new(1)))
+    body.push(
+      @lib.Instruction::array_new_elem(array_type_idx, @lib.ElemIdx::new(0U)),
+    )
+  }
+  if multiple_array_operands {
+    body.push(@lib.Instruction::i32_const(@lib.I32::new(0)))
+    body.push(@lib.Instruction::i32_const(@lib.I32::new(1)))
+    body.push(
+      @lib.Instruction::array_new_elem(array_type_idx, @lib.ElemIdx::new(0U)),
+    )
+  } else {
+    body.push(
+      @lib.Instruction::ref_null(
+        @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+      ),
+    )
+  }
+  body.push(@lib.Instruction::i32_const(@lib.I32::new(target_offset)))
+  body.push(@lib.Instruction::i32_const(@lib.I32::new(target_size)))
+  body.push(
+    @lib.Instruction::array_new_elem(array_type_idx, @lib.ElemIdx::new(1U)),
+  )
+  if multiple_array_operands {
+    for _ in 0..<2 {
+      body.push(@lib.Instruction::i32_const(@lib.I32::new(0)))
+      body.push(@lib.Instruction::i32_const(@lib.I32::new(1)))
+      body.push(
+        @lib.Instruction::array_new_elem(array_type_idx, @lib.ElemIdx::new(0U)),
+      )
+    }
+  } else {
+    if later_call {
+      body.push(@lib.Instruction::call(@lib.FuncIdx::new(1U)))
+    } else {
+      body.push(@lib.Instruction::i32_const(@lib.I32::new(7)))
+    }
+    body.push(@lib.Instruction::i32_const(@lib.I32::new(9)))
+  }
+  if tail {
+    body.push(@lib.Instruction::return_call(@lib.FuncIdx::new(0U)))
+  } else {
+    body.push(@lib.Instruction::call(@lib.FuncIdx::new(0U)))
+    if include_unrelated {
+      body.push(@lib.Instruction::drop())
+    }
+  }
+  @lib.Module::new()
+  .with_type_sec(types)
+  .with_import_sec(@lib.ImportSec::new(imports))
+  .with_func_sec(
+    @lib.FuncSec::new([void_type_idx, void_type_idx, void_type_idx]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::passive(),
+        @lib.ElemKind::funcs([unrelated_func]),
+      ),
+      @lib.Elem::new(
+        @lib.ElemMode::passive(),
+        @lib.ElemKind::funcs([configured_func]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("root"),
+        @lib.ExternIdx::func(root_func),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+      @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
+test "remove-unused-module-elements tail configureAll keeps exact operand segment" {
+  let optimized = rume_run_module_pass(
+    rume_test_configure_all_module(true, 0, 1, true, false),
+    closed_world=true,
+  )
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, unrelated_body), @lib.Func(_, configured_body), _]
+      )
+    ) => {
+      @debug.assert_eq(
+        unrelated_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+      @debug.assert_eq(
+        configured_body,
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      )
+    }
+    _ =>
+      fail(
+        "expected reference-only unrelated target, configured target, and tail-calling root",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements configureAll ignores unrelated earlier array.new_elem" {
+  let optimized = rume_run_module_pass(
+    rume_test_configure_all_module(false, 0, 1, true, false),
+    closed_world=true,
+  )
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, unrelated_body), @lib.Func(_, configured_body), _]
+      )
+    ) => {
+      @debug.assert_eq(
+        unrelated_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+      @debug.assert_eq(
+        configured_body,
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      )
+    }
+    _ => fail("expected only configureAll operand one to become callable")
+  }
+}
+
+///|
+test "remove-unused-module-elements configureAll survives a nested call after operand one" {
+  let optimized = rume_run_module_pass(
+    rume_test_configure_all_module(false, 0, 1, false, true),
+    closed_world=true,
+  )
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, configured_body), _])) =>
+      @debug.assert_eq(
+        configured_body,
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      )
+    _ =>
+      fail(
+        "expected configured target to stay callable across later call operand",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements configureAll selects operand one among multiple arrays" {
+  let optimized = rume_run_module_pass(
+    rume_test_configure_all_module(
+      false,
+      0,
+      1,
+      false,
+      false,
+      multiple_array_operands=true,
+    ),
+    closed_world=true,
+  )
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, unrelated_body), @lib.Func(_, configured_body), _]
+      )
+    ) => {
+      @debug.assert_eq(
+        unrelated_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+      @debug.assert_eq(
+        configured_body,
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      )
+    }
+    _ =>
+      fail(
+        "expected only the second configureAll array operand to become callable",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements configureAll rejects incorrect offset and size" {
+  let bad_offset = rume_run_module_pass(
+    rume_test_configure_all_module(false, 1, 1, false, false),
+    closed_world=true,
+  )
+  let bad_size = rume_run_module_pass(
+    rume_test_configure_all_module(false, 0, 2, false, false),
+    closed_world=true,
+  )
+  match bad_offset.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, target_body), _])) =>
+      @debug.assert_eq(
+        target_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    _ =>
+      fail(
+        "expected reference-only target after rejecting nonzero configureAll offset",
+      )
+  }
+  match bad_size.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, target_body), _])) =>
+      @debug.assert_eq(
+        target_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    _ =>
+      fail(
+        "expected reference-only target after rejecting mismatched configureAll size",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements high-risk RUME profiles keep callable bodies executable" {
+  let profile_names = [
+    "rume-special-imports", "rume-callable-references", "rume-continuations-descriptors",
+    "rume-index-remap-stress",
+  ]
+  for i = 0; i < profile_names.length(); i = i + 1 {
+    let profile = match @validate.gen_valid_profile_by_name(profile_names[i]) {
+      Ok(value) => value
+      Err(err) => fail(err)
+    }
+    let generated = match
+      @validate.gen_valid_module_result_from_seed(
+        0x52554D4548494748UL + i.to_uint64(),
+        @validate.GenValidConfig::for_profile(profile),
+      ) {
+      Ok(value) => value.wasm_module
+      Err(failure) =>
+        fail("profile \{profile_names[i]}: \{failure.validation_error_message}")
+    }
+    let optimized = rume_run_module_pass(generated, closed_world=true)
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "invalid optimized \{profile_names[i]}: \{@validate.validation_error_message(err)}",
+        )
+    }
+    match optimized.code_sec {
+      Some(@lib.CodeSec(funcs)) => {
+        assert_true(funcs.length() >= 2)
+        for func in funcs {
+          let @lib.Func(_, body) = func
+          assert_true(
+            body != @lib.Expr::new([@lib.Instruction::unreachable_()]),
+            msg="callable body became unreachable for \{profile_names[i]}",
+          )
+        }
+      }
+      None => fail("expected callable functions for high-risk RUME profile")
+    }
   }
 }
 

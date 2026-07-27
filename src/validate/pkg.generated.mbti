@@ -1390,6 +1390,10 @@ pub enum GenValidProfile {
   RumeDeadGraphProfile
   RumeTableTrapProfile
   RumeLegacyEhProfile
+  RumeSpecialImportsProfile
+  RumeCallableReferencesProfile
+  RumeContinuationsDescriptorsProfile
+  RumeIndexRemapStressProfile
   RumeAllProfile
 } derive(Eq, @debug.Debug)
 

@@ -205,7 +205,7 @@ Keep `version_129` as historical provenance for the original graph algorithm, bu
 
 ## Most important implementation takeaway
 
-Starshine now mirrors those families with `43` focused pass tests and a dedicated weighted `rume-all` GenValid aggregate (`dead-graph`, `table-trap`, and `legacy-eh`).
+Starshine now has 52 passing focused cases, including nine tail-call/configureAll/generated-liveness regressions. The dedicated weighted `rume-all` aggregate expands from three to seven leaves: `dead-graph`, `table-trap`, `legacy-eh`, `special-imports`, `callable-references`, `continuations-descriptors`, and `index-remap-stress`. The renewed aggregate is `10000/10000` exact, all four new singleton profiles are independently `10000/10000` exact, and the full required matrix is classified and closed in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 The upstream implementation is not hard to understand because it is huge.
 It is hard to understand because several different edge sources all feed the same graph:

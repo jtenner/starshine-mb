@@ -51,7 +51,7 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 ### [V131-LEGACY-EH]001 - Renew evidence after legacy-`try` correctness repairs
 
-- **Status:** four release-scale direct matrices remain open; RUME closed on 2026-07-27.
+- **Status:** four release-scale direct matrices remain open; RUME's special-import/configureAll repair was renewed and reclosed on 2026-07-27.
 - **Goal:** replace pre-repair closeout evidence for every pass whose correctness-sensitive analysis or rewrite changed on 2026-07-21.
 - **Why:** decoded legacy `Try` bodies and catches previously could be omitted from reachability, index rewriting, traffic analysis, or mutation guards. Passing pre-repair matrices cannot close the repaired behavior.
 - **Deliverables:**
@@ -63,7 +63,7 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
   - [ ] Add or refresh a pass-owned aggregate GenValid profile before a matrix when the current profile does not exercise protected-body, typed-catch, catch-all, and delegate-bearing cases.
   - [ ] Update each pass dossier with exact counts, Binaryen/tool failures, Starshine failures, mismatch classifications, cache statistics, timing, and reopening criteria.
 - **Invariants:** preserve protected-body and catch ordering, tags, catch-all form, delegate target, block type, stack typing, and exceptional control flow; never mutate from partial legacy-EH facts.
-- **Dependencies:** none. `once-reduction`, `memory-packing`, and `remove-unused-module-elements` already renewed after the same audit and are not part of the remaining work.
+- **Dependencies:** none. `once-reduction`, `memory-packing`, and the repaired `remove-unused-module-elements` already have current evidence and are not part of the remaining work.
 - **Exit criteria:** all four remaining matrices have zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
 
 ### [COALESCE-LOCALS]001 - Resolve direct and suffix shape gaps

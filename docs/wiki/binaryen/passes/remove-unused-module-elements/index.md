@@ -28,7 +28,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct Binaryen v131 behavior parity is **closed after the 2026-07-27 renewal**. Starshine tracks indirect-call and `call_ref` type reachability, callable table initializers, overlapping/null/wrong-type trap-preserving writes, closed-world reference-only body nullification, legacy and typed EH, continuation tag/type carriers, descriptor-trapping initializers, and recursive-group validity. The pass now has a dedicated three-family GenValid aggregate, and the missing second early optimize/shrink slot is scheduled after `global-struct-inference`. Exact commands, residual classifications, performance, and reopening criteria are recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
+Direct Binaryen v131 behavior parity is **closed after renewed correctness verification on 2026-07-27**. Review found that tail direct calls bypassed special-import liveness and that configureAll used a non-stack-exact expression accumulator. The repair unifies ordinary/tail direct calls, validates configureAll operand one exactly, removes the accumulator allocation, and expands `rume-all` from three to seven families. Red-first focused evidence, native/wasm-gc tests and builds, deterministic CI fuzz suites, the explicit-v131 four-lane matrix, four independent high-risk singleton lanes, and fresh performance evidence are green or fully classified. The second early optimize/shrink slot remains scheduled after `global-struct-inference`. Exact evidence is recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 ## Role
 

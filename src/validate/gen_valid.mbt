@@ -899,6 +899,10 @@ pub enum GenValidProfile {
   RumeDeadGraphProfile
   RumeTableTrapProfile
   RumeLegacyEhProfile
+  RumeSpecialImportsProfile
+  RumeCallableReferencesProfile
+  RumeContinuationsDescriptorsProfile
+  RumeIndexRemapStressProfile
   RumeAllProfile
 } derive(Eq, Debug)
 
@@ -1075,6 +1079,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     RumeDeadGraphProfile => "rume-dead-graph"
     RumeTableTrapProfile => "rume-table-trap"
     RumeLegacyEhProfile => "rume-legacy-eh"
+    RumeSpecialImportsProfile => "rume-special-imports"
+    RumeCallableReferencesProfile => "rume-callable-references"
+    RumeContinuationsDescriptorsProfile => "rume-continuations-descriptors"
+    RumeIndexRemapStressProfile => "rume-index-remap-stress"
     RumeAllProfile => "rume-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
@@ -1384,9 +1392,13 @@ pub fn gen_valid_profile_members(
       ]
     RumeAllProfile =>
       [
-        GenValidProfileMember::new(RumeDeadGraphProfile, 4),
-        GenValidProfileMember::new(RumeTableTrapProfile, 3),
-        GenValidProfileMember::new(RumeLegacyEhProfile, 3),
+        GenValidProfileMember::new(RumeDeadGraphProfile, 3),
+        GenValidProfileMember::new(RumeTableTrapProfile, 2),
+        GenValidProfileMember::new(RumeLegacyEhProfile, 2),
+        GenValidProfileMember::new(RumeSpecialImportsProfile, 3),
+        GenValidProfileMember::new(RumeCallableReferencesProfile, 2),
+        GenValidProfileMember::new(RumeContinuationsDescriptorsProfile, 2),
+        GenValidProfileMember::new(RumeIndexRemapStressProfile, 3),
       ]
     CodeFoldingAllProfile =>
       [
@@ -1826,6 +1838,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     RumeDeadGraphProfile,
     RumeTableTrapProfile,
     RumeLegacyEhProfile,
+    RumeSpecialImportsProfile,
+    RumeCallableReferencesProfile,
+    RumeContinuationsDescriptorsProfile,
+    RumeIndexRemapStressProfile,
     RumeAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
@@ -4549,8 +4565,13 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_merge_blocks_profile_config(profile)
     MergeBlocksAllProfile =>
       gen_valid_merge_blocks_profile_config(MergeBlocksStructuralProfile)
-    RumeDeadGraphProfile | RumeTableTrapProfile | RumeLegacyEhProfile =>
-      gen_valid_rume_profile_config(profile)
+    RumeDeadGraphProfile
+    | RumeTableTrapProfile
+    | RumeLegacyEhProfile
+    | RumeSpecialImportsProfile
+    | RumeCallableReferencesProfile
+    | RumeContinuationsDescriptorsProfile
+    | RumeIndexRemapStressProfile => gen_valid_rume_profile_config(profile)
     RumeAllProfile => gen_valid_rume_profile_config(RumeDeadGraphProfile)
     CodeFoldingIfArmsProfile
     | CodeFoldingBlockExitsProfile
@@ -6315,12 +6336,28 @@ fn gen_valid_rume_profile_config(profile : GenValidProfile) -> GenValidConfig {
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   GenValidConfig::{
     ..base,
-    max_type_defs: 3,
-    max_imports: 0,
-    max_defined_funcs: 3,
+    max_type_defs: if profile == RumeContinuationsDescriptorsProfile {
+      4
+    } else {
+      3
+    },
+    max_imports: if profile == RumeSpecialImportsProfile {
+      1
+    } else {
+      0
+    },
+    max_defined_funcs: if profile == RumeIndexRemapStressProfile {
+      6
+    } else {
+      3
+    },
     max_tables: 1,
     max_mems: 1,
-    max_globals: 1,
+    max_globals: if profile == RumeIndexRemapStressProfile {
+      2
+    } else {
+      1
+    },
     max_tags: 2,
     max_elems: 1,
     max_datas: 1,
@@ -6331,12 +6368,16 @@ fn gen_valid_rume_profile_config(profile : GenValidProfile) -> GenValidConfig {
       RumeDeadGraphProfile => 78
       RumeTableTrapProfile => 79
       RumeLegacyEhProfile => 80
+      RumeSpecialImportsProfile => 81
+      RumeCallableReferencesProfile => 82
+      RumeContinuationsDescriptorsProfile => 83
+      RumeIndexRemapStressProfile => 84
       _ => 78
     },
     max_body_depth: 3,
     features: GenValidFeatureToggles::{
       ..base.features,
-      allow_imports: false,
+      allow_imports: profile == RumeSpecialImportsProfile,
       allow_tables: true,
       allow_mems: true,
       allow_globals: true,
@@ -6346,14 +6387,14 @@ fn gen_valid_rume_profile_config(profile : GenValidProfile) -> GenValidConfig {
       allow_ref_types: true,
       allow_calls: true,
       allow_call_indirect: true,
-      allow_tail_calls: false,
+      allow_tail_calls: profile == RumeSpecialImportsProfile,
       allow_branch_heavy_control: true,
       allow_v128: false,
       allow_relaxed_simd: false,
       allow_atomics: false,
       allow_shared_memories: false,
       allow_memory64: false,
-      allow_subtyping_topology: false,
+      allow_subtyping_topology: profile == RumeContinuationsDescriptorsProfile,
       allow_name_custom_sections: false,
       allow_typed_body_generator: false,
       allow_ssa_nomerge_body_generator: false,
@@ -6367,7 +6408,11 @@ fn gen_valid_rume_profile_config(profile : GenValidProfile) -> GenValidConfig {
 fn gen_valid_is_rume_profile_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(RumeDeadGraphProfile) ||
   config == GenValidConfig::for_profile(RumeTableTrapProfile) ||
-  config == GenValidConfig::for_profile(RumeLegacyEhProfile)
+  config == GenValidConfig::for_profile(RumeLegacyEhProfile) ||
+  config == GenValidConfig::for_profile(RumeSpecialImportsProfile) ||
+  config == GenValidConfig::for_profile(RumeCallableReferencesProfile) ||
+  config == GenValidConfig::for_profile(RumeContinuationsDescriptorsProfile) ||
+  config == GenValidConfig::for_profile(RumeIndexRemapStressProfile)
 }
 
 ///|
@@ -6379,6 +6424,11 @@ pub fn gen_valid_rume_profile_case_label(
     RumeDeadGraphProfile => Some("rume:dead-module-graph")
     RumeTableTrapProfile => Some("rume:indirect-call-trap-retention")
     RumeLegacyEhProfile => Some("rume:legacy-eh-remap")
+    RumeSpecialImportsProfile => Some("rume:special-import-liveness")
+    RumeCallableReferencesProfile => Some("rume:callable-reference-liveness")
+    RumeContinuationsDescriptorsProfile =>
+      Some("rume:continuation-descriptor-liveness")
+    RumeIndexRemapStressProfile => Some("rume:index-remap-stress")
     _ => None
   }
 }
@@ -6533,11 +6583,312 @@ fn gen_valid_rume_legacy_eh_module() -> Module {
 }
 
 ///|
+fn gen_valid_rume_call_without_effects_module(tail : Bool) -> Module {
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      gen_valid_rume_void_type(),
+      RecType::new(SubType::comp_type(CompType::func([ValType::funcref()], []))),
+    ]),
+  )
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("binaryen-intrinsics"),
+        Name::from_string("call.without.effects"),
+        ExternType::func(TypeIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(1U)])),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(2U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::ref_func(FuncIdx::new(1U)),
+          if tail {
+            Instruction::return_call(FuncIdx::new(0U))
+          } else {
+            Instruction::call(FuncIdx::new(0U))
+          },
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_configure_all_module(tail : Bool) -> Module {
+  let array_type_idx = TypeIdx::new(1U)
+  let array_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(array_type_idx)),
+  )
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      gen_valid_rume_void_type(),
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(
+              StorageType::val_type(ValType::funcref()),
+              Mut::var_(),
+            ),
+          ),
+        ),
+      ),
+      RecType::new(
+        SubType::comp_type(
+          CompType::func(
+            [ValType::externref(), array_ref, ValType::i32(), ValType::i32()],
+            [],
+          ),
+        ),
+      ),
+    ]),
+  )
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::from_string("wasm:js-prototypes"),
+        Name::from_string("configureAll"),
+        ExternType::func(TypeIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::passive(), ElemKind::funcs([FuncIdx::new(1U)])),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(2U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+          Instruction::i32_const(I32(0)),
+          Instruction::i32_const(I32(1)),
+          Instruction::array_new_elem(array_type_idx, ElemIdx::new(0U)),
+          Instruction::i32_const(I32(7)),
+          Instruction::i32_const(I32(9)),
+          if tail {
+            Instruction::return_call(FuncIdx::new(0U))
+          } else {
+            Instruction::call(FuncIdx::new(0U))
+          },
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_special_imports_module(seed : UInt64) -> Module {
+  match (seed & 3UL).to_int() {
+    0 => gen_valid_rume_call_without_effects_module(false)
+    1 => gen_valid_rume_call_without_effects_module(true)
+    2 => gen_valid_rume_configure_all_module(false)
+    _ => gen_valid_rume_configure_all_module(true)
+  }
+}
+
+///|
+fn gen_valid_rume_callable_references_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_rume_void_type()]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U)]))
+  .with_table_sec(
+    TableSec::new([
+      Table::new(
+        TableType::new(
+          RefType::new(true, HeapType::abs(AbsHeapType::func())),
+          Limits::i32(1U, None),
+        ),
+        Some(Expr::new([Instruction::ref_func(FuncIdx::new(0U))])),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(0U)])),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(1U))),
+    ]),
+  )
+  .with_func_annotation_sec(
+    FuncAnnotationSec::new([
+      FuncAnnotationAssoc::new(0U, [FuncAnnotation::new("binaryen.js.called")]),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::ref_func(FuncIdx::new(0U)),
+          Instruction::call_ref(TypeIdx::new(0U)),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_continuations_descriptors_module() -> Module {
+  let described_idx = TypeIdx::new(0U)
+  let descriptor_idx = TypeIdx::new(1U)
+  let func_type_idx = TypeIdx::new(2U)
+  let cont_type_idx = TypeIdx::new(3U)
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::group([
+        SubType::comp_type(
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
+        ),
+        SubType::comp_type(
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(describes=Some(described_idx)),
+        ),
+      ]),
+      RecType::new(SubType::comp_type(CompType::func([], []))),
+      RecType::new(SubType::comp_type(CompType::cont(func_type_idx))),
+    ]),
+  )
+  .with_func_sec(FuncSec::new([func_type_idx, func_type_idx]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(
+          ValType::ref_type(RefType::new(false, HeapType::new(described_idx))),
+          false,
+        ),
+        Expr::new([
+          Instruction::ref_null(HeapType::abs(AbsHeapType::none())),
+          Instruction::struct_new_desc(described_idx),
+        ]),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(0U)])),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(1U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::ref_func(FuncIdx::new(0U)),
+          Instruction::cont_new(cont_type_idx),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_index_remap_stress_module(seed : UInt64) -> Module {
+  let value = ((seed >> 16) & 0x7fUL).to_int()
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_rume_void_type()]))
+  .with_func_sec(
+    FuncSec::new([
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+      TypeIdx::new(0U),
+    ]),
+  )
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(1))]),
+      ),
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(value))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(5U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::call(FuncIdx::new(1U)),
+          Instruction::call(FuncIdx::new(4U)),
+          Instruction::global_get(GlobalIdx::new(1U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_rume_profile_module(ctx : GenValidContext) -> Module {
   if ctx.config == GenValidConfig::for_profile(RumeTableTrapProfile) {
     gen_valid_rume_table_trap_module()
   } else if ctx.config == GenValidConfig::for_profile(RumeLegacyEhProfile) {
     gen_valid_rume_legacy_eh_module()
+  } else if ctx.config == GenValidConfig::for_profile(RumeSpecialImportsProfile) {
+    gen_valid_rume_special_imports_module(ctx.root_seed)
+  } else if ctx.config ==
+    GenValidConfig::for_profile(RumeCallableReferencesProfile) {
+    gen_valid_rume_callable_references_module()
+  } else if ctx.config ==
+    GenValidConfig::for_profile(RumeContinuationsDescriptorsProfile) {
+    gen_valid_rume_continuations_descriptors_module()
+  } else if ctx.config ==
+    GenValidConfig::for_profile(RumeIndexRemapStressProfile) {
+    gen_valid_rume_index_remap_stress_module(ctx.root_seed)
   } else {
     gen_valid_rume_dead_graph_module(ctx.root_seed)
   }
