@@ -336,6 +336,12 @@ test "preset expansion stays on implemented active pass names" {
     optimize.filter(fn(name) { name == "precompute-propagate" }).length(),
     2,
   )
+  @debug.assert_eq(
+    optimize
+    .filter(fn(name) { name == "remove-unused-module-elements" })
+    .length(),
+    3,
+  )
   assert_false(optimize.contains("precompute"))
   for name in optimize {
     match pass_registry_category(name) {
@@ -353,8 +359,8 @@ test "aggressive presets schedule the Binaryen flatten cleanup prelude" {
   assert_true(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   let expected_prefix = [
     "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
-    "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge",
-    "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
+    "once-reduction", "global-refining", "global-struct-inference", "remove-unused-module-elements",
+    "ssa-nomerge", "flatten", "simplify-locals-notee-nostructure", "local-cse", "dead-code-elimination",
   ]
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
@@ -376,7 +382,7 @@ fn registry_test_assert_dae_optimizing_late_slot(
     }
   }
   @debug.assert_eq(dae_count, 1)
-  @debug.assert_eq(dae_idx, 47)
+  @debug.assert_eq(dae_idx, 48)
   assert_true(dae_idx >= 3, msg="expected \{label} DAEO cleanup prelude")
   assert_true(
     dae_idx + 1 < passes.length(),

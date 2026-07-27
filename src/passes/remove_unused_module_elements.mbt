@@ -32,7 +32,15 @@ priv struct RumeCallTableAnalysis {
   func_types : Array[@lib.TypeIdx]
   flat_tables : Array[RumeFlatTableInfo]
   traps_never_happen : Bool
+  closed_world : Bool
   referenced_funcs : @bitset.BitSet
+  call_without_effects_funcs : @bitset.BitSet
+  configure_all_funcs : @bitset.BitSet
+  js_called_funcs : @bitset.BitSet
+  mut call_all_referenced_funcs : Bool
+  called_func_types : Array[@lib.TypeIdx]
+  table_call_types : Array[Array[@lib.TypeIdx]]
+  runtime_modified_tables : @bitset.BitSet
   queued_tables : @bitset.BitSet
 }
 
@@ -607,7 +615,195 @@ fn rume_mark_declaring_elem(
 }
 
 ///|
+fn rume_special_imported_funcs(
+  mod_ : @lib.Module,
+  func_count : Int,
+  module_name : String,
+  base_name : String,
+) -> @bitset.BitSet {
+  let matches = @bitset.BitSet::new(func_count)
+  let mut func_idx = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(module_, name, @lib.FuncExternType(_)) => {
+            let @lib.Name(module_text) = module_
+            let @lib.Name(name_text) = name
+            if module_text == module_name && name_text == base_name {
+              matches[func_idx] = true
+            }
+            func_idx += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  matches
+}
+
+///|
+fn rume_js_called_funcs(mod_ : @lib.Module, func_count : Int) -> @bitset.BitSet {
+  let matches = @bitset.BitSet::new(func_count)
+  match mod_.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(annotation_idx, annotations) = entry
+        let slot = annotation_idx.reinterpret_as_int()
+        if slot >= 0 && slot < matches.length() {
+          for annotation in annotations {
+            if annotation.name == "binaryen.js.called" {
+              matches[slot] = true
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  matches
+}
+
+///|
+fn rume_func_bitset_contains(
+  funcs : @bitset.BitSet,
+  idx : @lib.FuncIdx,
+) -> Bool {
+  let @lib.FuncIdx(raw_idx) = idx
+  let slot = raw_idx.reinterpret_as_int()
+  slot >= 0 && slot < funcs.length() && funcs[slot]
+}
+
+///|
+fn rume_type_idx_array_contains(
+  types : Array[@lib.TypeIdx],
+  target : @lib.TypeIdx,
+) -> Bool {
+  for type_idx in types {
+    if type_idx == target {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn rume_func_matches_any_call_type(
+  analysis : RumeCallTableAnalysis,
+  idx : @lib.FuncIdx,
+) -> Bool {
+  for call_type in analysis.called_func_types {
+    if rume_func_matches_call_type(
+        analysis.env,
+        analysis.func_types,
+        idx,
+        call_type,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn rume_use_all_referenced_funcs(
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+) -> Unit {
+  analysis.call_all_referenced_funcs = true
+  let mut slot = 0
+  while slot < analysis.referenced_funcs.length() {
+    if analysis.referenced_funcs[slot] {
+      rume_mark_func(
+        queue,
+        used_funcs,
+        @lib.FuncIdx::new(slot.reinterpret_as_uint()),
+      )
+    }
+    slot += 1
+  }
+}
+
+///|
+fn rume_use_call_ref_type(
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  call_type : @lib.TypeIdx,
+) -> Unit {
+  if !rume_type_idx_array_contains(analysis.called_func_types, call_type) {
+    analysis.called_func_types.push(call_type)
+  }
+  let mut slot = 0
+  while slot < analysis.referenced_funcs.length() {
+    if analysis.referenced_funcs[slot] &&
+      rume_func_matches_call_type(
+        analysis.env,
+        analysis.func_types,
+        @lib.FuncIdx::new(slot.reinterpret_as_uint()),
+        call_type,
+      ) {
+      rume_mark_func(
+        queue,
+        used_funcs,
+        @lib.FuncIdx::new(slot.reinterpret_as_uint()),
+      )
+    }
+    slot += 1
+  }
+}
+
+///|
+fn rume_cont_func_type(
+  analysis : RumeCallTableAnalysis,
+  cont_type : @lib.TypeIdx,
+) -> @lib.TypeIdx? {
+  match analysis.env.resolve_comptype(cont_type) {
+    Some(@lib.ContCompType(func_type)) => Some(func_type)
+    _ => None
+  }
+}
+
+///|
+fn rume_val_type_func_type(val_type : @lib.ValType) -> @lib.TypeIdx? {
+  match val_type {
+    @lib.RefTypeValType(@lib.HeapTypeRefType(_, _, @lib.HeapType(type_idx))) =>
+      Some(type_idx)
+    _ => None
+  }
+}
+
+///|
+fn rume_call_ref_type_from_operand(
+  mod_ : @lib.Module,
+  previous : @lib.Instruction?,
+  func_locals : @lib.FunctionLocals?,
+) -> @lib.TypeIdx? {
+  match previous {
+    Some(@lib.LocalGet(local_idx)) =>
+      match func_locals {
+        Some(locals) =>
+          match locals.local_type(local_idx) {
+            Some(val_type) => rume_val_type_func_type(val_type)
+            None => None
+          }
+        None => None
+      }
+    Some(@lib.GlobalGet(global_idx)) =>
+      match rume_lookup_global_type(mod_, global_idx) {
+        Some(@lib.GlobalType(val_type, _)) => rume_val_type_func_type(val_type)
+        None => None
+      }
+    Some(@lib.RefNull(ref_type)) =>
+      rume_val_type_func_type(@lib.ValType::ref_type(ref_type))
+    _ => None
+  }
+}
+
+///|
 fn rume_mark_ref_func(
+  analysis : RumeCallTableAnalysis,
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
   used_elems : @bitset.BitSet,
@@ -615,7 +811,14 @@ fn rume_mark_ref_func(
   func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
   idx : @lib.FuncIdx,
 ) -> Unit {
-  rume_mark_func(queue, used_funcs, idx)
+  if !analysis.closed_world ||
+    analysis.call_all_referenced_funcs ||
+    rume_func_bitset_contains(analysis.js_called_funcs, idx) ||
+    rume_func_matches_any_call_type(analysis, idx) {
+    rume_mark_func(queue, used_funcs, idx)
+  } else {
+    rume_reference_func(used_funcs, analysis.referenced_funcs, idx)
+  }
   let @lib.FuncIdx(raw) = idx
   let slot = raw.reinterpret_as_int()
   if slot >= 0 && slot < func_to_declaring_elems.length() {
@@ -784,6 +987,42 @@ fn rume_reference_table_init(
 }
 
 ///|
+fn rume_note_table_call_type(
+  analysis : RumeCallTableAnalysis,
+  table_idx : @lib.TableIdx,
+  call_type : @lib.TypeIdx,
+) -> Unit {
+  let @lib.TableIdx(raw_table) = table_idx
+  let slot = raw_table.reinterpret_as_int()
+  if slot >= 0 &&
+    slot < analysis.table_call_types.length() &&
+    !rume_type_idx_array_contains(analysis.table_call_types[slot], call_type) {
+    analysis.table_call_types[slot].push(call_type)
+  }
+}
+
+///|
+fn rume_note_table_runtime_modification(
+  analysis : RumeCallTableAnalysis,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  table_idx : @lib.TableIdx,
+) -> Unit {
+  if !analysis.closed_world {
+    return
+  }
+  let @lib.TableIdx(raw_table) = table_idx
+  let slot = raw_table.reinterpret_as_int()
+  if slot < 0 || slot >= analysis.runtime_modified_tables.length() {
+    return
+  }
+  analysis.runtime_modified_tables[slot] = true
+  for call_type in analysis.table_call_types[slot] {
+    rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
+  }
+}
+
+///|
 fn rume_use_indirect_call(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
@@ -797,6 +1036,15 @@ fn rume_use_indirect_call(
   table_idx : @lib.TableIdx,
 ) -> Unit {
   rume_keep_table(used_tables, table_idx)
+  rume_note_table_call_type(analysis, table_idx, call_type)
+  let @lib.TableIdx(runtime_raw_table) = table_idx
+  let runtime_table_slot = runtime_raw_table.reinterpret_as_int()
+  if analysis.closed_world &&
+    runtime_table_slot >= 0 &&
+    runtime_table_slot < analysis.runtime_modified_tables.length() &&
+    analysis.runtime_modified_tables[runtime_table_slot] {
+    rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
+  }
   rume_reference_table_init(
     mod_,
     table_imports,
@@ -991,6 +1239,53 @@ fn rume_scan_catches(
 }
 
 ///|
+fn rume_scan_resume_handlers(
+  handlers : Array[@lib.ResumeHandler],
+  queue : Array[RumeItem],
+  used_tags : @bitset.BitSet,
+) -> Unit {
+  for handler in handlers {
+    let tag_idx = match handler {
+      @lib.ResumeOnLabel(tag_idx, _) | @lib.ResumeOnSwitch(tag_idx) => tag_idx
+    }
+    rume_mark_tag(queue, used_tags, tag_idx)
+  }
+}
+
+///|
+fn rume_mark_elem_funcs(
+  mod_ : @lib.Module,
+  elem_idx : @lib.ElemIdx,
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+) -> Unit {
+  let @lib.ElemIdx(raw_idx) = elem_idx
+  let slot = raw_idx.reinterpret_as_int()
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      match elems.get(slot) {
+        Some(@lib.Elem(_, kind)) =>
+          match kind {
+            @lib.FuncsElemKind(funcs) =>
+              for func_idx in funcs {
+                rume_mark_func(queue, used_funcs, func_idx)
+              }
+            @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+              for expr in exprs {
+                match expr {
+                  @lib.Expr([@lib.RefFunc(func_idx)]) =>
+                    rume_mark_func(queue, used_funcs, func_idx)
+                  _ => ()
+                }
+              }
+          }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
 fn rume_scan_expr(
   expr : @lib.Expr,
   mod_ : @lib.Module,
@@ -1006,13 +1301,40 @@ fn rume_scan_expr(
   used_datas : @bitset.BitSet,
   decl_only_elems : @bitset.BitSet,
   func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
+  func_locals? : @lib.FunctionLocals? = None,
 ) -> Unit {
   let @lib.Expr(instrs) = expr
+  let mut previous : @lib.Instruction? = None
+  let mut recent_elem_operands : Array[@lib.ElemIdx] = []
   for instr in instrs {
+    match instr {
+      @lib.ArrayNewElem(_, elem_idx) => recent_elem_operands.push(elem_idx)
+      _ => ()
+    }
     rume_scan_instruction(
-      instr, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
-      used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+      instr,
+      mod_,
+      analysis,
+      table_imports,
+      queue,
+      used_funcs,
+      used_globals,
+      used_tables,
+      used_mems,
+      used_tags,
+      used_elems,
+      used_datas,
+      decl_only_elems,
+      func_to_declaring_elems,
+      previous~,
+      func_locals~,
+      recent_elem_operands~,
     )
+    previous = Some(instr)
+    match instr {
+      @lib.Call(_) | @lib.ReturnCall(_) | @lib.Drop => recent_elem_operands = []
+      _ => ()
+    }
   }
 }
 
@@ -1032,51 +1354,140 @@ fn rume_scan_instruction(
   used_datas : @bitset.BitSet,
   decl_only_elems : @bitset.BitSet,
   func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
+  previous? : @lib.Instruction? = None,
+  func_locals? : @lib.FunctionLocals? = None,
+  recent_elem_operands? : Array[@lib.ElemIdx] = [],
 ) -> Unit {
   match instr {
     @lib.Block(_, body) | @lib.Loop(_, body) =>
       rume_scan_expr(
-        body, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
-        used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+        body,
+        mod_,
+        analysis,
+        table_imports,
+        queue,
+        used_funcs,
+        used_globals,
+        used_tables,
+        used_mems,
+        used_tags,
+        used_elems,
+        used_datas,
+        decl_only_elems,
+        func_to_declaring_elems,
+        func_locals~,
       )
     @lib.If(_, then_body, else_body) => {
-      for nested in then_body {
-        rume_scan_instruction(
-          nested, mod_, analysis, table_imports, queue, used_funcs, used_globals,
-          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
-          func_to_declaring_elems,
-        )
-      }
+      rume_scan_expr(
+        @lib.Expr::new(then_body),
+        mod_,
+        analysis,
+        table_imports,
+        queue,
+        used_funcs,
+        used_globals,
+        used_tables,
+        used_mems,
+        used_tags,
+        used_elems,
+        used_datas,
+        decl_only_elems,
+        func_to_declaring_elems,
+        func_locals~,
+      )
       match else_body {
         Some(body) =>
-          for nested in body {
-            rume_scan_instruction(
-              nested, mod_, analysis, table_imports, queue, used_funcs, used_globals,
-              used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
-              func_to_declaring_elems,
-            )
-          }
+          rume_scan_expr(
+            @lib.Expr::new(body),
+            mod_,
+            analysis,
+            table_imports,
+            queue,
+            used_funcs,
+            used_globals,
+            used_tables,
+            used_mems,
+            used_tags,
+            used_elems,
+            used_datas,
+            decl_only_elems,
+            func_to_declaring_elems,
+            func_locals~,
+          )
         None => ()
       }
     }
-    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
+    @lib.Call(func_idx) => {
       rume_mark_func(queue, used_funcs, func_idx)
+      if analysis.closed_world &&
+        rume_func_bitset_contains(analysis.call_without_effects_funcs, func_idx) {
+        match previous {
+          Some(@lib.RefFunc(target)) =>
+            rume_mark_func(queue, used_funcs, target)
+          _ =>
+            match rume_call_ref_type_from_operand(mod_, previous, func_locals) {
+              Some(call_type) =>
+                rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
+              None => rume_use_all_referenced_funcs(analysis, queue, used_funcs)
+            }
+        }
+      }
+      if rume_func_bitset_contains(analysis.configure_all_funcs, func_idx) {
+        for elem_idx in recent_elem_operands {
+          rume_mark_elem_funcs(mod_, elem_idx, queue, used_funcs)
+        }
+      }
+    }
+    @lib.ReturnCall(func_idx) => rume_mark_func(queue, used_funcs, func_idx)
     @lib.RefFunc(func_idx) =>
       rume_mark_ref_func(
-        queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
+        analysis, queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
         func_idx,
       )
+    @lib.CallRef(call_type) | @lib.ReturnCallRef(call_type) =>
+      if analysis.closed_world {
+        rume_use_call_ref_type(analysis, queue, used_funcs, call_type)
+      }
+    @lib.ContNew(cont_type) =>
+      if analysis.closed_world {
+        match rume_cont_func_type(analysis, cont_type) {
+          Some(func_type) =>
+            rume_use_call_ref_type(analysis, queue, used_funcs, func_type)
+          None => ()
+        }
+      }
     @lib.CallIndirect(call_type, table_idx)
     | @lib.ReturnCallIndirect(call_type, table_idx) =>
       rume_use_indirect_call(
         mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
         used_elems, call_type, table_idx,
       )
-    @lib.Throw(tag_idx) => rume_mark_tag(queue, used_tags, tag_idx)
+    @lib.Throw(tag_idx) | @lib.Suspend(tag_idx) =>
+      rume_mark_tag(queue, used_tags, tag_idx)
+    @lib.Resume(_, handlers) | @lib.ResumeThrowRef(_, handlers) =>
+      rume_scan_resume_handlers(handlers, queue, used_tags)
+    @lib.ResumeThrow(_, tag_idx, handlers) => {
+      rume_mark_tag(queue, used_tags, tag_idx)
+      rume_scan_resume_handlers(handlers, queue, used_tags)
+    }
+    @lib.StackSwitch(_, tag_idx) => rume_mark_tag(queue, used_tags, tag_idx)
     @lib.Try(_, body, catches, _) => {
       rume_scan_expr(
-        body, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
-        used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+        body,
+        mod_,
+        analysis,
+        table_imports,
+        queue,
+        used_funcs,
+        used_globals,
+        used_tables,
+        used_mems,
+        used_tags,
+        used_elems,
+        used_datas,
+        decl_only_elems,
+        func_to_declaring_elems,
+        func_locals~,
       )
       for catch_ in catches {
         let catch_body = match catch_ {
@@ -1087,35 +1498,68 @@ fn rume_scan_instruction(
           @lib.LegacyCatchAll(catch_body) => catch_body
         }
         rume_scan_expr(
-          catch_body, mod_, analysis, table_imports, queue, used_funcs, used_globals,
-          used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+          catch_body,
+          mod_,
+          analysis,
+          table_imports,
+          queue,
+          used_funcs,
+          used_globals,
+          used_tables,
+          used_mems,
+          used_tags,
+          used_elems,
+          used_datas,
+          decl_only_elems,
           func_to_declaring_elems,
+          func_locals~,
         )
       }
     }
     @lib.TryTable(_, catches, body) => {
       rume_scan_catches(catches, queue, used_tags)
       rume_scan_expr(
-        body, mod_, analysis, table_imports, queue, used_funcs, used_globals, used_tables,
-        used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+        body,
+        mod_,
+        analysis,
+        table_imports,
+        queue,
+        used_funcs,
+        used_globals,
+        used_tables,
+        used_mems,
+        used_tags,
+        used_elems,
+        used_datas,
+        decl_only_elems,
+        func_to_declaring_elems,
+        func_locals~,
       )
     }
     @lib.GlobalGet(global_idx) | @lib.GlobalSet(global_idx) =>
       rume_mark_global(queue, used_globals, global_idx)
-    @lib.TableGet(table_idx)
-    | @lib.TableSet(table_idx)
-    | @lib.TableGrow(table_idx)
-    | @lib.TableSize(table_idx)
-    | @lib.TableFill(table_idx) =>
+    @lib.TableGet(table_idx) | @lib.TableSize(table_idx) =>
       rume_mark_table(queue, used_tables, analysis.queued_tables, table_idx)
+    @lib.TableSet(table_idx)
+    | @lib.TableGrow(table_idx)
+    | @lib.TableFill(table_idx) => {
+      rume_mark_table(queue, used_tables, analysis.queued_tables, table_idx)
+      rume_note_table_runtime_modification(
+        analysis, queue, used_funcs, table_idx,
+      )
+    }
     @lib.TableInit(elem_idx, table_idx) => {
       rume_mark_elem(queue, used_elems, elem_idx)
       rume_mark_table(queue, used_tables, analysis.queued_tables, table_idx)
+      rume_note_table_runtime_modification(
+        analysis, queue, used_funcs, table_idx,
+      )
     }
     @lib.ElemDrop(elem_idx) => rume_mark_elem(queue, used_elems, elem_idx)
     @lib.TableCopy(dst, src) => {
       rume_mark_table(queue, used_tables, analysis.queued_tables, dst)
       rume_mark_table(queue, used_tables, analysis.queued_tables, src)
+      rume_note_table_runtime_modification(analysis, queue, used_funcs, dst)
     }
     @lib.MemorySize(mem_idx)
     | @lib.MemoryGrow(mem_idx)
@@ -1202,6 +1646,23 @@ fn rume_scan_instruction(
 }
 
 ///|
+fn rume_function_locals(
+  analysis : RumeCallTableAnalysis,
+  abs_idx : UInt,
+  body_locals : @lib.Locals,
+) -> @lib.FunctionLocals? {
+  let slot = abs_idx.reinterpret_as_int()
+  if slot < 0 || slot >= analysis.func_types.length() {
+    return None
+  }
+  match analysis.env.resolve_comptype(analysis.func_types[slot]) {
+    Some(@lib.FuncCompType(params, _)) =>
+      Some(@lib.FunctionLocals::new(params, body_locals))
+    _ => None
+  }
+}
+
+///|
 fn rume_process_func(
   mod_ : @lib.Module,
   analysis : RumeCallTableAnalysis,
@@ -1226,11 +1687,23 @@ fn rume_process_func(
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       match funcs.get(def_idx) {
-        Some(@lib.Func(_, body)) =>
+        Some(@lib.Func(body_locals, body)) =>
           rume_scan_expr(
-            body, mod_, analysis, table_imports, queue, used_funcs, used_globals,
-            used_tables, used_mems, used_tags, used_elems, used_datas, decl_only_elems,
+            body,
+            mod_,
+            analysis,
+            table_imports,
+            queue,
+            used_funcs,
+            used_globals,
+            used_tables,
+            used_mems,
+            used_tags,
+            used_elems,
+            used_datas,
+            decl_only_elems,
             func_to_declaring_elems,
+            func_locals=rume_function_locals(analysis, abs_idx, body_locals),
           )
         None => ()
       }
@@ -1585,6 +2058,183 @@ fn rume_nonfunction_active_data_requires_root(
 }
 
 ///|
+fn rume_ref_type_is_nullable(ref_type : @lib.RefType) -> Bool {
+  match ref_type {
+    @lib.HeapTypeRefType(nullable, _, _) => nullable
+    @lib.AbsHeapTypeRefType(_) => true
+  }
+}
+
+///|
+fn rume_lookup_global_type(
+  mod_ : @lib.Module,
+  idx : @lib.GlobalIdx,
+) -> @lib.GlobalType? {
+  let @lib.GlobalIdx(raw_idx) = idx
+  let slot = raw_idx.reinterpret_as_int()
+  let mut cursor = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.GlobalExternType(global_type)) => {
+            if cursor == slot {
+              return Some(global_type)
+            }
+            cursor += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let def_idx = slot - cursor
+  if def_idx < 0 {
+    return None
+  }
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      match globals.get(def_idx) {
+        Some(@lib.Global(global_type, _)) => Some(global_type)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn rume_descriptor_operand_may_be_null(
+  mod_ : @lib.Module,
+  previous : @lib.Instruction?,
+) -> Bool {
+  match previous {
+    Some(@lib.RefNull(_)) => true
+    Some(@lib.GlobalGet(global_idx)) =>
+      match rume_lookup_global_type(mod_, global_idx) {
+        Some(@lib.GlobalType(@lib.RefTypeValType(ref_type), _)) =>
+          rume_ref_type_is_nullable(ref_type)
+        _ => true
+      }
+    Some(@lib.StructNew(_))
+    | Some(@lib.StructNewDefault(_))
+    | Some(@lib.StructNewDesc(_))
+    | Some(@lib.StructNewDefaultDesc(_)) => false
+    _ => true
+  }
+}
+
+///|
+fn rume_instrs_may_trap_descriptor(
+  mod_ : @lib.Module,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut previous : @lib.Instruction? = None
+  for instr in instrs {
+    match instr {
+      @lib.StructNewDesc(_) | @lib.StructNewDefaultDesc(_) =>
+        if rume_descriptor_operand_may_be_null(mod_, previous) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if rume_instrs_may_trap_descriptor(mod_, body) {
+          return true
+        }
+      @lib.Try(_, @lib.Expr(body), catches, _) => {
+        if rume_instrs_may_trap_descriptor(mod_, body) {
+          return true
+        }
+        for catch_ in catches {
+          let @lib.Expr(catch_body) = match catch_ {
+            @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+              catch_body
+          }
+          if rume_instrs_may_trap_descriptor(mod_, catch_body) {
+            return true
+          }
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        if rume_instrs_may_trap_descriptor(mod_, then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if rume_instrs_may_trap_descriptor(mod_, body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    previous = Some(instr)
+  }
+  false
+}
+
+///|
+fn rume_expr_may_trap_descriptor(mod_ : @lib.Module, expr : @lib.Expr) -> Bool {
+  let @lib.Expr(instrs) = expr
+  rume_instrs_may_trap_descriptor(mod_, instrs)
+}
+
+///|
+fn rume_mark_trapping_initializers(
+  mod_ : @lib.Module,
+  queue : Array[RumeItem],
+  used_globals : @bitset.BitSet,
+  used_elems : @bitset.BitSet,
+) -> Unit {
+  let global_imports = rume_imported_global_count(mod_)
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      let mut idx = 0
+      while idx < globals.length() {
+        let @lib.Global(_, init) = globals[idx]
+        if rume_expr_may_trap_descriptor(mod_, init) {
+          rume_mark_global(
+            queue,
+            used_globals,
+            @lib.GlobalIdx::new((global_imports + idx).reinterpret_as_uint()),
+          )
+        }
+        idx += 1
+      }
+    }
+    None => ()
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut elem_idx = 0
+      while elem_idx < elems.length() {
+        let @lib.Elem(_, kind) = elems[elem_idx]
+        let mut may_trap = false
+        match kind {
+          @lib.FuncsElemKind(_) => ()
+          @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              if rume_expr_may_trap_descriptor(mod_, expr) {
+                may_trap = true
+              }
+            }
+        }
+        if may_trap {
+          rume_mark_elem(
+            queue,
+            used_elems,
+            @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
+          )
+        }
+        elem_idx += 1
+      }
+    }
+    None => ()
+  }
+}
+
+///|
 fn rume_mark_nonfunction_active_offset_segments(
   mod_ : @lib.Module,
   queue : Array[RumeItem],
@@ -1695,6 +2345,7 @@ fn rume_collect_liveness_with_import_parent_policy(
   keep_import_parent_segments : Bool,
   keep_all_funcs? : Bool = false,
   traps_never_happen? : Bool = false,
+  closed_world? : Bool = false,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -1744,12 +2395,36 @@ fn rume_collect_liveness_with_import_parent_policy(
     used_funcs.length(),
     mod_,
   )
+  let table_call_types : Array[Array[@lib.TypeIdx]] = []
+  let mut table_type_slot = 0
+  while table_type_slot < used_tables.length() {
+    table_call_types.push([])
+    table_type_slot += 1
+  }
   let analysis : RumeCallTableAnalysis = {
     env: @validate.Env::new().with_module(mod_),
     func_types: rume_collect_func_types(mod_),
     flat_tables: rume_build_flat_table_infos(used_tables.length(), mod_),
     traps_never_happen,
+    closed_world,
     referenced_funcs,
+    call_without_effects_funcs: rume_special_imported_funcs(
+      mod_,
+      used_funcs.length(),
+      "binaryen-intrinsics",
+      "call.without.effects",
+    ),
+    configure_all_funcs: rume_special_imported_funcs(
+      mod_,
+      used_funcs.length(),
+      "wasm:js-prototypes",
+      "configureAll",
+    ),
+    js_called_funcs: rume_js_called_funcs(mod_, used_funcs.length()),
+    call_all_referenced_funcs: false,
+    called_func_types: [],
+    table_call_types,
+    runtime_modified_tables: @bitset.BitSet::new(used_tables.length()),
     queued_tables: @bitset.BitSet::new(used_tables.length()),
   }
   let queue : Array[RumeItem] = []
@@ -1795,6 +2470,9 @@ fn rume_collect_liveness_with_import_parent_policy(
   rume_mark_nonfunction_active_offset_segments(
     mod_, queue, used_elems, used_datas,
   )
+  if !traps_never_happen {
+    rume_mark_trapping_initializers(mod_, queue, used_globals, used_elems)
+  }
 
   let mut cursor = 0
   while cursor < queue.length() {
@@ -1853,6 +2531,7 @@ fn rume_collect_liveness_with_import_parent_policy(
 fn rume_collect_liveness(
   mod_ : @lib.Module,
   traps_never_happen? : Bool = false,
+  closed_world? : Bool = false,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -1868,6 +2547,7 @@ fn rume_collect_liveness(
     mod_,
     true,
     traps_never_happen~,
+    closed_world~,
   )
 }
 
@@ -2043,6 +2723,30 @@ fn rume_rewrite_catch(
 }
 
 ///|
+fn rume_rewrite_resume_handlers(
+  handlers : Array[@lib.ResumeHandler],
+  tag_remap : Array[Int],
+) -> Array[@lib.ResumeHandler] {
+  let rewritten : Array[@lib.ResumeHandler] = []
+  for handler in handlers {
+    rewritten.push(
+      match handler {
+        @lib.ResumeOnLabel(tag_idx, label_idx) =>
+          @lib.ResumeHandler::on_label(
+            rume_rewrite_tag_idx(tag_idx, tag_remap),
+            label_idx,
+          )
+        @lib.ResumeOnSwitch(tag_idx) =>
+          @lib.ResumeHandler::on_switch(
+            rume_rewrite_tag_idx(tag_idx, tag_remap),
+          )
+      },
+    )
+  }
+  rewritten
+}
+
+///|
 fn rume_rewrite_memarg(
   memarg : @lib.MemArg,
   mem_remap : Array[Int],
@@ -2129,6 +2833,29 @@ fn rume_rewrite_instruction(
       )
     @lib.Throw(tag_idx) =>
       @lib.Instruction::throw_(rume_rewrite_tag_idx(tag_idx, tag_remap))
+    @lib.Suspend(tag_idx) =>
+      @lib.Instruction::suspend(rume_rewrite_tag_idx(tag_idx, tag_remap))
+    @lib.Resume(type_idx, handlers) =>
+      @lib.Instruction::resume_(
+        type_idx,
+        rume_rewrite_resume_handlers(handlers, tag_remap),
+      )
+    @lib.ResumeThrow(type_idx, tag_idx, handlers) =>
+      @lib.Instruction::resume_throw(
+        type_idx,
+        rume_rewrite_tag_idx(tag_idx, tag_remap),
+        rume_rewrite_resume_handlers(handlers, tag_remap),
+      )
+    @lib.ResumeThrowRef(type_idx, handlers) =>
+      @lib.Instruction::resume_throw_ref(
+        type_idx,
+        rume_rewrite_resume_handlers(handlers, tag_remap),
+      )
+    @lib.StackSwitch(type_idx, tag_idx) =>
+      @lib.Instruction::stack_switch(
+        type_idx,
+        rume_rewrite_tag_idx(tag_idx, tag_remap),
+      )
     @lib.Try(block_type, body, catches, delegate) => {
       let rewritten_catches : Array[@lib.LegacyCatch] = []
       for catch_ in catches {
@@ -3018,6 +3745,11 @@ fn rume_mark_instruction_types(
     | @lib.ReturnCallIndirect(type_idx, _)
     | @lib.CallRef(type_idx)
     | @lib.ReturnCallRef(type_idx)
+    | @lib.ContNew(type_idx)
+    | @lib.Resume(type_idx, _)
+    | @lib.ResumeThrow(type_idx, _, _)
+    | @lib.ResumeThrowRef(type_idx, _)
+    | @lib.StackSwitch(type_idx, _)
     | @lib.StructNew(type_idx)
     | @lib.StructNewDefault(type_idx)
     | @lib.StructNewDesc(type_idx)
@@ -3028,6 +3760,8 @@ fn rume_mark_instruction_types(
     | @lib.StructAtomicGet(_, type_idx, _)
     | @lib.StructAtomicGetS(_, type_idx, _)
     | @lib.StructAtomicGetU(_, type_idx, _)
+    | @lib.StructAtomicRmw(_, _, type_idx, _)
+    | @lib.StructAtomicCmpxchg(_, type_idx, _)
     | @lib.StructSet(type_idx, _)
     | @lib.ArrayNew(type_idx)
     | @lib.ArrayNewDefault(type_idx)
@@ -3037,12 +3771,19 @@ fn rume_mark_instruction_types(
     | @lib.ArrayGet(type_idx)
     | @lib.ArrayGetS(type_idx)
     | @lib.ArrayGetU(type_idx)
+    | @lib.ArrayAtomicGet(_, type_idx)
+    | @lib.ArrayAtomicGetS(_, type_idx)
+    | @lib.ArrayAtomicGetU(_, type_idx)
     | @lib.ArraySet(type_idx)
+    | @lib.ArrayAtomicRmw(_, _, type_idx)
+    | @lib.ArrayAtomicCmpxchg(_, type_idx)
+    | @lib.ArrayLoad(_, type_idx)
+    | @lib.ArrayStore(_, type_idx)
     | @lib.ArrayFill(type_idx)
     | @lib.ArrayInitData(type_idx, _)
     | @lib.ArrayInitElem(type_idx, _)
     | @lib.RefGetDesc(type_idx) => rume_mark_type_idx(used_types, type_idx)
-    @lib.ArrayCopy(src_type, dst_type) => {
+    @lib.ContBind(src_type, dst_type) | @lib.ArrayCopy(src_type, dst_type) => {
       rume_mark_type_idx(used_types, src_type)
       rume_mark_type_idx(used_types, dst_type)
     }
@@ -3074,6 +3815,11 @@ fn rume_mark_instruction_types(
     | @lib.BrOnCastFail(_, _, source, target) => {
       rume_mark_heap_type(used_types, source)
       rume_mark_heap_type(used_types, target)
+    }
+    @lib.BrOnCastDescEq(_, source, target)
+    | @lib.BrOnCastDescEqFail(_, source, target) => {
+      rume_mark_ref_type(used_types, source)
+      rume_mark_ref_type(used_types, target)
     }
     _ => ()
   }
@@ -4280,6 +5026,7 @@ pub fn rume_extract_functions(
 pub fn rume_run_module_pass(
   mod_ : @lib.Module,
   traps_never_happen? : Bool = false,
+  closed_world? : Bool = false,
 ) -> @lib.Module {
   let (
     used_funcs,
@@ -4291,7 +5038,7 @@ pub fn rume_run_module_pass(
     used_elems,
     used_datas,
     decl_only_elems,
-  ) = rume_collect_liveness(mod_, traps_never_happen~)
+  ) = rume_collect_liveness(mod_, traps_never_happen~, closed_world~)
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
     mod_, used_funcs, referenced_funcs, used_globals, used_tables, used_mems, used_tags,
@@ -4329,6 +5076,7 @@ fn rume_prune_nonfunction_empty_const_active_elems(
 pub fn rume_run_nonfunction_module_pass(
   mod_ : @lib.Module,
   traps_never_happen? : Bool = false,
+  closed_world? : Bool = false,
 ) -> @lib.Module {
   let (
     used_funcs,
@@ -4345,6 +5093,7 @@ pub fn rume_run_nonfunction_module_pass(
     true,
     keep_all_funcs=true,
     traps_never_happen~,
+    closed_world~,
   )
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(

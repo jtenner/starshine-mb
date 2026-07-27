@@ -71053,11 +71053,16 @@ fn run_hot_pipeline_apply_module_pass(
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
     "remove-unused-module-elements" =>
-      rume_run_module_pass(mod_, traps_never_happen=options.traps_never_happen)
+      rume_run_module_pass(
+        mod_,
+        traps_never_happen=options.traps_never_happen,
+        closed_world=options.closed_world,
+      )
     "remove-unused-nonfunction-module-elements" =>
       rume_run_nonfunction_module_pass(
         mod_,
         traps_never_happen=options.traps_never_happen,
+        closed_world=options.closed_world,
       )
     "memory-packing" =>
       memory_packing_run_module_pass(

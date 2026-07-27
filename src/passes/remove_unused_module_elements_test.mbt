@@ -2502,3 +2502,306 @@ test "remove-unused-module-elements keeps references reachable only through lega
     None => fail("expected catch-only tag to remain live")
   }
 }
+
+///|
+test "remove-unused-module-elements closed world keeps referred js-called function bodies" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("root"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.js.called"),
+        ]),
+      ]),
+    )
+  let optimized = rume_run_module_pass(input, closed_world=true)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body), _])) =>
+      @debug.assert_eq(body, @lib.Expr::new([@lib.Instruction::nop()]))
+    _ => fail("expected js-called target and exported root")
+  }
+}
+
+///|
+test "remove-unused-module-elements closed world call.without.effects calls only its ref.func operand" {
+  let input =
+    #|(module
+    #|  (type $callee (func))
+    #|  (type $accept-ref (func (param funcref)))
+    #|  (import "binaryen-intrinsics" "call.without.effects"
+    #|    (func $special (type $accept-ref)))
+    #|  (import "other" "accept-ref" (func $other (type $accept-ref)))
+    #|  (func $keep (type $callee) (nop))
+    #|  (func $drop (type $callee) (nop))
+    #|  (elem declare func $keep $drop)
+    #|  (func (export "root")
+    #|    (call $special (ref.func $keep))
+    #|    (call $other (ref.func $drop))))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected call.without.effects RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, keep_body), @lib.Func(_, drop_body), _])) => {
+      @debug.assert_eq(keep_body, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(
+        drop_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    _ => fail("expected intrinsic target, ordinary-import target, and root")
+  }
+}
+
+///|
+test "remove-unused-module-elements closed world call.without.effects limits unknown refs by operand type" {
+  let input =
+    #|(module
+    #|  (type $a (func))
+    #|  (type $b (func (param i32)))
+    #|  (type $accept-ref (func (param funcref)))
+    #|  (import "binaryen-intrinsics" "call.without.effects"
+    #|    (func $special (type $accept-ref)))
+    #|  (func $keep-a (type $a) (nop))
+    #|  (func $keep-a-2 (type $a) (nop))
+    #|  (func $drop-b (type $b) (nop))
+    #|  (elem declare func $keep-a $keep-a-2 $drop-b)
+    #|  (func (export "root") (local (ref null $a))
+    #|    (call $special (local.get 0))
+    #|    (drop (ref.func $keep-a))
+    #|    (drop (ref.func $keep-a-2))
+    #|    (drop (ref.func $drop-b))))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected typed call.without.effects RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, first_a), @lib.Func(_, second_a), @lib.Func(_, b_body), _]
+      )
+    ) => {
+      @debug.assert_eq(first_a, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(second_a, @lib.Expr::new([@lib.Instruction::nop()]))
+      @debug.assert_eq(
+        b_body,
+        @lib.Expr::new([@lib.Instruction::unreachable_()]),
+      )
+    }
+    _ => fail("expected two type-A targets, one type-B target, and root")
+  }
+}
+
+///|
+test "remove-unused-module-elements configureAll keeps only functions from its elem operand" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0c, 0x03, 0x60, 0x00,
+        0x00, 0x5e, 0x70, 0x01, 0x60, 0x01, 0x63, 0x01, 0x00, 0x02, 0x23, 0x01, 0x12,
+        0x77, 0x61, 0x73, 0x6d, 0x3a, 0x6a, 0x73, 0x2d, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+        0x74, 0x79, 0x70, 0x65, 0x73, 0x0c, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75,
+        0x72, 0x65, 0x41, 0x6c, 0x6c, 0x00, 0x02, 0x03, 0x04, 0x03, 0x00, 0x00, 0x00,
+        0x08, 0x01, 0x01, 0x09, 0x09, 0x02, 0x01, 0x00, 0x01, 0x02, 0x01, 0x00, 0x01,
+        0x03, 0x0a, 0x16, 0x03, 0x0c, 0x00, 0x41, 0x00, 0x41, 0x01, 0xfb, 0x0a, 0x01,
+        0x00, 0x10, 0x00, 0x0b, 0x03, 0x00, 0x01, 0x0b, 0x03, 0x00, 0x01, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected configureAll fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected configureAll RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 2)
+    None => fail("expected start and configured function")
+  }
+}
+
+///|
+test "remove-unused-module-elements closed world empties uncalled ref.func targets" {
+  let input =
+    #|(module
+    #|  (type $callee (func))
+    #|  (func $callee (type $callee) (nop))
+    #|  (elem declare func $callee)
+    #|  (func (export "root")
+    #|    (drop (ref.func $callee))))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-module-elements"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected closed-world ref.func RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body), _])) =>
+      @debug.assert_eq(body, @lib.Expr::new([@lib.Instruction::unreachable_()]))
+    _ => fail("expected reference-only callee plus exported root")
+  }
+}
+
+///|
+test "remove-unused-module-elements closed world call_ref keeps compatible targets callable" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("root"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(@lib.TypeIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected closed-world call_ref RUME success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body), _])) =>
+      @debug.assert_eq(body, @lib.Expr::new([@lib.Instruction::nop()]))
+    _ => fail("expected callable callee plus exported root")
+  }
+}
+
+///|
+test "remove-unused-module-elements keeps and remaps continuation handler tags" {
+  let input = match
+    @binary.decode_module(
+      Bytes::from_array([
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x02, 0x60, 0x00,
+        0x00, 0x5d, 0x00, 0x03, 0x03, 0x02, 0x00, 0x00, 0x0d, 0x05, 0x02, 0x00, 0x00,
+        0x00, 0x00, 0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x01, 0x09, 0x05,
+        0x01, 0x03, 0x00, 0x01, 0x00, 0x0a, 0x17, 0x02, 0x02, 0x00, 0x0b, 0x12, 0x00,
+        0x02, 0x64, 0x01, 0xd2, 0x00, 0xe0, 0x01, 0xe3, 0x01, 0x01, 0x00, 0x01, 0x00,
+        0x0f, 0x0b, 0x1a, 0x0b,
+      ]),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected continuation fixture decode, got \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(closed_world=true), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected continuation-aware RUME success, got \{err}")
+  }
+  match optimized.tag_sec {
+    Some(@lib.TagSec(tags)) => @debug.assert_eq(tags.length(), 1)
+    None => fail("expected live continuation handler tag")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected valid continuation-aware RUME output, got \{err}")
+  }
+}
+
+///|
+test "remove-unused-module-elements preserves descriptor-trapping initializers unless TNH" {
+  let input =
+    #|(module
+    #|  (rec
+    #|    (type $struct (descriptor $desc) (struct))
+    #|    (type $desc (describes $struct) (struct)))
+    #|  (global $trap (ref $struct)
+    #|    (struct.new_desc $struct (ref.null none))))
+  let optimized = rume_run_module_pass(pass_test_module_from_wat(input))
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
+    None => fail("expected descriptor-trapping global to remain")
+  }
+  let tnh = rume_run_module_pass(
+    pass_test_module_from_wat(input),
+    traps_never_happen=true,
+  )
+  @debug.assert_eq(tnh.global_sec, None)
+}

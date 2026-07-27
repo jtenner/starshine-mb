@@ -896,6 +896,10 @@ pub enum GenValidProfile {
   PassOiAllProfile
   FlattenAllProfile
   RandomAllProfilesProfile
+  RumeDeadGraphProfile
+  RumeTableTrapProfile
+  RumeLegacyEhProfile
+  RumeAllProfile
 } derive(Eq, Debug)
 
 ///|
@@ -1068,6 +1072,10 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     MergeBlocksEffectProfile => "merge-blocks-effect-order"
     MergeBlocksEhAtomicProfile => "merge-blocks-eh-atomic"
     MergeBlocksAllProfile => "merge-blocks-all"
+    RumeDeadGraphProfile => "rume-dead-graph"
+    RumeTableTrapProfile => "rume-table-trap"
+    RumeLegacyEhProfile => "rume-legacy-eh"
+    RumeAllProfile => "rume-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
     CodeFoldingReturnsProfile => "code-folding-returns"
@@ -1222,6 +1230,7 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
     | MergeBlocksAllProfile
+    | RumeAllProfile
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
@@ -1372,6 +1381,12 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MergeBlocksExpressionProfile, 3),
         GenValidProfileMember::new(MergeBlocksEffectProfile, 2),
         GenValidProfileMember::new(MergeBlocksEhAtomicProfile, 2),
+      ]
+    RumeAllProfile =>
+      [
+        GenValidProfileMember::new(RumeDeadGraphProfile, 4),
+        GenValidProfileMember::new(RumeTableTrapProfile, 3),
+        GenValidProfileMember::new(RumeLegacyEhProfile, 3),
       ]
     CodeFoldingAllProfile =>
       [
@@ -1808,6 +1823,10 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MergeBlocksEffectProfile,
     MergeBlocksEhAtomicProfile,
     MergeBlocksAllProfile,
+    RumeDeadGraphProfile,
+    RumeTableTrapProfile,
+    RumeLegacyEhProfile,
+    RumeAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
     CodeFoldingReturnsProfile,
@@ -2018,6 +2037,10 @@ pub fn gen_valid_profile_by_name(
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
     "merge-blocks" | "merge-blocks-closeout" | "merge-blocks-all-profiles" =>
       Ok(MergeBlocksAllProfile)
+    "remove-unused-module-elements"
+    | "rume"
+    | "rume-closeout"
+    | "rume-all-profiles" => Ok(RumeAllProfile)
     "code-folding" | "code-folding-closeout" | "code-folding-all-profiles" =>
       Ok(CodeFoldingAllProfile)
     "tuple-optimization" => Ok(TupleOptimizationAllProfile)
@@ -4526,6 +4549,9 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_merge_blocks_profile_config(profile)
     MergeBlocksAllProfile =>
       gen_valid_merge_blocks_profile_config(MergeBlocksStructuralProfile)
+    RumeDeadGraphProfile | RumeTableTrapProfile | RumeLegacyEhProfile =>
+      gen_valid_rume_profile_config(profile)
+    RumeAllProfile => gen_valid_rume_profile_config(RumeDeadGraphProfile)
     CodeFoldingIfArmsProfile
     | CodeFoldingBlockExitsProfile
     | CodeFoldingReturnsProfile
@@ -6281,6 +6307,239 @@ fn gen_valid_coalesce_locals_profile_config(
       allow_heap_store_optimization_body_generator: false,
       allow_heap2local_body_generator: false,
     },
+  }
+}
+
+///|
+fn gen_valid_rume_profile_config(profile : GenValidProfile) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 3,
+    max_imports: 0,
+    max_defined_funcs: 3,
+    max_tables: 1,
+    max_mems: 1,
+    max_globals: 1,
+    max_tags: 2,
+    max_elems: 1,
+    max_datas: 1,
+    max_params: 0,
+    max_results: 1,
+    max_locals: 0,
+    max_body_statements: match profile {
+      RumeDeadGraphProfile => 78
+      RumeTableTrapProfile => 79
+      RumeLegacyEhProfile => 80
+      _ => 78
+    },
+    max_body_depth: 3,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: true,
+      allow_mems: true,
+      allow_globals: true,
+      allow_tags: true,
+      allow_elems: true,
+      allow_datas: true,
+      allow_ref_types: true,
+      allow_calls: true,
+      allow_call_indirect: true,
+      allow_tail_calls: false,
+      allow_branch_heavy_control: true,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+      allow_subtyping_topology: false,
+      allow_name_custom_sections: false,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+      allow_heap_store_optimization_body_generator: false,
+      allow_heap2local_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_is_rume_profile_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(RumeDeadGraphProfile) ||
+  config == GenValidConfig::for_profile(RumeTableTrapProfile) ||
+  config == GenValidConfig::for_profile(RumeLegacyEhProfile)
+}
+
+///|
+pub fn gen_valid_rume_profile_case_label(
+  profile : GenValidProfile,
+  _seed : UInt64,
+) -> String? {
+  match profile {
+    RumeDeadGraphProfile => Some("rume:dead-module-graph")
+    RumeTableTrapProfile => Some("rume:indirect-call-trap-retention")
+    RumeLegacyEhProfile => Some("rume:legacy-eh-remap")
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_rume_void_type() -> RecType {
+  RecType::new(SubType::comp_type(CompType::func([], [])))
+}
+
+///|
+fn gen_valid_rume_dead_graph_module(seed : UInt64) -> Module {
+  let value = ((seed >> 8) & 0x7fUL).to_int()
+  let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_rume_void_type()]))
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U), TypeIdx::new(0U)]),
+  )
+  .with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(funcref, Limits::i32(1U, None)), None),
+    ]),
+  )
+  .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, None))]))
+  .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+  .with_global_sec(
+    GlobalSec::new([
+      Global::new(
+        GlobalType::new(ValType::i32(), false),
+        Expr::new([Instruction::i32_const(I32(value))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(0U))),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(ElemMode::declarative(), ElemKind::funcs([FuncIdx::new(2U)])),
+    ]),
+  )
+  .with_data_sec(
+    DataSec::new([Data::new(DataMode::passive(), Bytes::from_array([0x41]))]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        Locals::empty(),
+        Expr::new([Instruction::call(FuncIdx::new(1U))]),
+      ),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_table_trap_module() -> Module {
+  let funcref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  Module::new()
+  .with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      RecType::new(SubType::comp_type(CompType::func([], [ValType::i64()]))),
+      gen_valid_rume_void_type(),
+    ]),
+  )
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U), TypeIdx::new(2U)]),
+  )
+  .with_table_sec(
+    TableSec::new([
+      Table::new(
+        TableType::new(funcref, Limits::i32(1U, None)),
+        Some(Expr::new([Instruction::ref_func(FuncIdx::new(0U))])),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    ElemSec::new([
+      Elem::new(
+        ElemMode::active(
+          TableIdx::new(0U),
+          Expr::new([Instruction::i32_const(I32(0))]),
+        ),
+        ElemKind::funcs([FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(
+        Name::from_string("caller"),
+        ExternIdx::func(FuncIdx::new(2U)),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::i32_const(I32(1))])),
+      Func::new(Locals::empty(), Expr::new([Instruction::unreachable_()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::i32_const(I32(0)),
+          Instruction::call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
+          Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_legacy_eh_module() -> Module {
+  Module::new()
+  .with_type_sec(TypeSec::new([gen_valid_rume_void_type()]))
+  .with_func_sec(
+    FuncSec::new([TypeIdx::new(0U), TypeIdx::new(0U), TypeIdx::new(0U)]),
+  )
+  .with_tag_sec(
+    TagSec::new([TagType::new(TypeIdx::new(0U)), TagType::new(TypeIdx::new(0U))]),
+  )
+  .with_export_sec(
+    ExportSec::new([
+      Export::new(Name::from_string("root"), ExternIdx::func(FuncIdx::new(1U))),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::try_(
+            BlockType::void_(),
+            Expr::new([Instruction::call(FuncIdx::new(0U))]),
+            [
+              LegacyCatch::tagged(
+                TagIdx::new(1U),
+                Expr::new([Instruction::call(FuncIdx::new(0U))]),
+              ),
+            ],
+          ),
+        ]),
+      ),
+      Func::new(Locals::empty(), Expr::new([Instruction::nop()])),
+    ]),
+  )
+}
+
+///|
+fn gen_valid_rume_profile_module(ctx : GenValidContext) -> Module {
+  if ctx.config == GenValidConfig::for_profile(RumeTableTrapProfile) {
+    gen_valid_rume_table_trap_module()
+  } else if ctx.config == GenValidConfig::for_profile(RumeLegacyEhProfile) {
+    gen_valid_rume_legacy_eh_module()
+  } else {
+    gen_valid_rume_dead_graph_module(ctx.root_seed)
   }
 }
 
@@ -29687,6 +29946,9 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
+  if gen_valid_is_rume_profile_config(config) {
+    return gen_valid_rume_profile_module(ctx)
+  }
   if gen_valid_is_merge_blocks_profile_config(config) {
     return gen_valid_merge_blocks_profile_module(config)
   }
