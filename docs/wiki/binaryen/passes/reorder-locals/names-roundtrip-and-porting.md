@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -25,12 +25,13 @@ related:
 # `reorder-locals`: names, roundtrips, and porting boundaries
 
 This page explains the half of `reorder-locals` that is easiest to underestimate.
-It should now be read together with the retained `version_130` source refresh at [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and the Starshine validation bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+It should now be read together with the official `version_131` closeout in [`./parity.md`](./parity.md), the retained v130 unchanged-contract source refresh at [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md), and the Starshine validation bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The algorithm in `ReorderLocals.cpp` is tiny, but the practical contract is larger because:
 
 - local names must still line up with declarations
-- the reordered declaration order must survive binary write/read roundtrips
+- the reordered declaration order and pure same-type index remaps must survive binary write/read roundtrips
+- the source module must remain unchanged while the output is rebuilt copy-on-write
 - and some remaining compare drift comes from Binaryen's multivalue writeback layers rather than from the pass itself
 
 ## The most important practical rule

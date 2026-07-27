@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -12,6 +12,9 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/ReorderLocals.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/reorder-locals.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_131/test/passes/reorder-locals_print_roundtrip.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/reorder-locals.wast
@@ -47,7 +50,7 @@ related:
 - `reorder-locals` is an active implemented **module pass** in Starshine.
 - A 2026-05-06 refreshed direct signoff reached 6759/10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see research note 0540.
 - A 2026-05-07 debug-artifact stable-boundary replay kept `Normalized WAT equal: yes` and `Canonical function compare equal: yes` after 5 Binaryen no-pass roundtrips even though Binaryen still did not converge on raw emitted wasm; see research note 0547.
-- In upstream Binaryen `version_130`, `pass.cpp` describes it as:
+- In upstream Binaryen `version_131`, `pass.cpp` describes it as:
   - sorts locals by access frequency
 
 That short description is accurate, but it is easy to over-read.
@@ -92,7 +95,7 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
 - The pass rewrites local-user indices and function-local name maps.
 - Upstream explicitly declares that it does **not** need non-nullable-local fixups.
 - The dedicated print-roundtrip tests show that declaration order after reordering must survive binary writing and reading, not just in-memory AST mutation.
-- A 2026-07-02 `version_130` refresh found no drift in `ReorderLocals.cpp` or the dedicated lit files relative to `version_129`; new O4Z audit evidence should use the local `version_130` oracle.
+- A 2026-07-27 audit found `ReorderLocals.cpp` and the dedicated lit files byte-identical between `version_130` and `version_131`; current evidence uses official `wasm-opt version 131 (version_131)`.
 
 ## Biggest beginner correction
 
@@ -112,7 +115,7 @@ What it sounds like:
 
 - a broad local-minimization pass
 
-What it actually is in `version_130`:
+What it actually is in `version_131`:
 
 - a tiny function-parallel usage counter
 - a stable declaration-order canonicalizer for body locals
@@ -141,13 +144,9 @@ What it actually is in `version_130`:
 
 ## Freshness note
 
-The current local Binaryen oracle reports `wasm-opt version 130 (version_130)`. A 2026-07-02 source refresh downloaded the official `version_130` `ReorderLocals.cpp` and the dedicated `reorder-locals*` lit files and diffed them against the previously reviewed `version_129` copies. The pass owner and dedicated lit surfaces are byte-identical across those two tags.
+The current released oracle is official `wasm-opt version 131 (version_131)`. The 2026-07-27 audit compared the v131 owner and dedicated `reorder-locals*` lit files with the retained v130 copies and found them byte-identical. The older v129/v130 notes remain useful algorithm provenance, but current closeout claims use v131.
 
-So the durable rule is:
-
-- treat Binaryen `version_130` as the current O4Z audit oracle for this dossier;
-- keep the older `version_129` manifests as provenance for the unchanged algorithm story;
-- cite research note 1401, [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md), and research note 1400 for new O4Z audit claims.
+The same audit repaired a Starshine copy-on-write bug that could lose pure same-type local-index permutations at the CLI boundary, expanded the dedicated aggregate to nine leaves, and completed the required v131 matrix. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 ## Current maintenance rule
 
@@ -157,12 +156,13 @@ So the durable rule is:
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.
 - Keep the multivalue-call writeback distinction explicit whenever future parity work mentions remaining raw-output drift.
 - Keep the preset-state split explicit: three `reorder-locals` public cleanup slots are now scheduled, but that does **not** imply full preset parity for unrelated remaining no-DWARF gaps such as the second pre-pass `remove-unused-module-elements` slot, `code-folding`, `redundant-set-elimination`, or the extra Starshine `remove-unused-brs` slot.
-- `[O4Z-AUDIT-RL]` is closed as of 2026-07-02: the `version_130` owner-family inventory has no direct gap, `reorder-locals-all` dedicated GenValid coverage is in tree, four compare lanes are green after classifying one external unreachable/control-debris case, pass-local timing is sub-millisecond, and `[AUDIT006-E]` is documented inline. The 2026-07-12 public preset scheduling change moves the repeated cleanup slots out of RL's reopening surface; remaining preset-order differences stay under `[O4Z-PRESET-BEHAVIOR]`.
+- The explicit Binaryen-v131 renewal is closed as of 2026-07-27. Regular is `100000/100000`; the nine-leaf dedicated and idempotence lanes are `10000/10000`; random-all is `9375` exact plus `625` measured smaller Starshine multivalue-boundary wins; wasm-smith is green for all `9956` comparable cases with one cleanup-normalized residual and `44` Binaryen-only failures. The copy-on-write output-loss bug is repaired and guarded by pass, CLI, and permutation-only GenValid coverage. Repeated cleanup slots remain outside RL's reopening surface; broader preset differences stay with neighboring owners.
 
 ## Sources
 
-- `version_130` source inventory: research note 1400
-- `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
+- Binaryen-v131 closeout: [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md)
+- `version_130` source inventory and unchanged-contract provenance: research note 1400
+- Retained v130 primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
 - Public preset scheduling: research note 1561
 - Earlier one-slot reconciliation: research note 0709
 - [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)

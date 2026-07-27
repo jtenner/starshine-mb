@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
 related:
@@ -242,9 +242,27 @@ After:
 - every `local.get`, `local.set`, and `local.tee` is rewritten to the new index
 - the control-flow structure itself is otherwise unchanged
 
+The same rule applies to decoded legacy `try` protected bodies, typed catches, catch-all bodies, and delegate-bearing regions.
+
 This is a good reminder that `reorder-locals` is not a control-flow optimizer.
 
-## Positive family 9: declaration order can change even when types differ
+## Positive family 9: pure same-type permutations must survive encoding
+
+When every body local has the same type and every local stays live, the declaration bytes can remain structurally identical even though indices must change:
+
+```wat
+(func
+  (local $cold i32)
+  (local $hot i32)
+  (local.set $cold (i32.const 1))
+  (local.set $hot (i32.const 2))
+  (drop (local.get $hot))
+  (drop (local.get $hot)))
+```
+
+After, conceptually, `$hot` is local `0` and `$cold` is local `1`. A correct implementation must emit those remapped indices even though the declaration vector is still simply two `i32` locals. This is the shape that caught Starshine's former shared-array mutation and unchanged-input byte-reuse bug.
+
+## Positive family 10: declaration order can change even when types differ
 
 The print-roundtrip tests show a simple but important case:
 

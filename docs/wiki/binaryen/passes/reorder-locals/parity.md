@@ -1,126 +1,119 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
+  - ./fuzzing.md
+  - ./multivalue-call-scope.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
   - ../tracker.md
+  - ../../../../../src/passes/reorder_locals.mbt
+  - ../../../../../src/passes/reorder_locals_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
 related:
   - ./starshine-hot-ir-strategy.md
   - ./starshine-port-readiness-and-validation.md
   - ./multivalue-call-scope.md
-  - ../../../../../src/passes/reorder_locals.mbt
-  - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../scripts/lib/self-optimize-compare-task.ts
 ---
 
 # `reorder-locals` Binaryen Parity
 
-## Durable Conclusions
+## Binaryen v131 Oracle Verdict
 
-- Binaryen `version_130` keeps parameters fixed and reorders only body locals; the refreshed owner/lit files are byte-identical to the older `version_129` contract.
-- Body locals sort by descending access count.
-- Nonzero-count ties break by first observed access.
-- Zero-count ties preserve original order, and the final zero-count suffix is dropped.
-- `local.set` and `local.tee` count as accesses, so write-only locals survive this pass.
-- The clean Starshine port is a module pass, not a hot pass, because local-name metadata and raw name-section invalidation are boundary-owned.
-- The 2026-07-02 raw source refresh re-confirmed the same access-count plus first-use sorter story against the current local `version_130` oracle.
+The 2026-07-27 audit used official `wasm-opt version 131 (version_131)` and Binaryen source commit `1f903c14babf829745b421b92ff0f286e93e4209` as the oracle. The reviewed `ReorderLocals.cpp` and dedicated `reorder-locals*` lit fixtures are byte-identical between `version_130` and `version_131`, so the released owner contract did not change.
 
-## Current In-Tree Status
+The current contract is:
 
-- The implementation lives in [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt).
-- The current local strategy and exact code map now live in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
-- The current explicit-pass-versus-preset signoff ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
-- The pass is wired through the module-pass dispatcher in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
-- Registry and preset policy live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt).
-- CLI coverage for explicit pass execution lives in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
-- Binaryen-boundary compare controls live in [`../../../../../scripts/lib/self-optimize-compare-task.ts`](../../../../../scripts/lib/self-optimize-compare-task.ts) and the related command tests under `scripts/test/`.
+- parameters remain fixed;
+- only body locals are reordered or removed;
+- `local.get`, `local.set`, and `local.tee` all count as accesses;
+- live body locals sort by descending access count;
+- live ties use first observed access, then original index as a stable fallback;
+- the zero-access suffix is removed;
+- every local user is reindexed recursively;
+- local-name metadata follows the new indices and stale raw name payload is invalidated;
+- the pass does not require non-nullable-local fixups.
 
-## O4Z Audit Inventory
+Starshine now matches that released behavior for every pass-owned family represented by its boundary IR.
 
-Current direct transform-family inventory against `version_130`:
+## Audit Repair
 
-| Family | Starshine status | Audit status |
+The audit found one real Starshine output bug outside the sorter itself. `rl_rewrite_expr` and nested structured rewrites mutated shared instruction arrays in place. For pure same-type permutations, local declarations remained structurally identical, so the original module and optimized module became equal after aliasing. The CLI's unchanged-wasm fast path then reused the original input bytes and lost the remapped indices.
+
+The repair makes root and nested block/loop/if/legacy-`try`/`try_table` rewriting copy-on-write. Red-first tests now prove:
+
+- the input module retains its original local indices;
+- the optimized module contains the Binaryen ordering;
+- the CLI emits different wasm bytes for a pure same-type permutation;
+- nested legacy-EH bodies remain recursively remapped without mutating the source module.
+
+A dedicated `reorder-locals-permutation-only` GenValid leaf keeps all body locals live and all declarations the same type so this output boundary cannot be masked by unused-local trimming or declaration-type changes.
+
+## Transform-Family Inventory
+
+| Family | Evidence | Verdict |
 | --- | --- | --- |
-| Parameter stability / params-only no-op | Focused tests cover stable params and params-only no-op. | no current gap found |
-| `local.get` / `local.set` / `local.tee` access counting | Starshine handles tee explicitly because its IR has a separate `LocalTee`. | no current gap found |
-| Descending access count plus first-use tie ordering | Focused access-count and carrier fixtures cover the comparator. | no current gap found |
-| Zero-count body-local truncation | Focused tests cover trailing unused drops and write-only/tee-only survival. | no current gap found; needs generated-profile density |
-| Nested local-user reindexing | Focused nested block/loop/if/try-table test covers recursive rewrite. | no current gap found |
-| Local-name repair and raw name payload invalidation | Focused name-section and CLI/binary tests cover metadata repair. | no current gap found |
-| Multivalue scratch-local drift | Documented as Binaryen writer/IR-builder boundary, not `ReorderLocals.cpp`. | standing boundary decision |
-| Repeated scheduler slots | Starshine public presets now claim the current Binaryen-shaped three-slot cleanup story: the early tuple/no-structure lane plus the late `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum` cluster. | closed for current RL scheduling; remaining preset differences belong to other `[O4Z-PRESET-BEHAVIOR]` owners |
-| TypeIdx/RecIdx invariant comment | Function-section type references are global `TypeIdx`; a local inline comment now marks `RecIdx` as an impossible function-section invariant failure. | `[AUDIT006-E]` closed for this pass |
-| Dedicated GenValid profile | `reorder-locals-all` now covers hot-sort, unused-trim, and name-repair leaves. | closed; 10000-case dedicated lane is green |
+| Parameter stability and params-only no-op | Focused pass tests and hot-sort/multi-function generation | exact |
+| `local.get` / `local.set` / `local.tee` counting | Focused tests plus hot-sort and permutation-only leaves | exact |
+| Descending count and first-use ties | Focused carrier fixtures and high-index generated permutations | exact |
+| Pure same-type permutation | Copy-on-write pass/CLI regressions and `reorder-locals-permutation-only` | repaired; exact |
+| Mixed declarations and grouped local runs | `reorder-locals-mixed-types` | exact |
+| Nullable/non-nullable GC references | `reorder-locals-reference-types` | exact |
+| Zero-access trimming and write-only survival | `reorder-locals-unused-trim` | exact |
+| Structured recursive reindexing | `reorder-locals-structured` | exact |
+| Legacy `try`, typed catches, catch-all, delegates | deterministic repair tests plus `reorder-locals-legacy-eh` | exact |
+| Multiple defined functions, imports, parameter arities | `reorder-locals-multi-function` | exact |
+| Local-name repair and raw name invalidation | focused metadata/CLI tests and `reorder-locals-name-repair` | exact |
+| Repeated public scheduler slots | early tuple/no-structure slot and late simplify/coalesce sandwich remain scheduled | closed for this pass; broader preset work belongs to neighboring owners |
 
-## Preset And Signoff Rule
+## Final Direct Evidence
 
-- In this repo, `reorder-locals` is intentionally available as an explicit module pass.
-- Public `optimize` and `shrink` schedule the current Binaryen-shaped three-slot cleanup story: the early tuple/no-structure lane `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs` plus the late cluster `simplify-locals -> vacuum -> reorder-locals -> coalesce-locals -> reorder-locals -> vacuum`.
-- The 2026-07-12 public scheduling note `1561` closes RL's top-level repeated-slot policy gap using the already-landed ordered-neighborhood evidence; remaining preset divergence is now about neighboring passes such as `code-folding`, `redundant-set-elimination`, the second pre-pass `remove-unused-module-elements`, and the extra Starshine `remove-unused-brs` slot.
-- Representation-stable comparison, local-name rewrite correctness, explicit module-pass coverage, and the current public three-slot cleanup schedule are the honest signoff targets.
+The final native Starshine binary had SHA-256 `23fc1d30ef2db126e2690e610ad44b4af8f28da435cab6ebe845b6ec058f96c1`.
 
-## Refreshed Debug-Artifact Boundary Replay
+- Regular GenValid: `100000/100000` normalized matches.
+- Dedicated nine-leaf aggregate: `10000/10000` normalized matches; every leaf selected.
+- Dedicated idempotence: `10000/10000` comparisons and idempotence checks, zero property failures.
+- Random all-profiles: `9375` normalized matches plus `625` classified Starshine wins from one non-pass-owned multivalue lowering family.
+- External wasm-smith: `9955` direct matches plus one `unreachable-control-debris` compare-normalized match across `9956` comparable cases; `44` Binaryen-only command failures; zero remaining mismatches.
+- Validation failures, Starshine command failures, generator failures, and true semantic mismatches: zero.
 
-- The 2026-05-07 current-head artifact lane ran `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals`.
-- Binaryen no-pass writeback still did not converge within 5 roundtrips, so canonical emitted wasm stayed unequal on the full artifact.
-- The representation-stable surfaces still compared green on that same replay: `Normalized WAT equal: yes` and `Canonical function compare equal: yes`.
-- Starshine pass runtime on that lane was `56.953 ms` versus Binaryen `86.020 ms`.
-- This keeps the repo scope decision intact: treat the remaining full-artifact raw-output drift as Binaryen multivalue-call writeback/materialization behavior, not as a remaining `reorder-locals` sorter bug.
+### Random-all Starshine-win family
 
-## O4Z Direct Signoff
+All `625` residuals were `remove-unused-brs-control` modules containing type-indexed multivalue control. Binaryen materializes a different scratch-local/control shape before its pass runs. Starshine retains the direct multivalue block shape. This is not accepted merely because both outputs validate:
 
-- The 2026-07-02 O4Z closeout added the dedicated `reorder-locals-all` GenValid aggregate and re-ran the current `version_130` direct evidence with `_build/native/release/build/cmd/cmd.exe`.
-- Dedicated `reorder-locals-all`: `10000/10000` compared, `10000` normalized matches, zero mismatches/failures.
-- Ordinary GenValid: `10000/10000` compared, `10000` normalized matches, zero mismatches/failures.
-- Random all-profiles GenValid: `10000/10000` compared, `10000` normalized matches, zero mismatches/failures.
-- External `wasm-smith` with `--normalize unreachable-control-debris`: `9956/10000` compared, `9955` raw normalized matches, `1` compare-normalized unreachable/control-debris case, zero remaining mismatches, and `44` Binaryen/oracle command failures.
-- The external raw residual was classified as unreachable/control debris (`drop(unreachable)` under unreachable flow), not a `reorder-locals` sorter, local-name, or local-index remap gap.
-- A 30-case dedicated timing probe found pass-local max times of `0.032 ms` for Starshine and `0.019 ms` for Binaryen; all samples are comfortably below the repo `<1s` target, with sub-0.05ms ratio noise.
+- Starshine canonical wasm was exactly `8` bytes smaller in every residual (`-5000` bytes total).
+- A separate `1000`-case replay externally validated both outputs and executed all cases in Node.
+- Runtime outcomes were `757` equal results and `243` equal traps, with zero semantic mismatches.
+- Starshine was exactly `8` canonical bytes smaller in every replay case (`-8000` total).
 
-## Historical Direct Signoff
+This family is therefore a measured Starshine size win with runtime evidence. Reopen if Starshine ceases to be no larger, runtime outcomes diverge, or the Binaryen boundary stops materializing the alternate shape.
 
-- The 2026-05-06 post-fuzzer-change direct signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-locals --out-dir .tmp/pass-fuzz-reorder-locals`.
-- The compare lane reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- Those command failures were the same Binaryen-side empty-recursion-group failure class seen across the refreshed direct-pass lanes, not Starshine/Binaryen semantic output drift.
+## Artifact Quality And Performance
 
-## Historical Parity Gap
+On `tests/node/dist/starshine-debug-wasi.wasm` with debug information preserved:
 
-- Older raw mismatch evidence below is superseded for direct AUD002 purposes by the 2026-05-06 zero-mismatch run, but remains useful background for Binaryen boundary controls.
-- The remaining historical raw mismatch was not the sort comparator itself.
-- `2026-04-11` `--pass reorder-locals` smoke evidence on `version_129` from `both` generator:
-  - `199 / 200` compared
-  - `198` normalized matches
-  - `1` command failure (`binaryen-rec-group-zero`, smith)
-  - `1` mismatch
-- `2026-04-11` `--pass reorder-locals --generator gen-valid --count 200 --seed 0x5eed` reports:
-  - `199 / 200` compared
-  - `199` normalized matches
-  - `0` command failures
-  - `1` normalized mismatch
-- The mismatch case (`case-000150-gen-valid`) matches a write/read local index swap on dead locals with no visible behavioral impact in `wasmtime` probe runs on the raw outputs, so this lane is currently treated as a comparator normalization gap that still needs a cleaner classification path before claiming a semantic blocker.
+- Starshine output: `12,784,150` bytes.
+- Binaryen v131 `--debuginfo` output: `13,846,853` bytes.
+- After applying the same Binaryen-v131 `--strip-debug` canonicalization, Starshine was `5,262,811` bytes versus Binaryen `5,271,695`, an `8,884`-byte Starshine win.
+- Twenty-run whole-command medians were `1000.677 ms` for Starshine and `926.353 ms` for Binaryen, ratio `1.080x`; both outputs externally validate.
 
-Use the Binaryen boundary controls when comparing this pass:
+The ratio is within the repository's `<=2x` target, while Starshine produces smaller comparable output. Process startup, decode, encode, and debug-section handling are included, so this is a whole-command artifact measurement rather than an isolated sorter timer.
 
-- `--binaryen-nop-roundtrips <n>`
-- `--binaryen-nop-until-stable <max>`
-- `--require-binaryen-nop-converged`
-- For block-only multivalue repros the Binaryen boundary can converge; for multivalue call repros and the debug artifact it can remain non-convergent.
+## Standing Boundary Decision
 
-## Sources
+The old full-artifact raw wasm non-convergence remains a Binaryen writer/IR-builder boundary, not a `ReorderLocals.cpp` semantic gap. Use normalized/canonical function evidence and the measured size/runtime criteria in [`./multivalue-call-scope.md`](./multivalue-call-scope.md); do not require byte-for-byte raw output when Binaryen materializes a larger alternate multivalue shape.
 
-- O4Z closeout: [research note 1401](./index.md)
-- `version_130` source inventory: [research note 1400](./index.md)
-- `version_130` primary-source manifest: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- Public preset scheduling: [research note 1561](./index.md)
-- Earlier one-slot reconciliation: [research note 0709](./index.md)
-- Current closure note: [research note 0547](./index.md)
-- Durable owner: [research note 0073](./index.md)
-- Supplemental health rerun: [research note 0078](../tracker.md)
-- Current source inventory: [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderLocals.cpp>
-- Scope decision: [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
-- Implementation: [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt)
-- CLI coverage: [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+## Reopening Criteria
+
+Reopen direct parity if any of the following occurs:
+
+- Binaryen changes the v131 owner contract in a later release;
+- an encoded pure permutation reuses unchanged input bytes;
+- parameters move, an accessed local is removed, a zero-access suffix survives unexpectedly, or a local user/name map is stale;
+- legacy-EH protected/catch/delegate structure is mutated incorrectly;
+- any dedicated leaf produces a validation, idempotence, or unclassified parity failure;
+- the random-all multivalue family loses its canonical size win or runtime equality;
+- whole-command artifact performance exceeds `2x` Binaryen without an accepted compensating win.

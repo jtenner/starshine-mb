@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -27,14 +27,14 @@ related:
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract. For signoff sequencing and the distinction between explicit-pass correctness and preset-readiness, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The 2026-07-12 public-scheduling update keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule the Binaryen-shaped three-slot cleanup story that the repo already had ordered-neighborhood evidence for. The early one-slot reconciliation note [`0709`](./index.md) is now superseded for live preset state by [`1561`](./index.md).
-The 2026-07-02 O4Z closeout re-proved the explicit pass against the local `version_130` oracle: dedicated, ordinary, and random-all GenValid lanes each compared/normalized `10000/10000` with zero failures, while the external wasm-smith lane compared `9956/10000` with one unreachable-control-debris compare-normalized case, zero remaining mismatches, and `44` Binaryen/oracle command failures; see [research note 1401](./index.md).
+The 2026-07-27 renewal re-proved the explicit pass against official Binaryen `version_131`, repaired copy-on-write output loss for pure same-type permutations, expanded the dedicated aggregate to nine leaves, and completed regular `100000`, dedicated/idempotence `10000`, random-all `10000`, and wasm-smith `10000` lanes. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 For the retained manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md); [research note 0472](./index.md) preserves the earlier current-main recheck.
 
 ## Current local surface
 
 The upstream bridge for this local page stays small and explicit:
 
-- reviewed Binaryen `version_129` owner file: `src/passes/ReorderLocals.cpp`
+- reviewed Binaryen `version_131` owner file: `src/passes/ReorderLocals.cpp`
 - reviewed core implementation region: lines `65-162`
 - reviewed local owner file: `src/passes/reorder_locals.mbt`
 - reviewed local module-pass entry: `reorder_locals_run_module_pass(...)` at `src/passes/reorder_locals.mbt:544`
@@ -61,11 +61,12 @@ The easiest way to follow the in-tree implementation is this file map:
 
 - `src/passes/reorder_locals.mbt:2`
   - summary string used by the registry and docs
-- `src/passes/reorder_locals.mbt:118`
+- `src/passes/reorder_locals.mbt`
   - `rl_scan_instruction(...)`: counts `local.get`, `local.set`, and `local.tee` accesses across nested boundary instructions
-- `src/passes/reorder_locals.mbt:138`
+- `src/passes/reorder_locals.mbt`
   - `rl_sort_used_body_locals(...)`: descending-count plus first-use ordering over used body locals
-- `src/passes/reorder_locals.mbt:280`
+- `src/passes/reorder_locals.mbt`
+  - `rl_rewrite_expr(...)` / `rl_rewrite_instrs_in_place(...)`: copy-on-write recursive local-user remapping across structured and legacy-EH bodies
   - `rl_defined_func_param_cache(...)`: module-type-section lookup for each defined function's parameter list
 - `src/passes/reorder_locals.mbt:312`
   - `rl_rewrite_func(...)`: no-op fast path, body-local rebuild, optional index rewrite, and grouped-local-run reconstruction
@@ -81,8 +82,9 @@ The easiest way to follow the in-tree implementation is this file map:
   - params-only no-op coverage
 - `src/passes/reorder_locals_test.mbt:328`
   - write-only-local survival coverage
-- `src/passes/reorder_locals_test.mbt:391`
-  - nested `block` / `loop` / `if` / `try_table` index rewrite coverage
+- `src/passes/reorder_locals_test.mbt`
+  - nested `block` / `loop` / `if` / legacy-`try` / `try_table` index rewrite coverage
+  - source-module immutability and pure same-type permutation coverage
 - `src/passes/reorder_locals_test.mbt:454`
   - local-name rewrite plus raw-name-payload clearing coverage
 - `src/passes/reorder_locals_test.mbt:500`
@@ -97,6 +99,7 @@ The easiest way to follow the in-tree implementation is this file map:
   - module-pass-category assertion in `pass registry classifies active, boundary-only, and removed names`
 - `src/cmd/cmd_wbtest.mbt`
   - explicit CLI pass execution coverage
+  - encoded same-type permutation coverage preventing unchanged-input byte reuse
 
 ## How the local pass works today
 
@@ -125,6 +128,7 @@ A HOT-only pass would not own those boundary repairs cleanly.
 - `block`
 - `loop`
 - `if`
+- decoded legacy `try` protected and catch bodies
 - `try_table`
 
 and records accesses for:
@@ -175,12 +179,15 @@ This is one of the biggest local-port details a future refactor must preserve.
 
 ## 5. Expression rewrites are recursive boundary rewrites, not HOT-node remaps
 
-If the used-body-local order changed, `rl_rewrite_func(...)` calls `rl_rewrite_expr(...)`, which recursively rewrites nested local users under:
+If the used-body-local order changed, `rl_rewrite_func(...)` calls `rl_rewrite_expr(...)`, which copies the root instruction array and recursively copies/rebuilds nested local users under:
 
 - `block`
 - `loop`
 - `if`
+- decoded legacy `try` protected bodies, typed catches, catch-all bodies, and delegates
 - `try_table`
+
+Copy-on-write is a correctness requirement, not merely a style preference. In-place mutation can also mutate the source module because boundary instruction arrays are shared; for a same-type permutation that makes `optimized_mod == input_mod`, causing the CLI to reuse original wasm bytes and discard the remap.
 
 The rewrite surface is intentionally tiny:
 

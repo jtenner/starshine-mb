@@ -2,149 +2,111 @@
 
 ## Scope And Rules
 
-- Keep only active unreleased work or explicitly deferred future work.
-- Binaryen `version_131` O4z means `wasm-opt --all-features -O4 --shrink-level 4`.
-- The v131 release leaves the existing 56-slot / 38-owner O4z scheduler unchanged; the v130-to-v131 pass-impact and reopening audit is `docs/wiki/binaryen/release-horizon-and-oracles.md`.
-- The detailed preset diff and per-pass roster remain recorded in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`; read that note as the unchanged scheduler baseline, not as v131 direct-pass signoff.
-- Bare `wasm-opt` currently resolves to TinyGo's Binaryen `version_116`. Every v131 compare or self-opt command must pass an official verified v131 binary with `--wasm-opt-bin`; require `wasm-opt version 131 (version_131)` in the evidence.
+- Keep only active unreleased work or explicitly deferred future work. Durable closeout evidence belongs in the pass dossiers and `docs/wiki/log.md`, not here.
+- Binaryen `version_131` O4z means `wasm-opt --all-features -O4 --shrink-level 4` and retains the 56-slot / 38-owner top-level scheduler audited in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`.
+- Bare `wasm-opt` currently resolves to TinyGo's Binaryen `version_116`. Every v131 compare or self-opt command must pass an official verified v131 binary with `--wasm-opt-bin` and record `wasm-opt version 131 (version_131)`.
 - Direct pass behavior comes before ordered-neighborhood proof; preset scheduling comes last.
-- Behavior parity is the target. Raw wasm/WAT equality is not required, but every remaining difference must be source-backed, measured, classified, and covered by reopening criteria.
-- A pass is not closed merely because an ordinary random lane found no mismatch. Source/docs breadth, pass-specific generation, validity, performance, and the required four-lane closeout matrix still apply.
-- Use `_build/native/release/build/cmd/cmd.exe` after a current native release build. Treat `target/native/...` as stale unless explicitly proven fresh.
+- Behavior parity is the target. Every remaining difference must be source-backed, measured, classified, and covered by reopening criteria.
+- A pass closes only after source/test breadth, pass-specific generation, validity, performance, and the required four-lane matrix are complete.
+- Build the native CLI before compare lanes and use `_build/native/release/build/cmd/cmd.exe`; treat `target/native/...` as stale unless explicitly proven fresh.
 - Moon commands must run serially.
 
-## Binaryen v131 O4z Pass Ledger
+## v0.1.1 Execution Order
 
-This table covers every unique owner in the 56-slot top-level O4z path. Only rows marked **open** have active v0.1.1 work below.
+1. Finish `[V131-SPOT]001` for the three unresolved shared-helper-sensitive pass families.
+2. Finish `[V131-LEGACY-EH]001` for the five remaining passes repaired after their last release-scale matrices.
+3. Resolve `[COALESCE-LOCALS]001` direct and ordered-suffix parity gaps.
+4. Complete `[O4Z-PRESET]001`, then `[O4Z-NESTED]001`.
+5. Run artifact, runtime, size, strip-debug, and wall-time signoff.
 
-| Pass | Current Starshine status | Active work |
+## Active O4z Pass Queue
+
+The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and the pass dossiers. This table lists only owners with active v0.1.1 work.
+
+| Pass | Active work | Owner |
 | --- | --- | --- |
-| `duplicate-function-elimination` | Direct behavior closed; both slots scheduled. | None. |
-| `remove-unused-module-elements` | Correctness-repaired on 2026-07-21 so decoded legacy `try` bodies, typed/catch-all handlers, catch tags, nested references, type carriers, and remapped indices participate in reachability and rewriting. Prior v131 evidence predates the repair. | **Open evidence renewal and scheduler work:** `[AUDIT-CORRECTNESS]001` plus the second early slot. |
-| `memory-packing` | Closed for the represented Binaryen-v131 surface after the 2026-07-26 source audit and repair: active `memory.init` destination bounds, memory64 passive replacement typing, decoded legacy-`try` traversal, fail-closed operand extraction, exact passive profitability thresholds, family-based GenValid profiles, compare-harness `zero_filled_memory` forwarding, and data-op-free code-clone elision. Final explicit-v131 evidence is exact in regular `100000`, dedicated `10000`, random-all `10000`, and imported-overlap `10000`; wasm-smith matches all `9956` comparable cases after one pass-independent unreachable-control-debris normalization, with `44` Binaryen-only tool failures. | None. |
-| `once-reduction` | Direct behavior closed after the 2026-07-21 branch-exit, legacy-`try`, and tail-call repairs. Fresh v131 evidence is regular `100000/100000` exact, random-all `10000/10000` exact, wasm-smith exact for all `9956` comparable cases, and one dedicated raw terminal-tail Starshine-win family with zero true-semantic or Starshine failures. | None. |
-| `global-refining` | Closed. | None. |
-| `global-struct-inference` / `gsi` | Closed for ordinary GSI. | None. |
-| `ssa-nomerge` | Direct behavior is closed, including the 2026-07-21 unsupported-HOT admission repair and the repeated precompute value-block allocation repair. Branch-free value-block operand writes now participate in LocalGraph facts; the post-default path preserves Binaryen's already-SSA tee/get and source-order fresh-local allocation. All 17 saved cases are raw-byte identical to Binaryen v131, and the targeted profile is `10000/10000` normalized. The stopped random-all partial still contains 54 separate declaration-only residuals with identical executable bodies. | None; full `ssa` remains separate future work. |
-| `flatten` | Closed: public behavior parity, top-level aggressive scheduling, and reviewed timing acceptance completed on 2026-07-17. | None; `1,140 us` over the 120-function representative is accepted as a pass-specific timing exception. |
-| `simplify-locals` family | Closed: all five variants, four-lane direct evidence, O4z neighborhood, idempotence, and timing completed on 2026-07-17. | None; shared DAE/inlining/SGO scheduler infrastructure remains under `[O4Z-NESTED]001`. |
-| `local-cse` | Direct behavior closed; both late and aggressive-prelude slots scheduled. | None; shared nested-rerun proof remains under `[O4Z-NESTED]001`. |
-| `dead-code-elimination` / `dce` | Closed. | None. |
-| `remove-unused-names` | Closed. | None. |
-| `remove-unused-brs` | Direct Binaryen-v131 behavior parity renewed on 2026-07-26. Regular `100000/100000` is cleanup-normalized green; dedicated is `6875` exact plus `3125` measured smaller Starshine cleanups; random-all is `7028` exact plus `1683` cleanup-normalized and `1289` measured wins; wasm-smith is green for all `9956` comparable cases with `44` Binaryen-only failures. Zero Starshine failures or unclassified residuals remain. | **Open scheduler reconciliation only:** Starshine still has one extra RUB slot; direct behavior is closed under `[AUDIT-CORRECTNESS]001`. |
-| `optimize-instructions` | Closed for the representable Binaryen-v131 surface with four-lane direct evidence, O4z neighborhood proof, size wins, and pass-local timing. | Ordered memory-atomic acquire/release evidence remains a representation blocker outside OI; reopen when that instruction surface lands. |
-| `heap-store-optimization` | Closed. | None. |
-| `pick-load-signs` | Closed at Binaryen-v131-or-better parity: complete upstream behavior plus retained smaller/faster commuted-mask, unsigned-shift, and i64 evidence cleanups. | None; reopen only under the documented parity criteria. |
-| `precompute` / `precompute-propagate` | Closed on 2026-07-26 after renewed v131 source/lit audits, type-indexed control repairs, nested cleanup fixpoints, runtime/idempotence coverage, and complete regular, dedicated, random-all, and wasm-smith matrices for both public names. | None for direct behavior; retain only documented performance and boundary-IR classifications. |
-| `code-pushing` | Closed for the represented Binaryen-v131 surface after the 2026-07-26 source/fixture audit, red-first legacy-EH/final-if/mixed-arm/O4z repairs, and fresh direct matrix. | Ordered atomic memargs in the official atomics fixture remain an instruction-codec/representation blocker outside `code-pushing`; reopen when that surface is representable. |
-| `tuple-optimization` | Closed with accepted performance exception. | None. |
-| `simplify-locals-nostructure` | Closed with accepted performance caveat. | None. |
-| `vacuum` | Direct Binaryen-v131 behavior is closed for the current represented surface. Both 2026-07-21 three-family slices are implemented; regular `100000` and pass-owned aggregate `10000` lanes are exact. The required random-all lane leaves only measured six-byte Starshine-win symmetric-`if` removals, and wasm-smith leaves only the measured case-3694 six-byte win plus Binaryen tool failures. | Scheduler and ordered-preset work only under `[O4Z-PRESET]001`; no open direct parity family. |
-| `reorder-locals` | Correctness-repaired on 2026-07-21 so local-use scanning and index rewriting cover decoded legacy `try` protected and catch bodies while preserving handler structure. Three slots remain scheduled. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
-| `heap2local` | Closed for the representable v131 surface: sequential branch-target struct/array candidates, unreachable flow, GC-supertype drop-only owners, and direct fresh packed/unpacked reads are covered; the four-lane matrix and O4z slot are current. | Shared reference `acqrel` cmpxchg remains a validator/atomic-semantics representation blocker; reopen when that surface lands. |
-| `merge-locals` | Correctness-repaired on 2026-07-21: the raw straight-line fallback now rejects decoded legacy `try` exactly as it rejects other structured/EH control, preventing partial local analysis. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
-| `optimize-casts` | Closed. | None. |
-| `local-subtyping` | Closed on 2026-07-26 after a full v131 source/lit audit, concrete/abstract/null-bottom LUB repairs, raw unreachable-write coverage, official control-result refinalization, seven-family GenValid aggregate, and the required four-lane matrix. | None. |
-| `coalesce-locals` | Direct behavior closed; the 2026-07-21 retained-copy and subtype-boundary orientation family now matches Binaryen v131 without widening exact-type coalescing. | **Open extended-neighborhood and local-shape parity:** the full slot-27 suffix can renumber locals differently even when `merge-locals` is a byte no-op in both tools; the latest 300-case random-all lane also retains three conservative loop-copy/param-reuse gaps and one structured block-flattening gap. |
-| `simplify-locals` | Closed. | None. |
-| `code-folding` | Closed: Binaryen-v131 semantics, external validity, canonical late scheduling, and pass-local performance completed on 2026-07-19. | None; final representative medians are `1.70x` on the candidate-heavy fixture and `1.98x` on the large debug artifact. |
-| `merge-blocks` | Closed for the represented Binaryen-v131 surface. The 2026-07-26 renewal added the four-family `merge-blocks-all` aggregate, safe branch-free loop/block-wrapper removal, category-aware effect ordering, and the exact flat-stack direct-call prefix bridge; final regular `100000`, dedicated `10000`, and random-all `10000` lanes are exact, and wasm-smith is exact for all `9956` comparable cases. | Regular memory-atomic / `atomic.fence` acquire-release optimization remains a boundary-IR representation blocker; current behavior is conservatively fail-closed, not an open represented-surface correctness gap. |
-| `redundant-set-elimination` / `rse` | Direct behavior, 1x timing, and the canonical late O4z scheduler slot are closed. The 2026-07-21 repair also removes newly unread admitted body-local set shells while preserving RHS evaluation; the fresh 300-case explicit-v131 lane is exact. The public optimize/shrink rosters run `heap-store-optimization -> redundant-set-elimination -> vacuum -> dae-optimizing`. | None for v0.1.1. |
-| `dae-optimizing` | Closed for represented Binaryen-v131 behavior, common lifecycle ownership, fresh four-lane residual classification, validity, exact-once nested convergence, and explicitly accepted artifact-scale performance. The dense-call artifact improved from `>1500s` to a seven-run `1.893s` median with byte-identical valid output; Binaryen remains `0.356s`, but release review accepted the remaining gap because further local optimization is architectural and risk-heavy while Starshine performs materially stronger cleanup. | None for v0.1.1. |
-| `inlining-optimizing` | The v131 shared-engine behavior audit is implemented locally: toolchain hints, CLI/configurable heuristics, complete trivial-instruction classes, Pattern A/B splitting, EH-aware direct/indirect/ref tail hoisting, roots, metadata repair, active `inline-main`, and exact nested order. **Release target: v0.2.0 or later; these changes are not part of the v0.1.1 release scope.** | Direct behavior has no open v131 transform-family gap. Track shipment under `[V02-INL]001`; shared DAE/SGO scheduler routing remains under `[O4Z-NESTED]001`. |
-| `duplicate-import-elimination` | Correctness-repaired on 2026-07-21 so call, return-call, and ref.func remapping traverses decoded legacy `try` regions and duplicate function-import removal clears stale raw name payloads after function-index remapping. The new raw-name repair has an exact 300-case explicit-v131 lane. | **Open legacy-EH evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
-| `simplify-globals-optimizing` | Closed and scheduled. | Shared nested-scheduler proof only. |
-| `string-gathering` | Accepted direct/preset status. | Non-blocking decoder/performance follow-up only. |
-| `reorder-globals` | Correctness-repaired on 2026-07-21 so traffic, dependency, and index-rewrite walkers cover decoded legacy `try` protected and catch bodies. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`. |
-| `directize` | Correctness-repaired on 2026-07-21 so table mutation/growth/runtime classification, indirect-call discovery, and nested rewriting cover decoded legacy `try` protected and catch bodies. | **Open evidence renewal:** `[AUDIT-CORRECTNESS]001`; optional `directize-initial-contents-immutable` breadth remains separate. |
+| `heap-store-optimization` | Focused v131 shared-helper renewal. | `[V131-SPOT]001` |
+| `simplify-locals` family | Focused v131 renewal across all five policy variants. | `[V131-SPOT]001` |
+| `tuple-optimization` | Focused v131 shared-typing/finalization renewal. | `[V131-SPOT]001` |
+| `remove-unused-module-elements` | Renew direct evidence after legacy-`try` traversal repair; add the second early O4z slot afterward. | `[V131-LEGACY-EH]001`, `[O4Z-PRESET]001` |
+| `merge-locals` | Renew direct evidence after the raw fallback began rejecting legacy `try`. | `[V131-LEGACY-EH]001` |
+| `duplicate-import-elimination` | Renew direct evidence after legacy-EH remapping and raw-name repair. | `[V131-LEGACY-EH]001` |
+| `reorder-globals` | Renew direct evidence after legacy-`try` traffic/dependency/rewrite repair. | `[V131-LEGACY-EH]001` |
+| `directize` | Renew direct evidence after legacy-`try` table analysis/rewrite repair; retain thin module-shape breadth. | `[V131-LEGACY-EH]001`, `[AUDIT]004` |
+| `coalesce-locals` | Resolve four direct loop/parameter/block shape gaps and the extended O4z suffix numbering gap. | `[COALESCE-LOCALS]001` |
+| `remove-unused-brs` | Direct behavior is closed; reconcile the remaining extra early scheduler slot only. | `[O4Z-PRESET]001` |
+| `merge-blocks` / branch cleanup | Direct represented-surface behavior is closed; reconcile size-losing post-`code-folding` ordered shapes. | `[O4Z-PRESET]001` |
 
-## Binaryen v131 Release Refresh
+## Binaryen v131 Evidence Renewal
 
 ### [V131-SPOT]001 - Renew shared-helper-sensitive closed-pass evidence
 
-- **Goal:** determine whether v131 shared effect/type/finalization changes alter closed passes whose owner file did not change.
-- **Targeted set:** `code-pushing`, `heap-store-optimization`, `precompute`, `remove-unused-brs`, all five `simplify-locals` variants, and `tuple-optimization`; DAE remains owned by its existing open slices.
-- **Progress:** `code-pushing`, `remove-unused-brs`, and the `precompute` / `precompute-propagate` family renewed on 2026-07-26. For precompute, the explicit-v131 source/test audit repaired type-indexed label arities, terminal multivalue branch payloads, shared no-local raw cleanup, nested cleanup fixpoints, and dropped exact pure-reference operations. Both public names completed regular `100000`, dedicated `10000`, random-all `10000`, wasm-smith `10000`, and runtime/idempotence lanes with zero true semantic or validation failures; residuals are smaller cleanup wins or the intentional reachable-`atomic.fence` boundary. `code-pushing` remains closed on its represented surface; its official ordered-atomics fixture remains a pre-pass codec blocker. `remove-unused-brs` completed its four-lane renewal with only cleanup-normalized or measured smaller Starshine outputs.
+- **Status:** three pass families remain.
+- **Goal:** determine whether v131 shared effect, type, and finalization changes alter passes whose owner file did not change.
+- **Active targets:**
+  - [ ] `heap-store-optimization`.
+  - [ ] all five `simplify-locals` variants.
+  - [ ] `tuple-optimization`.
+- **Method:** read the focused v131 source/test delta first; keep the pass closed when the probe and owner contract are unchanged, and open a dedicated parity slice only for a classified failing or missing released family.
+- **Exit criteria:** each target has a current explicit-v131 verdict recorded in its dossier, with any discovered gap moved to a concrete owning slice.
+
+### [V131-LEGACY-EH]001 - Renew evidence after legacy-`try` correctness repairs
+
+- **Status:** five release-scale direct matrices remain open.
+- **Goal:** replace pre-repair closeout evidence for every pass whose correctness-sensitive analysis or rewrite changed on 2026-07-21.
+- **Why:** decoded legacy `Try` bodies and catches previously could be omitted from reachability, index rewriting, traffic analysis, or mutation guards. Passing pre-repair matrices cannot close the repaired behavior.
 - **Deliverables:**
-  - [ ] Run focused v131 source/test probes before any full rerun.
-    - [x] `code-pushing`.
-    - [x] `remove-unused-brs`.
-    - [x] `precompute` / `precompute-propagate`.
-  - [ ] Keep a pass closed when the probe is green and the owner contract is unchanged; open a dedicated slice only for a classified mismatch or missing released family.
-    - [x] `code-pushing` remains closed for the represented surface; the atomic codec blocker is owned outside the pass.
-    - [x] `remove-unused-brs` remains closed with cleanup-normalized parity and measured smaller-output families.
-- **Exit criteria:** every target has an explicit v131 renewed/unchanged verdict or an owning follow-up slice.
+  - [ ] Run the required explicit-v131 four-lane matrix for `remove-unused-module-elements`.
+  - [ ] Run the required explicit-v131 four-lane matrix for `merge-locals`.
+  - [ ] Run the required explicit-v131 four-lane matrix for `duplicate-import-elimination`.
+  - [ ] Run the required explicit-v131 four-lane matrix for `reorder-globals`.
+  - [ ] Run the required explicit-v131 four-lane matrix for `directize`.
+  - [ ] Add or refresh a pass-owned aggregate GenValid profile before a matrix when the current profile does not exercise protected-body, typed-catch, catch-all, and delegate-bearing cases.
+  - [ ] Update each pass dossier with exact counts, Binaryen/tool failures, Starshine failures, mismatch classifications, cache statistics, timing, and reopening criteria.
+- **Invariants:** preserve protected-body and catch ordering, tags, catch-all form, delegate target, block type, stack typing, and exceptional control flow; never mutate from partial legacy-EH facts.
+- **Dependencies:** none. `once-reduction` and `memory-packing` already renewed after the same audit and are not part of this slice.
+- **Exit criteria:** all five remaining matrices have zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
 
-### [AUDIT-CORRECTNESS]001 - Renew evidence after cross-pass correctness repairs
+### [COALESCE-LOCALS]001 - Resolve direct and suffix shape gaps
 
-- **Status:** **Completed on 2026-07-26.** `merge-blocks`, `once-reduction`, `memory-packing`, `local-subtyping`, `remove-unused-brs`, and `precompute` / `precompute-propagate` all have fresh explicit-v131 direct evidence after the correctness repairs. RUB scheduler reconciliation remains separately tracked under `[O4Z-PRESET]001` and does not reopen direct behavior.
-- **Goal:** renew explicit Binaryen-v131 direct evidence for the six behavior-changing public pass families after the repair.
+- **Status:** the retained-copy orientation repair is exact, but four pre-existing direct residuals and one ordered-suffix family remain open.
+- **Goal:** match Binaryen v131 unless a measured Starshine size, operation-count, downstream-cleanup, validity, or pass-local performance win justifies the different shape.
 - **Deliverables:**
-  - [x] Add a `merge-blocks-all` aggregate GenValid profile covering structural, expression-child, effect-order, EH/drop, and represented atomic-barrier families (2026-07-26: four weighted leaf profiles plus aliases, labels, tests, and random-all membership).
-  - [x] Run the required four-lane v131 matrix for `merge-blocks` (2026-07-26: regular `100000/100000`, dedicated `10000/10000`, random-all `10000/10000`, wasm-smith `9956/9956` comparable with 44 Binaryen-only failures); keep regular acqrel memory/fence ordering as an explicit representation blocker until boundary IR preserves it.
-  - [x] Run the required four-lane v131 matrix for `once-reduction` (2026-07-21: regular and random-all exact, wasm-smith exact for all comparable cases with 44 Binaryen/tool failures, dedicated raw terminal-tail residual classified as a measured Starshine win).
-  - [x] Run the required four-lane v131 matrix for `memory-packing` (2026-07-26: native SHA-256 `3c68b3de67b79c9f6ea891241bc042e26c84864156dc68e66cd21c8ace97f6d0`; regular `100000/100000`, dedicated `10000/10000`, random-all `10000/10000`, imported zero-filled overlap `10000/10000`; wasm-smith `9955` direct plus one pass-independent unreachable-control-debris normalized match across `9956` comparable cases, with `44` Binaryen-only failures).
-  - [x] Run the required four-lane v131 matrix for `local-subtyping` (2026-07-26: regular, dedicated seven-family aggregate, and random-all exact; wasm-smith exact for `9955/9956` comparable cases plus one pass-independent cleanup-normalized unreachable-debris case, with 44 Binaryen-only tool failures).
-  - [x] Run the required four-lane v131 matrix for `remove-unused-brs` (2026-07-26: regular `100000/100000` cleanup-normalized green; dedicated `6875` exact plus `3125` measured smaller Starshine cleanups totaling `-81681` bytes; random-all `7028` exact plus `1683` cleanup-normalized and `1289` measured wins; wasm-smith `9954` exact plus `2` cleanup-normalized across `9956` comparable cases, with `44` Binaryen-only failures and zero Starshine failures).
-  - [x] Run the required four-lane v131 matrices for `precompute` and `precompute-propagate` (2026-07-26: plain regular `36953 + 63047`, dedicated `8249 + 1751`, random-all `3834` smaller plus `328` fence-preserving, wasm-smith `9955` direct over `9956` comparable; propagating regular `41287 + 58713`, dedicated `6423 + 3577`, random-all `2135` smaller plus `328` fence-preserving, wasm-smith `9954` direct plus two classified wins over `9956` comparable; `44` Binaryen-only failures in each wasm-smith lane; zero true semantic/validation failures).
-  - [x] Keep full `ssa`'s stale-plan regression white-box because it hardens an internal failure path without widening public transform admission.
-  - [x] Keep raw merge-locals output unchanged while deleting its unreachable orientation-two branch.
-- **Exit criteria:** all six behavior-changing public pass families have fresh explicit-v131 direct matrices with zero validation or true semantic failures, or an inspected mismatch has its own owning follow-up.
-
-### [AUDIT-LEGACY-EH]001 - Repair decoded legacy `try` traversal across optimizer passes
-
-- **Status:** implementation and deterministic validation complete on 2026-07-21; explicit v131 evidence renewal remains tracked separately. Red-first white-box tests initially failed seven traversal families, then passed after the repairs. Current pass tests are `6243/6243`; native and wasm-gc repository suites are `9722/9722`; `moon check --target wasm-gc` has 183 warnings and zero errors; every CI fuzz suite passes when the Moon command is run directly. The aggregate Bun wrapper reproduced the documented intermittent subprocess failure before the identical direct command succeeded. Legacy `@lib.Instruction::Try(BlockType, Expr, Array[LegacyCatch], LabelIdx?)` is a real input produced by `src/binary/decode.mbt`; it is not interchangeable with `TryTable`. Shared and correctness-sensitive walkers now traverse the protected body plus every `LegacyCatch` / `LegacyCatchAll` body, while broader TryTable-only owners explicitly fail closed before mutation.
-- **Goal:** make every affected pass either traverse legacy try and catch bodies correctly or explicitly fail closed before mutation. Do not treat the absence of legacy-EH coverage in existing generated profiles as proof that the instruction is unreachable.
-- **Why:** the omissions can leave stale remapped indices, hide live references or state mutations, and permit transforms based on incomplete control/effect facts. These are potential semantic miscompiles or invalid-module producers, not representation-only parity gaps.
-- **Deliverables:**
-  - [x] **Fix the shared structured-instruction walker.** Extend `pass_rewrite_structured_instr` in `src/passes/pass_common.mbt` to recurse through the protected body and every legacy catch body while preserving the block type, catch tags/catch-all shape, and delegate target. Add focused `untee` and `avoid-reinterprets` tests proving nested rewrites occur in both the try body and catches. This item is pass-completeness work; the remaining items below are correctness repairs.
-  - [x] **Repair `reorder-locals`.** Update `rl_scan_instruction` and `rl_rewrite_instrs_in_place` in `src/passes/reorder_locals.mbt` to visit the protected body and all legacy catch bodies. Add red-first cases where a local is used only in a try/catch and where reordering an outside-used local would otherwise leave a stale catch-body index. Assert encoded local indices and external validation, not only rendered text.
-  - [x] **Repair `reorder-globals`.** Update global traffic counting, defined-global dependency collection, and instruction rewriting in `src/passes/reorder_globals.mbt` for legacy try/catch bodies. Test globals referenced only in the protected body and only in catches, including a case where reordering changes their absolute indices.
-  - [x] **Repair `duplicate-import-elimination`.** Extend `die_rewrite_instruction` in `src/passes/duplicate_import_elimination.mbt` so `call`, `return_call`, and `ref.func` indices are remapped inside the protected body and all catches after a duplicate function import is removed. Cover body, typed catch, catch-all, and delegate-bearing shapes; validate the rewritten module and invoke the surviving target where practical.
-  - [x] **Repair `remove-unused-module-elements`.** Extend `rume_scan_instruction` and every related rewrite/nullification traversal in `src/passes/remove_unused_module_elements.mbt` to scan legacy try/catch bodies and catch tag references. Add fixtures where functions, globals, tables/memories, data/element segments, and tags are reachable only through the protected body or a catch. The pass must not remove or renumber any such live element incorrectly.
-  - [x] **Repair `directize`.** Extend table mutation, table growth, runtime-table classification, indirect-call discovery, and nested rewrite walkers in `src/passes/directize.mbt` across legacy try/catch bodies. The key regression must place `table.set`, `table.grow`, or another table-content invalidator inside a legacy try and prove an indirect call is not directized from stale initial contents. Also cover an eligible indirect call nested inside a try/catch for positive rewrite completeness.
-  - [x] **Repair `once-reduction`.** Extend `or_scan_instrs`, `or_analyze_instrs_flow`, and `or_rewrite_instrs_flow` in `src/passes/once_reduction.mbt` across protected and catch bodies with conservative exceptional-flow merging. A noncanonical write to a candidate once-global inside either region must invalidate the candidate; calls and reads there must participate in dataflow; no guard, write, or call may be removed from incomplete facts.
-  - [x] **Repair the raw `merge-locals` fallback.** `merge_locals_raw_is_straight_line` in `src/passes/merge_locals.mbt` currently rejects `TryTable` but not legacy `Try`, while its flat local dataflow does not inspect nested try/catch effects. Fail closed on legacy `Try` unless the raw algorithm is deliberately extended with full exceptional control flow. Add red-first protected-body and catch-body read/write cases proving no unsafe retarget occurs.
-  - [x] **Audit the remaining `TryTable`-only raw walkers.** Search non-test `src/passes/*.mbt` for walkers matching `@lib.TryTable` without `@lib.Try`; classify each as correctness-sensitive, completeness-only, or deliberately fail-closed. Add an explicit legacy-`Try` case or a pre-mutation rejection for every correctness-sensitive owner, and record the final owner list in the relevant pass dossiers so this systemic variant omission cannot silently recur.
-- **Final owner classification:** full legacy-region traversal is implemented in `pass_common`, `reorder-locals`, `reorder-globals`, `duplicate-import-elimination`, `remove-unused-module-elements`, `directize`, `once-reduction`, and `memory-packing`; raw `merge-locals` fails closed on legacy `Try`. `coalesce-locals`, `duplicate-function-elimination`, `global-refining`, `global-struct-inference`, `inlining` / `inline-main`, `local-subtyping`, `simplify-globals-optimizing`, and `string-gathering` use the shared module-level pre-mutation legacy-try guard because their remaining TryTable-oriented raw algorithms do not yet model exceptional handler flow. HOT pass-manager paths remain deliberately fail-closed where legacy regions cannot be lifted, while the precompute family's existing raw preservation path and code-pushing's narrow fully-caught raw bridge remain explicit.
-- **Invariants:** traverse every protected and catch body exactly once; preserve catch ordering, tag indices, catch-all form, delegate target, block type, stack typing, and exceptional control flow; do not flatten legacy `Try` into `TryTable`; do not mutate from partial analysis.
-- **Dependencies:** none. This correctness slice supersedes any ledger claim that the affected passes are fully closed for all decoded instruction forms; scheduler work can proceed independently but release signoff cannot ignore these repairs.
-- **Suggested test setup:** construct or decode real legacy-EH wasm rather than using only synthetic `Instruction` arrays; include typed catch, catch-all, delegate, body-only reference, catch-only reference, and mixed normal/exceptional exits. For each mutating pass, confirm the test fails before implementation, then run focused tests, `moon info`, `moon fmt`, `moon test`, external wasm validation, and targeted semantic execution or compare-pass replay where supported.
-- **Exit criteria:** implementation criteria complete: every checkbox above is complete; affected passes have deterministic protected/catch regressions; no repaired or guarded pass mutates from facts that omit legacy EH; the remaining `TryTable`-only walker inventory is classified; focused and repository-wide validation is green. Fresh explicit-v131 direct evidence remains under `[AUDIT-CORRECTNESS]001` and is not implied by this deterministic closeout.
+  - [ ] Reduce and classify the three conservative loop-copy / parameter-reuse residuals from the latest 300-case random-all lane.
+  - [ ] Reduce and classify the structured block-flattening residual.
+  - [ ] Repair every parity or size-losing gap; retain a difference only with measured Starshine-win evidence and reopening criteria.
+  - [ ] Reconcile the extended `local-subtyping -> coalesce-locals -> local-cse` suffix where local numbering can diverge even when `merge-locals` is a byte no-op in both tools.
+  - [ ] Rerun the required four-lane direct matrix after behavior changes, then rerun the ordered suffix lane.
+- **Exit criteria:** direct and suffix evidence contain no unclassified, size-losing, validation, or true-semantic residuals.
 
 ## v0.1.1 Primary O4z Work
 
 ### [O4Z-PRESET]001 - Reconcile the exact 56-slot public preset
 
-- **Status:** blocked on direct pass work above.
-- **Goal:** make Starshine's `shrink`/O4z expansion intentionally match the Binaryen v130 56-slot top-level order, with documented Starshine-only extensions.
-- **Current differences to resolve:**
-  - [ ] Add the second early `remove-unused-module-elements` slot.
-  - [x] Add `flatten -> simplify-locals-notee-nostructure -> local-cse`.
-  - [ ] Remove or prove the extra early `vacuum -> remove-unused-brs` pair.
-  - [x] Replace both plain `precompute` substitutions with `precompute-propagate`.
-  - [x] Add `merge-locals` after `heap2local`; the exact `heap2local -> merge-locals -> optimize-casts` lane is `10000/10000` green.
-  - [ ] Reconcile the downstream local-numbering shape gap in the extended `local-subtyping -> coalesce-locals -> local-cse` suffix; a reduced probe is byte-identical with and without `merge-locals` in each tool, so this does not reopen the pass.
-  - [x] Add `code-folding` before the first late `merge-blocks`; direct four-lane parity and exact-order scheduling closed on 2026-07-18.
-  - [ ] Reconcile the classified post-`code-folding` cleanup shapes: return/tail-call and movement fixtures are smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing gaps in neighboring `merge-blocks` / branch cleanup.
-  - [ ] Add `redundant-set-elimination -> vacuum` after late HSO.
-  - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside the Binaryen 56 slots.
-  - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact order tests.
-- **Exit criteria:** exact expansion tests, every newly scheduled direct pass independently signed off, and an ordered generated-artifact/runtime/size comparison with no unclassified regression.
+- **Status:** blocked on the direct evidence and parity slices above.
+- **Goal:** make Starshine's `shrink`/O4z expansion intentionally match the unchanged Binaryen-v131 56-slot top-level order, with documented Starshine-only extensions.
+- **Current differences:**
+  - [ ] Add the second early `remove-unused-module-elements` slot after its renewed direct signoff.
+  - [ ] Remove or prove the remaining extra early `remove-unused-brs` slot. The former noncanonical early `vacuum` has already been removed.
+  - [ ] Land the resolved `local-subtyping -> coalesce-locals -> local-cse` suffix after `[COALESCE-LOCALS]001`.
+  - [ ] Reconcile post-`code-folding` ordered cleanup shapes: return/tail-call and movement fixtures are measured smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing neighboring cleanup gaps.
+  - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside Binaryen's 56 slots.
+  - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact-order tests.
+- **Already landed and removed from this active list:** the aggressive flatten/SLNNS/local-CSE prelude, both `precompute-propagate` substitutions, `merge-locals` after `heap2local`, `code-folding` before late `merge-blocks`, removal of the noncanonical early `vacuum`, and the late `heap-store-optimization -> redundant-set-elimination -> vacuum` sequence.
+- **Exit criteria:** exact expansion tests, independently signed direct owners, and an ordered generated-artifact/runtime/size comparison with no unclassified regression.
 
 ### [O4Z-NESTED]001 - Reconcile optimizing nested reruns
 
-- **Status:** partially implemented across DAE, inlining, and SGO.
-- **Goal:** make nested optimizing reruns use one shared, truthful, touched-function-filtered representation of the final O4z function pipeline.
-- **Why:** top-level order is insufficient. Binaryen reruns function cleanup after DAE/inlining, and SGO reruns the default function pipeline without the extra propagating prefix.
+- **Status:** DAE and inlining share the current helper; neutral ownership, SGO routing, and final proof remain open.
+- **Goal:** use one truthful, touched-function-filtered representation of the final O4z function pipeline for DAE, inlining, and SGO nested cleanup.
 - **Deliverables:**
-  - [ ] Define one tested function-pipeline expansion API parameterized by O4z levels, feature gates, and whether `precompute-propagate` is prepended.
-  - [ ] Route DAE, inlining, and SGO through it without semantic forks.
+  - [ ] Promote the existing inlining-named helper into a neutral tested function-pipeline expansion API parameterized by O4z levels, feature gates, and whether `precompute-propagate` is prepended.
+  - [ ] Preserve current DAE/inlining behavior while routing SGO through the same API without semantic forks.
   - [ ] Preserve touched-function filtering; do not mutate unrelated functions.
-  - [ ] Replace broad large-module/tail-call bypasses only with focused safe guards or repaired owners.
+  - [ ] Replace broad large-module or tail-call bypasses only with focused safe guards or repaired owners.
   - [ ] Add exact nested-order tests and pass-specific runtime/artifact evidence.
-- **Dependencies:** `[O4Z-PCP]001`, `[O4Z-CF]001`, and `[O4Z-PRESET]001`. The SimplifyLocals prelude and `merge-locals` are signed; this slice owns only shared scheduler routing.
-- **Exit criteria:** DAE/inlining/SGO nested traces match the intended roster and stay valid, runtime-green, and within accepted pass-local performance bounds.
+- **Dependencies:** `[O4Z-PRESET]001`.
+- **Exit criteria:** DAE, inlining, and SGO nested traces match the intended roster and remain valid, runtime-green, and within accepted pass-local performance bounds.
 
 ## v0.1.1 O4z Supporting Work
 
@@ -157,19 +119,19 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 ### [JSON-AS]001 - Repeatable artifact correctness and size signoff
 
 - **Goal:** keep a pinned opt-in `json-as` replay that builds debug artifacts, validates Starshine/Binaryen outputs, executes runtime suites, and records section/function/type/code/custom-section deltas.
-- **Active work:**
+- **Deliverables:**
   - [ ] Add a documented opt-in clone/build/replay task under existing Bun tooling; do not add shell scripts under `scripts/`.
-  - [ ] Re-measure the final `strip-debug` custom-section wins.
+  - [ ] Re-measure final `strip-debug` custom-section wins.
   - [ ] Measure each newly scheduled O4z pass/neighborhood on medium-naive, medium-simd, and large-swar artifacts.
   - [ ] Keep validation and runtime execution separate; validation alone previously missed corruption.
   - [ ] Prefer `d8` when available; otherwise retain a checked-in-equivalent Node/WASI smoke path.
-- Historical completed correctness incidents belong in the wiki, not as active entries.
+- **Exit criteria:** the final preset has repeatable validation, runtime, and component-size evidence on all three artifacts.
 
 ### [WALL]001 - Cross-pass wall-time attribution
 
 - Separate pass-local time from decode, validation, HOT lift/lower, parse/emit, buffering, caching, and process startup.
 - Keep aggregate wall time outside direct pass correctness closeout unless a pass is clearly the owner.
-- Current recurring targets: self-optimization command overhead, repeated HOT lifting, validation/encoding, and any newly widened exact O4z preset.
+- Current targets are self-optimization command overhead, repeated HOT lifting, validation/encoding, and the widened exact O4z preset.
 
 ### [TOOL]001 - Self-opt compare normalization symmetry
 
@@ -178,47 +140,39 @@ This table covers every unique owner in the 56-slot top-level O4z path. Only row
 
 ### [STRIP-DEBUG]001 - Artifact measurement
 
-- Direct pass and final preset placement are complete.
+- Direct pass behavior and final extension placement are complete.
 - Re-measure debug-artifact custom-section size, validation, and runtime effects after the final O4z scheduler lands.
 
 ## v0.1.1 Optimizer Follow-ups
 
 ### [SSA-FULL]001 - Complete public full `ssa`
 
-- Not an O4z blocker: O4z uses `ssa-nomerge`.
-- Active work: simple explicit-write merge locals; parameter/default entry inputs and prepend ordering; loop/branch/EH/typed-control classification; harness admission; dedicated profile; direct closeout.
+- **Priority:** not an O4z blocker; O4z uses `ssa-nomerge`.
+- **Active work:** simple explicit-write merge locals; parameter/default entry inputs and prepend ordering; loop/branch/EH/typed-control classification; harness admission; dedicated profile; direct closeout.
+- **Exit criteria:** the public pass is admitted, source/test-audited, covered by a dedicated profile, and green on the required four-lane matrix.
 
 ### [AUDIT]004 - Thin module-pass coverage
 
-- Keep only still-useful test expansion:
-  - `directize`: imported/exported/passive/declarative/multi-table/tail-call negatives and positives;
-  - any newly widened scheduler owner from the primary O4z queue.
-- Do not duplicate already closed DIE/once-reduction breadth tasks; decoded legacy-`Try` correctness repairs are explicitly owned by `[AUDIT-LEGACY-EH]001`.
+- Add only still-useful `directize` imported/exported/passive/declarative/multi-table/tail-call positives and negatives plus coverage for any newly widened scheduler owner.
+- Do not duplicate closed duplicate-import-elimination or once-reduction breadth work.
 
-### [AUDIT]006 - Function `TypeIdx`/`RecIdx` invariant documentation
+### [AUDIT]006 - Function `TypeIdx` / `RecIdx` invariant documentation
 
-- Finish the wiki/inline/test documentation that module function-section references are global `TypeIdx`, while `RecIdx` is rec-group-local and impossible in validated function-section positions.
+- Finish wiki, inline, and test documentation that function-section references are global `TypeIdx`, while `RecIdx` is rec-group-local and impossible in validated function-section positions.
 
 ### [SGO]003-[SGO]005 - Deferred SGO improvements
 
-- Optional breadth only after a new semantic/artifact need.
-- Nested-cleanup runtime experiments only with measured ownership.
-- Default-local compare normalization is tooling/cosmetic work, not a direct SGO correctness blocker.
+- Add optional breadth only after a new semantic or artifact need.
+- Run nested-cleanup experiments only with measured ownership.
+- Treat default-local compare normalization as tooling/cosmetic work, not a direct SGO correctness blocker.
 
 ## v0.2.0 Or Later Work
 
-### [V02-INL]001 - Ship the Binaryen v131 inlining-family expansion
+### [V02-INL]001 - Ship the Binaryen-v131 inlining-family expansion
 
-- **Release target:** v0.2.0 or later. Do not count or publish these changes as part of v0.1.1.
-- **Implementation status:** completed locally on 2026-07-19; retain the implementation, tests, generated interfaces, harness admission, and documentation for the later release.
-- **Scope:** plain `inlining`, `inlining-optimizing`, active `inline-main`, `no-inline*` policy, Binaryen toolchain hints, all six CLI/configuration controls, complete represented trivial-instruction policy, Pattern A/B partial splitting, EH-safe direct/indirect/ref tail handling, roots, metadata repair, and touched nested cleanup order.
-- **Evidence:** focused inlining `120/120`, white-box `14/14`, CLI `54/54`, command `107/107`, full `9452/9452`; official-v131 GenValid closeout produced `10000/10000` normalized matches for both plain and optimizing modes with zero mismatches or failures.
-- **Release gate:** before the eventual v0.2.0-or-later publication, rerun generated interfaces, README API sync, the focused suites, the full repository suite, both explicit-v131 10,000-case lanes, and the repository-wide validation gate after the unrelated decoder fuzz blocker is resolved.
-
-### [AUDIT]005 - Standalone no-inline policy tests
-
-- **Status:** implemented 2026-07-19 as part of `[V02-INL]001`; not part of v0.1.1 scope.
-- Focused marker, deduplication, no-match, stripped-name wildcard, `no-full-inline`, `no-partial-inline`, clone-survival, and partial-split policy tests live in `src/passes/inlining_test.mbt`.
+- **Status:** implementation is retained locally; publication is deferred to v0.2.0 or later.
+- **Scope:** plain `inlining`, `inlining-optimizing`, active `inline-main`, `no-inline*` policy, toolchain hints, six configuration controls, represented trivial-instruction policy, Pattern A/B splitting, EH-safe tail handling, roots, metadata repair, and touched nested cleanup.
+- **Release gate:** after unrelated work and `[O4Z-NESTED]001` settle, regenerate interfaces, run README/API sync, focused suites, the full repository suite, both explicit-v131 10,000-case lanes, and the repository-wide validation gate.
 
 ### Shared-Everything Threads
 
@@ -236,24 +190,24 @@ Keep the dependency order; detailed proposal rules live in the Shared-Everything
 ### [INL]020-[INL]021 - Optional future inlining breadth
 
 - Revisit tiny hot-path struct/array allocation inlining only with measured canonical-size and wall-time wins.
-- Keep table/indirect-call **callee recovery** research deferred; v131's direct-call planner and copied-body indirect/ref-call handling are complete.
-- Expression-level code metadata, branch hints, source maps, and copied callee debug-name synthesis remain shared metadata-substrate work rather than open inlining transform families.
+- Keep table/indirect-call callee recovery deferred; v131's direct-call planner and copied-body indirect/ref-call handling are complete.
+- Keep expression-level code metadata, branch hints, source maps, and copied-callee debug-name synthesis under shared metadata-substrate work.
 
 ### [HOT]001-[HOT]004 - Deferred structural improvements
 
 - Replace exact-expression span identity with stronger source provenance where needed.
 - Preserve unknown/custom metadata through HOT round trips.
 - Reduce opaque fallback lowering without sacrificing correctness.
-- Keep any O4z startup-map local/tee/loop repair tied to `[O4Z-STARTUP]001` rather than opening unrelated HOT rewrites.
+- Keep O4z startup-map local/tee/loop repair under `[O4Z-STARTUP]001` rather than opening unrelated HOT rewrites.
 
 ### [FUZZ]001 - Continuous parity triage
 
-- Keep no permanent active bug entry when all maintained suites are green.
-- On a new mismatch: save the seed/artifacts, minimize it, classify it, add the focused regression first, repair the owning pass/harness/codec, and archive the durable result in the relevant dossier.
+- Keep no permanent active bug entry while all maintained suites are green.
+- On a new mismatch, save the seed/artifacts, minimize it, classify it, add the focused regression first, repair the owning pass/harness/codec, and archive the durable result in the relevant dossier.
 
 ## Backlog Hygiene
 
-- Remove a slice when its exit criteria are met; do not retain completed checkbox diaries here.
-- Move durable closeout evidence to the pass dossier, `docs/wiki/log.md`, or a numbered research note.
-- Add a new active slice only when it has a concrete owner, goal, reason, deliverables, dependencies, exit criteria, and suggested tests.
+- Remove a slice when its exit criteria are met; do not retain completed checkbox diaries.
+- Move durable closeout evidence to the pass dossier or `docs/wiki/log.md`.
+- Add active slices only with a concrete owner, goal, reason, deliverables, dependencies, exit criteria, and suggested tests where implementation is expected.
 - Keep release blockers and known failures visible until resolved.

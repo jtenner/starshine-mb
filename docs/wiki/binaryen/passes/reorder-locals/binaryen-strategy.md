@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md
@@ -19,8 +19,8 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_130` as the current O4Z audit oracle for this pass. The `version_130` owner and dedicated lit files are byte-identical to the previously reviewed `version_129` copies, so older `version_129` prose remains valid as provenance rather than the freshest oracle.
-For the current refresh, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [research note 1400](./index.md). The retained 2026-05-05 current-main recheck is recorded in [research note 0472](./index.md); [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) retains the local validation and preset-readiness bridge.
+Use Binaryen `version_131` as the current released audit oracle for this pass. The 2026-07-27 audit found the `version_131` owner and dedicated lit files byte-identical to `version_130`; older v129/v130 prose remains valid as unchanged-contract provenance.
+For the retained v130 manifest and unchanged-contract provenance, see [`../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md`](../../../raw/binaryen/2026-07-02-reorder-locals-version-130-source-refresh.md) and [research note 1400](./index.md). The v131 closeout and local validation bridge are current in [`./parity.md`](./parity.md), [`./fuzzing.md`](./fuzzing.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Primary files:
 
@@ -39,7 +39,7 @@ Supporting official files for the known remaining parity boundary:
 - `src/wasm/wasm-ir-builder.cpp`
 - `src/wasm/wasm-stack.cpp`
 
-A 2026-07-02 `version_130` freshness check compared these official tagged files against the previously captured `version_129` copies:
+The 2026-07-27 `version_131` freshness check compared these official tagged files against the retained `version_130` copies:
 
 - `ReorderLocals.cpp`
 - `pass.cpp`
@@ -47,13 +47,13 @@ A 2026-07-02 `version_130` freshness check compared these official tagged files 
 
 Durable result:
 
-- all of those owner/lit surfaces still match `version_129` exactly;
-- local `wasm-opt --version` reports `version_130`;
-- new O4Z audit evidence should cite `version_130` while preserving the older `version_129` manifests as unchanged-contract provenance.
+- all reviewed owner/lit surfaces match `version_130` exactly;
+- the explicit oracle reports `wasm-opt version 131 (version_131)`;
+- current audit evidence cites `version_131` while preserving older manifests as unchanged-contract provenance.
 
 ## File landmarks worth keeping explicit
 
-In the reviewed `version_130` source, the key mechanics are tightly concentrated:
+In the reviewed `version_131` source, the key mechanics are tightly concentrated:
 
 - `ReorderLocals.cpp` lines `8-63`
   - `ReIndexer`, which rewrites only `LocalGet` and `LocalSet` users after the new numbering is known
@@ -343,7 +343,7 @@ The 2026-07-02 refresh keeps the relevant transform-family inventory unchanged: 
 
 ## Bottom line
 
-Binaryen `version_130` `reorder-locals` is a deliberately tiny pass.
+Binaryen `version_131` `reorder-locals` is a deliberately tiny pass.
 
 Its defining rule is simple:
 

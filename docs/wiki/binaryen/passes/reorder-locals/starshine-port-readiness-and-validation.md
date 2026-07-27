@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ./index.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -38,7 +38,7 @@ This page is the bridge from the algorithm pages to validation work. Use it when
 
 ## Current Starshine status
 
-The 2026-07-02 O4Z closeout re-proved the explicit pass against the local `version_130` oracle: dedicated `reorder-locals-all`, ordinary GenValid, and `random-all-profiles` GenValid lanes each compared/normalized `10000/10000` with zero failures. The external wasm-smith lane compared `9956/10000` with one `unreachable-control-debris` compare-normalized residual, zero remaining mismatches, and `44` Binaryen/oracle command failures; see [research note 1401](./index.md).
+The 2026-07-27 renewal re-proved the explicit pass against official Binaryen `version_131` after repairing copy-on-write output loss. Regular GenValid is `100000/100000`; the expanded nine-leaf `reorder-locals-all` and idempotence lanes are each `10000/10000`; random-all is `9375` exact plus `625` measured smaller Starshine multivalue-boundary wins; and wasm-smith is green for all `9956` comparable cases with one `unreachable-control-debris` compare-normalized residual and `44` Binaryen-only command failures. See [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 A 2026-05-07 stable-boundary replay on the checked-in debug artifact kept the policy honest: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` still reported `Binaryen no-pass converged: no` and `Canonical wasm equal: no`, but it also reported `Normalized WAT equal: yes` and `Canonical function compare equal: yes`. That confirms the remaining full-artifact raw drift still belongs to the Binaryen multivalue-call writeback boundary documented in [`./multivalue-call-scope.md`](./multivalue-call-scope.md), not to the standalone sorter contract.
 
@@ -72,7 +72,7 @@ A local change to `src/passes/reorder_locals.mbt` should preserve these source-b
 | Body-local accesses are counted across `local.get`, `local.set`, and Starshine's separate `local.tee`. | `rl_scan_instruction(...)` in `src/passes/reorder_locals.mbt:105`. | Access-count / first-use, write-only, and tee-only tests in `src/passes/reorder_locals_test.mbt:294`, `:328`, and `:364`. |
 | Live body locals sort by descending count, then first observed use, then original index as a stable fallback. | `rl_sort_used_body_locals(...)` in `src/passes/reorder_locals.mbt:125`. | Access-count / first-use test plus carrier fixture in `src/passes/reorder_locals_test.mbt:294` and `:500`. |
 | Zero-access body locals are removed, but write-only and tee-only locals survive. | `rl_note_access(...)`, `rl_rewrite_func(...)`, and the `old_to_new` `-1` dropped-local sentinel. | Write-only, tee-only, and trailing-local trim tests at `src/passes/reorder_locals_test.mbt:328`, `:364`, and `:346`. |
-| Nested structured bodies have local indices rewritten uniformly. | `rl_rewrite_instrs_in_place(...)` covers `block`, `loop`, `if`, and `try_table`. | Nested rewrite test at `src/passes/reorder_locals_test.mbt:391`. |
+| Nested structured and exceptional bodies have local indices rewritten uniformly without mutating the input module. | `rl_rewrite_expr(...)` and `rl_rewrite_instrs_in_place(...)` copy root/nested arrays before covering `block`, `loop`, `if`, legacy `try` catches/delegates, and `try_table`. | Nested structured, legacy-EH, input-immutability, and CLI same-type permutation tests in `src/passes/reorder_locals_test.mbt` and `src/cmd/cmd_wbtest.mbt`. |
 | Grouped local runs are rebuilt, not flattened permanently. | `rl_flatten_locals(...)` plus `rl_push_local_run(...)`. | Local-run assertions throughout `src/passes/reorder_locals_test.mbt`. |
 | Local names follow the new indices and stale raw name payloads are cleared. | `rl_rewrite_name_map(...)`, `rl_rewrite_local_names(...)`, and `rl_rewrite_name_sec(...)`. | Name-section coverage in `src/passes/reorder_locals_test.mbt`; CLI binary-write coverage in `src/cmd/cmd_wbtest.mbt`. |
 | Imported-function local names are preserved. | `rl_rewrite_local_names(...)` keeps entries with `func_idx < imported_func_count`. | Name-section test at `src/passes/reorder_locals_test.mbt:454`. |
@@ -119,9 +119,9 @@ Minimum evidence for changing preset scheduling:
 
 Start with small, semantic checks before running broader parity:
 
-1. **Shape tests:** preserve the examples in [`./wat-shapes.md`](./wat-shapes.md): hot-local reordering, first-use ties, write-only survival, tee-only survival, dead-tail removal, all-body-local removal, fixed params, nested users, and metadata repair.
+1. **Shape tests:** preserve the examples in [`./wat-shapes.md`](./wat-shapes.md): hot-local reordering, first-use ties, pure same-type permutation, write-only survival, tee-only survival, dead-tail removal, all-body-local removal, fixed params, nested/legacy-EH users, and metadata repair.
 2. **Module-representation tests:** keep grouped local runs and function-type parameter lookup covered. This is where Starshine differs most from Binaryen's in-memory AST view.
-3. **Metadata tests:** always include a local-name map and a raw name-section payload when touching name repair; dropping or reordering locals without invalidating raw payload is a binary-output bug.
+3. **Ownership and metadata tests:** assert the source module remains unchanged after a remap, then include a local-name map and raw name-section payload when touching name repair. Shared-array mutation can make the CLI reuse original bytes; stale name payload can encode wrong indices.
 4. **CLI/binary roundtrip:** keep an adapter-level wasm input/output test because Binaryen's dedicated print-roundtrip fixtures prove that declaration order must survive serialization.
 5. **Oracle parity:** compare explicit `reorder-locals` against Binaryen for generated modules before changing scheduler behavior.
 6. **Preset replay:** preserve the current preset-slot tests, and only after the relevant local-pass neighbors are ready, test any ordered no-DWARF sequence that changes the current three-slot `reorder-locals` public schedule.
@@ -132,6 +132,7 @@ Start with small, semantic checks before running broader parity:
 - Do not use the multivalue-call caveat as evidence that `ReorderLocals.cpp` is more complex than it is; that caveat belongs to writer/lowering compatibility.
 - Do not call the Starshine implementation a HOT pass. It is module-scoped because it needs function type parameters, grouped local declarations, local-name maps, and raw custom-section invalidation.
 - Do not add, remove, or reorder public preset `reorder-locals` occurrences without updating the exact occurrence-count tests and adding the cluster-level scheduling evidence described above.
+- Do not replace the copy-on-write rewrite with in-place mutation of arrays reachable from the input module. Pure same-type permutations must change encoded wasm even when the local declaration vector is structurally unchanged.
 
 ## Sources
 
