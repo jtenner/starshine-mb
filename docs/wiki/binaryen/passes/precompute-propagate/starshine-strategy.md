@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
@@ -111,7 +112,7 @@ These guards prevented an invalid self-optimized output in function `2641`. They
 
 ### Shared plain-precompute scope
 
-The propagating member reuses Starshine's plain-precompute evaluator. The July 18 v131 closeout covers returned scalars, partial `select`, strings, exact heap identity and nested immutable aggregates, ordered multi-effect retention, result-`if`, general constant control `Flow`, emitability, exact cast refinalization, large functions, and the self-hosted tee/control cases. Legacy EH and stack switching remain intentionally conservative. Propagation-specific behavior remains exactly one SSA consensus solve followed by one evaluator rerun.
+The propagating member reuses Starshine's plain-precompute evaluator. The July 26 v131 renewal covers returned scalars, partial `select`, strings, exact heap identity and nested immutable aggregates, ordered multi-effect retention, result-`if`, general constant control `Flow`, emitability, exact cast refinalization, large functions, type-indexed block/loop label arities, terminal multivalue payload preservation, nested raw-cleanup fixpoints, and exact dropped pure-reference cleanup. No-local control-only functions now take the same raw cleanup path under both public names. Legacy EH and stack switching remain intentionally conservative. Propagation-specific behavior remains exactly one SSA consensus solve followed by one evaluator rerun.
 
 ## Tests
 
@@ -138,18 +139,18 @@ Generator name, limits, validation, and trigger floors are covered by [`src/vali
 
 ## Signoff summary
 
-The retained closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md).
+The public-port closeout is [`../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md`](../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md); the current v131 correctness-repair renewal is in [`../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md`](../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md).
 
-Key results against Binaryen `version_130`:
+Current results against explicit Binaryen `version_131`:
 
-- regular GenValid: `100000/100000`, zero mismatches/failures;
-- dedicated local-facts profile: `10000/10000`, zero mismatches/failures;
-- broad `pass-fuzz-stress`: `10000/10000`, zero mismatches/failures;
-- wasm-smith: `9956/10000` compared, two classified inherited/size-winning differences and `44` Binaryen parser/tool failures;
-- completed random-all profiles: `10000/10000`, `2973` raw differences, all `2973` canonically smaller for Starshine and none larger;
-- repeated self-optimization benchmark: valid output, Starshine canonical output `80,049` bytes (`1.716%`) smaller; across 15 measured processes after one warmup, pass-local medians are `694.444 ms` versus Binaryen `505.591 ms` (Starshine `1.374x` slower but within the maintained `2x` ceiling), while whole-command medians are `7,330.096 ms` versus `1,110.672 ms` (`6.600x` slower end to end due to non-pass infrastructure overhead).
+- regular GenValid: `100000/100000`, `41287` direct plus `58713` cleanup-normalized, zero residuals/failures;
+- dedicated `precompute-all`: `10000/10000`, `6423` direct plus `3577` cleanup-normalized, zero residuals/failures;
+- random all-profiles: `10000/10000`, `2135` smaller dead-read/control cleanup wins plus `328` intentional reachable-fence differences, net `-24,119` canonical bytes;
+- wasm-smith: `9956/10000` comparable, `9954` direct, one fence-preservation correctness win, one seven-byte-smaller exact scratch-local form, and `44` Binaryen-only parser/tool failures;
+- runtime/idempotence: `500/500`, with `475` Node-supported executions, `25` unsupported GC/reference cases, and zero semantic/property/validation/command failures;
+- fresh debug-WASI artifact: `5,134,293` Starshine canonical bytes versus Binaryen `5,230,996`, saving `96,703` bytes; seven-run pass-local medians are `1,204.796 ms` versus `725.132 ms` (`1.661x`, within the maintained `2x` ceiling).
 
-The former first difference at defined `4`, absolute `31` is closed. The first difference is now defined `24`, absolute `51`, where Starshine's valid result-typed shape is smaller than Binaryen's refinalized unreachable form.
+The former first difference at defined `4`, absolute `31` is closed. On the rebuilt artifact the first difference is defined `23`, absolute `50`, where Starshine preserves a valid result-typed return-dominated `if`/loop carrier and Binaryen refinalizes the same control to void with explicit trailing `unreachable`.
 
 ## Maintenance rule
 
@@ -157,4 +158,4 @@ The former first difference at defined `4`, absolute `31` is closed. The first d
 - Preserve the one-solve/one-rerun bound.
 - Keep stale result-`if` facts rejected unless a real phi or direct condition proof exists; keep raw branch/loop facts conservative and invalidate loop-written locals before body evaluation.
 - Use the public descriptor in all top-level and nested propagating slots; do not recreate a private prefix fork.
-- Use Binaryen `version_130` as the released oracle and keep inherited plain-precompute boundaries explicit.
+- Use Binaryen `version_131` as the released oracle and keep inherited plain-precompute boundaries explicit.

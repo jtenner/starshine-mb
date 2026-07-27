@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-26
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
@@ -142,7 +143,7 @@ Those tests matter here because the propagate variant is not allowed to violate 
 
 ## Current-main recheck result
 
-The July 17, 2026 implementation reread and executable replay use Binaryen `version_130` as the released oracle. The reviewed owner, registration, scheduler, helper, and dedicated lit surfaces retain the same bounded local-worklist contract.
+The July 17, 2026 implementation reread used Binaryen `version_130`; the July 26 explicit renewal uses `version_131` as the released oracle. The reviewed owner, registration, scheduler, helper, and dedicated lit surfaces retain the same bounded local-worklist contract.
 
 ## What this source map says about the real contract
 
@@ -176,7 +177,7 @@ The port follows the source-backed shape:
 5. preserve inherited writeback, emitability, and plain-evaluator boundaries;
 6. use one public implementation for direct, top-level aggressive, and nested-prefix execution.
 
-The follow-up parity slice narrowed those original safety rules. Result-producing `if` reads may use a real SSA phi or a direct condition constant proven before any arm-local overwrite. Large, owner-hazard, and selected structured `memory.grow` functions may use conservative raw propagation with exact branch agreement, loop-written-local invalidation, and loop-invariant retention; unsupported shapes still fail closed.
+The follow-up parity slices narrowed those original safety rules. Result-producing `if` reads may use a real SSA phi or a direct condition constant proven before any arm-local overwrite. Large, owner-hazard, and selected structured `memory.grow` functions may use conservative raw propagation with exact branch agreement, loop-written-local invalidation, and loop-invariant retention; unsupported shapes still fail closed. The 2026-07-26 renewal also routes no-local control-only functions through the shared raw cleanup implementation, resolves type-indexed label arities through module context, preserves every terminal multivalue branch payload, refuses unsafe parameterized-block flattening, and applies exact-opcode dropped-reference cleanup despite conservative generic HOT heap flags.
 
 ## Starshine status pointer
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
   - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
@@ -24,7 +25,7 @@ related:
 
 # Starshine validation contract for `precompute-propagate`
 
-The public Binaryen-compatible member landed on July 17, 2026. This page records its maintained behavior, safety, and signoff contract after the follow-up parity-gap closure.
+The public Binaryen-compatible member landed on July 17, 2026. This page records its maintained behavior, safety, and signoff contract after the July 26 correctness-repair renewal.
 
 ## Implemented surfaces
 
@@ -39,6 +40,7 @@ The public Binaryen-compatible member landed on July 17, 2026. This page records
 - narrow effect-preserving exact parent folds that rewrite a constant-valued `local.tee` to `local.set` before the result constant;
 - conservative raw local propagation for owner-hazard, large-lowered, and selected structured `memory.grow` functions, including loop-invariant preservation and loop-carried-local invalidation;
 - raw scalar/control cleanup around reachable `atomic.fence` without deleting the fence;
+- no-local control-only cleanup through the same shared raw path as plain `precompute`, with type-indexed block/loop arity resolution, multivalue branch-payload preservation, parameterized-block flattening refusal, nested cleanup fixpoints, and exact pure-reference drop cleanup;
 - both aggressive top-level PC slots and shared DAE/inlining nested-prefix use;
 - dedicated `precompute-propagate-local-facts` GenValid profile.
 
@@ -116,18 +118,17 @@ Require external validity, no stale-local substitution, classification of the fi
 
 ## Current evidence
 
-The final July 18, 2026 v131 evidence is:
+The renewed July 26, 2026 v131 evidence is:
 
-- regular GenValid: `.tmp/pass-fuzz-precompute-propagate-v131-final-regular-100000`, `100000/100000`, `41287` direct and `58713` cleanup-normalized, zero mismatches or failures;
-- dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-propagate-v131-final-dedicated-10000`, `10000/10000`, `7306` direct and `2694` cleanup-normalized, zero mismatches or failures;
-- random all-profiles: `.tmp/pass-fuzz-precompute-propagate-v131-final-random-all-10000`, `10000/10000`, `5076` direct, `2190` cleanup-normalized, and `2734` inspected unrelated SSA/duplicate-import differences; every difference is smaller by `2..18` bytes and saves `33,282` bytes total;
-- wasm-smith: `.tmp/pass-fuzz-precompute-propagate-v131-final-wasm-smith-10000`, `9956` compared, `9951` direct, `2` cleanup-normalized, three classified Starshine wins, and `44` Binaryen tool failures;
-- runtime/idempotence: `500/500`, zero property, validation, command, or semantic failures; unsupported Node GC/reference cases are separate;
-- self-optimization: valid Starshine canonical output `4,581,251` bytes versus Binaryen `4,671,312`, saving `90,061` bytes;
-- one-warmup/15-run pass-local medians: `1,042.358 ms` versus `525.378 ms`, ratio `1.984x`, within the required `2x` contract;
-- full tests: `9415/9415`, with `moon fmt`, `moon check`, `moon info`, native release build, and `git diff --check` green.
+- regular GenValid: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-regular-100000`, `100000/100000`, `41287` direct and `58713` cleanup-normalized, zero mismatches or failures;
+- dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-dedicated-10000`, `10000/10000`, `6423` direct and `3577` cleanup-normalized, zero mismatches or failures;
+- random all-profiles: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-random-all-10000`, `10000/10000`, `4578` direct, `2959` cleanup-normalized, `2135` smaller dead-read/control cleanup wins, and `328` reachable-fence preservation differences; net canonical delta `-24,119` bytes;
+- wasm-smith: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-wasm-smith-10000`, `9956` comparable, `9954` direct, two classified Starshine wins, and `44` Binaryen-only tool failures;
+- runtime/idempotence: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-runtime-idempotence-500`, `500/500` idempotence, `475` Node-supported executions, `25` unsupported GC/reference cases, and zero property, validation, command, or semantic failures;
+- focused tests: `92/92` shared public precompute, `16/16` propagating public, `16/16` white-box, and `161/161` GenValid profile tests;
+- native identities: Starshine SHA-256 `bb7b38e57b927de9a57d5f427101051c84326d1618071653f539b62b9321cf65`; Binaryen v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
 
-The three wasm-smith differences preserve a reachable `atomic.fence` that Binaryen removes, retain a smaller exact local-value form, and remove nontrapping `memory.size` debris before `unreachable`. None is a semantic or size parity gap.
+The two wasm-smith differences preserve a reachable `atomic.fence` that Binaryen removes and retain a seven-byte-smaller exact local-value form. Fresh debug-WASI evidence at `.tmp/self-opt-precompute-propagate-v131-renewal-closeout` validates both outputs: Starshine canonical output is `5,134,293` bytes versus Binaryen `5,230,996`, saving `96,703` bytes. Seven timing-only samples give pass-local medians `1,204.796 ms` versus `725.132 ms` (`1.661x`). The first canonical difference is defined `23` / absolute `50`, where Starshine preserves valid result-typed return-dominated control and Binaryen refinalizes it to void control plus explicit trailing `unreachable`.
 
 ## Status rule
 

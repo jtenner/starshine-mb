@@ -36441,11 +36441,9 @@ fn run_hot_pipeline_raw_precompute(
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
   if propagating && precompute_raw_instrs_have_legacy_try(body) {
-    let module_ctx = if precompute_raw_func_has_global_get(original) {
-      Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
-    } else {
-      None
-    }
+    let module_ctx = Some(
+      run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+    )
     match precompute_run_raw_func(original, module_ctx) {
       Some((rewritten, changed, _)) =>
         return Some({
@@ -36468,11 +36466,9 @@ fn run_hot_pipeline_raw_precompute(
     }
   }
   if propagating && precompute_raw_instrs_have_stack_switching(body) {
-    let module_ctx = if precompute_raw_func_has_global_get(original) {
-      Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
-    } else {
-      None
-    }
+    let module_ctx = Some(
+      run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+    )
     match precompute_run_raw_func(original, module_ctx) {
       Some((rewritten, changed, _)) =>
         return Some({
@@ -36653,16 +36649,29 @@ fn run_hot_pipeline_raw_precompute(
     })
   }
   if propagating {
+    if !precompute_raw_func_has_local_traffic(original) {
+      let module_ctx = Some(
+        run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+      )
+      match precompute_run_raw_func(original, module_ctx) {
+        Some((rewritten, true, reason)) =>
+          return Some({
+            reason,
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        _ => ()
+      }
+    }
     return None
   }
   if precompute_raw_instrs_have_partial_heap_select(body) {
     return None
   }
-  let module_ctx = if precompute_raw_func_has_global_get(original) {
-    Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
-  } else {
-    None
-  }
+  let module_ctx = Some(
+    run_hot_pipeline_require_module_ctx(mod_, module_state, options),
+  )
   match precompute_run_raw_func(original, module_ctx) {
     Some((rewritten, changed, reason)) =>
       if o4z_precompute_gate {

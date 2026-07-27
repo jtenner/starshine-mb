@@ -19408,6 +19408,41 @@ fn gen_valid_precompute_control_body() -> Array[Instruction] {
 }
 
 ///|
+fn gen_valid_precompute_control_module() -> Module {
+  let void_type = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let pair_type = RecType::new(
+    SubType::comp_type(CompType::func([], [ValType::i32(), ValType::i64()])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([void_type, pair_type]))
+  .with_func_sec(FuncSec::new([TypeIdx::new(0U), TypeIdx::new(1U)]))
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(Locals::empty(), Expr::new(gen_valid_precompute_control_body())),
+      Func::new(
+        Locals::empty(),
+        Expr::new([
+          Instruction::block(
+            BlockType::type_idx(TypeIdx::new(1U)),
+            Expr::new([
+              Instruction::block(
+                BlockType::void_(),
+                Expr::new([
+                  Instruction::i32_const(I32(1)),
+                  Instruction::i64_const(I64(2L)),
+                  Instruction::br(LabelIdx::new(1U)),
+                ]),
+              ),
+              Instruction::unreachable_(),
+            ]),
+          ),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn gen_valid_precompute_global_body() -> Array[Instruction] {
   [
     Instruction::i32_const(I32(8)),
@@ -20058,6 +20093,9 @@ fn gen_valid_precompute_profile_module(config : GenValidConfig) -> Module {
   }
   if kind == PrecomputeEffectfulValueProfile {
     return gen_valid_precompute_effectful_value_module()
+  }
+  if kind == PrecomputeControlProfile {
+    return gen_valid_precompute_control_module()
   }
   if kind == PrecomputeGcAtomicBoundaryProfile {
     return Module::new()

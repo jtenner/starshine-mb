@@ -3171,8 +3171,25 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  if @ir.hot_has_side_effect(func, node_id) ||
-    @ir.hot_may_trap(func, node_id) ||
+  let node = @ir.hot_node_get(func, node_id)
+  let exact_pure_heap = match node.op {
+    @ir.HotOp::Heap =>
+      match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.RefEq)
+        | Some(@lib.AnyConvertExtern)
+        | Some(@lib.ExternConvertAny)
+        | Some(@lib.RefI31) => true
+        _ => false
+      }
+    _ => false
+  }
+  if (
+      !exact_pure_heap &&
+      (
+        @ir.hot_has_side_effect(func, node_id) ||
+        @ir.hot_may_trap(func, node_id)
+      )
+    ) ||
     @ir.hot_is_control_node(func, node_id) ||
     @ir.hot_is_terminator_node(func, node_id) {
     return false
@@ -3180,7 +3197,6 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
   if @ir.hot_node_result_arity(func, node_id) == 0 {
     return false
   }
-  let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::Const
     | @ir.HotOp::LocalGet
@@ -3211,6 +3227,27 @@ fn precompute_is_discardable_value(func : @ir.HotFunc, node_id : Int) -> Bool {
         None => return false
       }
       if !precompute_raw_instr_is_nontrapping_binary_op(instr) {
+        return false
+      }
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if !precompute_is_discardable_value(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    @ir.HotOp::Heap => {
+      let expected_children = match @ir.hot_node_exact_instr(func, node_id) {
+        Some(@lib.RefEq) => 2
+        Some(@lib.AnyConvertExtern)
+        | Some(@lib.ExternConvertAny)
+        | Some(@lib.RefI31) => 1
+        _ => return false
+      }
+      if node.child_count != expected_children {
         return false
       }
       for slot = 0; slot < node.child_count; slot = slot + 1 {
@@ -5550,7 +5587,10 @@ fn precompute_raw_instr_is_nontrapping_unary_op(
     | @lib.Instruction::I64TruncSatF32U
     | @lib.Instruction::I64TruncSatF64S
     | @lib.Instruction::I64TruncSatF64U
-    | @lib.Instruction::RefIsNull => true
+    | @lib.Instruction::RefIsNull
+    | @lib.Instruction::AnyConvertExtern
+    | @lib.Instruction::ExternConvertAny
+    | @lib.Instruction::RefI31 => true
     _ => false
   }
 }
@@ -5627,7 +5667,8 @@ fn precompute_raw_instr_is_nontrapping_binary_op(
     | @lib.Instruction::F64Lt
     | @lib.Instruction::F64Gt
     | @lib.Instruction::F64Le
-    | @lib.Instruction::F64Ge => true
+    | @lib.Instruction::F64Ge
+    | @lib.Instruction::RefEq => true
     _ => false
   }
 }
@@ -5741,6 +5782,7 @@ fn precompute_raw_instrs_have_branch_to_current_label(
 ///|
 fn precompute_raw_try_fold_const_if_tail(
   out : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext?,
   label_arities : Array[Int?],
 ) -> Bool {
   if out.length() < 2 {
@@ -5770,9 +5812,15 @@ fn precompute_raw_try_fold_const_if_tail(
   if precompute_raw_instrs_have_label_relative_branch(selected) {
     match precompute_raw_block_terminal_branch_depth(selected) {
       Some(depth) => {
+        if !precompute_raw_block_can_flatten_terminal(block_type, module_ctx) {
+          out.push(
+            @lib.Instruction::block(block_type, @lib.Expr::new(selected.copy())),
+          )
+          return true
+        }
         let selected_label_arities = precompute_raw_append_label_arity(
           label_arities,
-          precompute_raw_block_label_arity(block_type),
+          precompute_raw_block_label_arity(block_type, module_ctx),
         )
         let payload_arity = match
           precompute_raw_branch_target_arity(selected_label_arities, depth) {
@@ -6581,6 +6629,7 @@ fn precompute_raw_try_fold_string_slice_tail(
 ///|
 fn precompute_raw_fold_output_tail(
   out : Array[@lib.Instruction],
+  module_ctx? : @ir.HotModuleContext? = None,
   label_arities? : Array[Int?] = [],
 ) -> Bool {
   if precompute_raw_try_fold_string_slice_tail(out) {
@@ -6589,7 +6638,7 @@ fn precompute_raw_fold_output_tail(
   if precompute_raw_try_fold_string_new_wtf16_tail(out) {
     return true
   }
-  if precompute_raw_try_fold_const_if_tail(out, label_arities) {
+  if precompute_raw_try_fold_const_if_tail(out, module_ctx, label_arities) {
     return true
   }
   if precompute_raw_try_partial_select_condition_tail(out) ||
@@ -6991,19 +7040,56 @@ fn precompute_raw_void_block_is_selector_only_self_br_table(
 }
 
 ///|
-fn precompute_raw_block_label_arity(block_type : @lib.BlockType) -> Int? {
+fn precompute_raw_block_type_arities(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext?,
+) -> (Int, Int)? {
   match block_type {
-    @lib.VoidBlockType => Some(0)
-    @lib.ValTypeBlockType(_) => Some(1)
-    @lib.TypeIdxBlockType(_) => None
+    @lib.VoidBlockType => Some((0, 0))
+    @lib.ValTypeBlockType(_) => Some((0, 1))
+    @lib.TypeIdxBlockType(type_idx) =>
+      match module_ctx {
+        Some(ctx) =>
+          match @ir.hot_module_resolve_type_func_type(ctx, type_idx) {
+            Some(@lib.FuncType(params, results)) =>
+              Some((params.length(), results.length()))
+            None => None
+          }
+        None => None
+      }
   }
 }
 
 ///|
-fn precompute_raw_loop_label_arity(block_type : @lib.BlockType) -> Int? {
-  match block_type {
-    @lib.VoidBlockType | @lib.ValTypeBlockType(_) => Some(0)
-    @lib.TypeIdxBlockType(_) => None
+fn precompute_raw_block_label_arity(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext?,
+) -> Int? {
+  match precompute_raw_block_type_arities(block_type, module_ctx) {
+    Some((_, results)) => Some(results)
+    None => None
+  }
+}
+
+///|
+fn precompute_raw_loop_label_arity(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext?,
+) -> Int? {
+  match precompute_raw_block_type_arities(block_type, module_ctx) {
+    Some((params, _)) => Some(params)
+    None => None
+  }
+}
+
+///|
+fn precompute_raw_block_can_flatten_terminal(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  match precompute_raw_block_type_arities(block_type, module_ctx) {
+    Some((0, _)) => true
+    _ => false
   }
 }
 
@@ -7047,11 +7133,26 @@ fn precompute_raw_rewrite_instr(
         module_ctx,
         label_arities=precompute_raw_append_label_arity(
           label_arities,
-          precompute_raw_block_label_arity(block_type),
+          precompute_raw_block_label_arity(block_type, module_ctx),
         ),
       )
       let local_changed = precompute_raw_fold_block_local_constants(next_body)
       let changed = nested_changed || local_changed
+      match precompute_raw_block_type_arities(block_type, module_ctx) {
+        Some((0, 1)) if next_body.length() > 0 => {
+          let mut literal_only = true
+          for idx = 0; idx + 1 < next_body.length(); idx = idx + 1 {
+            if next_body[idx] != @lib.Instruction::nop() {
+              literal_only = false
+            }
+          }
+          if literal_only &&
+            precompute_raw_is_literal_const(next_body[next_body.length() - 1]) {
+            return (next_body[next_body.length() - 1], true)
+          }
+        }
+        _ => ()
+      }
       match (block_type, next_body) {
         (
           @lib.ValTypeBlockType(_),
@@ -7100,7 +7201,7 @@ fn precompute_raw_rewrite_instr(
         module_ctx,
         label_arities=precompute_raw_append_label_arity(
           label_arities,
-          precompute_raw_loop_label_arity(block_type),
+          precompute_raw_loop_label_arity(block_type, module_ctx),
         ),
       )
       if block_type == @lib.BlockType::void_() &&
@@ -7116,7 +7217,7 @@ fn precompute_raw_rewrite_instr(
     @lib.If(block_type, then_body, else_body) => {
       let arm_label_arities = precompute_raw_append_label_arity(
         label_arities,
-        precompute_raw_block_label_arity(block_type),
+        precompute_raw_block_label_arity(block_type, module_ctx),
       )
       let (next_then, then_changed) = precompute_raw_rewrite_instrs(
         then_body,
@@ -7150,7 +7251,7 @@ fn precompute_raw_rewrite_instr(
         module_ctx,
         label_arities=precompute_raw_append_label_arity(
           label_arities,
-          precompute_raw_block_label_arity(block_type),
+          precompute_raw_block_label_arity(block_type, module_ctx),
         ),
       )
       if next_body.length() == 0 {
@@ -7437,9 +7538,15 @@ fn precompute_raw_rewrite_instrs(
       @lib.Block(block_type, @lib.Expr(body)) =>
         match precompute_raw_block_terminal_branch_depth(body) {
           Some(depth) => {
+            if !precompute_raw_block_can_flatten_terminal(
+                block_type, module_ctx,
+              ) {
+              out.push(rewritten)
+              continue
+            }
             let block_label_arities = precompute_raw_append_label_arity(
               label_arities,
-              precompute_raw_block_label_arity(block_type),
+              precompute_raw_block_label_arity(block_type, module_ctx),
             )
             let payload_arity = match
               precompute_raw_branch_target_arity(block_label_arities, depth) {
@@ -7459,7 +7566,11 @@ fn precompute_raw_rewrite_instrs(
             }
             for child in prefix {
               out.push(child)
-              while precompute_raw_fold_output_tail(out, label_arities~) {
+              while precompute_raw_fold_output_tail(
+                      out,
+                      module_ctx~,
+                      label_arities~,
+                    ) {
                 changed = true
               }
             }
@@ -7486,7 +7597,7 @@ fn precompute_raw_rewrite_instrs(
     if nested_changed {
       changed = true
     }
-    while precompute_raw_fold_output_tail(out, label_arities~) {
+    while precompute_raw_fold_output_tail(out, module_ctx~, label_arities~) {
       changed = true
     }
     if !terminates &&
@@ -7604,6 +7715,60 @@ fn precompute_raw_instrs_have_global_get(
 fn precompute_raw_func_has_global_get(func : @lib.Func) -> Bool {
   let @lib.Func(_, @lib.Expr(instrs)) = func
   precompute_raw_instrs_have_global_get(instrs)
+}
+
+///|
+fn precompute_raw_instr_has_local_traffic(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.LocalGet(_) | @lib.LocalSet(_) | @lib.LocalTee(_) => true
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_local_traffic(body)
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      if precompute_raw_instrs_have_local_traffic(body) {
+        return true
+      }
+      for catch_ in catches {
+        let @lib.Expr(catch_body) = match catch_ {
+          @lib.LegacyCatch(_, catch_body) | @lib.LegacyCatchAll(catch_body) =>
+            catch_body
+        }
+        if precompute_raw_instrs_have_local_traffic(catch_body) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_local_traffic(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_local_traffic(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_local_traffic(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_local_traffic(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_func_has_local_traffic(func : @lib.Func) -> Bool {
+  let @lib.Func(_, @lib.Expr(instrs)) = func
+  precompute_raw_instrs_have_local_traffic(instrs)
 }
 
 ///|
@@ -7796,6 +7961,34 @@ fn precompute_raw_instrs_are_all_nops(instrs : Array[@lib.Instruction]) -> Bool 
 }
 
 ///|
+fn precompute_raw_trim_redundant_root_nops(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() <= 1 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_)
+    | @lib.Unreachable => return false
+    _ => ()
+  }
+  let mut changed = false
+  let mut idx = instrs.length() - 1
+  while idx >= 0 {
+    if instrs[idx] == @lib.Instruction::nop() {
+      ignore(instrs.remove(idx))
+      changed = true
+    }
+    idx = idx - 1
+  }
+  changed
+}
+
+///|
 fn precompute_raw_root_nop_cleanup_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -7943,7 +8136,11 @@ fn precompute_run_raw_func(
   if precompute_raw_root_nop_cleanup_candidate(instrs) {
     return None
   }
-  let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
+  let (rewritten, initial_changed) = precompute_raw_rewrite_instrs(
+    instrs, module_ctx,
+  )
+  let changed = precompute_raw_trim_redundant_root_nops(rewritten) ||
+    initial_changed
   if precompute_raw_instrs_are_nop_trees(rewritten) && rewritten.length() > 1 {
     return Some(
       (

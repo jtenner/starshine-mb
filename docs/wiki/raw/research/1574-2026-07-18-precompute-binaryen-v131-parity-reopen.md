@@ -1,13 +1,16 @@
 ---
 kind: research
 status: completed
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - https://github.com/WebAssembly/binaryen/releases/tag/version_131
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/Precompute.cpp
   - ../../../../src/passes/precompute.mbt
+  - ../../../../src/passes/pass_manager.mbt
   - ../../../../src/passes/precompute_test.mbt
   - ../../../../src/passes/precompute_wbtest.mbt
+  - ../../../../src/validate/gen_valid.mbt
+  - ../../../../src/validate/gen_valid_tests.mbt
 related:
   - ./1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../binaryen/passes/precompute/index.md
@@ -92,3 +95,34 @@ Both public variants completed the required direct matrix with explicit Binaryen
 Runtime/idempotence samples complete `500/500` for each public variant with zero property, validation, generator, command, or semantic failures; Node records unsupported GC/reference cases separately. Self-optimization validates for both variants. Plain canonical output is `4,700,282` bytes versus Binaryen `4,674,334`; its one-warmup/15-run pass-local median is `27.317 ms` versus `142.883 ms` (`0.191x`). Propagating canonical output is `4,581,251` versus Binaryen `4,671,312`, saving `90,061` bytes; its median is `1,042.358 ms` versus `525.378 ms` (`1.984x`), inside the required `2x` threshold. The first self-hosted shape difference remains defined function `24` / absolute `51` and is not a semantic failure.
 
 Final validation is `moon test src/passes` `5928/5928`, full `moon test` `9415/9415`, plus `moon fmt`, `moon check`, `moon info`, native release build, and `git diff --check`. `[O4Z-PCP131]001` is closed; reopen only for a semantic/validation failure, a pass-owned size loss without measured benefit, a newly identified source-backed v131 evaluator family, or pass-local regression beyond `2x` Binaryen.
+
+## 2026-07-26 correctness-repair renewal
+
+The July 18 evidence was reopened after cross-pass correctness work exposed raw-control and cleanup assumptions that the earlier generated matrix did not force. The renewed source review kept the same explicit oracle: `.tmp/binaryen-version-131-bin/bin/wasm-opt`, reporting `wasm-opt version 131 (version_131)`, with `Precompute.cpp` SHA-256 `7cd012b9bd0e7afc878029115e6672b9e53f46cc485b8113a14511cefabd4143`. The rebuilt Starshine native CLI used for the final lanes has SHA-256 `bb7b38e57b927de9a57d5f427101051c84326d1618071653f539b62b9321cf65`; the Binaryen executable has SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c`.
+
+Red-first repairs closed five additional behavior families:
+
+1. raw block and loop label arities now resolve type-indexed function types through `HotModuleContext`, distinguishing loop parameter arity from block/`if` result arity;
+2. terminal branch flattening preserves the actual target payload count and refuses to flatten parameterized blocks whose entry operands cannot be reconstructed safely;
+3. both public pass names use the same raw no-local control cleanup path, including nested block cleanup, constant `if` selection, redundant root-`nop` trimming, and continued folding after effectful roots;
+4. dropped pure reference operations `ref.i31`, `ref.eq`, `any.convert_extern`, and `extern.convert_any` are removable even though the generic HOT heap node conservatively carries side-effect/trap flags; the override is exact-opcode-only and recursively requires discardable operands;
+5. `precompute-control` now generates a type-indexed multivalue branch carrier so future arity regressions are present in the dedicated aggregate.
+
+Focused final tests pass `92/92` in `precompute_test.mbt`, `16/16` in `precompute_propagate_test.mbt`, `16/16` in `precompute_wbtest.mbt`, and `161/161` in `gen_valid_tests.mbt`.
+
+The renewed explicit-v131 matrix is:
+
+- plain regular: `.tmp/pass-fuzz-precompute-v131-renewal-closeout-regular-100000`, `100000/100000`, `36953` direct plus `63047` cleanup-normalized, zero mismatches or failures;
+- plain dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-v131-renewal-final-dedicated-10000`, `10000/10000`, `8249` direct plus `1751` cleanup-normalized, zero mismatches or failures;
+- plain random-all: `.tmp/pass-fuzz-precompute-v131-renewal-closeout-random-all-10000`, `10000/10000`, `4314` direct, `1524` cleanup-normalized, and `4162` classified differences. `3834` are deterministic removal of dropped local/global/ref-function reads, pure values, and redundant control wrappers, all smaller by `2..71` bytes; the remaining `328` are the documented reachable-`atomic.fence` preservation boundary, each `2` bytes larger. Net canonical delta is `-74,307` bytes;
+- plain wasm-smith: `.tmp/pass-fuzz-precompute-v131-renewal-closeout-wasm-smith-10000`, `9956/10000` comparable, `9955` direct, one reachable-fence correctness difference at case `6523`, and `44` Binaryen-only failures (`39` zero-length rec groups, one invalid tag index, one table index out of range, and three bad section sizes);
+- propagating regular: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-regular-100000`, `100000/100000`, `41287` direct plus `58713` cleanup-normalized, zero mismatches or failures;
+- propagating dedicated `precompute-all`: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-dedicated-10000`, `10000/10000`, `6423` direct plus `3577` cleanup-normalized, zero mismatches or failures;
+- propagating random-all: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-random-all-10000`, `10000/10000`, `4578` direct, `2959` cleanup-normalized, and `2463` classified differences. `2135` are the same deterministic dead-read/control cleanup wins, smaller by `2..18` bytes; `328` are the intentional reachable-fence boundary. Net canonical delta is `-24,119` bytes;
+- propagating wasm-smith: `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-wasm-smith-10000`, `9956/10000` comparable, `9954` direct, two classified differences, and the same `44` Binaryen-only failures. Case `6523` is the reachable-fence correctness boundary. Case `3694` retains an exact scratch-local `local.get` instead of re-emitting the same `f64.const`, producing equivalent behavior and a `74`-byte Starshine module versus Binaryen's `81` bytes.
+
+Fresh `500`-case `precompute-all` runtime/idempotence lanes are also green for both public names. Each checks idempotence `500/500`, executes `475` Node-supported cases with zero failures or semantic mismatches, and classifies `25` GC/reference cases as unsupported by the runtime adapter. No validation, generator, property, or Starshine command failure remains.
+
+A fresh debug-WASI artifact was rebuilt with `moon build --target wasm` and validated before direct comparison. Plain `precompute` produces `5,260,101` canonical bytes versus Binaryen's `5,233,176` (`+26,925`, `+0.515%`), while seven timing-only samples give pass-local medians `39.462 ms` versus `185.419 ms` (`0.213x`). The first canonical function difference is defined `23` / absolute `50`: Starshine keeps the valid result-typed `if`/loop carrier, while Binaryen refinalizes it to void control with explicit trailing `unreachable`. The small artifact size loss is retained with a measured material pass-local performance win. `precompute-propagate` produces `5,134,293` canonical bytes versus Binaryen's `5,230,996`, saving `96,703` bytes (`1.849%`), with pass-local medians `1,204.796 ms` versus `725.132 ms` (`1.661x`, inside the `2x` ceiling). Its first canonical function difference is the same result-typed-control family.
+
+Final repository validation passes `moon info`, `moon fmt`, focused suites, `moon test src/passes` (`6468/6468`), native full `moon test` (`9960/9960`), `moon check --target wasm-gc`, explicit `moon test --target wasm-gc --jobs 8` (`9960/9960`), `bun validate readme-api-sync`, external debug-WASI validation, and direct `moon run --target wasm-gc src/fuzz -- all ci`, including `86820` binary roundtrips. `git diff --check` is clean. `bun validate full --profile ci --target wasm-gc` and the aggregate `bun fuzz run` wrapper each reproduced the repository's documented subprocess no-return-code failure at their initial Moon command; the identical Moon stages and fuzz aggregate pass when run directly.

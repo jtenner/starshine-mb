@@ -424,6 +424,84 @@ test "precompute preserves every payload of a flattened multivalue branch" {
     let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
     assert_true(pretty.contains("I32(1)"), msg=pretty)
     assert_true(pretty.contains("I64(2)"), msg=pretty)
+    assert_false(pretty.contains("(block"), msg="\{pass_name}: \{pretty}")
+    assert_false(pretty.contains("br ("), msg="\{pass_name}: \{pretty}")
+  }
+}
+
+///|
+test "precompute handles parameterized type-indexed terminal blocks without unsafe raw flattening" {
+  let source =
+    #| (module
+    #|   (type $carry (func (param i32) (result i32)))
+    #|   (func (result i32)
+    #|     i32.const 7
+    #|     block (type $carry)
+    #|       br 0
+    #|     end))
+    #|
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let trace : Array[String] = []
+    let optimized = match
+      pass_test_run_pipeline(
+        source,
+        [pass_name],
+        options=HotPipelineOptions::new(
+          trace=Some(fn(line) { trace.push(line) }),
+        ),
+      ) {
+      Ok(mod_) => mod_
+      Err(err) =>
+        fail(
+          "expected \{pass_name} parameterized type-indexed block handling, got \{err}",
+        )
+    }
+    assert_false(
+      trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+      msg=trace.to_string(),
+    )
+    match @validate.validate_module(optimized) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected \{pass_name} parameterized block output to validate, got \{err}",
+        )
+    }
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(pretty.contains("I32(7)"), msg="\{pass_name}: \{pretty}")
+    if pass_name == "precompute" {
+      assert_true(pretty.contains("(block"), msg=pretty)
+      assert_true(pretty.contains("br (Label 0)"), msg=pretty)
+    }
+  }
+}
+
+///|
+test "precompute reaches a raw cleanup fixpoint before effectful roots" {
+  let source =
+    #| (module
+    #|   (memory 1)
+    #|   (func
+    #|     (block (block (drop (i32.const 7))))
+    #|     (if
+    #|       (block (result i32) (drop (i32.const 2)) (i32.const 1))
+    #|       (then nop)
+    #|       (else nop))
+    #|     (i32.store
+    #|       (i32.const 0)
+    #|       (block (result i32) (drop (i32.const 4)) (i32.const 11)))))
+    #|
+  for pass_name in ["precompute", "precompute-propagate"] {
+    let optimized = match pass_test_run_pipeline(source, [pass_name]) {
+      Ok(mod_) => mod_
+      Err(err) => fail("expected \{pass_name} raw cleanup fixpoint, got \{err}")
+    }
+    let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    assert_true(pretty.contains("i32.store"), msg=pretty)
+    assert_true(pretty.contains("I32(11)"), msg=pretty)
+    assert_false(pretty.contains("nop"), msg=pretty)
+    assert_false(pretty.contains("if "), msg=pretty)
+    assert_false(pretty.contains("(block"), msg=pretty)
   }
 }
 
@@ -975,6 +1053,41 @@ test "precompute removes selector-only self-targeting br_table blocks" {
   assert_false(pretty.contains("br_table"), msg=pretty)
   assert_false(pretty.contains("(block"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "precompute removes dropped pure i31 references" {
+  let fixtures = [
+    "(module (func (drop (ref.i31 (i32.const 0)))))",
+    (
+      #| (module
+      #|   (type $s (struct))
+      #|   (func (local anyref)
+      #|     (local.set 0 (struct.new_default $s))
+      #|     (drop (ref.i31 (i32.const 0)))))
+      #|,
+    ),
+    "(module (func (param eqref eqref) (drop (ref.eq (local.get 0) (local.get 1)))))",
+    "(module (func (param externref) (drop (any.convert_extern (local.get 0)))))",
+    "(module (func (param anyref) (drop (extern.convert_any (local.get 0)))))",
+  ]
+  for source in fixtures {
+    for pass_name in ["precompute", "precompute-propagate"] {
+      let optimized = match pass_test_run_pipeline(source, [pass_name]) {
+        Ok(mod_) => mod_
+        Err(err) =>
+          fail("expected \{pass_name} dropped ref.i31 cleanup, got \{err}")
+      }
+      let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+      assert_false(
+        pretty.contains("ref.i31") ||
+        pretty.contains("ref.eq") ||
+        pretty.contains("any.convert_extern") ||
+        pretty.contains("extern.convert_any"),
+        msg="\{pass_name}: \{pretty}",
+      )
+    }
+  }
 }
 
 ///|

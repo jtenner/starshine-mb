@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1650-2026-07-18-daeo-broad-boundary-and-uniform-constant-parity.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ./index.md
@@ -30,14 +31,14 @@ related:
 
 # Starshine `precompute` strategy today
 
-This page describes the **current in-tree Starshine implementation**, not the full upstream Binaryen `version_130` contract. The detailed historical algorithm reading began at `version_129`; a focused v130/current-main reread found no behavior-bearing drift on the reviewed surfaces. For the future-slice and validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page describes the **current in-tree Starshine implementation** against the maintained Binaryen `version_131` contract. The detailed historical algorithm reading began at `version_129`; focused v130/current-main review found no behavior-bearing drift, and the 2026-07-26 explicit-v131 renewal is recorded in the shared research note. For the validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Short version
 
 Starshine currently implements a focused HOT-IR `precompute` pass covering:
 
 - exact integer and floating unary/binary/comparison folds, including safe nontrapping integer division/remainder and rotates
-- raw stack-level shortcuts for no-candidate functions, nested nop-only control, adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result `block`s with no branch to the rewritten label, and preserved effectful/trapping dropped tails with no remaining precompute candidates, so they can skip HOT lift/lower safely while label-relative branchy arm picks and still-unsupported pure drop cleanup stay on the HOT path
+- raw stack-level execution for no-candidate functions, nested control cleanup, adjacent scalar folds, constant-`if` arm picks, immutable module-constant `global.get` folds, dropped nontrapping scalar/reference/select expressions, result blocks, terminal branches, and preserved effectful/trapping prefixes; type-indexed labels resolve through module context and parameterized blocks fail closed when entry operands cannot be reconstructed
 - exact integer and floating comparisons lowered to i32 boolean constants
 - exact `ref.is_null(ref.null ...) -> i32.const 1` folding in both the raw stack evaluator and HOT IR
 - immutable scalar-or-null `global.get` replacement
@@ -48,9 +49,7 @@ Starshine currently implements a focused HOT-IR `precompute` pass covering:
 - artifact-driven invalid-lower and writeback-validation guard rails around the old slot-19 failure family
 - a focused boundary guard preserving reachable `atomic.fence` barriers even when Binaryen `--precompute` currently erases a fence before a branch-to-end
 
-That is useful and already well tested.
-
-But it is still much smaller than upstream Binaryen plain `precompute`, and much smaller again than the full `precompute` + `precompute-propagate` family.
+That surface is source-backed and closed at Binaryen-v131-or-better behavior parity. `precompute-propagate` remains a distinct public sibling because it adds one SSA local-consensus solve and one evaluator rerun.
 
 ## Exact local code map
 
@@ -79,7 +78,7 @@ The pass also appears in the registry and preset expansions in [`src/passes/opti
 
 ## 2. Exact constant sources the pass knows how to read
 
-The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file now also owns a conservative raw stack-level shortcut for no-candidate functions, nested nop-only control, functions with only adjacent scalar folds, branch-free constant-`if` arm picks, immutable module-constant `global.get` folds, mutable/global no-candidate reads, dropped flat nontrapping scalar/global/select expressions, dropped single-result `block`s whose branches do not target the rewritten block label, and preserved effectful/trapping dropped tails after raw folding exhausts safe candidates; that shortcut still refuses functions with `br_table`, label-relative branchy `if` arms, root-`nop` cleanup, or unsupported pure `drop` candidates so the HOT path handles structural cases.
+The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The same file owns the raw stack-level evaluator and cleanup path for no-candidate functions, nested control, adjacent folds, constant-`if` arm picks, immutable module constants, dropped nontrapping scalar/reference/select expressions, terminal branches, result blocks, preserved effectful/trapping prefixes, and redundant root `nop`s. Label-relative branches are handled with resolved target arities; unresolved or parameterized entry-stack shapes fail closed rather than guessing.
 
 The HOT constant-source helpers are:
 
@@ -92,8 +91,7 @@ The HOT constant-source helpers are:
 - `precompute_i64_exact_const(...)`
   - widen the local notion of “exact constant” to include immutable resolved globals
 
-This is the first major difference from upstream Binaryen:
-local `precompute` has no general interpreter and no `Flow` lattice here; it is a direct HOT constant recognizer over a small scalar/global subset.
+The local implementation combines exact HOT recognition with a bounded raw stack/control evaluator. It is not a line-for-line port of Binaryen's `ConstantExpressionRunner`, but the maintained public behavior surface is closed by source review, focused fixtures, and the direct v131 matrices.
 
 ## 3. Rewrite builders and the actual scalar folds
 
@@ -122,7 +120,7 @@ The coded surface is still smaller than Binaryen's general interpreter, heap cac
 
 ## 4. Constant-`if` lowering and root-shape rebuilding
 
-The current constant-`if` implementation is also in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The HOT implementation handles structural arm picking, and the raw shortcut now handles branch-free stack-level constant-`if` tails before adjacent scalar folds; label-relative branches (`br`, `br_if`, `br_table`, `br_on_*`) keep the function on the HOT path rather than being flattened raw.
+The current constant-`if` implementation is also in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). The HOT implementation handles structural arm picking, while the raw evaluator handles stack-level constant-`if` tails, including label-relative terminal branches when the target arity is resolved. Unsafe parameterized-block flattening remains rejected.
 
 HOT details:
 
@@ -143,8 +141,8 @@ The structural cleanup cluster in [`src/passes/precompute.mbt`](../../../../../s
 
 - `precompute_is_discardable_value(...)`
   - defines the local pure/discardable lattice
-  - accepts `Const`, `LocalGet`, `GlobalGet`, `RefNull`, `RefFunc`, and recursively pure unary/binary/compare/convert/select trees
-  - rejects anything with side effects, traps, control, terminators, or zero result arity
+  - accepts `Const`, `LocalGet`, `GlobalGet`, `RefNull`, `RefFunc`, recursively pure unary/binary/compare/convert/select trees, and exact `ref.i31`, `ref.eq`, `any.convert_extern`, or `extern.convert_any` trees with recursively discardable operands
+  - rejects control, terminators, zero-result nodes, and every effectful/trapping opcode outside that exact nontrapping reference override
 - `precompute_try_eliminate_dead_drop(...)`
   - turns `drop(pure-value)` into `nop`
 
@@ -172,7 +170,7 @@ This cleanup cluster is not a generic Binaryen port. It is a local HOT/writeback
 
 ## 6. Fixpoint driver
 
-The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can now return a raw rewritten function or a raw no-candidate skip before HOT lift when the function is inside the conservative stack-only subset, including nested nop-only control, adjacent folds, branch-free constant-`if` arm picks, immutable global folds, mutable/global no-candidate reads, dropped flat trap-free scalar/global/select expressions, dropped single-result blocks that can be safely voided, and preserved effectful/trapping dropped tails with no remaining precompute candidate; the dispatcher provides module context only when raw scanning sees a `global.get`.
+The HOT pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt). For direct pass-manager execution, `precompute_run_raw_func(...)` can return a raw rewritten function or a raw no-candidate skip before HOT lift for the bounded stack/control subset. The dispatcher supplies module context so the raw path can resolve immutable globals and type-indexed block/loop arities; no-local control-only functions use the same raw cleanup for both public names.
 
 Each HOT round currently does:
 
@@ -190,8 +188,7 @@ Each HOT round currently does:
 
 Then it repeats until a round makes no further changes.
 
-That iterative HOT fixpoint is useful locally, but it is not Binaryen-shaped:
-there is no compile-time interpreter, no partial-select climb, no local-flow propagation phase, and no explicit refinalization tail here. The current direct debug-artifact drift in `.tmp/pc-artifact-drift-classified` is consistent with that gap: Binaryen rewrites the first differing function (`defined=4`, `abs=21`) through temporary-local/block scaffolding and dropped intermediate constants around `memory.size` / `local.tee`, while Starshine keeps the stack expression compact. A small raw stack shortcut is unlikely to close that family because the first witness is already on the HOT/output-shaping side, not a raw no-candidate skip.
+The implementation shape is not line-for-line Binaryen: Starshine combines raw stack/control evaluation, HOT exact-value/heap reasoning, cleanup fixpoints, and guarded writeback rather than directly embedding `ConstantExpressionRunner`. The current direct debug-artifact drift in `.tmp/pc-artifact-drift-classified` remains output shaping: Binaryen introduces temporary-local/block scaffolding around `memory.size` / `local.tee`, while Starshine keeps the stack expression compact. This is not a missing public behavior family.
 
 ## 7. Pipeline dispatch and writeback guards
 
@@ -200,7 +197,7 @@ The other critical owner is [`src/passes/pass_manager.mbt`](../../../../../src/p
 
 ### Dispatch
 
-- the raw dispatcher first asks `precompute_run_raw_func(...)` whether scalar-only work, branch-free constant-`if` arm picking, module-proven immutable `global.get` constants, mutable/global no-candidate reads, dropped flat trap-free scalar/global/select expressions, dropped single-result blocks, preserved effectful/trapping dropped tails, nested nop-only control, or no-candidate functions can skip HOT lift/lower
+- the raw dispatcher first asks `precompute_run_raw_func(...)` whether bounded scalar/reference/control work, module-proven immutable globals, terminal branch cleanup, nested wrappers, dropped pure values, preserved effectful/trapping prefixes, or no-candidate functions can skip HOT lift/lower; module context supplies type-indexed label arities
 - under `optimize_level >= 4 && shrink_level >= 1`, the dispatcher accepts only changed raw results reported as `raw-scalar-folds`; every HOT-only, hazardous, unchanged no-candidate, or non-scalar raw reason still returns `o4z-precompute-noop`, which is now an explicit v0.1.0 fail-closed boundary with reopening criteria rather than an undecided release question
 - the hot-pass dispatcher maps `"precompute" => precompute_run(ctx, func)`
 

@@ -19095,6 +19095,24 @@ test "precompute scalar control global and cleanup gen-valid profiles emit pass-
   }
   @debug.assert_eq(control.config_label, "precompute-control")
   assert_true(control.facts.has_branch_heavy_control)
+  let mut has_multivalue_branch_carrier = false
+  match control.wasm_module.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, Expr(instrs)) = func
+        if gen_valid_test_has_multivalue_typeidx_block(
+            control.wasm_module,
+            instrs,
+          ) {
+          has_multivalue_branch_carrier = true
+        }
+      }
+    None => ()
+  }
+  assert_true(
+    has_multivalue_branch_carrier,
+    msg="precompute control profile should exercise type-indexed multivalue branch payload folding",
+  )
 
   let globals = match
     gen_valid_module_result_from_seed(

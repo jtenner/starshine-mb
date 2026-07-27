@@ -11,11 +11,46 @@ test "precompute raw constant-if flattening drops void branch values" {
       None,
     ),
   ]
-  assert_true(precompute_raw_try_fold_const_if_tail(out, []))
+  assert_true(precompute_raw_try_fold_const_if_tail(out, None, []))
   @debug.assert_eq(out, [
     @lib.Instruction::i32_const(@lib.I32(7)),
     @lib.Instruction::drop(),
   ])
+}
+
+///|
+test "precompute HOT classifies ref.i31 of a constant as discardable" {
+  let input = pass_test_module_from_wat(
+    (
+      #| (module
+      #|   (type $s (struct))
+      #|   (func (local anyref)
+      #|     (local.set 0 (struct.new_default $s))
+      #|     (drop (ref.i31 (i32.const 0)))))
+      #|,
+    ),
+  )
+  let func = @ir.hot_lift_func(input, @lib.FuncIdx::new(0U))
+  let mut found = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_exact_instr(func, node_id) {
+      Some(@lib.RefI31) => {
+        found = true
+        assert_true(@ir.hot_has_side_effect(func, node_id))
+        assert_true(@ir.hot_may_trap(func, node_id))
+        @debug.assert_eq(@ir.hot_node_result_arity(func, node_id), 1)
+        assert_true(
+          precompute_is_discardable_value(func, node_id),
+          msg="exact ref.i31 must override conservative generic Heap flags",
+        )
+      }
+      _ => ()
+    }
+  }
+  assert_true(found)
 }
 
 ///|

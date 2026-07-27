@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
   - ../../../raw/research/1572-2026-07-17-precompute-propagate-port-and-signoff.md
@@ -38,7 +38,7 @@ related:
 - The exact public name is registered, dispatched, accepted by the compare harness, and covered by focused tests plus the `precompute-propagate-local-facts` GenValid profile.
 - Starshine's two aggressive top-level PC slots now use `precompute-propagate`; ordinary plain-`precompute` remains a separately requestable direct pass.
 - DAE and inlining nested optimization now use the same public implementation instead of the removed private `precompute-propagate-prefix` semantic fork.
-- The shared Binaryen-v131 evaluator contract is closed: strings, general constant control `Flow`, immutable nested heaps and exact identities, ordered multi-effect retention, emitability, deterministic SIMD, descriptor/reference behavior, and exact cast refinalization are covered. Conservative legacy-EH and stack-switching preservation remains intentional. Propagation itself stays bounded to one SSA local-consensus solve and one evaluator rerun.
+- The shared Binaryen-v131 evaluator contract is closed: strings, general constant control `Flow`, immutable nested heaps and exact identities, ordered multi-effect retention, emitability, deterministic SIMD, descriptor/reference behavior, and exact cast refinalization are covered. The 2026-07-26 renewal also aligns the propagating no-local raw path with plain `precompute`, resolves type-indexed block/loop arities, preserves terminal multivalue branch payloads, reaches nested raw-cleanup fixpoints, and removes dropped exact pure-reference operations. Conservative legacy-EH and stack-switching preservation remains intentional. Propagation itself stays bounded to one SSA local-consensus solve and one evaluator rerun.
 
 ## Why this pass matters
 
@@ -95,6 +95,10 @@ So the pass is best taught as:
   Beginner-friendly before/after shape catalog for the main positive, bailout, and easy-to-misread `precompute-propagate` families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine implementation map: public descriptor/registry/dispatcher surfaces, SSA-backed consensus, result-`if` phi/direct-condition handling, guarded raw propagation, evaluator breadth, aggressive preset slots, nested-prefix reuse, and signoff evidence.
+
+## 2026-07-26 v131 correctness-repair renewal
+
+Fresh explicit-v131 evidence after the shared raw-control and cleanup repairs keeps the public propagating member closed. Regular `100000` and dedicated `precompute-all` `10000` lanes have zero residual mismatches. Random-all has `2135` source-inspected smaller dead-read/control cleanup wins and `328` intentional reachable-`atomic.fence` preservation differences, for a net `-24,119` canonical bytes. wasm-smith compares `9956` cases with `9954` direct matches, one fence-preservation correctness difference, one seven-byte-smaller exact scratch-local form, and `44` Binaryen-only parser/tool failures. Runtime/idempotence is green at `500/500`; see [`./fuzzing.md`](./fuzzing.md).
 
 ## Current maintenance rule
 

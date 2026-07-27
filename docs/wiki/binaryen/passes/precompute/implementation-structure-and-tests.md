@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-26
 sources:
+  - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp
   - ./index.md
@@ -258,31 +259,28 @@ The source map shows the right split:
 - plain `precompute` is the top-level no-DWARF public mode,
 - and the sibling adds the `LazyLocalGraph` local-worklist plus one extra rerun and is used in aggressive/nested contexts.
 
-## Starshine raw-control correctness boundary
+## Starshine raw-control and cleanup correctness boundary
 
-The 2026-07-21 correctness audit found that Starshine's raw terminal-branch
-flattening had modeled every removed `br` as carrying exactly one payload. That
-assumption was wrong at both ends of the label-type surface:
+The 2026-07-21 audit first found that Starshine's raw terminal-branch flattening modeled every removed `br` as carrying exactly one payload. The 2026-07-26 renewal completed the repair instead of leaving type-indexed labels as a permanent fail-closed gap.
 
-- a type-indexed multivalue target lost one payload and produced an invalid
-  candidate stack,
-- a void target retained a dead value after removing the branch.
+The raw rewriter now resolves `TypeIdxBlockType` through `HotModuleContext` and tracks both function-type arities:
 
-Writeback validation rejected both candidates (`skip-invalid-lower`), so the bug
-was fail-closed at module commit rather than a persisted miscompile, but the pass
-silently missed valid optimization work.
+- block, `if`, `try`, and `try_table` labels use result arity;
+- loop labels use parameter arity;
+- terminal multivalue branches preserve every payload for the actual target;
+- parameterized blocks are not flattened when their entry operands cannot be reconstructed safely.
 
-The raw rewriter now threads known branch-label arities through nested blocks,
-loops, `if`, `try_table`, direct terminal-block flattening, and constant-`if`
-tail folding. Void and scalar block labels are exact; loop labels use parameter
-arity; unresolved type-indexed/multivalue labels fail closed instead of guessing.
-Focused public regressions cover both `precompute` and `precompute-propagate`, and
-a white-box regression covers the constant-`if` void-arm helper whose public
-fixture currently encounters an unrelated HOT lowering abort.
+This fixes both ends of the old assumption: void targets no longer retain a dead value, and type-indexed multivalue targets no longer lose payloads or produce candidates rejected by `skip-invalid-lower`. The module context is now available to the raw paths for both public names, including no-local control-only functions.
 
-This is a durable implementation rule: raw control rewrites must reason about
-the branch target's label type, not the enclosing construct's result shape and
-not a single-value default.
+The same renewal made raw cleanup reach a local fixpoint across nested blocks, constant `if`s, redundant root `nop`s, and folds following effectful roots. It also removed dropped pure reference expressions for exact `ref.i31`, `ref.eq`, `any.convert_extern`, and `extern.convert_any` opcodes. Those operations use an exact-opcode override because the generic HOT `Heap` node intentionally carries conservative side-effect/trap flags; every operand must still be recursively discardable.
+
+Focused public regressions cover both `precompute` and `precompute-propagate`; white-box tests cover the constant-`if` helper and the conservative-HOT-flag override; `precompute-control` GenValid coverage contains a type-indexed multivalue carrier.
+
+Durable rules:
+
+1. raw control rewrites reason about the branch target's resolved label type, not the enclosing construct's result shape and not a single-value default;
+2. parameterized control is flattened only when entry-stack reconstruction is proven;
+3. conservative generic effect flags may be overridden only for an exact, source-backed nontrapping opcode family with recursively discardable operands.
 
 ## Porting takeaway
 

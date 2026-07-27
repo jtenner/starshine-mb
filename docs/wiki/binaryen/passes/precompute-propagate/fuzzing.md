@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: working
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ../../../raw/research/1574-2026-07-18-precompute-binaryen-v131-parity-reopen.md
   - ../../../raw/research/1573-2026-07-18-precompute-returned-values-arrays-and-effect-retention.md
@@ -80,9 +80,26 @@ bun scripts/pass-fuzz-compare.ts \
   --max-failures 1000 --keep-going-after-command-failures
 ```
 
-## Final 2026-07-18 v131 matrix
+## Final 2026-07-26 correctness-repair renewal
 
-All final lanes use explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`, `_build/native/release/build/cmd/cmd.exe`, isolated cache `.tmp/pass-fuzz-cache-v131`, parallel workers, and the reviewed local/unreachable cleanup normalizers.
+All renewed lanes use explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`, `_build/native/release/build/cmd/cmd.exe`, cache `.tmp/pass-fuzz-cache-precompute-v131-renewal`, parallel workers, and the reviewed local/unreachable cleanup normalizers.
+
+| Lane | Directory | Compared | Direct | Cleanup-normalized | Classified differences | Failures |
+|---|---|---:|---:|---:|---:|---|
+| Regular GenValid, seed `0x5eed` | `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-regular-100000` | `100000/100000` | `41287` | `58713` | `0` | none |
+| Dedicated `precompute-all`, seed `0x5eed` | `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-dedicated-10000` | `10000/10000` | `6423` | `3577` | `0` | none |
+| Random all profiles, seed `0x5555` | `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-random-all-10000` | `10000/10000` | `4578` | `2959` | `2135` smaller + `328` fence-preserving | none |
+| wasm-smith, seed `0x5eed` | `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-wasm-smith-10000` | `9956/10000` | `9954` | `0` | `2` Starshine wins | `44` Binaryen tool failures |
+
+The `2135` smaller random-all differences remove only dropped local/global reads, pure values, or redundant control wrappers in SSA, duplicate-import, merge-local, DAE, and neighboring local-type profiles. They are smaller by `2..18` bytes. The `328` Starshine-larger cases are all `merge-blocks-eh-atomic` inputs where Starshine preserves a reachable `atomic.fence`; each costs `2` bytes. Net canonical delta is `-24,119` bytes.
+
+The wasm-smith residuals are case `6523`, the inherited reachable-fence correctness boundary (`63` Starshine bytes versus `56` Binaryen bytes), and case `3694`, where Starshine retains an exact scratch-local `local.get` rather than re-emitting the same `f64.const` (`74` versus `81` bytes). The `44` non-comparisons remain Binaryen-only parser/tool failures: `39` zero-length recursive groups, one invalid tag index, one table index out of range, and three bad section sizes.
+
+Fresh runtime/idempotence evidence at `.tmp/pass-fuzz-precompute-propagate-v131-renewal-closeout-runtime-idempotence-500` checks `500/500` idempotent outputs, executes `475` Node-supported cases, classifies `25` GC/reference cases as unsupported, and reports zero semantic/property/validation/command failures. Fresh debug-WASI evidence at `.tmp/self-opt-precompute-propagate-v131-renewal-closeout` validates both outputs: Starshine is `5,134,293` canonical bytes versus Binaryen `5,230,996`, saving `96,703` bytes (`1.849%`). Seven timing-only samples give pass-local medians `1,204.796 ms` versus `725.132 ms` (`1.661x`, inside the `2x` ceiling). The first canonical difference is defined `23` / absolute `50`, the same valid result-typed return-dominated control versus Binaryen's void-plus-`unreachable` refinalization family.
+
+## Historical final 2026-07-18 v131 matrix
+
+The earlier final lanes used explicit `.tmp/binaryen-version-131-bin/bin/wasm-opt`, `_build/native/release/build/cmd/cmd.exe`, isolated cache `.tmp/pass-fuzz-cache-v131`, parallel workers, and the reviewed local/unreachable cleanup normalizers.
 
 | Lane | Directory | Compared | Direct | Cleanup-normalized | Classified differences | Failures |
 |---|---|---:|---:|---:|---:|---|
