@@ -16915,6 +16915,393 @@ test "dae dropped result batch transaction is definition-count independent" {
 }
 
 ///|
+fn dae_test_assert_retained_graph_matches_fresh(
+  retained : DaeCurrentBoundaryGraph,
+  fresh : DaeCurrentBoundaryGraph,
+) -> Unit raise {
+  assert_eq(retained.snapshot.imported, fresh.snapshot.imported)
+  assert_eq(retained.snapshot.defined, fresh.snapshot.defined)
+  assert_eq(retained.snapshot.total, fresh.snapshot.total)
+  assert_eq(retained.snapshot.type_indices, fresh.snapshot.type_indices)
+  assert_eq(retained.snapshot.function_types, fresh.snapshot.function_types)
+  assert_eq(
+    retained.snapshot.call_facts.direct_calls,
+    fresh.snapshot.call_facts.direct_calls,
+  )
+  assert_eq(
+    retained.snapshot.call_facts.tail_calls,
+    fresh.snapshot.call_facts.tail_calls,
+  )
+  assert_eq(
+    retained.snapshot.call_facts.direct_callers,
+    fresh.snapshot.call_facts.direct_callers,
+  )
+  assert_eq(
+    retained.snapshot.call_facts.dropped_calls,
+    fresh.snapshot.call_facts.dropped_calls,
+  )
+  assert_eq(
+    retained.snapshot.call_facts.escaped,
+    fresh.snapshot.call_facts.escaped,
+  )
+  assert_eq(
+    retained.snapshot.function_infos.length(),
+    fresh.snapshot.function_infos.length(),
+  )
+  let mut callee_abs = 0
+  while callee_abs < retained.snapshot.function_infos.length() {
+    let retained_info = retained.snapshot.function_infos[callee_abs]
+    let fresh_info = fresh.snapshot.function_infos[callee_abs]
+    assert_eq(retained_info.stale, fresh_info.stale)
+    assert_eq(retained_info.unused_params, fresh_info.unused_params)
+    assert_eq(retained_info.has_tail_calls, fresh_info.has_tail_calls)
+    assert_eq(retained_info.tail_callees, fresh_info.tail_callees)
+    assert_eq(retained_info.has_unseen_calls, fresh_info.has_unseen_calls)
+    assert_eq(retained_info.calls.length(), fresh_info.calls.length())
+    let mut call_idx = 0
+    while call_idx < retained_info.calls.length() {
+      let retained_call = retained_info.calls[call_idx]
+      let fresh_call = fresh_info.calls[call_idx]
+      assert_eq(retained_call.caller_def, fresh_call.caller_def)
+      assert_eq(retained_call.path, fresh_call.path)
+      assert_eq(retained_call.callee_abs, fresh_call.callee_abs)
+      assert_eq(retained_call.active, fresh_call.active)
+      assert_eq(retained_call.dropped, fresh_call.dropped)
+      assert_eq(retained_call.tail, fresh_call.tail)
+      call_idx += 1
+    }
+    assert_eq(
+      retained_info.dropped_calls.length(),
+      fresh_info.dropped_calls.length(),
+    )
+    call_idx = 0
+    while call_idx < retained_info.dropped_calls.length() {
+      let retained_call = retained_info.dropped_calls[call_idx]
+      let fresh_call = fresh_info.dropped_calls[call_idx]
+      assert_eq(retained_call.caller_def, fresh_call.caller_def)
+      assert_eq(retained_call.path, fresh_call.path)
+      assert_eq(retained_call.callee_abs, fresh_call.callee_abs)
+      assert_eq(retained_call.active, fresh_call.active)
+      assert_eq(retained_call.dropped, fresh_call.dropped)
+      assert_eq(retained_call.tail, fresh_call.tail)
+      call_idx += 1
+    }
+    callee_abs += 1
+  }
+}
+
+///|
+fn dae_test_rewrite_unused_first_param_with_graph(
+  mod_ : @lib.Module,
+  original : DaeOriginalBoundarySnapshot,
+  graph : DaeCurrentBoundaryGraph,
+  callee_abs : Int,
+) -> DaePassResult raise {
+  let def_idx = callee_abs - graph.snapshot.imported
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => fail("expected code section for retained-graph differential")
+  }
+  if def_idx < 0 || def_idx >= funcs.length() {
+    fail("expected defined scalar target for retained-graph differential")
+  }
+  let @lib.Func(locals, _) = funcs[def_idx]
+  let params = match graph.snapshot.function_types[callee_abs] {
+    Some(@lib.FuncType(params, _)) => params
+    None => fail("expected scalar target signature")
+  }
+  if params.length() < 2 {
+    fail("expected at least two scalar target parameters")
+  }
+  let remove = Array::make(params.length(), false)
+  remove[0] = true
+  dae_try_rewrite_candidate(
+    mod_,
+    callee_abs,
+    remove,
+    Array::make(params.length(), None),
+    dae_local_use_for_callee(
+      funcs[def_idx],
+      params.length() + locals.length(),
+      callee_abs,
+      params.length(),
+    ),
+    graph.snapshot.call_facts.direct_calls[callee_abs],
+    graph.snapshot.call_facts.direct_callers[callee_abs],
+    original=Some(original),
+    graph=Some(graph),
+  )
+}
+
+///|
+fn dae_test_assert_dropped_result_scalar_differential(
+  source : String,
+  scalar_abs : Int,
+) -> Unit raise {
+  let mod_ = pass_test_module_from_wat(source)
+  let original = dae_collect_original_boundary_snapshot(mod_)
+  let dropped = dae_apply_dropped_result_batch_transaction(
+    original,
+    mod_,
+    [],
+    false,
+    retain_post_graph=true,
+  )
+  assert_true(dropped.applied)
+  let retained = match dropped.post_graph {
+    Some(graph) => graph
+    None => fail("expected retained dropped-result graph")
+  }
+  let fresh = dae_current_boundary_graph_new(dropped.mod_out)
+  dae_test_assert_retained_graph_matches_fresh(retained, fresh)
+  let retained_result = dae_test_rewrite_unused_first_param_with_graph(
+    dropped.mod_out,
+    original,
+    retained,
+    scalar_abs,
+  )
+  let fresh_result = dae_test_rewrite_unused_first_param_with_graph(
+    dropped.mod_out,
+    original,
+    fresh,
+    scalar_abs,
+  )
+  assert_eq(retained_result.changed, fresh_result.changed)
+  assert_true(retained_result.changed)
+  assert_eq(retained_result.touched, fresh_result.touched)
+  assert_eq(retained_result.primary_def, fresh_result.primary_def)
+  assert_eq(retained_result.mod_out, fresh_result.mod_out)
+  let retained_bytes = match @binary.encode_module(retained_result.mod_out) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected retained result encode, got \{err}")
+  }
+  let fresh_bytes = match @binary.encode_module(fresh_result.mod_out) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected fresh result encode, got \{err}")
+  }
+  assert_eq(retained_bytes, fresh_bytes)
+  match @validate.validate_module(retained_result.mod_out) {
+    Ok(_) => ()
+    Err(err) => fail("expected valid retained result, got \{err}")
+  }
+  let retained_final = dae_current_boundary_graph_new(retained_result.mod_out)
+  let fresh_final = dae_current_boundary_graph_new(fresh_result.mod_out)
+  dae_test_assert_retained_graph_matches_fresh(retained_final, fresh_final)
+  match retained_final.snapshot.function_types[scalar_abs] {
+    Some(@lib.FuncType(params, results)) => {
+      assert_eq(params.length(), 1)
+      assert_eq(params[0], @lib.ValType::i32())
+      assert_eq(results, [@lib.ValType::i32()])
+    }
+    None => fail("expected rewritten scalar signature")
+  }
+}
+
+///|
+test "dae retained dropped-result graph rebases later same-target call paths" {
+  let source =
+    #|(module
+    #|  (func $dropped (result i32)
+    #|    i32.const 7)
+    #|  (func $scalar (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func (export "run")
+    #|    call $dropped
+    #|    drop
+    #|    i32.const 10
+    #|    i32.const 11
+    #|    call $scalar
+    #|    drop
+    #|    i32.const 20
+    #|    i32.const 21
+    #|    call $scalar
+    #|    drop)
+    #|  (func (export "observe") (result i32)
+    #|    i32.const 30
+    #|    i32.const 31
+    #|    call $scalar))
+  dae_test_assert_dropped_result_scalar_differential(source, 1)
+}
+
+///|
+test "dae retained dropped-result graph rebases nested imported and tail-call paths" {
+  let source =
+    #|(module
+    #|  (import "env" "imp" (func $imp (param i32)))
+    #|  (func $dropped (result i32)
+    #|    i32.const 7)
+    #|  (func $scalar (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func $other (param i32))
+    #|  (func (export "run")
+    #|    i32.const 99
+    #|    call $imp
+    #|    call $dropped
+    #|    drop
+    #|    i32.const 10
+    #|    i32.const 11
+    #|    call $scalar
+    #|    drop
+    #|    block
+    #|      call $dropped
+    #|      drop
+    #|      i32.const 20
+    #|      i32.const 21
+    #|      call $scalar
+    #|      drop
+    #|    end
+    #|    loop
+    #|      call $dropped
+    #|      drop
+    #|      i32.const 30
+    #|      i32.const 31
+    #|      call $scalar
+    #|      drop
+    #|    end
+    #|    i32.const 0
+    #|    if
+    #|      call $dropped
+    #|      drop
+    #|      i32.const 40
+    #|      i32.const 41
+    #|      call $scalar
+    #|      drop
+    #|    else
+    #|      call $dropped
+    #|      drop
+    #|      i32.const 50
+    #|      i32.const 51
+    #|      call $scalar
+    #|      drop
+    #|    end
+    #|    block $exit
+    #|      try_table (catch_all $exit)
+    #|        call $dropped
+    #|        drop
+    #|        i32.const 60
+    #|        i32.const 61
+    #|        call $scalar
+    #|        drop
+    #|      end
+    #|    end
+    #|    i32.const 77
+    #|    call $other)
+    #|  (func (export "observe") (result i32)
+    #|    i32.const 70
+    #|    i32.const 71
+    #|    call $scalar)
+    #|  (func (export "tail") (result i32)
+    #|    i32.const 80
+    #|    i32.const 81
+    #|    return_call $scalar))
+  dae_test_assert_dropped_result_scalar_differential(source, 2)
+}
+
+///|
+fn dae_test_generated_retained_graph_source(case_idx : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      #|(module
+      #|  (func $dropped (result i32)
+      #|    i32.const 7)
+      #|  (func $scalar (param i32 i32) (result i32)
+      #|    local.get 1)
+      #|  (func (export "run")
+      #|,
+    ),
+  )
+  let prefix_count = 1 + case_idx % 5
+  let sibling_count = 2 + case_idx % 4
+  let mut prefix = 0
+  while prefix < prefix_count {
+    out.write_string("    call $dropped\n    drop\n")
+    prefix += 1
+  }
+  let mut sibling = 0
+  while sibling < sibling_count {
+    out.write_string("    i32.const 10\n    i32.const 11\n")
+    out.write_string("    call $scalar\n    drop\n")
+    sibling += 1
+  }
+  out.write_string("    block\n")
+  prefix = 0
+  while prefix < 1 + case_idx % 3 {
+    out.write_string("      call $dropped\n      drop\n")
+    prefix += 1
+  }
+  out.write_string("      i32.const 20\n      i32.const 21\n")
+  out.write_string("      call $scalar\n      drop\n    end)\n")
+  out.write_string(
+    (
+      #|  (func (export "other")
+      #|    call $dropped
+      #|    drop
+      #|    i32.const 30
+      #|    i32.const 31
+      #|    call $scalar
+      #|    drop)
+      #|  (func (export "observe") (result i32)
+      #|    i32.const 40
+      #|    i32.const 41
+      #|    call $scalar)
+      #|  (func (export "tail") (result i32)
+      #|    i32.const 50
+      #|    i32.const 51
+      #|    return_call $scalar))
+      #|,
+    ),
+  )
+  out.to_string()
+}
+
+///|
+test "dae retained dropped-result graph matches fresh across generated path shifts" {
+  let mut case_idx = 0
+  while case_idx < 16 {
+    dae_test_assert_dropped_result_scalar_differential(
+      dae_test_generated_retained_graph_source(case_idx),
+      1,
+    )
+    case_idx += 1
+  }
+}
+
+///|
+test "dae complete dead-suffix call removal reports topology change" {
+  let source =
+    #|(module
+    #|  (func $dropped (result i32)
+    #|    i32.const 7)
+    #|  (func
+    #|    unreachable
+    #|    call $dropped
+    #|    drop))
+  let mod_ = pass_test_module_from_wat(source)
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section")
+  }
+  let type_sec = match mod_.type_sec {
+    Some(type_sec) => type_sec
+    None => fail("expected type section")
+  }
+  assert_true(
+    dae_repair_dead_suffix_calls_in_no_param_scope_except(
+      funcs,
+      dae_collect_func_type_indices(mod_),
+      type_sec,
+      0,
+      0,
+      0,
+      { caller_defs: [1] },
+    ),
+  )
+  let @lib.Func(_, @lib.Expr(body)) = funcs[1]
+  assert_eq(body, [@lib.Instruction::unreachable_()])
+}
+
+///|
 test "dae dropped result batch transaction reports each signature plan effect" {
   let source =
     #|(module
@@ -19588,20 +19975,202 @@ test "dae direct immediate-suffix helper rejects an exposed boundary" {
 }
 
 ///|
-test "dae global suffix candidates come from touched caller callees" {
+test "dae global suffix candidates mark repeated nested and imported calls" {
   let mod_ = pass_test_module_from_wat(
     (
       #|(module
-      #|  (func $target)
-      #|  (func $other)
-      #|  (func call $target))
+      #|  (import "env" "imp" (func $imp))
+      #|  (func $first)
+      #|  (func $middle)
+      #|  (func $last)
+      #|  (func
+      #|    call $imp
+      #|    call $first
+      #|    call $first
+      #|    block
+      #|      call $middle
+      #|    end
+      #|    loop
+      #|      call $last
+      #|    end
+      #|    i32.const 0
+      #|    if
+      #|      call $middle
+      #|    else
+      #|      call $first
+      #|    end
+      #|    block $exit
+      #|      try_table (catch_all $exit)
+      #|        call $last
+      #|      end
+      #|    end)
+      #|  (func
+      #|    return_call $last)
+      #|  (func))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, false, true, false, false,
+    ]),
+    [true, true, true, false, false, false],
+  )
+}
+
+///|
+test "dae global suffix candidates mark one maximum-index defined callee" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $unused)
+      #|  (func call $last)
+      #|  (func $last))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, true, false,
+    ]),
+    [false, false, true],
+  )
+}
+
+///|
+test "dae global suffix candidates include selected return-call targets" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $first)
+      #|  (func $last)
+      #|  (func return_call $last))
     ),
   )
   assert_eq(
     dae_collect_direct_callee_defs_from_selected_callers(mod_, [
       false, false, true,
     ]),
-    [true, false, false],
+    [false, true, false],
+  )
+}
+
+///|
+test "dae global suffix candidates honor unselected empty and truncated callers" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $first)
+      #|  (func $last)
+      #|  (func call $first call $last)
+      #|  (func))
+    ),
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, false, false,
+    ]),
+    [false, false, false, false],
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, true,
+    ]),
+    [true, true, false, false],
+  )
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(mod_, [
+      false, false, false, true,
+    ]),
+    [false, false, false, false],
+  )
+}
+
+///|
+fn dae_test_sparse_callee_benchmark_module(caller_count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func)\n  (func)\n  (func)\n  (func)\n")
+  let mut caller = 0
+  while caller < caller_count {
+    out.write_string("  (func\n")
+    let mut repetition = 0
+    while repetition < 16 {
+      out.write_string("    call 0\n    call 0\n")
+      out.write_string("    block call 1 end\n")
+      out.write_string("    loop call 2 end\n")
+      out.write_string("    i32.const 0 if call 3 else call 0 end\n")
+      repetition += 1
+    }
+    out.write_string("  )\n")
+    caller += 1
+  }
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+#skip("manual sparse-callee allocation benchmark; bounded behavior is covered above")
+test "dae sparse callee discovery benchmark" {
+  let caller_count = 128
+  let mod_ = pass_test_module_from_wat(
+    dae_test_sparse_callee_benchmark_module(caller_count),
+  )
+  let defined = caller_count + 4
+  let sparse = Array::make(defined, false)
+  let dense = Array::make(defined, false)
+  let mut def_idx = 4
+  while def_idx < defined {
+    dense[def_idx] = true
+    if (def_idx - 4) % 8 == 0 {
+      sparse[def_idx] = true
+    }
+    def_idx += 1
+  }
+  let expected = Array::make(defined, false)
+  expected[0] = true
+  expected[1] = true
+  expected[2] = true
+  expected[3] = true
+  let mut iteration = 0
+  while iteration < 100 {
+    assert_eq(
+      dae_collect_direct_callee_defs_from_selected_callers(mod_, sparse),
+      expected,
+    )
+    assert_eq(
+      dae_collect_direct_callee_defs_from_selected_callers(mod_, dense),
+      expected,
+    )
+    iteration += 1
+  }
+}
+
+///|
+test "dae global suffix candidates ignore malformed out-of-range targets" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func)
+      #|  (func))
+    ),
+  )
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section")
+  }
+  let @lib.Func(locals, _) = funcs[1]
+  funcs[1] = @lib.Func::new(
+    locals,
+    @lib.Expr::new([
+      @lib.Instruction::call(@lib.FuncIdx::new(99U)),
+      @lib.Instruction::return_call(@lib.FuncIdx::new(100U)),
+    ]),
+  )
+  let malformed = mod_.with_code_sec(@lib.CodeSec::new(funcs))
+  assert_eq(
+    dae_collect_direct_callee_defs_from_selected_callers(malformed, [
+      false, true,
+    ]),
+    [false, false],
   )
 }
 

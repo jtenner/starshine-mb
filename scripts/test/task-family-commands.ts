@@ -85,7 +85,7 @@ if (process.argv[2] === "run" && process.argv[3] === "src/cmd") {
       i += 1;
       continue;
     }
-    if (["--target", "native", "--optimize", "--global-effects", "--flatten", "--vacuum"].includes(token)) {
+    if (["--target", "native", "--optimize", "--optimize-instructions", "--flatten", "--vacuum"].includes(token)) {
       continue;
     }
     if (token.endsWith(".wat") || token.endsWith(".json")) {
@@ -104,26 +104,20 @@ if (process.argv[2] === "run" && process.argv[3] === "src/cmd") {
   }
   process.exit(0);
 }
-if (process.argv[2] === "run" && process.argv.includes("src/fuzz")) {
+if (
+  process.argv[2] === "run" &&
+  process.argv.includes("src/fuzz") &&
+  process.argv.includes("--emit-gen-valid-batch")
+) {
   const args = process.argv.slice(2);
   const outDir = args[args.indexOf("--out-dir") + 1];
   fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000002.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000003.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000004.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000005.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000006.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000007.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000008.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000009.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000010.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000011.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000012.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000013.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000014.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000015.wasm"), "x");
-  fs.writeFileSync(path.join(outDir, "gen-valid-000016.wasm"), "x");
+  const countIndex = args.indexOf("--count");
+  const count = countIndex === -1 ? 0 : Number(args[countIndex + 1]);
+  for (let i = 1; i <= count; i += 1) {
+    const fileName = "gen-valid-" + String(i).padStart(6, "0") + ".wasm";
+    fs.writeFileSync(path.join(outDir, fileName), "x");
+  }
   process.exit(0);
 }
 process.exit(0);
@@ -193,7 +187,7 @@ process.exit(0);
     "info",
     "fmt",
     "check --target native",
-    "test --target native",
+    `test --target native --jobs ${Math.max(1, os.availableParallelism())}`,
     "run --target native src/fuzz -- all ci --seed 0x5eed",
   ].join("\n");
   const actualValidate = fs.readFileSync(logPath, "utf8").trim();
@@ -335,7 +329,7 @@ process.exit(0);
     path.join(comparePassOutDir, "inputs", "gen-valid"),
   );
   assert(
-    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --metamorphic-transform add-non-name-custom-section --out-dir ${comparePassGenValidDir} --manifest ${path.join(comparePassGenValidDir, "manifest.json")}`,
+    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 32 --seed 0x5eed --metamorphic-transform add-non-name-custom-section --out-dir ${comparePassGenValidDir} --manifest ${path.join(comparePassGenValidDir, "manifest.json")}`,
     `unexpected compare-pass command log:\n${actualComparePass}`,
   );
 

@@ -1,4 +1,4 @@
-name: "Node WASM Tests"
+name: "Node API Surface Tests"
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ on:
       - ".github/workflows/node-wasm-tests.yml"
   push:
     branches:
-      - main
+      - master
     paths:
       - "node/**"
       - "tests/node/**"
@@ -42,7 +42,7 @@ on:
       - ".github/workflows/node-wasm-tests.yml"
 
 jobs:
-  node-wasm-tests:
+  node-api-surface-tests:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -55,31 +55,12 @@ jobs:
         with:
           node-version: 25
 
-      - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-
       - name: Set up Bun
         run: |
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
-      - name: Run Node unit tests
+      - name: Verify clean-checkout Node package contract
         run: |
-          npm --prefix tests/node run test:unit
-
-      - name: Run wasm artifact build and comparison flow
-        env:
-          STARSHINE_TRACE_OPTIMIZE: "1"
-          STARSHINE_TRACE_OPTIMIZE_VERBOSE: "1"
-        run: |
-          npm --prefix tests/node run build:all
-
-      - name: Run official spec suite against self-optimized wasm
-        run: |
-          npm --prefix tests/node run test:spec:self-optimized:wasm
-
-      - name: Run Node package smoke tests
-        run: |
-          npm --prefix node run test
+          bun scripts/test/node-package-static-contract.ts
+          find node -type f -name '*.js' -print0 | xargs -0 -n1 node --check

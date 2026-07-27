@@ -20454,6 +20454,164 @@ fn dae_try_apply_dropped_result_batch(
 }
 
 ///|
+fn dae_merge_rebased_stable_calls(
+  previous : Array[DaeStableCallsite],
+  refreshed : Array[DaeStableCallsite],
+  changed_defs : Array[Bool],
+) -> Array[DaeStableCallsite] {
+  let merged : Array[DaeStableCallsite] = []
+  let mut previous_idx = 0
+  let mut refreshed_idx = 0
+  while previous_idx < previous.length() || refreshed_idx < refreshed.length() {
+    while previous_idx < previous.length() {
+      let caller_def = previous[previous_idx].caller_def
+      if caller_def >= 0 &&
+        caller_def < changed_defs.length() &&
+        changed_defs[caller_def] {
+        previous_idx += 1
+      } else {
+        break
+      }
+    }
+    while refreshed_idx < refreshed.length() {
+      let caller_def = refreshed[refreshed_idx].caller_def
+      if caller_def < 0 ||
+        caller_def >= changed_defs.length() ||
+        !changed_defs[caller_def] {
+        refreshed_idx += 1
+      } else {
+        break
+      }
+    }
+    if previous_idx >= previous.length() {
+      while refreshed_idx < refreshed.length() {
+        merged.push(refreshed[refreshed_idx])
+        refreshed_idx += 1
+      }
+      break
+    }
+    if refreshed_idx >= refreshed.length() {
+      while previous_idx < previous.length() {
+        let callsite = previous[previous_idx]
+        let caller_def = callsite.caller_def
+        if caller_def < 0 ||
+          caller_def >= changed_defs.length() ||
+          !changed_defs[caller_def] {
+          merged.push(callsite)
+        }
+        previous_idx += 1
+      }
+      break
+    }
+    if previous[previous_idx].caller_def < refreshed[refreshed_idx].caller_def {
+      merged.push(previous[previous_idx])
+      previous_idx += 1
+    } else {
+      merged.push(refreshed[refreshed_idx])
+      refreshed_idx += 1
+    }
+  }
+  merged
+}
+
+///|
+fn dae_refresh_changed_caller_function_infos(
+  mod_ : @lib.Module,
+  previous_infos : Array[DaeFunctionInfo],
+  previous_escaped : Array[Bool],
+  changed_defs : Array[Bool],
+  imported : Int,
+  defined : Int,
+) -> Array[DaeFunctionInfo]? {
+  if changed_defs.length() != defined ||
+    previous_infos.length() != imported + defined ||
+    previous_escaped.length() != previous_infos.length() {
+    return None
+  }
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) if funcs.length() == defined => funcs
+    _ => return None
+  }
+  let total = previous_infos.length()
+  let refreshed_infos = dae_make_function_infos(total, previous_escaped)
+  let direct_calls = Array::make(total, 0)
+  let tail_calls = Array::make(total, false)
+  let direct_callers = dae_make_direct_callers(total)
+  let dropped_calls = Array::make(total, 0)
+  let refreshed_escaped = previous_escaped.copy()
+  let caller_seen_stamps = Array::make(total, -1)
+  let mut caller_def = 0
+  while caller_def < defined {
+    if changed_defs[caller_def] {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
+      dae_scan_current_call_facts_instrs(
+        body,
+        caller_def,
+        imported + caller_def,
+        [],
+        direct_calls,
+        tail_calls,
+        direct_callers,
+        dropped_calls,
+        refreshed_escaped,
+        refreshed_infos,
+        caller_seen_stamps,
+        true,
+      )
+    }
+    caller_def += 1
+  }
+  let merged_infos : Array[DaeFunctionInfo] = []
+  let mut callee_abs = 0
+  while callee_abs < total {
+    let previous = previous_infos[callee_abs]
+    let refreshed = refreshed_infos[callee_abs]
+    let calls = dae_merge_rebased_stable_calls(
+      previous.calls,
+      refreshed.calls,
+      changed_defs,
+    )
+    let refreshed_dropped_calls : Array[DaeStableCallsite] = []
+    for callsite in calls {
+      if callsite.dropped {
+        refreshed_dropped_calls.push(callsite)
+      }
+    }
+    let caller_def_for_info = callee_abs - imported
+    let caller_changed = caller_def_for_info >= 0 &&
+      caller_def_for_info < changed_defs.length() &&
+      changed_defs[caller_def_for_info]
+    merged_infos.push({
+      stale: if caller_changed {
+        true
+      } else {
+        previous.stale
+      },
+      unused_params: if caller_changed {
+        []
+      } else {
+        previous.unused_params
+      },
+      calls,
+      dropped_calls: refreshed_dropped_calls,
+      has_tail_calls: if caller_changed {
+        refreshed.has_tail_calls
+      } else {
+        previous.has_tail_calls
+      },
+      tail_callees: if caller_changed {
+        refreshed.tail_callees
+      } else {
+        previous.tail_callees
+      },
+      has_unseen_calls: previous.has_unseen_calls || refreshed.has_unseen_calls,
+    })
+    callee_abs += 1
+  }
+  Some(merged_infos)
+}
+
+///|
 fn dae_current_boundary_graph_adopt_dropped_result_batch(
   graph : DaeCurrentBoundaryGraph,
   mod_ : @lib.Module,
@@ -20473,43 +20631,24 @@ fn dae_current_boundary_graph_adopt_dropped_result_batch(
     function_types.push(dae_resolve_func_type(mod_, type_indices, func_abs))
     func_abs += 1
   }
-  let function_infos = graph.snapshot.function_infos.copy()
-  let direct_calls = graph.snapshot.call_facts.direct_calls.copy()
-  let tail_calls = graph.snapshot.call_facts.tail_calls.copy()
-  let direct_callers = graph.snapshot.call_facts.direct_callers.copy()
-  let dropped_calls = graph.snapshot.call_facts.dropped_calls.copy()
-  let escaped = graph.snapshot.call_facts.escaped.copy()
-  let mut def_idx = 0
-  while def_idx < defined {
-    if effects.result_removed[def_idx] {
-      let callee_abs = imported + def_idx
-      if callee_abs < 0 || callee_abs >= function_infos.length() {
-        return false
-      }
-      let previous = function_infos[callee_abs]
-      let calls : Array[DaeStableCallsite] = []
-      for callsite in previous.calls {
-        calls.push({ ..callsite, dropped: false })
-      }
-      function_infos[callee_abs] = {
-        stale: previous.stale,
-        unused_params: previous.unused_params,
-        calls,
-        dropped_calls: [],
-        has_tail_calls: previous.has_tail_calls,
-        tail_callees: previous.tail_callees,
-        has_unseen_calls: previous.has_unseen_calls,
-      }
-      dropped_calls[callee_abs] = 0
-    }
-    def_idx += 1
+  let function_infos = match
+    dae_refresh_changed_caller_function_infos(
+      mod_,
+      graph.snapshot.function_infos,
+      graph.snapshot.call_facts.escaped,
+      effects.structurally_touched,
+      imported,
+      defined,
+    ) {
+    Some(infos) => infos
+    None => return false
   }
-  let call_facts : DaeCurrentCallFacts = {
-    direct_calls,
-    tail_calls,
-    direct_callers,
-    dropped_calls,
-    escaped,
+  let call_facts = dae_call_facts_from_function_infos(function_infos)
+  if call_facts.direct_calls != graph.snapshot.call_facts.direct_calls ||
+    call_facts.tail_calls != graph.snapshot.call_facts.tail_calls ||
+    call_facts.direct_callers != graph.snapshot.call_facts.direct_callers ||
+    call_facts.escaped != graph.snapshot.call_facts.escaped {
+    return false
   }
   graph.mod_ = mod_
   graph.snapshot = {
@@ -30444,6 +30583,75 @@ fn dae_collect_direct_callee_defs_from_caller_prefix(
 }
 
 ///|
+fn dae_mark_direct_callee_defs_anywhere_instr(
+  instr : @lib.Instruction,
+  imported : Int,
+  defined : Int,
+  selected_callees : Array[Bool],
+) -> Unit {
+  match instr {
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) => {
+      let slot = dae_func_idx_slot(func_idx)
+      let def_idx = slot - imported
+      if slot >= imported &&
+        def_idx >= 0 &&
+        def_idx < defined &&
+        def_idx < selected_callees.length() &&
+        !selected_callees[def_idx] {
+        selected_callees[def_idx] = true
+      }
+    }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      dae_mark_direct_callee_defs_anywhere(
+        body, imported, defined, selected_callees,
+      )
+    @lib.If(_, then_body, Some(else_body)) => {
+      dae_mark_direct_callee_defs_anywhere(
+        then_body, imported, defined, selected_callees,
+      )
+      dae_mark_direct_callee_defs_anywhere(
+        else_body, imported, defined, selected_callees,
+      )
+    }
+    @lib.If(_, then_body, None) =>
+      dae_mark_direct_callee_defs_anywhere(
+        then_body, imported, defined, selected_callees,
+      )
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      dae_mark_direct_callee_defs_anywhere(
+        body, imported, defined, selected_callees,
+      )
+      for catch_ in catches {
+        match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(catch_body))
+          | @lib.LegacyCatchAll(@lib.Expr(catch_body)) =>
+            dae_mark_direct_callee_defs_anywhere(
+              catch_body, imported, defined, selected_callees,
+            )
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn dae_mark_direct_callee_defs_anywhere(
+  instrs : Array[@lib.Instruction],
+  imported : Int,
+  defined : Int,
+  selected_callees : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    dae_mark_direct_callee_defs_anywhere_instr(
+      instr, imported, defined, selected_callees,
+    )
+  }
+}
+
+///|
 fn dae_collect_direct_callee_defs_from_selected_callers(
   mod_ : @lib.Module,
   selected_callers : Array[Bool],
@@ -30459,13 +30667,7 @@ fn dae_collect_direct_callee_defs_from_selected_callers(
   while caller_def < defined && caller_def < selected_callers.length() {
     if selected_callers[caller_def] {
       let @lib.Func(_, @lib.Expr(body)) = funcs[caller_def]
-      let callees : Array[Int] = []
-      dae_collect_direct_call_targets_anywhere(body, imported, defined, callees)
-      for callee_def in callees {
-        if callee_def >= 0 && callee_def < defined {
-          selected[callee_def] = true
-        }
-      }
+      dae_mark_direct_callee_defs_anywhere(body, imported, defined, selected)
     }
     caller_def += 1
   }

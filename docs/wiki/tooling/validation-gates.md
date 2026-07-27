@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - https://nodejs.org/api/wasi.html
   - https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html
@@ -23,6 +23,8 @@ sources:
   - ../../../scripts/lib/moonbit-wasi-runner.mjs
   - ../binaryen/passes/dae-optimizing/index.md
   - ../../../scripts/test/task-family-commands.ts
+  - ../../../scripts/test/ci-workflow-contract.ts
+  - ../../../.github/workflows/ci.yml
 related:
   - ./wasi-runner-and-preview-boundary.md
   - ./cli-command-and-dispatcher.md
@@ -89,6 +91,51 @@ Why this order matters:
 - Fuzz runs last because they are broader, slower, and seed/profile dependent.
 
 The target whitelist is local to [`scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts): `native`, `wasm`, `wasm-gc`, `llvm`, and `js`. `bun validate full` rejects other target names before running Moon commands. Upstream Moon documents target `all`; Starshine does **not** currently accept `all` through `bun validate`, `bun fuzz`, or `trace-benchmark` wrappers, so widening that target is a local script/test/docs change rather than a docs-only correction.
+
+## Required GitHub CI
+
+[`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) is the required, read-only-permission CI floor for every pull request, every push to `master`, and manual dispatch. It intentionally has no path filter. Concurrency cancellation keeps only the newest run for one workflow/ref pair, and every job has a 30-minute timeout. [`scripts/test/ci-workflow-contract.ts`](../../../scripts/test/ci-workflow-contract.ts) makes the job names, commands, bounds, deterministic seeds, DAE normalizers, artifact checks, and `master` branch triggers reviewable and enforceable instead of leaving them as documentation-only promises.
+
+The three jobs and their exact local equivalents are:
+
+1. **`format-and-tests`** refreshes interfaces, applies formatting, rejects any resulting tracked diff, and runs the complete default Moon test suite:
+
+   ```text
+   moon update
+   bun scripts/test/ci-workflow-contract.ts
+   moon info
+   moon fmt
+   git diff --exit-code
+   moon test
+   ```
+
+2. **`release-artifacts`** builds both supported release artifacts, externally validates the wasm-gc CLI with wasm-tools `1.251.0`, requires two no-pass Starshine decode/encode cycles to converge byte-for-byte, and runs the bounded binary-roundtrip fuzz suite:
+
+   ```text
+   moon update
+   moon build --target native --release src/cmd
+   moon build --target wasm-gc --release src/cmd
+   wasm-tools validate --features all _build/wasm-gc/release/build/cmd/cmd.wasm
+   mkdir -p .tmp/ci-roundtrip
+   _build/native/release/build/cmd/cmd.exe _build/wasm-gc/release/build/cmd/cmd.wasm -o .tmp/ci-roundtrip/roundtrip-1.wasm
+   _build/native/release/build/cmd/cmd.exe .tmp/ci-roundtrip/roundtrip-1.wasm -o .tmp/ci-roundtrip/roundtrip-2.wasm
+   wasm-tools validate --features all .tmp/ci-roundtrip/roundtrip-1.wasm
+   wasm-tools validate --features all .tmp/ci-roundtrip/roundtrip-2.wasm
+   cmp .tmp/ci-roundtrip/roundtrip-1.wasm .tmp/ci-roundtrip/roundtrip-2.wasm
+   bun fuzz run --suite binary-roundtrip --profile smoke --seed 0x5eed --target wasm-gc
+   ```
+
+3. **`dae-differential`** runs the retained-versus-fresh callsite-path tests, the topology-changing dead-suffix guard, a fresh native release build, and a deterministic 10,000-case direct-DAE GenValid signoff against Binaryen `131`:
+
+   ```text
+   moon update
+   moon test --package jtenner/starshine/passes --file dead_argument_elimination_wbtest.mbt --filter '*retained dropped-result graph*'
+   moon test --package jtenner/starshine/passes --file dead_argument_elimination_wbtest.mbt --filter '*complete dead-suffix call removal reports topology change*'
+   moon build --target native --release src/cmd
+   bun fuzz compare-pass --count 10000 --seed 0x5eed --pass dead-argument-elimination --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/ci-dae-genvalid --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --wasm-opt-bin "$BINARYEN_DIR/bin/wasm-opt" --max-failures 1 --no-reduce-mismatches
+   ```
+
+For the third command group, set `BINARYEN_DIR` to an extracted official `binaryen-version_131` directory. CI downloads the official x86-64 Linux release archive. The 10,000-case lane is bounded, deterministic, and matches the repository-standard ordinary pass signoff count described below. Existing specialized workflows remain supplemental; their push triggers also name the repository's actual primary branch, `master`. Every workflow that installs MoonBit runs `moon update` before invoking workspace commands, so clean GitHub-hosted checkouts resolve `moonbitlang/x`. The Node workflow checks the package's static clean-checkout export/bin contract and JavaScript syntax because the runtime adapter wasm files are intentionally local-only and ignored; artifact-backed Node runtime testing remains a release/local lane. The examples workflow uses only active pass flags and the Node-24-compatible `actions/cache@v5`.
 
 ## Fuzz And Pass-Oracle Boundaries
 

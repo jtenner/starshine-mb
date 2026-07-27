@@ -34,7 +34,7 @@ const SMOKE_CASES: SmokeCase[] = [
     name: "advanced-features",
     expected: ["table_dispatch.wasm", "simd_lane_mix.wasm"],
     args: [
-      "--global-effects",
+      "--optimize-instructions",
       "--flatten",
       "--vacuum",
       "examples/modules/table_dispatch.wat",
@@ -48,12 +48,15 @@ const SMOKE_CASES: SmokeCase[] = [
 const WORKFLOW_PATTERNS = [
   ["WASM_TOOLS_VERSION:", "WASM_TOOLS_VERSION env declaration"],
   ["name: Cache wasm-tools cargo install artifacts", "wasm-tools cache step name"],
-  ["uses: actions/cache@v4", "actions/cache usage"],
+  ["uses: actions/cache@v5", "actions/cache usage"],
   ["~/.cargo/bin/wasm-tools", "cached wasm-tools binary path"],
   ['key: ${{ runner.os }}-cargo-wasm-tools-${{ env.WASM_TOOLS_VERSION }}', "cache key tied to WASM_TOOLS_VERSION"],
   ['if [ ! -x "$HOME/.cargo/bin/wasm-tools" ]; then', "guarded install check"],
   ['cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"', "versioned wasm-tools install command"],
   ['echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"', "cargo bin path export"],
+  ["--package jtenner/starshine/cmd", "unambiguous Moon package selector"],
+  ["--file fuzz_harness_wbtest.mbt", "unambiguous Moon test file selector"],
+  ["--filter \"*differential_validate_wasm agrees with installed wasm-tools and binaryen validators*\"", "unambiguous Moon test filter"],
 ] as const;
 
 // Parse smoke-test options; defaults keep CI-style native binary and a repo

@@ -11,7 +11,7 @@
     "outDir": "examples/out"
   },
   "passes": [
-    "global-effects",
+    "optimize-instructions",
     "flatten",
     "code-folding",
     "vacuum"

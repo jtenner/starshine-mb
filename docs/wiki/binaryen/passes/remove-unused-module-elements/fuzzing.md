@@ -68,7 +68,7 @@ This remains an intentional correctness-and-size win. The `44` other cases are B
 
 - `src/passes/remove_unused_module_elements_test.mbt`: `43/43`
 - `src/validate/gen_valid_rume_tests.mbt`: `2/2`
-- full post-rebase `moon test`: `9994/9994`
+- full post-remote-merge `moon test`: `10002/10002`
 
 The focused suite covers ordinary and non-function mode, imports/definitions, all module-element kinds, active/passive/declarative segments, declaration-only `ref.func`, table defaults/overlaps/traps/TNH, legacy EH, `call_ref`, `binaryen.js.called`, exact and typed `call.without.effects`, `configureAll` element operands, continuations and handler tags, descriptor-trapping initializers, recursive types, and index rewrites.
 
