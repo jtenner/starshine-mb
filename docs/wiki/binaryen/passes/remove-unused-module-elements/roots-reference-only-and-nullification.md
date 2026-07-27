@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -56,7 +56,7 @@ Examples from the official source include:
 - direct `call`
 - strong table operations like `table.get`, `table.set`, `table.init`, `table.copy`, `table.fill`, `call_indirect`
 - strong memory operations like loads, stores, atomics, `memory.init`, `memory.copy`, `memory.fill`
-- tag operations like `throw` and catch surfaces
+- tag operations like `throw`, legacy/typed catch surfaces, `suspend`, `resume`, `resume_throw`, `resume_throw_ref`, `stack.switch`, and resume handlers
 - elem/data operations like `elem.drop`, `data.drop`, `array.new_elem`, `array.init_elem`, `array.new_data`, `array.init_data`
 - active parent tables or memories when the active segment is semantically meaningful
 
@@ -105,23 +105,21 @@ V131 treats a table-level `ref.func` initializer as a possible callee. An active
 
 Binaryen does not require preservation of the *kind* of trap: if removing a wrong-type write only changes the failure to a null-entry trap, pruning can still be legal. The important invariant is that default-mode cleanup must not eliminate a trap. `trapsNeverHappen` is allowed to opt into the more aggressive outcome. Do not collapse this rule into either strong direct-call liveness or reference-only reachability; it is a trap-semantics constraint. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
-## Why `call_ref` matters so much here
+## Why `call_ref` and closed-world mode matter
 
-`call_ref` is one of the easiest places to underestimate the pass.
-Binaryen does not only look at immediate local syntax.
-It collects relevant heap types and then finds functions whose types are compatible with those heap-type roots.
+`call_ref` is one of the easiest places to underestimate the pass. Binaryen does not only look at immediate local syntax: it collects callable types and finds referenced functions whose declared types are compatible with those roots.
 
-So the beginner-safe rule is:
+In closed-world mode Starshine now preserves that distinction:
 
-- `call_ref` can keep functions relevant even when there is no direct named `call`
+- a plain `ref.func` can keep a declaration while allowing an uncalled definition body to become `unreachable`
+- a compatible `call_ref` upgrades matching referenced targets to callable/strongly used
+- an unknown or runtime-modified indirect-call table can conservatively upgrade the relevant referenced target set
 
-That is a real whole-module reachability edge.
+So `call_ref` can keep a function body live even when there is no direct named `call`; plain declaration reachability need not.
 
 ## Why GC field types matter here
 
-`struct.get` can also trigger heap-type collection.
-That means RUME is not only about executable uses.
-It also follows declaration/type structure when that structure still references functions, tables, memories, or tags.
+GC field access, array operations, reference casts/tests, descriptor casts, continuation construction/binding, and GC atomic operations can trigger heap-type collection. RUME is therefore not only about executable module indices; it must also follow declaration/type structure when that structure still references callable types, descriptors, or continuation types.
 
 This is one more reason the pass is bigger than the name suggests.
 

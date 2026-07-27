@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
@@ -42,7 +42,7 @@ related:
 - Memory indices:
   memargs for loads, stores, atomics, SIMD memory ops, `memory.size`, `memory.grow`, `memory.init`, `memory.copy`, `memory.fill`, active data parents, exports, and name maps.
 - Tag indices:
-  `throw`, catch arms, exports, and name maps.
+  `throw`, legacy and typed catch arms, `suspend`, `resume`, `resume_throw`, `resume_throw_ref`, `stack.switch`, resume-handler entries, exports, and name maps.
 - Elem and data indices:
   `array.new_elem`, `array.init_elem`, `elem.drop`, `array.new_data`, `array.init_data`, `data.drop`, `memory.init`, `table.init`, name maps, and count sections.
 - Function-declaration element modes:
@@ -57,6 +57,7 @@ related:
 ## Type-section Cleanup After Pruning
 
 - Current Starshine RUME also compacts dead type entries after ordinary module-element pruning.
+- Type liveness and remapping include block/function types, call/ref-call types, GC struct/array/cast/atomic carriers, descriptor relationships, continuation construction/binding, and stack-switching forms.
 - The local owner path is:
   - `rume_collect_used_type_flags(...)` in `src/passes/remove_unused_module_elements.mbt`
   - `rume_compact_type_sec(...)` in the same file
@@ -69,3 +70,4 @@ related:
 - For RUME, an apparently small liveness bug usually becomes a larger rewrite bug if remaps are incomplete.
 - When adding or debugging coverage, pair every "drop or keep" fixture with at least one assertion about the surviving rewritten indices.
 - For table cleanup, state whether removing a default or overlapping write can expose a callable value and eliminate an indirect-call trap. Binaryen may change one trap kind into another; it may not silently remove the trap under default semantics.
+- For EH or stack switching, pair reachability assertions with catch/resume-handler tag remap assertions; keeping the declaration without rewriting the nested carrier is still incorrect.

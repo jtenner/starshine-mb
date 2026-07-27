@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../release-horizon-and-oracles.md
   - ../../raw/binaryen/2026-07-11-mark-js-called-remove-exports-current-main-recheck.md
@@ -31,7 +31,8 @@ related:
 - Public `optimize` and `shrink` now append the accepted late-tail suffix `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`; broader widening earlier in the preset remains separate work.
 - The broader preset still interleaves `ssa-nomerge`, `remove-unused-names`, and `remove-unused-brs` around that tail; this page keeps those supporting cleanup passes implicit to stay compact.
 - `vacuum` is a registered hot pass in `src/passes/optimize.mbt` and runs through the hot-pass dispatcher in `src/passes/pass_manager.mbt`.
-- Binaryen `version_131` leaves the 56-slot top-level scheduler unchanged, but reopens pass-local parity for OI, memory-packing, RUME, heap2local, inlining-optimizing, and the late-tail `directize` owner.
+- The second early RUME slot is now present in both public presets: `global-refining -> global-struct-inference -> remove-unused-module-elements -> ssa-nomerge`. Registry tests assert all three RUME occurrences and the shifted downstream slot indices.
+- Binaryen `version_131` leaves the 56-slot top-level scheduler unchanged. The 2026-07-27 RUME renewal closes its direct behavior and missing-slot work; remaining preset differences stay under `[O4Z-PRESET]001`.
 
 ## Current Ordered Audit
 

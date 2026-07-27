@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
@@ -28,7 +28,7 @@ related:
 
 ## Binaryen v131 status
 
-Direct Binaryen v131 behavior parity is **closed**. Starshine tracks indirect-call type reachability, callable table initializers, overlapping/null/wrong-type trap-preserving writes, `trapsNeverHappen`, reference-only function-body nullification, and multi-member recursive-group validity. The explicit GenValid, random-all, wasm-smith, focused-fixture, and early-neighborhood evidence is recorded in [`./parity.md`](./parity.md); the separate second-early-slot scheduler gap remains open under preset reconciliation.
+Direct Binaryen v131 behavior parity is **closed after the 2026-07-27 renewal**. Starshine tracks indirect-call and `call_ref` type reachability, callable table initializers, overlapping/null/wrong-type trap-preserving writes, closed-world reference-only body nullification, legacy and typed EH, continuation tag/type carriers, descriptor-trapping initializers, and recursive-group validity. The pass now has a dedicated three-family GenValid aggregate, and the missing second early optimize/shrink slot is scheduled after `global-struct-inference`. Exact commands, residual classifications, performance, and reopening criteria are recorded in [`./parity.md`](./parity.md) and [`./fuzzing.md`](./fuzzing.md).
 
 ## Role
 
@@ -78,6 +78,7 @@ That is much closer to the official source than “remove dead functions.”
   5. either delete, keep, or weaken declarations while rewriting all surviving users
   6. preserve `ref.func` declaration validity after function compaction, including active-to-declarative elem weakening when the active parent table is otherwise dead
   7. preserve table initial-value call roots and retain null/wrong-type or overlapping element writes when removing them could expose a callable default/earlier value and eliminate an indirect-call trap
+  8. follow legacy/typed EH, continuation handler tags, descriptor-aware GC initializers, and every surviving module/type index carrier
 - The helper surface matters a lot:
   - `ModuleUtils`
   - `ElementUtils`
@@ -122,7 +123,7 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy with exact MoonBit registry, dispatcher, liveness, rewrite, type-cleanup, and test code locations; also explains why the pass remains module-scoped instead of becoming a pure HOT pass.
 - [`./parity.md`](./parity.md)
-  - Current signoff state, focused coverage, and remaining non-semantic compare noise.
+  - Current signoff matrix, transform-family audit, scheduler status, performance, residual ownership, and reopening criteria.
 
 ## Current maintenance rule
 

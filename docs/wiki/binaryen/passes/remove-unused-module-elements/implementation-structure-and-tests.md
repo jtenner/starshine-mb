@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-27
 sources:
   - ../../release-horizon-and-oracles.md
   - https://github.com/WebAssembly/binaryen/blob/version_131/test/lit/passes/remove-unused-module-elements-tables-init.wast
@@ -48,8 +48,8 @@ This page is that file-and-test map.
 | `src/passes/pass.cpp` | Registration and scheduler placement | Binaryen publicly exposes both `remove-unused-module-elements` and `remove-unused-nonfunction-module-elements`, and the full pass appears multiple times in the optimize pipeline. |
 | `src/ir/module-utils.h` | Module traversal helpers | Roots do not come only from function bodies; module code and defined-function iteration are official parts of the algorithm. |
 | `src/ir/element-utils.h` | Elem-content function rooting | Live elem segments can keep functions alive through their payloads. |
-| `src/ir/gc-type-utils.h` | Heap-type reachability | `call_ref` and GC field types are real liveness edges here. |
-| `src/ir/table-utils.h` | `FlatTable` support | Statically known table contents can keep functions referenced or live. |
+| `src/ir/gc-type-utils.h` | Heap-type reachability | `call_ref`, GC field types, descriptors, and continuation-related heap types are real liveness edges here. |
+| `src/ir/table-utils.h` | `FlatTable` support | Statically known table contents can keep functions referenced or live, while runtime mutation forces conservative callable-target handling. |
 | `src/passes/FunctionTypeUtils.cpp` | Type cleanup after function deletion | Unused function-type removal is part of the real pass behavior, not a separate unrelated cleanup. |
 | `src/ir/type-updating.h` | Kind-specific weakening helpers | Some reference-only non-function elements are replaced with inert definitions instead of being removed outright. |
 
@@ -128,7 +128,7 @@ The pass is graph-heavy, but not in the same way as a function CFG pass.
 The optimize-pipeline placement is also visible there.
 That matters because the public meaning of RUME includes repeated runs, not a one-shot “final cleanup” interpretation.
 
-The 2026-07-11 current-main reread also confirms that the two public names remain distinct registration modes of the same owner-family; it did not treat a spelling alias as an implementation shortcut.
+The 2026-07-27 v131 reread also confirms that the two public names remain distinct registration modes of the same owner-family. `pass.cpp` places full RUME three times in the aggressive pipeline; the second early slot follows GC/global-type optimization because those transforms can make `ref.func`-reachable code newly dead.
 
 ## Official lit families and what they prove
 
@@ -167,9 +167,16 @@ If a future explanation of RUME never mentions those, it is probably too shallow
 
 V131 adds a constraint that should be read with the table-init fixtures: removing a null or wrong-type write must not expose a compatible table default or earlier overlapping value and turn a trapping indirect call into a successful call. The owner may change one trap kind into another; `trapsNeverHappen` is the explicit boundary for removing trap-only writes more aggressively. See [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
 
-## `remove-unused-module-elements-eh-old.wast`
+## EH, continuation, JS-call, and descriptor fixtures
 
-This file proves that tags and old EH edges are part of the official retained surface.
+The released v131 fixtures `remove-unused-module-elements-eh-old.wast`, `remove-unused-module-elements-cont.wast`, `remove-unused-module-elements-js-called.wast`, `remove-unused-module-elements-refs.wast`, `remove-unused-module-elements-refs-descriptors.wast`, and `remove-unused-module-elements_ci-types.wast` prove that the official retained surface also includes:
+
+- protected legacy `try` bodies, typed/catch-all handlers, and catch tags
+- continuation constructors, suspend/resume forms, stack switching, and resume-handler tags
+- `binaryen.js.called` and special imported call conventions
+- descriptor/describes relationships and descriptor-sensitive initializers
+- closed-world callable type matching
+
 The pass is not just about call/data/table cleanup.
 
 ## `remove-unused-nonfunction-module-elements_all-features.wast`
@@ -197,6 +204,8 @@ They are teaching files for the deeper rules:
 Keep `version_129` as historical provenance for the original graph algorithm, but use `version_131` as the release oracle. The v131 owner and fixtures directly prove table-default call roots, wrong-type/default trap preservation, overlap conservatism, and the `trapsNeverHappen` relaxation. Those families are now implemented and covered by the focused and explicit-v131 evidence recorded in `parity.md`.
 
 ## Most important implementation takeaway
+
+Starshine now mirrors those families with `43` focused pass tests and a dedicated weighted `rume-all` GenValid aggregate (`dead-graph`, `table-trap`, and `legacy-eh`).
 
 The upstream implementation is not hard to understand because it is huge.
 It is hard to understand because several different edge sources all feed the same graph:

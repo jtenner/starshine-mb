@@ -1,123 +1,129 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-07-19
+last_reviewed: 2026-07-27
 sources:
   - ../../release-horizon-and-oracles.md
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/pass.cpp
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
-  - ./index.md
-  - ../tracker.md
-  - ../../no-dwarf-default-optimize-path.md
+  - ../../../../../src/validate/gen_valid.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ./fuzzing.md
 related:
   - ./index.md
+  - ./roots-reference-only-and-nullification.md
+  - ./indirect-call-trap-preservation.md
   - ./retention-and-index-rewrites.md
-  - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../scripts/self-optimize-compare.ts
 ---
 
-# `remove-unused-module-elements` Binaryen Parity
+# `remove-unused-module-elements` Binaryen v131 Parity
 
-## Durable Conclusions
+## Current status
 
-- `remove-unused-module-elements` is an active module pass, not a HOT-IR pass.
-- The current Starshine slice is directly re-proven under the refreshed 2026-06-03 pass-fuzz harness.
-- The major previously known semantic gaps are closed:
-  - unused imported module elements are now dropped and survivors remapped
-  - empty active data on both defined and imported memories is now dropped
-  - no-op active nullref elem segments on imported tables are now dropped
-  - non-constant active segment offsets are rooted in the full pass, not only the non-function variant
-  - empty const-offset active element segments are pruned after liveness propagation
-  - `ref.func` declaration-only element segments are retained, and declaration-only active segments on otherwise-dead tables are nullified to declarative elems instead of retaining dead tables
+The 2026-07-27 source-to-test audit closes RUME's released Binaryen v131 behavior surface and the missing second early preset slot.
 
-## Current In-Tree Status
+- Direct RUME behavior has no known semantic, validation, or index-rewrite failure in the renewed matrix.
+- The sibling `remove-unused-nonfunction-module-elements` continues to share the graph engine while preserving function declarations.
+- The optimize and shrink rosters now contain all three Binaryen RUME positions: initial prepass, GC/global-type cleanup follow-up, and late postpass.
+- Broad random-all still exposes one pass-independent, size-losing local-run encoding family; it is recorded explicitly rather than mislabeled as semantic parity.
 
-- The implementation lives in [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt).
-- The focused suite lives in [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt).
-- Explicit pass execution also has CLI and compare-tool coverage through [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) and [`../../../../../scripts/self-optimize-compare.ts`](../../../../../scripts/self-optimize-compare.ts).
+## Transform-family audit
 
-## Focused Coverage Now Locked In
+| Family | Starshine v131 behavior | Evidence |
+| --- | --- | --- |
+| Startup roots | exports, start, module code, globals, elem/data offsets, and reachable function bodies seed the graph | focused fixtures plus regular/dedicated GenValid |
+| Strong versus reference-only functions | direct calls are strong; `ref.func` can remain declaration-only; closed-world mode can nullify an uncalled referenced body | `closed world empties uncalled ref.func targets` |
+| `call_ref` | compatible referenced function types become callable in closed-world mode | `closed world call_ref keeps compatible targets callable` |
+| Imported call conventions | `binaryen.js.called`, `binaryen-intrinsics/call.without.effects`, and `wasm:js-prototypes/configureAll` receive Binaryen-compatible treatment | focused source-mapped tests and implementation audit |
+| Functions | unused imports/definitions are removed, reference-only bodies can become `unreachable`, and surviving indices/types are repaired | focused function/import/remap tests |
+| Globals | strong instruction/export/init uses retain globals; dead globals are removed; potentially descriptor-trapping initializers are retained unless TNH | descriptor initializer fixture |
+| Tables | imports/definitions, defaults, active parents, indirect calls, mutation, growth, and table index rewrites are tracked | table-default/overlap suite |
+| Memories | loads/stores/atomics/SIMD/memory ops and active data startup traps retain memories; full-u64 memory64 bounds avoid Binaryen's truncation bug | focused data tests and wasm-smith `004700` |
+| Tags and EH | legacy `try` body/catches/catch tags, typed EH, throws, and exports participate in reachability and remapping | legacy-EH focused and dedicated profile |
+| Continuations | `cont.new`, `cont.bind`, `suspend`, `resume`, `resume_throw`, `resume_throw_ref`, `stack.switch`, and resume-handler tags carry type/tag liveness and remaps | synthetic continuation binary fixture |
+| Elem segments | active/passive/declarative modes, parent retention, declaration-only `ref.func`, overlap/null/wrong-type writes, and active-to-declarative weakening are covered | v131 table fixtures and focused suite |
+| Data segments | active/passive users, trap-sensitive startup writes, data-count rebuild, and data-index rewrites are covered | focused data/remap tests |
+| GC/type carriers | struct/array/ref casts, descriptor casts, atomic GC operations, array data/elem operations, recursive groups, and subtype-compatible call types are marked | recursive-type and all-features audit |
+| Type cleanup | dead types are compacted only when the local safety checks can preserve recursive-group validity; surviving type-index carriers are rewritten through the shared DFE traversal | recursive-group validity tests |
+| Non-function sibling | functions are preserved while non-function roots, retention, nullification, and remaps reuse the same engine | existing sibling-mode focused tests |
 
-- explicit memarg memory-index rewrites
-- imported-parent retention for active segments
-- unused imported module-element drop plus survivor remap
-- empty active data drop on live and imported memories
-- no-op active nullref elem drop on imported tables
-- non-noop active `nullfuncref` elem retention on live defined tables
-- active element segments with global offsets in the full `remove-unused-module-elements` pass
-- declarative elems needed by live `ref.func`
-- declaration-only active elems on otherwise-dead tables rewritten to declarative elems
+## Focused coverage
 
-## Current Direct Signoff
+`src/passes/remove_unused_module_elements_test.mbt` now has `43/43` passing tests. The new audit cases lock in:
 
-- Final 2026-06-03 direct command: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-module-elements --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-rume-audit-declonly-10000`.
-- Result: `9972 / 10000` compared cases, `9972` normalized matches, `0` semantic mismatches, `0` validation failures, `0` generator failures, and `28` command failures.
-- Command-failure classification: `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, `1` Binaryen table-index-out-of-range parser failure, `1` Binaryen invalid-tag-index parser failure, and `3` Starshine command failures in the same non-mismatch command-failure bucket as prior RUME signoff.
-- `DFE -> RUME` neighborhood smoke: `bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass duplicate-function-elimination --pass remove-unused-module-elements --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-dfe-rume-audit-1000` reached `998 / 1000` compared, `998` normalized matches, `0` mismatches, and `2` Binaryen empty-recursion-group command failures.
-- Debug-artifact pass-local timing: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements --timing-only --out-dir .tmp/rume-debug-artifact-timing-declonly` reported canonical wasm equality, Starshine pass runtime `25.198 ms`, Binaryen pass runtime `38.936 ms`, and no raw skip.
-- The prior 2026-05-06 revalidation remains useful historical evidence; see [research note 0545](./index.md).
+- closed-world reference-only body nullification
+- closed-world `call_ref` compatible target retention
+- `binaryen.js.called` reference strength
+- exact and type-only `binaryen-intrinsics/call.without.effects` target selection
+- `wasm:js-prototypes/configureAll` function selection from its element operand
+- continuation handler-tag retention and remapping
+- descriptor-trapping initializer retention and `traps_never_happen` relaxation
 
-## Binaryen v131 closeout
+These augment the existing import/drop/remap, segment-parent, table-default, overlap, trap, recursive-group, and decoded legacy-EH coverage.
 
-V131 table-initial-value roots, overlap/null/wrong-type segment retention, reference-only trap-callee emptying, and `traps_never_happen` are implemented and covered by focused fixtures in `remove_unused_module_elements_test.mbt`.
+## Renewed explicit-v131 evidence
 
-### 2026-07-19 closeout matrix (explicit v131)
+Oracle: `.tmp/binaryen-version-131-bin/bin/wasm-opt`, verified as `wasm-opt version 131 (version_131)`.
 
-Oracle: `.tmp/binaryen-version-131-bin/bin/wasm-opt` (`wasm-opt version 131 (version_131)`).
 Native Starshine: `_build/native/release/build/cmd/cmd.exe`.
 
-| Lane | Out-dir | Result |
-|------|---------|--------|
-| wasm-smith 10k (`--seed 0x5eed`) | `.tmp/pass-fuzz-rume-v131-closeout-wasm-smith-10000` | `9950` compared, `9949` normalized matches, **1** mismatch (`case-004700`), `50` command failures |
-| GenValid regular 100k (`--seed 0x5eed`) | `.tmp/pass-fuzz-rume-v131-closeout-genvalid-100000` | `100000` compared, `100000` normalized matches, `0` mismatches, `0` command failures |
-| random-all-profiles 10k (`--seed 0x5555`) | `.tmp/pass-fuzz-rume-v131-closeout-random-all-10000` | `10000` compared, `10000` normalized matches, `0` mismatches |
-| DFE → RUME neighborhood 1k | `.tmp/pass-fuzz-rume-v131-closeout-dfe-rume-1000` | `1000` compared, `1000` normalized matches, `0` mismatches |
-| pass-cleanup 10k (interim) | `.tmp/pass-fuzz-rume-v131-closeout-pass-cleanup-10000-noreduce` | **not a usable RUME probe**: hit `--max-failures 2000` with `2015/2015` mismatches; diffs are large-body local/`tee` expression-shape drift, not RUME keep/drop |
+| Lane | Result |
+| --- | --- |
+| Dedicated `rume-all`, 10,000 | `10000/10000` normalized; zero failures |
+| Regular GenValid, 100,000 | `100000/100000` normalized; zero failures |
+| Random all-profiles, 10,000 | `9375` normalized plus `625` classified one-byte local-run representation gaps; zero validation/property/command failures |
+| wasm-smith, 10,000 | `9956` comparable; `9955` normalized; one known memory64 Starshine win; `44` Binaryen/tool failures |
+| Focused RUME tests | `43/43` |
+| Dedicated profile tests | `2/2` |
+| Full repository | `9979/9979` |
 
-Command-failure classes on the wasm-smith lane: `binaryen-rec-group-zero` 39, `starshine-command-failed` 6, `binaryen-bad-section-size` 3, `binaryen-invalid-tag-index` 1, `binaryen-table-index-out-of-range` 1.
+See [`./fuzzing.md`](./fuzzing.md) for commands, artifact paths, and residual classifications.
 
-### Case `004700` classification (Starshine-win)
+## Residual classifications
 
-Input: unused memory64 with a huge `initial`, one large-offset active data segment, and one in-bounds active data segment.
-Binaryen keeps the memory and both active segments; Starshine drops to `(module)`.
+### Random-all local-run encoding family
 
-Cause: Binaryen roots “may trap” active data with
-`maxWritten > Index(memory->initial << pageSizeLog2)`. Truncating the byte size to `Index` false-positives OOB on huge memory64 minima. Starshine compares against a full u64 byte size (`rume_mem_type_min_bytes`), so both segments are correctly in-bounds and unused defined memory is dropped.
+All `625` differences select `remove-unused-brs-control`, and every canonical Starshine output is one byte larger. Inspection shows RUME's internal module state unchanged; the byte comes from Starshine's multi-value decode/re-encode path leaving a synthetic same-typed scalar scratch local in a separate local declaration run. This is a real size gap, but it is not a RUME liveness/nullification/remap gap. The owner is decoder/encoder local-run canonicalization.
 
-This is an intentional Starshine win (correct OOB math, much smaller module), not a parity gap to “fix” toward Binaryen’s `Index` truncation.
+### wasm-smith `case-004700`
 
-Focused fixture: `remove-unused-module-elements drops nonempty in-bounds active data on unused memories` (matches Binaryen on ordinary memory32 sizes). Docs that previously claimed “nonempty active data always keeps defined memory” were corrected to match Binaryen’s import-visibility / trap-only startup rooting.
+Starshine emits an empty module while Binaryen retains a huge unused memory64 and two active data segments. Starshine's full-u64 bounds prove the startup writes in range; Binaryen v131's `Index` truncation false-positives a trap. The Starshine result is both correct and 41 canonical bytes smaller (`8` versus `49`).
 
-A later final rerun on the completed branch reached `9955` normalized wasm-smith cases plus one smaller unreachable-memory cleanup, with `44` Binaryen/tool failures and no Starshine command or validation failures. The first and second early O4z neighborhoods are canonical/normalized equal at `4,961,792` and `4,959,592` bytes; first-slot pass-local timing is `88.401ms` Starshine versus `62.760ms` Binaryen (`1.41x`). Combined focused coverage after rebasing is `34/34`, including multi-member recursive-group validity. `[V131-RUME]001` is closed for direct behavior; the accepted late-tail replay is blocked before RUME by the separately tracked simplify-globals/vacuum invalid-local failure, and the dedicated RUME GenValid profile remains optional coverage work.
+## Performance
 
-## Historical remaining gap
+On `tests/node/dist/starshine-debug-wasi.wasm`, direct RUME produced canonical wasm equality at `5,286,137` bytes.
 
-- The remaining post-fix v130 compare noise was not a known RUME semantic mismatch.
-- V131 turns the former test gap into a released parity obligation: Starshine needs focused table-default callable-root, wrong-type/default trap, null/overlap, and `trapsNeverHappen`-policy boundary fixtures. Its retain-all-active-elems rule is conservative under default semantics but broader than Binaryen and does not prove v131 output parity; see [`./indirect-call-trap-preservation.md`](./indirect-call-trap-preservation.md).
-- The saved backlog classifies the remaining failures as parser-compatibility and decoder or validator coverage work outside the pass's intended semantics.
-- Historical direct-smoke evidence from `2026-04-11` still matters: `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --count 200 --seed 0x5eed ...` reported `199 / 200` compared, `199` normalized matches, `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`), and `0` mismatches.
-- The later RUME blocker record is stronger and more specific after the semantic cleanup: `.tmp/pass-fuzz-rume-live-nullfuncref-rerun` reached `165 / 165` comparable `wasm-smith` cases with `0` mismatches before the `20` command-failure cutoff.
-- In that later rerun Starshine contributed no command failures; the remaining failure slots were Binaryen-side parser or canonicalization blockers: `binaryen-invalid-type-index`, `binaryen-rec-group-zero`, `binaryen-invalid-wasm-type-neg64`, and three later Binaryen parser failures at cases `000162`, `000167`, and `000185`.
-- Treat the direct pass as semantically signed off for the currently comparable corpus until a new semantic mismatch appears; the open work is parser-compatibility / coverage hardening, not another RUME keep/drop or remap bug.
-- For future coverage-only RUME sweeps, `pass-fuzz-compare` now has `--keep-going-after-command-failures`, which records classified Binaryen parser/canonicalization failures without letting those known command-failure families consume the `--max-failures` cutoff.
-- A `2026-04-24` keep-going rerun exposed one more real semantic mismatch at `.tmp/pass-fuzz-rume-keep-going-2026-04-24/failures/case-000186-wasm-smith`: Binaryen keeps imported tables and nonempty active expression elem segments even when every initializer is `ref.null`; Starshine had treated null-only expression elems as effect-free and dropped them.
-- That mismatch is now fixed. The follow-up rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator wasm-smith --count 300 --seed 0x5eed --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-rume-keep-going-2026-04-24-fix` reported `298 / 300` compared, `298` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `2` command failures.
-- The 2026-05-06 refreshed full direct revalidation later exposed and fixed the non-constant active-segment rooting and empty active-elem pruning drift, then reached `9972 / 10000` compared cases with `0` semantic mismatches.
+- Starshine pass-local: `113.379 ms`
+- Binaryen v131 pass-local: `66.655 ms`
+- ratio: about `1.70x`
+- whole command: Starshine `747.526 ms`, Binaryen `802.785 ms`
 
-## Practical Rule
+The pass-local target is not met on this artifact, so performance remains a documented optimization opportunity rather than a correctness blocker.
 
-- Treat the direct v131 behavior as implemented; keep the separate second-early-slot scheduler discrepancy visible under preset reconciliation.
-- If a new mismatch appears, debug it as either:
-  - liveness decision drift
-  - imported-parent retention drift
-  - or incomplete remap coverage
+## Scheduler reconciliation
 
-## Sources
+Binaryen v131 schedules the second early RUME after GC/global type optimization because those passes can make `ref.func`-reachable code dead. Starshine's corresponding public order is now:
 
-- Backlog status source: [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- Supplemental health rerun: [research note 0078](../tracker.md)
-- Implementation: [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
-- Focused tests: [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)
-- V131 trap-policy source: [Binaryen `RemoveUnusedModuleElements.cpp`](https://github.com/WebAssembly/binaryen/blob/version_131/src/passes/RemoveUnusedModuleElements.cpp)
+`global-refining -> global-struct-inference -> remove-unused-module-elements -> ssa-nomerge`
+
+Registry tests assert:
+
+- three RUME occurrences in both optimize and shrink presets
+- exact second-slot position
+- the downstream DAEO index shift caused by inserting the slot
+
+Historical first- and second-neighborhood artifacts remain exact for the earlier tree. Renewed broad self-hosted neighborhood probes on the current tree are not canonical-equal because neighboring DFE/memory-packing/global/GSI/SSA implementations have independent output-shape differences; direct RUME on the same self-hosted artifact is canonical-equal. Do not attribute those whole-neighborhood differences to RUME without a pass-local replay.
+
+## Reopening criteria
+
+Reopen RUME if any of the following appears:
+
+- a module element is kept, removed, or nullified differently without a proven Starshine semantic/size/performance win
+- a surviving module or type index is stale or invalid
+- a legacy/typed EH, continuation, GC, descriptor, segment, or table-default carrier is missed
+- closed-world callable/reference-only behavior disagrees with Binaryen v131
+- the non-function sibling removes or rewrites a function unexpectedly
+- a residual currently classified outside RUME is reduced to a pass-local RUME mutation

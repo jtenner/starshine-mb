@@ -28,7 +28,6 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 | `heap-store-optimization` | Focused v131 shared-helper renewal. | `[V131-SPOT]001` |
 | `simplify-locals` family | Focused v131 renewal across all five policy variants. | `[V131-SPOT]001` |
 | `tuple-optimization` | Focused v131 shared-typing/finalization renewal. | `[V131-SPOT]001` |
-| `remove-unused-module-elements` | Renew direct evidence after legacy-`try` traversal repair; add the second early O4z slot afterward. | `[V131-LEGACY-EH]001`, `[O4Z-PRESET]001` |
 | `merge-locals` | Renew direct evidence after the raw fallback began rejecting legacy `try`. | `[V131-LEGACY-EH]001` |
 | `duplicate-import-elimination` | Renew direct evidence after legacy-EH remapping and raw-name repair. | `[V131-LEGACY-EH]001` |
 | `reorder-globals` | Renew direct evidence after legacy-`try` traffic/dependency/rewrite repair. | `[V131-LEGACY-EH]001` |
@@ -52,11 +51,11 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 
 ### [V131-LEGACY-EH]001 - Renew evidence after legacy-`try` correctness repairs
 
-- **Status:** five release-scale direct matrices remain open.
+- **Status:** four release-scale direct matrices remain open; RUME closed on 2026-07-27.
 - **Goal:** replace pre-repair closeout evidence for every pass whose correctness-sensitive analysis or rewrite changed on 2026-07-21.
 - **Why:** decoded legacy `Try` bodies and catches previously could be omitted from reachability, index rewriting, traffic analysis, or mutation guards. Passing pre-repair matrices cannot close the repaired behavior.
 - **Deliverables:**
-  - [ ] Run the required explicit-v131 four-lane matrix for `remove-unused-module-elements`.
+  - [x] Run the required explicit-v131 four-lane matrix for `remove-unused-module-elements` (regular `100000/100000` and dedicated `rume-all` `10000/10000` exact; wasm-smith `9955/9956` exact plus the full-u64 memory64 Starshine win and `44` Binaryen/tool failures; random-all `9375/10000` exact plus `625` pass-independent one-byte local-run encoding residuals; zero Starshine failures).
   - [ ] Run the required explicit-v131 four-lane matrix for `merge-locals`.
   - [ ] Run the required explicit-v131 four-lane matrix for `duplicate-import-elimination`.
   - [ ] Run the required explicit-v131 four-lane matrix for `reorder-globals`.
@@ -64,8 +63,8 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
   - [ ] Add or refresh a pass-owned aggregate GenValid profile before a matrix when the current profile does not exercise protected-body, typed-catch, catch-all, and delegate-bearing cases.
   - [ ] Update each pass dossier with exact counts, Binaryen/tool failures, Starshine failures, mismatch classifications, cache statistics, timing, and reopening criteria.
 - **Invariants:** preserve protected-body and catch ordering, tags, catch-all form, delegate target, block type, stack typing, and exceptional control flow; never mutate from partial legacy-EH facts.
-- **Dependencies:** none. `once-reduction` and `memory-packing` already renewed after the same audit and are not part of this slice.
-- **Exit criteria:** all five remaining matrices have zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
+- **Dependencies:** none. `once-reduction`, `memory-packing`, and `remove-unused-module-elements` already renewed after the same audit and are not part of the remaining work.
+- **Exit criteria:** all four remaining matrices have zero validation or true-semantic failures and no unclassified residuals; any discovered behavior family receives its own active parity slice.
 
 ### [COALESCE-LOCALS]001 - Resolve direct and suffix shape gaps
 
@@ -86,13 +85,13 @@ The full 56-slot roster and closed-pass evidence live in `docs/wiki/binaryen/pas
 - **Status:** blocked on the direct evidence and parity slices above.
 - **Goal:** make Starshine's `shrink`/O4z expansion intentionally match the unchanged Binaryen-v131 56-slot top-level order, with documented Starshine-only extensions.
 - **Current differences:**
-  - [ ] Add the second early `remove-unused-module-elements` slot after its renewed direct signoff.
+  - [x] Add the second early `remove-unused-module-elements` slot after `global-struct-inference`; optimize/shrink registry tests now assert all three RUME positions (2026-07-27).
   - [ ] Remove or prove the remaining extra early `remove-unused-brs` slot. The former noncanonical early `vacuum` has already been removed.
   - [ ] Land the resolved `local-subtyping -> coalesce-locals -> local-cse` suffix after `[COALESCE-LOCALS]001`.
   - [ ] Reconcile post-`code-folding` ordered cleanup shapes: return/tail-call and movement fixtures are measured smaller Starshine `br_if` forms, while block-exit and EH fixtures remain size-losing neighboring cleanup gaps.
   - [ ] Keep final `strip-debug` explicitly documented as a Starshine extension outside Binaryen's 56 slots.
   - [ ] Preserve feature gates, no-DWARF policy, repeated cleanup slots, canonical aliases, and exact-order tests.
-- **Already landed and removed from this active list:** the aggressive flatten/SLNNS/local-CSE prelude, both `precompute-propagate` substitutions, `merge-locals` after `heap2local`, `code-folding` before late `merge-blocks`, removal of the noncanonical early `vacuum`, and the late `heap-store-optimization -> redundant-set-elimination -> vacuum` sequence.
+- **Already landed and removed from this active list:** the second early RUME slot, the aggressive flatten/SLNNS/local-CSE prelude, both `precompute-propagate` substitutions, `merge-locals` after `heap2local`, `code-folding` before late `merge-blocks`, removal of the noncanonical early `vacuum`, and the late `heap-store-optimization -> redundant-set-elimination -> vacuum` sequence.
 - **Exit criteria:** exact expansion tests, independently signed direct owners, and an ordered generated-artifact/runtime/size comparison with no unclassified regression.
 
 ### [O4Z-NESTED]001 - Reconcile optimizing nested reruns
