@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-18
 sources:
   - ../../release-horizon-and-oracles.md
   - ./index.md
@@ -34,9 +34,8 @@ Starshine currently supports:
 - exactly one memory, including one **imported** memory when `HotPipelineOptions.zero_filled_memory` is true;
 - constant i32/i64 active offsets, profitable active zero-run splitting, top-byte startup-trap preservation, sorted-span overlap detection, and source-order trampling cleanup;
 - active `memory.init` / `data.drop` simplification with operand-effect preservation;
-- passive zero-range splitting for supported constant-source `memory.init` users using Binaryen's metadata/referrer profitability and edge thresholds, `memory.fill` replacement, `data.drop` expansion, and lazy drop-state globals;
+- passive zero-range splitting for supported constant-source `memory.init` users, `memory.fill` replacement, `data.drop` expansion, and lazy drop-state globals;
 - conservative no-split handling for GC `array.new_data` / `array.init_data`, plus data-index, data-name, and `data_count` repair;
-- decoded legacy `try` protected/catch traversal for segment-user discovery and rewriting while preserving handler structure;
 - `__llvm*` no-split handling, segment-count limiting, `trapsNeverHappen`, and active-only user-scan elision.
 
 The important v131 boundary is Binaryen's released imported-memory overlap exception. Starshine now matches it: defined-memory overlaps are neutralized in source order, while imported-memory overlaps require `zero_filled_memory` and a proof that every active segment fits within the declared minimum. The proof compares page counts instead of overflowing maximal memory64 byte sizes and admits only the exact `2^64` endpoint special case. See [`../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md`](../../../raw/binaryen/2026-07-10-memory-packing-imported-overlap-current-main-refresh.md).
@@ -51,13 +50,14 @@ The historical filename says `starshine-hot-ir-strategy`, but this pass is delib
 | --- | --- | --- |
 | Public summary and rewrite entry point | [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) | `memory_packing_summary()` promises active-and-passive packing; `memory_packing_run_module_pass(...)` owns the module rebuild. |
 | Imported/defined memory shape and bounds | `mp_imported_mem_count`, `mp_defined_mem_count`, `mp_sole_memory_type`, `mp_provably_in_bounds` | A single imported memory is eligible only with `zero_filled_memory`; overflow-safe page-count proofs feed overlap admission and active trap preservation. |
-| Active offsets and ranges | `mp_parse_base_offset`, `mp_active_rewrite*`, `mp_collect_ranges`, `mp_merge_small_zero_ranges` | Exact i32/i64 constants only; active range splitting uses Binaryen's fixed threshold `8` and preserves shifted offsets. |
+| Active offsets and ranges | `mp_parse_base_offset`, `mp_active_rewrite*`, `mp_collect_ranges`, `mp_merge_small_zero_ranges` | Exact i32/i64 constants only; range splitting uses the local fixed threshold and preserves shifted offsets. |
 | Startup trap preservation | `mp_should_preserve_trap`, `mp_preserve_trapping_top_byte` | A dropped zero tail cannot erase an observable active-segment out-of-bounds trap. |
 | Whole-module active legality | `mp_can_optimize`, `mp_active_spans_are_disjoint`, `mp_zero_out_trampled_data` | Memory index must be zero and offsets exact; overlap is detected with overflow-aware spans, then earlier bytes are zeroed in source order. Imported overlap additionally requires every active segment to be in bounds. |
-| Segment users and passive planning | `mp_collect_data_usages`, `mp_passive_user_scan*`, passive split/replacement helpers | Protected bodies, typed/catch-all legacy handlers, `TryTable`, blocks, loops, and if arms all participate. Passive interior threshold is `2 + 19 * memory.init + 3 * data.drop`; edge threshold is `9 * memory.init`. GC data users remain conservative no-split boundaries. |
+| Segment users and passive planning | `mp_collect_data_usages`, `mp_passive_user_scan`, passive split/replacement helpers | Supported passive `memory.init` / `data.drop` paths are rewritten; referrer counts reproduce Binaryen's `2 + 19 * memory.init + 3 * data.drop` interior threshold and `9 * memory.init` edge threshold; GC data users remain conservative no-split boundaries. |
+| Safe and cheap code traversal | `mp_module_segment_op_preflight` | One recursive preflight proves every flattened `memory.init` operand boundary before mutation and records whether any data-index operation exists; modules without such operations avoid cloning the complete code section. |
 | Output repair | segment-plan/remap/name/data-count helpers | Rebuilt data segments preserve surviving data-index users, names, and `data_count` semantics. |
 | Registry and presets | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | `memory-packing` is an active module pass in the early `optimize` and `shrink` module prefix. |
-| Focused behavior | [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt), [`src/passes/memory_packing_wbtest.mbt`](../../../../../src/passes/memory_packing_wbtest.mbt), [`src/validate/gen_valid_memory_packing_tests.mbt`](../../../../../src/validate/gen_valid_memory_packing_tests.mbt) | Locks positive active/imported/passive paths, passive thresholds, legacy EH, stack-aware operand extraction, profile triggers, traps, remapping, and conservative boundaries. |
+| Focused behavior | [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt) | Locks positive active/imported/passive paths, traps, remapping, and conservative boundaries. |
 
 ## Current legality model
 
@@ -69,6 +69,8 @@ For a beginner, read the local gate in this order:
 4. **Overlaps are interpreted in segment source order.** Later active segments trample earlier bytes, so Starshine zeroes those earlier bytes before ordinary zero-range packing.
 5. **Imported overlap needs a no-trap proof.** With imported memory, every active segment must fit in the declared minimum so failed instantiation cannot expose a partially applied prefix.
 6. **A rewritten active segment must retain an observable startup trap.** If the original final write can exceed the declared initial memory, the local pass retains the top byte unless `trapsNeverHappen` is set.
+7. **Passive zeroes must pay for their replacement operations.** Interior runs use Binaryen's segment-metadata plus referrer-operation estimate; leading and trailing runs use the cheaper edge estimate. A legal split that would grow the module stays unchanged.
+8. **User rewrites are preflighted before segment mutation.** If a flattened `memory.init` destination cannot be reconstructed exactly, the entire pass returns unchanged. Decoded legacy `try` bodies and every typed or catch-all handler participate in the same scan.
 
 ## Concrete local shapes
 
@@ -102,7 +104,7 @@ Starshine zeroes the first segment's bytes that are overwritten by the later seg
 
 ## Current gaps versus Binaryen
 
-The local pass now matches the released represented direct surface in the required matrix. These representation and option-generation boundaries remain material:
+The local pass has substantial passive support, but these boundaries remain material:
 
 - **Broader symbolic layouts:** dynamic active offsets and multimemory remain unsupported.
 - **Finer imported-overlap admission:** like Binaryen v131, Starshine uses the conservative all-active-segments in-bounds rule rather than proving only the source-order interval between a trampled byte and its trampler.

@@ -774,10 +774,6 @@ pub enum GenValidProfile {
   MergeBlocksEffectProfile
   MergeBlocksEhAtomicProfile
   MergeBlocksAllProfile
-  MemoryPackingActiveProfile
-  MemoryPackingPassiveProfile
-  MemoryPackingLegacyEhProfile
-  MemoryPackingAllProfile
   CodeFoldingIfArmsProfile
   CodeFoldingBlockExitsProfile
   CodeFoldingReturnsProfile
@@ -803,6 +799,15 @@ pub enum GenValidProfile {
   DeadCodeEliminationEffectfulStructuredPrefixProfile
   DeadCodeEliminationAllProfile
   HeapStoreOptimizationProfile
+  MemoryPackingActiveRangesProfile
+  MemoryPackingActiveTrapsProfile
+  MemoryPackingDefinedOverlapProfile
+  MemoryPackingPassiveSplitsProfile
+  MemoryPackingSegmentOpsProfile
+  MemoryPackingMemory64Profile
+  MemoryPackingBoundariesProfile
+  MemoryPackingImportedOverlapProfile
+  MemoryPackingAllProfile
   Heap2LocalStructProfile
   Heap2LocalArrayProfile
   Heap2LocalRefProfile
@@ -1057,10 +1062,6 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     MergeBlocksEffectProfile => "merge-blocks-effect-order"
     MergeBlocksEhAtomicProfile => "merge-blocks-eh-atomic"
     MergeBlocksAllProfile => "merge-blocks-all"
-    MemoryPackingActiveProfile => "memory-packing-active"
-    MemoryPackingPassiveProfile => "memory-packing-passive"
-    MemoryPackingLegacyEhProfile => "memory-packing-legacy-eh"
-    MemoryPackingAllProfile => "memory-packing-all"
     CodeFoldingIfArmsProfile => "code-folding-if-arms"
     CodeFoldingBlockExitsProfile => "code-folding-block-exits"
     CodeFoldingReturnsProfile => "code-folding-returns"
@@ -1094,6 +1095,15 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
       "dead-code-elimination-effectful-structured-prefix"
     DeadCodeEliminationAllProfile => "dead-code-elimination-all"
     HeapStoreOptimizationProfile => "heap-store-optimization"
+    MemoryPackingActiveRangesProfile => "memory-packing-active-ranges"
+    MemoryPackingActiveTrapsProfile => "memory-packing-active-traps"
+    MemoryPackingDefinedOverlapProfile => "memory-packing-defined-overlap"
+    MemoryPackingPassiveSplitsProfile => "memory-packing-passive-splits"
+    MemoryPackingSegmentOpsProfile => "memory-packing-segment-ops"
+    MemoryPackingMemory64Profile => "memory-packing-memory64"
+    MemoryPackingBoundariesProfile => "memory-packing-boundaries"
+    MemoryPackingImportedOverlapProfile => "memory-packing-imported-overlap"
+    MemoryPackingAllProfile => "memory-packing-all"
     Heap2LocalStructProfile => "heap2local-struct"
     Heap2LocalArrayProfile => "heap2local-array"
     Heap2LocalRefProfile => "heap2local-ref"
@@ -1200,10 +1210,10 @@ pub fn gen_valid_profile_is_composite(profile : GenValidProfile) -> Bool {
     | PickLoadSignsAllProfile
     | CodePushingAllProfile
     | MergeBlocksAllProfile
-    | MemoryPackingAllProfile
     | CodeFoldingAllProfile
     | TupleOptimizationAllProfile
     | DeadCodeEliminationAllProfile
+    | MemoryPackingAllProfile
     | Heap2LocalAllProfile
     | LocalSubtypingAllProfile
     | CoalesceLocalsAllProfile
@@ -1351,12 +1361,6 @@ pub fn gen_valid_profile_members(
         GenValidProfileMember::new(MergeBlocksEffectProfile, 2),
         GenValidProfileMember::new(MergeBlocksEhAtomicProfile, 2),
       ]
-    MemoryPackingAllProfile =>
-      [
-        GenValidProfileMember::new(MemoryPackingActiveProfile, 3),
-        GenValidProfileMember::new(MemoryPackingPassiveProfile, 3),
-        GenValidProfileMember::new(MemoryPackingLegacyEhProfile, 2),
-      ]
     CodeFoldingAllProfile =>
       [
         GenValidProfileMember::new(CodeFoldingIfArmsProfile, 1),
@@ -1404,6 +1408,16 @@ pub fn gen_valid_profile_members(
           DeadCodeEliminationEffectfulStructuredPrefixProfile,
           1,
         ),
+      ]
+    MemoryPackingAllProfile =>
+      [
+        GenValidProfileMember::new(MemoryPackingActiveRangesProfile, 3),
+        GenValidProfileMember::new(MemoryPackingActiveTrapsProfile, 2),
+        GenValidProfileMember::new(MemoryPackingDefinedOverlapProfile, 2),
+        GenValidProfileMember::new(MemoryPackingPassiveSplitsProfile, 3),
+        GenValidProfileMember::new(MemoryPackingSegmentOpsProfile, 2),
+        GenValidProfileMember::new(MemoryPackingMemory64Profile, 2),
+        GenValidProfileMember::new(MemoryPackingBoundariesProfile, 1),
       ]
     Heap2LocalAllProfile =>
       [
@@ -1776,10 +1790,6 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     MergeBlocksEffectProfile,
     MergeBlocksEhAtomicProfile,
     MergeBlocksAllProfile,
-    MemoryPackingActiveProfile,
-    MemoryPackingPassiveProfile,
-    MemoryPackingLegacyEhProfile,
-    MemoryPackingAllProfile,
     CodeFoldingIfArmsProfile,
     CodeFoldingBlockExitsProfile,
     CodeFoldingReturnsProfile,
@@ -1805,6 +1815,15 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     DeadCodeEliminationEffectfulStructuredPrefixProfile,
     DeadCodeEliminationAllProfile,
     HeapStoreOptimizationProfile,
+    MemoryPackingActiveRangesProfile,
+    MemoryPackingActiveTrapsProfile,
+    MemoryPackingDefinedOverlapProfile,
+    MemoryPackingPassiveSplitsProfile,
+    MemoryPackingSegmentOpsProfile,
+    MemoryPackingMemory64Profile,
+    MemoryPackingBoundariesProfile,
+    MemoryPackingImportedOverlapProfile,
+    MemoryPackingAllProfile,
     Heap2LocalStructProfile,
     Heap2LocalArrayProfile,
     Heap2LocalRefProfile,
@@ -1975,9 +1994,6 @@ pub fn gen_valid_profile_by_name(
     "code-pushing-all-profiles" => Ok(CodePushingAllProfile)
     "merge-blocks" | "merge-blocks-closeout" | "merge-blocks-all-profiles" =>
       Ok(MergeBlocksAllProfile)
-    "memory-packing"
-    | "memory-packing-closeout"
-    | "memory-packing-all-profiles" => Ok(MemoryPackingAllProfile)
     "code-folding" | "code-folding-closeout" | "code-folding-all-profiles" =>
       Ok(CodeFoldingAllProfile)
     "tuple-optimization" => Ok(TupleOptimizationAllProfile)
@@ -1987,6 +2003,12 @@ pub fn gen_valid_profile_by_name(
     "dead-code-elimination" => Ok(DeadCodeEliminationAllProfile)
     "dead-code-elimination-closeout" => Ok(DeadCodeEliminationAllProfile)
     "hso" => Ok(HeapStoreOptimizationProfile)
+    "memory-packing"
+    | "memory-packing-closeout"
+    | "memory-packing-all-profiles" => Ok(MemoryPackingAllProfile)
+    "mp" | "mp-closeout" => Ok(MemoryPackingAllProfile)
+    "memory-packing-imported" | "memory-packing-zero-filled" =>
+      Ok(MemoryPackingImportedOverlapProfile)
     "heap2local" => Ok(Heap2LocalAllProfile)
     "heap-to-local" => Ok(Heap2LocalAllProfile)
     "h2l" => Ok(Heap2LocalAllProfile)
@@ -4480,12 +4502,6 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       gen_valid_merge_blocks_profile_config(profile)
     MergeBlocksAllProfile =>
       gen_valid_merge_blocks_profile_config(MergeBlocksStructuralProfile)
-    MemoryPackingActiveProfile
-    | MemoryPackingPassiveProfile
-    | MemoryPackingLegacyEhProfile =>
-      gen_valid_memory_packing_profile_config(profile)
-    MemoryPackingAllProfile =>
-      gen_valid_memory_packing_profile_config(MemoryPackingActiveProfile)
     CodeFoldingIfArmsProfile
     | CodeFoldingBlockExitsProfile
     | CodeFoldingReturnsProfile
@@ -4519,6 +4535,17 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
       )
     HeapStoreOptimizationProfile =>
       gen_valid_heap_store_optimization_profile_config()
+    MemoryPackingActiveRangesProfile
+    | MemoryPackingActiveTrapsProfile
+    | MemoryPackingDefinedOverlapProfile
+    | MemoryPackingPassiveSplitsProfile
+    | MemoryPackingSegmentOpsProfile
+    | MemoryPackingMemory64Profile
+    | MemoryPackingBoundariesProfile
+    | MemoryPackingImportedOverlapProfile =>
+      gen_valid_memory_packing_profile_config(profile)
+    MemoryPackingAllProfile =>
+      gen_valid_memory_packing_profile_config(MemoryPackingActiveRangesProfile)
     Heap2LocalStructProfile | Heap2LocalArrayProfile | Heap2LocalRefProfile =>
       gen_valid_heap2local_profile_config(profile)
     Heap2LocalAllProfile =>
@@ -5669,6 +5696,311 @@ fn gen_valid_is_dead_code_elimination_profile_config(
 }
 
 ///|
+fn gen_valid_memory_packing_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_imports: 1,
+    max_defined_funcs: 1,
+    max_mems: 1,
+    max_datas: match profile {
+      MemoryPackingActiveRangesProfile => 41
+      MemoryPackingActiveTrapsProfile => 42
+      MemoryPackingDefinedOverlapProfile => 43
+      MemoryPackingPassiveSplitsProfile => 44
+      MemoryPackingSegmentOpsProfile => 45
+      MemoryPackingMemory64Profile => 46
+      MemoryPackingBoundariesProfile => 47
+      MemoryPackingImportedOverlapProfile => 48
+      _ => 41
+    },
+    max_params: 1,
+    max_results: 0,
+    max_locals: 1,
+    max_body_statements: 12,
+    max_body_depth: 3,
+    max_segment_payload_size: 128,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: true,
+      allow_tables: false,
+      allow_mems: true,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: true,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_calls: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_memory64: true,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_name_custom_sections: true,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: false,
+    },
+  }
+}
+
+///|
+fn gen_valid_memory_packing_profile_kind(
+  config : GenValidConfig,
+) -> GenValidProfile {
+  let profiles = [
+    MemoryPackingActiveRangesProfile,
+    MemoryPackingActiveTrapsProfile,
+    MemoryPackingDefinedOverlapProfile,
+    MemoryPackingPassiveSplitsProfile,
+    MemoryPackingSegmentOpsProfile,
+    MemoryPackingMemory64Profile,
+    MemoryPackingBoundariesProfile,
+    MemoryPackingImportedOverlapProfile,
+  ]
+  for profile in profiles {
+    if config == GenValidConfig::for_profile(profile) {
+      return profile
+    }
+  }
+  MemoryPackingActiveRangesProfile
+}
+
+///|
+fn gen_valid_is_memory_packing_profile_config(config : GenValidConfig) -> Bool {
+  let profile = gen_valid_memory_packing_profile_kind(config)
+  config == GenValidConfig::for_profile(profile)
+}
+
+///|
+fn gen_valid_memory_packing_void_func(
+  body : Array[Instruction],
+) -> (TypeSec, FuncSec, CodeSec) {
+  let type_sec = TypeSec::new([
+    RecType::new(SubType::comp_type(CompType::func([], []))),
+  ])
+  (
+    type_sec,
+    FuncSec::new([TypeIdx::new(0U)]),
+    CodeSec::new([Func::new(Locals::empty(), Expr::new(body))]),
+  )
+}
+
+///|
+fn gen_valid_memory_packing_payload(seed : UInt64) -> Bytes {
+  let bytes : Array[Byte] = [(65).to_byte()]
+  let zero_count = 25 + (seed % 37UL).to_int()
+  for _ in 0..<zero_count {
+    bytes.push((0).to_byte())
+  }
+  bytes.push((66 + (seed % 24UL).to_int()).to_byte())
+  Bytes::from_array(bytes)
+}
+
+///|
+fn gen_valid_memory_packing_profile_module(ctx : GenValidContext) -> Module {
+  let profile = gen_valid_memory_packing_profile_kind(ctx.config)
+  let memory32 = MemType::new(Limits::i32(1U, None))
+  let zero_heavy = gen_valid_memory_packing_payload(ctx.root_seed)
+  let payload_size = zero_heavy.length()
+  match profile {
+    MemoryPackingActiveRangesProfile =>
+      Module::new()
+      .with_mem_sec(MemSec::new([memory32]))
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(0))]),
+            ),
+            zero_heavy,
+          ),
+        ]),
+      )
+    MemoryPackingActiveTrapsProfile =>
+      Module::new()
+      .with_mem_sec(MemSec::new([memory32]))
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(65535))]),
+            ),
+            b"\x00\x00",
+          ),
+        ]),
+      )
+    MemoryPackingDefinedOverlapProfile =>
+      Module::new()
+      .with_mem_sec(MemSec::new([memory32]))
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(0))]),
+            ),
+            zero_heavy,
+          ),
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(8))]),
+            ),
+            b"later",
+          ),
+        ]),
+      )
+    MemoryPackingPassiveSplitsProfile => {
+      let (type_sec, func_sec, code_sec) = gen_valid_memory_packing_void_func([
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(payload_size)),
+        Instruction::memory_init(DataIdx::new(0U), MemIdx::new(0U)),
+        Instruction::data_drop(DataIdx::new(0U)),
+      ])
+      Module::new()
+      .with_type_sec(type_sec)
+      .with_func_sec(func_sec)
+      .with_mem_sec(MemSec::new([memory32]))
+      .with_data_cnt_sec(DataCntSec::new(U32(1U)))
+      .with_code_sec(code_sec)
+      .with_data_sec(DataSec::new([Data::new(DataMode::passive(), zero_heavy)]))
+    }
+    MemoryPackingSegmentOpsProfile => {
+      let (type_sec, func_sec, code_sec) = gen_valid_memory_packing_void_func([
+        Instruction::i32_const(I32(65537)),
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(0)),
+        Instruction::memory_init(DataIdx::new(0U), MemIdx::new(0U)),
+        Instruction::data_drop(DataIdx::new(0U)),
+      ])
+      Module::new()
+      .with_type_sec(type_sec)
+      .with_func_sec(func_sec)
+      .with_mem_sec(MemSec::new([memory32]))
+      .with_data_cnt_sec(DataCntSec::new(U32(1U)))
+      .with_code_sec(code_sec)
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(0))]),
+            ),
+            b"abc",
+          ),
+        ]),
+      )
+    }
+    MemoryPackingMemory64Profile => {
+      let type_sec = TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i64()], []))),
+      ])
+      Module::new()
+      .with_type_sec(type_sec)
+      .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+      .with_mem_sec(MemSec::new([MemType::new(Limits::i64(1UL, None))]))
+      .with_data_cnt_sec(DataCntSec::new(U32(1U)))
+      .with_code_sec(
+        CodeSec::new([
+          Func::new(
+            Locals::empty(),
+            Expr::new([
+              Instruction::local_get(LocalIdx::new(0U)),
+              Instruction::i32_const(I32(0)),
+              Instruction::i32_const(I32(payload_size)),
+              Instruction::memory_init(DataIdx::new(0U), MemIdx::new(0U)),
+            ]),
+          ),
+        ]),
+      )
+      .with_data_sec(DataSec::new([Data::new(DataMode::passive(), zero_heavy)]))
+    }
+    MemoryPackingBoundariesProfile =>
+      Module::new()
+      .with_mem_sec(MemSec::new([memory32]))
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(0))]),
+            ),
+            zero_heavy,
+          ),
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(128))]),
+            ),
+            zero_heavy,
+          ),
+        ]),
+      )
+      .with_name_sec(
+        NameSec::new(
+          data_names=Some(
+            NameMap::new([NameAssoc::new(1U, Name::new("__llvm_covfun"))]),
+          ),
+        ),
+      )
+    MemoryPackingImportedOverlapProfile =>
+      Module::new()
+      .with_import_sec(
+        ImportSec::new([
+          Import::new(
+            Name::new("env"),
+            Name::new("memory"),
+            ExternType::mem(memory32),
+          ),
+        ]),
+      )
+      .with_data_sec(
+        DataSec::new([
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(0))]),
+            ),
+            zero_heavy,
+          ),
+          Data::new(
+            DataMode::active(
+              MemIdx::new(0U),
+              Expr::new([Instruction::i32_const(I32(8))]),
+            ),
+            b"later",
+          ),
+        ]),
+      )
+    _ => Module::new()
+  }
+}
+
+///|
+pub fn gen_valid_memory_packing_profile_case_label(
+  profile : GenValidProfile,
+) -> String? {
+  match profile {
+    MemoryPackingActiveRangesProfile => Some("memory-packing:active-ranges")
+    MemoryPackingActiveTrapsProfile => Some("memory-packing:active-traps")
+    MemoryPackingDefinedOverlapProfile => Some("memory-packing:defined-overlap")
+    MemoryPackingPassiveSplitsProfile => Some("memory-packing:passive-splits")
+    MemoryPackingSegmentOpsProfile => Some("memory-packing:segment-ops")
+    MemoryPackingMemory64Profile => Some("memory-packing:memory64")
+    MemoryPackingBoundariesProfile => Some("memory-packing:boundaries")
+    MemoryPackingImportedOverlapProfile =>
+      Some("memory-packing:imported-overlap")
+    _ => None
+  }
+}
+
+///|
 fn gen_valid_heap_store_optimization_profile_config() -> GenValidConfig {
   let base = GenValidConfig::coverage_forced_default()
   GenValidConfig::{
@@ -5877,202 +6209,6 @@ fn gen_valid_coalesce_locals_profile_config(
       allow_heap_store_optimization_body_generator: false,
       allow_heap2local_body_generator: false,
     },
-  }
-}
-
-///|
-fn gen_valid_memory_packing_profile_config(
-  profile : GenValidProfile,
-) -> GenValidConfig {
-  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
-  let profile_tag = match profile {
-    MemoryPackingActiveProfile => 75
-    MemoryPackingPassiveProfile => 76
-    MemoryPackingLegacyEhProfile => 77
-    _ => 75
-  }
-  GenValidConfig::{
-    ..base,
-    max_type_defs: if profile == MemoryPackingActiveProfile {
-      0
-    } else {
-      1
-    },
-    max_imports: 0,
-    max_defined_funcs: if profile == MemoryPackingActiveProfile {
-      0
-    } else {
-      1
-    },
-    max_tables: 0,
-    max_mems: 1,
-    max_globals: 0,
-    max_tags: 0,
-    max_elems: 0,
-    max_datas: 1,
-    max_params: 0,
-    max_results: 0,
-    max_locals: 0,
-    max_body_statements: profile_tag,
-    max_body_depth: 3,
-    features: GenValidFeatureToggles::{
-      ..base.features,
-      allow_imports: false,
-      allow_tables: false,
-      allow_mems: true,
-      allow_globals: false,
-      allow_tags: false,
-      allow_elems: false,
-      allow_datas: true,
-      allow_ref_types: false,
-      allow_calls: false,
-      allow_call_indirect: false,
-      allow_tail_calls: false,
-      allow_branch_heavy_control: profile == MemoryPackingLegacyEhProfile,
-      allow_v128: false,
-      allow_relaxed_simd: false,
-      allow_atomics: false,
-      allow_shared_memories: false,
-      allow_memory64: false,
-      allow_subtyping_topology: false,
-      allow_name_custom_sections: false,
-      allow_typed_body_generator: false,
-      allow_ssa_nomerge_body_generator: false,
-      allow_heap_store_optimization_body_generator: false,
-      allow_heap2local_body_generator: false,
-    },
-  }
-}
-
-///|
-fn gen_valid_is_memory_packing_profile_config(config : GenValidConfig) -> Bool {
-  config == GenValidConfig::for_profile(MemoryPackingActiveProfile) ||
-  config == GenValidConfig::for_profile(MemoryPackingPassiveProfile) ||
-  config == GenValidConfig::for_profile(MemoryPackingLegacyEhProfile)
-}
-
-///|
-pub fn gen_valid_memory_packing_profile_case_label(
-  profile : GenValidProfile,
-  _seed : UInt64,
-) -> String? {
-  match profile {
-    MemoryPackingActiveProfile => Some("memory-packing:active-zero-ranges")
-    MemoryPackingPassiveProfile => Some("memory-packing:passive-user-rewrite")
-    MemoryPackingLegacyEhProfile => Some("memory-packing:legacy-eh-users")
-    _ => None
-  }
-}
-
-///|
-fn gen_valid_memory_packing_payload() -> Bytes {
-  let bytes = Array::make(66, (0).to_byte())
-  bytes[0] = 0x41
-  bytes[65] = 0x42
-  Bytes::from_array(bytes)
-}
-
-///|
-fn gen_valid_memory_packing_void_type() -> RecType {
-  RecType::new(SubType::comp_type(CompType::func([], [])))
-}
-
-///|
-fn gen_valid_memory_packing_memory() -> MemSec {
-  MemSec::new([MemType::new(Limits::i32(1U, None))])
-}
-
-///|
-fn gen_valid_memory_packing_init_instrs(dest : Int) -> Array[Instruction] {
-  [
-    Instruction::i32_const(I32(dest)),
-    Instruction::i32_const(I32(0)),
-    Instruction::i32_const(I32(66)),
-    Instruction::memory_init(DataIdx::new(0U), MemIdx::new(0U)),
-  ]
-}
-
-///|
-fn gen_valid_memory_packing_active_module(seed : UInt64) -> Module {
-  let offset = ((seed >> 8) % 1024UL).to_int()
-  Module::new()
-  .with_mem_sec(gen_valid_memory_packing_memory())
-  .with_data_sec(
-    DataSec::new([
-      Data::new(
-        DataMode::active(
-          MemIdx::new(0U),
-          Expr::new([Instruction::i32_const(I32(offset))]),
-        ),
-        gen_valid_memory_packing_payload(),
-      ),
-    ]),
-  )
-}
-
-///|
-fn gen_valid_memory_packing_passive_module() -> Module {
-  Module::new()
-  .with_type_sec(TypeSec::new([gen_valid_memory_packing_void_type()]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-  .with_mem_sec(gen_valid_memory_packing_memory())
-  .with_data_cnt_sec(DataCntSec::new(U32(1U)))
-  .with_data_sec(
-    DataSec::new([
-      Data::new(DataMode::passive(), gen_valid_memory_packing_payload()),
-    ]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::new(
-        Locals::empty(),
-        Expr::new(gen_valid_memory_packing_init_instrs(0)),
-      ),
-    ]),
-  )
-}
-
-///|
-fn gen_valid_memory_packing_legacy_eh_module() -> Module {
-  Module::new()
-  .with_type_sec(TypeSec::new([gen_valid_memory_packing_void_type()]))
-  .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
-  .with_mem_sec(gen_valid_memory_packing_memory())
-  .with_data_cnt_sec(DataCntSec::new(U32(1U)))
-  .with_data_sec(
-    DataSec::new([
-      Data::new(DataMode::passive(), gen_valid_memory_packing_payload()),
-    ]),
-  )
-  .with_code_sec(
-    CodeSec::new([
-      Func::new(
-        Locals::empty(),
-        Expr::new([
-          Instruction::try_(
-            BlockType::void_(),
-            Expr::new(gen_valid_memory_packing_init_instrs(0)),
-            [
-              LegacyCatch::all(
-                Expr::new(gen_valid_memory_packing_init_instrs(64)),
-              ),
-            ],
-          ),
-        ]),
-      ),
-    ]),
-  )
-}
-
-///|
-fn gen_valid_memory_packing_profile_module(ctx : GenValidContext) -> Module {
-  if ctx.config == GenValidConfig::for_profile(MemoryPackingPassiveProfile) {
-    gen_valid_memory_packing_passive_module()
-  } else if ctx.config ==
-    GenValidConfig::for_profile(MemoryPackingLegacyEhProfile) {
-    gen_valid_memory_packing_legacy_eh_module()
-  } else {
-    gen_valid_memory_packing_active_module(ctx.root_seed)
   }
 }
 
@@ -29058,9 +29194,6 @@ fn gen_valid_duplicate_import_elimination_profile_module(
 ///|
 fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let config = ctx.config
-  if gen_valid_is_memory_packing_profile_config(config) {
-    return gen_valid_memory_packing_profile_module(ctx)
-  }
   if gen_valid_is_merge_blocks_profile_config(config) {
     return gen_valid_merge_blocks_profile_module(config)
   }
@@ -29147,6 +29280,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
   if gen_valid_is_dead_code_elimination_profile_config(config) {
     return gen_valid_dead_code_elimination_profile_module(config)
+  }
+  if gen_valid_is_memory_packing_profile_config(config) {
+    return gen_valid_memory_packing_profile_module(ctx)
   }
   let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,

@@ -57,7 +57,7 @@ type RuntimeExportInvocationMatrixPersistence = {
   semanticMismatchSamples: RuntimeExportInvocationReport[];
 };
 type PropertyMode = "none" | "idempotence" | "composition";
-type OptimizerModeFlag = "--traps-never-happen" | "--ignore-implicit-traps";
+type OptimizerModeFlag = "--traps-never-happen" | "--ignore-implicit-traps" | "--zero-filled-memory";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -317,6 +317,7 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
 const SUPPORTED_OPTIMIZER_MODE_FLAGS = new Set<OptimizerModeFlag>([
   "--traps-never-happen",
   "--ignore-implicit-traps",
+  "--zero-filled-memory",
 ]);
 
 const HELP_TEXT = [
@@ -359,6 +360,7 @@ const HELP_TEXT = [
   "  --traps-never-happen  Forward TNH trap mode to both Starshine and Binaryen",
   "  --ignore-implicit-traps",
   "                       Forward IIT trap mode to both Starshine and Binaryen",
+  "  --zero-filled-memory Forward the imported-memory zero-fill guarantee to both tools",
   "  --replay-failures-from <dir>",
   "                       Replay saved failure inputs from a prior out dir",
   "  --failure-status <status>",
@@ -3054,6 +3056,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--traps-never-happen":
       case "--ignore-implicit-traps":
+      case "--zero-filled-memory":
         optimizerFlags.push(token);
         i += 1;
         break;

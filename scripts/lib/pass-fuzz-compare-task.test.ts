@@ -53,12 +53,17 @@ describe("pass-fuzz persistent cache options", () => {
       "optimize-instructions",
       "--traps-never-happen",
       "--ignore-implicit-traps",
+      "--zero-filled-memory",
     ]);
 
     expect(parsed.kind).toBe("run");
     if (parsed.kind === "run") {
       expect(parsed.options.passFlags).toEqual(["--optimize-instructions"]);
-      expect(parsed.options.optimizerFlags).toEqual(["--traps-never-happen", "--ignore-implicit-traps"]);
+      expect(parsed.options.optimizerFlags).toEqual([
+        "--traps-never-happen",
+        "--ignore-implicit-traps",
+        "--zero-filled-memory",
+      ]);
     }
   });
 

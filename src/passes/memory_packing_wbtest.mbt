@@ -77,9 +77,11 @@ fn mp_wbtest_assert_active_memory_init_operand_rewrite(
     msg="expected public pipeline operand extraction to remove memory.init",
   )
   match out[out.length() - 1] {
-    @lib.Nop => ()
+    @lib.Nop | @lib.If(_, _, _) => ()
     other =>
-      fail("expected in-range active memory.init to become nop, got \{other}")
+      fail(
+        "expected active memory.init to become nop or a bounds check, got \{other}",
+      )
   }
 }
 
