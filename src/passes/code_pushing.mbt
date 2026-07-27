@@ -1463,6 +1463,14 @@ fn code_pushing_try_sink_local_get_set_after_if(
   if source_local == dest_local {
     return false
   }
+  let (dest_total_gets, dest_total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+    func, dest_local, 1_000_000, 1,
+  )
+  // Binaryen does not move an unused copy after a final if: there is no later
+  // consumer to justify segment pushing, and optimizeIntoIf has no using arm.
+  if dest_total_gets == 0 || dest_total_writes != 1 {
+    return false
+  }
   let mut idx = set_idx + 1
   let max_idx = set_idx + 32
   while idx < @ir.hot_region_root_count(func, region_ref) && idx <= max_idx {
@@ -2226,19 +2234,16 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
       }
     }
   }
-  let mut then_total_gets = 0
-  let mut else_total_gets = 0
+  let arm_targets : Array[Int] = []
   for move_idx = 0; move_idx < local_ids.length(); move_idx = move_idx + 1 {
     let local_id = local_ids[move_idx]
     let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
       func, if_id, local_id,
     )
-    then_total_gets += then_gets
-    else_total_gets += else_gets
-  }
-  if then_total_gets + else_total_gets == 0 ||
-    (then_total_gets > 0 && else_total_gets > 0) {
-    return false
+    if (then_gets == 0 && else_gets == 0) || (then_gets > 0 && else_gets > 0) {
+      return false
+    }
+    arm_targets.push(if then_gets > 0 { 1 } else { 2 })
   }
   for move_idx = 0; move_idx < local_ids.length(); move_idx = move_idx + 1 {
     let local_id = local_ids[move_idx]
@@ -2258,6 +2263,16 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
         func, if_id, source_local, 8,
       ) {
       return false
+    }
+    if source_local >= 0 {
+      for source_idx = 0; source_idx < move_idx; source_idx = source_idx + 1 {
+        if local_ids[source_idx] == source_local &&
+          arm_targets[source_idx] != arm_targets[move_idx] {
+          // A moved dependency must be initialized on the same path as the set
+          // that reads it.
+          return false
+        }
+      }
     }
     if code_pushing_if_arms_write_local_deep_limited(func, if_id, local_id, 8) {
       return false
@@ -2291,37 +2306,44 @@ fn code_pushing_try_sink_consecutive_sets_into_if_arm(
       return false
     }
   }
-  let target_ref = if then_total_gets > 0 {
-    Some(@ir.hot_region_then_ref(func, if_id))
-  } else {
-    @ir.hot_region_else_ref(func, if_id)
-  }
-  match target_ref {
-    Some(target_ref) => {
-      let pushed_sets : Array[Int] = []
-      for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
-        pushed_sets.push(
-          code_pushing_make_local_set_clone(
-            func,
-            local_ids[move_idx],
-            value_ids[move_idx],
-          ),
-        )
-      }
-      ignore(pass_splice_region(ctx, func, target_ref, 0, 0, pushed_sets))
-      for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
-        let nop = @ir.hot_build_nop(func)
-        pass_replace_node(
-          ctx,
-          func,
-          set_ids[move_idx],
-          @ir.hot_node_get(func, nop),
-        )
-      }
-      true
+  let then_pushed : Array[Int] = []
+  let else_pushed : Array[Int] = []
+  for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
+    let pushed = code_pushing_make_local_set_clone(
+      func,
+      local_ids[move_idx],
+      value_ids[move_idx],
+    )
+    if arm_targets[move_idx] == 1 {
+      then_pushed.push(pushed)
+    } else {
+      else_pushed.push(pushed)
     }
-    None => false
   }
+  if then_pushed.length() > 0 {
+    ignore(
+      pass_splice_region(
+        ctx,
+        func,
+        @ir.hot_region_then_ref(func, if_id),
+        0,
+        0,
+        then_pushed,
+      ),
+    )
+  }
+  if else_pushed.length() > 0 {
+    match @ir.hot_region_else_ref(func, if_id) {
+      Some(else_ref) =>
+        ignore(pass_splice_region(ctx, func, else_ref, 0, 0, else_pushed))
+      None => return false
+    }
+  }
+  for move_idx = 0; move_idx < set_ids.length(); move_idx = move_idx + 1 {
+    let nop = @ir.hot_build_nop(func)
+    pass_replace_node(ctx, func, set_ids[move_idx], @ir.hot_node_get(func, nop))
+  }
+  true
 }
 
 ///|
@@ -2709,6 +2731,348 @@ fn code_pushing_scan_all_control_nodes_once(
     }
   }
   false
+}
+
+///|
+fn code_pushing_raw_instr_count_local_accesses(
+  instr : @lib.Instruction,
+  local_id : UInt,
+) -> (Int, Int) {
+  let mut gets = 0
+  let mut writes = 0
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(index)) if index == local_id => gets = 1
+    @lib.LocalSet(@lib.LocalIdx(index)) if index == local_id => writes = 1
+    @lib.LocalTee(@lib.LocalIdx(index)) if index == local_id => writes = 1
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      for nested in body {
+        let (nested_gets, nested_writes) = code_pushing_raw_instr_count_local_accesses(
+          nested, local_id,
+        )
+        gets += nested_gets
+        writes += nested_writes
+      }
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        let (nested_gets, nested_writes) = code_pushing_raw_instr_count_local_accesses(
+          nested, local_id,
+        )
+        gets += nested_gets
+        writes += nested_writes
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            let (nested_gets, nested_writes) = code_pushing_raw_instr_count_local_accesses(
+              nested, local_id,
+            )
+            gets += nested_gets
+            writes += nested_writes
+          }
+        None => ()
+      }
+    }
+    @lib.Try(_, @lib.Expr(body), catches, _) => {
+      for nested in body {
+        let (nested_gets, nested_writes) = code_pushing_raw_instr_count_local_accesses(
+          nested, local_id,
+        )
+        gets += nested_gets
+        writes += nested_writes
+      }
+      for catch_ in catches {
+        let catch_body = match catch_ {
+          @lib.LegacyCatch(_, @lib.Expr(body))
+          | @lib.LegacyCatchAll(@lib.Expr(body)) => body
+        }
+        for nested in catch_body {
+          let (nested_gets, nested_writes) = code_pushing_raw_instr_count_local_accesses(
+            nested, local_id,
+          )
+          gets += nested_gets
+          writes += nested_writes
+        }
+      }
+    }
+    @lib.TryTable(_, _, @lib.Expr(body)) =>
+      for nested in body {
+        let (nested_gets, nested_writes) = code_pushing_raw_instr_count_local_accesses(
+          nested, local_id,
+        )
+        gets += nested_gets
+        writes += nested_writes
+      }
+    _ => ()
+  }
+  (gets, writes)
+}
+
+///|
+fn code_pushing_raw_instrs_count_local_accesses(
+  instrs : Array[@lib.Instruction],
+  local_id : UInt,
+) -> (Int, Int) {
+  let mut gets = 0
+  let mut writes = 0
+  for instr in instrs {
+    let (instr_gets, instr_writes) = code_pushing_raw_instr_count_local_accesses(
+      instr, local_id,
+    )
+    gets += instr_gets
+    writes += instr_writes
+  }
+  (gets, writes)
+}
+
+///|
+fn code_pushing_raw_instrs_are_nonthrowing_catch_body(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_) => return false
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if !code_pushing_raw_instrs_are_nonthrowing_catch_body(body) {
+          return false
+        }
+      @lib.If(_, then_instrs, else_body) => {
+        if !code_pushing_raw_instrs_are_nonthrowing_catch_body(then_instrs) {
+          return false
+        }
+        match else_body {
+          Some(else_instrs) =>
+            if !code_pushing_raw_instrs_are_nonthrowing_catch_body(else_instrs) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn code_pushing_raw_legacy_try_body_is_caught(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_)
+      | @lib.ReturnCallRef(_)
+      | @lib.ThrowRef
+      | @lib.Rethrow(_) => return false
+      @lib.Throw(_) => ()
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if !code_pushing_raw_legacy_try_body_is_caught(body) {
+          return false
+        }
+      @lib.If(_, then_instrs, else_body) => {
+        if !code_pushing_raw_legacy_try_body_is_caught(then_instrs) {
+          return false
+        }
+        match else_body {
+          Some(else_instrs) =>
+            if !code_pushing_raw_legacy_try_body_is_caught(else_instrs) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @lib.Try(_, @lib.Expr(body), [], Some(@lib.LabelIdx(0U))) =>
+        if !code_pushing_raw_legacy_try_body_is_caught(body) {
+          return false
+        }
+      @lib.Try(_, _, _, _) | @lib.TryTable(_, _, _) => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn code_pushing_raw_legacy_try_is_fully_caught(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Try(
+      _,
+      @lib.Expr(body),
+      [@lib.LegacyCatchAll(@lib.Expr(catch_body))],
+      None
+    ) =>
+      code_pushing_raw_legacy_try_body_is_caught(body) &&
+      code_pushing_raw_instrs_are_nonthrowing_catch_body(catch_body)
+    _ => false
+  }
+}
+
+///|
+fn code_pushing_raw_instrs_have_legacy_try(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Try(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if code_pushing_raw_instrs_have_legacy_try(body) {
+          return true
+        }
+      @lib.If(_, then_instrs, else_body) => {
+        if code_pushing_raw_instrs_have_legacy_try(then_instrs) {
+          return true
+        }
+        match else_body {
+          Some(else_instrs) =>
+            if code_pushing_raw_instrs_have_legacy_try(else_instrs) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if code_pushing_raw_instrs_have_legacy_try(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn code_pushing_raw_try_move_const_set_after_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 7 {
+    return false
+  }
+  let mut value_idx = 0
+  while value_idx + 2 < instrs.length() {
+    let local_id = match (instrs[value_idx], instrs[value_idx + 1]) {
+      (@lib.I32Const(_), @lib.LocalSet(@lib.LocalIdx(local_id))) => local_id
+      _ => {
+        value_idx += 1
+        continue
+      }
+    }
+    if !code_pushing_raw_legacy_try_is_fully_caught(instrs[value_idx + 2]) {
+      value_idx += 1
+      continue
+    }
+    let (total_gets, total_writes) = code_pushing_raw_instrs_count_local_accesses(
+      instrs, local_id,
+    )
+    if total_gets == 0 || total_writes != 1 {
+      value_idx += 1
+      continue
+    }
+    let mut branch_idx = value_idx + 3
+    let mut blocked = false
+    while branch_idx < instrs.length() {
+      match instrs[branch_idx] {
+        @lib.BrIf(_) => break
+        @lib.LocalGet(@lib.LocalIdx(index))
+        | @lib.LocalSet(@lib.LocalIdx(index))
+        | @lib.LocalTee(@lib.LocalIdx(index)) if index == local_id => {
+          blocked = true
+          break
+        }
+        @lib.Call(_)
+        | @lib.CallIndirect(_)
+        | @lib.CallRef(_)
+        | @lib.ReturnCall(_)
+        | @lib.ReturnCallIndirect(_)
+        | @lib.ReturnCallRef(_)
+        | @lib.Throw(_)
+        | @lib.ThrowRef
+        | @lib.Rethrow(_)
+        | @lib.Try(_, _, _, _)
+        | @lib.TryTable(_, _, _) => {
+          blocked = true
+          break
+        }
+        _ => ()
+      }
+      branch_idx += 1
+    }
+    if blocked || branch_idx >= instrs.length() {
+      value_idx += 1
+      continue
+    }
+    let mut suffix_gets = 0
+    for suffix_idx = branch_idx + 1
+        suffix_idx < instrs.length()
+        suffix_idx = suffix_idx + 1 {
+      let (gets, writes) = code_pushing_raw_instr_count_local_accesses(
+        instrs[suffix_idx],
+        local_id,
+      )
+      if writes != 0 {
+        blocked = true
+      }
+      suffix_gets += gets
+    }
+    if blocked || suffix_gets != total_gets {
+      value_idx += 1
+      continue
+    }
+    let value = instrs[value_idx]
+    let set = instrs[value_idx + 1]
+    ignore(instrs.remove(value_idx))
+    ignore(instrs.remove(value_idx))
+    let shifted_branch_idx = branch_idx - 2
+    instrs.insert(shifted_branch_idx + 1, value)
+    instrs.insert(shifted_branch_idx + 2, set)
+    return true
+  }
+  false
+}
+
+///|
+fn code_pushing_raw_rewrite_legacy_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten = instrs.copy()
+  let mut changed = false
+  for idx = 0; idx < rewritten.length(); idx = idx + 1 {
+    let (next, nested_changed) = pass_rewrite_structured_instr(
+      rewritten[idx],
+      code_pushing_raw_rewrite_legacy_instrs,
+    )
+    if nested_changed {
+      rewritten[idx] = next
+      changed = true
+    }
+  }
+  while code_pushing_raw_try_move_const_set_after_branch(rewritten) {
+    changed = true
+  }
+  (rewritten, changed)
+}
+
+///|
+fn code_pushing_run_raw_legacy_func(func : @lib.Func) -> (@lib.Func, Bool)? {
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  if !code_pushing_raw_instrs_have_legacy_try(body) {
+    return None
+  }
+  let (rewritten, changed) = code_pushing_raw_rewrite_legacy_instrs(body)
+  Some((@lib.Func::new(locals, @lib.Expr::new(rewritten)), changed))
 }
 
 ///|

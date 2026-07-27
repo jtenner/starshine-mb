@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ./index.md
   - ../../../../../src/passes/code_pushing.mbt
@@ -183,6 +183,8 @@ Binaryen's source-backed strategy is broader than the local subset:
    - Revisit public `optimize` / `shrink` placement only after direct-pass semantic parity and the neighboring `simplify-locals-nostructure` work are honest.
 
 ## Validation ladder
+
+The 2026-07-26 Binaryen-v131 renewal is the current represented-surface evidence. Source review found identical v130/v131/current-main `CodePushing.cpp` bytes and identical v131/current-main lit fixtures. Red-first implementation work removed the O4z bypass, added the narrow decoded legacy-`try` raw bridge, prevented unused local-copy movement past a final `if`, and added ordered different-arm multi-set plus return-condition coverage. `moon info`, `moon fmt`, `src/passes` `6450/6450`, and full `moon test` `9938/9938` are green. The aggregate `bun validate full --profile ci --target wasm-gc` wrapper reproduced the documented intermittent no-return-code failure at its initial `moon info`; direct `moon info` and Moon tests succeeded. Final native SHA-256 `e1ec8c88737f5a1ac88df5d3ce71eada3a0c155d6bba8989bab9acdd94161c15` against explicit Binaryen-v131 SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c` produced zero mismatches or Starshine/validation/property failures across dedicated `10000/10000`, ordinary portable `10000/10000`, broad stress `10000/10000`, and all `9956` comparable wasm-smith cases. The `44` wasm-smith non-comparisons are classified Binaryen-v131 parser/tool failures. Official fixture replay is exact for legacy EH, GC, and TNH; modern EH, ordinary into-`if`, and IIT become byte-identical wasm after the same Binaryen-v131 `-O` cleanup is applied to both outputs; ordered atomics remains a pre-pass codec/representation blocker.
 
 The 2026-05-09 direct revalidation for the current explicit HOT subset is accepted: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass code-pushing --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-code-pushing` completed with 6759/10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen/tool command failures. The direct debug-artifact replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1687067` reports `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; canonical wasm/text remain unequal, but that drift is representation-only and not a blocker. Pass-local timing, about 1658ms for Starshine versus about 1311ms for Binaryen, is above the required 50%-of-Binaryen floor. `[CP]002` is therefore closed; preset scheduling remains deferred to ordered-neighborhood / tuple-slot work.
 

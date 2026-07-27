@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-26
 sources:
   - ./index.md
 related:
@@ -19,7 +19,7 @@ related:
 
 This page is the source map future readers should use before editing `code-pushing` strategy or shape pages.
 
-The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. It keeps the same reviewed owner and scheduler surfaces and still supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement. It also records audit-relevant drift from `version_129`: movement checks now use `effects.orderedBefore(cumulativeEffects)`, and the official lit proof surface includes a new atomics/GC ordering file.
+The 2026-07-26 v131 renewal confirms that the 2026-06-20 `version_130` source bridge remains current: v130, v131, and current-main `CodePushing.cpp` are byte-identical, and the reviewed v131/current-main fixtures are identical. It keeps the same reviewed owner and scheduler surfaces and still supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement. It also records audit-relevant drift from `version_129`: movement checks now use `effects.orderedBefore(cumulativeEffects)`, and the official lit proof surface includes a new atomics/GC ordering file.
 
 ## Upstream owner file
 
@@ -78,8 +78,8 @@ Official `version_130` test URLs:
 
 | Local file | What it proves |
 | --- | --- |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, guarded `global.get` / local-copy / non-null `struct.get` movement, `ignore_implicit_traps`-only memory-load movement, and local dead-block flattening |
-| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, pure-value/global/local-copy movement positives, into-if dependency-chain and independent source-order positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped `br_on_cast`, and dropped `br_on_cast_fail` single-/multi-set positives plus guard-read boundaries, both-arm and later-use negatives, nested-later-use negative, default trap guard, TNH exact-div into-if positive, ignore-implicit-traps memory-load positive and store/call boundary negatives, dead-block flattening guards |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Accepted direct HOT subset plus the narrow decoded legacy-`try` raw bridge: safe single-arm `local.set` sinking, bounded segment movement after ordinary/dropped `if`, no-branch-value and branch-value `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, guarded `global.get` / local-copy / non-null `struct.get` movement, `ignore_implicit_traps`-only memory-load movement, and local dead-block flattening |
+| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | V131 legacy-EH movement/barrier cases, final-`if` unused-copy protection, different-arm consecutive-set order, return-condition coverage, O4z execution, then/else positives, pure-value/global/local-copy movement positives, into-if dependency-chain and independent source-order positives, `br_if` branch-value single-/multi-set positives and payload-read boundary, dropped `br_on_null`, one-result-block `br_on_non_null`, dropped `br_on_cast`, and dropped `br_on_cast_fail` single-/multi-set positives plus guard-read boundaries, both-arm and later-use negatives, nested-later-use negative, default trap guard, TNH exact-div into-if positive, ignore-implicit-traps memory-load positive and store/call boundary negatives, dead-block flattening guards |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry, public `optimize` / `shrink` preset placement, and tuple exact-slot neighborhood helpers |
 | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification plus active-name preset expansion coverage |
 | [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Command-surface coverage for direct pass use |

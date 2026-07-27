@@ -41,11 +41,11 @@ test "code-pushing skips large local-heavy json-as shaped functions" {
 }
 
 ///|
-test "code-pushing skips O4z raw pass until self-opt decoder hazards are safe" {
+test "code-pushing executes under O4z instead of silently skipping its slot" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
-      "(module (func (param i32) (if (local.get 0) (then))))",
+      "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
       ["code-pushing"],
       options=HotPipelineOptions::new(
         optimize_level=4,
@@ -53,13 +53,21 @@ test "code-pushing skips O4z raw pass until self-opt decoder hazards are safe" {
         trace=Some(fn(line) { trace.push(line) }),
       ),
     ) {
-    Ok(_) => ()
-    Err(err) => fail("expected O4z code-pushing skip success, got \{err}")
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z code-pushing success, got \{err}")
   }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(
+    pretty.contains(
+      "(local.get (Local 0))(if (Void) (i32.const I32(7)) (local.set (Local 1))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
     trace.any(fn(line) {
       line.contains("pass[code-pushing]:skip-raw reason=o4z-code-pushing-noop")
     }),
+    msg=trace.to_string(),
   )
 }
 
@@ -5883,4 +5891,200 @@ test "code-pushing does not sink trapping computations" {
     trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "code-pushing does not move an unused local-copy set past if" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32 i32)
+      #|    (local.set 1 (i32.const 1))
+      #|    (local.set 2 (local.get 1))
+      #|    (if (local.get 0)
+      #|      (then (drop (local.get 1))))))
+    ),
+  )
+
+  @debug.assert_eq(@ir.hot_root_count(func), 3)
+  let first_set = @ir.hot_root_get(func, 0)
+  let unused_copy = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, first_set, "local.set")
+  code_pushing_expect_op(func, unused_copy, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, unused_copy).imm0, 2)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 2), "if")
+}
+
+///|
+test "code-pushing preserves source order when consecutive sets target different if arms" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32 i32 i32)
+      #|    (local.set 1 (i32.const 1))
+      #|    (local.set 2 (i32.const 2))
+      #|    (local.set 3 (i32.const 3))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (drop (local.get 1))
+      #|        (drop (local.get 3)))
+      #|      (else
+      #|        (drop (local.get 2))))))
+    ),
+  )
+
+  let if_id = @ir.hot_root_get(func, 3)
+  code_pushing_expect_op(func, if_id, "if")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  let first_then_set = @ir.hot_region_get(func, then_ref, 0)
+  let second_then_set = @ir.hot_region_get(func, then_ref, 1)
+  let else_set = @ir.hot_region_get(func, else_ref, 0)
+  code_pushing_expect_op(func, first_then_set, "local.set")
+  code_pushing_expect_op(func, second_then_set, "local.set")
+  code_pushing_expect_op(func, else_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, first_then_set).imm0, 1)
+  @debug.assert_eq(@ir.hot_node_get(func, second_then_set).imm0, 3)
+  @debug.assert_eq(@ir.hot_node_get(func, else_set).imm0, 2)
+}
+
+///|
+test "code-pushing sinks set past returning if condition into using arm" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (param i32) (local i32)
+      #|    (local.set 1 (i32.const 1))
+      #|    (if
+      #|      (block (result i32)
+      #|        (return)
+      #|        (local.get 0))
+      #|      (then (drop (local.get 1))))))
+    ),
+  )
+
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
+  let if_id = @ir.hot_root_get(func, 1)
+  code_pushing_expect_op(func, if_id, "if")
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let moved_set = @ir.hot_region_get(func, then_ref, 0)
+  code_pushing_expect_op(func, moved_set, "local.set")
+  @debug.assert_eq(@ir.hot_node_get(func, moved_set).imm0, 1)
+}
+
+///|
+test "code-pushing moves SFA set past fully caught legacy try" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e (param i32))
+        #|  (func (local i32)
+        #|    (block $out
+        #|      (local.set 0 (i32.const 1))
+        #|      (try
+        #|        (do (throw $e (i32.const 0)))
+        #|        (catch_all))
+        #|      (drop (i32.const 1))
+        #|      (br_if $out (i32.const 2))
+        #|      (drop (local.get 0)))))
+      ),
+      ["code-pushing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected legacy-try code-pushing success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Try(_, _, _, _),
+                      @lib.I32Const(_),
+                      @lib.Drop,
+                      @lib.I32Const(_),
+                      @lib.BrIf(_),
+                      @lib.I32Const(_),
+                      @lib.LocalSet(@lib.LocalIdx(0U)),
+                      @lib.LocalGet(@lib.LocalIdx(0U)),
+                      @lib.Drop,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected local.set after caught legacy try and br_if")
+  }
+}
+
+///|
+test "code-pushing moves SFA set past caught legacy try delegate" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (tag $e (param i32))
+        #|  (func (local i32)
+        #|    (block $out
+        #|      (local.set 0 (i32.const 1))
+        #|      (try $outer
+        #|        (do
+        #|          (try
+        #|            (do (throw $e (i32.const 0)))
+        #|            (delegate $outer)))
+        #|        (catch_all))
+        #|      (drop (i32.const 1))
+        #|      (br_if $out (i32.const 2))
+        #|      (drop (local.get 0)))))
+      ),
+      ["code-pushing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected legacy delegate code-pushing success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.Block(
+                  _,
+                  @lib.Expr(
+                    [
+                      @lib.Try(_, _, _, _),
+                      @lib.I32Const(_),
+                      @lib.Drop,
+                      @lib.I32Const(_),
+                      @lib.BrIf(_),
+                      @lib.I32Const(_),
+                      @lib.LocalSet(@lib.LocalIdx(0U)),
+                      @lib.LocalGet(@lib.LocalIdx(0U)),
+                      @lib.Drop,
+                    ]
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    _ => fail("expected local.set after caught legacy delegate and br_if")
+  }
 }

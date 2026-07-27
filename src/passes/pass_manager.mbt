@@ -25811,21 +25811,28 @@ fn run_hot_pipeline_raw_code_pushing_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
-  options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "code-pushing" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  if options.optimize_level >= 4 && options.shrink_level >= 1 {
-    return Some({
-      reason: "o4z-code-pushing-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   let @lib.Func(locals, @lib.Expr(body)) = original
+  if code_pushing_raw_instrs_have_legacy_try(body) {
+    match code_pushing_run_raw_legacy_func(original) {
+      Some((rewritten, changed)) =>
+        return Some({
+          reason: if changed {
+            "raw-legacy-try-code-pushing"
+          } else {
+            "legacy-try-code-pushing-noop"
+          },
+          func: rewritten,
+          unchanged_original: !changed,
+          trace_skip_raw: true,
+        })
+      None => ()
+    }
+  }
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
   if locals.length() > 128 && stats.instrs > 1000 {
@@ -59164,8 +59171,7 @@ fn run_hot_pipeline_func(
     Some(result) => return Ok(result)
     None => ()
   }
-  match
-    run_hot_pipeline_raw_code_pushing_skip(mod_, func_idx, descriptor, options) {
+  match run_hot_pipeline_raw_code_pushing_skip(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }

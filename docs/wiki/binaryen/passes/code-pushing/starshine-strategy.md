@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-07-22
+last_reviewed: 2026-07-26
 sources:
   - ./index.md
   - ../../../../../src/passes/code_pushing.mbt
@@ -62,11 +62,16 @@ The current implementation is deliberately narrower than Binaryen's full source-
    - Selected `global.get`, local-copy `local.set`, and non-null `struct.get` roots can move later when intervening roots do not invalidate the source value or local proof.
    - The atomics/GC slice admits `struct.get` across atomic loads and keeps atomic stores as memory-write barriers, matching Binaryen's shared-struct `code-pushing-atomics.wast` family through HOT fixtures.
    - Value-producing `if`, source writes, branchy/unreachable control, and effectful invalidation remain conservative barriers.
-5. **Starshine-local typed/dead-block flattening near unreachable context**
+5. **Decoded legacy-EH raw bridge**
+   - Before HOT lifting, functions containing decoded legacy `try` are handled by a narrow raw path because the ordinary HOT boundary does not preserve that instruction form.
+   - The bridge moves only an `i32.const` SFA set through one fully caught `try`/`catch_all` and past a later conditional branch when all local uses are in the suffix. Calls, nested EH, throw/ref/rethrow hazards, local interference, and non-caught forms remain barriers.
+6. **Starshine-local typed/dead-block flattening near unreachable context**
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
 The pass is in the public `optimize` and `shrink` presets in the focused Binaryen-shaped neighborhood `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. [`0907`](./index.md) records the ordered-neighborhood proof and focused tests; broader preset parity remains governed by the repo-wide preset audit rules. [`0910`](./index.md) is the explicit user-approved CP closeout marker after the reopened IIT, intrinsic, refinalization, and preset blockers were closed.
+
+The 2026-07-26 v131 renewal is green for the represented surface: explicit source hashes show v130, v131, and current-main `CodePushing.cpp` are byte-identical; final dedicated, ordinary portable, and broad stress lanes compare `10000/10000` with zero mismatches/failures; wasm-smith matches all `9956` comparable cases with only `44` Binaryen-v131 parser/tool failures. Exact official-fixture matches cover legacy EH, GC, and TNH. Modern-EH, ordinary-into-`if`, and IIT residual text differences are bounded cleanup/structural drift and become byte-identical wasm after applying the same Binaryen-v131 `-O` cleanup to both outputs, while the ordered-atomics official fixture remains blocked before the pass by the atomic memarg codec.
 
 The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The debug-artifact replay reached `Normalized WAT equal: yes` and `Canonical function compare equal: yes`; raw wasm/text drift is accepted representation drift. Pass-local timing was about 1658ms for Starshine versus about 1311ms for Binaryen, clearing the 50%-of-Binaryen floor. See [research note 0527](./index.md).
 
@@ -84,7 +89,7 @@ The 2026-05-09 direct lane is accepted: `.tmp/pass-fuzz-code-pushing` compared 6
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 878-1054 | Ordered multi-set movement after ordinary void `if`, dropped value-`if`, narrow `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, or value-block-target `br_if`, including adjacent, direct local-copy, `nop`-separated, `drop(const)`-separated, `drop(local.get)`-separated, and bounded ordinary-/dropped-`if` `drop(global.get)`-separated windows |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 996-1100 | Single-set ordinary-void-`if`, dropped value-`if`, narrow `br_if`, dropped void-label `br_on_null`, one-result-block `br_on_non_null`, dropped one-result-block `br_on_cast`, dropped one-result-block `br_on_cast_fail`, and value-block-target `br_if` segment movement helper |
 | [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1101-1249 | Current single-consuming-arm `local.set` into `if` rewrite |
-| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) lines 1250-1364 | Recursive region scan and fixed-point driver |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Recursive region scan, fixed-point driver, and narrow decoded legacy-`try` raw bridge |
 | [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Focused positives and negatives for current mutating behavior |
 | [`src/passes/code_pushing_wbtest.mbt`](../../../../../src/passes/code_pushing_wbtest.mbt) | Whitebox segment-window inventory and rejection-reason tests |
 | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lines 212-220 | Registry entry as `HotPass` |

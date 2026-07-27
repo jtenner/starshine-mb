@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: strong
-last_reviewed: 2026-07-22
+last_reviewed: 2026-07-26
 sources:
   - ../../release-horizon-and-oracles.md
   - ../../../../../src/passes/optimize.mbt
@@ -30,9 +30,13 @@ supersedes:
 
 ## Binaryen v131 renewal status
 
-The owner file did not change between v130 and v131, but an explicit-v131 `random-all-profiles` discovery lane on 2026-07-22 reopened one narrow behavior family: Binaryen delays a pure single-first-assignment `local.set` even when the destination has zero reads, while Starshine previously required a suffix use. Starshine now matches the three reduced destinations proven by direct oracle probes: ordinary void `if`, dropped value `if`, and no-payload `br_if` to a void block label. The path still requires exactly one write, zero reads, an existing movable-value/effect proof, a non-final push point, and no unsafe crossed root; loop labels and broader branch forms remain outside this repair.
+The 2026-07-26 renewal is complete for the represented surface. Binaryen v130, v131, and current-main `CodePushing.cpp` are byte-identical at SHA-256 `ed4ce60cc1cc0ae836fddb83b6e8c58dec36e196e74e5a514dd3f5b34f4f401c`; the reviewed v131 and current-main lit fixtures are also identical. The only v130-to-v131 fixture drift found was the TNH expected form changing one `local.tee` to `local.set`, which Starshine now matches.
 
-Current Binaryen-v131 closeout uses native SHA-256 `05bda3d8275dc5fa2174acdbe443c5892f04abbb92ca0b0842d8d34e15908fc1`. Focused HOT, white-box, command-adapter, and GenValid suites pass `141/141`, `11/11`, `1/1`, and `161/161`; full Moon passes `9766/9766`. The required matrix is regular GenValid `100000/100000` exact, random all-profiles `10000/10000` exact, pass-owned aggregate `10000/10000` with `4493` normalized plus `5507` documented local-cleanup-normalized matches, and wasm-smith `9956/9956` exact comparable cases plus `44` classified Binaryen/tool failures. There are zero Starshine validation, generator, property, command, raw mismatch, unknown/risky, or true-semantic failures.
+The executable audit found and repaired four Starshine gaps: the global O4z bypass that silently skipped the pass, legacy `try`/`catch_all` movement through a fully caught throw, an unused local-copy set incorrectly moved past a final `if`, and ordered consecutive sets consumed by different `if` arms. Return-in-condition coverage was also added during the investigation; the final implementation retains the established fixed-point scanner while preserving all new behavior. Official v131 fixture replay is exact for legacy EH, GC, and TNH. Remaining modern-EH, ordinary-into-`if`, and IIT text differences are bounded `nop`/empty-arm, unreachable/dead-tail, or structural-lowering drift; applying the same Binaryen-v131 `-O` cleanup to both outputs produces byte-identical wasm for all three fixtures. The official ordered-atomics fixture remains outside the represented surface because Starshine rejects its ordered atomic memarg before `code-pushing` runs (`memarg alignment too large for access width`).
+
+The earlier explicit-v131 `random-all-profiles` discovery lane on 2026-07-22 also found one narrow behavior family: Binaryen delays a pure single-first-assignment `local.set` even when the destination has zero reads, while Starshine previously required a suffix use. Starshine matches the three reduced destinations proven by direct oracle probes: ordinary void `if`, dropped value `if`, and no-payload `br_if` to a void block label. The path requires exactly one write, zero reads, an existing movable-value/effect proof, a non-final push point, and no unsafe crossed root; loop labels and broader branch forms remain outside this repair.
+
+That zero-read closeout used native SHA-256 `05bda3d8275dc5fa2174acdbe443c5892f04abbb92ca0b0842d8d34e15908fc1`. Focused HOT, white-box, command-adapter, and GenValid suites passed `141/141`, `11/11`, `1/1`, and `161/161`; full Moon passed `9766/9766`. Its matrix was regular GenValid `100000/100000` exact, random all-profiles `10000/10000` exact, pass-owned aggregate `10000/10000` with `4493` normalized plus `5507` documented local-cleanup-normalized matches, and wasm-smith `9956/9956` exact comparable cases plus `44` classified Binaryen/tool failures, with zero Starshine validation, generator, property, command, raw mismatch, unknown/risky, or true-semantic failures.
 
 ## Role
 
@@ -142,7 +146,16 @@ The 2026-06-20 `version_130` refresh is the current local-oracle source bridge. 
 
 ## Validation
 
-The older direct `--pass code-pushing` lane was accepted under the previous v0.1.0 direct-pass standard. The later `[O4Z-AUDIT-CP]` behavior-parity audit and user-directed reopenings are now closed by `0892`, `0901`, `0902`, `0905`, `0906`, `0907`, and explicit marker `0910`. The 2026-05-09 evidence remains useful for the then-current subset:
+The 2026-07-26 Binaryen-v131 renewal used explicit `wasm-opt version 131 (version_131)` SHA-256 `bad4b6524b2c8e4b27b9aa69bde1a4b9a05ec8887c77ef0d34300f5825acd97c` and rebuilt native Starshine SHA-256 `e1ec8c88737f5a1ac88df5d3ce71eada3a0c155d6bba8989bab9acdd94161c15`. `moon info`, `moon fmt`, `src/passes` tests (`6450/6450`), and full `moon test` (`9938/9938`) were green. The aggregate `bun validate full --profile ci --target wasm-gc` wrapper reproduced the repository's documented intermittent no-return-code failure at its initial `moon info`; the same `moon info` and Moon tests succeeded directly. Final direct evidence was:
+
+- dedicated `code-pushing-all`: `10000/10000`, `4769` direct normalized plus `5231` `local-cleanup-debris` normalized, zero mismatches or failures;
+- ordinary `binaryen-oracle-portable`: `10000/10000` exact normalized, zero failures;
+- broad `pass-fuzz-stress`: `10000/10000` exact normalized, zero failures;
+- explicit wasm-smith: all `9956` comparable cases exact normalized, zero Starshine/validation/property failures and `44` classified Binaryen-v131 parser/tool failures (`39` empty rec groups, one invalid tag index, one table index out of range, and three bad section sizes).
+
+The bounded 100-function synthetic pass-local probe stayed under the repository's absolute target at a Starshine median of about `0.359s`; its rejection-heavy C++ comparison was about `0.00349s`, so it is not evidence for the relative `<=2x` floor. Relative performance acceptance therefore remains grounded in the comparable 2026-05-09 artifact measurement below, while the new v131 behavior is bounded by the current direct lanes and the pass's existing large-function guards.
+
+The older direct `--pass code-pushing` lane was accepted under the previous v0.1.0 direct-pass standard. The later `[O4Z-AUDIT-CP]` behavior-parity audit and user-directed reopenings are now closed by `0892`, `0901`, `0902`, `0905`, `0906`, `0907`, and explicit marker `0910`. The 2026-05-09 comparable-artifact evidence remains useful for the relative performance criterion:
 
 - `moon info`, `moon fmt`, and `moon test` green;
 - `.tmp/pass-fuzz-code-pushing` compared 6759/10000 cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures;
